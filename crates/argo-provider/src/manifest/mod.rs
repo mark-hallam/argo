@@ -6,6 +6,7 @@
 //! Spec: `docs/plan/argo-build-plan.md` §8.1.
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Top-level provider manifest deserialized from a `.toml` file.
 ///
@@ -65,6 +66,23 @@ pub struct ProviderManifest {
     /// reference these (Invariant 3).
     #[serde(default)]
     pub capabilities: CapabilitiesSpec,
+    /// `[quirks]` table — provider-family-specific knobs that the
+    /// transport may consume opaquely (e.g. Anthropic's
+    /// `send-thinking-blocks` or `prompt-caching-breakpoints`). The
+    /// argo-provider core never looks at these; only family transports
+    /// do. Schema-flexible by design.
+    ///
+    /// Spec: `docs/plan/argo-build-plan.md` §8.1 (issue #2 / F-3).
+    #[serde(default)]
+    pub quirks: HashMap<String, toml::Value>,
+    /// Optional `[hooks]` table — escape hatch for behaviours that
+    /// `[quirks]` cannot express. Hook names are resolved by the host
+    /// (plugin protocol — Phase 4); when absent, the family transport
+    /// uses its default code path.
+    ///
+    /// Spec: `docs/plan/argo-build-plan.md` §8.1 (issue #2 / F-4).
+    #[serde(default)]
+    pub hooks: Option<HooksSpec>,
 }
 
 /// `[provider]` table.
@@ -283,6 +301,40 @@ pub struct ReasoningSpec {
     /// Whether to round-trip the reasoning across turns.
     #[serde(default)]
     pub preserve_across_turns: bool,
+}
+
+/// `[hooks]` table — name-resolved hook references. Both fields default
+/// to `"default"`, meaning "use the family transport's built-in code path".
+///
+/// ```
+/// use argo_provider::HooksSpec;
+/// let h: HooksSpec = toml::from_str(r#"
+/// build_request = "anthropic-thinking-shim"
+/// "#).unwrap();
+/// assert_eq!(h.build_request, "anthropic-thinking-shim");
+/// assert_eq!(h.parse_response, "default");
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HooksSpec {
+    /// Hook name applied before request body construction.
+    #[serde(default = "default_hook")]
+    pub build_request: String,
+    /// Hook name applied after response parsing.
+    #[serde(default = "default_hook")]
+    pub parse_response: String,
+}
+
+fn default_hook() -> String {
+    "default".to_string()
+}
+
+impl Default for HooksSpec {
+    fn default() -> Self {
+        Self {
+            build_request: default_hook(),
+            parse_response: default_hook(),
+        }
+    }
 }
 
 /// `[capabilities]` table — declares net-egress capabilities the transport

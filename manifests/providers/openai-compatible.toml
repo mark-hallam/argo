@@ -45,6 +45,13 @@ refresh_interval_hours = 24
 net_egress = ["api.openai.com", "*.openrouter.ai", "*.together.xyz"]
 env_read = []
 
+# `[quirks]` is the family-specific knobs table (issue #2 / F-3). The OpenAI
+# Chat Completions wire is the lowest-common-denominator family and needs
+# none — but the table is present so a downstream operator can override
+# this manifest with file-level concerns (e.g. setting
+# `prompt-caching-breakpoints` on Anthropic) without a Rust change.
+[quirks]
+
 # Cost-router fodder — Agent V will resolve `tier` against routing.toml.
 
 [[models]]

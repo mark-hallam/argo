@@ -33,11 +33,12 @@ pub use extractors::{
     openai_tool_calls, xml_tool_call,
 };
 pub use manifest::{
-    AuthSpec, CapabilitiesSpec, DiscoverySpec, ModelSpec, PreferRule, ProviderFamily,
+    AuthSpec, CapabilitiesSpec, DiscoverySpec, HooksSpec, ModelSpec, PreferRule, ProviderFamily,
     ProviderHeader, ProviderManifest, ReasoningSpec, StreamingMode, ToolCallFormat, ToolCallsSpec,
     TransportSpec,
 };
-pub use openai_compat::OpenAiCompatTransport;
+pub use openai_compat::{event_to_deltas, OpenAiCompatTransport};
 pub use transport::{
-    ProviderRequest, ProviderResponse, Sampling, StopReason, ToolSchema, Transport,
+    ProviderRequest, ProviderResponse, ProviderResponseDelta, Sampling, StopReason, ToolSchema,
+    Transport,
 };

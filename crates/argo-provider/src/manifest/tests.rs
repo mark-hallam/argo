@@ -119,6 +119,101 @@ format = "openai_tool_calls"
 }
 
 #[test]
+fn quirks_round_trip_arbitrary_keys() {
+    let toml = r#"
+[provider]
+id = "x"
+family = "openai-compatible"
+display_name = "X"
+base_url = "https://api.x"
+[auth]
+api_key_env = "K"
+[transport]
+streaming = "sse"
+[tool_calls]
+format = "openai_tool_calls"
+[quirks]
+send-thinking-blocks = true
+prompt-caching-breakpoints = ["system", "tools"]
+max_output_tokens_default = 4096
+    "#;
+    let m = ProviderManifest::from_toml_str(toml).unwrap();
+    assert_eq!(
+        m.quirks.get("send-thinking-blocks"),
+        Some(&toml::Value::Boolean(true))
+    );
+    let bps = m
+        .quirks
+        .get("prompt-caching-breakpoints")
+        .and_then(|v| v.as_array())
+        .unwrap();
+    assert_eq!(bps.len(), 2);
+    assert_eq!(
+        m.quirks.get("max_output_tokens_default"),
+        Some(&toml::Value::Integer(4096))
+    );
+}
+
+#[test]
+fn quirks_default_to_empty_map() {
+    let m = ProviderManifest::from_toml_str(minimal_toml()).unwrap();
+    assert!(m.quirks.is_empty());
+}
+
+#[test]
+fn hooks_default_when_table_absent() {
+    let m = ProviderManifest::from_toml_str(minimal_toml()).unwrap();
+    assert!(m.hooks.is_none());
+}
+
+#[test]
+fn hooks_partial_override_keeps_default_for_other_field() {
+    let toml = r#"
+[provider]
+id = "x"
+family = "openai-compatible"
+display_name = "X"
+base_url = "https://api.x"
+[auth]
+api_key_env = "K"
+[transport]
+streaming = "sse"
+[tool_calls]
+format = "openai_tool_calls"
+[hooks]
+build_request = "anthropic-thinking-shim"
+    "#;
+    let m = ProviderManifest::from_toml_str(toml).unwrap();
+    let h = m.hooks.unwrap();
+    assert_eq!(h.build_request, "anthropic-thinking-shim");
+    assert_eq!(h.parse_response, "default");
+}
+
+#[test]
+fn hooks_both_explicit() {
+    let toml = r#"
+[provider]
+id = "x"
+family = "openai-compatible"
+display_name = "X"
+base_url = "https://api.x"
+[auth]
+api_key_env = "K"
+[transport]
+streaming = "sse"
+[tool_calls]
+format = "openai_tool_calls"
+[hooks]
+build_request = "h1"
+parse_response = "h2"
+    "#;
+    let m = ProviderManifest::from_toml_str(toml).unwrap();
+    let h = m.hooks.unwrap();
+    assert_eq!(h.build_request, "h1");
+    assert_eq!(h.parse_response, "h2");
+}
+
+#[test]
 fn heartbeat_with_grace_accepted() {
     let toml = r#"
 [provider]

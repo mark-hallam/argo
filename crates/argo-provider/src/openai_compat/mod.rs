@@ -4,10 +4,7 @@
 //! OpenAI proper, OpenRouter, vLLM, Together, Fireworks, etc).
 //!
 //! Spec: `docs/plan/argo-build-plan.md` §8 / Phase 2 plan.
-//!
-//! Streaming over SSE is declared in the manifest but the Phase 2 PR ships
-//! non-streaming requests only — agent-loop-level heartbeat policy (§6.4)
-//! lands with Agent F.
+mod stream;
 mod wire;
 
 #[cfg(test)]
@@ -15,12 +12,19 @@ mod tests;
 
 use crate::extractors::extract_tool_calls;
 use crate::manifest::{ProviderFamily, ProviderManifest};
-use crate::transport::{ProviderRequest, ProviderResponse, Transport};
-use argo_types::{ArgoError, ArgoResult, CapabilitySet};
+use crate::transport::{ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport};
+use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
 use async_trait::async_trait;
-use reqwest::Client;
+use futures::stream::{self as fstream, BoxStream, StreamExt};
+use reqwest::{header::HeaderName, Client};
 use std::time::Duration;
+pub use stream::event_to_deltas;
+use stream::SseBuffer;
 use wire::{assemble_response, build_request_body, OpenAiResponse};
+
+/// Cap for HTTP error body text we attach to `ArgoError::Provider` (issue #5
+/// / F-7). Anything larger gets a `... [truncated N bytes]` suffix.
+pub(super) const ERROR_BODY_CAP: usize = 4096;
 
 /// Manifest-driven OpenAI-compatible transport.
 ///
@@ -118,16 +122,15 @@ impl Transport for OpenAiCompatTransport {
 
     async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
         let body = build_request_body(&self.manifest, req)?;
-        let url = self.endpoint();
-        let auth = self.auth_header_value();
-        let header_name = self.manifest.auth.header_name.clone();
         let raw = retry_post_json(
             &self.client,
-            &url,
-            &header_name,
-            &auth,
+            &self.endpoint(),
+            &self.manifest.auth.header_name,
+            &self.auth_header_value(),
             &body,
             self.manifest.transport.max_retries,
+            self.manifest.transport.initial_backoff_ms,
+            self.manifest.transport.max_backoff_ms,
         )
         .await?;
         let parsed: OpenAiResponse = serde_json::from_value(raw.clone())
@@ -135,8 +138,123 @@ impl Transport for OpenAiCompatTransport {
         let tool_calls = extract_tool_calls(self.manifest.tool_calls.format, &raw)?;
         Ok(assemble_response(parsed, tool_calls, raw))
     }
+
+    async fn complete_stream(
+        &self,
+        req: &ProviderRequest,
+    ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>> {
+        let mut body = build_request_body(&self.manifest, req)?;
+        body["stream"] = serde_json::Value::Bool(true);
+        let resp = self
+            .client
+            .post(self.endpoint())
+            .header(
+                self.manifest.auth.header_name.as_str(),
+                self.auth_header_value(),
+            )
+            .header("content-type", "application/json")
+            .header("accept", "text/event-stream")
+            .header(IDEMPOTENCY_KEY, RequestId::new().to_string())
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("reqwest send (stream): {e}")))?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body_text = truncate_for_error(resp.text().await.unwrap_or_default());
+            return Err(ArgoError::Provider(format!(
+                "openai HTTP {status}: {body_text}"
+            )));
+        }
+        Ok(stream_response_body(resp).boxed())
+    }
 }
 
+/// HTTP header name for idempotent retries (issue #5 / F-8). One key per
+/// logical request — same value across retry attempts so the provider can
+/// dedupe.
+pub(super) const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
+
+fn stream_response_body(
+    resp: reqwest::Response,
+) -> impl futures::Stream<Item = ArgoResult<ProviderResponseDelta>> + Send + 'static {
+    fstream::unfold(StreamState::new(resp), step_stream)
+}
+
+struct StreamState {
+    resp: reqwest::Response,
+    buf: SseBuffer,
+    pending: std::collections::VecDeque<ArgoResult<ProviderResponseDelta>>,
+    done: bool,
+}
+
+impl StreamState {
+    fn new(resp: reqwest::Response) -> Self {
+        Self {
+            resp,
+            buf: SseBuffer::new(),
+            pending: std::collections::VecDeque::new(),
+            done: false,
+        }
+    }
+}
+
+async fn step_stream(
+    mut s: StreamState,
+) -> Option<(ArgoResult<ProviderResponseDelta>, StreamState)> {
+    if let Some(item) = s.pending.pop_front() {
+        return Some((item, s));
+    }
+    if s.done {
+        return None;
+    }
+    loop {
+        if let Some(event) = s.buf.take_event() {
+            queue_event_deltas(&mut s, &event);
+            if let Some(item) = s.pending.pop_front() {
+                return Some((item, s));
+            }
+            continue;
+        }
+        match s.resp.chunk().await {
+            Ok(Some(bytes)) => {
+                let chunk = String::from_utf8_lossy(&bytes);
+                s.buf.extend(&chunk);
+            }
+            Ok(None) => {
+                s.done = true;
+                return None;
+            }
+            Err(e) => {
+                s.done = true;
+                return Some((
+                    Err(ArgoError::Provider(format!("openai SSE chunk: {e}"))),
+                    s,
+                ));
+            }
+        }
+    }
+}
+
+fn queue_event_deltas(s: &mut StreamState, event: &str) {
+    if event.is_empty() {
+        return;
+    }
+    if event == stream::DONE_SENTINEL {
+        s.done = true;
+        return;
+    }
+    match event_to_deltas(event) {
+        Ok(deltas) => {
+            for d in deltas {
+                s.pending.push_back(Ok(d));
+            }
+        }
+        Err(e) => s.pending.push_back(Err(e)),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn retry_post_json(
     client: &Client,
     url: &str,
@@ -144,19 +262,17 @@ async fn retry_post_json(
     header_value: &str,
     body: &serde_json::Value,
     max_retries: u32,
+    initial_backoff_ms: u64,
+    max_backoff_ms: u64,
 ) -> ArgoResult<serde_json::Value> {
-    // `[transport].max_retries` is honoured here. Adaptive exponential
-    // backoff is **deliberately not implemented** in this crate: it requires
-    // a runtime sleep primitive, and argo-provider's dep allowlist (§8 PR
-    // brief) excludes `tokio` to keep the manifest layer runtime-agnostic.
-    // The agent loop (§6.4 — Agent F) adds the backoff timer there, where
-    // tokio is already on the dep tree.
+    let idem = RequestId::new().to_string();
     let mut attempt: u32 = 0;
     loop {
         let resp = client
             .post(url)
             .header(header_name, header_value)
             .header("content-type", "application/json")
+            .header(IDEMPOTENCY_KEY, idem.as_str())
             .json(body)
             .send()
             .await;
@@ -168,11 +284,42 @@ async fn retry_post_json(
                 if attempt >= max_retries {
                     return Err(err);
                 }
-                tracing::warn!(?attempt, error = %err, "openai-compat retry");
+                let delay = compute_backoff_delay(initial_backoff_ms, max_backoff_ms, attempt);
+                tracing::warn!(
+                    attempt,
+                    delay_ms = delay.as_millis() as u64,
+                    error = %err,
+                    "openai-compat retry"
+                );
+                tokio::time::sleep(delay).await;
                 attempt = attempt.saturating_add(1);
             }
         }
     }
+}
+
+/// Compute the backoff delay for a given attempt with full jitter.
+///
+/// Algorithm from issue #3 / F-6: bounded exponential growth, then a uniform
+/// random pick in `[1, delay]`. We use system-time nanos as the entropy
+/// source to keep the dep allowlist tight (no `rand`).
+fn compute_backoff_delay(initial_ms: u64, max_ms: u64, attempt: u32) -> Duration {
+    let bounded_attempt = attempt.min(31);
+    let cap = initial_ms
+        .saturating_mul(1u64 << bounded_attempt)
+        .min(max_ms.max(initial_ms))
+        .max(1);
+    let jittered = (jitter_seed() % cap) + 1;
+    Duration::from_millis(jittered)
+}
+
+fn jitter_seed() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.subsec_nanos() as u64)
+        .unwrap_or(1)
+        .wrapping_add(1)
 }
 
 enum AttemptOutcome {
@@ -203,11 +350,25 @@ async fn classify_attempt(resp: Result<reqwest::Response, reqwest::Error>) -> At
             }
         };
     }
-    let body_text = resp.text().await.unwrap_or_default();
+    let body_text = truncate_for_error(resp.text().await.unwrap_or_default());
     let err = ArgoError::Provider(format!("openai HTTP {status}: {body_text}"));
     if status.as_u16() == 429 || status.is_server_error() {
         AttemptOutcome::Retry(err)
     } else {
         AttemptOutcome::Fatal(err)
     }
+}
+
+/// Truncate an HTTP error body to [`ERROR_BODY_CAP`] bytes (issue #5 /
+/// F-7). UTF-8-safe: we step backwards to a char boundary.
+pub(super) fn truncate_for_error(s: String) -> String {
+    if s.len() <= ERROR_BODY_CAP {
+        return s;
+    }
+    let mut end = ERROR_BODY_CAP;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    let truncated_bytes = s.len() - end;
+    format!("{}... [truncated {truncated_bytes} bytes]", &s[..end])
 }

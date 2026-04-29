@@ -41,6 +41,12 @@ id_type!(
     "Tenant identity. Plumbed through every primitive."
 );
 id_type!(
+    RequestId,
+    "Outbound provider-call request identifier. Used as the HTTP \
+    `Idempotency-Key` so retries against the same logical call don't \
+    duplicate the side-effect on the provider side."
+);
+id_type!(
     AgentId,
     "An agent instance ID (one per tenant + named-agent run)."
 );

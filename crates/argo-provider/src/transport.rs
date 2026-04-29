@@ -9,6 +9,7 @@
 //! agent loop's job — that keeps argo-provider free of chrono / store deps.
 use argo_types::{ArgoResult, CapabilitySet, Message, ToolCallRequest};
 use async_trait::async_trait;
+use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
 
 /// One turn's worth of input: messages + tools + sampling knobs.
@@ -70,6 +71,55 @@ pub struct ProviderResponse {
     pub provider_meta: serde_json::Value,
 }
 
+/// One delta from a streaming provider call.
+///
+/// The agent loop accumulates these into a final [`ProviderResponse`]
+/// equivalent, but consumers (TUI, gateway) can also tail them live to drive
+/// the NFR §1.3 first-token latency budget.
+///
+/// Spec: issue #3 / F-1.
+///
+/// ```
+/// use argo_provider::{ProviderResponseDelta, StopReason};
+/// let d = ProviderResponseDelta::TextChunk("hello".into());
+/// match d {
+///     ProviderResponseDelta::TextChunk(s) => assert_eq!(s, "hello"),
+///     _ => unreachable!(),
+/// }
+/// // FinishReason and TokenUsage close the stream:
+/// let _ = ProviderResponseDelta::FinishReason(StopReason::EndTurn);
+/// let _ = ProviderResponseDelta::TokenUsage { tokens_in: 10, tokens_out: 3 };
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProviderResponseDelta {
+    /// One chunk of assistant text.
+    TextChunk(String),
+    /// One chunk of reasoning content (e.g. Anthropic `thinking`).
+    ReasoningChunk(String),
+    /// One incremental piece of a tool-call.
+    ///
+    /// `args_partial` is the raw JSON fragment as the provider emits it; the
+    /// agent loop concatenates fragments per `id` and parses once finished.
+    ToolCallDelta {
+        /// Provider-side tool-call id (stable across deltas in one call).
+        id: String,
+        /// Tool name (set on the first delta; may be empty on continuations).
+        name: String,
+        /// Raw argument JSON fragment.
+        args_partial: String,
+    },
+    /// The provider closed the turn with this stop reason.
+    FinishReason(StopReason),
+    /// Final usage report. Many providers send this in the last event;
+    /// some inline it in headers — transports normalise to this delta.
+    TokenUsage {
+        /// Provider-reported input tokens.
+        tokens_in: u32,
+        /// Provider-reported output tokens.
+        tokens_out: u32,
+    },
+}
+
 /// Why the provider stopped generating.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StopReason {
@@ -102,4 +152,18 @@ pub trait Transport: Send + Sync {
 
     /// One non-streaming request → response round-trip.
     async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse>;
+
+    /// Streaming variant of [`Transport::complete`] (issue #3 / F-1).
+    ///
+    /// Returns a stream that yields [`ProviderResponseDelta`] values until
+    /// the provider closes the turn. The stream terminates after a
+    /// `FinishReason` (and optionally a `TokenUsage`) is emitted.
+    ///
+    /// Errors during streaming surface as `Err` items; the stream may yield
+    /// further items after one (some providers continue after a recoverable
+    /// blip), so callers should keep polling until `None`.
+    async fn complete_stream(
+        &self,
+        req: &ProviderRequest,
+    ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>>;
 }

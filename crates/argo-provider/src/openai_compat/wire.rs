@@ -99,20 +99,43 @@ fn content_to_openai(blocks: &[ContentBlock]) -> serde_json::Value {
             .join("");
         return serde_json::Value::String(joined);
     }
-    let parts: Vec<serde_json::Value> = blocks
-        .iter()
-        .filter_map(|b| match b {
-            ContentBlock::Text { text } => Some(serde_json::json!({
-                "type": "text", "text": text
-            })),
-            ContentBlock::Image { url, .. } => Some(serde_json::json!({
-                "type": "image_url",
-                "image_url": { "url": url }
-            })),
-            _ => None,
-        })
-        .collect();
+    let parts: Vec<serde_json::Value> = blocks.iter().filter_map(content_block_to_openai).collect();
     serde_json::Value::Array(parts)
+}
+
+/// Explicit-arm conversion for one [`ContentBlock`] (issue #5 / F-10).
+///
+/// Audio and Document blocks are not part of the OpenAI Chat Completions
+/// wire; we drop them here but emit a `tracing::warn!` so callers know to
+/// convert upstream (e.g. via an MCP tool that uploads + returns a URL).
+/// `ToolUse` and `ToolResult` are carried via separate fields on the
+/// outgoing message, not as inline content parts.
+fn content_block_to_openai(block: &ContentBlock) -> Option<serde_json::Value> {
+    match block {
+        ContentBlock::Text { text } => Some(serde_json::json!({
+            "type": "text",
+            "text": text,
+        })),
+        ContentBlock::Image { url, .. } => Some(serde_json::json!({
+            "type": "image_url",
+            "image_url": { "url": url },
+        })),
+        ContentBlock::Audio { url, mime } => {
+            tracing::warn!(
+                %url, %mime,
+                "openai-compat: dropping unsupported Audio content block",
+            );
+            None
+        }
+        ContentBlock::Document { url, mime } => {
+            tracing::warn!(
+                %url, %mime,
+                "openai-compat: dropping unsupported Document content block",
+            );
+            None
+        }
+        ContentBlock::ToolUse(_) | ContentBlock::ToolResult(_) => None,
+    }
 }
 
 fn tool_calls_to_openai(calls: &[ToolCallRequest]) -> serde_json::Value {

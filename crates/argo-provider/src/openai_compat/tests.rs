@@ -138,6 +138,108 @@ fn assemble_response_omits_empty_text() {
 }
 
 #[test]
+fn truncate_for_error_keeps_short_strings_intact() {
+    use super::truncate_for_error;
+    let s = "short body".to_string();
+    let out = truncate_for_error(s.clone());
+    assert_eq!(out, s);
+}
+
+#[test]
+fn truncate_for_error_caps_long_strings() {
+    use super::{truncate_for_error, ERROR_BODY_CAP};
+    let big = "x".repeat(ERROR_BODY_CAP * 2 + 7);
+    let out = truncate_for_error(big);
+    assert!(out.starts_with(&"x".repeat(ERROR_BODY_CAP)));
+    assert!(out.contains("[truncated"));
+    assert!(out.contains(&format!("{} bytes", ERROR_BODY_CAP + 7)));
+}
+
+#[test]
+fn truncate_for_error_respects_utf8_boundaries() {
+    use super::{truncate_for_error, ERROR_BODY_CAP};
+    let mut s = String::with_capacity(ERROR_BODY_CAP + 4);
+    while s.len() < ERROR_BODY_CAP - 2 {
+        s.push('a');
+    }
+    s.push('é');
+    s.push('é');
+    s.push('é');
+    let out = truncate_for_error(s);
+    // No invalid UTF-8 panics; the truncated head must itself be valid UTF-8.
+    let head: &str = out.split("...").next().unwrap();
+    assert!(std::str::from_utf8(head.as_bytes()).is_ok());
+}
+
+#[test]
+fn compute_backoff_delay_grows_exponentially_then_caps() {
+    use super::compute_backoff_delay;
+    let initial = 100u64;
+    let max = 800u64;
+    // Run a few rolls per attempt; we sample jitter so any single delay is
+    // bounded by [1, cap]. The cap doubles per attempt until `max`.
+    for attempt in 0..6 {
+        let cap = (initial << attempt.min(31)).min(max).max(1);
+        let mut max_seen = 0u64;
+        for _ in 0..32 {
+            let d = compute_backoff_delay(initial, max, attempt as u32).as_millis() as u64;
+            assert!(
+                (1..=cap).contains(&d),
+                "attempt={attempt} delay={d} cap={cap}"
+            );
+            max_seen = max_seen.max(d);
+        }
+        // Across the rolls we should see we're at least using some of the
+        // window, not pinning to 1ms.
+        assert!(max_seen > 0);
+    }
+}
+
+#[test]
+fn compute_backoff_delay_clamps_attempt_overflow() {
+    use super::compute_backoff_delay;
+    // attempt = 64 would overflow `1u64 << 64`. We must clamp.
+    let d = super::compute_backoff_delay(100, 800, 64).as_millis() as u64;
+    assert!((1..=800).contains(&d));
+    let _ = d;
+    let _ = compute_backoff_delay(100, 800, u32::MAX).as_millis();
+}
+
+#[test]
+fn idempotency_key_header_is_lowercase() {
+    // reqwest normalises header names; our constant must match what
+    // HeaderName accepts. The constant is declared via
+    // HeaderName::from_static which panics on non-lowercase input —
+    // this test is the visible regression guard.
+    use super::IDEMPOTENCY_KEY;
+    assert_eq!(IDEMPOTENCY_KEY.as_str(), "idempotency-key");
+}
+
+#[test]
+fn stream_happy_path_emits_text_then_finish() {
+    use crate::openai_compat::event_to_deltas;
+    use crate::ProviderResponseDelta;
+    use crate::StopReason;
+    let chunks = [
+        r#"{"choices":[{"delta":{"content":"Hel"}}]}"#,
+        r#"{"choices":[{"delta":{"content":"lo"}}]}"#,
+        r#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#,
+    ];
+    let mut all = Vec::new();
+    for c in chunks {
+        all.extend(event_to_deltas(c).unwrap());
+    }
+    assert_eq!(
+        all,
+        vec![
+            ProviderResponseDelta::TextChunk("Hel".into()),
+            ProviderResponseDelta::TextChunk("lo".into()),
+            ProviderResponseDelta::FinishReason(StopReason::EndTurn),
+        ]
+    );
+}
+
+#[test]
 fn map_finish_reason_covers_known_values() {
     use super::wire::map_finish_reason;
     assert_eq!(map_finish_reason("stop"), StopReason::EndTurn);

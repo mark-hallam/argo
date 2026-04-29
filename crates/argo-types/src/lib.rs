@@ -20,8 +20,8 @@ pub use budget::{Budget, BudgetExhausted, BudgetKind, BudgetNode};
 pub use capability::{Capability, CapabilitySet, Principal, Role, RoleBinding, SpawnKind};
 pub use error::{ArgoError, ArgoResult};
 pub use ids::{
-    AgentId, AgentName, ForgeRunId, JudgeRecordId, MessageId, RoutingDecisionId, SessionId,
-    SkillId, TenantId, ToolCallId, WorkspaceId,
+    AgentId, AgentName, ForgeRunId, JudgeRecordId, MessageId, RequestId, RoutingDecisionId,
+    SessionId, SkillId, TenantId, ToolCallId, WorkspaceId,
 };
 pub use judge::{JudgeRecord, JudgeSubject, JudgeVerdict};
 pub use lock::Lock;

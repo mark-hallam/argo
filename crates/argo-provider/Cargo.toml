@@ -16,6 +16,15 @@ reqwest = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
+# tokio for `tokio::time::sleep` between retries (F-6, issue #3 (b)).
+# Workspace tokio is already `features = ["full"]`; we name `time` explicitly
+# so the local Cargo.toml documents the surface this crate uses.
+tokio = { workspace = true, features = ["time"] }
+# `futures::stream::BoxStream` for `Transport::complete_stream` (F-1, issue #3 (a)).
+futures = { version = "0.3", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 proptest = { workspace = true }
+# Tests poll the streams produced by `complete_stream`; tokio's macros + rt
+# bring `tokio_test::block_on` and `#[tokio::test]` into scope.
+tokio = { workspace = true }
