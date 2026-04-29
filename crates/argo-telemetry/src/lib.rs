@@ -18,7 +18,10 @@ mod sink;
 #[cfg(test)]
 mod tests;
 
-pub use sink::{InMemoryTelemetry, NoopTelemetry, RecordedCounter, RecordedSpan, TelemetrySink};
+pub use sink::{
+    InMemoryTelemetry, NoopTelemetry, RecordedCounter, RecordedHistogram, RecordedSpan,
+    TelemetrySink,
+};
 
 /// Span names from §18.1.
 pub mod spans {

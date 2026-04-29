@@ -75,13 +75,24 @@ impl TelemetrySink for NoopTelemetry {
     }
 }
 
+/// One recorded histogram observation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecordedHistogram {
+    /// Metric name.
+    pub name: String,
+    /// Observed value.
+    pub value: f64,
+    /// Label set.
+    pub labels: Vec<(String, String)>,
+}
+
 /// Test-only recording sink. Tests assert that the agent loop emits
 /// the expected spans and counters.
 #[derive(Debug, Default, Clone)]
 pub struct InMemoryTelemetry {
     spans: Arc<Mutex<Vec<RecordedSpan>>>,
     counters: Arc<Mutex<Vec<RecordedCounter>>>,
-    histograms: Arc<Mutex<Vec<(String, f64, Vec<(String, String)>)>>>,
+    histograms: Arc<Mutex<Vec<RecordedHistogram>>>,
 }
 
 impl InMemoryTelemetry {
@@ -105,7 +116,7 @@ impl InMemoryTelemetry {
 
     /// Snapshot of all recorded histogram observations.
     #[must_use]
-    pub fn histograms(&self) -> Vec<(String, f64, Vec<(String, String)>)> {
+    pub fn histograms(&self) -> Vec<RecordedHistogram> {
         self.histograms.lock().clone()
     }
 }
@@ -132,13 +143,13 @@ impl TelemetrySink for InMemoryTelemetry {
         });
     }
     fn observe(&self, name: &'static str, value: f64, labels: &[(&str, &str)]) {
-        self.histograms.lock().push((
-            name.to_string(),
+        self.histograms.lock().push(RecordedHistogram {
+            name: name.to_string(),
             value,
-            labels
+            labels: labels
                 .iter()
                 .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
                 .collect(),
-        ));
+        });
     }
 }

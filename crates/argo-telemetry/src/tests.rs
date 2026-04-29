@@ -82,6 +82,6 @@ fn in_memory_sink_records_histograms() {
     s.observe(metrics::JUDGE_DURATION_MS, 200.0, &[("verdict", "success")]);
     let h = s.histograms();
     assert_eq!(h.len(), 1);
-    assert_eq!(h[0].0, metrics::JUDGE_DURATION_MS);
-    assert!((h[0].1 - 200.0).abs() < 1e-9);
+    assert_eq!(h[0].name, metrics::JUDGE_DURATION_MS);
+    assert!((h[0].value - 200.0).abs() < 1e-9);
 }
