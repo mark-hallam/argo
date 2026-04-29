@@ -138,6 +138,25 @@ version = "0.0.1"
 [[package]]
 name = "argo-judge"
 version = "0.0.1"
+dependencies = [
+ "argo-provider",
+ "argo-store",
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "futures",
+ "hex",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "argo-marketplace"
