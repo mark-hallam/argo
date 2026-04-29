@@ -1,0 +1,17 @@
+id = "routing-005"
+description = "Architectural design with explicit tradeoffs."
+prompt = """
+We need to add per-tenant rate limiting to a Rust web service that runs
+behind a load balancer with sticky sessions. Sketch two approaches: (1) an
+in-process token-bucket per worker, and (2) a Redis-backed sliding window
+shared across workers. For each, name the failure modes under partial
+network partitions, the tail-latency impact at p99, and the operational
+cost. Pick one and justify the choice for an early-stage team that prefers
+fewer moving parts.
+"""
+expected_tier = "complex"
+rationale = """
+Requires reasoning about distributed-systems tradeoffs, latency, ops cost,
+and matching a recommendation to a stated constraint. Tier-jumping cheaper
+models tends to produce confident-but-wrong distributed-systems answers.
+"""

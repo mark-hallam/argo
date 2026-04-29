@@ -1,0 +1,18 @@
+id = "routing-003"
+description = "Single-function code explanation — moderate reasoning, one file."
+prompt = """
+Explain what this Rust function does and whether it has any edge cases:
+
+```rust
+fn divide(a: i64, b: i64) -> i64 {
+    if b == 0 { return 0; }
+    a / b
+}
+```
+"""
+expected_tier = "medium"
+rationale = """
+Requires reading code, reasoning about edge cases (i64::MIN / -1 overflow),
+and producing a structured answer. Cheaper models often miss the overflow
+case; expensive reasoning models are overkill.
+"""

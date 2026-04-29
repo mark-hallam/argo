@@ -1,0 +1,17 @@
+id = "routing-004"
+description = "Multi-file refactor across an unfamiliar codebase."
+prompt = """
+Our codebase has roughly 40 call sites of `legacy_db_query(&str)` scattered
+across `src/api/`, `src/jobs/`, and `src/cli/`. Migrate every call to the
+new `Database::query(&Query)` surface, preserving error semantics, while
+keeping the public HTTP API responses byte-identical. Produce a single
+ordered patch series, smallest meaningful commits first, and call out any
+sites where the new API can't express the old behaviour.
+"""
+expected_tier = "complex"
+rationale = """
+Requires planning across many files, sequencing commits, reasoning about
+behavioural equivalence, and surfacing migration gaps. Cheap-tier models
+will produce plausible but wrong patches; this is a clear complex-tier
+case.
+"""

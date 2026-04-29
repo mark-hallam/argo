@@ -1,0 +1,69 @@
+# OpenAI Chat Completions wire — the de-facto common subset.
+#
+# Concrete deployments (OpenAI proper, OpenRouter, vLLM, Together, Fireworks,
+# Groq, ...) override `provider.base_url` and `auth.api_key_env` while
+# inheriting the rest of this manifest.
+#
+# Spec: docs/plan/argo-build-plan.md §8.
+
+[provider]
+id = "openai-compatible"
+family = "openai-compatible"
+display_name = "OpenAI-compatible"
+base_url = "https://api.openai.com"
+
+[auth]
+api_key_env = "OPENAI_API_KEY"
+header_name = "Authorization"
+header_format = "Bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/v1/chat/completions"
+models_path = "/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 60000
+max_retries = 3
+initial_backoff_ms = 200
+max_backoff_ms = 4000
+# §8.1 v0.2 additions — adaptive heartbeat (enforced at agent loop level, §6.4).
+heartbeat_event = "ping"
+heartbeat_grace_ms = 30000
+keepalive_chunks_reset = true
+
+[tool_calls]
+format = "openai_tool_calls"
+
+[discovery]
+endpoint = "{base_url}/v1/models"
+include_pattern = "^gpt-[0-9]"
+exclude_pattern = "preview|legacy|deprecated"
+prefer = "highest_minor"
+refresh_interval_hours = 24
+
+[capabilities]
+net_egress = ["api.openai.com", "*.openrouter.ai", "*.together.xyz"]
+env_read = []
+
+# Cost-router fodder — Agent V will resolve `tier` against routing.toml.
+
+[[models]]
+id = "gpt-4o-mini"
+context_window = 128000
+price_per_1k_in = 0.00015
+price_per_1k_out = 0.00060
+tier = "simple"
+
+[[models]]
+id = "gpt-4o"
+context_window = 128000
+price_per_1k_in = 0.0025
+price_per_1k_out = 0.0100
+tier = "medium"
+
+[[models]]
+id = "o1-mini"
+context_window = 128000
+price_per_1k_in = 0.0030
+price_per_1k_out = 0.0120
+tier = "complex"

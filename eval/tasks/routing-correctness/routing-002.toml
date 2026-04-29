@@ -1,0 +1,8 @@
+id = "routing-002"
+description = "Greeting / pleasantry."
+prompt = "hi"
+expected_tier = "simple"
+rationale = """
+Pure social acknowledgement. The router should land at the cheapest tier;
+spending complex-tier dollars to say 'hello back' is a regression.
+"""

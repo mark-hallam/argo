@@ -5,6 +5,17 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-provider"
+description = "Argo — provider manifests + transports"
 
 [dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+reqwest = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

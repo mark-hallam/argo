@@ -1,0 +1,8 @@
+id = "routing-001"
+description = "Trivial arithmetic — no reasoning, no tools."
+prompt = "What is 2 + 2?"
+expected_tier = "simple"
+rationale = """
+A direct factual answer with no decomposition or context lookup. The
+cheapest model in the tier table should suffice.
+"""
