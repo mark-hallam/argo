@@ -4,7 +4,7 @@
 
 Argo is the agent framework that **a single engineer can fully audit on a weekend** and that **a 200-person company can deploy to production** without writing the multi-tenant layer themselves.
 
-> **Status:** Phase 0 — skeleton. Walking-skeleton ship target: end of Week 3.
+> **Status:** Phases 0–3 + the §6 walking skeleton are shipped. Provider manifests for `openai-compatible` / `openai-responses` / `anthropic` / `bedrock` deserialize; 4 in-core tools (`file_read` / `file_write` / `file_patch` / `terminal`) run end-to-end; cost-tier router persists non-Fixed decisions; memory + skill stores enforce user-protected locks; the external-LLM judge produces three-state verdicts; and `argo-core::Agent::run_turn` exercises the full chain against a scripted transport. **Next up: Phase 4 — plugin host + MCP integration.**
 > See `docs/plan/argo-build-plan.md` for the full master spec and `ROADMAP.md` for what's shipping next.
 
 ## The five non-negotiable invariants
