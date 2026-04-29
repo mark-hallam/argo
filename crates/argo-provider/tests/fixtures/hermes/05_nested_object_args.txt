@@ -1,0 +1,3 @@
+<tool_call>
+{"name": "search", "arguments": {"query": "argo", "filters": {"language": "rust", "limit": 10}}}
+</tool_call>

@@ -1,0 +1,4 @@
+I'll list the directory.
+<tool_call>
+{"name": "ls", "arguments": {"path": "/"}}
+</tool_call>

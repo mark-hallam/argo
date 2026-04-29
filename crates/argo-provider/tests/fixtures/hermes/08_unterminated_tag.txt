@@ -1,0 +1,4 @@
+Truncated mid-stream:
+<tool_call>
+{"name": "ls", "arguments": {"path": "/"}}
+no closing tag

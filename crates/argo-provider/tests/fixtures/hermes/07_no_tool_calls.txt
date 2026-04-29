@@ -1,0 +1,2 @@
+This response is plain prose with no tool calls at all. The model
+decided it had everything it needed to answer directly.

@@ -12,6 +12,7 @@ mod tests;
 
 use crate::extractors::extract_tool_calls;
 use crate::manifest::{ProviderFamily, ProviderManifest};
+use crate::sse::SseBuffer;
 use crate::transport::{ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport};
 use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
 use async_trait::async_trait;
@@ -19,7 +20,6 @@ use futures::stream::{self as fstream, BoxStream, StreamExt};
 use reqwest::{header::HeaderName, Client};
 use std::time::Duration;
 pub use stream::event_to_deltas;
-use stream::SseBuffer;
 use wire::{assemble_response, build_request_body, OpenAiResponse};
 
 /// Cap for HTTP error body text we attach to `ArgoError::Provider` (issue #5

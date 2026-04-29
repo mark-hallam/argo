@@ -1,0 +1,9 @@
+Step one and two:
+<tool_call>
+{"name": "ls", "arguments": {"path": "/etc"}}
+</tool_call>
+And then:
+<tool_call>
+{"name": "file_read", "arguments": {"path": "/etc/hosts"}}
+</tool_call>
+Done.

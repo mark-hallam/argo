@@ -1,0 +1,60 @@
+# AWS Bedrock — Converse API.
+#
+# Auth: AWS sigv4 via the SDK's credential chain. The `[auth]` table is kept
+# for schema completeness, but the BedrockTransport ignores its template
+# fields (sigv4 is signed per request).
+#
+# Spec: docs/plan/argo-build-plan.md §8.
+
+[provider]
+id = "bedrock"
+family = "bedrock"
+display_name = "AWS Bedrock"
+base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+
+[auth]
+# Declares the EnvRead capability for sigv4 credential chain. Even though
+# the SDK reads from many sources (env, ~/.aws/credentials, IMDS, …), we
+# pin this one so the policy engine has something concrete to gate against.
+api_key_env = "AWS_ACCESS_KEY_ID"
+header_name = "Authorization"
+header_format = "AWS4-HMAC-SHA256 {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/converse"
+models_path = "/foundation-models"
+connect_timeout_ms = 5000
+read_timeout_ms = 120000
+max_retries = 3
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+
+[tool_calls]
+format = "bedrock_tool_use"
+
+[reasoning]
+content_field = "reasoningText"
+preserve_across_turns = true
+
+[capabilities]
+net_egress = ["*.amazonaws.com"]
+env_read = ["AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_REGION", "AWS_PROFILE"]
+
+# Bedrock-specific knobs.
+[quirks]
+aws-region = "us-east-1"
+
+[[models]]
+id = "anthropic.claude-haiku-4-5-v1:0"
+context_window = 200000
+price_per_1k_in = 0.00025
+price_per_1k_out = 0.00125
+tier = "simple"
+
+[[models]]
+id = "anthropic.claude-opus-4-6-v1:0"
+context_window = 200000
+price_per_1k_in = 0.003
+price_per_1k_out = 0.015
+tier = "complex"

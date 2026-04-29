@@ -22,6 +22,11 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 # `futures::stream::BoxStream` for `Transport::complete_stream` (F-1, issue #3 (a)).
 futures = { version = "0.3", default-features = false, features = ["std"] }
+# Bedrock transport — sigv4 + eventstream lives in the SDK rather than reqwest.
+# Authorised by the Agent F brief alongside the rest of the dep allowlist.
+aws-config = { workspace = true }
+aws-sdk-bedrockruntime = { workspace = true }
+aws-smithy-types = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

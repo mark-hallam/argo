@@ -1,0 +1,67 @@
+# Anthropic Messages API.
+#
+# Spec: docs/plan/argo-build-plan.md §8.
+
+[provider]
+id = "anthropic"
+family = "anthropic"
+display_name = "Anthropic"
+base_url = "https://api.anthropic.com"
+
+[auth]
+api_key_env = "ANTHROPIC_API_KEY"
+header_name = "x-api-key"
+header_format = "{key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/v1/messages"
+models_path = "/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 120000
+max_retries = 3
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+heartbeat_event = "ping"
+heartbeat_grace_ms = 30000
+keepalive_chunks_reset = true
+
+[tool_calls]
+format = "anthropic_tool_use"
+
+[reasoning]
+content_field = "thinking"
+preserve_across_turns = true
+
+[discovery]
+endpoint = "{base_url}/v1/models"
+include_pattern = "^claude-"
+exclude_pattern = "instant|deprecated|legacy"
+prefer = "lexicographic_max"
+refresh_interval_hours = 24
+
+[capabilities]
+net_egress = ["api.anthropic.com"]
+env_read = []
+
+# Anthropic-specific knobs the transport consumes opaquely (issue #2 / F-3).
+# `send-thinking-blocks` enables extended thinking; `prompt-caching-breakpoints`
+# tags the listed sections with `cache_control = ephemeral` so repeated
+# system/tool prefixes survive across turns at provider-side cache pricing.
+[quirks]
+send-thinking-blocks = true
+prompt-caching-breakpoints = ["system", "tools"]
+
+[[models]]
+id = "claude-haiku-4-5"
+context_window = 200000
+price_per_1k_in = 0.00025
+price_per_1k_out = 0.00125
+tier = "simple"
+
+[[models]]
+id = "claude-opus-4-6"
+context_window = 200000
+price_per_1k_in = 0.003
+price_per_1k_out = 0.015
+tier = "complex"

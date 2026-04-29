@@ -5,12 +5,11 @@
 //!
 //! - the manifest schema (§8.1) with TOML deserialization + cross-field
 //!   validation,
-//! - a manifest-driven [`Transport`] for the `openai-compatible` family
-//!   (Phase 2 ships this one only — Anthropic / Bedrock / Responses are
-//!   Agent F),
-//! - six tool-call extractors — `openai_tool_calls` is the only one wired
-//!   end-to-end this PR; the other five return
-//!   `ArgoError::Provider("not yet implemented in Phase 2")`.
+//! - manifest-driven [`Transport`] implementations for all four v1 families
+//!   (`openai-compatible`, `openai-responses`, `anthropic`, `bedrock`),
+//! - six tool-call extractors covering OpenAI Chat Completions, OpenAI
+//!   Responses, Anthropic, Bedrock, Hermes-style XML, and an LLM-extracted
+//!   fallback.
 //!
 //! ```
 //! # fn doc() -> argo_types::ArgoResult<()> {
@@ -23,11 +22,17 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod anthropic;
+mod bedrock;
 mod extractors;
 mod manifest;
 mod openai_compat;
+mod openai_responses;
+mod sse;
 mod transport;
 
+pub use anthropic::AnthropicTransport;
+pub use bedrock::BedrockTransport;
 pub use extractors::{
     anthropic_tool_use, bedrock_tool_use, extract_tool_calls, llm_extracted, openai_response_tools,
     openai_tool_calls, xml_tool_call,
@@ -38,6 +43,8 @@ pub use manifest::{
     TransportSpec,
 };
 pub use openai_compat::{event_to_deltas, OpenAiCompatTransport};
+pub use openai_responses::OpenAiResponsesTransport;
+pub use sse::SseBuffer;
 pub use transport::{
     ProviderRequest, ProviderResponse, ProviderResponseDelta, Sampling, StopReason, ToolSchema,
     Transport,

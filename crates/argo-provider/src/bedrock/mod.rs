@@ -1,0 +1,432 @@
+//! Manifest-driven `Transport` for AWS Bedrock (Converse API).
+//!
+//! Auth: AWS sigv4 via `aws-config` / `aws-sdk-bedrockruntime` (NOT reqwest).
+//! Streaming: HTTP/2 eventstream via the SDK's `ConverseStream`.
+//!
+//! Spec: <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html>.
+mod wire;
+
+#[cfg(test)]
+mod tests;
+
+use crate::extractors::extract_tool_calls;
+use crate::manifest::{ProviderFamily, ProviderManifest, ToolCallFormat};
+use crate::transport::{
+    ProviderRequest, ProviderResponse, ProviderResponseDelta, StopReason, Transport,
+};
+use argo_types::{ArgoError, ArgoResult, CapabilitySet, ToolCallId, ToolCallRequest};
+use async_trait::async_trait;
+use aws_sdk_bedrockruntime::types as bt;
+use aws_sdk_bedrockruntime::Client as BedrockClient;
+use aws_smithy_types::Document;
+use futures::stream::{self as fstream, BoxStream, StreamExt};
+
+/// Manifest-driven Bedrock transport.
+///
+/// ```
+/// # async fn doc() -> argo_types::ArgoResult<()> {
+/// use argo_provider::{BedrockTransport, ProviderManifest};
+/// let toml = include_str!("../../../../manifests/providers/bedrock.toml");
+/// let manifest = ProviderManifest::from_toml_str(toml)?;
+/// let aws_config = aws_config::load_from_env().await;
+/// let _t = BedrockTransport::from_manifest(manifest, &aws_config)?;
+/// # Ok(()) }
+/// ```
+pub struct BedrockTransport {
+    manifest: ProviderManifest,
+    client: BedrockClient,
+    capabilities: CapabilitySet,
+}
+
+impl std::fmt::Debug for BedrockTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BedrockTransport")
+            .field("provider_id", &self.manifest.provider.id)
+            .field("base_url", &self.manifest.provider.base_url)
+            .field("capabilities", &self.capabilities)
+            .finish()
+    }
+}
+
+impl BedrockTransport {
+    /// Build from a parsed manifest + an already-loaded AWS SDK config.
+    /// The caller (typically the agent loop bootstrap) is responsible for
+    /// the credential chain — we never read AWS env vars from here.
+    pub fn from_manifest(
+        manifest: ProviderManifest,
+        aws_config: &aws_config::SdkConfig,
+    ) -> ArgoResult<Self> {
+        if manifest.provider.family != ProviderFamily::Bedrock {
+            return Err(ArgoError::Provider(format!(
+                "BedrockTransport requires family=bedrock; got {:?}",
+                manifest.provider.family
+            )));
+        }
+        let client = BedrockClient::new(aws_config);
+        let capabilities = manifest.capabilities.to_set(&manifest.auth.api_key_env);
+        Ok(Self {
+            manifest,
+            client,
+            capabilities,
+        })
+    }
+
+    /// Borrowed manifest.
+    #[must_use]
+    pub fn manifest(&self) -> &ProviderManifest {
+        &self.manifest
+    }
+}
+
+#[async_trait]
+impl Transport for BedrockTransport {
+    fn id(&self) -> &str {
+        &self.manifest.provider.id
+    }
+
+    fn capabilities(&self) -> &CapabilitySet {
+        &self.capabilities
+    }
+
+    async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
+        let model = self.manifest.resolve_model_id(&req.model);
+        let request_body = wire::build_request_body(&self.manifest, req)?;
+        let mut builder = self.client.converse().model_id(model);
+        builder = apply_messages(builder, &request_body)?;
+        let output = builder
+            .send()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("bedrock converse: {e}")))?;
+        let (envelope, mut resp) = wire::render_response(output);
+        if matches!(
+            self.manifest.tool_calls.format,
+            ToolCallFormat::BedrockToolUse
+        ) {
+            let extracted = extract_tool_calls(self.manifest.tool_calls.format, &envelope)?;
+            if !extracted.is_empty() {
+                resp.tool_calls = extracted;
+            }
+        }
+        Ok(resp)
+    }
+
+    async fn complete_stream(
+        &self,
+        req: &ProviderRequest,
+    ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>> {
+        let model = self.manifest.resolve_model_id(&req.model).to_string();
+        let request_body = wire::build_request_body(&self.manifest, req)?;
+        let mut builder = self.client.converse_stream().model_id(model);
+        builder = apply_messages_stream(builder, &request_body)?;
+        let output = builder
+            .send()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("bedrock converse_stream: {e}")))?;
+        let stream = output.stream;
+        Ok(fstream::unfold(StreamRunner::new(stream), step_stream).boxed())
+    }
+}
+
+fn apply_messages(
+    mut builder: aws_sdk_bedrockruntime::operation::converse::builders::ConverseFluentBuilder,
+    body: &serde_json::Value,
+) -> ArgoResult<aws_sdk_bedrockruntime::operation::converse::builders::ConverseFluentBuilder> {
+    if let Some(serde_json::Value::Array(sys)) = body.get("system") {
+        for s in sys {
+            if let Some(t) = s.get("text").and_then(|v| v.as_str()) {
+                builder = builder.system(bt::SystemContentBlock::Text(t.to_string()));
+            }
+        }
+    }
+    if let Some(serde_json::Value::Array(messages)) = body.get("messages") {
+        for m in messages {
+            builder = builder.messages(json_to_bedrock_message(m)?);
+        }
+    }
+    Ok(builder)
+}
+
+fn apply_messages_stream(
+    mut builder: aws_sdk_bedrockruntime::operation::converse_stream::builders::ConverseStreamFluentBuilder,
+    body: &serde_json::Value,
+) -> ArgoResult<
+    aws_sdk_bedrockruntime::operation::converse_stream::builders::ConverseStreamFluentBuilder,
+> {
+    if let Some(serde_json::Value::Array(sys)) = body.get("system") {
+        for s in sys {
+            if let Some(t) = s.get("text").and_then(|v| v.as_str()) {
+                builder = builder.system(bt::SystemContentBlock::Text(t.to_string()));
+            }
+        }
+    }
+    if let Some(serde_json::Value::Array(messages)) = body.get("messages") {
+        for m in messages {
+            builder = builder.messages(json_to_bedrock_message(m)?);
+        }
+    }
+    Ok(builder)
+}
+
+fn json_to_bedrock_message(m: &serde_json::Value) -> ArgoResult<bt::Message> {
+    let role = match m.get("role").and_then(|v| v.as_str()) {
+        Some("assistant") => bt::ConversationRole::Assistant,
+        _ => bt::ConversationRole::User,
+    };
+    let content_blocks = m
+        .get("content")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(json_to_bedrock_content_block)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    bt::Message::builder()
+        .role(role)
+        .set_content(Some(content_blocks))
+        .build()
+        .map_err(|e| ArgoError::Provider(format!("bedrock message build: {e}")))
+}
+
+fn json_to_bedrock_content_block(v: &serde_json::Value) -> Option<bt::ContentBlock> {
+    if let Some(t) = v.get("text").and_then(|x| x.as_str()) {
+        return Some(bt::ContentBlock::Text(t.to_string()));
+    }
+    if let Some(tu) = v.get("toolUse") {
+        let id = tu.get("toolUseId")?.as_str()?.to_string();
+        let name = tu.get("name")?.as_str()?.to_string();
+        let input = json_to_document(tu.get("input").unwrap_or(&serde_json::Value::Null));
+        let block = bt::ToolUseBlock::builder()
+            .tool_use_id(id)
+            .name(name)
+            .input(input)
+            .build()
+            .ok()?;
+        return Some(bt::ContentBlock::ToolUse(block));
+    }
+    if let Some(tr) = v.get("toolResult") {
+        let id = tr.get("toolUseId")?.as_str()?.to_string();
+        let body = tr
+            .get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|a| a.first())
+            .and_then(|c| c.get("text"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string();
+        let block = bt::ToolResultBlock::builder()
+            .tool_use_id(id)
+            .content(bt::ToolResultContentBlock::Text(body))
+            .build()
+            .ok()?;
+        return Some(bt::ContentBlock::ToolResult(block));
+    }
+    None
+}
+
+fn json_to_document(v: &serde_json::Value) -> Document {
+    match v {
+        serde_json::Value::Null => Document::Null,
+        serde_json::Value::Bool(b) => Document::Bool(*b),
+        serde_json::Value::Number(n) => n
+            .as_f64()
+            .map(|f| Document::Number(aws_smithy_types::Number::Float(f)))
+            .unwrap_or(Document::Null),
+        serde_json::Value::String(s) => Document::String(s.clone()),
+        serde_json::Value::Array(arr) => {
+            Document::Array(arr.iter().map(json_to_document).collect())
+        }
+        serde_json::Value::Object(map) => Document::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), json_to_document(v)))
+                .collect(),
+        ),
+    }
+}
+
+struct StreamRunner {
+    stream: aws_sdk_bedrockruntime::primitives::event_stream::EventReceiver<
+        bt::ConverseStreamOutput,
+        aws_sdk_bedrockruntime::types::error::ConverseStreamOutputError,
+    >,
+    core: StreamCore,
+}
+
+/// Pure mutable state for the Bedrock stream parser. Decoupled from
+/// `EventReceiver` so unit tests can drive constructed events without the
+/// SDK's transport layer.
+#[derive(Debug, Default)]
+pub(super) struct StreamCore {
+    pub(super) pending: std::collections::VecDeque<ArgoResult<ProviderResponseDelta>>,
+    pub(super) blocks: std::collections::HashMap<i32, BlockKind>,
+    pub(super) done: bool,
+}
+
+impl StreamCore {
+    pub(super) fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) enum BlockKind {
+    Text,
+    ToolUse { id: String, name: String },
+}
+
+impl StreamRunner {
+    fn new(
+        stream: aws_sdk_bedrockruntime::primitives::event_stream::EventReceiver<
+            bt::ConverseStreamOutput,
+            aws_sdk_bedrockruntime::types::error::ConverseStreamOutputError,
+        >,
+    ) -> Self {
+        Self {
+            stream,
+            core: StreamCore::new(),
+        }
+    }
+}
+
+async fn step_stream(
+    mut s: StreamRunner,
+) -> Option<(ArgoResult<ProviderResponseDelta>, StreamRunner)> {
+    if let Some(item) = s.core.pending.pop_front() {
+        return Some((item, s));
+    }
+    if s.core.done {
+        return None;
+    }
+    loop {
+        match s.stream.recv().await {
+            Ok(Some(event)) => {
+                handle_stream_event(event, &mut s.core);
+                if let Some(item) = s.core.pending.pop_front() {
+                    return Some((item, s));
+                }
+                if s.core.done {
+                    return None;
+                }
+            }
+            Ok(None) => {
+                s.core.done = true;
+                return None;
+            }
+            Err(e) => {
+                s.core.done = true;
+                return Some((Err(ArgoError::Provider(format!("bedrock stream: {e}"))), s));
+            }
+        }
+    }
+}
+
+pub(super) fn handle_stream_event(event: bt::ConverseStreamOutput, s: &mut StreamCore) {
+    use bt::ConverseStreamOutput as Ev;
+    match event {
+        Ev::ContentBlockStart(start) => track_block_start(s, &start),
+        Ev::ContentBlockDelta(delta) => emit_block_delta(s, &delta),
+        Ev::MessageStop(stop) => emit_message_stop(s, &stop),
+        Ev::Metadata(meta) => emit_metadata(s, &meta),
+        _ => {} // MessageStart, ContentBlockStop, etc.
+    }
+}
+
+fn track_block_start(s: &mut StreamCore, start: &bt::ContentBlockStartEvent) {
+    let index = start.content_block_index();
+    let kind = match start.start() {
+        Some(bt::ContentBlockStart::ToolUse(tu)) => {
+            let id = tu.tool_use_id().to_string();
+            let name = tu.name().to_string();
+            s.pending
+                .push_back(Ok(ProviderResponseDelta::ToolCallDelta {
+                    id: id.clone(),
+                    name: name.clone(),
+                    args_partial: String::new(),
+                }));
+            BlockKind::ToolUse { id, name }
+        }
+        _ => BlockKind::Text,
+    };
+    s.blocks.insert(index, kind);
+}
+
+fn emit_block_delta(s: &mut StreamCore, delta: &bt::ContentBlockDeltaEvent) {
+    let index = delta.content_block_index();
+    let kind = s.blocks.get(&index).cloned();
+    match (kind, delta.delta()) {
+        (Some(BlockKind::Text), Some(bt::ContentBlockDelta::Text(t))) if !t.is_empty() => {
+            s.pending
+                .push_back(Ok(ProviderResponseDelta::TextChunk(t.clone())));
+        }
+        (Some(BlockKind::ToolUse { id, name }), Some(bt::ContentBlockDelta::ToolUse(tu))) => {
+            s.pending
+                .push_back(Ok(ProviderResponseDelta::ToolCallDelta {
+                    id,
+                    name,
+                    args_partial: tu.input().to_string(),
+                }));
+        }
+        _ => {}
+    }
+}
+
+fn emit_message_stop(s: &mut StreamCore, stop: &bt::MessageStopEvent) {
+    let reason = match stop.stop_reason() {
+        bt::StopReason::EndTurn => StopReason::EndTurn,
+        bt::StopReason::ToolUse => StopReason::ToolUse,
+        bt::StopReason::MaxTokens => StopReason::MaxTokens,
+        bt::StopReason::ContentFiltered => StopReason::ContentFilter,
+        other => StopReason::Other(other.as_str().to_string()),
+    };
+    s.pending
+        .push_back(Ok(ProviderResponseDelta::FinishReason(reason)));
+    s.done = true;
+}
+
+fn emit_metadata(s: &mut StreamCore, meta: &bt::ConverseStreamMetadataEvent) {
+    if let Some(usage) = meta.usage() {
+        s.pending.push_back(Ok(ProviderResponseDelta::TokenUsage {
+            tokens_in: usage.input_tokens() as u32,
+            tokens_out: usage.output_tokens() as u32,
+        }));
+    }
+}
+
+/// Manual tool-call construction from the JSON envelope produced by
+/// [`wire::render_response`]. Used by the cross-family extractor in
+/// [`crate::extractors::bedrock_tool_use`] when the manifest declares
+/// `format = "bedrock_tool_use"`.
+#[allow(dead_code)]
+pub(crate) fn tool_calls_from_envelope(
+    body: &serde_json::Value,
+) -> ArgoResult<Vec<ToolCallRequest>> {
+    let Some(content) = body
+        .get("output")
+        .and_then(|o| o.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|c| c.as_array())
+    else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    for block in content {
+        let Some(tu) = block.get("toolUse") else {
+            continue;
+        };
+        let name = tu
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ArgoError::Provider("bedrock toolUse missing `name`".into()))?
+            .to_string();
+        let arguments = tu
+            .get("input")
+            .cloned()
+            .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+        out.push(ToolCallRequest {
+            id: ToolCallId::new(),
+            name,
+            arguments,
+        });
+    }
+    Ok(out)
+}

@@ -17,6 +17,7 @@ use proptest::prelude::*;
 #[derive(Debug, Clone)]
 struct SyntheticProvider {
     id: String,
+    family: &'static str,
     display_name: String,
     base_url: String,
     api_key_env: String,
@@ -44,13 +45,29 @@ fn arb_host() -> impl Strategy<Value = String> {
     "[a-z][a-z0-9.-]{2,30}".prop_map(String::from)
 }
 
-type IdentityTuple = (String, String, String, String, &'static str, &'static str);
+type IdentityTuple = (
+    String,
+    &'static str,
+    String,
+    String,
+    String,
+    &'static str,
+    &'static str,
+);
 type TimingTuple = (u64, u64, u64, u64, bool, u64);
 type ListsTuple = (Vec<String>, Vec<(String, u32)>);
 
 fn arb_identity() -> impl Strategy<Value = IdentityTuple> {
     (
         arb_id(),
+        prop::sample::select(
+            &[
+                "openai-compatible",
+                "openai-responses",
+                "anthropic",
+                "bedrock",
+            ][..],
+        ),
         "[A-Za-z][A-Za-z0-9 ]{0,30}".prop_map(String::from),
         arb_host(),
         arb_env(),
@@ -89,7 +106,7 @@ fn arb_lists() -> impl Strategy<Value = ListsTuple> {
 fn arb_provider() -> impl Strategy<Value = SyntheticProvider> {
     (arb_identity(), arb_timing(), arb_lists()).prop_map(
         |(
-            (id, display_name, base_host, api_key_env, streaming, format),
+            (id, family, display_name, base_host, api_key_env, streaming, format),
             (
                 connect_timeout_ms,
                 read_timeout_ms,
@@ -104,6 +121,7 @@ fn arb_provider() -> impl Strategy<Value = SyntheticProvider> {
             let base_url = format!("https://{base_host}");
             SyntheticProvider {
                 id,
+                family,
                 display_name,
                 base_url,
                 api_key_env,
@@ -126,7 +144,7 @@ fn render_toml(p: &SyntheticProvider) -> String {
     let mut out = String::new();
     out.push_str("[provider]\n");
     out.push_str(&format!("id = \"{}\"\n", p.id));
-    out.push_str("family = \"openai-compatible\"\n");
+    out.push_str(&format!("family = \"{}\"\n", p.family));
     out.push_str(&format!("display_name = \"{}\"\n", p.display_name));
     out.push_str(&format!("base_url = \"{}\"\n", p.base_url));
     out.push_str("\n[auth]\n");
@@ -203,6 +221,21 @@ proptest! {
         let parsed: Result<ToolCallFormat, _> =
             serde_json::from_value(serde_json::json!(format));
         prop_assert_eq!(parsed.is_ok(), known);
+    }
+
+    #[test]
+    fn family_round_trips_for_all_v1_families(p in arb_provider()) {
+        let toml = render_toml(&p);
+        let parsed = ProviderManifest::from_toml_str(&toml)
+            .map_err(|e| TestCaseError::fail(format!("parse failed: {e:?}")))?;
+        let want_family = match p.family {
+            "openai-compatible" => argo_provider::ProviderFamily::OpenaiCompatible,
+            "openai-responses" => argo_provider::ProviderFamily::OpenaiResponses,
+            "anthropic" => argo_provider::ProviderFamily::Anthropic,
+            "bedrock" => argo_provider::ProviderFamily::Bedrock,
+            other => return Err(TestCaseError::fail(format!("unexpected family {other}"))),
+        };
+        prop_assert_eq!(parsed.provider.family, want_family);
     }
 
     #[test]

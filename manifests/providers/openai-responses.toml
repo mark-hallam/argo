@@ -1,0 +1,65 @@
+# OpenAI Responses API.
+#
+# Different shape from Chat Completions — `input` / `output` arrays of
+# typed items rather than a flat `messages` array. Spec:
+# https://platform.openai.com/docs/api-reference/responses
+#
+# Argo spec: docs/plan/argo-build-plan.md §8.
+
+[provider]
+id = "openai-responses"
+family = "openai-responses"
+display_name = "OpenAI Responses"
+base_url = "https://api.openai.com"
+
+[auth]
+api_key_env = "OPENAI_API_KEY"
+header_name = "Authorization"
+header_format = "Bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/v1/responses"
+models_path = "/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 120000
+max_retries = 3
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+heartbeat_event = "ping"
+heartbeat_grace_ms = 30000
+keepalive_chunks_reset = true
+
+[tool_calls]
+format = "openai_response_tools"
+
+[reasoning]
+content_field = "summary_text"
+preserve_across_turns = true
+
+[discovery]
+endpoint = "{base_url}/v1/models"
+include_pattern = "^(gpt-[0-9]|o[0-9])"
+exclude_pattern = "preview|legacy|deprecated"
+prefer = "highest_minor"
+refresh_interval_hours = 24
+
+[capabilities]
+net_egress = ["api.openai.com"]
+env_read = []
+
+[quirks]
+
+[[models]]
+id = "gpt-5.0"
+context_window = 256000
+price_per_1k_in = 0.005
+price_per_1k_out = 0.015
+tier = "complex"
+
+[[models]]
+id = "o1"
+context_window = 200000
+price_per_1k_in = 0.015
+price_per_1k_out = 0.060
+tier = "complex"

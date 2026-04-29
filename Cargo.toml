@@ -59,6 +59,11 @@ clap = { version = "4", features = ["derive", "env"] }
 sha2 = "0.10"
 hex = "0.4"
 parking_lot = "0.12"
+# AWS Bedrock — sigv4 auth, eventstream streaming. Pulled in by argo-provider's
+# BedrockTransport per Phase 2 / Agent F brief.
+aws-config = "1"
+aws-sdk-bedrockruntime = "1"
+aws-smithy-types = "1"
 
 [profile.release]
 lto = "fat"
