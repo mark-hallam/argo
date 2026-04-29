@@ -89,6 +89,20 @@ version = "0.0.1"
 [[package]]
 name = "argo-audit"
 version = "0.0.1"
+dependencies = [
+ "argo-store",
+ "argo-types",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "argo-capability"
@@ -115,6 +129,7 @@ version = "0.0.1"
 name = "argo-core"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
  "argo-capability",
  "argo-provider",
  "argo-store",
