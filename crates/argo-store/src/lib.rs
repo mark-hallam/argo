@@ -17,7 +17,7 @@ mod models;
 
 pub use models::SessionHeader;
 
-use argo_types::{ArgoError, MessageRole, SessionId, TenantId, WorkspaceId};
+use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
 use models::SessionHeaderRow;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -190,6 +190,32 @@ impl SessionStore {
             .await
             .map_err(|e| ArgoError::Provider(format!("message_count: {e}")))?;
         Ok(u64::try_from(n).unwrap_or(0))
+    }
+
+    /// Persist a [`RoutingDecision`] (Amendment 1, §24.4 acceptance: "all
+    /// non-Fixed decisions persisted in `routing_decision`"). The cost
+    /// router calls this for every turn when policy ≠ Fixed.
+    pub async fn persist_routing_decision(&self, d: &RoutingDecision) -> StoreResult<()> {
+        let decided_at = d.classified_at.timestamp_micros();
+        sqlx::query(
+            "INSERT INTO routing_decision (id, session_id, turn, policy, tier, \
+             classifier_latency_ms, chosen_provider, chosen_model, reason, decided_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(d.id.0.as_bytes().as_slice())
+        .bind(d.session_id.0.as_bytes().as_slice())
+        .bind(i64::from(d.turn))
+        .bind(&d.policy)
+        .bind(&d.tier)
+        .bind(i64::try_from(d.classifier_latency_ms).unwrap_or(i64::MAX))
+        .bind(&d.chosen_provider_model.provider)
+        .bind(&d.chosen_provider_model.model)
+        .bind(&d.reason)
+        .bind(decided_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("persist_routing_decision: {e}")))?;
+        Ok(())
     }
 
     /// Direct access to the underlying pool (for crates that need raw SQL).
