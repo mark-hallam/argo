@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo — SQLite + FTS5 session store"
 
 [dependencies]
-argo-types = { path = "../argo-types" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }

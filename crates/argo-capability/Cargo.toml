@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo — capability + RBAC engine"
 
 [dependencies]
-argo-types = { path = "../argo-types" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
