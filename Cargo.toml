@@ -60,6 +60,8 @@ sha2 = "0.10"
 hex = "0.4"
 parking_lot = "0.12"
 futures = { version = "0.3", default-features = false, features = ["std"] }
+# YAML frontmatter for skills (§14.2).
+serde_yaml = "0.9"
 # AWS Bedrock — sigv4 auth, eventstream streaming. Pulled in by argo-provider's
 # BedrockTransport per Phase 2 / Agent F brief.
 aws-config = "1"
