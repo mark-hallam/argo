@@ -168,6 +168,18 @@ version = "0.0.1"
 [[package]]
 name = "argo-gateway"
 version = "0.0.1"
+dependencies = [
+ "argo-capability",
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "argo-judge"
