@@ -240,6 +240,73 @@ fn stream_happy_path_emits_text_then_finish() {
 }
 
 #[test]
+fn outbound_tool_call_uses_provider_call_id_when_present() {
+    // Issue #4 / F-9: replaying an assistant message with tool_calls
+    // back to OpenAI MUST emit the original provider id (e.g.
+    // "call_FAxa…") rather than our internal UUIDv7.
+    let m = parse_manifest();
+    let v = serde_json::json!({
+        "id": "00000000-0000-7000-8000-000000000010",
+        "session_id": "00000000-0000-7000-8000-000000000020",
+        "role": "assistant",
+        "content": [{"type":"text","text":"calling..."}],
+        "tool_calls": [{
+            "id": "00000000-0000-7000-8000-000000000030",
+            "provider_call_id": "call_FAxa9JK",
+            "name": "ls",
+            "arguments": {"path":"/"}
+        }],
+        "tool_call_id": null,
+        "reasoning": null,
+        "created_at": "2025-01-01T00:00:00Z",
+        "provider_meta": null
+    });
+    let asst: argo_types::Message = serde_json::from_value(v).unwrap();
+    let req = ProviderRequest {
+        model: "gpt-4o".into(),
+        messages: vec![asst],
+        tools: vec![],
+        system: None,
+        sampling: Sampling::default(),
+    };
+    let body = build_request_body(&m, &req).unwrap();
+    let calls = body["messages"][0]["tool_calls"].as_array().unwrap();
+    assert_eq!(calls[0]["id"], "call_FAxa9JK");
+}
+
+#[test]
+fn outbound_tool_call_falls_back_to_internal_id_when_no_provider_id() {
+    let m = parse_manifest();
+    let v = serde_json::json!({
+        "id": "00000000-0000-7000-8000-000000000010",
+        "session_id": "00000000-0000-7000-8000-000000000020",
+        "role": "assistant",
+        "content": [{"type":"text","text":"ok"}],
+        "tool_calls": [{
+            "id": "00000000-0000-7000-8000-000000000030",
+            "provider_call_id": null,
+            "name": "ls",
+            "arguments": {}
+        }],
+        "tool_call_id": null,
+        "reasoning": null,
+        "created_at": "2025-01-01T00:00:00Z",
+        "provider_meta": null
+    });
+    let asst: argo_types::Message = serde_json::from_value(v).unwrap();
+    let req = ProviderRequest {
+        model: "gpt-4o".into(),
+        messages: vec![asst],
+        tools: vec![],
+        system: None,
+        sampling: Sampling::default(),
+    };
+    let body = build_request_body(&m, &req).unwrap();
+    let calls = body["messages"][0]["tool_calls"].as_array().unwrap();
+    assert_eq!(calls[0]["id"], "00000000-0000-7000-8000-000000000030");
+}
+
+#[test]
 fn map_finish_reason_covers_known_values() {
     use super::wire::map_finish_reason;
     assert_eq!(map_finish_reason("stop"), StopReason::EndTurn);

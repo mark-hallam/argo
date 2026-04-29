@@ -98,9 +98,14 @@ fn message_to_bedrock(m: &Message) -> ArgoResult<serde_json::Value> {
         }
     }
     for tc in &m.tool_calls {
+        // Issue #4 / F-9: Bedrock-issued toolUseId round-trips when known.
+        let id = tc
+            .provider_call_id
+            .clone()
+            .unwrap_or_else(|| tc.id.to_string());
         content.push(serde_json::json!({
             "toolUse": {
-                "toolUseId": tc.id.to_string(),
+                "toolUseId": id,
                 "name": tc.name,
                 "input": tc.arguments,
             }
@@ -227,15 +232,17 @@ fn render_content_block(
         bt::ContentBlock::ToolUse(tu) => {
             let input = tu.input().clone();
             let input_json = document_to_json(&input);
+            let provider_call_id = tu.tool_use_id().to_string();
             content_json.push(serde_json::json!({
                 "toolUse": {
-                    "toolUseId": tu.tool_use_id(),
+                    "toolUseId": &provider_call_id,
                     "name": tu.name(),
                     "input": input_json,
                 }
             }));
             tool_calls.push(ToolCallRequest {
                 id: ToolCallId::new(),
+                provider_call_id: (!provider_call_id.is_empty()).then_some(provider_call_id),
                 name: tu.name().to_string(),
                 arguments: input_json,
             });

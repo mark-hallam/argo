@@ -186,9 +186,15 @@ fn content_block_to_anthropic(block: &ContentBlock) -> Option<serde_json::Value>
 }
 
 fn tool_call_to_anthropic(tc: &ToolCallRequest) -> serde_json::Value {
+    // Issue #4 / F-9: prefer the Anthropic-issued `toolu_…` id when we
+    // have it so multi-turn `tool_result` messages round-trip cleanly.
+    let id = tc
+        .provider_call_id
+        .clone()
+        .unwrap_or_else(|| tc.id.to_string());
     serde_json::json!({
         "type": "tool_use",
-        "id": tc.id.to_string(),
+        "id": id,
         "name": tc.name,
         "input": tc.arguments,
     })
@@ -262,10 +268,10 @@ pub(super) fn assemble_response(
             AnthropicBlock::ToolUse { id, name, input } => {
                 tool_calls.push(ToolCallRequest {
                     id: ToolCallId::new(),
+                    provider_call_id: (!id.is_empty()).then_some(id),
                     name,
                     arguments: input,
                 });
-                let _ = id; // provider id round-trip is issue #4 (Agent G).
             }
             AnthropicBlock::Unknown => {}
         }

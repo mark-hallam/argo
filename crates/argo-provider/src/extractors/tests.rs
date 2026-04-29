@@ -134,6 +134,76 @@ fn empty_body_yields_empty_extracts_for_implemented_formats() {
 }
 
 #[test]
+fn openai_extractor_preserves_provider_call_id() {
+    // Issue #4 / F-9 regression — the OpenAI `id` field must round-trip
+    // through ToolCallRequest::provider_call_id so multi-turn tool
+    // sequences send back the call_id OpenAI originally issued.
+    let body = serde_json::json!({
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "id": "call_FAxa9JK",
+                    "type": "function",
+                    "function": { "name": "ls", "arguments": "{}" }
+                }]
+            }
+        }]
+    });
+    let calls = openai_tool_calls(&body).unwrap();
+    assert_eq!(calls[0].provider_call_id.as_deref(), Some("call_FAxa9JK"));
+}
+
+#[test]
+fn anthropic_extractor_preserves_provider_call_id() {
+    let body = serde_json::json!({
+        "content": [
+            {"type": "tool_use", "id": "toolu_01abc", "name": "ls", "input": {}}
+        ]
+    });
+    let calls = anthropic_tool_use(&body).unwrap();
+    assert_eq!(calls[0].provider_call_id.as_deref(), Some("toolu_01abc"));
+}
+
+#[test]
+fn responses_extractor_preserves_provider_call_id() {
+    let body = serde_json::json!({
+        "output": [
+            {"type": "function_call", "call_id": "call_resp_xyz",
+             "name": "ls", "arguments": "{}"}
+        ]
+    });
+    let calls = openai_response_tools(&body).unwrap();
+    assert_eq!(calls[0].provider_call_id.as_deref(), Some("call_resp_xyz"));
+}
+
+#[test]
+fn bedrock_extractor_preserves_provider_call_id() {
+    let body = serde_json::json!({
+        "output": { "message": { "content": [
+            {"toolUse": {"toolUseId":"tooluse_aws_1","name":"ls","input":{}}}
+        ]}}
+    });
+    let calls = bedrock_tool_use(&body).unwrap();
+    assert_eq!(calls[0].provider_call_id.as_deref(), Some("tooluse_aws_1"));
+}
+
+#[test]
+fn extractors_emit_none_provider_call_id_when_id_missing() {
+    let body = serde_json::json!({
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "type": "function",
+                    "function": { "name": "ls", "arguments": "{}" }
+                }]
+            }
+        }]
+    });
+    let calls = openai_tool_calls(&body).unwrap();
+    assert!(calls[0].provider_call_id.is_none());
+}
+
+#[test]
 fn llm_extracted_remains_a_phase2_stub() {
     let body = serde_json::json!({});
     let err = extract_tool_calls(ToolCallFormat::LlmExtracted, &body).unwrap_err();

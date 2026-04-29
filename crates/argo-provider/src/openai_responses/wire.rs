@@ -80,9 +80,14 @@ fn push_message_items(m: &Message, out: &mut Vec<serde_json::Value>) {
         "content": content,
     }));
     for tc in &m.tool_calls {
+        // Issue #4 / F-9: round-trip the provider's `call_id` when known.
+        let id = tc
+            .provider_call_id
+            .clone()
+            .unwrap_or_else(|| tc.id.to_string());
         out.push(serde_json::json!({
             "type": "function_call",
-            "call_id": tc.id.to_string(),
+            "call_id": id,
             "name": tc.name,
             "arguments": tc.arguments.to_string(),
         }));
@@ -234,10 +239,10 @@ pub(super) fn assemble_response(
                 };
                 tool_calls.push(ToolCallRequest {
                     id: ToolCallId::new(),
+                    provider_call_id: (!call_id.is_empty()).then_some(call_id),
                     name,
                     arguments: parsed_args,
                 });
-                let _ = call_id; // provider id round-trip is issue #4 (Agent G).
                 sticky_tool_use = true;
             }
             ResponsesItem::Unknown => {}

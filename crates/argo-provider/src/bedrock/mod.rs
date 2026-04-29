@@ -422,8 +422,13 @@ pub(crate) fn tool_calls_from_envelope(
             .get("input")
             .cloned()
             .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+        let provider_call_id = tu
+            .get("toolUseId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         out.push(ToolCallRequest {
             id: ToolCallId::new(),
+            provider_call_id,
             name,
             arguments,
         });

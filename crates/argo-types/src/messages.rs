@@ -84,8 +84,21 @@ pub enum ContentBlock {
 /// A request from an Assistant turn to invoke a tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallRequest {
-    /// Stable identifier.
+    /// Stable internal identifier (UUIDv7). Always set; uniquely
+    /// identifies the call within Argo's audit + replay.
     pub id: ToolCallId,
+    /// Provider-issued opaque identifier echoed back when sending tool
+    /// results so the provider can correlate. Set when extracted from a
+    /// provider response that carried one (OpenAI `call_FAxa…`,
+    /// Anthropic `toolu_…`, Bedrock `toolUseId`, OpenAI Responses
+    /// `call_id`). The wire layer prefers this over `id.to_string()`
+    /// when present.
+    ///
+    /// Issue #4 (F-9): without this round-trip, OpenAI rejects tool
+    /// results in multi-turn sequences because the `tool_call_id` we
+    /// echo doesn't match what they originally issued.
+    #[serde(default)]
+    pub provider_call_id: Option<String>,
     /// Tool name.
     pub name: String,
     /// JSON arguments per the tool's schema.

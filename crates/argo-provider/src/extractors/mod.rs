@@ -98,8 +98,10 @@ fn parse_openai_tool_call(tc: &serde_json::Value) -> ArgoResult<ToolCallRequest>
         .ok_or_else(|| ArgoError::Provider("openai tool_call missing function.name".into()))?
         .to_string();
     let arguments = parse_openai_arguments(function)?;
+    let provider_call_id = tc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
     Ok(ToolCallRequest {
         id: ToolCallId::new(),
+        provider_call_id,
         name,
         arguments,
     })
@@ -148,8 +150,13 @@ pub fn openai_response_tools(body: &serde_json::Value) -> ArgoResult<Vec<ToolCal
             .ok_or_else(|| ArgoError::Provider("openai_response_tools missing `name`".into()))?
             .to_string();
         let arguments = parse_string_or_object_arguments(item.get("arguments"))?;
+        let provider_call_id = item
+            .get("call_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         out.push(ToolCallRequest {
             id: ToolCallId::new(),
+            provider_call_id,
             name,
             arguments,
         });
@@ -206,8 +213,13 @@ pub fn anthropic_tool_use(body: &serde_json::Value) -> ArgoResult<Vec<ToolCallRe
             .get("input")
             .cloned()
             .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+        let provider_call_id = block
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         out.push(ToolCallRequest {
             id: ToolCallId::new(),
+            provider_call_id,
             name,
             arguments,
         });
@@ -254,8 +266,13 @@ pub fn bedrock_tool_use(body: &serde_json::Value) -> ArgoResult<Vec<ToolCallRequ
             .get("input")
             .cloned()
             .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+        let provider_call_id = tu
+            .get("toolUseId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         out.push(ToolCallRequest {
             id: ToolCallId::new(),
+            provider_call_id,
             name,
             arguments,
         });
@@ -342,6 +359,9 @@ fn parse_hermes_block(raw: &str) -> ArgoResult<ToolCallRequest> {
         .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
     Ok(ToolCallRequest {
         id: ToolCallId::new(),
+        // Hermes format doesn't carry a provider-side id; the agent loop
+        // treats `provider_call_id = None` as "echo the internal id".
+        provider_call_id: None,
         name,
         arguments,
     })

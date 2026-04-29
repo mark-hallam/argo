@@ -142,8 +142,16 @@ fn tool_calls_to_openai(calls: &[ToolCallRequest]) -> serde_json::Value {
     let arr: Vec<serde_json::Value> = calls
         .iter()
         .map(|c| {
+            // Issue #4 / F-9: round-trip the provider's id when we have it,
+            // otherwise fall back to our internal id. OpenAI rejects
+            // tool_call_id values that don't match what it originally
+            // emitted, so this MUST be the provider id on multi-turn flows.
+            let id = c
+                .provider_call_id
+                .clone()
+                .unwrap_or_else(|| c.id.to_string());
             serde_json::json!({
-                "id": c.id.to_string(),
+                "id": id,
                 "type": "function",
                 "function": {
                     "name": c.name,
