@@ -1,11 +1,34 @@
-//! argo-tool — see `docs/plan/argo-build-plan.md`.
+//! `argo-tool` — tool registry + the eight in-core tools (§9).
 //!
-//! Stub crate. Implementation arrives per the phase plan in `ROADMAP.md`.
+//! - [`Tool`] is the trait every tool implements.
+//! - [`ToolRegistry::dispatch`] is the single seam where every call is
+//!   gated against the principal's capabilities (Invariant 3, §10).
+//! - [`builtin_tools`] returns the eight in-core tools ready to register.
+//!
+//! Phase 3 ships four tools end-to-end (`file_read`, `file_write`,
+//! `file_patch`, `terminal`) and four schema-only stubs whose backends
+//! land later (`web_search`, `web_extract` → MCP §12; `memory` → Agent H;
+//! `delegate_task` → Agent K / §16).
+//!
+//! ```
+//! # use std::path::PathBuf;
+//! use argo_tool::{builtin_tools, ToolRegistry};
+//! let mut reg = ToolRegistry::new();
+//! for t in builtin_tools(PathBuf::from("/tmp")) {
+//!     reg.register(t);
+//! }
+//! assert_eq!(reg.names().len(), 8);
+//! ```
 #![warn(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn crate_compiles() {}
-}
+mod registry;
+mod tool;
+mod tools;
+
+pub use registry::ToolRegistry;
+pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
+pub use tools::{
+    builtin_tools, DelegateTask, FilePatch, FileRead, FileWrite, Memory, Terminal, WebExtract,
+    WebSearch,
+};

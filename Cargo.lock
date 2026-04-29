@@ -229,6 +229,18 @@ version = "0.0.1"
 [[package]]
 name = "argo-tool"
 version = "0.0.1"
+dependencies = [
+ "argo-capability",
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "argo-tui"
