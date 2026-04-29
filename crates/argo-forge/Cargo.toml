@@ -5,6 +5,19 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-forge"
+description = "Argo — Forge skill-optimization orchestration (§26)"
 
 [dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-store = { path = "../argo-store", version = "0.0.1" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
