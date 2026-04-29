@@ -5,6 +5,20 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-delegate"
+description = "Argo — subagent delegation: budget tree + COW workspace fork (§16)"
 
 [dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = "3"
+proptest = { workspace = true }

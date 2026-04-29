@@ -143,6 +143,19 @@ version = "0.0.1"
 [[package]]
 name = "argo-delegate"
 version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "chrono",
+ "hex",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "argo-eval"
@@ -279,6 +292,16 @@ dependencies = [
 [[package]]
 name = "argo-sandbox"
 version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "argo-skill"

@@ -10,9 +10,9 @@
 //! rather than hang.
 use crate::error::{McpError, McpResult};
 use crate::protocol::{
-    CallToolParams, CallToolResult, ClientInfo, InitializeParams, InitializeResult,
-    JsonRpcRequest, JsonRpcResponse, ListToolsResult, McpToolSchema, ARGO_CLIENT_NAME,
-    ARGO_CLIENT_VERSION, MCP_PROTOCOL_VERSION,
+    CallToolParams, CallToolResult, ClientInfo, InitializeParams, InitializeResult, JsonRpcRequest,
+    JsonRpcResponse, ListToolsResult, McpToolSchema, ARGO_CLIENT_NAME, ARGO_CLIENT_VERSION,
+    MCP_PROTOCOL_VERSION,
 };
 use std::collections::HashMap;
 use std::process::Stdio;
