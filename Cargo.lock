@@ -114,6 +114,27 @@ version = "0.0.1"
 [[package]]
 name = "argo-core"
 version = "0.0.1"
+dependencies = [
+ "argo-capability",
+ "argo-provider",
+ "argo-store",
+ "argo-tool",
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "futures",
+ "hex",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "argo-cron"

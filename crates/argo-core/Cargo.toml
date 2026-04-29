@@ -5,6 +5,28 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-core"
+description = "Argo — agent loop walking skeleton (§6, Agent F Phase 1)"
 
 [dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-capability = { path = "../argo-capability", version = "0.0.1" }
+argo-provider = { path = "../argo-provider", version = "0.0.1" }
+argo-tool = { path = "../argo-tool", version = "0.0.1" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+futures = { workspace = true }
+parking_lot = { workspace = true }
+tempfile = "3"
