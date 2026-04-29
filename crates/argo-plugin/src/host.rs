@@ -229,10 +229,7 @@ async fn read_loop(
     }
 }
 
-async fn deliver(
-    pending: &PendingMap,
-    resp: JsonRpcResponse,
-) {
+async fn deliver(pending: &PendingMap, resp: JsonRpcResponse) {
     let Some(id) = resp.id.as_u64() else {
         tracing::warn!(?resp.id, "plugin response with non-numeric id");
         return;
@@ -242,10 +239,7 @@ async fn deliver(
     }
 }
 
-async fn fail_pending(
-    pending: &PendingMap,
-    reason: String,
-) {
+async fn fail_pending(pending: &PendingMap, reason: String) {
     let mut g = pending.lock().await;
     let drained: Vec<_> = g.drain().collect();
     drop(g);

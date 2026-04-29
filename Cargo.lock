@@ -186,6 +186,17 @@ version = "0.0.1"
 [[package]]
 name = "argo-mcp"
 version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "async-trait",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "argo-memory"
