@@ -1,0 +1,68 @@
+//! Cost-tier routing types (Amendment 1).
+use crate::ids::{RoutingDecisionId, SessionId};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+/// A `(provider, model)` pair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderModel {
+    /// Provider id (must match a manifest).
+    pub provider: String,
+    /// Model id within the provider.
+    pub model: String,
+}
+
+/// Top-level routing policy.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "policy", rename_all = "snake_case")]
+pub enum RoutingPolicy {
+    /// Always use the configured default model.
+    Fixed,
+    /// Tiered — classify first, then route by tier.
+    Tiered(TieredRouting),
+    /// Delegate to a plugin.
+    PolicyPlugin {
+        /// Plugin name.
+        plugin: String,
+    },
+}
+
+/// Tiered routing config.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TieredRouting {
+    /// Cheap classifier model.
+    pub classifier_model: ProviderModel,
+    /// Tier for simple prompts.
+    pub simple: ProviderModel,
+    /// Tier for medium prompts.
+    pub medium: ProviderModel,
+    /// Tier for complex prompts.
+    pub complex: ProviderModel,
+    /// Max classifier latency (ms); falls through to default if exceeded.
+    pub classify_threshold_ms: u64,
+    /// Whether to fall back to default on classifier error.
+    pub fallback_to_default_on_error: bool,
+}
+
+/// A persisted routing decision (one per turn when policy ≠ Fixed).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutingDecision {
+    /// Stable ID.
+    pub id: RoutingDecisionId,
+    /// Owning session.
+    pub session_id: SessionId,
+    /// Turn number.
+    pub turn: u32,
+    /// Policy in effect (e.g. `"tiered"`).
+    pub policy: String,
+    /// Chosen tier (`"simple"` / `"medium"` / `"complex"` / `"unrouted"`).
+    pub tier: String,
+    /// When the decision was made.
+    pub classified_at: DateTime<Utc>,
+    /// Classifier latency (ms).
+    pub classifier_latency_ms: u64,
+    /// Chosen model.
+    pub chosen_provider_model: ProviderModel,
+    /// Free-form rationale.
+    pub reason: String,
+}

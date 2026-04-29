@@ -1,0 +1,204 @@
+//! Capability-based authorization model.
+use serde::{Deserialize, Serialize};
+
+/// A typed permission grant.
+///
+/// Capabilities are the unit of authorization in Argo. Every tool, skill,
+/// plugin, and provider declares a `CapabilitySet`. The core enforces these
+/// at call time.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Capability {
+    /// Read files matching `path_glob` (globset syntax).
+    FsRead {
+        /// Glob.
+        path_glob: String,
+    },
+    /// Write files matching `path_glob`.
+    FsWrite {
+        /// Glob.
+        path_glob: String,
+    },
+    /// Make outbound network connections to `host_glob` on optionally pinned `port`.
+    NetEgress {
+        /// Host glob.
+        host_glob: String,
+        /// Optional port.
+        #[serde(default)]
+        port: Option<u16>,
+    },
+    /// Read environment variables matching `var_glob`.
+    EnvRead {
+        /// Var-name glob.
+        var_glob: String,
+    },
+    /// Read a named secret from the configured secret backend.
+    SecretRead {
+        /// Secret name.
+        name: String,
+    },
+    /// Dispatch a tool whose name matches `tool_name_glob`.
+    ToolDispatch {
+        /// Tool-name glob.
+        tool_name_glob: String,
+    },
+    /// Spawn a sub-process / sub-agent / container.
+    Spawn {
+        /// Kind of spawn.
+        spawn_kind: SpawnKind,
+    },
+    /// Write directly to the audit log under one's own identity. Rare.
+    AuditWrite,
+    /// Mutate `MEMORY.md`/`USER.md`/`SOUL.md`/`AGENTS.md`.
+    MemoryWrite,
+    /// Create or modify a skill.
+    SkillWrite,
+    /// Emit judge verdicts (only the judge subsystem).
+    SkillJudge,
+    /// Run an Argo Forge optimization (only the Forge subsystem).
+    ForgeRun,
+}
+
+/// What kind of process is being spawned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpawnKind {
+    /// A child Argo agent (`delegate_task`).
+    Subagent,
+    /// An OS subprocess (`terminal`).
+    Subprocess,
+    /// A container (Docker/Modal/Daytona/...).
+    Container,
+}
+
+/// A bag of capabilities granted to a principal.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CapabilitySet(pub Vec<Capability>);
+
+impl CapabilitySet {
+    /// Empty set (denies everything).
+    #[must_use]
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Append a capability.
+    pub fn push(&mut self, c: Capability) {
+        self.0.push(c);
+    }
+
+    /// Does this set cover the requested capability?
+    ///
+    /// ```
+    /// use argo_types::*;
+    /// let granted = CapabilitySet(vec![Capability::FsRead {
+    ///     path_glob: "/tmp/**".into(),
+    /// }]);
+    /// let want = Capability::FsRead {
+    ///     path_glob: "/tmp/foo/bar".into(),
+    /// };
+    /// assert!(granted.covers(&want));
+    /// ```
+    #[must_use]
+    pub fn covers(&self, requested: &Capability) -> bool {
+        self.0.iter().any(|g| capability_covers(g, requested))
+    }
+}
+
+fn capability_covers(grant: &Capability, want: &Capability) -> bool {
+    use Capability::{
+        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, MemoryWrite, NetEgress, SecretRead,
+        SkillJudge, SkillWrite, Spawn, ToolDispatch,
+    };
+    match (grant, want) {
+        (FsRead { path_glob: g }, FsRead { path_glob: w })
+        | (FsWrite { path_glob: g }, FsWrite { path_glob: w }) => glob_covers(g, w),
+        (
+            NetEgress {
+                host_glob: gh,
+                port: gp,
+            },
+            NetEgress {
+                host_glob: wh,
+                port: wp,
+            },
+        ) => {
+            glob_covers(gh, wh)
+                && match (gp, wp) {
+                    (None, _) => true,
+                    (Some(_), None) => false,
+                    (Some(g), Some(w)) => g == w,
+                }
+        }
+        (EnvRead { var_glob: g }, EnvRead { var_glob: w }) => glob_covers(g, w),
+        (SecretRead { name: g }, SecretRead { name: w }) => g == w || g == "*",
+        (ToolDispatch { tool_name_glob: g }, ToolDispatch { tool_name_glob: w }) => {
+            glob_covers(g, w)
+        }
+        (Spawn { spawn_kind: g }, Spawn { spawn_kind: w }) => g == w,
+        (AuditWrite, AuditWrite) => true,
+        (MemoryWrite, MemoryWrite) => true,
+        (SkillWrite, SkillWrite) => true,
+        (SkillJudge, SkillJudge) => true,
+        (ForgeRun, ForgeRun) => true,
+        _ => false,
+    }
+}
+
+fn glob_covers(grant_glob: &str, requested: &str) -> bool {
+    if grant_glob == requested {
+        return true;
+    }
+    let Ok(glob) = globset::Glob::new(grant_glob) else {
+        return false;
+    };
+    glob.compile_matcher().is_match(requested)
+}
+
+/// A named role: a `CapabilitySet` plus optional single-inheritance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Role {
+    /// Role name (e.g. `"owner"`).
+    pub name: String,
+    /// Capabilities granted by the role.
+    pub capabilities: CapabilitySet,
+    /// Single-inheritance parent role name.
+    #[serde(default)]
+    pub inherits_from: Option<String>,
+}
+
+/// Who or what is acting.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Principal {
+    /// A local CLI/TUI user identified by OS user.
+    Local {
+        /// OS user name.
+        os_user: String,
+    },
+    /// A messaging-platform identity.
+    Gateway {
+        /// Adapter name (e.g. `"slack"`).
+        adapter: String,
+        /// Platform-specific identity (e.g. Slack user ID).
+        identity: String,
+    },
+    /// An ACP harness (VS Code, Zed, JetBrains, …).
+    Acp {
+        /// Harness name.
+        harness: String,
+        /// Harness identity.
+        identity: String,
+    },
+    /// The Forge subsystem itself (special principal).
+    Forge,
+}
+
+/// A binding of a principal to a role.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleBinding {
+    /// Bound principal.
+    pub principal: Principal,
+    /// Role name (resolved via the role table).
+    pub role_name: String,
+}

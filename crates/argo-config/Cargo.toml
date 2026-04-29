@@ -1,0 +1,10 @@
+[package]
+name = "argo-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo — argo-config"
+
+[dependencies]
