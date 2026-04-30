@@ -27,11 +27,157 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             provider,
             model,
         } => bench(&skill, &examples, &provider, &model).await,
-        other => {
-            println!("argo forge: '{other:?}' requires the daemon's forge worker (separate PR).");
-            Ok(())
+        ForgeCmd::Optimize {
+            skill,
+            examples,
+            iterations,
+            budget,
+        } => optimize(&skill, &examples, iterations, budget).await,
+    }
+}
+
+/// Best-of-N sweep over `forge bench`. Runs the bench
+/// \[iterations\] times against the same examples, tracking the
+/// score per iteration; the best score wins. Aborts early when
+/// the per-session spend tally exceeds the `--budget` cap (in
+/// USD). The full skill-mutation pipeline is daemon-side; this
+/// CLI-driven loop is the consistency-check tier — useful for
+/// surfacing flaky tasks + measuring run-to-run variance.
+async fn optimize(
+    skill_name: &str,
+    examples_path: &str,
+    iterations: u32,
+    budget_usd: f64,
+) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let store = Arc::new(open_store().await?);
+    let skills = SkillStore::new(Arc::clone(&store));
+    let active = skills
+        .find_active_by_name(skill_name)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{skill_name}'")))?;
+
+    let tasks = load_jsonl(&PathBuf::from(examples_path)).await?;
+    if tasks.is_empty() {
+        return Err(ArgoError::Provider(format!(
+            "no eval tasks parsed from {examples_path}"
+        )));
+    }
+    println!(
+        "argo forge optimize: {skill_name} v{} → {} iters × {} task(s); budget ${budget_usd:.2}",
+        active.frontmatter.version,
+        iterations,
+        tasks.len()
+    );
+
+    let ws_name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let ws_root = cwd.to_string_lossy();
+    let (tenant, workspace) = store.ensure_workspace(ws_name, &ws_root).await?;
+    let run_id = store
+        .start_forge_run(
+            skill_name,
+            &active.frontmatter.version,
+            tasks.len() as u32,
+        )
+        .await?;
+    let _ = AuditSink::new(Arc::clone(&store))
+        .write(
+            None,
+            AuditKind::ForgeRunStart,
+            serde_json::json!({
+                "run_id": run_id.to_string(),
+                "skill_name": skill_name,
+                "examples": examples_path,
+                "iterations": iterations,
+                "budget_usd": budget_usd,
+            }),
+        )
+        .await;
+
+    let subject = BenchSubject {
+        store: Arc::clone(&store),
+        cwd: cwd.clone(),
+        tenant,
+        workspace,
+        provider: "anthropic".to_string(),
+        model: "claude-3-5-sonnet-20241022".to_string(),
+        skill_name: skill_name.to_string(),
+    };
+
+    let mut best: f64 = f64::NEG_INFINITY;
+    let mut completed = 0_i64;
+    let mut last_status = "succeeded";
+    let budget_micros = (budget_usd * 1_000_000.0).round() as i64;
+    let baseline_spend = store
+        .get_forge_run(run_id)
+        .await
+        .ok()
+        .flatten()
+        .map_or(0_i64, |r| r.spend_usd_micros);
+    let _ = baseline_spend; // not used yet — kept for the over-budget cutoff.
+
+    println!("\n  iter  mean_score  pass_rate  errors  best_so_far");
+    for iter in 0..iterations {
+        let (records, summary) = run_eval(&subject, &tasks).await;
+        if summary.errors > 0 {
+            last_status = if summary.errors == summary.n {
+                "failed"
+            } else {
+                "partial"
+            };
+        }
+        if summary.mean_score > best {
+            best = summary.mean_score;
+        }
+        completed += 1;
+        println!(
+            "  {iter:>3}   {mean:.3}      {pr:.3}     {errs:<6}  {best:.3}",
+            iter = iter,
+            mean = summary.mean_score,
+            pr = summary.pass_rate,
+            errs = summary.errors,
+            best = best,
+        );
+        // Drop the records we don't need into oblivion.
+        drop(records);
+
+        // Cheap budget check: query the spend ledger snapshot.
+        if let Ok(Some(row)) = store.get_forge_run(run_id).await {
+            if budget_micros > 0 && row.spend_usd_micros >= budget_micros {
+                last_status = "partial";
+                println!(
+                    "  (over budget after iter {iter}: spend=${:.2} > cap=${budget_usd:.2})",
+                    row.spend_usd_micros as f64 / 1_000_000.0
+                );
+                break;
+            }
         }
     }
+
+    let final_score = if best.is_finite() { Some(best) } else { None };
+    let _ = store
+        .finish_forge_run(run_id, last_status, final_score, completed)
+        .await;
+    let _ = AuditSink::new(Arc::clone(&store))
+        .write(
+            None,
+            AuditKind::ForgeRunEnd,
+            serde_json::json!({
+                "run_id": run_id.to_string(),
+                "status": last_status,
+                "best_score": final_score,
+                "iterations_run": completed,
+            }),
+        )
+        .await;
+    println!(
+        "\nsummary: status={last_status} best_score={best:.3} iters_run={completed}/{iterations} (run_id={run_id})"
+    );
+    Ok(())
 }
 
 async fn bench(
