@@ -11,6 +11,7 @@
 //! the schema without a real audio rig.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod elevenlabs;
 mod openai;
 mod service;
 

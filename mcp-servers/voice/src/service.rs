@@ -102,18 +102,19 @@ async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
             };
         }
     };
-    if backend != "openai" {
-        return CallToolResult {
+    let voice = args.get("voice").and_then(|v| v.as_str());
+    let instructions = args.get("instructions").and_then(|v| v.as_str());
+    let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("mp3");
+    match backend {
+        "openai" => crate::openai::synthesize(text, voice, instructions, format).await,
+        "elevenlabs" => crate::elevenlabs::synthesize(text, voice).await,
+        _ => CallToolResult {
             content: vec![McpContent::Text {
                 text: NOT_WIRED.into(),
             }],
             is_error: true,
-        };
+        },
     }
-    let voice = args.get("voice").and_then(|v| v.as_str());
-    let instructions = args.get("instructions").and_then(|v| v.as_str());
-    let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("mp3");
-    crate::openai::synthesize(text, voice, instructions, format).await
 }
 
 fn transcribe_schema() -> McpToolSchema {
