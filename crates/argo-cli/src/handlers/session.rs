@@ -12,7 +12,11 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::List { limit } => list_sessions(limit).await,
         SessionCmd::Show { id } => show_session(&id).await,
         SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
-        SessionCmd::Search { query, limit } => search(&query, limit).await,
+        SessionCmd::Search {
+            query,
+            limit,
+            session,
+        } => search(&query, limit, session.as_deref()).await,
         SessionCmd::Delete { id, force } => delete_session(&id, force).await,
         SessionCmd::Diff { id1, id2 } => {
             // The diff against the live SQLite store needs the
@@ -92,7 +96,7 @@ async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn search(query: &str, limit: u32) -> ArgoResult<()> {
+async fn search(query: &str, limit: u32, session: Option<&str>) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -100,7 +104,16 @@ async fn search(query: &str, limit: u32) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
-    let hits = store.search_messages(query, limit).await?;
+    let hits = match session {
+        Some(raw) => {
+            let id = uuid::Uuid::parse_str(raw)
+                .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+            store
+                .search_messages_in_session(SessionId(id), query, limit)
+                .await?
+        }
+        None => store.search_messages(query, limit).await?,
+    };
     if hits.is_empty() {
         println!("(no matches for '{query}')");
         return Ok(());

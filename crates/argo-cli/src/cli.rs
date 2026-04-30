@@ -356,11 +356,14 @@ pub enum SessionCmd {
         #[arg(long)]
         out: Option<String>,
     },
-    /// Full-text search the message corpus via FTS5.
+    /// Full-text search the message corpus via FTS5. Pass
+    /// `--session <id>` to scope to one session.
     Search {
         query: String,
         #[arg(long, default_value_t = 20)]
         limit: u32,
+        #[arg(long)]
+        session: Option<String>,
     },
     /// Delete a session and all its dependent rows. Pass `--force`
     /// to skip the confirmation prompt.

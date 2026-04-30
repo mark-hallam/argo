@@ -344,6 +344,30 @@ impl SessionStore {
         Ok(rows.into_iter().map(MessageSearchHit::from).collect())
     }
 
+    /// FTS5 search scoped to a single session. Same shape as
+    /// [`Self::search_messages`] but adds a `session_id` filter.
+    pub async fn search_messages_in_session(
+        &self,
+        session_id: SessionId,
+        query: &str,
+        limit: u32,
+    ) -> StoreResult<Vec<MessageSearchHit>> {
+        let rows: Vec<MessageSearchHitRow> = sqlx::query_as::<_, MessageSearchHitRow>(
+            "SELECT m.session_id, m.seq, m.role, \
+             snippet(message_fts, 0, '[', ']', '…', 32) AS snippet \
+             FROM message_fts JOIN message m ON m.rowid = message_fts.rowid \
+             WHERE message_fts MATCH ? AND m.session_id = ? \
+             ORDER BY rank LIMIT ?",
+        )
+        .bind(query)
+        .bind(session_id.0.as_bytes().as_slice())
+        .bind(i64::from(limit))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("search_messages_in_session: {e}")))?;
+        Ok(rows.into_iter().map(MessageSearchHit::from).collect())
+    }
+
     /// Stream a session's messages in `seq` order. Used by
     /// `argo session export` to dump sessions to JSONL.
     pub async fn list_messages(&self, session_id: SessionId) -> StoreResult<Vec<MessageRow>> {
