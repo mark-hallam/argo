@@ -6,26 +6,24 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library + integration tier complete. Live agent loop now
 ships as a reusable library crate (`argo-agent-runner`); the
-TUI is a fully self-contained workflow (compose / steer / new
-/ rename / delete / yank, Tab pane focus + j/k/PgUp/Dn/g/G
-routing, `o` opens a message-detail overlay, `?` shows the
-keybinding cheatsheet, real-time `RunEvent` trail streams
-under the messages pane while a turn runs). The marketplace
-ships an HTTP-backed `OciDistributionRegistry` against the
-OCI Distribution Spec v2 — `argo workspace push/pull` round-
-trips against any conformant registry (GHCR, Docker Hub,
-Artifact Registry, Harbor); each push records a row in
-`marketplace_artifact` for `argo workspace artifacts` (CLI
-+ gateway). `argo judge override <record-id> --to <verdict>`
-takes the daemon out of the offline override path and writes
-a `JudgeVerdict` audit row. Gateway exposes 28 endpoints
-including `GET /providers`, `GET /tools`, `GET /search?q=…`,
-`GET /workspace/artifacts`, `GET /routes` (discovery).
-Streaming end-to-end (chat + gateway, real-time via mpsc
-channel — no polling).** Phases 0–7 + 4.5 + 6.5 + 7.5 all
-ship at the library tier across **250+ PRs**, with zero
-LOC-budget violations across the ~40k-line workspace and 75+
-test suites green.
+TUI is a fully self-contained workflow with a complete keymap
+(compose / steer / new / rename / delete / yank, Tab pane
+focus, `o` for message-detail overlay, `?` for help). The
+marketplace ships an HTTP-backed `OciDistributionRegistry`
+against the OCI Distribution Spec v2 with full Bearer
+challenge handshake (GHCR / Docker Hub / Artifact Registry /
+Harbor); `argo workspace push/pull` round-trips against any
+v2-compliant registry, with `marketplace_artifact` rows
+recorded for `argo workspace artifacts` (CLI + gateway).
+Forge gains offline runs `list/show/abort` + `promote`;
+`judge override` is a one-shot CLI op. Gateway exposes 29
+endpoints including `GET /providers`, `GET /tools`, `GET
+/search?q=…`, `GET /workspace/artifacts`, `GET /forge/runs`,
+`GET /routes` (discovery). Streaming end-to-end (chat +
+gateway, real-time via mpsc channel — no polling).** Phases
+0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
+**255+ PRs**, with zero LOC-budget violations across the
+~40k-line workspace and 75+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -102,16 +100,17 @@ budget, the Windows test gating, and the deny advisory ignore-list.
 
 What's left:
 
-- **Daemon-coupled forge** — `forge optimize`, `forge promote`,
-  `forge bench` still stub to "needs the daemon's worker";
-  wiring them through `argo-agent-runner` (#228) + the judge
-  engine is the remaining big chunk. (`judge override` shipped
-  offline in #246; the daemon coupling there is only re-running
-  a verdict against a live judge, not the override itself.)
-- **OCI auth challenge flow** — `OciDistributionRegistry`
-  (#243) supports anonymous + Bearer token; the GHCR / Docker
-  Hub `WWW-Authenticate` token-exchange dance is left to
-  callers as a few reqwest lines.
+- **Daemon-coupled forge** — only `forge optimize` and
+  `forge bench` still stub to "needs the daemon's worker"; they
+  need the agent loop running in a worker (loop over examples,
+  score via judge, persist a candidate row). Everything else
+  shipped offline: `forge runs list/show/abort` (#254),
+  `forge promote` (#255), `judge override` (#246).
+- **Forge optimize as a CLI-driven loop** — could ship without
+  a daemon if we run the optimization synchronously (CLI
+  blocks while the agent loop iterates); the daemon's
+  contribution is the *background* execution, not the
+  optimization logic itself.
 - **Voice / browser native bindings** — `local` shell-out
   (#209) and `session_*` reuse-WS (#208) cover the workflows;
   truly native (whisper-rs, chromiumoxide) is a perf upgrade.
