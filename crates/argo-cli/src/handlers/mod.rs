@@ -9,6 +9,7 @@ pub mod doctor;
 pub mod eval;
 pub mod forge;
 pub mod gateway;
+pub mod health;
 pub mod judge;
 pub mod mcp;
 pub mod memory;

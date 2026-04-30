@@ -122,6 +122,11 @@ pub enum Command {
     Tui,
     /// Diagnose configuration / sandbox / port issues.
     Doctor,
+    /// Run every read-only verification — workspace, provider
+    /// manifests, skill hashes, memory hashes, audit chain — and
+    /// exit non-zero on the first failure. Suitable as a single
+    /// CI hook.
+    Health,
     Import {
         #[command(subcommand)]
         cmd: ImportCmd,
