@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
+argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-cron = { path = "../argo-cron", version = "0.0.1" }
 argo-eval = { path = "../argo-eval", version = "0.0.1" }
@@ -24,6 +25,7 @@ argo-routing = { path = "../argo-routing", version = "0.0.1" }
 argo-skill = { path = "../argo-skill", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-telemetry = { path = "../argo-telemetry", version = "0.0.1" }
+argo-tool = { path = "../argo-tool", version = "0.0.1" }
 argo-tui = { path = "../argo-tui", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 async-trait = { workspace = true }

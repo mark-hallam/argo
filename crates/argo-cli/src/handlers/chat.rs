@@ -1,5 +1,5 @@
-//! `argo chat <id> [--user <text>]` — run one turn of the agent
-//! loop against a recorded session.
+//! `argo chat <id> [--user <text>]` — run multi-turn agent loop
+//! against a recorded session.
 //!
 //! Dispatches by `manifest.provider.family`:
 //!   - `anthropic` → AnthropicTransport
@@ -7,25 +7,38 @@
 //!   - `openai-responses` → OpenAiResponsesTransport
 //!   - `bedrock` → not yet wired (sigv4 needs daemon plumbing)
 //!
-//! Calls the provider once, persists the assistant response. No
-//! tool dispatch, no streaming, no router — just the happy-path
-//! single-turn round-trip. Heavier surfaces (multi-turn loop, tool
-//! calls, streaming, cost accounting, audit emission) belong with
-//! the daemon-resident agent loop and will land via
-//! `POST /sessions/<id>/runs`.
+//! When the response carries `tool_calls`, each is dispatched
+//! through `argo_tool::ToolRegistry` (capability-checked via
+//! `CapabilityEngine`), the result is appended as a tool-role
+//! message, and the loop runs another provider turn. Capped at
+//! `MAX_TOOL_ROUNDS` to bound runaway loops. Streaming
+//! (`--stream`) stays single-turn for now; multi-turn streaming
+//! lands once the wire layer can accumulate tool-call deltas
+//! through the agent loop.
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_capability::CapabilityEngine;
 use argo_provider::{
     AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
-    ProviderManifest, ProviderRequest, ProviderResponseDelta, Sampling, Transport,
+    ProviderManifest, ProviderRequest, ProviderResponseDelta, Sampling,
+    ToolSchema as ProviderToolSchema, Transport,
 };
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
+use argo_tool::{builtin_tools, ToolContext, ToolRegistry};
+use argo_types::{
+    ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, Principal, SessionId,
+    ToolCallId, ToolCallRequest, ToolCallResult,
+};
 use chrono::Utc;
 use futures::StreamExt;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Hard cap on tool-dispatch rounds within a single `run_turn` to
+/// stop runaway loops. Generous enough for legitimate planning
+/// chains; small enough that an accidental loop fails fast.
+const MAX_TOOL_ROUNDS: usize = 8;
 
 /// Outcome of one agent-loop turn. Consumed by both the CLI
 /// handler (which prints) and the gateway's
@@ -124,8 +137,10 @@ fn print_result(result: &TurnResult, stream: bool) {
 ///
 /// Reusable from both the CLI handler and the gateway's
 /// `POST /sessions/<id>/runs` endpoint. When `stream = true` the
-/// assistant text is flushed to stdout as it arrives (no-op when
-/// stdout is captured / piped).
+/// assistant text is flushed to stdout as it arrives — streaming
+/// stays single-turn for now (no tool dispatch). Non-streaming
+/// runs the full tool-dispatch loop, capped at
+/// [`MAX_TOOL_ROUNDS`] rounds.
 pub async fn run_turn(
     store: &Arc<SessionStore>,
     cwd: &Path,
@@ -167,6 +182,160 @@ pub async fn run_turn(
         }
     };
 
+    if stream {
+        return run_turn_stream(store, transport.as_ref(), session_id, &session.model).await;
+    }
+    run_turn_with_tools(store, transport.as_ref(), cwd, session_id, &session.model).await
+}
+
+/// Build a tool registry + capability engine that grants the
+/// local OS user the `owner` role. `argo chat` runs against the
+/// invoking user's workspace, so a permissive grant is correct
+/// here — the daemon path will narrow this once tenants land.
+fn build_dispatch_ctx(cwd: &Path) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
+    let mut reg = ToolRegistry::new();
+    for t in builtin_tools(cwd.to_path_buf()) {
+        reg.register(t);
+    }
+    let engine = CapabilityEngine::with_defaults();
+    let os_user = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_else(|_| "argo".into());
+    let principal = Principal::Local { os_user };
+    engine.bind(principal.clone(), "owner".into())?;
+    Ok((reg, engine, principal))
+}
+
+fn provider_schemas(reg: &ToolRegistry) -> Vec<ProviderToolSchema> {
+    reg.schemas()
+        .into_iter()
+        .map(|s| ProviderToolSchema {
+            name: s.name,
+            description: s.description,
+            parameters: s.parameters,
+        })
+        .collect()
+}
+
+async fn run_turn_with_tools(
+    store: &Arc<SessionStore>,
+    transport: &dyn Transport,
+    cwd: &Path,
+    session_id: SessionId,
+    model: &str,
+) -> ArgoResult<TurnResult> {
+    let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
+    let tools = provider_schemas(&registry);
+
+    let mut last_text = String::new();
+    let mut last_tokens_in: Option<u32> = None;
+    let mut last_tokens_out: Option<u32> = None;
+    let mut last_assistant_id = Uuid::nil();
+
+    for round in 0..MAX_TOOL_ROUNDS {
+        let rows = store.list_messages(session_id).await?;
+        let messages = rows
+            .iter()
+            .map(|r| message_from_row(r, session_id))
+            .collect::<ArgoResult<Vec<_>>>()?;
+
+        let req = ProviderRequest {
+            model: model.to_string(),
+            messages,
+            tools: tools.clone(),
+            system: None,
+            sampling: Sampling::default(),
+        };
+        let resp = transport.complete(&req).await?;
+        last_text = resp.text.clone().unwrap_or_default();
+        last_tokens_in = resp.tokens_in;
+        last_tokens_out = resp.tokens_out;
+
+        let assistant_content = build_assistant_content(&last_text, &resp.tool_calls);
+        last_assistant_id = store
+            .append_message(
+                session_id,
+                MessageRole::Assistant,
+                &assistant_content.to_string(),
+            )
+            .await?;
+
+        if resp.tool_calls.is_empty() {
+            return Ok(TurnResult {
+                assistant_id: last_assistant_id,
+                text: last_text,
+                tokens_in: last_tokens_in,
+                tokens_out: last_tokens_out,
+            });
+        }
+
+        for call in &resp.tool_calls {
+            let result = dispatch_one(&registry, &engine, &principal, cwd, call).await;
+            let tool_msg = serde_json::json!([ContentBlock::ToolResult(result)]);
+            store
+                .append_message(session_id, MessageRole::Tool, &tool_msg.to_string())
+                .await?;
+        }
+
+        if round + 1 == MAX_TOOL_ROUNDS {
+            return Err(ArgoError::Provider(format!(
+                "tool-dispatch loop hit MAX_TOOL_ROUNDS={MAX_TOOL_ROUNDS}; aborting"
+            )));
+        }
+    }
+    Ok(TurnResult {
+        assistant_id: last_assistant_id,
+        text: last_text,
+        tokens_in: last_tokens_in,
+        tokens_out: last_tokens_out,
+    })
+}
+
+pub(crate) fn build_assistant_content(
+    text: &str,
+    tool_calls: &[ToolCallRequest],
+) -> serde_json::Value {
+    let mut blocks: Vec<ContentBlock> = Vec::new();
+    if !text.is_empty() {
+        blocks.push(ContentBlock::Text {
+            text: text.to_string(),
+        });
+    }
+    for tc in tool_calls {
+        blocks.push(ContentBlock::ToolUse(tc.clone()));
+    }
+    serde_json::json!(blocks)
+}
+
+async fn dispatch_one(
+    registry: &ToolRegistry,
+    engine: &CapabilityEngine,
+    principal: &Principal,
+    cwd: &Path,
+    call: &ToolCallRequest,
+) -> ToolCallResult {
+    let started = std::time::Instant::now();
+    let mut ctx = ToolContext::new(principal.clone(), cwd.to_path_buf());
+    ctx.call_id = call.id;
+    match registry
+        .dispatch(&call.name, call.arguments.clone(), &ctx, engine)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => argo_tool::error_text(
+            call.id,
+            format!("dispatch '{}' failed: {e}", call.name),
+            u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        ),
+    }
+}
+
+async fn run_turn_stream(
+    store: &Arc<SessionStore>,
+    transport: &dyn Transport,
+    session_id: SessionId,
+    model: &str,
+) -> ArgoResult<TurnResult> {
     let rows = store.list_messages(session_id).await?;
     let messages = rows
         .iter()
@@ -174,22 +343,13 @@ pub async fn run_turn(
         .collect::<ArgoResult<Vec<_>>>()?;
 
     let req = ProviderRequest {
-        model: session.model.clone(),
+        model: model.to_string(),
         messages,
         tools: Vec::new(),
         system: None,
         sampling: Sampling::default(),
     };
-    let (text, tokens_in, tokens_out) = if stream {
-        run_stream(transport.as_ref(), &req).await?
-    } else {
-        let resp = transport.complete(&req).await?;
-        (
-            resp.text.unwrap_or_default(),
-            resp.tokens_in,
-            resp.tokens_out,
-        )
-    };
+    let (text, tokens_in, tokens_out) = run_stream(transport, &req).await?;
     let content = if text.is_empty() {
         serde_json::json!([])
     } else {
@@ -266,9 +426,10 @@ fn message_from_row(row: &argo_store::MessageRow, session_id: SessionId) -> Argo
             return Err(ArgoError::Provider(format!("unknown role '{other}'")));
         }
     };
-    let content: Vec<ContentBlock> = serde_json::from_str(&row.content_json).map_err(|e| {
+    let raw_content: Vec<ContentBlock> = serde_json::from_str(&row.content_json).map_err(|e| {
         ArgoError::Provider(format!("parse content_json: {e}: {}", row.content_json))
     })?;
+    let (content, tool_calls, tool_call_id) = lift_tool_blocks(raw_content);
     let created_at = chrono::DateTime::from_timestamp_micros(row.created_at)
         .ok_or_else(|| ArgoError::Provider("created_at out of range".into()))?
         .with_timezone(&Utc);
@@ -277,10 +438,38 @@ fn message_from_row(row: &argo_store::MessageRow, session_id: SessionId) -> Argo
         session_id,
         role,
         content,
-        tool_calls: Vec::new(),
-        tool_call_id: None,
+        tool_calls,
+        tool_call_id,
         reasoning: None,
         created_at,
         provider_meta: serde_json::Value::Null,
     })
+}
+
+/// Split a `Vec<ContentBlock>` (the on-disk form) into the
+/// shape the wire layer expects: plain content blocks stay on
+/// `Message.content`, `ToolUse` blocks get hoisted to
+/// `Message.tool_calls`, and the first `ToolResult`'s id is
+/// hoisted to `Message.tool_call_id`. Tool-result blocks remain
+/// in `content` so wire layers (Anthropic `push_tool_result`)
+/// can read the body.
+pub(crate) fn lift_tool_blocks(
+    blocks: Vec<ContentBlock>,
+) -> (Vec<ContentBlock>, Vec<ToolCallRequest>, Option<ToolCallId>) {
+    let mut content = Vec::with_capacity(blocks.len());
+    let mut tool_calls = Vec::new();
+    let mut tool_call_id: Option<ToolCallId> = None;
+    for b in blocks {
+        match b {
+            ContentBlock::ToolUse(tc) => tool_calls.push(tc),
+            ContentBlock::ToolResult(r) => {
+                if tool_call_id.is_none() {
+                    tool_call_id = Some(r.id);
+                }
+                content.push(ContentBlock::ToolResult(r));
+            }
+            other => content.push(other),
+        }
+    }
+    (content, tool_calls, tool_call_id)
 }

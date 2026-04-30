@@ -130,6 +130,7 @@ name = "argo-cli"
 version = "0.0.1"
 dependencies = [
  "argo-audit",
+ "argo-capability",
  "argo-config",
  "argo-cron",
  "argo-eval",
@@ -141,6 +142,7 @@ dependencies = [
  "argo-skill",
  "argo-store",
  "argo-telemetry",
+ "argo-tool",
  "argo-tui",
  "argo-types",
  "async-trait",
