@@ -41,7 +41,7 @@ pub struct TurnResult {
     pub tokens_out: Option<u32>,
 }
 
-pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> {
+pub async fn run(raw: &str, user: Option<&str>, stream: bool, interactive: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -50,6 +50,11 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> 
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw)
         .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+
+    if interactive {
+        return run_interactive(&store, &cwd, SessionId(id), user, stream).await;
+    }
+
     eprintln!("argo chat: → session {id} (stream={stream})");
     let result = run_turn(&store, &cwd, SessionId(id), user, stream).await?;
     println!("\nargo chat: ← assistant message {}", result.assistant_id);
@@ -60,6 +65,59 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> 
         println!("[{ti} prompt + {to} completion tokens]");
     }
     Ok(())
+}
+
+async fn run_interactive(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    session_id: SessionId,
+    seed: Option<&str>,
+    stream: bool,
+) -> ArgoResult<()> {
+    use std::io::BufRead;
+    eprintln!(
+        "argo chat: interactive mode against session {} (stream={stream})",
+        session_id.0
+    );
+    eprintln!("type a line to send, Ctrl-D / EOF to exit\n");
+
+    // First turn uses the optional --user seed (if any) so callers
+    // can prime the REPL from the command line.
+    if let Some(text) = seed {
+        eprintln!("> {text}");
+        let result = run_turn(store, cwd, session_id, Some(text), stream).await?;
+        print_result(&result, stream);
+    }
+
+    let stdin = std::io::stdin();
+    let mut lines = stdin.lock().lines();
+    loop {
+        eprint!("> ");
+        let _ = std::io::Write::flush(&mut std::io::stderr());
+        let line = match lines.next() {
+            Some(Ok(l)) => l,
+            Some(Err(e)) => return Err(ArgoError::Provider(format!("stdin: {e}"))),
+            None => {
+                eprintln!("\nargo chat: EOF — bye");
+                return Ok(());
+            }
+        };
+        if line.is_empty() {
+            continue;
+        }
+        let result = run_turn(store, cwd, session_id, Some(&line), stream).await?;
+        print_result(&result, stream);
+    }
+}
+
+fn print_result(result: &TurnResult, stream: bool) {
+    println!("\nargo chat: ← assistant message {}", result.assistant_id);
+    if !stream && !result.text.is_empty() {
+        println!("\n{}\n", result.text);
+    }
+    if let (Some(ti), Some(to)) = (result.tokens_in, result.tokens_out) {
+        println!("[{ti} prompt + {to} completion tokens]");
+    }
 }
 
 /// One agent-loop turn against an open SessionStore.

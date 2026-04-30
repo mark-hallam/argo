@@ -152,6 +152,10 @@ pub enum Command {
         /// persisted message is the same — but you see it live.
         #[arg(long)]
         stream: bool,
+        /// Drop into a REPL: read user input, run a turn, print
+        /// the response, repeat. Ctrl-D / EOF exits cleanly.
+        #[arg(long, short = 'i')]
+        interactive: bool,
     },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
