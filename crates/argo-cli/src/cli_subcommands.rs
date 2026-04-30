@@ -372,10 +372,20 @@ pub enum SessionCmd {
         #[arg(long)]
         force: bool,
     },
+    /// Replay a recorded session's user messages into a fresh
+    /// session against a (possibly different) model. Each user
+    /// message is appended in order and the agent loop runs one
+    /// turn per message; the new session id is printed at the end.
     Replay {
         id: String,
+        /// Override the model. Defaults to the source session's
+        /// model.
         #[arg(long)]
         model: Option<String>,
+        /// Override the provider id (matches `manifests/providers/
+        /// <id>.toml`). Defaults to the source session's provider.
+        #[arg(long)]
+        provider: Option<String>,
         #[arg(long)]
         tools: Option<String>,
         #[arg(long)]

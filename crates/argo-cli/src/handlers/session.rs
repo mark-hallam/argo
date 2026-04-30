@@ -30,25 +30,10 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Replay {
             id,
             model,
-            tools,
-            workspace,
-        } => {
-            println!("session replay {id}");
-            if let Some(m) = model {
-                println!("  --model {m}");
-            }
-            if let Some(t) = tools {
-                println!("  --tools {t}");
-            }
-            if let Some(w) = workspace {
-                println!("  --workspace {w}");
-            }
-            println!(
-                "  (verbatim replay against the recorded provider response is the daemon's job;"
-            );
-            println!("   the argo-replay library is built and tested at the lib tier.)");
-            Ok(())
-        }
+            provider,
+            tools: _,
+            workspace: _,
+        } => super::session_replay::run(&id, model.as_deref(), provider.as_deref()).await,
     }
 }
 
