@@ -6,15 +6,20 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**80+ PRs**. The CLI binary (`argo`) drives ~45 subcommands against
-the workspace store; the TUI ships a session viewer with messages
-preview, `/`-filter and PgUp/PgDn navigation; voice + browser MCP
-server scaffolds advertise their full schemas; `argo workspace init`
-now registers a workspace row in the DB so memory subcommands work
-straight after init. What's left is the heavy native bindings
-(whisper-rs, piper-rs, chromiumoxide), cross-registry marketplace
-integration, and the daemon-coupled commands that need a live
-gateway / router / judge.
+**90+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
+the workspace store; the read-side surface (`session list/show`,
+`memory list`, `skill list/view`, `cron list`) all support `--json`
+NDJSON output for scripting; the TUI ships a session viewer with
+messages preview, `/`-filter and PgUp/PgDn navigation; voice +
+browser MCP server scaffolds advertise their full schemas;
+`argo workspace init` registers a workspace row in the DB so memory
+subcommands work straight after init; `argo doctor` reports DB
+schema + workspace + row counts; three end-to-end integration
+tests cover the workspace+memory chain, provider+workspace
+verification, and cron CRUD lifecycle. What's left is the heavy
+native bindings (whisper-rs, piper-rs, chromiumoxide), cross-
+registry marketplace integration, and the daemon-coupled commands
+that need a live gateway / router / judge.
 
 ## Status
 
@@ -90,6 +95,11 @@ gateway / router / judge.
 | `argo workspace init` (registers workspace row) | ✅ | #79 |
 | `argo db status / prune / vacuum` | ✅ | #69, #64, #71 |
 | `argo route bench` (FixedRouter micro-benchmark) | ✅ | #82 |
+| `argo doctor` reports DB schema + workspace + row counts | ✅ | #85 |
+| `argo session list / show --json` (NDJSON) | ✅ | #86, #89 |
+| `argo memory list --json [--file <name>]` | ✅ | #87, #88 |
+| `argo skill list / view --json` | ✅ | #87, #90 |
+| `argo cron list --json` | ✅ | #90 |
 | `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
 
 ## MCP servers shipped as standalone bins
