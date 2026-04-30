@@ -44,6 +44,9 @@ pub(super) async fn dispatch_route(
             if tail.starts_with("messages ") {
                 return append_message_response(sid, req, store).await;
             }
+            if tail.starts_with("runs ") {
+                return run_turn_response(sid, req, store).await;
+            }
         }
     }
     // GET /sessions/<uuid> — fetch one session header
@@ -373,6 +376,69 @@ async fn session_show_response(
         "200 OK",
         serde_json::to_string(&row).unwrap_or_else(|_| "{}".to_string()),
     )
+}
+
+async fn run_turn_response(
+    sid: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    // Body is optional; if present, may carry {user, stream}.
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = if body.is_empty() {
+        serde_json::Value::Null
+    } else {
+        match serde_json::from_str(body) {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    "400 Bad Request",
+                    format!("{{\"error\":\"parse body: {e}\"}}"),
+                );
+            }
+        }
+    };
+    let user = parsed.get("user").and_then(|v| v.as_str());
+    // Streaming over HTTP is the daemon's job; for now we always
+    // run non-streaming and return the final body. Token-by-token
+    // streaming will be a follow-up that emits chunked JSON.
+    let cwd = match std::env::current_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"cwd: {e}\"}}"),
+            );
+        }
+    };
+    match crate::handlers::chat::run_turn(store, &cwd, id, user, false).await {
+        Ok(result) => (
+            "201 Created",
+            serde_json::to_string(&serde_json::json!({
+                "assistant_id": result.assistant_id.to_string(),
+                "text": result.text,
+                "tokens_in": result.tokens_in,
+                "tokens_out": result.tokens_out,
+            }))
+            .unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"run_turn: {e}\"}}"),
+        ),
+    }
 }
 
 async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {

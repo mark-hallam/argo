@@ -23,7 +23,23 @@ use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, Messag
 use chrono::Utc;
 use futures::StreamExt;
 use std::io::Write;
+use std::path::Path;
 use std::sync::Arc;
+use uuid::Uuid;
+
+/// Outcome of one agent-loop turn. Consumed by both the CLI
+/// handler (which prints) and the gateway's
+/// `POST /sessions/<id>/runs` endpoint (which serializes to JSON).
+pub struct TurnResult {
+    /// Persisted assistant message id.
+    pub assistant_id: Uuid,
+    /// Full assistant text.
+    pub text: String,
+    /// Provider-reported input tokens, if any.
+    pub tokens_in: Option<u32>,
+    /// Provider-reported output tokens, if any.
+    pub tokens_out: Option<u32>,
+}
 
 pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> {
     let cwd =
@@ -34,21 +50,44 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> 
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw)
         .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
-    let session = store
-        .get_session(SessionId(id))
-        .await?
-        .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
+    eprintln!("argo chat: → session {id} (stream={stream})");
+    let result = run_turn(&store, &cwd, SessionId(id), user, stream).await?;
+    println!("\nargo chat: ← assistant message {}", result.assistant_id);
+    if !stream && !result.text.is_empty() {
+        println!("\n{}\n", result.text);
+    }
+    if let (Some(ti), Some(to)) = (result.tokens_in, result.tokens_out) {
+        println!("[{ti} prompt + {to} completion tokens]");
+    }
+    Ok(())
+}
 
-    // Optionally append a fresh user message before the call —
-    // saves one extra HTTP/CLI round-trip in the common case.
+/// One agent-loop turn against an open SessionStore.
+///
+/// Reusable from both the CLI handler and the gateway's
+/// `POST /sessions/<id>/runs` endpoint. When `stream = true` the
+/// assistant text is flushed to stdout as it arrives (no-op when
+/// stdout is captured / piped).
+pub async fn run_turn(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    session_id: SessionId,
+    user: Option<&str>,
+    stream: bool,
+) -> ArgoResult<TurnResult> {
+    let session = store
+        .get_session(session_id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session {}", session_id.0)))?;
+
     if let Some(text) = user {
         let content = serde_json::json!([{"type": "text", "text": text}]);
         store
-            .append_message(SessionId(id), MessageRole::User, &content.to_string())
+            .append_message(session_id, MessageRole::User, &content.to_string())
             .await?;
     }
 
-    let manifest = load_manifest(&cwd, &session.provider)?;
+    let manifest = load_manifest(cwd, &session.provider)?;
     let api_key_env = manifest.auth.api_key_env.clone();
     let api_key = std::env::var(&api_key_env)
         .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
@@ -70,11 +109,10 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> 
         }
     };
 
-    // Reload messages so the freshly-appended user input is included.
-    let rows = store.list_messages(SessionId(id)).await?;
+    let rows = store.list_messages(session_id).await?;
     let messages = rows
         .iter()
-        .map(|r| message_from_row(r, SessionId(id)))
+        .map(|r| message_from_row(r, session_id))
         .collect::<ArgoResult<Vec<_>>>()?;
 
     let req = ProviderRequest {
@@ -84,13 +122,6 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> 
         system: None,
         sampling: Sampling::default(),
     };
-    eprintln!(
-        "argo chat: → {} {} ({} message(s){})",
-        session.provider,
-        session.model,
-        rows.len(),
-        if stream { ", streaming" } else { "" }
-    );
     let (text, tokens_in, tokens_out) = if stream {
         run_stream(transport.as_ref(), &req).await?
     } else {
@@ -101,24 +132,20 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> 
             resp.tokens_out,
         )
     };
-
     let content = if text.is_empty() {
         serde_json::json!([])
     } else {
         serde_json::json!([{"type": "text", "text": text}])
     };
     let assistant_id = store
-        .append_message(SessionId(id), MessageRole::Assistant, &content.to_string())
+        .append_message(session_id, MessageRole::Assistant, &content.to_string())
         .await?;
-
-    println!("\nargo chat: ← assistant message {assistant_id}");
-    if !stream && !text.is_empty() {
-        println!("\n{text}\n");
-    }
-    if let (Some(ti), Some(to)) = (tokens_in, tokens_out) {
-        println!("[{ti} prompt + {to} completion tokens]");
-    }
-    Ok(())
+    Ok(TurnResult {
+        assistant_id,
+        text,
+        tokens_in,
+        tokens_out,
+    })
 }
 
 async fn run_stream(
