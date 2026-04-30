@@ -39,5 +39,11 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 
+# Unix-only — `kill -0 <pid>` for liveness check + `kill -TERM`
+# for graceful shutdown. Targets without `unix` cfg use the
+# fallback shim in handlers/gateway.rs.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 tempfile = "3"
