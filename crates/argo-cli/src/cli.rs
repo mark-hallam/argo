@@ -170,7 +170,11 @@ pub enum Command {
     /// manifests, skill hashes, memory hashes, audit chain — and
     /// exit non-zero on the first failure. Suitable as a single
     /// CI hook.
-    Health,
+    Health {
+        /// Output a single JSON object with per-check status.
+        #[arg(long)]
+        json: bool,
+    },
     Import {
         #[command(subcommand)]
         cmd: ImportCmd,

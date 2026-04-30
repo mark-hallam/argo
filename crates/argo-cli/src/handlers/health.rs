@@ -9,7 +9,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::sync::Arc;
 
-pub async fn run() -> ArgoResult<()> {
+pub async fn run(json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -19,35 +19,92 @@ pub async fn run() -> ArgoResult<()> {
 
     let mut failures: Vec<&'static str> = Vec::new();
 
-    eprint!("[argo health]  audit chain ...     ");
-    match audit_verify_all(&store).await {
-        Ok(r) if r.ok => eprintln!("ok ({} rows)", r.rows),
+    if !json {
+        eprint!("[argo health]  audit chain ...     ");
+    }
+    let audit_status = match audit_verify_all(&store).await {
+        Ok(r) if r.ok => {
+            if !json {
+                eprintln!("ok ({} rows)", r.rows);
+            }
+            serde_json::json!({"ok": true, "rows": r.rows})
+        }
         Ok(r) => {
-            eprintln!("FAIL ({} break(s))", r.breaks.len());
+            if !json {
+                eprintln!("FAIL ({} break(s))", r.breaks.len());
+            }
             failures.push("audit");
+            serde_json::json!({"ok": false, "breaks": r.breaks.len()})
         }
         Err(e) => {
-            eprintln!("FAIL ({e})");
+            if !json {
+                eprintln!("FAIL ({e})");
+            }
             failures.push("audit");
+            serde_json::json!({"ok": false, "error": e.to_string()})
         }
-    }
+    };
 
-    eprint!("[argo health]  skill provenance ... ");
-    match verify_skills(&store).await {
-        Ok(n) => eprintln!("ok ({n} skill(s))"),
+    if !json {
+        eprint!("[argo health]  skill provenance ... ");
+    }
+    let skill_status = match verify_skills(&store).await {
+        Ok(n) => {
+            if !json {
+                eprintln!("ok ({n} skill(s))");
+            }
+            serde_json::json!({"ok": true, "count": n})
+        }
         Err(e) => {
-            eprintln!("FAIL ({e})");
+            if !json {
+                eprintln!("FAIL ({e})");
+            }
             failures.push("skill");
+            serde_json::json!({"ok": false, "error": e.to_string()})
         }
-    }
+    };
 
-    eprint!("[argo health]  memory provenance .. ");
-    match verify_memory(&store).await {
-        Ok(n) => eprintln!("ok ({n} entries)"),
-        Err(e) => {
-            eprintln!("FAIL ({e})");
-            failures.push("memory");
+    if !json {
+        eprint!("[argo health]  memory provenance .. ");
+    }
+    let memory_status = match verify_memory(&store).await {
+        Ok(n) => {
+            if !json {
+                eprintln!("ok ({n} entries)");
+            }
+            serde_json::json!({"ok": true, "count": n})
         }
+        Err(e) => {
+            if !json {
+                eprintln!("FAIL ({e})");
+            }
+            failures.push("memory");
+            serde_json::json!({"ok": false, "error": e.to_string()})
+        }
+    };
+
+    if json {
+        let payload = serde_json::json!({
+            "ok": failures.is_empty(),
+            "checks": {
+                "audit": audit_status,
+                "skill": skill_status,
+                "memory": memory_status,
+            },
+            "failures": failures,
+        });
+        println!(
+            "{}",
+            serde_json::to_string(&payload)
+                .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+        );
+        if failures.is_empty() {
+            return Ok(());
+        }
+        return Err(ArgoError::Provider(format!(
+            "argo health: {} check(s) failed",
+            failures.len()
+        )));
     }
 
     if failures.is_empty() {
