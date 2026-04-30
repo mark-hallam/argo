@@ -290,6 +290,8 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
     } else {
         None
     };
+    let tool_calls = count_tool_use_blocks(&messages);
+    let spend_micros = session_spend_micros(&store, SessionId(id)).await.unwrap_or(0);
     if json {
         let row = serde_json::json!({
             "id": session.id.0.to_string(),
@@ -301,6 +303,8 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
             "started_at": session.started_at.to_rfc3339(),
             "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
             "message_count": count,
+            "tool_call_count": tool_calls,
+            "spend_usd_micros": spend_micros,
             "first_message": first.as_ref().map(|(role, snippet)|
                 serde_json::json!({"role": role, "snippet": snippet})
             ),
@@ -331,6 +335,11 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
             .unwrap_or_else(|| "(open)".into())
     );
     println!("  messages:     {count}");
+    println!("  tool calls:   {tool_calls}");
+    println!(
+        "  spend:        ${:.4}",
+        spend_micros as f64 / 1_000_000.0
+    );
     if let Some((role, snippet)) = &first {
         println!("  first ({role}): {snippet}");
     }
@@ -338,6 +347,37 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
         println!("  last  ({role}): {snippet}");
     }
     Ok(())
+}
+
+/// Walk every message's `content_json` and count `tool_use`
+/// blocks. One assistant message with three tool calls counts as
+/// three.
+fn count_tool_use_blocks(messages: &[argo_store::MessageRow]) -> u64 {
+    let mut n = 0u64;
+    for m in messages {
+        let parsed: serde_json::Value =
+            serde_json::from_str(&m.content_json).unwrap_or(serde_json::Value::Null);
+        let Some(arr) = parsed.as_array() else {
+            continue;
+        };
+        for b in arr {
+            if b.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+async fn session_spend_micros(store: &SessionStore, sid: SessionId) -> ArgoResult<u64> {
+    let total: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger WHERE session_id = ?",
+    )
+    .bind(sid.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("session spend sum: {e}")))?;
+    Ok(u64::try_from(total).unwrap_or(0))
 }
 
 fn message_summary(row: &argo_store::MessageRow) -> (String, String) {
