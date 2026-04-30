@@ -38,6 +38,12 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /costs ") {
         return costs_response();
     }
+    if req.starts_with("GET /costs/by-model ") {
+        return costs_breakdown_response("by_model", store).await;
+    }
+    if req.starts_with("GET /costs/by-session ") {
+        return costs_breakdown_response("by_session", store).await;
+    }
     if req.starts_with("POST /sessions ") {
         return create_session_response(req, store).await;
     }
@@ -459,6 +465,53 @@ async fn run_turn_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"run_turn: {e}\"}}"),
+        ),
+    }
+}
+
+async fn costs_breakdown_response(
+    mode: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let sql = match mode {
+        "by_model" => {
+            "SELECT provider || ' / ' || model AS bucket, \
+             COALESCE(SUM(amount_usd_micros), 0) AS total \
+             FROM spend_ledger GROUP BY provider, model ORDER BY total DESC LIMIT 50"
+        }
+        "by_session" => {
+            "SELECT lower(hex(session_id)) AS bucket, \
+             COALESCE(SUM(amount_usd_micros), 0) AS total \
+             FROM spend_ledger GROUP BY session_id ORDER BY total DESC LIMIT 50"
+        }
+        _ => unreachable!(),
+    };
+    match sqlx::query_as::<_, (String, i64)>(sql)
+        .fetch_all(store.pool())
+        .await
+    {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(b, t)| {
+                    serde_json::json!({
+                        "bucket": b,
+                        "spent_usd_micros": u64::try_from(t).unwrap_or(0),
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({mode: arr}))
+                    .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"costs breakdown: {e}\"}}"),
         ),
     }
 }

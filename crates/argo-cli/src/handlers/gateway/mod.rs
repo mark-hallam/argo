@@ -106,6 +106,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
     eprintln!("  GET  /audit/sessions/<uuid> → per-session audit chain (JSON array)");
     eprintln!("  GET  /costs    → cost ceilings (per_session/day/month + notify_at_pct)");
+    eprintln!("  GET  /costs/by-model    → top spend buckets grouped by (provider, model)");
+    eprintln!("  GET  /costs/by-session  → top spend buckets grouped by session_id");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");
 
     let mut served = 0_u64;
