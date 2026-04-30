@@ -297,6 +297,18 @@ impl SessionStore {
             .map_err(|e| ArgoError::Provider(format!("count_sessions_before: {e}")))
     }
 
+    /// Run `VACUUM` to reclaim SQLite-page space (typically after a
+    /// large prune). Wallclock cost scales with DB size; the
+    /// operation rebuilds the file in-place. Returns when the
+    /// VACUUM completes.
+    pub async fn vacuum(&self) -> StoreResult<()> {
+        sqlx::query("VACUUM")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("vacuum: {e}")))?;
+        Ok(())
+    }
+
     /// Aggregate row counts across the DB — used by
     /// `argo doctor` / `argo db status` to summarize the workspace.
     pub async fn db_stats(&self) -> StoreResult<DbStats> {

@@ -60,7 +60,18 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
                     "pruned {n} session(s) older than {} ({}d ago); cascaded children dropped.",
                     cutoff, older_than_days
                 );
+                println!("(run `argo db vacuum` afterwards to reclaim file space)");
             }
+        }
+        DbCmd::Vacuum => {
+            let before = std::fs::metadata(&db).map(|m| m.len()).unwrap_or(0);
+            store.vacuum().await?;
+            let after = std::fs::metadata(&db).map(|m| m.len()).unwrap_or(0);
+            let saved = before.saturating_sub(after);
+            println!(
+                "vacuum: {} -> {} bytes ({} reclaimed)",
+                before, after, saved
+            );
         }
     }
     Ok(())

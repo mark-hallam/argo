@@ -312,7 +312,7 @@ pub enum DbCmd {
         #[arg(long)]
         to: u32,
     },
-    /// Show current schema version.
+    /// Show current schema version + per-table row counts.
     Status,
     /// Drop sessions whose `started_at` is older than `--older-than-days`
     /// days. Pass `--force` to actually delete; otherwise dry-runs.
@@ -322,6 +322,8 @@ pub enum DbCmd {
         #[arg(long)]
         force: bool,
     },
+    /// Run SQLite `VACUUM` to reclaim file-space after a prune.
+    Vacuum,
 }
 
 #[derive(Subcommand, Debug)]
