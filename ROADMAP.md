@@ -4,28 +4,31 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 ## Current phase
 
-**Library tier complete; integration tier in progress.** Phases 0–7 +
-4.5 + 6.5 + 7.5 are all shipped at the library tier across **50 PRs**.
-The CLI binary (`argo`) now drives ~25 subcommands against the
-workspace store, and the TUI ships a read-only session viewer. The
-remaining work is heavy-binding MCP servers (voice / browser) and
-cross-registry marketplace integration.
+**Library tier complete; integration tier mostly shipped.** Phases
+0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
+**60+ PRs**. The CLI binary (`argo`) drives ~35 subcommands against
+the workspace store, the TUI ships a session viewer with messages
+preview, and both voice + browser MCP server scaffolds advertise
+their full schemas. What's left is the heavy native bindings
+(whisper-rs, piper-rs, chromiumoxide), cross-registry marketplace
+integration, and the daemon-coupled commands that need a live
+gateway / router / judge.
 
 ## Status
 
 | Phase | Status | Gate |
 |---|---|---|
 | 0 — Skeleton | ✅ shipped | `cargo test --workspace` green; CI green on Linux/macOS/Windows |
-| 1 — Walking skeleton | ✅ shipped (PR #13) | End-to-end test (user → file_read → answer) green against scripted transport |
+| 1 — Walking skeleton | ✅ shipped (PR #13) | End-to-end test (user → file_read → answer) green |
 | 2 — Provider breadth + cost router | ✅ shipped (PRs #1, #6–#9) | All 4 v1 manifests deserialize; cost router persists non-Fixed decisions |
-| 3 — Tools, memory, skills, judge | ✅ shipped (PRs #10–#12) | 4 in-core tools end-to-end; memory + skill stores with locks; judge with mock-driven success/failure/partial |
-| 4 — Plugins + MCP | ✅ shipped (PRs #14, #15, #41) | Plugin host + MCP client + MCP server (`argo mcp serve`) |
-| 4.5 — ACP server | ✅ shipped (PR #23) | ACP wire envelopes + 6-harness multi-harness + permission mapping |
-| 5 — Delegation + sandboxes | ✅ shipped (PRs #16, #43) | `Sandbox` trait + `WorkspaceFork` + real `DockerSandbox` impl |
+| 3 — Tools, memory, skills, judge | ✅ shipped (PRs #10–#12) | 4 in-core tools end-to-end; locks; judge three-state |
+| 4 — Plugins + MCP | ✅ shipped (PRs #14, #15, #41) | Plugin host + MCP client + MCP server |
+| 4.5 — ACP server + voice + browser | ✅ shipped (PRs #23, #57, #58) | ACP multi-harness; voice + browser MCP scaffolds with full schemas |
+| 5 — Delegation + sandboxes | ✅ shipped (PRs #16, #43) | `Sandbox` trait + real `DockerSandbox` |
 | 6 — Gateway + multi-agent + RBAC | ✅ shipped (PR #17) | `Adapter` trait + multi-tenant routing |
-| 6.5 — Workspace marketplace | ✅ shipped (PR #21) | Deterministic tar + OCI seam (real registry push lands with §23.3) |
-| 7 — Audit + telemetry + replay | ✅ shipped (PRs #18, #19, #22, #38, #39, #45) | Hash-chained audit log + ndjson export + tail; OTLP-ready `TracingTelemetry` sink; time-travel replay |
-| 7.5 — Argo Forge | ✅ shipped (PR #20) | Skill-optimization orchestration with budget caps |
+| 6.5 — Workspace marketplace | ✅ shipped (PR #21) | Deterministic tar + OCI seam |
+| 7 — Audit + telemetry + replay | ✅ shipped (PRs #18, #19, #22, #38, #39, #45, #56) | Hash chain + ndjson + trace timeline + replay |
+| 7.5 — Argo Forge | ✅ shipped (PR #20) | Optimization orchestration with budget caps |
 
 ## v0.2 amendments + capability items
 
@@ -43,37 +46,53 @@ cross-registry marketplace integration.
 | A11 — ACP server | ✅ shipped | PR #23 |
 | A13 — resume on restart | ✅ shipped | PR #27 |
 | A14 — mid-run `/steer` | ✅ shipped | PR #25 |
-| C — hard $$$ cost ceilings (primitive) | ✅ shipped | PR #26 |
-| C — `spend_ledger` persistence | ✅ shipped | PR #34 |
+| C — hard $$$ cost ceilings (primitive + ledger) | ✅ shipped | PRs #26, #34 |
 | F — Argo Forge | ✅ shipped | PR #20 |
 | R — time-travel replay | ✅ shipped | PR #22 |
 | M — workspace OCI marketplace | ✅ shipped | PR #21 |
+| Voice MCP scaffold (§28.Z, schema only) | ✅ shipped | PR #57 |
+| Browser MCP scaffold (§28.AA, 12 tools) | ✅ shipped | PR #58 |
 
 ## CLI surface (`argo`) — wired commands
 
 | Subcommand | Status | PR |
 |---|---|---|
-| `argo doctor` | ✅ wired | #35 |
-| `argo db status / migrate-up / migrate-down` | ✅ wired | #35 |
-| `argo workspace init / push / pull (parse)` | ✅ wired | #35 |
-| `argo audit verify / show [--tail N] / export [--out]` | ✅ wired | #35, #36, #38, #45 |
-| `argo cron list / create / delete / trigger / tick / daemon` | ✅ wired | #35, #42, #44, #47 |
-| `argo costs show / cap` | ✅ wired | #35 |
-| `argo session list / show / diff / bisect / replay (stub)` | ✅ wired | #35, #36, #45 |
-| `argo provider list / validate` | ✅ wired | #36 |
-| `argo skill list / view / install / lock / unlock` | ✅ wired | #37, #40 |
-| `argo memory list / view / append / revert / forget / lock / unlock` | ✅ wired | #37, #40, #46 |
-| `argo mcp serve` (3 read tools: sessions/list, sessions/get, messages/count) | ✅ wired | #41 |
-| `argo tui` (ratatui session viewer) | ✅ wired | #48 |
-| `argo route inspect <session_id>` | ✅ wired | #49 |
-| `argo plugin list` | ✅ wired | #50 |
-| `argo forge runs list` | ✅ wired | #50 |
-| `argo new / resume / agents / gateway / chat / steer / trace` | ⏳ deferred | needs daemon binding |
+| `argo doctor` | ✅ | #35 |
+| `argo db status / migrate-up / migrate-down` | ✅ | #35 |
+| `argo workspace init / push / pull (parse)` | ✅ | #35 |
+| `argo audit verify [--session] / show [--tail] / export` | ✅ | #35, #36, #38, #45, #52 |
+| `argo cron list / create / delete / trigger / tick / daemon` | ✅ | #35, #42, #44, #47 |
+| `argo costs show / cap` | ✅ | #35 |
+| `argo session list / show / export / search / diff / bisect / replay` | ✅ | #35, #45, #53, #54 |
+| `argo provider list / validate` | ✅ | #36 |
+| `argo skill list / view / install / lock / unlock` | ✅ | #37, #40 |
+| `argo memory list / view / append / revert / forget / lock / unlock` | ✅ | #37, #40, #46 |
+| `argo mcp serve` (3 read tools) | ✅ | #41 |
+| `argo tui` (ratatui session viewer + messages pane) | ✅ | #48, #55 |
+| `argo route inspect <session_id>` | ✅ | #49 |
+| `argo plugin list` | ✅ | #50 |
+| `argo forge runs list` | ✅ | #50 |
+| `argo trace --session <id>` | ✅ | #56 |
+| `argo gateway status` + `argo agents list` | ✅ | #59 |
+| `argo judge verdict <session_id>` | ✅ | #60 |
+| `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
+
+## MCP servers shipped as standalone bins
+
+| Server | Status | PR |
+|---|---|---|
+| `argo-mcp-voice` (transcribe / synthesize / voice_chat) | ✅ schema + dispatcher | #57 |
+| `argo-mcp-browser` (12 tools) | ✅ schema + dispatcher | #58 |
 
 ## Pending integration tier
 
-- **`mcp-servers/voice/`** (§28.Z) — whisper-rs + piper-rs; OGG/Opus.
-- **`mcp-servers/browser/`** (§28.AA) — chromiumoxide; 12 tools; ≤6,000 LOC.
-- **§23.3 marketplace integration test** — `oci-distribution` push/pull against GHCR / Docker Hub / Artifact Registry test accounts.
-- **TUI v2** — sticky composer, live streaming, OSC-52 clipboard (the §20 surface beyond the read-only viewer).
-- **Daemon-coupled CLI** — `argo gateway start`, `argo session replay <id> --model X` (live), `argo steer <id>`, `argo forge optimize / promote`, `argo provider test`, `argo judge override`.
+- **Voice MCP backend** — whisper-rs (STT) + piper-rs (TTS) +
+  opus (OGG/Opus); cloud TTS (OpenAI / ElevenLabs / MiniMax).
+- **Browser MCP backend** — chromiumoxide / local Playwright;
+  cloud (Browserbase / BrowserUse) opt-in.
+- **§23.3 marketplace integration test** — `oci-distribution` push
+  / pull against GHCR / Docker Hub / Artifact Registry test accounts.
+- **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
+- **Daemon-coupled CLI** — `argo gateway start`, `argo session
+  replay <id> --model X` (live), `argo steer <id>`, `argo forge
+  optimize / promote`, `argo provider test`, `argo judge override`.
