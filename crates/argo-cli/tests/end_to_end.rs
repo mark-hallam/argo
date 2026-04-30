@@ -38,6 +38,11 @@ fn parse_uuid_after(prefix: &str, stdout: &str) -> String {
     token.to_string()
 }
 
+// The fake editor uses `#!/bin/sh` and `chmod 0o755`; both are
+// Unix-specific. Skip the test on Windows — the underlying
+// memory-edit handler is platform-agnostic and is exercised by
+// `cargo test -p argo-cli` unit tests.
+#[cfg(unix)]
 #[test]
 fn workspace_init_then_memory_append_verify_edit() {
     let workspace = tempfile::tempdir().unwrap();

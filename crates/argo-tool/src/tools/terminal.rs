@@ -162,6 +162,11 @@ mod tests {
         )
     }
 
+    // The three tests below shell out to Unix-shell built-ins
+    // (`echo`, `exit`, `sleep`) and don't translate to cmd.exe;
+    // gated to Unix runners. Schema/dispatcher checks below are
+    // platform-agnostic.
+    #[cfg(unix)]
     #[tokio::test]
     async fn echoes_stdout() {
         let dir = tempfile::tempdir().unwrap();
@@ -178,6 +183,7 @@ mod tests {
         assert!(body.contains("hi"));
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn captures_nonzero_exit() {
         let dir = tempfile::tempdir().unwrap();
@@ -193,6 +199,7 @@ mod tests {
         assert!(body.contains("exit_code: 7"));
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn timeout_reports_clearly() {
         let dir = tempfile::tempdir().unwrap();

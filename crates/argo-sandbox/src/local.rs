@@ -60,7 +60,13 @@ impl Sandbox for LocalSandbox {
     }
 }
 
-#[cfg(test)]
+// `LocalSandbox::run` shells out via the inherited `sh` / `bash`
+// interpreter; the tests below all use Unix-shell built-ins
+// (`echo`, `exit`, `sleep`, `pwd`, `$PATH`) and don't translate to
+// cmd.exe / PowerShell. Windows users get the LocalSandbox API but
+// not its tests — the cross-platform behaviour is covered by the
+// `argo-tool::tools::terminal` suite separately.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
