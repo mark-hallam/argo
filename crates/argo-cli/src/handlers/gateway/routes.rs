@@ -38,6 +38,9 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /audit ") {
         return audit_response(store).await;
     }
+    if req.starts_with("GET /doctor ") {
+        return doctor_response().await;
+    }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
         if let Some((sid, _)) = rest.split_once(' ') {
             return audit_session_response(sid, store).await;
@@ -215,6 +218,19 @@ async fn memory_response(store: Option<&Arc<SessionStore>>) -> (&'static str, St
         "200 OK",
         serde_json::to_string(&all).unwrap_or_else(|_| "[]".to_string()),
     )
+}
+
+async fn doctor_response() -> (&'static str, String) {
+    match crate::handlers::doctor::collect().await {
+        Ok(v) => (
+            "200 OK",
+            serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"doctor: {e}\"}}"),
+        ),
+    }
 }
 
 async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {

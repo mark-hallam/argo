@@ -7,6 +7,69 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(json: bool) -> ArgoResult<()> {
+    let payload = collect().await?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&payload)
+                .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+        );
+        return Ok(());
+    }
+    let cwd = payload["cwd"].as_str().unwrap_or("?").to_string();
+    let toml_path = payload["argo_toml"]["path"].as_str().unwrap_or("?");
+    let toml_ok = payload["argo_toml"]["ok"].as_bool().unwrap_or(false);
+    let home_path = payload["argo_home"]["path"].as_str().unwrap_or("?");
+    let home_ok = payload["argo_home"]["ok"].as_bool().unwrap_or(false);
+    let profile = payload["profile"].as_str().unwrap_or("?");
+    let tenant_id = payload["tenant"]["id"].as_str().unwrap_or("?");
+    let tenant_mode = payload["tenant"]["mode"].as_str().unwrap_or("?");
+    let bundle_missing: Vec<&str> = payload["bundle_dirs_missing"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+        .unwrap_or_default();
+    let memfiles_missing: Vec<&str> = payload["memory_files_missing"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+        .unwrap_or_default();
+    let toml_status = if toml_ok { "OK" } else { "MISSING" };
+    let home_status = if home_ok {
+        "OK"
+    } else {
+        "MISSING (will be created on first run)"
+    };
+    println!("argo doctor — workspace check");
+    println!("  cwd:        {cwd}");
+    println!("  argo.toml:  {toml_path} ({toml_status})");
+    println!("  ARGO_HOME:  {home_path} ({home_status})");
+    println!("  profile:    {profile}");
+    println!("  tenant:     {tenant_id} (mode={tenant_mode})");
+    if bundle_missing.is_empty() {
+        println!("  bundle dirs: all present");
+    } else {
+        println!(
+            "  bundle dirs missing: {} (run `argo workspace init`)",
+            bundle_missing.join(", ")
+        );
+    }
+    if memfiles_missing.is_empty() {
+        println!("  memory files: all present");
+    } else {
+        println!(
+            "  memory files missing: {} (run `argo workspace init`)",
+            memfiles_missing.join(", ")
+        );
+    }
+    print_db(&payload["db"]);
+    print_cron(&payload["cron"]);
+    print_creds(&payload["creds"]);
+    Ok(())
+}
+
+/// Gather every doctor check into a single JSON document. Shared
+/// between the CLI handler and the gateway's `GET /doctor`
+/// endpoint.
+pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let toml = cwd.join("argo.toml");
@@ -29,62 +92,18 @@ pub async fn run(json: bool) -> ArgoResult<()> {
     let db = db_status(&home).await;
     let cron = cron_status(&cwd);
     let creds = creds_status();
-
-    if json {
-        let payload = serde_json::json!({
-            "cwd": cwd.display().to_string(),
-            "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
-            "argo_home": {"path": home.display().to_string(), "ok": home_ok},
-            "profile": cfg.core.profile,
-            "tenant": {"id": cfg.tenant.default_id, "mode": cfg.tenant.mode},
-            "bundle_dirs_missing": bundle_missing,
-            "memory_files_missing": memfiles_missing,
-            "db": db,
-            "cron": cron,
-            "creds": creds,
-        });
-        println!(
-            "{}",
-            serde_json::to_string(&payload)
-                .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
-        );
-        return Ok(());
-    }
-    let toml_status = if toml_ok { "OK" } else { "MISSING" };
-    let home_status = if home_ok {
-        "OK"
-    } else {
-        "MISSING (will be created on first run)"
-    };
-    println!("argo doctor — workspace check");
-    println!("  cwd:        {}", cwd.display());
-    println!("  argo.toml:  {} ({toml_status})", toml.display());
-    println!("  ARGO_HOME:  {} ({home_status})", home.display());
-    println!("  profile:    {}", cfg.core.profile);
-    println!(
-        "  tenant:     {} (mode={})",
-        cfg.tenant.default_id, cfg.tenant.mode
-    );
-    if bundle_missing.is_empty() {
-        println!("  bundle dirs: all present");
-    } else {
-        println!(
-            "  bundle dirs missing: {} (run `argo workspace init`)",
-            bundle_missing.join(", ")
-        );
-    }
-    if memfiles_missing.is_empty() {
-        println!("  memory files: all present");
-    } else {
-        println!(
-            "  memory files missing: {} (run `argo workspace init`)",
-            memfiles_missing.join(", ")
-        );
-    }
-    print_db(&db);
-    print_cron(&cron);
-    print_creds(&creds);
-    Ok(())
+    Ok(serde_json::json!({
+        "cwd": cwd.display().to_string(),
+        "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
+        "argo_home": {"path": home.display().to_string(), "ok": home_ok},
+        "profile": cfg.core.profile,
+        "tenant": {"id": cfg.tenant.default_id, "mode": cfg.tenant.mode},
+        "bundle_dirs_missing": bundle_missing,
+        "memory_files_missing": memfiles_missing,
+        "db": db,
+        "cron": cron,
+        "creds": creds,
+    }))
 }
 
 fn cron_status(cwd: &std::path::Path) -> serde_json::Value {
