@@ -35,6 +35,42 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     draw_messages_pane(frame, right[1], state);
     draw_composer(frame, outer[1], state);
     draw_footer(frame, outer[2], state);
+    if state.help_overlay {
+        draw_help_overlay(frame, area);
+    }
+}
+
+/// Centered keybinding cheatsheet shown while `state.help_overlay`
+/// is true. Any keypress closes it (handled in `input.rs`).
+fn draw_help_overlay(frame: &mut Frame<'_>, area: Rect) {
+    // Center a 60×16 panel inside the area.
+    let w = area.width.min(60);
+    let h = area.height.min(16);
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w, h);
+    let body = vec![
+        Line::from("  Navigation"),
+        Line::from("    j/k        move down/up"),
+        Line::from("    PgDn/PgUp  page down/up        g/G  top/bottom"),
+        Line::from("    Tab        toggle pane focus (sessions / messages)"),
+        Line::from(""),
+        Line::from("  Session ops"),
+        Line::from("    n  new (clone selected)        r  rename"),
+        Line::from("    d  delete (y to confirm)       /  filter"),
+        Line::from(""),
+        Line::from("  Messaging"),
+        Line::from("    i  compose (Enter sends)       s  steer (system msg)"),
+        Line::from("    y  yank (OSC-52 copy)"),
+        Line::from(""),
+        Line::from("  q / Esc  quit       ?  this help (any key closes)"),
+    ];
+    let para = Paragraph::new(body)
+        .block(Block::default().borders(Borders::ALL).title(" keybindings "))
+        .style(Style::default().add_modifier(Modifier::BOLD));
+    // Clear the area so the underlying panes don't bleed through.
+    frame.render_widget(ratatui::widgets::Clear, panel);
+    frame.render_widget(para, panel);
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -291,7 +327,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filter
         )
     } else if state.filter.is_empty() {
-        "j/k  Tab focus  / filter  i comp  s steer  n new  r ren  d del  y yank  q quit"
+        "?=help  j/k  Tab focus  / filter  i comp  s steer  n new  r ren  d del  q quit"
             .to_string()
     } else {
         format!(
@@ -412,6 +448,16 @@ mod tests {
         let frame = render_to_strings(&state);
         assert!(frame.contains("agent error"));
         assert!(frame.contains("ANTHROPIC_API_KEY"));
+    }
+
+    #[test]
+    fn help_overlay_renders_keybinding_lines() {
+        let mut state = ViewerState::new(vec![header("help-target")]);
+        state.help_overlay = true;
+        let frame = render_to_strings(&state);
+        assert!(frame.contains("keybindings"));
+        assert!(frame.contains("compose"));
+        assert!(frame.contains("steer"));
     }
 
     #[test]

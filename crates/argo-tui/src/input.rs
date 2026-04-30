@@ -72,6 +72,12 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Help overlay: any key closes it (so the user
+            // doesn't have to memorise yet another exit key).
+            if state.help_overlay {
+                state.help_overlay = false;
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -139,6 +145,7 @@ pub(crate) async fn run(
                     return Ok(());
                 }
                 KeyCode::Tab => state.toggle_focus(),
+                KeyCode::Char('?') => state.help_overlay = true,
                 KeyCode::Char('/') => state.enter_filter_mode(),
                 KeyCode::Char('i') => state.composer_mode = true,
                 KeyCode::Char('y') => {

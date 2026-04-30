@@ -73,6 +73,9 @@ pub struct ViewerState {
     /// Scroll offset (in rows) into the messages pane. Honoured
     /// when `focus == Messages`.
     pub messages_scroll: usize,
+    /// True while the user has the keybinding-help overlay open
+    /// (entered with `?`). Any key while open closes it.
+    pub help_overlay: bool,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -116,6 +119,7 @@ impl ViewerState {
             pending_delete: None,
             focus: PaneFocus::Sessions,
             messages_scroll: 0,
+            help_overlay: false,
         }
     }
 
