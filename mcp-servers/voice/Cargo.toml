@@ -1,0 +1,20 @@
+[package]
+name = "argo-mcp-voice"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo — voice MCP server (§28.Z, schema + dispatcher; native bindings land in a follow-up)"
+
+[[bin]]
+name = "argo-mcp-voice"
+path = "src/main.rs"
+
+[dependencies]
+argo-mcp = { path = "../../crates/argo-mcp", version = "0.0.1" }
+argo-types = { path = "../../crates/argo-types", version = "0.0.1" }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }

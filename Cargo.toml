@@ -27,6 +27,7 @@ members = [
   "crates/argo-forge",
   "crates/argo-replay",
   "crates/argo-marketplace",
+  "mcp-servers/voice",
 ]
 
 [workspace.package]
