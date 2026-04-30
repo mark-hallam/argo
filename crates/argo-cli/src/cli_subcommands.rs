@@ -13,7 +13,19 @@ pub enum AgentsCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum GatewayCmd {
-    Start,
+    /// Bind a TCP listener and serve the JSON HTTP gateway. The
+    /// first cut answers `GET /health` + `GET /version`; the
+    /// `Adapter` routing surface from `argo-gateway` lands later.
+    Start {
+        #[arg(long, default_value = "127.0.0.1")]
+        bind: String,
+        #[arg(long, default_value_t = 7400)]
+        port: u16,
+        /// Stop after N requests (mainly for tests; omit to run
+        /// until SIGINT / SIGTERM).
+        #[arg(long)]
+        max_requests: Option<u64>,
+    },
     Stop,
     Status,
 }
