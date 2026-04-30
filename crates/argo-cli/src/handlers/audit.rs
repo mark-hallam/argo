@@ -85,8 +85,11 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             json,
             session,
             kinds,
+            since_minutes,
         } => {
             let kind_filter = parse_kinds(kinds.as_deref());
+            let cutoff = since_minutes
+                .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
             if let Some(raw) = session {
                 let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
                     ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
@@ -94,6 +97,9 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 let mut rows = rows_for_session(&store, SessionId(id)).await?;
                 if let Some(allowed) = &kind_filter {
                     rows.retain(|r| allowed.contains(r.kind.as_str()));
+                }
+                if let Some(c) = cutoff {
+                    rows.retain(|r| r.created_at_micros >= c);
                 }
                 if json {
                     for r in &rows {
@@ -128,6 +134,9 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             };
             if let Some(allowed) = &kind_filter {
                 tail_rows_data.retain(|r| allowed.contains(r.kind.as_str()));
+            }
+            if let Some(c) = cutoff {
+                tail_rows_data.retain(|r| r.created_at_micros >= c);
             }
             if json {
                 let kinds_obj: serde_json::Map<String, serde_json::Value> = report

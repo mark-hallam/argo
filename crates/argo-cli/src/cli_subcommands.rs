@@ -236,6 +236,10 @@ pub enum AuditCmd {
         /// set, the tail / per-session view drops every other kind.
         #[arg(long)]
         kinds: Option<String>,
+        /// Filter to rows created within this many recent minutes.
+        /// Applies to both the tail view and `--session`.
+        #[arg(long)]
+        since_minutes: Option<i64>,
     },
     /// Verify the hash chain. Pass `--session <id>` to check one
     /// session only (fast on huge logs).
