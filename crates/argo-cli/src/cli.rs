@@ -136,6 +136,18 @@ pub enum Command {
         #[command(subcommand)]
         cmd: EvalCmd,
     },
+    /// Run one turn of the agent loop against a recorded session:
+    /// loads the session's messages, calls the configured provider
+    /// (Anthropic family for v0), and persists the assistant's
+    /// response. Requires the provider's API-key env var.
+    Chat {
+        /// Session id (from `argo new` / `argo session list`).
+        id: String,
+        /// Optional fresh user message to append before the call.
+        /// Equivalent to a `POST /sessions/<id>/messages` round-trip.
+        #[arg(long)]
+        user: Option<String>,
+    },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
     /// Diagnose configuration / sandbox / port issues.

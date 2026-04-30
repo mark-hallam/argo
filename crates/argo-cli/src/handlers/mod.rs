@@ -2,6 +2,7 @@
 //! corresponding library primitive.
 pub mod agents;
 pub mod audit;
+pub mod chat;
 pub mod costs;
 pub mod cron;
 pub mod db;
