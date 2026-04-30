@@ -410,6 +410,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
         ("GET", "/skills", "active skills"),
         ("GET", "/skills/<name>", "one skill view (full body)"),
+        ("POST", "/skills", "install a SKILL.md document"),
         ("GET", "/memory", "memory entries"),
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/audit", "audit chain summary"),
