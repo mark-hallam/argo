@@ -43,7 +43,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     match cmd {
-        WorkspaceCmd::Init => init(&cwd),
+        WorkspaceCmd::Init => init(&cwd).await,
         WorkspaceCmd::Status => status(&cwd).await,
         WorkspaceCmd::Verify => verify(&cwd),
         WorkspaceCmd::Push { oci_ref } => push(&cwd, &oci_ref).await,
@@ -196,7 +196,7 @@ fn format_cap(value: Option<u64>) -> String {
     }
 }
 
-fn init(cwd: &std::path::Path) -> ArgoResult<()> {
+async fn init(cwd: &std::path::Path) -> ArgoResult<()> {
     let toml_path = cwd.join("argo.toml");
     if toml_path.exists() {
         return Err(ArgoError::Provider(format!(
@@ -218,10 +218,21 @@ fn init(cwd: &std::path::Path) -> ArgoResult<()> {
                 .map_err(|e| ArgoError::Provider(format!("write {}: {e}", p.display())))?;
         }
     }
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
     println!("workspace initialized at {}", cwd.display());
     println!("  + argo.toml");
     println!("  + skills/, personas/, cron/, rubrics/");
     println!("  + MEMORY.md, USER.md, SOUL.md, AGENTS.md");
+    println!("  + db row: workspace {workspace}");
     Ok(())
 }
 

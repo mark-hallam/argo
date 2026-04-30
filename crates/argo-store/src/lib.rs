@@ -15,6 +15,7 @@
 mod migrations;
 mod models;
 mod spend;
+mod workspace;
 
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
 
@@ -523,6 +524,17 @@ impl SessionStore {
     ) -> StoreResult<argo_types::SpendCounters> {
         spend::load_spend_counters(&self.pool, tenant_id, session_id, now).await
     }
+
+    /// Insert a tenant + workspace pair (or reuse the existing one if
+    /// `root_path` matches). Used by `argo workspace init` to bootstrap
+    /// the row that `MemoryStore`/`SkillStore` writes anchor to.
+    pub async fn ensure_workspace(
+        &self,
+        name: &str,
+        root_path: &str,
+    ) -> StoreResult<(TenantId, WorkspaceId)> {
+        workspace::ensure_workspace(&self.pool, name, root_path).await
+    }
 }
 
 #[cfg(test)]
@@ -544,6 +556,18 @@ mod tests {
         assert_eq!(store.schema_version().await.unwrap(), 0);
         store.migrate().await.unwrap();
         assert_eq!(store.schema_version().await.unwrap(), 3);
+    }
+
+    #[tokio::test]
+    async fn ensure_workspace_is_idempotent_by_root_path() {
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        let (t1, w1) = store.ensure_workspace("smoke", "/tmp/x").await.unwrap();
+        let (t2, w2) = store.ensure_workspace("smoke", "/tmp/x").await.unwrap();
+        assert_eq!(t1, t2);
+        assert_eq!(w1, w2);
+        let (_t3, w3) = store.ensure_workspace("smoke", "/tmp/y").await.unwrap();
+        assert_ne!(w1, w3);
     }
 
     async fn fresh_store_with_workspace() -> (SessionStore, TenantId, WorkspaceId) {
