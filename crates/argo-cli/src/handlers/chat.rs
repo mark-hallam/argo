@@ -16,7 +16,8 @@
 //! lands once the wire layer can accumulate tool-call deltas
 //! through the agent loop.
 use super::chat_helpers::{
-    build_assistant_content, message_from_row, price_for, record_turn_spend, SpendCtx,
+    build_assistant_content, emit_event, message_from_row, price_for, record_turn_spend,
+    RunEventSink, SpendCtx,
 };
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{AuditKind, AuditSink};
@@ -159,6 +160,23 @@ pub async fn run_turn(
     stream: bool,
     max_rounds: usize,
 ) -> ArgoResult<TurnResult> {
+    run_turn_with_events(store, cwd, session_id, user, stream, max_rounds, None).await
+}
+
+/// Like `run_turn`, but with an optional `events` sink. The gateway
+/// streaming endpoint passes a real `UnboundedSender`; the CLI +
+/// non-streaming gateway pass `None`. Each event mirrors the audit
+/// emission that just landed.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_turn_with_events(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    session_id: SessionId,
+    user: Option<&str>,
+    stream: bool,
+    max_rounds: usize,
+    events: Option<&RunEventSink>,
+) -> ArgoResult<TurnResult> {
     let session = store
         .get_session(session_id)
         .await?
@@ -177,13 +195,11 @@ pub async fn run_turn(
     let transport: Box<dyn Transport> = build_transport(manifest).await?;
 
     let audit = AuditSink::new(store.clone());
+    let turn_start = serde_json::json!({"provider": session.provider, "model": session.model});
     audit
-        .write(
-            Some(session_id),
-            AuditKind::TurnStart,
-            serde_json::json!({"provider": session.provider, "model": session.model}),
-        )
+        .write(Some(session_id), AuditKind::TurnStart, turn_start.clone())
         .await?;
+    emit_event(events, "TurnStart", turn_start);
     let spend_ctx = SpendCtx {
         tenant_id: session.tenant_id,
         provider: provider_id.as_str(),
@@ -200,6 +216,7 @@ pub async fn run_turn(
         &spend_ctx,
         max_rounds,
         stream,
+        events,
     )
     .await;
     let kind = if result.is_ok() {
@@ -207,9 +224,11 @@ pub async fn run_turn(
     } else {
         AuditKind::Halt
     };
+    let kind_label = if result.is_ok() { "TurnEnd" } else { "Halt" };
     let _ = audit
         .write(Some(session_id), kind, serde_json::json!({}))
         .await;
+    emit_event(events, kind_label, serde_json::json!({}));
     result
 }
 
@@ -253,6 +272,7 @@ async fn run_turn_with_tools(
     spend: &SpendCtx<'_>,
     max_rounds: usize,
     stream: bool,
+    events: Option<&RunEventSink>,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -299,19 +319,21 @@ async fn run_turn_with_tools(
                 &assistant_content.to_string(),
             )
             .await?;
+        let assistant_payload = serde_json::json!({
+            "message_id": last_assistant_id,
+            "round": round,
+            "tool_calls": resp.tool_calls.len(),
+            "tokens_in": last_tokens_in,
+            "tokens_out": last_tokens_out,
+        });
         audit
             .write(
                 Some(session_id),
                 AuditKind::AssistantMessage,
-                serde_json::json!({
-                    "message_id": last_assistant_id,
-                    "round": round,
-                    "tool_calls": resp.tool_calls.len(),
-                    "tokens_in": last_tokens_in,
-                    "tokens_out": last_tokens_out,
-                }),
+                assistant_payload.clone(),
             )
             .await?;
+        emit_event(events, "AssistantMessage", assistant_payload);
         record_turn_spend(store, session_id, spend, last_tokens_in, last_tokens_out).await?;
 
         if resp.tool_calls.is_empty() {
@@ -324,26 +346,26 @@ async fn run_turn_with_tools(
         }
 
         for call in &resp.tool_calls {
+            let call_payload = serde_json::json!({"tool": call.name, "call_id": call.id});
             audit
-                .write(
-                    Some(session_id),
-                    AuditKind::ToolCall,
-                    serde_json::json!({"tool": call.name, "call_id": call.id}),
-                )
+                .write(Some(session_id), AuditKind::ToolCall, call_payload.clone())
                 .await?;
+            emit_event(events, "ToolCall", call_payload);
             let result = dispatch_one(&registry, &engine, &principal, cwd, call).await;
+            let result_payload = serde_json::json!({
+                "tool": call.name,
+                "call_id": call.id,
+                "is_error": result.is_error,
+                "duration_ms": result.duration_ms,
+            });
             audit
                 .write(
                     Some(session_id),
                     AuditKind::ToolResult,
-                    serde_json::json!({
-                        "tool": call.name,
-                        "call_id": call.id,
-                        "is_error": result.is_error,
-                        "duration_ms": result.duration_ms,
-                    }),
+                    result_payload.clone(),
                 )
                 .await?;
+            emit_event(events, "ToolResult", result_payload);
             let tool_msg = serde_json::json!([ContentBlock::ToolResult(result)]);
             store
                 .append_message(session_id, MessageRole::Tool, &tool_msg.to_string())

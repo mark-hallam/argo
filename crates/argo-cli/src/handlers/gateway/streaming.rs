@@ -1,18 +1,19 @@
 //! Chunked-NDJSON streaming for `POST /sessions/<id>/runs/stream`.
 //!
-//! The handler writes one JSON event per chunk in
-//! `Transfer-Encoding: chunked` form so HTTP clients can consume
-//! events as the agent loop persists them. Implementation polls
-//! the `audit_record` table for new rows scoped to the session
-//! while `chat::run_turn` runs in a tokio task; the poll cadence
-//! is intentionally conservative (every 100ms) — this is good
-//! enough for the `argo audit show --tail` granularity that
-//! audit emissions land at, and avoids any chat.rs surgery.
+//! Each `RunEvent` emitted by the agent loop lands as one HTTP
+//! chunk in real time — no audit-table polling. Implementation
+//! pairs an `mpsc::UnboundedChannel` with `tokio::select!`: the
+//! task running `run_turn_with_events` sends events to the
+//! channel; the handler reads them and writes chunks. When the
+//! task completes (success or error), a final `{"event":"done"|
+//! "error", ...}` chunk is written and the chunked-encoded body
+//! terminated with `0\r\n\r\n`.
 use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc;
 
 /// Cheap heuristic the listener uses to route streaming requests
 /// before reading their bodies. Matches the unique URL path so
@@ -31,10 +32,9 @@ pub(super) fn is_streaming_runs_request(req: &str) -> bool {
     tail.starts_with("runs/stream ")
 }
 
-/// Run the agent loop and stream its audit emissions back as
-/// chunked NDJSON. Each chunk is the JSON encoding of one
-/// `ExportedRow` followed by a newline. The last chunk is a
-/// `{"event":"done"}` summary; then a zero-length terminator.
+/// Run the agent loop and stream its `RunEvent` emissions back as
+/// chunked NDJSON. Real-time — events land as soon as the agent
+/// loop emits them (no polling).
 pub(super) async fn serve_streamed_run(
     req: &str,
     store: Option<&Arc<SessionStore>>,
@@ -73,7 +73,6 @@ pub(super) async fn serve_streamed_run(
         .and_then(|n| usize::try_from(n).ok())
         .unwrap_or(crate::handlers::chat::MAX_TOOL_ROUNDS);
 
-    // Send chunked headers.
     let head = "HTTP/1.1 200 OK\r\n\
                 Content-Type: application/x-ndjson\r\n\
                 Transfer-Encoding: chunked\r\n\
@@ -93,33 +92,37 @@ pub(super) async fn serve_streamed_run(
         }
     };
 
-    // Snapshot the highest existing seq for this session so we
-    // only emit rows the new run produces.
     let store_clone = Arc::clone(store);
-    let sid_clone = sid;
-    let starting_seq = current_max_seq(&store_clone, sid_clone).await.unwrap_or(0);
-
-    // Spawn run_turn in a task; poll for new audit rows while it
-    // runs and stream them as chunks.
+    let (tx, mut rx) = mpsc::unbounded_channel::<serde_json::Value>();
     let task = tokio::spawn(async move {
-        crate::handlers::chat::run_turn(
+        crate::handlers::chat::run_turn_with_events(
             &store_clone,
             &cwd,
-            sid_clone,
+            sid,
             user.as_deref(),
             false,
             max_rounds,
+            Some(&tx),
         )
         .await
     });
 
-    let mut last_seq = starting_seq;
-    while !task.is_finished() {
-        last_seq = drain_new_rows(store, sid, last_seq, out).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    // Drain events until the task finishes. tokio::select! lets us
+    // forward each event chunk as soon as it arrives.
+    loop {
+        tokio::select! {
+            event = rx.recv() => {
+                let Some(payload) = event else {
+                    break;
+                };
+                let line = match serde_json::to_string(&payload) {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
+                write_chunk(out, &format!("{line}\n")).await?;
+            }
+        }
     }
-    // After the task ends, drain any remaining rows.
-    drain_new_rows(store, sid, last_seq, out).await?;
 
     let summary = match task.await {
         Ok(Ok(result)) => serde_json::json!({
@@ -133,32 +136,6 @@ pub(super) async fn serve_streamed_run(
     };
     write_chunk(out, &format!("{summary}\n")).await?;
     write_terminator(out).await
-}
-
-async fn drain_new_rows(
-    store: &Arc<SessionStore>,
-    sid: SessionId,
-    last_seq: i64,
-    out: &mut TcpStream,
-) -> tokio::io::Result<i64> {
-    let rows = match argo_audit::rows_for_session(store, sid).await {
-        Ok(r) => r,
-        Err(_) => return Ok(last_seq),
-    };
-    let mut new_seq = last_seq;
-    for row in rows.into_iter().filter(|r| r.seq > last_seq) {
-        new_seq = row.seq;
-        let Ok(line) = serde_json::to_string(&row) else {
-            continue;
-        };
-        write_chunk(out, &format!("{line}\n")).await?;
-    }
-    Ok(new_seq)
-}
-
-async fn current_max_seq(store: &Arc<SessionStore>, sid: SessionId) -> Option<i64> {
-    let rows = argo_audit::rows_for_session(store, sid).await.ok()?;
-    rows.into_iter().map(|r| r.seq).max().or(Some(0))
 }
 
 /// Write one HTTP chunk: `<hex_size>\r\n<body>\r\n`.

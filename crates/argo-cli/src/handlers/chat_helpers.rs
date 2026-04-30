@@ -12,6 +12,26 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 
+/// One per-turn event emitted by the agent loop. Used by the
+/// gateway's `POST /sessions/<id>/runs/stream` endpoint to push
+/// chunks to the HTTP client in real time without polling. The
+/// CLI handler ignores the sink (passes `None`).
+///
+/// Each variant maps 1:1 to an `AuditKind`, which keeps the wire
+/// shape stable: clients can parse `RunEvent` JSON the same way
+/// they parse `ExportedRow.payload`.
+pub(crate) type RunEventSink = tokio::sync::mpsc::UnboundedSender<serde_json::Value>;
+
+/// Send a JSON event to the optional sink. Drops the message if
+/// the receiver has been closed (the gateway streaming task may
+/// have torn down e.g. on client disconnect).
+pub(crate) fn emit_event(sink: Option<&RunEventSink>, kind: &str, payload: serde_json::Value) {
+    if let Some(tx) = sink {
+        let env = serde_json::json!({"event": kind, "payload": payload});
+        let _ = tx.send(env);
+    }
+}
+
 /// Per-round response shape used by both the streaming and non-
 /// streaming paths in the agent loop. Lets the loop body stay
 /// one shape regardless of which transport call produced it.
