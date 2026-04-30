@@ -314,6 +314,9 @@ pub enum AuditCmd {
     Show {
         #[arg(long)]
         tail: Option<u32>,
+        /// Output as a single JSON object (kind histogram + tail).
+        #[arg(long)]
+        json: bool,
     },
     /// Verify the hash chain. Pass `--session <id>` to check one
     /// session only (fast on huge logs).

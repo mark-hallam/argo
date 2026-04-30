@@ -51,8 +51,40 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 ))
             }
         }
-        AuditCmd::Show { tail } => {
+        AuditCmd::Show { tail, json } => {
             let report = verify_all(&store).await?;
+            let tail_rows_data = match tail {
+                Some(n) => tail_rows(&store, n).await?,
+                None => Vec::new(),
+            };
+            if json {
+                let kinds_obj: serde_json::Map<String, serde_json::Value> = report
+                    .kind_counts
+                    .iter()
+                    .map(|(k, v)| (k.clone(), serde_json::json!(v)))
+                    .collect();
+                let tail_arr: Vec<_> = tail_rows_data
+                    .iter()
+                    .map(|r| {
+                        serde_json::json!({
+                            "seq": r.seq,
+                            "kind": r.kind,
+                            "session_id": r.session_id,
+                        })
+                    })
+                    .collect();
+                let payload = serde_json::json!({
+                    "rows": report.rows,
+                    "ok": report.ok,
+                    "breaks": report.breaks.len(),
+                    "kinds": kinds_obj,
+                    "tail": tail_arr,
+                });
+                let serialized = serde_json::to_string(&payload)
+                    .map_err(|e| ArgoError::Provider(format!("serialize audit: {e}")))?;
+                println!("{serialized}");
+                return Ok(());
+            }
             println!("audit log — {} rows", report.rows);
             let mut kinds: Vec<(&String, &usize)> = report.kind_counts.iter().collect();
             kinds.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
@@ -65,10 +97,9 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                     report.breaks.len()
                 );
             }
-            if let Some(n) = tail {
-                let rows = tail_rows(&store, n).await?;
-                println!("\nlast {} rows:", rows.len());
-                for r in rows {
+            if !tail_rows_data.is_empty() {
+                println!("\nlast {} rows:", tail_rows_data.len());
+                for r in &tail_rows_data {
                     println!(
                         "  seq={:<6} kind={:<22} session={}",
                         r.seq,
