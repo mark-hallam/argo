@@ -5,6 +5,14 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-config"
+description = "Argo — argo.toml config loader (§3 + the v0.2 [budget] / [loop] additions)"
 
 [dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-core = { path = "../argo-core", version = "0.0.1" }
+serde = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

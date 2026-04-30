@@ -135,6 +135,14 @@ dependencies = [
 [[package]]
 name = "argo-config"
 version = "0.0.1"
+dependencies = [
+ "argo-core",
+ "argo-types",
+ "serde",
+ "tempfile",
+ "toml",
+ "tracing",
+]
 
 [[package]]
 name = "argo-core"
