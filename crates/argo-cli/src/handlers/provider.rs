@@ -7,7 +7,7 @@ use std::path::PathBuf;
 pub fn run(cmd: ProviderCmd) -> ArgoResult<()> {
     match cmd {
         ProviderCmd::List => list_manifests(),
-        ProviderCmd::Show { id } => show(&id),
+        ProviderCmd::Show { id, json } => show(&id, json),
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
         ProviderCmd::ValidateAll => validate_all(),
         ProviderCmd::Test { provider } => {
@@ -76,7 +76,7 @@ fn validate_all() -> ArgoResult<()> {
     }
 }
 
-fn show(provider_id: &str) -> ArgoResult<()> {
+fn show(provider_id: &str, json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let manifests_dir = cwd.join("manifests").join("providers");
@@ -101,6 +101,12 @@ fn show(provider_id: &str) -> ArgoResult<()> {
             Err(_) => continue, // skip invalid manifests in show-by-id flow
         };
         if m.provider.id == provider_id {
+            if json {
+                let serialized = serde_json::to_string(&m)
+                    .map_err(|e| ArgoError::Provider(format!("serialize manifest: {e}")))?;
+                println!("{serialized}");
+                return Ok(());
+            }
             return render(&m);
         }
     }

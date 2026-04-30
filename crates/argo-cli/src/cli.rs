@@ -163,6 +163,9 @@ pub enum ProviderCmd {
     /// transport, capabilities, models, discovery).
     Show {
         id: String,
+        /// Output the parsed manifest as a single JSON object.
+        #[arg(long)]
+        json: bool,
     },
     Validate {
         manifest: String,
