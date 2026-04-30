@@ -6,11 +6,9 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library + integration tier complete. Live agent loop with tool
 dispatch + spend tracking running across all four provider
-families.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
-tier across **183+ PRs**, with zero LOC-budget violations across
-the ~37k-line workspace (`gateway/routes.rs`, `mcp-browser/cdp.rs`,
-and `gateway_smoke.rs` were all split or trimmed back under 500 LOC
-in #179 / #181 / #182).
+families. Streaming end-to-end (chat + gateway).** Phases 0–7 +
+4.5 + 6.5 + 7.5 all ship at the library tier across **196+ PRs**,
+with zero LOC-budget violations across the ~37k-line workspace.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -53,16 +51,18 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **16 endpoints** —
+shutdown via SIGTERM/SIGINT). It exposes **18 endpoints** —
 `/health`, `/version`, `GET /sessions` (with per-row spend),
 `GET /sessions/<id>` (+ tool_call_count + spend), `GET
-/sessions/<id>/messages`, `GET /skills`, `GET /memory`,
-`GET /audit`, `GET /audit/sessions/<id>`, `GET /costs`,
+/sessions/<id>/messages`, `GET /sessions/<id>/spend`,
+`GET /skills`, `GET /memory`, `GET /audit`,
+`GET /audit/sessions/<id>`, `GET /costs`,
 `GET /costs/by-model`, `GET /costs/by-session`,
 `POST /sessions`, `POST /sessions/<id>/messages`,
 `POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
-`POST /sessions/<id>/steer` — all wired against the same
-`SessionStore` the CLI uses.
+`POST /sessions/<id>/runs/stream` (chunked-NDJSON live event
+stream), `POST /sessions/<id>/steer` — all wired against the
+same `SessionStore` the CLI uses.
 
 Voice MCP has all four cloud TTS backends wired (`backend ∈ {piper,
 openai, elevenlabs, minimax}`); OpenAI Whisper transcribe is also
@@ -82,13 +82,6 @@ budget, the Windows test gating, and the deny advisory ignore-list.
 
 What's left:
 
-- **Multi-turn streaming** — `argo chat --stream` and
-  `POST /sessions/<id>/runs` are still single-turn (no tool
-  dispatch on the streaming path). Wiring tool-call delta
-  accumulation through the loop is its own chunk.
-- **Gateway streaming endpoint** — `POST /sessions/<id>/runs`
-  always returns the final JSON; SSE / chunked-JSON for live
-  output is pending.
 - **Heavy native bindings** — whisper-rs / piper-rs for the
   voice MCP, chromiumoxide for stateful browser sessions
   (sticky tab ids, persistent WS, batch commands).
@@ -96,10 +89,13 @@ What's left:
   (GHCR / Docker Hub / Artifact Registry) against real test
   accounts.
 - **Daemon-coupled live commands** — `forge optimize/promote`,
-  `judge override`, `session replay --model X` against a
-  different provider.
+  `judge override`.
 - **TUI v2** — sticky composer + live streaming + OSC-52
   clipboard.
+- **Channel-based real-time gateway streaming** — the current
+  `POST /runs/stream` polls `audit_record` every 100ms; an
+  `mpsc::Sender<RunEvent>` wired through `run_turn` would
+  shave that latency to zero.
 
 ## Status
 
