@@ -99,37 +99,10 @@ async fn fetch_tabs(port: u16) -> Result<Vec<serde_json::Value>, String> {
 /// over WebSocket. Returns the `result.value` (or `result.description`
 /// if no value, e.g. for thrown errors).
 pub async fn eval(args: &serde_json::Value) -> CallToolResult {
-    use futures::{SinkExt, StreamExt};
-    use tokio_tungstenite::tungstenite::Message;
-
-    let port = args
-        .get("port")
-        .and_then(|v| v.as_u64())
-        .and_then(|n| u16::try_from(n).ok())
-        .unwrap_or(DEFAULT_PORT);
+    let port = port_from_args(args);
     let expression = match args.get("expression").and_then(|v| v.as_str()) {
         Some(e) => e.to_string(),
         None => return error("missing required field 'expression'".into()),
-    };
-    let tabs = match fetch_tabs(port).await {
-        Ok(t) => t,
-        Err(e) => return error(e),
-    };
-    let ws_url = tabs
-        .iter()
-        .find_map(|t| {
-            t.get("type")
-                .and_then(|v| v.as_str())
-                .filter(|&ty| ty == "page")
-                .and(t.get("webSocketDebuggerUrl").and_then(|v| v.as_str()))
-        })
-        .map(str::to_string);
-    let Some(ws_url) = ws_url else {
-        return error("no `page`-type tab in /json (open a tab in Chrome)".into());
-    };
-    let (mut ws, _resp) = match tokio_tungstenite::connect_async(&ws_url).await {
-        Ok(p) => p,
-        Err(e) => return error(format!("connect ws {ws_url}: {e}")),
     };
     let req = serde_json::json!({
         "id": 1,
@@ -139,31 +112,10 @@ pub async fn eval(args: &serde_json::Value) -> CallToolResult {
             "returnByValue": true,
         }
     });
-    let serialized = match serde_json::to_string(&req) {
-        Ok(s) => s,
-        Err(e) => return error(format!("serialize CDP request: {e}")),
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
     };
-    if let Err(e) = ws.send(Message::Text(serialized)).await {
-        return error(format!("send CDP request: {e}"));
-    }
-    let response_text = loop {
-        match ws.next().await {
-            Some(Ok(Message::Text(t))) => break t.to_string(),
-            Some(Ok(Message::Close(_))) | None => {
-                return error("WebSocket closed before response".into());
-            }
-            Some(Ok(_)) => continue, // ignore Ping/Pong/Binary
-            Some(Err(e)) => return error(format!("read CDP frame: {e}")),
-        }
-    };
-    let _ = ws.close(None).await;
-    let parsed: serde_json::Value = match serde_json::from_str(&response_text) {
-        Ok(v) => v,
-        Err(e) => return error(format!("parse CDP response: {e}")),
-    };
-    if let Some(err) = parsed.get("error") {
-        return error(format!("CDP error: {err}"));
-    }
     let result = &parsed["result"]["result"];
     let summary = result
         .get("value")
@@ -179,6 +131,94 @@ pub async fn eval(args: &serde_json::Value) -> CallToolResult {
         content: vec![McpContent::Text { text: summary }],
         is_error: false,
     }
+}
+
+/// Capture a viewport (or full-page) screenshot via
+/// `Page.captureScreenshot`. Returns the base64 PNG payload as an
+/// MCP `Image` content block.
+pub async fn screenshot(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let full_page = args
+        .get("full_page")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Page.captureScreenshot",
+        "params": {
+            "format": "png",
+            "captureBeyondViewport": full_page,
+        }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let data = parsed["result"]["data"].as_str().map(String::from);
+    let Some(data) = data else {
+        return error(format!("no `data` in screenshot response: {parsed}"));
+    };
+    CallToolResult {
+        content: vec![McpContent::Image {
+            data: Some(format!("data:image/png;base64,{data}")),
+            mime_type: Some("image/png".into()),
+        }],
+        is_error: false,
+    }
+}
+
+fn port_from_args(args: &serde_json::Value) -> u16 {
+    args.get("port")
+        .and_then(|v| v.as_u64())
+        .and_then(|n| u16::try_from(n).ok())
+        .unwrap_or(DEFAULT_PORT)
+}
+
+/// Open a WS to the first page-type tab on `port`, send `request`,
+/// return the parsed response body. Single-shot.
+async fn cdp_round_trip(
+    port: u16,
+    request: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    use futures::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::Message;
+
+    let tabs = fetch_tabs(port).await?;
+    let ws_url = tabs
+        .iter()
+        .find_map(|t| {
+            t.get("type")
+                .and_then(|v| v.as_str())
+                .filter(|&ty| ty == "page")
+                .and(t.get("webSocketDebuggerUrl").and_then(|v| v.as_str()))
+        })
+        .map(str::to_string)
+        .ok_or_else(|| "no `page`-type tab in /json (open a tab in Chrome)".to_string())?;
+    let (mut ws, _resp) = tokio_tungstenite::connect_async(&ws_url)
+        .await
+        .map_err(|e| format!("connect ws {ws_url}: {e}"))?;
+    let serialized =
+        serde_json::to_string(&request).map_err(|e| format!("serialize CDP request: {e}"))?;
+    ws.send(Message::Text(serialized))
+        .await
+        .map_err(|e| format!("send CDP request: {e}"))?;
+    let response_text = loop {
+        match ws.next().await {
+            Some(Ok(Message::Text(t))) => break t.to_string(),
+            Some(Ok(Message::Close(_))) | None => {
+                return Err("WebSocket closed before response".into());
+            }
+            Some(Ok(_)) => continue, // ignore Ping/Pong/Binary
+            Some(Err(e)) => return Err(format!("read CDP frame: {e}")),
+        }
+    };
+    let _ = ws.close(None).await;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&response_text).map_err(|e| format!("parse CDP response: {e}"))?;
+    if let Some(err) = parsed.get("error") {
+        return Err(format!("CDP error: {err}"));
+    }
+    Ok(parsed)
 }
 
 /// `GET http://127.0.0.1:<port>/json/version` and return the
@@ -318,6 +358,23 @@ mod tests {
         let port = pick_free_port();
         let args = serde_json::json!({"port": port, "expression": "1 + 1"});
         let result = eval(&args).await;
+        assert!(result.is_error);
+        match &result.content[0] {
+            McpContent::Text { text } => {
+                assert!(
+                    text.contains("no Chrome on port") || text.contains("/json"),
+                    "unexpected text: {text}"
+                );
+            }
+            _ => panic!("expected text content"),
+        }
+    }
+
+    #[tokio::test]
+    async fn screenshot_with_no_chrome_returns_clean_error() {
+        let port = pick_free_port();
+        let args = serde_json::json!({"port": port});
+        let result = screenshot(&args).await;
         assert!(result.is_error);
         match &result.content[0] {
             McpContent::Text { text } => {

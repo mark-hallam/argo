@@ -75,6 +75,9 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "eval" {
             return Ok(crate::cdp::eval(&params.arguments).await);
         }
+        if params.name.as_str() == "screenshot" {
+            return Ok(crate::cdp::screenshot(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -170,11 +173,20 @@ fn submit_schema() -> McpToolSchema {
 fn screenshot_schema() -> McpToolSchema {
     McpToolSchema {
         name: "screenshot".into(),
-        description: "Capture a viewport screenshot. Returns base64 PNG.".into(),
+        description: "Capture a screenshot of the first open page via CDP \
+            Page.captureScreenshot. Returns an MCP Image content block \
+            (base64 PNG, embedded as a `data:image/png;base64,...` URL). \
+            Pass `full_page=true` for `captureBeyondViewport`."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
-                "full_page": { "type": "boolean", "default": false }
+                "full_page": { "type": "boolean", "default": false },
+                "port": {
+                    "type": "integer",
+                    "description": "Chrome debug port. Defaults to 9222.",
+                    "default": 9222
+                }
             }
         }),
     }
