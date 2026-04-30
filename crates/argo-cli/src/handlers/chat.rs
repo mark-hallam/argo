@@ -15,7 +15,9 @@
 //! (`--stream`) stays single-turn for now; multi-turn streaming
 //! lands once the wire layer can accumulate tool-call deltas
 //! through the agent loop.
-use super::chat_helpers::{build_assistant_content, message_from_row};
+use super::chat_helpers::{
+    build_assistant_content, message_from_row, price_for, record_turn_spend, SpendCtx,
+};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
@@ -165,6 +167,8 @@ pub async fn run_turn(
     let api_key_env = manifest.auth.api_key_env.clone();
     let api_key = std::env::var(&api_key_env)
         .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
+    let pricing = price_for(&manifest, &session.model);
+    let provider_id = manifest.provider.id.clone();
     let transport: Box<dyn Transport> = match manifest.provider.family {
         ProviderFamily::Anthropic => {
             Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
@@ -191,6 +195,12 @@ pub async fn run_turn(
             serde_json::json!({"provider": session.provider, "model": session.model}),
         )
         .await?;
+    let spend_ctx = SpendCtx {
+        tenant_id: session.tenant_id,
+        provider: provider_id.as_str(),
+        model: session.model.as_str(),
+        pricing,
+    };
     let result = if stream {
         run_turn_stream(store, transport.as_ref(), session_id, &session.model).await
     } else {
@@ -201,6 +211,7 @@ pub async fn run_turn(
             session_id,
             &session.model,
             &audit,
+            &spend_ctx,
         )
         .await
     };
@@ -251,6 +262,7 @@ async fn run_turn_with_tools(
     session_id: SessionId,
     model: &str,
     audit: &AuditSink,
+    spend: &SpendCtx<'_>,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -300,6 +312,7 @@ async fn run_turn_with_tools(
                 }),
             )
             .await?;
+        record_turn_spend(store, session_id, spend, last_tokens_in, last_tokens_out).await?;
 
         if resp.tool_calls.is_empty() {
             return Ok(TurnResult {
@@ -454,4 +467,5 @@ fn load_manifest(cwd: &std::path::Path, provider_id: &str) -> ArgoResult<Provide
         .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
     ProviderManifest::from_toml_str(&body)
 }
+
 

@@ -1,10 +1,62 @@
 //! Pure helpers used by the agent loop in `chat.rs`. Extracted
 //! to keep that file under the 500-LOC budget.
+use argo_provider::ProviderManifest;
+use argo_store::SessionStore;
 use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId, ToolCallId,
-    ToolCallRequest,
+    ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId, TenantId,
+    ToolCallId, ToolCallRequest,
 };
 use chrono::Utc;
+use std::sync::Arc;
+
+/// Static-for-the-turn data the agent loop needs to record spend
+/// (tenant + provider + model + price-per-1k tuple).
+pub(crate) struct SpendCtx<'a> {
+    pub(crate) tenant_id: TenantId,
+    pub(crate) provider: &'a str,
+    pub(crate) model: &'a str,
+    pub(crate) pricing: Option<(f64, f64)>,
+}
+
+/// Look up `(price_per_1k_in, price_per_1k_out)` for a given model
+/// id within a manifest. Returns `None` if the model isn't listed
+/// or if either price field is missing — chat skips spend recording
+/// in that case (no silent zero-cost rows).
+pub(crate) fn price_for(manifest: &ProviderManifest, model: &str) -> Option<(f64, f64)> {
+    let spec = manifest.models.iter().find(|m| m.id == model)?;
+    Some((spec.price_per_1k_in?, spec.price_per_1k_out?))
+}
+
+/// Convert `(tokens_in, tokens_out)` × pricing into USD-micros and
+/// record one spend row per turn. No-op when pricing or token
+/// counts are missing.
+pub(crate) async fn record_turn_spend(
+    store: &Arc<SessionStore>,
+    session_id: SessionId,
+    spend: &SpendCtx<'_>,
+    tokens_in: Option<u32>,
+    tokens_out: Option<u32>,
+) -> ArgoResult<()> {
+    let (Some((p_in, p_out)), Some(ti), Some(to)) = (spend.pricing, tokens_in, tokens_out) else {
+        return Ok(());
+    };
+    let usd = (f64::from(ti) * p_in + f64::from(to) * p_out) / 1000.0;
+    let micros = (usd * 1_000_000.0).round().max(0.0) as u64;
+    if micros == 0 {
+        return Ok(());
+    }
+    store
+        .record_spend(
+            spend.tenant_id,
+            session_id,
+            Utc::now().timestamp_micros(),
+            micros,
+            spend.provider,
+            spend.model,
+        )
+        .await?;
+    Ok(())
+}
 
 /// Convert a `MessageRow` from the store into the canonical
 /// `Message` the wire layer expects. Tool-call / tool-result
