@@ -52,11 +52,11 @@ pub struct ViewerState {
     /// footer renders this so e.g. missing provider keys aren't
     /// silently swallowed.
     pub last_agent_error: Option<String>,
-    /// Active rename buffer: `Some` while the user is in rename
-    /// mode (entered with `r`); the user types into it and Enter
-    /// persists. `None` outside rename mode. Held separately from
-    /// the composer so the two flows don't collide on Enter.
+    /// Active rename buffer: `Some` in rename mode (entered with `r`).
     pub rename_buffer: Option<String>,
+    /// `Some(sid)` while a pending-delete confirm is in flight
+    /// (entered with `d`); next `y` deletes, anything else cancels.
+    pub pending_delete: Option<argo_types::SessionId>,
     /// Live event log appended as the agent task emits
     /// `TurnStart` / `AssistantMessage` / `ToolCall` / `ToolResult`
     /// / `TurnEnd` chunks. The render layer surfaces the most
@@ -89,6 +89,7 @@ impl ViewerState {
             last_agent_error: None,
             live_events: Vec::new(),
             rename_buffer: None,
+            pending_delete: None,
         }
     }
 
@@ -101,11 +102,7 @@ impl ViewerState {
     /// Enter rename mode, seeding the buffer with the selected
     /// session's existing title (or empty when there isn't one).
     pub fn enter_rename_mode(&mut self) {
-        let seed = self
-            .selected_session()
-            .and_then(|s| s.title.as_deref())
-            .unwrap_or("")
-            .to_string();
+        let seed = self.selected_session().and_then(|s| s.title.as_deref()).unwrap_or("").to_string();
         self.rename_buffer = Some(seed);
     }
 

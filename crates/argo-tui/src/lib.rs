@@ -12,6 +12,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod actions;
 mod app;
 mod clipboard;
 mod input;
