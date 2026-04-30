@@ -14,8 +14,10 @@
 //! appended to the body); LLM-driven mutation is a follow-up.
 use super::forge_subject::{open_store, BenchSubject};
 use crate::home::resolve_home;
+use argo_agent_runner::{build_transport, load_manifest};
 use argo_audit::{AuditKind, AuditSink};
-use argo_eval::{load_jsonl, run_eval};
+use argo_eval::{load_jsonl, run_eval, EvalRecord, EvalTask};
+use argo_provider::{ProviderRequest, Sampling, ToolSchema};
 use argo_skill::{PrincipalOverride, SkillStore};
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
@@ -88,6 +90,9 @@ pub(super) async fn run(
     let mut completed = 0_i64;
     let mut last_status = "succeeded";
     let budget_micros = (budget_usd * 1_000_000.0).round() as i64;
+    // Records from the previous iter — used to drive the next
+    // mutation by feeding the meta-prompt the failed examples.
+    let mut prev_records: Vec<EvalRecord> = Vec::new();
 
     println!("\n  iter  version    mean_score  pass_rate  errors  best_so_far");
     for iter in 0..iterations {
@@ -95,12 +100,23 @@ pub(super) async fn run(
             baseline.frontmatter.version.clone()
         } else {
             let candidate_version = bump_version(&baseline.frontmatter.version, iter);
-            let candidate_body = format!(
-                "{}\n\n## Refinement attempt {iter}\n\
-                 Be precise, structured, and avoid filler. Cite tool \
-                 outputs verbatim when relevant.\n",
-                baseline.body.trim_end()
-            );
+            // Use the LLM mutator if there were failures last
+            // iter; otherwise fall back to the mechanical
+            // refinement template (so we still try *something*
+            // when everything passed but score was sub-1.0).
+            let candidate_body = match mutate_via_llm(
+                &cwd,
+                &subject.provider,
+                &subject.model,
+                &baseline.body,
+                &tasks,
+                &prev_records,
+            )
+            .await
+            {
+                Ok(Some(body)) => body,
+                Ok(None) | Err(_) => mechanical_refinement(&baseline.body, iter),
+            };
             let raw = build_skill_md(
                 skill_name,
                 &candidate_version,
@@ -113,7 +129,8 @@ pub(super) async fn run(
             candidate_version
         };
 
-        let (_, summary) = run_eval(&subject, &tasks).await;
+        let (records, summary) = run_eval(&subject, &tasks).await;
+        prev_records = records;
         if summary.errors > 0 {
             last_status = if summary.errors == summary.n {
                 "failed"
@@ -181,6 +198,113 @@ pub(super) async fn run(
     Ok(())
 }
 
+/// Fallback mutator: append a fixed `## Refinement attempt N`
+/// block. Used when the LLM mutator can't or shouldn't run
+/// (transport build failure, no failed examples to learn from,
+/// etc).
+fn mechanical_refinement(baseline_body: &str, iter: u32) -> String {
+    format!(
+        "{}\n\n## Refinement attempt {iter}\n\
+         Be precise, structured, and avoid filler. Cite tool \
+         outputs verbatim when relevant.\n",
+        baseline_body.trim_end()
+    )
+}
+
+/// LLM-driven mutator: ask the configured provider/model to
+/// propose a refined skill body, given the baseline body + the
+/// records from the previous bench iteration (so the prompt
+/// shows which examples failed and what the wrong output was).
+///
+/// Returns `Ok(None)` when there's nothing to learn from
+/// (no failed records yet, e.g. the very first iteration). The
+/// caller falls back to the mechanical template in that case.
+async fn mutate_via_llm(
+    cwd: &std::path::Path,
+    provider_id: &str,
+    model: &str,
+    baseline_body: &str,
+    tasks: &[EvalTask],
+    prev_records: &[EvalRecord],
+) -> ArgoResult<Option<String>> {
+    if prev_records.is_empty() {
+        return Ok(None);
+    }
+    let failures: Vec<&EvalRecord> = prev_records.iter().filter(|r| !r.passed).collect();
+    if failures.is_empty() {
+        return Ok(None);
+    }
+    let mut failure_block = String::new();
+    for r in failures.iter().take(8) {
+        let task = tasks.iter().find(|t| t.name == r.task);
+        let input = task.map(|t| t.input.as_str()).unwrap_or("?");
+        let expected = task.map(|t| t.expected.as_str()).unwrap_or("?");
+        let actual: String = r.output.chars().take(280).collect();
+        failure_block.push_str(&format!(
+            "- task: {name}\n  input: {input}\n  expected: {expected}\n  actual: {actual}\n  score: {score:.3}\n\n",
+            name = r.task,
+            score = r.score,
+        ));
+    }
+    let user_prompt = format!(
+        "You are tuning a workspace skill. The current skill body is:\n\n\
+         ```markdown\n{baseline}\n```\n\n\
+         The skill was just benched against an eval-task suite. \
+         Below are the tasks that *failed*:\n\n{failures}\n\
+         Propose a refined skill body that addresses these failures \
+         while preserving correct behaviour on passing tasks. Reply \
+         with ONLY the refined Markdown body — no preamble, no \
+         frontmatter, no code fences.",
+        baseline = baseline_body.trim(),
+        failures = failure_block,
+    );
+
+    let manifest = load_manifest(cwd, provider_id)?;
+    let transport = build_transport(manifest).await?;
+    let req = ProviderRequest {
+        model: model.to_string(),
+        messages: vec![argo_types::Message {
+            id: argo_types::MessageId(uuid::Uuid::now_v7()),
+            session_id: argo_types::SessionId(uuid::Uuid::nil()),
+            role: argo_types::MessageRole::User,
+            content: vec![argo_types::ContentBlock::Text { text: user_prompt }],
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+            reasoning: None,
+            created_at: chrono::Utc::now(),
+            provider_meta: serde_json::Value::Null,
+        }],
+        tools: Vec::<ToolSchema>::new(),
+        system: Some(
+            "You refine workspace skills based on bench-result feedback. \
+             Output only the refined skill body."
+                .to_string(),
+        ),
+        sampling: Sampling::default(),
+    };
+    let resp = transport.complete(&req).await?;
+    let text = resp.text.unwrap_or_default();
+    if text.trim().is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(strip_code_fence(&text)))
+}
+
+/// If the LLM wrapped the body in a Markdown code fence
+/// (`\`\`\`markdown … \`\`\``), strip it. Idempotent on
+/// fence-free inputs.
+fn strip_code_fence(s: &str) -> String {
+    let t = s.trim();
+    let stripped = t.strip_prefix("```markdown").or_else(|| t.strip_prefix("```"));
+    if let Some(after_open) = stripped {
+        let body = after_open.trim_start_matches('\n');
+        if let Some(idx) = body.rfind("```") {
+            return body[..idx].trim_end().to_string();
+        }
+    }
+    t.to_string()
+}
+
 /// Bump the trailing numeric segment of a semver-ish version
 /// by `delta` (e.g. `bump_version("0.1", 3) == "0.4"`).
 pub(super) fn bump_version(v: &str, delta: u32) -> String {
@@ -221,5 +345,29 @@ mod tests {
     #[test]
     fn bump_version_falls_back_for_non_numeric_tail() {
         assert_eq!(bump_version("alpha", 1), "alpha-cand1");
+    }
+
+    #[test]
+    fn strip_code_fence_drops_markdown_wrapper() {
+        let wrapped = "```markdown\nbody line\nmore\n```\n";
+        assert_eq!(strip_code_fence(wrapped), "body line\nmore");
+    }
+
+    #[test]
+    fn strip_code_fence_drops_plain_fence() {
+        let wrapped = "```\nbody\n```";
+        assert_eq!(strip_code_fence(wrapped), "body");
+    }
+
+    #[test]
+    fn strip_code_fence_idempotent_on_unfenced_text() {
+        assert_eq!(strip_code_fence("just text"), "just text");
+    }
+
+    #[test]
+    fn mechanical_refinement_appends_a_block() {
+        let refined = mechanical_refinement("base body", 3);
+        assert!(refined.contains("base body"));
+        assert!(refined.contains("## Refinement attempt 3"));
     }
 }

@@ -12,7 +12,7 @@ use std::path::Path;
 /// OpenAI families read the API key from `manifest.auth.api_key_env`;
 /// Bedrock loads AWS credentials via `aws_config::load_from_env()`
 /// (honours the standard `AWS_*` env vars + `~/.aws` profile).
-pub(crate) async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
+pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
     if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
         let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         return Ok(Box::new(BedrockTransport::from_manifest(manifest, &cfg)?));
@@ -38,7 +38,7 @@ pub(crate) async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Bo
 }
 
 /// Read `<cwd>/manifests/providers/<provider-id>.toml` and parse.
-pub(crate) fn load_manifest(cwd: &Path, provider_id: &str) -> ArgoResult<ProviderManifest> {
+pub fn load_manifest(cwd: &Path, provider_id: &str) -> ArgoResult<ProviderManifest> {
     let path = cwd
         .join("manifests")
         .join("providers")
