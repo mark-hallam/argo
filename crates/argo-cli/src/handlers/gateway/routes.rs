@@ -85,8 +85,9 @@ pub(super) async fn dispatch_route(
     // GET /sessions/<uuid>/messages — list every message on a session
     if let Some(rest) = req.strip_prefix("GET /sessions/") {
         if let Some((sid, tail)) = rest.split_once('/') {
-            if tail.starts_with("messages ") {
-                return list_messages_response(sid, store).await;
+            if tail.starts_with("messages ") || tail.starts_with("messages?") {
+                let limit = parse_limit(tail);
+                return list_messages_response(sid, store, limit).await;
             }
         }
         // Strip trailing " HTTP/..." → just the session id
@@ -384,9 +385,25 @@ async fn session_show_response(
     )
 }
 
+/// Pull `limit=<N>` out of a path tail like `messages?limit=10 HTTP/1.1`.
+/// Returns `None` if absent or unparseable; caller treats `None` as
+/// "all rows".
+fn parse_limit(tail: &str) -> Option<usize> {
+    let q = tail.split_once('?')?.1;
+    let q = q.split_once(' ').map(|(q, _)| q).unwrap_or(q);
+    for kv in q.split('&') {
+        let (k, v) = kv.split_once('=')?;
+        if k == "limit" {
+            return v.parse().ok();
+        }
+    }
+    None
+}
+
 async fn list_messages_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
+    limit: Option<usize>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -401,7 +418,12 @@ async fn list_messages_response(
         }
     };
     match store.list_messages(id).await {
-        Ok(rows) => {
+        Ok(mut rows) => {
+            if let Some(n) = limit {
+                if rows.len() > n {
+                    rows.truncate(n);
+                }
+            }
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|m| {
