@@ -182,3 +182,40 @@ async fn supersede_without_install_is_schema_error() {
         .unwrap_err();
     assert!(matches!(err, argo_types::ArgoError::Schema(_)));
 }
+
+#[tokio::test]
+async fn promote_flips_active_pointer() {
+    let store = fresh_store().await;
+    let v1 = store
+        .install(&skill_doc("alpha", "0.1", "none", "v1"), None)
+        .await
+        .unwrap();
+    store
+        .supersede(
+            &skill_doc("alpha", "0.2", "none", "v2"),
+            None,
+            PrincipalOverride::Force,
+        )
+        .await
+        .unwrap();
+    let active_now = store.find_active_by_name("alpha").await.unwrap().unwrap();
+    assert_eq!(active_now.frontmatter.version, "0.2");
+
+    // Promote back to v0.1 — flips the chain.
+    let promoted = store.promote("alpha", "0.1").await.unwrap();
+    assert_eq!(promoted.id, v1.id);
+    assert!(promoted.superseded_by.is_none());
+    let active_again = store.find_active_by_name("alpha").await.unwrap().unwrap();
+    assert_eq!(active_again.id, v1.id);
+}
+
+#[tokio::test]
+async fn promote_unknown_version_is_schema_error() {
+    let store = fresh_store().await;
+    store
+        .install(&skill_doc("alpha", "0.1", "none", "x"), None)
+        .await
+        .unwrap();
+    let err = store.promote("alpha", "99.0").await.unwrap_err();
+    assert!(matches!(err, argo_types::ArgoError::Schema(_)));
+}

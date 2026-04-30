@@ -83,6 +83,56 @@ impl SkillStore {
         Ok(new_skill)
     }
 
+    /// Promote `(name, version)` to be the active row for that
+    /// skill name (i.e. the row where `superseded_by IS NULL`).
+    /// Any other rows for the same name are linked back to the
+    /// promoted row's id.
+    ///
+    /// Returns the promoted [`Skill`] on success;
+    /// [`ArgoError::Schema`] when no row matches the
+    /// `(name, version)` pair.
+    ///
+    /// This is the offline counterpart to `argo forge promote`:
+    /// once a forge optimization landed a candidate row, calling
+    /// `promote` flips the active pointer without touching the
+    /// candidate's bytes.
+    pub async fn promote(&self, name: &str, version: &str) -> ArgoResult<Skill> {
+        let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE s.name = ? AND s.version = ?",
+        )
+        .bind(name)
+        .bind(version)
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill promote lookup: {e}")))?;
+        let row = row.ok_or_else(|| {
+            ArgoError::Schema(format!("no skill named '{name}' at version '{version}'"))
+        })?;
+        let target_id_blob = row.id.clone();
+        // Point every other row for this name at the target's id.
+        sqlx::query(
+            "UPDATE skill SET superseded_by = ? WHERE name = ? AND id <> ?",
+        )
+        .bind(&target_id_blob)
+        .bind(name)
+        .bind(&target_id_blob)
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill promote supersede chain: {e}")))?;
+        // Clear the target's own superseded_by so it's the active row.
+        sqlx::query("UPDATE skill SET superseded_by = NULL WHERE id = ?")
+            .bind(&target_id_blob)
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("skill promote clear: {e}")))?;
+        let mut promoted = Skill::try_from(row)?;
+        promoted.superseded_by = None;
+        Ok(promoted)
+    }
+
     /// Lock or unlock a skill.
     pub async fn set_lock(
         &self,

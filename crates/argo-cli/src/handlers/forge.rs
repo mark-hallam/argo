@@ -4,6 +4,7 @@
 use crate::cli::{ForgeCmd, ForgeRunsCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{AuditKind, AuditSink};
+use argo_skill::SkillStore;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
@@ -16,11 +17,36 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::Show { id } => show_run(&id).await,
             ForgeRunsCmd::Abort { id } => abort_run(&id).await,
         },
+        ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         other => {
             println!("argo forge: '{other:?}' requires the daemon's forge worker (separate PR).");
             Ok(())
         }
     }
+}
+
+async fn promote(skill_name: &str, version: &str) -> ArgoResult<()> {
+    let store = Arc::new(open_store().await?);
+    let skills = SkillStore::new(Arc::clone(&store));
+    let promoted = skills.promote(skill_name, version).await?;
+    AuditSink::new(Arc::clone(&store))
+        .write(
+            None,
+            AuditKind::ForgeRunEnd,
+            serde_json::json!({
+                "kind": "promote",
+                "skill_name": skill_name,
+                "version": version,
+                "skill_id": promoted.id.0.to_string(),
+                "by": "cli",
+            }),
+        )
+        .await?;
+    println!(
+        "argo forge promote: {} → version {} is now active (skill_id {})",
+        skill_name, version, promoted.id.0
+    );
+    Ok(())
 }
 
 async fn list_runs() -> ArgoResult<()> {
