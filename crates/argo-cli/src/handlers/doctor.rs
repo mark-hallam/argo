@@ -56,7 +56,66 @@ pub async fn run() -> ArgoResult<()> {
         );
     }
     db_health(&home).await;
+    cron_health(&cwd);
+    creds_health();
     Ok(())
+}
+
+fn cron_health(cwd: &std::path::Path) {
+    let lock = cwd.join("cron").join(".tick.lock");
+    if !lock.exists() {
+        println!("  cron:       no lock file (daemon not started)");
+        return;
+    }
+    // The lock is fs2-exclusive; if we can take it, no daemon is
+    // running. We don't try to take it here (it would race with a
+    // live daemon). Just report the file's presence + mtime.
+    match std::fs::metadata(&lock) {
+        Ok(m) => match m.modified() {
+            Ok(mtime) => {
+                let age = mtime
+                    .elapsed()
+                    .map(|d| format!("{}s ago", d.as_secs()))
+                    .unwrap_or_else(|_| "unknown".into());
+                println!(
+                    "  cron:       lock present at {} (mtime {age})",
+                    lock.display()
+                );
+            }
+            Err(_) => {
+                println!("  cron:       lock present at {}", lock.display());
+            }
+        },
+        Err(_) => {
+            println!("  cron:       lock metadata unreadable");
+        }
+    }
+}
+
+fn creds_health() {
+    let known = [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "AWS_ACCESS_KEY_ID",
+        "ELEVENLABS_API_KEY",
+    ];
+    let mut found: Vec<&str> = Vec::new();
+    let mut missing: Vec<&str> = Vec::new();
+    for k in known {
+        if std::env::var_os(k).is_some_and(|v| !v.is_empty()) {
+            found.push(k);
+        } else {
+            missing.push(k);
+        }
+    }
+    if found.is_empty() {
+        println!("  creds:      none of {} are set", known.join(", "));
+    } else {
+        println!("  creds:      set: {}", found.join(", "));
+        if !missing.is_empty() {
+            println!("              unset: {}", missing.join(", "));
+        }
+    }
 }
 
 async fn db_health(home: &std::path::Path) {
