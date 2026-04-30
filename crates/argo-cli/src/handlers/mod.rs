@@ -9,6 +9,8 @@ pub mod db;
 pub mod doctor;
 pub mod eval;
 pub mod forge;
+mod forge_optimize;
+mod forge_subject;
 pub mod gateway;
 pub mod health;
 pub mod judge;
