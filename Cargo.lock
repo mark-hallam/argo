@@ -330,6 +330,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-browser"
+version = "0.0.1"
+dependencies = [
+ "argo-mcp",
+ "argo-types",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "argo-mcp-voice"
 version = "0.0.1"
 dependencies = [
