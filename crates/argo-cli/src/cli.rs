@@ -159,8 +159,17 @@ pub enum PluginCmd {
 #[derive(Subcommand, Debug)]
 pub enum ProviderCmd {
     List,
-    Validate { manifest: String },
-    Test { provider: String },
+    /// Render one provider manifest's full details (header, auth,
+    /// transport, capabilities, models, discovery).
+    Show {
+        id: String,
+    },
+    Validate {
+        manifest: String,
+    },
+    Test {
+        provider: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

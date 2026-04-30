@@ -7,6 +7,7 @@ use std::path::PathBuf;
 pub fn run(cmd: ProviderCmd) -> ArgoResult<()> {
     match cmd {
         ProviderCmd::List => list_manifests(),
+        ProviderCmd::Show { id } => show(&id),
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
         ProviderCmd::Test { provider } => {
             // Live provider test requires a real API key + reqwest;
@@ -15,6 +16,81 @@ pub fn run(cmd: ProviderCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+fn show(provider_id: &str) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let manifests_dir = cwd.join("manifests").join("providers");
+    if !manifests_dir.exists() {
+        return Err(ArgoError::Provider(format!(
+            "no manifests at {} (run from a workspace with manifests/providers/)",
+            manifests_dir.display()
+        )));
+    }
+    for entry in std::fs::read_dir(&manifests_dir)
+        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", manifests_dir.display())))?
+    {
+        let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
+        let p = e.path();
+        if p.extension().is_none_or(|x| x != "toml") {
+            continue;
+        }
+        let body = std::fs::read_to_string(&p)
+            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+        let m = match ProviderManifest::from_toml_str(&body) {
+            Ok(m) => m,
+            Err(_) => continue, // skip invalid manifests in show-by-id flow
+        };
+        if m.provider.id == provider_id {
+            return render(&m);
+        }
+    }
+    Err(ArgoError::Provider(format!(
+        "no provider with id '{provider_id}' under {}",
+        manifests_dir.display()
+    )))
+}
+
+fn render(m: &ProviderManifest) -> ArgoResult<()> {
+    println!("# {} ({:?})", m.provider.id, m.provider.family);
+    println!("  base_url:   {}", m.provider.base_url);
+    println!(
+        "  auth:       header={} format={} env={}",
+        m.auth.header_name, m.auth.header_format, m.auth.api_key_env
+    );
+    println!("  streaming:  {:?}", m.transport.streaming);
+    println!(
+        "  timeouts:   connect={}ms read={}ms max_retries={}",
+        m.transport.connect_timeout_ms, m.transport.read_timeout_ms, m.transport.max_retries
+    );
+    println!("  tool_calls: {:?}", m.tool_calls.format);
+    if !m.models.is_empty() {
+        println!("  models:");
+        for spec in &m.models {
+            let tier = spec.tier.as_deref().unwrap_or("-");
+            println!(
+                "    {:<32} ctx={:<8} tier={tier}",
+                spec.id,
+                spec.context_window
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| "-".into())
+            );
+        }
+    }
+    if let Some(d) = m.discovery.as_ref() {
+        println!(
+            "  discovery:  endpoint={} prefer={:?} refresh={}h",
+            d.endpoint, d.prefer, d.refresh_interval_hours
+        );
+    }
+    if let Some(r) = m.reasoning.as_ref() {
+        println!(
+            "  reasoning:  field={} preserve_across_turns={}",
+            r.content_field, r.preserve_across_turns
+        );
+    }
+    Ok(())
 }
 
 fn list_manifests() -> ArgoResult<()> {
