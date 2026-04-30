@@ -102,6 +102,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /sessions/<uuid>/messages → every message on the session");
     eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("  POST /sessions/<uuid>/messages → append a message ({{role, content}})");
+    eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
+    eprintln!("  GET  /costs    → cost ceilings (per_session/day/month + notify_at_pct)");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");
 
     let mut served = 0_u64;

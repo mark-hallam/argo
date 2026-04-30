@@ -27,6 +27,12 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /memory ") {
         return memory_response(store).await;
     }
+    if req.starts_with("GET /audit ") {
+        return audit_response(store).await;
+    }
+    if req.starts_with("GET /costs ") {
+        return costs_response();
+    }
     if req.starts_with("POST /sessions ") {
         return create_session_response(req, store).await;
     }
@@ -366,6 +372,65 @@ async fn session_show_response(
     (
         "200 OK",
         serde_json::to_string(&row).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let report = match argo_audit::verify_all(store).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"verify_all: {e}\"}}"),
+            );
+        }
+    };
+    let mut kinds: Vec<(String, usize)> = report
+        .kind_counts
+        .iter()
+        .map(|(k, v)| (k.clone(), *v))
+        .collect();
+    kinds.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let kinds_obj: serde_json::Map<String, serde_json::Value> = kinds
+        .into_iter()
+        .map(|(k, v)| (k, serde_json::Value::from(v)))
+        .collect();
+    let payload = serde_json::json!({
+        "ok": report.ok,
+        "rows": report.rows,
+        "breaks": report.breaks.len(),
+        "kinds": kinds_obj,
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+fn costs_response() -> (&'static str, String) {
+    let cwd = match std::env::current_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"cwd: {e}\"}}"),
+            );
+        }
+    };
+    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let ceilings = cfg.budget.to_cost_ceilings();
+    let payload = serde_json::json!({
+        "per_session_usd_micros": ceilings.per_session_usd_micros,
+        "per_day_usd_micros":     ceilings.per_day_usd_micros,
+        "per_month_usd_micros":   ceilings.per_month_usd_micros,
+        "notify_at_pct":          ceilings.notify_at_pct,
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
     )
 }
 
