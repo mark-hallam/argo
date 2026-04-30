@@ -121,8 +121,22 @@ pub enum SkillCmd {
     Create {
         name: String,
     },
+    /// Append a hint to the active skill's body and supersede it
+    /// with a fresh version. Manual mutator — the score-driven
+    /// version (run bench, accept only when the new score wins)
+    /// lands once `forge optimize` learns to mutate.
     Refine {
         name: String,
+        /// Text to append to the skill body, under a new
+        /// `## Refinement` section.
+        #[arg(long)]
+        hint: String,
+        /// Version label for the refined skill. Defaults to
+        /// bumping the existing version's last numeric segment
+        /// (e.g. `0.1` → `0.2`). `--version` would clash with
+        /// clap's auto-version flag, hence the rename.
+        #[arg(long = "new-version")]
+        new_version: Option<String>,
     },
     Install {
         source: String,

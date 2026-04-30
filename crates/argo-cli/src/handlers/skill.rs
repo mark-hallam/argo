@@ -29,6 +29,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::Install { source } => install(&skills, &source).await,
         SkillCmd::Lock { name } => set_lock(&skills, &name, Lock::UserProtected).await,
         SkillCmd::Unlock { name } => set_lock(&skills, &name, Lock::None).await,
+        SkillCmd::Refine { name, hint, new_version } => {
+            refine(&skills, &name, &hint, new_version.as_deref()).await
+        }
         other => {
             println!(
                 "argo skill: '{other:?}' requires the daemon's capability + judge bindings (separate PR)."
@@ -36,6 +39,67 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn refine(
+    skills: &SkillStore,
+    name: &str,
+    hint: &str,
+    version_override: Option<&str>,
+) -> ArgoResult<()> {
+    let trimmed = hint.trim();
+    if trimmed.is_empty() {
+        return Err(ArgoError::Provider("skill refine: empty --hint".into()));
+    }
+    let active = skills
+        .find_active_by_name(name)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{name}'")))?;
+    let new_version = version_override
+        .map(String::from)
+        .unwrap_or_else(|| bump_version(&active.frontmatter.version));
+    let new_body = format!("{}\n\n## Refinement\n{}\n", active.body.trim_end(), trimmed);
+    let raw = format!(
+        "---\nname: {name}\nversion: \"{new_version}\"\ndescription: {desc}\n\
+         lock: none\nprovenance:\n  source: refined-from-{prev}\n  hash: sha256-{hash}\n---\n{body}",
+        desc = active.frontmatter.description,
+        prev = active.frontmatter.version,
+        hash = body_hash(&new_body),
+        body = new_body,
+    );
+    let new_skill = skills
+        .supersede(&raw, None, PrincipalOverride::Force)
+        .await?;
+    println!(
+        "argo skill refine: {name} v{} → v{} (skill_id {})",
+        active.frontmatter.version, new_version, new_skill.id.0
+    );
+    println!("  hint:    {trimmed}");
+    println!(
+        "  next chat will pick this up via the active-skills system prompt."
+    );
+    Ok(())
+}
+
+/// Bump the trailing numeric segment of a semver-ish version
+/// (`"0.1"` → `"0.2"`, `"1.5.3"` → `"1.5.4"`). Falls back to
+/// appending `-refined` for non-numeric tails.
+fn bump_version(v: &str) -> String {
+    let mut parts: Vec<String> = v.split('.').map(String::from).collect();
+    if let Some(last) = parts.last_mut() {
+        if let Ok(n) = last.parse::<u64>() {
+            *last = (n + 1).to_string();
+            return parts.join(".");
+        }
+    }
+    format!("{v}-refined")
+}
+
+fn body_hash(body: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(body.as_bytes());
+    hex::encode(h.finalize())
 }
 
 async fn list(skills: &SkillStore, json: bool) -> ArgoResult<()> {
