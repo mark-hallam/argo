@@ -248,6 +248,30 @@ impl SessionStore {
         Ok(())
     }
 
+    /// Delete every session whose `started_at` is older than
+    /// `cutoff_micros`. Cascades through `message`, `tool_call`,
+    /// `audit_record`, `routing_decision`, and `judge_record` via
+    /// SQLite ON DELETE CASCADE. Returns the number of session
+    /// rows deleted.
+    pub async fn prune_sessions_before(&self, cutoff_micros: i64) -> StoreResult<u64> {
+        let result = sqlx::query("DELETE FROM session WHERE started_at < ?")
+            .bind(cutoff_micros)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("prune_sessions_before: {e}")))?;
+        Ok(result.rows_affected())
+    }
+
+    /// Count sessions whose `started_at` is older than
+    /// `cutoff_micros`. Used by `argo db prune --dry-run`.
+    pub async fn count_sessions_before(&self, cutoff_micros: i64) -> StoreResult<i64> {
+        sqlx::query_scalar("SELECT COUNT(*) FROM session WHERE started_at < ?")
+            .bind(cutoff_micros)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("count_sessions_before: {e}")))
+    }
+
     /// Delete a session and all its dependent rows. SQLite's
     /// ON DELETE CASCADE on `message`, `tool_call`, `audit_record`,
     /// `routing_decision`, and `judge_record` cleans up the

@@ -306,6 +306,14 @@ pub enum DbCmd {
     },
     /// Show current schema version.
     Status,
+    /// Drop sessions whose `started_at` is older than `--older-than-days`
+    /// days. Pass `--force` to actually delete; otherwise dry-runs.
+    Prune {
+        #[arg(long, default_value_t = 90)]
+        older_than_days: i64,
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

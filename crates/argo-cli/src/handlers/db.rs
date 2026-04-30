@@ -29,6 +29,27 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
             let after = store.schema_version().await?;
             println!("rolled back: {before} -> {after}");
         }
+        DbCmd::Prune {
+            older_than_days,
+            force,
+        } => {
+            let cutoff = chrono::Utc::now() - chrono::Duration::days(older_than_days);
+            let cutoff_micros = cutoff.timestamp_micros();
+            if !force {
+                let count = store.count_sessions_before(cutoff_micros).await?;
+                println!(
+                    "dry run: would delete {count} session(s) older than {} ({}d ago).",
+                    cutoff, older_than_days
+                );
+                println!("re-run with --force to actually drop them.");
+            } else {
+                let n = store.prune_sessions_before(cutoff_micros).await?;
+                println!(
+                    "pruned {n} session(s) older than {} ({}d ago); cascaded children dropped.",
+                    cutoff, older_than_days
+                );
+            }
+        }
     }
     Ok(())
 }
