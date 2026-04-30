@@ -6,6 +6,7 @@
 //!   - `routes`:    HTTP route dispatch + per-endpoint handlers.
 mod lifecycle;
 mod routes;
+mod routes_post;
 
 use crate::cli::GatewayCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
@@ -184,6 +185,17 @@ fn status(cfg: &ArgoConfig) -> ArgoResult<()> {
         }
     }
     Ok(())
+}
+
+pub(super) fn store_unavailable() -> (&'static str, String) {
+    (
+        "503 Service Unavailable",
+        "{\"error\":\"session store unavailable\"}".to_string(),
+    )
+}
+
+pub(super) fn body_from_request(req: &str) -> &str {
+    req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
 }
 
 /// Count the `ToolCall` audit rows scoped to one session — cheaper
