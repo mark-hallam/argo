@@ -167,6 +167,10 @@ pub enum ProviderCmd {
     Validate {
         manifest: String,
     },
+    /// Validate every manifest under `manifests/providers/`. Exits
+    /// non-zero if any fails parsing — wire into CI to catch
+    /// drift early.
+    ValidateAll,
     Test {
         provider: String,
     },

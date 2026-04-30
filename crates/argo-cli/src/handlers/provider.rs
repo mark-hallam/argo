@@ -9,12 +9,70 @@ pub fn run(cmd: ProviderCmd) -> ArgoResult<()> {
         ProviderCmd::List => list_manifests(),
         ProviderCmd::Show { id } => show(&id),
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
+        ProviderCmd::ValidateAll => validate_all(),
         ProviderCmd::Test { provider } => {
             // Live provider test requires a real API key + reqwest;
             // belongs with the daemon binding.
             println!("provider test {provider}: requires daemon credentials (separate PR).");
             Ok(())
         }
+    }
+}
+
+fn validate_all() -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let dir = cwd.join("manifests").join("providers");
+    if !dir.exists() {
+        return Err(ArgoError::Provider(format!(
+            "no manifests at {} (run from a workspace with manifests/providers/)",
+            dir.display()
+        )));
+    }
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for entry in std::fs::read_dir(&dir)
+        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+    {
+        let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
+        let p = e.path();
+        if p.extension().is_some_and(|x| x == "toml") {
+            paths.push(p);
+        }
+    }
+    paths.sort();
+    if paths.is_empty() {
+        println!("(no manifests under {})", dir.display());
+        return Ok(());
+    }
+    let mut failures: Vec<(PathBuf, String)> = Vec::new();
+    for p in &paths {
+        let body = std::fs::read_to_string(p)
+            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+        match ProviderManifest::from_toml_str(&body) {
+            Ok(m) => println!(
+                "  {:<24} ok ({:?})",
+                p.file_name().and_then(|s| s.to_str()).unwrap_or("?"),
+                m.provider.family
+            ),
+            Err(e) => failures.push((p.clone(), e.to_string())),
+        }
+    }
+    if failures.is_empty() {
+        println!(
+            "{} manifest(s) validated under {}",
+            paths.len(),
+            dir.display()
+        );
+        Ok(())
+    } else {
+        for (p, msg) in &failures {
+            eprintln!("  {} INVALID — {msg}", p.display());
+        }
+        Err(ArgoError::Provider(format!(
+            "{} of {} manifest(s) failed validation",
+            failures.len(),
+            paths.len()
+        )))
     }
 }
 
