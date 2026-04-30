@@ -38,13 +38,13 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             day,
             month,
             usd,
+            reset,
         }) => {
             if !session && !day && !month {
                 return Err(ArgoError::Provider(
                     "specify exactly one of --session / --day / --month".into(),
                 ));
             }
-            let micros = (usd * 1_000_000.0).round() as u64;
             let scope = if session {
                 "session"
             } else if day {
@@ -52,9 +52,46 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             } else {
                 "month"
             };
+            if reset {
+                return reset_cap(&cwd, scope);
+            }
+            let usd = usd.ok_or_else(|| {
+                ArgoError::Provider("provide a <usd> value or pass --reset".into())
+            })?;
+            let micros = (usd * 1_000_000.0).round() as u64;
             apply_cap(&cwd, scope, micros, usd)
         }
     }
+}
+
+/// Remove the per-scope cap entry from `argo.toml`. The config
+/// loader falls back to the compiled-in default for that scope.
+fn reset_cap(cwd: &std::path::Path, scope: &str) -> ArgoResult<()> {
+    let path = cwd.join("argo.toml");
+    let body = std::fs::read_to_string(&path)
+        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+    let mut value: toml::Value = toml::from_str(&body)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
+    let key = format!("default_spend_per_{scope}_usd_micros");
+    let removed = value
+        .as_table_mut()
+        .and_then(|t| t.get_mut("budget"))
+        .and_then(|b| b.as_table_mut())
+        .and_then(|b| b.remove(&key))
+        .is_some();
+    if !removed {
+        println!("argo costs cap: per-{scope} cap was already at the default");
+        return Ok(());
+    }
+    let serialized = toml::to_string_pretty(&value)
+        .map_err(|e| ArgoError::Provider(format!("serialize argo.toml: {e}")))?;
+    std::fs::write(&path, serialized)
+        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+    println!(
+        "argo costs cap: per-{scope} cap reset to default in {}",
+        path.display()
+    );
+    Ok(())
 }
 
 /// Persist a new spend cap to `argo.toml` under `[budget]`. Reads

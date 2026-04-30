@@ -320,6 +320,8 @@ pub enum DbCmd {
 #[derive(Subcommand, Debug)]
 pub enum CostsCmd {
     /// Set a hard cap (`--session`, `--day`, or `--month`) in USD.
+    /// Pass `--reset` instead of a `<usd>` value to remove the
+    /// cap (the field falls back to the workspace default).
     Cap {
         #[arg(long, conflicts_with_all = ["day", "month"])]
         session: bool,
@@ -327,7 +329,12 @@ pub enum CostsCmd {
         day: bool,
         #[arg(long, conflicts_with_all = ["session", "day"])]
         month: bool,
-        usd: f64,
+        /// USD cap value. Either this OR `--reset` must be set.
+        #[arg(conflicts_with = "reset")]
+        usd: Option<f64>,
+        /// Remove the cap field instead of setting it.
+        #[arg(long)]
+        reset: bool,
     },
     /// Show the configured caps + actual-spend roll-up.
     Show {
