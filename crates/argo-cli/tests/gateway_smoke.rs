@@ -79,6 +79,52 @@ fn gateway_start_serves_health_and_version_then_exits_on_max_requests() {
     assert!(status.success(), "exit: {status}");
 }
 
+#[test]
+fn gateway_sessions_endpoint_returns_json_array_for_empty_db() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+
+    let stderr = child.stderr.take().expect("stderr");
+    let mut stderr = BufReader::new(stderr);
+    let mut line = String::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("listener did not announce in 2s");
+        }
+        line.clear();
+        stderr.read_line(&mut line).expect("read line");
+        if line.contains("listening on") {
+            break;
+        }
+    }
+
+    let r = http_get(port, "/sessions");
+    assert!(r.contains("HTTP/1.1 200 OK"), "got: {r}");
+    let body = body_of(&r);
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("valid json");
+    assert!(parsed.is_array(), "expected array, got {parsed}");
+    assert_eq!(parsed.as_array().unwrap().len(), 0);
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
 #[cfg(unix)]
 #[test]
 fn gateway_stop_sends_sigterm_to_live_pid_then_clears_pidfile() {

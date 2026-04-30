@@ -1,10 +1,12 @@
 //! `argo gateway` — start / stop / status. PID file at
 //! \`<ARGO_HOME>/gateway.pid\` mediates the start↔stop handshake.
 use crate::cli::GatewayCmd;
-use crate::home::{ensure_dir, resolve_home};
+use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_config::ArgoConfig;
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -37,6 +39,19 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
         .await
         .map_err(|e| ArgoError::Provider(format!("bind {addr}: {e}")))?;
 
+    // Open the session store so /sessions can serve. Failure to
+    // open is logged but doesn't kill the gateway — /health and
+    // /version still answer.
+    let cwd_for_store =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let store = match open_store(&cwd_for_store).await {
+        Ok(s) => Some(Arc::new(s)),
+        Err(e) => {
+            eprintln!("argo gateway: store open failed ({e}); /sessions will return 503");
+            None
+        }
+    };
+
     // PID file. If one already exists with a live PID, refuse to
     // start (would conflict with the existing instance). If it
     // exists but the process is gone, overwrite.
@@ -63,8 +78,9 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     let _guard = PidGuard(pidfile.clone());
 
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
-    eprintln!("  GET /health  → {{\"status\":\"ok\"}}");
-    eprintln!("  GET /version → {{\"version\":\"<crate>\"}}");
+    eprintln!("  GET /health   → {{\"status\":\"ok\"}}");
+    eprintln!("  GET /version  → {{\"version\":\"<crate>\"}}");
+    eprintln!("  GET /sessions → recent sessions (JSON array)");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");
     let mut served = 0_u64;
     let shutdown = shutdown_signal();
@@ -82,15 +98,23 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                 let mut buf = [0_u8; 1024];
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
-                let body = if req.starts_with("GET /version ") {
-                    format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION"))
+                let (status_line, body) = if req.starts_with("GET /version ") {
+                    (
+                        "200 OK",
+                        format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION")),
+                    )
                 } else if req.starts_with("GET /health ") {
-                    "{\"status\":\"ok\"}".to_string()
+                    ("200 OK", "{\"status\":\"ok\"}".to_string())
+                } else if req.starts_with("GET /sessions ") {
+                    sessions_response(store.as_ref()).await
                 } else {
-                    "{\"error\":\"not found\"}".to_string()
+                    (
+                        "404 Not Found",
+                        "{\"error\":\"not found\"}".to_string(),
+                    )
                 };
                 let resp = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                    "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
                     body.len(),
                     body
                 );
@@ -192,6 +216,50 @@ fn signal_term(_pid: i32) -> std::io::Result<()> {
     Err(std::io::Error::other(
         "SIGTERM not supported on this platform",
     ))
+}
+
+async fn open_store(cwd: &std::path::Path) -> ArgoResult<SessionStore> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    Ok(store)
+}
+
+/// Build the response for `GET /sessions`. Returns a `(status_line,
+/// body)` pair so the call-site can stay flat.
+async fn sessions_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+    let Some(store) = store else {
+        return (
+            "503 Service Unavailable",
+            "{\"error\":\"session store unavailable\"}".to_string(),
+        );
+    };
+    match store.list_all_sessions(100).await {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "id": s.id.0.to_string(),
+                        "model": s.model,
+                        "provider": s.provider,
+                        "title": s.title,
+                        "started_at": s.started_at.to_rfc3339(),
+                        "ended_at": s.ended_at.map(|d| d.to_rfc3339()),
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list sessions: {e}\"}}"),
+        ),
+    }
 }
 
 fn status(cfg: &ArgoConfig) -> ArgoResult<()> {
