@@ -1,98 +1,110 @@
-//! `argo doctor` — config / workspace sanity report.
+//! `argo doctor` — config / workspace sanity report. Default
+//! output is human-readable text; `--json` emits a single JSON
+//! object that monitoring pipelines can ingest.
 use crate::home::{db_path, resolve_home};
 use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
-pub async fn run() -> ArgoResult<()> {
+pub async fn run(json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let toml = cwd.join("argo.toml");
-    let toml_status = if toml.exists() { "OK" } else { "MISSING" };
+    let toml_ok = toml.exists();
     let cfg = ArgoConfig::load(&toml).unwrap_or_default();
     let home = resolve_home(&cwd).unwrap_or_else(|_| cfg.core.resolved_home());
-    let home_status = if home.exists() {
+    let home_ok = home.exists();
+    let bundle_dirs = ["skills", "personas", "cron", "rubrics"];
+    let bundle_missing: Vec<&str> = bundle_dirs
+        .iter()
+        .copied()
+        .filter(|d| !cwd.join(d).exists())
+        .collect();
+    let memfiles = ["MEMORY.md", "USER.md", "SOUL.md", "AGENTS.md"];
+    let memfiles_missing: Vec<&str> = memfiles
+        .iter()
+        .copied()
+        .filter(|f| !cwd.join(f).exists())
+        .collect();
+    let db = db_status(&home).await;
+    let cron = cron_status(&cwd);
+    let creds = creds_status();
+
+    if json {
+        let payload = serde_json::json!({
+            "cwd": cwd.display().to_string(),
+            "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
+            "argo_home": {"path": home.display().to_string(), "ok": home_ok},
+            "profile": cfg.core.profile,
+            "tenant": {"id": cfg.tenant.default_id, "mode": cfg.tenant.mode},
+            "bundle_dirs_missing": bundle_missing,
+            "memory_files_missing": memfiles_missing,
+            "db": db,
+            "cron": cron,
+            "creds": creds,
+        });
+        println!(
+            "{}",
+            serde_json::to_string(&payload)
+                .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+        );
+        return Ok(());
+    }
+    let toml_status = if toml_ok { "OK" } else { "MISSING" };
+    let home_status = if home_ok {
         "OK"
     } else {
         "MISSING (will be created on first run)"
     };
     println!("argo doctor — workspace check");
     println!("  cwd:        {}", cwd.display());
-    println!("  argo.toml:  {} ({})", toml.display(), toml_status);
-    println!("  ARGO_HOME:  {} ({})", home.display(), home_status);
+    println!("  argo.toml:  {} ({toml_status})", toml.display());
+    println!("  ARGO_HOME:  {} ({home_status})", home.display());
     println!("  profile:    {}", cfg.core.profile);
     println!(
         "  tenant:     {} (mode={})",
         cfg.tenant.default_id, cfg.tenant.mode
     );
-    let bundle_dirs = ["skills", "personas", "cron", "rubrics"];
-    let mut missing = Vec::new();
-    for dir in bundle_dirs {
-        if !cwd.join(dir).exists() {
-            missing.push(dir);
-        }
-    }
-    if missing.is_empty() {
+    if bundle_missing.is_empty() {
         println!("  bundle dirs: all present");
     } else {
         println!(
-            "  bundle dirs missing: {} (run `argo workspace init` to create)",
-            missing.join(", ")
+            "  bundle dirs missing: {} (run `argo workspace init`)",
+            bundle_missing.join(", ")
         );
     }
-    let memfiles = ["MEMORY.md", "USER.md", "SOUL.md", "AGENTS.md"];
-    let mut missing_m = Vec::new();
-    for f in memfiles {
-        if !cwd.join(f).exists() {
-            missing_m.push(f);
-        }
-    }
-    if missing_m.is_empty() {
+    if memfiles_missing.is_empty() {
         println!("  memory files: all present");
     } else {
         println!(
             "  memory files missing: {} (run `argo workspace init`)",
-            missing_m.join(", ")
+            memfiles_missing.join(", ")
         );
     }
-    db_health(&home).await;
-    cron_health(&cwd);
-    creds_health();
+    print_db(&db);
+    print_cron(&cron);
+    print_creds(&creds);
     Ok(())
 }
 
-fn cron_health(cwd: &std::path::Path) {
+fn cron_status(cwd: &std::path::Path) -> serde_json::Value {
     let lock = cwd.join("cron").join(".tick.lock");
     if !lock.exists() {
-        println!("  cron:       no lock file (daemon not started)");
-        return;
+        return serde_json::json!({"daemon_started": false});
     }
-    // The lock is fs2-exclusive; if we can take it, no daemon is
-    // running. We don't try to take it here (it would race with a
-    // live daemon). Just report the file's presence + mtime.
-    match std::fs::metadata(&lock) {
-        Ok(m) => match m.modified() {
-            Ok(mtime) => {
-                let age = mtime
-                    .elapsed()
-                    .map(|d| format!("{}s ago", d.as_secs()))
-                    .unwrap_or_else(|_| "unknown".into());
-                println!(
-                    "  cron:       lock present at {} (mtime {age})",
-                    lock.display()
-                );
-            }
-            Err(_) => {
-                println!("  cron:       lock present at {}", lock.display());
-            }
-        },
-        Err(_) => {
-            println!("  cron:       lock metadata unreadable");
-        }
-    }
+    let age_s = std::fs::metadata(&lock)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.elapsed().ok())
+        .map(|d| d.as_secs());
+    serde_json::json!({
+        "daemon_started": true,
+        "lock_path": lock.display().to_string(),
+        "lock_age_seconds": age_s,
+    })
 }
 
-fn creds_health() {
+fn creds_status() -> serde_json::Value {
     let known = [
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
@@ -108,49 +120,115 @@ fn creds_health() {
             missing.push(k);
         }
     }
-    if found.is_empty() {
-        println!("  creds:      none of {} are set", known.join(", "));
-    } else {
-        println!("  creds:      set: {}", found.join(", "));
-        if !missing.is_empty() {
-            println!("              unset: {}", missing.join(", "));
-        }
-    }
+    serde_json::json!({"set": found, "unset": missing})
 }
 
-async fn db_health(home: &std::path::Path) {
+async fn db_status(home: &std::path::Path) -> serde_json::Value {
     let db = db_path(home);
     if !db.exists() {
-        println!("  db:         (no sessions.db yet — runs `argo workspace init`)");
-        return;
+        return serde_json::json!({"present": false});
     }
     let store = match SessionStore::open(&db).await {
         Ok(s) => s,
-        Err(e) => {
-            println!("  db:         OPEN FAILED ({e})");
-            return;
-        }
+        Err(e) => return serde_json::json!({"present": true, "open_error": e.to_string()}),
     };
     if let Err(e) = store.migrate().await {
+        return serde_json::json!({"present": true, "migrate_error": e.to_string()});
+    }
+    let version = store.schema_version().await.unwrap_or(0);
+    let workspace_ok = matches!(store.first_workspace().await, Ok(Some(_)));
+    let stats = store.db_stats().await.ok();
+    serde_json::json!({
+        "present": true,
+        "schema_version": version,
+        "workspace_registered": workspace_ok,
+        "rows": stats.map(|s| serde_json::json!({
+            "sessions": s.sessions,
+            "messages": s.messages,
+            "audit": s.audit_rows,
+            "memory": s.memory_entries,
+            "skills": s.skills,
+        })),
+    })
+}
+
+fn print_db(v: &serde_json::Value) {
+    let present = v.get("present").and_then(|b| b.as_bool()).unwrap_or(false);
+    if !present {
+        println!("  db:         (no sessions.db yet — run `argo workspace init`)");
+        return;
+    }
+    if let Some(e) = v.get("open_error").and_then(|s| s.as_str()) {
+        println!("  db:         OPEN FAILED ({e})");
+        return;
+    }
+    if let Some(e) = v.get("migrate_error").and_then(|s| s.as_str()) {
         println!("  db:         MIGRATE FAILED ({e})");
         return;
     }
-    let version = store.schema_version().await.unwrap_or(0);
-    let stats = match store.db_stats().await {
-        Ok(s) => s,
-        Err(e) => {
-            println!("  db:         schema v{version}, stats failed ({e})");
-            return;
-        }
-    };
-    let ws_status = match store.first_workspace().await {
-        Ok(Some(_)) => "registered",
-        Ok(None) => "MISSING — run `argo workspace init`",
-        Err(_) => "lookup failed",
-    };
-    println!("  db:         schema v{version}  workspace={ws_status}");
+    let version = v.get("schema_version").and_then(|n| n.as_u64()).unwrap_or(0);
+    let ws = v
+        .get("workspace_registered")
+        .and_then(|b| b.as_bool())
+        .unwrap_or(false);
     println!(
-        "  rows:       sessions={} messages={} audit={} memory={} skills={}",
-        stats.sessions, stats.messages, stats.audit_rows, stats.memory_entries, stats.skills
+        "  db:         schema v{version}  workspace={}",
+        if ws { "registered" } else { "MISSING" }
     );
+    if let Some(rows) = v.get("rows") {
+        let n = |k| rows.get(k).and_then(|n| n.as_u64()).unwrap_or(0);
+        println!(
+            "  rows:       sessions={} messages={} audit={} memory={} skills={}",
+            n("sessions"),
+            n("messages"),
+            n("audit"),
+            n("memory"),
+            n("skills")
+        );
+    }
+}
+
+fn print_cron(v: &serde_json::Value) {
+    if !v.get("daemon_started").and_then(|b| b.as_bool()).unwrap_or(false) {
+        println!("  cron:       no lock file (daemon not started)");
+        return;
+    }
+    let path = v.get("lock_path").and_then(|s| s.as_str()).unwrap_or("?");
+    let age = v.get("lock_age_seconds").and_then(|n| n.as_u64());
+    match age {
+        Some(s) => println!("  cron:       lock present at {path} (mtime {s}s ago)"),
+        None => println!("  cron:       lock present at {path}"),
+    }
+}
+
+fn print_creds(v: &serde_json::Value) {
+    let set: Vec<String> = v
+        .get("set")
+        .and_then(|a| a.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let unset: Vec<String> = v
+        .get("unset")
+        .and_then(|a| a.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    if set.is_empty() {
+        println!(
+            "  creds:      none of {} are set",
+            unset.join(", ")
+        );
+    } else {
+        println!("  creds:      set: {}", set.join(", "));
+        if !unset.is_empty() {
+            println!("              unset: {}", unset.join(", "));
+        }
+    }
 }

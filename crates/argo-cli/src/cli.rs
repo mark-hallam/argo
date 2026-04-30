@@ -165,7 +165,12 @@ pub enum Command {
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
     /// Diagnose configuration / sandbox / port issues.
-    Doctor,
+    Doctor {
+        /// Emit a single JSON object with all the checks. Default
+        /// is the human-readable text report.
+        #[arg(long)]
+        json: bool,
+    },
     /// Run every read-only verification — workspace, provider
     /// manifests, skill hashes, memory hashes, audit chain — and
     /// exit non-zero on the first failure. Suitable as a single
