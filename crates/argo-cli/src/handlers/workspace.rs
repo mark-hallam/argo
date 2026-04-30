@@ -51,10 +51,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
         WorkspaceCmd::Push { oci_ref } => push(&cwd, &oci_ref).await,
         WorkspaceCmd::Pull { oci_ref } => pull(&cwd, &oci_ref).await,
         WorkspaceCmd::Artifacts { limit, json } => artifacts(&cwd, limit, json).await,
-        WorkspaceCmd::Diff { other } => {
-            println!("workspace diff vs {other}: 3-way merge UI lands with §23.3 wiring.");
-            Ok(())
-        }
+        WorkspaceCmd::Diff { other } => diff(&cwd, &other).await,
         WorkspaceCmd::Fork { source } => {
             println!("workspace fork from {source}: requires the OCI pull half (§23.3 follow-up).");
             Ok(())
@@ -381,6 +378,87 @@ fn host_base_url(host: &str) -> String {
 /// on every registry request, bypassing the challenge handshake.
 fn oci_token() -> Option<String> {
     std::env::var("ARGO_OCI_TOKEN").ok()
+}
+
+/// Diff the cwd's workspace bundle against another local path.
+/// Builds a deterministic bundle manifest for each side
+/// (`build_bundle` is idempotent), compares entry digests, and
+/// prints added / removed / modified rows. Identical workspaces
+/// produce a single "no differences" line.
+async fn diff(cwd: &std::path::Path, other_raw: &str) -> ArgoResult<()> {
+    let other = std::path::PathBuf::from(other_raw);
+    if !other.exists() {
+        return Err(ArgoError::Provider(format!(
+            "workspace diff: path '{other_raw}' does not exist"
+        )));
+    }
+    let tmp = std::env::temp_dir();
+    let tar_a = tmp.join(format!(
+        "argo-diff-a-{}.tar",
+        std::process::id()
+    ));
+    let tar_b = tmp.join(format!(
+        "argo-diff-b-{}.tar",
+        std::process::id()
+    ));
+    let manifest_a = build_bundle(cwd, "diff-a", "0", &tar_a).await?;
+    let manifest_b = build_bundle(&other, "diff-b", "0", &tar_b).await?;
+    let _ = std::fs::remove_file(&tar_a);
+    let _ = std::fs::remove_file(&tar_b);
+
+    let mut a_by_path: std::collections::HashMap<&str, &str> = manifest_a
+        .entries
+        .iter()
+        .map(|e| (e.path.as_str(), e.digest.as_str()))
+        .collect();
+    let mut added: Vec<&str> = Vec::new();
+    let mut modified: Vec<(&str, &str, &str)> = Vec::new();
+    for e in &manifest_b.entries {
+        match a_by_path.remove(e.path.as_str()) {
+            None => added.push(e.path.as_str()),
+            Some(d_a) if d_a != e.digest => {
+                modified.push((e.path.as_str(), d_a, e.digest.as_str()));
+            }
+            Some(_) => {}
+        }
+    }
+    let mut removed: Vec<&str> = a_by_path.into_keys().collect();
+    removed.sort();
+    added.sort();
+    modified.sort_by_key(|(p, _, _)| *p);
+
+    if added.is_empty() && removed.is_empty() && modified.is_empty() {
+        println!(
+            "workspace diff: {} and {} are identical (digest sha256:{})",
+            cwd.display(),
+            other.display(),
+            manifest_a.digest
+        );
+        return Ok(());
+    }
+    println!(
+        "workspace diff: {} → {}",
+        cwd.display(),
+        other.display()
+    );
+    for p in &added {
+        println!("  + {p}");
+    }
+    for p in &removed {
+        println!("  - {p}");
+    }
+    for (p, a, b) in &modified {
+        let a_short: String = a.chars().take(12).collect();
+        let b_short: String = b.chars().take(12).collect();
+        println!("  ~ {p}  ({a_short} → {b_short})");
+    }
+    println!(
+        "\nsummary: {} added, {} removed, {} modified",
+        added.len(),
+        removed.len(),
+        modified.len()
+    );
+    Ok(())
 }
 
 /// Build a registry from the host with optional Basic-auth
