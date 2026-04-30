@@ -105,6 +105,8 @@ pub enum Command {
         #[arg(long)]
         session: Option<String>,
     },
+    /// Open the interactive TUI (read-only session viewer for now).
+    Tui,
     /// Diagnose configuration / sandbox / port issues.
     Doctor,
     Import {

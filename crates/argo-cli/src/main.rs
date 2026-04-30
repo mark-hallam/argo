@@ -46,6 +46,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Provider { cmd }) => handlers::provider::run(cmd),
         Some(Command::Session { cmd }) => handlers::session::run(cmd).await,
         Some(Command::Skill { cmd }) => handlers::skill::run(cmd).await,
+        Some(Command::Tui) => handlers::tui::run().await,
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");

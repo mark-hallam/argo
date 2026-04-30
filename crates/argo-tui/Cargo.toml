@@ -5,6 +5,14 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-tui"
+description = "Argo — interactive TUI (ratatui + crossterm) (§20)"
 
 [dependencies]
+argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
