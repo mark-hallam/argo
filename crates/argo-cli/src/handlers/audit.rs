@@ -129,11 +129,12 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             if !tail_rows_data.is_empty() {
                 println!("\nlast {} rows:", tail_rows_data.len());
                 for r in &tail_rows_data {
+                    let detail = payload_detail(&r.kind, &r.payload);
                     println!(
-                        "  seq={:<6} kind={:<22} session={}",
+                        "  seq={:<6} kind={:<22} session={} {detail}",
                         r.seq,
                         r.kind,
-                        r.session_id.as_deref().unwrap_or("-")
+                        r.session_id.as_deref().unwrap_or("-"),
                     );
                 }
             }
@@ -173,5 +174,39 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             }
             Ok(())
         }
+    }
+}
+
+/// One-line "interesting field" extract from a row's payload, keyed
+/// by audit kind. Keeps `audit show --tail` readable without the
+/// reader having to dig the payload column out of sqlite.
+fn payload_detail(kind: &str, payload: &serde_json::Value) -> String {
+    let s = |k: &str| payload.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    let n = |k: &str| payload.get(k).and_then(serde_json::Value::as_u64);
+    let b = |k: &str| payload.get(k).and_then(serde_json::Value::as_bool);
+    match kind {
+        "TurnStart" => format!("provider={} model={}", s("provider"), s("model")),
+        "AssistantMessage" => format!(
+            "round={} tool_calls={} in={} out={}",
+            n("round").unwrap_or(0),
+            n("tool_calls").unwrap_or(0),
+            n("tokens_in").unwrap_or(0),
+            n("tokens_out").unwrap_or(0),
+        ),
+        "ToolCall" => format!("tool={} call={}", s("tool"), s("call_id")),
+        "ToolResult" => {
+            let tag = if b("is_error") == Some(true) {
+                " [error]"
+            } else {
+                ""
+            };
+            format!(
+                "tool={} duration_ms={}{tag}",
+                s("tool"),
+                n("duration_ms").unwrap_or(0)
+            )
+        }
+        "TurnEnd" | "Halt" => String::new(),
+        _ => String::new(),
     }
 }
