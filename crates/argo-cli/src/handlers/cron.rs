@@ -1,10 +1,14 @@
 //! `argo cron` — list / create / delete / trigger / tick jobs in
 //! the workspace's `cron/jobs/` directory.
 use crate::cli::CronCmd;
-use argo_cron::{CronExpr, CronJob, CronTarget, InMemoryJobStore, JobRunner, JobStore, Scheduler};
+use argo_cron::{
+    CronExpr, CronJob, CronTarget, InMemoryJobStore, JobRunner, JobStore, Scheduler, TickLock,
+    TickLockError,
+};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use async_trait::async_trait;
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
     let cwd =
@@ -31,6 +35,47 @@ pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
         }
         CronCmd::Trigger { name } => trigger_job(&dir, &name).await,
         CronCmd::Tick { dry_run } => tick(&dir, dry_run).await,
+        CronCmd::Daemon {
+            interval_secs,
+            max_ticks,
+        } => daemon(&dir, interval_secs, max_ticks).await,
+    }
+}
+
+async fn daemon(
+    dir: &std::path::Path,
+    interval_secs: u64,
+    max_ticks: Option<u64>,
+) -> ArgoResult<()> {
+    let lock_path = dir
+        .parent()
+        .map(|p| p.join(".tick.lock"))
+        .unwrap_or_else(|| dir.join(".tick.lock"));
+    let _lock = match TickLock::try_acquire(&lock_path) {
+        Ok(l) => l,
+        Err(TickLockError::AlreadyHeld { path }) => {
+            return Err(ArgoError::Provider(format!(
+                "tick lock at {} is already held — another daemon is running",
+                path.display()
+            )));
+        }
+        Err(e) => return Err(ArgoError::Provider(e.to_string())),
+    };
+    println!(
+        "argo cron daemon: tick every {interval_secs}s (lock={})",
+        lock_path.display()
+    );
+    let mut ticks = 0_u64;
+    loop {
+        if let Err(e) = tick(dir, false).await {
+            eprintln!("tick error: {e}");
+        }
+        ticks += 1;
+        if max_ticks.is_some_and(|cap| ticks >= cap) {
+            println!("daemon: reached --max-ticks {ticks}; exiting");
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_secs(interval_secs)).await;
     }
 }
 

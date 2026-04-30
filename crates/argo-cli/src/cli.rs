@@ -214,6 +214,19 @@ pub enum CronCmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Run the cron tick loop in the foreground at a fixed
+    /// interval, holding `cron/.tick.lock` so multiple daemons
+    /// don't double-fire. Exits with a non-zero status if the
+    /// lock is already held.
+    Daemon {
+        /// Interval between ticks (seconds). Default 60s.
+        #[arg(long, default_value_t = 60)]
+        interval_secs: u64,
+        /// Stop after N ticks (mainly for tests / manual checks).
+        /// Omit to run until SIGINT.
+        #[arg(long)]
+        max_ticks: Option<u64>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

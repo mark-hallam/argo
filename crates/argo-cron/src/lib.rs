@@ -39,6 +39,7 @@
 mod expr;
 mod job;
 mod scheduler;
+mod tick_lock;
 
 #[cfg(test)]
 mod tests;
@@ -46,3 +47,4 @@ mod tests;
 pub use expr::{CronExpr, CronParseError};
 pub use job::{CronJob, CronTarget, InMemoryJobStore, JobStore};
 pub use scheduler::{JobRunner, Scheduler, TickReport};
+pub use tick_lock::{TickLock, TickLockError};
