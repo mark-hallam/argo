@@ -133,6 +133,85 @@ pub async fn eval(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// Open `url` in the first page-type tab via `Page.navigate`.
+/// Returns the frame id from the response (handy if the caller
+/// wants to correlate the load with subsequent CDP events). Does
+/// NOT wait for `Page.frameStoppedLoading` — that's the agent
+/// loop's job.
+pub async fn navigate(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let url = match args.get("url").and_then(|v| v.as_str()) {
+        Some(u) => u.to_string(),
+        None => return error("missing required field 'url'".into()),
+    };
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Page.navigate",
+        "params": { "url": url }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let frame_id = parsed["result"]["frameId"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| "<unknown>".into());
+    if let Some(err) = parsed["result"].get("errorText").and_then(|v| v.as_str()) {
+        if !err.is_empty() {
+            return error(format!("navigate failed: {err}"));
+        }
+    }
+    CallToolResult {
+        content: vec![McpContent::Text {
+            text: format!("navigated to {url} (frameId={frame_id})"),
+        }],
+        is_error: false,
+    }
+}
+
+/// Scroll the first page-type tab via Runtime.evaluate.
+///
+/// `direction = "up" | "down" | "to-top" | "to-bottom"`. The
+/// "up"/"down" variants take an optional `pixels` (default 500).
+pub async fn scroll(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let direction = args
+        .get("direction")
+        .and_then(|v| v.as_str())
+        .unwrap_or("down");
+    let pixels = args.get("pixels").and_then(|v| v.as_i64()).unwrap_or(500);
+    let js = match direction {
+        "up" => format!("window.scrollBy(0, -{pixels})"),
+        "down" => format!("window.scrollBy(0, {pixels})"),
+        "to-top" => "window.scrollTo(0, 0)".to_string(),
+        "to-bottom" => "window.scrollTo(0, document.body.scrollHeight)".to_string(),
+        other => {
+            return error(format!(
+                "unknown direction '{other}': use one of up|down|to-top|to-bottom"
+            ));
+        }
+    };
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Runtime.evaluate",
+        "params": {
+            "expression": format!("{js}; ({{x: window.scrollX, y: window.scrollY}})"),
+            "returnByValue": true,
+        }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let value = &parsed["result"]["result"]["value"];
+    let summary = serde_json::to_string(value).unwrap_or_else(|_| value.to_string());
+    CallToolResult {
+        content: vec![McpContent::Text { text: summary }],
+        is_error: false,
+    }
+}
+
 /// Return all `<a href>` links on the first open page as a JSON
 /// array of `{href, text}` objects. Single-shot `Runtime.evaluate`.
 pub async fn extract_links(args: &serde_json::Value) -> CallToolResult {

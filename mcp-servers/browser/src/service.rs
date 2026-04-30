@@ -84,6 +84,12 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "extract_links" {
             return Ok(crate::cdp::extract_links(&params.arguments).await);
         }
+        if params.name.as_str() == "navigate" {
+            return Ok(crate::cdp::navigate(&params.arguments).await);
+        }
+        if params.name.as_str() == "scroll" {
+            return Ok(crate::cdp::scroll(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -136,10 +142,17 @@ fn chrome_port_schema() -> serde_json::Value {
 fn navigate_schema() -> McpToolSchema {
     McpToolSchema {
         name: "navigate".into(),
-        description: "Open a URL in the browser context.".into(),
+        description: "Open a URL in the first page-type tab via CDP \
+            Page.navigate. Does not wait for the load to finish — the \
+            caller is expected to follow up with `wait_for` (deferred) \
+            or poll `read_page`."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
-            "properties": { "url": { "type": "string" } },
+            "properties": {
+                "url": { "type": "string" },
+                "port": { "type": "integer", "default": 9222 }
+            },
             "required": ["url"]
         }),
     }
@@ -254,12 +267,16 @@ fn wait_for_schema() -> McpToolSchema {
 fn scroll_schema() -> McpToolSchema {
     McpToolSchema {
         name: "scroll".into(),
-        description: "Scroll the viewport.".into(),
+        description: "Scroll the viewport via CDP Runtime.evaluate. Returns \
+            the new {x, y} scroll position. `up` / `down` take `pixels` \
+            (default 500); `to-top` / `to-bottom` ignore it."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
                 "direction": { "type": "string", "enum": ["up", "down", "to-top", "to-bottom"] },
-                "pixels":    { "type": "integer", "default": 500 }
+                "pixels":    { "type": "integer", "default": 500 },
+                "port":      { "type": "integer", "default": 9222 }
             },
             "required": ["direction"]
         }),
@@ -369,12 +386,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn known_tool_returns_not_wired_error() {
+    async fn unwired_spec_tool_returns_not_wired_error() {
+        // `cookies` still needs a stateful CDP session — that's
+        // the chromiumoxide rework. Pick it as the canary for the
+        // not-wired stub path. (Was previously `navigate`, which
+        // is now a real CDP tool.)
         let s = BrowserService;
         let r = s
             .call_tool(CallToolParams {
-                name: "navigate".into(),
-                arguments: serde_json::json!({"url": "https://example.com"}),
+                name: "cookies".into(),
+                arguments: serde_json::json!({"op": "get"}),
             })
             .await
             .unwrap();
