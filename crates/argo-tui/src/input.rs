@@ -5,7 +5,7 @@
 use crate::actions::{
     apply_delete, apply_rename, apply_steer, create_cloned_session, reap_agent, spawn_agent_turn,
 };
-use crate::app::ViewerState;
+use crate::app::{PaneFocus, ViewerState};
 use crate::render::draw;
 use crate::viewer::{fetch_message_count, fetch_messages};
 use argo_store::SessionStore;
@@ -138,6 +138,7 @@ pub(crate) async fn run(
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     return Ok(());
                 }
+                KeyCode::Tab => state.toggle_focus(),
                 KeyCode::Char('/') => state.enter_filter_mode(),
                 KeyCode::Char('i') => state.composer_mode = true,
                 KeyCode::Char('y') => {
@@ -161,16 +162,22 @@ pub(crate) async fn run(
                         state.pending_delete = Some(SessionId(s.id.0));
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    state.next();
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    state.prev();
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                }
+                KeyCode::Down | KeyCode::Char('j') => match state.focus {
+                    PaneFocus::Sessions => {
+                        state.next();
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
+                    }
+                    PaneFocus::Messages => state.scroll_messages_down(),
+                },
+                KeyCode::Up | KeyCode::Char('k') => match state.focus {
+                    PaneFocus::Sessions => {
+                        state.prev();
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
+                    }
+                    PaneFocus::Messages => state.scroll_messages_up(),
+                },
                 KeyCode::PageDown => {
                     state.next_n(10);
                     fetch_message_count(&store, state).await?;

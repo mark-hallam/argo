@@ -1,7 +1,7 @@
 //! Render layer — pure draw functions; no I/O. Tests can exercise
 //! the rendering against a `TestBackend` without touching a real
 //! terminal.
-use crate::app::ViewerState;
+use crate::app::{PaneFocus, ViewerState};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -65,9 +65,11 @@ fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 }
 
 fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
+    let scroll = state.messages_scroll.min(state.selected_messages.len());
     let mut items: Vec<ListItem> = state
         .selected_messages
         .iter()
+        .skip(scroll)
         .map(|m| {
             let body = first_line_of_content(&m.content_json);
             ListItem::new(Line::from(vec![
@@ -96,12 +98,24 @@ fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             } else {
                 format!(" + {} live", state.live_events.len())
             };
-            format!(" messages ({}{live}) ", state.selected_messages.len())
+            let scroll_tag = if scroll > 0 {
+                format!(" @{scroll}")
+            } else {
+                String::new()
+            };
+            format!(
+                " messages ({}{live}{scroll_tag}) ",
+                state.selected_messages.len()
+            )
         }
         Some(_) => " messages (none) ".to_string(),
         None => " messages ".to_string(),
     };
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
+    let mut block = Block::default().borders(Borders::ALL).title(title);
+    if matches!(state.focus, PaneFocus::Messages) {
+        block = block.border_style(Style::default().add_modifier(Modifier::BOLD));
+    }
+    let list = List::new(items).block(block);
     frame.render_widget(list, area);
 }
 
@@ -174,8 +188,12 @@ fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filter
         )
     };
+    let mut block = Block::default().borders(Borders::ALL).title(title);
+    if matches!(state.focus, PaneFocus::Sessions) {
+        block = block.border_style(Style::default().add_modifier(Modifier::BOLD));
+    }
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
+        .block(block)
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("▸ ");
     let mut list_state = ListState::default();
@@ -273,7 +291,8 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filter
         )
     } else if state.filter.is_empty() {
-        "j/k  / filter  i comp  s steer  n new  r ren  d del  y yank  q quit".to_string()
+        "j/k  Tab focus  / filter  i comp  s steer  n new  r ren  d del  y yank  q quit"
+            .to_string()
     } else {
         format!(
             "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",

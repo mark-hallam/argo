@@ -67,6 +67,25 @@ pub struct ViewerState {
     /// recent few lines as a "stream" trail in the messages pane.
     /// Capped at [`MAX_LIVE_EVENTS`] entries.
     pub live_events: Vec<String>,
+    /// Which pane currently captures j/k navigation. Tab toggles
+    /// between the session list (default) and the messages pane.
+    pub focus: PaneFocus,
+    /// Scroll offset (in rows) into the messages pane. Honoured
+    /// when `focus == Messages`.
+    pub messages_scroll: usize,
+}
+
+/// Which pane has navigation focus inside the TUI. When focus is
+/// on the session list, `j/k` change selection (the existing
+/// behaviour); when focus is on the messages pane, `j/k` scroll
+/// the message rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PaneFocus {
+    /// j/k change session selection.
+    #[default]
+    Sessions,
+    /// j/k scroll the messages pane.
+    Messages,
 }
 
 /// Hard cap on the live-event ring so a long agent run can't
@@ -95,7 +114,37 @@ impl ViewerState {
             rename_buffer: None,
             steer_buffer: None,
             pending_delete: None,
+            focus: PaneFocus::Sessions,
+            messages_scroll: 0,
         }
+    }
+
+    /// Toggle the navigation focus between the session list and
+    /// the messages pane. Resets the messages-scroll offset on
+    /// transitions back to Sessions so the next switch starts at
+    /// the top.
+    pub fn toggle_focus(&mut self) {
+        self.focus = match self.focus {
+            PaneFocus::Sessions => PaneFocus::Messages,
+            PaneFocus::Messages => {
+                self.messages_scroll = 0;
+                PaneFocus::Sessions
+            }
+        };
+    }
+
+    /// Bump the messages scroll down by one row (clamped at the
+    /// last visible row).
+    pub fn scroll_messages_down(&mut self) {
+        let max = self.selected_messages.len().saturating_sub(1);
+        if self.messages_scroll < max {
+            self.messages_scroll += 1;
+        }
+    }
+
+    /// Bump the messages scroll up by one row.
+    pub fn scroll_messages_up(&mut self) {
+        self.messages_scroll = self.messages_scroll.saturating_sub(1);
     }
 
     // Rename + steer text-input methods live in `text_input.rs`.
@@ -288,180 +337,8 @@ impl ViewerState {
     }
 }
 
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_types::{TenantId, WorkspaceId};
-    use chrono::Utc;
+#[path = "app_tests.rs"]
+mod tests;
 
-    fn fake_session(title: &str) -> SessionHeader {
-        SessionHeader {
-            id: argo_types::SessionId::new(),
-            tenant_id: TenantId::new(),
-            workspace_id: WorkspaceId::new(),
-            model: "mock".into(),
-            provider: "mock".into(),
-            title: Some(title.into()),
-            started_at: Utc::now(),
-            ended_at: None,
-        }
-    }
 
-    #[test]
-    fn next_clamps_at_end() {
-        let mut s = ViewerState::new(vec![fake_session("a"), fake_session("b")]);
-        s.next();
-        assert_eq!(s.selected, 1);
-        s.next();
-        assert_eq!(s.selected, 1, "must not pass the last index");
-    }
-
-    #[test]
-    fn prev_clamps_at_zero() {
-        let mut s = ViewerState::new(vec![fake_session("a")]);
-        s.prev();
-        assert_eq!(s.selected, 0);
-    }
-
-    #[test]
-    fn empty_list_does_not_panic_on_navigation() {
-        let mut s = ViewerState::new(Vec::new());
-        s.next();
-        s.prev();
-        assert!(s.selected_session().is_none());
-    }
-
-    #[test]
-    fn navigation_invalidates_cached_message_count() {
-        let mut s = ViewerState::new(vec![fake_session("a"), fake_session("b")]);
-        s.selected_message_count = Some(7);
-        s.next();
-        assert_eq!(s.selected_message_count, None);
-    }
-
-    #[test]
-    fn next_n_clamps_at_end() {
-        let mut s = ViewerState::new((0..5).map(|i| fake_session(&i.to_string())).collect());
-        s.next_n(3);
-        assert_eq!(s.selected, 3);
-        s.next_n(99);
-        assert_eq!(s.selected, 4);
-    }
-
-    #[test]
-    fn prev_n_clamps_at_zero() {
-        let mut s = ViewerState::new((0..5).map(|i| fake_session(&i.to_string())).collect());
-        s.selected = 4;
-        s.prev_n(3);
-        assert_eq!(s.selected, 1);
-        s.prev_n(99);
-        assert_eq!(s.selected, 0);
-    }
-
-    #[test]
-    fn first_and_last_jump() {
-        let mut s = ViewerState::new((0..5).map(|i| fake_session(&i.to_string())).collect());
-        s.last();
-        assert_eq!(s.selected, 4);
-        s.first();
-        assert_eq!(s.selected, 0);
-    }
-
-    #[test]
-    fn first_and_last_no_op_on_empty() {
-        let mut s = ViewerState::new(Vec::new());
-        s.first();
-        s.last();
-        assert!(s.selected_session().is_none());
-    }
-
-    #[test]
-    fn empty_filter_shows_all() {
-        let s = ViewerState::new(vec![fake_session("morning"), fake_session("afternoon")]);
-        assert_eq!(s.filtered_indices(), vec![0, 1]);
-    }
-
-    #[test]
-    fn filter_substring_match() {
-        let mut s = ViewerState::new(vec![
-            fake_session("morning summary"),
-            fake_session("afternoon stand-up"),
-            fake_session("evening review"),
-        ]);
-        s.filter_push('m');
-        s.filter_push('o');
-        s.filter_push('r');
-        assert_eq!(s.filtered_indices(), vec![0]);
-    }
-
-    #[test]
-    fn filter_is_case_insensitive() {
-        let mut s = ViewerState::new(vec![fake_session("Morning")]);
-        s.filter_push('m');
-        assert_eq!(s.filtered_indices(), vec![0]);
-    }
-
-    #[test]
-    fn changing_filter_resets_selection() {
-        let mut s = ViewerState::new(vec![
-            fake_session("alpha"),
-            fake_session("beta"),
-            fake_session("gamma"),
-        ]);
-        s.selected = 2;
-        s.filter_push('a');
-        assert_eq!(s.selected, 0);
-    }
-
-    #[test]
-    fn selected_session_honors_filter() {
-        let mut s = ViewerState::new(vec![
-            fake_session("a-thing"),
-            fake_session("b-thing"),
-            fake_session("c-thing"),
-        ]);
-        s.filter_push('b');
-        let title = s.selected_session().unwrap().title.as_deref().unwrap();
-        assert_eq!(title, "b-thing");
-    }
-
-    #[test]
-    fn filter_clear_returns_to_full_list() {
-        let mut s = ViewerState::new(vec![fake_session("alpha"), fake_session("beta")]);
-        s.filter_push('a');
-        s.filter_clear();
-        assert_eq!(s.filter, "");
-        assert!(!s.filter_mode);
-        assert_eq!(s.filtered_indices(), vec![0, 1]);
-    }
-
-    #[test]
-    fn fresh_state_has_no_agent_in_flight() {
-        let s = ViewerState::new(Vec::new());
-        assert!(!s.agent_running());
-        assert!(s.last_agent_error.is_none());
-        assert!(s.live_events.is_empty());
-    }
-
-    #[test]
-    fn push_live_event_caps_at_max() {
-        let mut s = ViewerState::new(Vec::new());
-        for _ in 0..(MAX_LIVE_EVENTS + 5) {
-            s.push_live_event(&serde_json::json!({
-                "event": "TurnEnd",
-                "payload": {}
-            }));
-        }
-        assert_eq!(s.live_events.len(), MAX_LIVE_EVENTS);
-    }
-
-    #[test]
-    fn clear_live_events_resets_ring() {
-        let mut s = ViewerState::new(Vec::new());
-        s.push_live_event(&serde_json::json!({"event":"TurnStart","payload":{}}));
-        assert!(!s.live_events.is_empty());
-        s.clear_live_events();
-        assert!(s.live_events.is_empty());
-    }
-}
