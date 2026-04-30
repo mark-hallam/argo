@@ -259,6 +259,52 @@ pub(super) async fn forge_runs_response(
     }
 }
 
+/// `GET /memory/<id>` — fetch a memory entry by id (mirrors
+/// `argo memory view <id>`). Returns 404 when no entry matches,
+/// 400 when the id isn't a valid UUID.
+pub(super) async fn memory_show_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid memory entry id: {e}\"}}"),
+            );
+        }
+    };
+    let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    match memory.get(id).await {
+        Ok(e) => {
+            let body = serde_json::json!({
+                "id": e.id.to_string(),
+                "file": format!("{:?}", e.file),
+                "body": e.body,
+                "lock": format!("{:?}", e.lock),
+                "hash": hex::encode(e.hash),
+                "learned_at": e.learned_at.to_rfc3339(),
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(argo_types::ArgoError::Schema(_)) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no memory entry with id {raw_id}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"memory_show: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /skills/<name>` — fetch the active skill for a name
 /// (mirrors `argo skill view <name>`). Returns 404 if no active
 /// row matches; the body includes the skill body text + lock +
@@ -365,6 +411,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/skills", "active skills"),
         ("GET", "/skills/<name>", "one skill view (full body)"),
         ("GET", "/memory", "memory entries"),
+        ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/audit", "audit chain summary"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain"),
         ("GET", "/costs", "cost ceilings"),

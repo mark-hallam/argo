@@ -113,6 +113,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /skills   → active skills (JSON array)");
     eprintln!("  GET  /skills/<name> → one skill view (full body + frontmatter)");
     eprintln!("  GET  /memory   → active memory entries (JSON array)");
+    eprintln!("  GET  /memory/<id> → one memory entry (full body)");
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
     eprintln!("  GET  /providers → workspace provider manifests + their model lists");
     eprintln!("  GET  /tools    → registered in-core tools + JSON-Schema parameters");

@@ -5,8 +5,8 @@
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
-    artifacts_response, forge_run_show_response, forge_runs_response, providers_response,
-    routes_response, search_response, skill_show_response, tools_response,
+    artifacts_response, forge_run_show_response, forge_runs_response, memory_show_response,
+    providers_response, routes_response, search_response, skill_show_response, tools_response,
 };
 use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
@@ -45,6 +45,11 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /memory ") {
         return memory_response(store).await;
+    }
+    if let Some(rest) = req.strip_prefix("GET /memory/") {
+        if let Some((id, _)) = rest.split_once(' ') {
+            return memory_show_response(id, store).await;
+        }
     }
     if req.starts_with("GET /audit ") {
         return audit_response(store).await;
