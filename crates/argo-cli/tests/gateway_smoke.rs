@@ -125,6 +125,80 @@ fn gateway_sessions_endpoint_returns_json_array_for_empty_db() {
     assert!(status.success());
 }
 
+fn http_post(port: u16, path: &str, body: &str) -> String {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+    let req = format!(
+        "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    stream.write_all(req.as_bytes()).expect("write");
+    let mut resp = String::new();
+    stream.read_to_string(&mut resp).expect("read");
+    resp
+}
+
+#[test]
+fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    // Initialise workspace inside a tempdir so ensure_workspace
+    // anchors there (and cwd doesn't leak into the test).
+    Command::new(argo_bin())
+        .current_dir(workspace.path())
+        .env("ARGO_HOME", home.path())
+        .args(["workspace", "init"])
+        .output()
+        .expect("workspace init");
+
+    let mut child = Command::new(argo_bin())
+        .current_dir(workspace.path())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let stderr = child.stderr.take().expect("stderr");
+    let mut stderr = BufReader::new(stderr);
+    let mut line = String::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("listener did not announce in 2s");
+        }
+        line.clear();
+        stderr.read_line(&mut line).expect("read line");
+        if line.contains("listening on") {
+            break;
+        }
+    }
+
+    let r = http_post(
+        port,
+        "/sessions",
+        r#"{"model":"claude-haiku","provider":"anthropic","title":"smoke"}"#,
+    );
+    assert!(r.contains("HTTP/1.1 201 Created"), "got: {r}");
+    let body = body_of(&r);
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("valid json");
+    assert!(parsed["id"].is_string(), "missing id: {parsed}");
+    assert_eq!(parsed["model"], "claude-haiku");
+    assert_eq!(parsed["provider"], "anthropic");
+    assert_eq!(parsed["title"], "smoke");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
 #[cfg(unix)]
 #[test]
 fn gateway_stop_sends_sigterm_to_live_pid_then_clears_pidfile() {

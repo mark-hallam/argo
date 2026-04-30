@@ -83,6 +83,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET /sessions → recent sessions (JSON array)");
     eprintln!("  GET /skills   → active skills (JSON array)");
     eprintln!("  GET /memory   → active memory entries (JSON array)");
+    eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");
     let mut served = 0_u64;
     let shutdown = shutdown_signal();
@@ -97,28 +98,10 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
             accept = listener.accept() => {
                 let (mut stream, _peer) = accept
                     .map_err(|e| ArgoError::Provider(format!("accept: {e}")))?;
-                let mut buf = [0_u8; 1024];
+                let mut buf = [0_u8; 4096];
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
-                let (status_line, body) = if req.starts_with("GET /version ") {
-                    (
-                        "200 OK",
-                        format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION")),
-                    )
-                } else if req.starts_with("GET /health ") {
-                    ("200 OK", "{\"status\":\"ok\"}".to_string())
-                } else if req.starts_with("GET /sessions ") {
-                    sessions_response(store.as_ref()).await
-                } else if req.starts_with("GET /skills ") {
-                    skills_response(store.as_ref()).await
-                } else if req.starts_with("GET /memory ") {
-                    memory_response(store.as_ref()).await
-                } else {
-                    (
-                        "404 Not Found",
-                        "{\"error\":\"not found\"}".to_string(),
-                    )
-                };
+                let (status_line, body) = dispatch_route(req, store.as_ref()).await;
                 let resp = format!(
                     "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
                     body.len(),
@@ -264,6 +247,111 @@ async fn sessions_response(store: Option<&Arc<SessionStore>>) -> (&'static str, 
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"list sessions: {e}\"}}"),
+        ),
+    }
+}
+
+async fn dispatch_route(req: &str, store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+    if req.starts_with("GET /version ") {
+        return (
+            "200 OK",
+            format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION")),
+        );
+    }
+    if req.starts_with("GET /health ") {
+        return ("200 OK", "{\"status\":\"ok\"}".to_string());
+    }
+    if req.starts_with("GET /sessions ") {
+        return sessions_response(store).await;
+    }
+    if req.starts_with("GET /skills ") {
+        return skills_response(store).await;
+    }
+    if req.starts_with("GET /memory ") {
+        return memory_response(store).await;
+    }
+    if req.starts_with("POST /sessions ") {
+        return create_session_response(req, store).await;
+    }
+    ("404 Not Found", "{\"error\":\"not found\"}".to_string())
+}
+
+/// Extract the HTTP body from a "header\r\n\r\nbody" string. The
+/// caller has already read the bytes; we just split on the
+/// double-newline separator.
+fn body_from_request(req: &str) -> &str {
+    req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
+}
+
+async fn create_session_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return (
+            "503 Service Unavailable",
+            "{\"error\":\"session store unavailable\"}".to_string(),
+        );
+    };
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse body: {e}\"}}"),
+            );
+        }
+    };
+    let model = parsed["model"].as_str().unwrap_or("");
+    let provider = parsed["provider"].as_str().unwrap_or("");
+    if model.is_empty() || provider.is_empty() {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"required fields: model, provider\"}".to_string(),
+        );
+    }
+    let title = parsed["title"].as_str();
+    let cwd = match std::env::current_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"cwd: {e}\"}}"),
+            );
+        }
+    };
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, workspace) = match store.ensure_workspace(name, &root).await {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"ensure_workspace: {e}\"}}"),
+            );
+        }
+    };
+    match store
+        .create_session(tenant, workspace, model, provider, title)
+        .await
+    {
+        Ok(id) => (
+            "201 Created",
+            serde_json::to_string(&serde_json::json!({
+                "id": id.0.to_string(),
+                "model": model,
+                "provider": provider,
+                "title": title,
+            }))
+            .unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"create_session: {e}\"}}"),
         ),
     }
 }
