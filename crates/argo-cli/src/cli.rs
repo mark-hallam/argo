@@ -400,7 +400,11 @@ pub enum CostsCmd {
         usd: f64,
     },
     /// Show the configured caps.
-    Show,
+    Show {
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

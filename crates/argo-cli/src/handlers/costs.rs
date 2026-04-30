@@ -8,7 +8,8 @@ pub fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml"))?;
     match cmd {
-        None | Some(CostsCmd::Show) => show(&cfg),
+        None => show(&cfg, false),
+        Some(CostsCmd::Show { json }) => show(&cfg, json),
         Some(CostsCmd::Cap {
             session,
             day,
@@ -39,8 +40,20 @@ pub fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
     }
 }
 
-fn show(cfg: &ArgoConfig) -> ArgoResult<()> {
+fn show(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
     let ceilings = cfg.budget.to_cost_ceilings();
+    if json {
+        let payload = serde_json::json!({
+            "per_session_usd_micros": ceilings.per_session_usd_micros,
+            "per_day_usd_micros":     ceilings.per_day_usd_micros,
+            "per_month_usd_micros":   ceilings.per_month_usd_micros,
+            "notify_at_pct":          ceilings.notify_at_pct,
+        });
+        let serialized = serde_json::to_string(&payload)
+            .map_err(|e| ArgoError::Provider(format!("serialize costs: {e}")))?;
+        println!("{serialized}");
+        return Ok(());
+    }
     println!("cost ceilings (USD):");
     for (label, val) in [
         ("session", ceilings.per_session_usd_micros),
