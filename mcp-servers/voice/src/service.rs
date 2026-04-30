@@ -41,7 +41,8 @@ impl McpServerService for VoiceService {
     async fn call_tool(&self, params: CallToolParams) -> McpResult<CallToolResult> {
         match params.name.as_str() {
             "synthesize" => Ok(synthesize_dispatch(&params.arguments).await),
-            "transcribe" | "voice_chat" => Ok(CallToolResult {
+            "transcribe" => Ok(transcribe_dispatch(&params.arguments).await),
+            "voice_chat" => Ok(CallToolResult {
                 content: vec![McpContent::Text {
                     text: NOT_WIRED.into(),
                 }],
@@ -55,6 +56,34 @@ impl McpServerService for VoiceService {
             }),
         }
     }
+}
+
+async fn transcribe_dispatch(args: &serde_json::Value) -> CallToolResult {
+    let backend = args
+        .get("backend")
+        .and_then(|v| v.as_str())
+        .unwrap_or("whisper");
+    let audio = match args.get("audio").and_then(|v| v.as_str()) {
+        Some(p) => p,
+        None => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: "missing required field 'audio'".into(),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    if backend != "openai" {
+        return CallToolResult {
+            content: vec![McpContent::Text {
+                text: NOT_WIRED.into(),
+            }],
+            is_error: true,
+        };
+    }
+    let language = args.get("language").and_then(|v| v.as_str());
+    crate::openai::transcribe(audio, language).await
 }
 
 async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
@@ -90,12 +119,16 @@ async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
 fn transcribe_schema() -> McpToolSchema {
     McpToolSchema {
         name: "transcribe".into(),
-        description: "Transcribe audio to text (whisper.cpp).".into(),
+        description: "Transcribe audio to text. \
+            Default backend is whisper.cpp (not yet wired); \
+            pass `backend = \"openai\"` to use the OpenAI Whisper API."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
-                "audio": { "type": "string", "description": "Path or data URL of the audio clip." },
-                "language": { "type": "string", "description": "ISO-639 hint (optional)." }
+                "audio":    { "type": "string", "description": "File path of the audio clip." },
+                "language": { "type": "string", "description": "ISO-639 hint (optional)." },
+                "backend":  { "type": "string", "enum": ["whisper", "openai"], "default": "whisper" }
             },
             "required": ["audio"]
         }),

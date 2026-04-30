@@ -130,6 +130,106 @@ fn tempfile_path(prefix: &str, ext: &str) -> PathBuf {
     std::env::temp_dir().join(format!("{prefix}-{id}.{ext}"))
 }
 
+/// POST the audio file to OpenAI Whisper and return the transcript
+/// as a CallToolResult with Text content.
+pub async fn transcribe(audio_path: &str, language: Option<&str>) -> CallToolResult {
+    let api_key = match std::env::var("OPENAI_API_KEY") {
+        Ok(k) if !k.is_empty() => k,
+        _ => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: "OPENAI_API_KEY not set".into(),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    let bytes = match std::fs::read(audio_path) {
+        Ok(b) => b,
+        Err(e) => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: format!("read {audio_path}: {e}"),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    let file_name = std::path::Path::new(audio_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("audio.wav")
+        .to_string();
+    let part = match reqwest::multipart::Part::bytes(bytes)
+        .file_name(file_name)
+        .mime_str("application/octet-stream")
+    {
+        Ok(p) => p,
+        Err(e) => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: format!("multipart part: {e}"),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    let mut form = reqwest::multipart::Form::new()
+        .text("model", "whisper-1")
+        .part("file", part);
+    if let Some(lang) = language {
+        form = form.text("language", lang.to_string());
+    }
+    let client = reqwest::Client::new();
+    let resp = match client
+        .post("https://api.openai.com/v1/audio/transcriptions")
+        .bearer_auth(&api_key)
+        .multipart(form)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: format!("OpenAI transcribe request failed: {e}"),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let detail = resp.text().await.unwrap_or_default();
+        return CallToolResult {
+            content: vec![McpContent::Text {
+                text: format!("OpenAI transcribe error {status}: {detail}"),
+            }],
+            is_error: true,
+        };
+    }
+    let body: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: format!("parse transcribe response: {e}"),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    let text = body
+        .get("text")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    CallToolResult {
+        content: vec![McpContent::Text { text }],
+        is_error: false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
