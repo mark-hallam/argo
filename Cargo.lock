@@ -85,6 +85,17 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 [[package]]
 name = "argo-acp"
 version = "0.0.1"
+dependencies = [
+ "argo-capability",
+ "argo-types",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "argo-audit"

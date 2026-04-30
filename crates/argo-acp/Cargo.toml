@@ -5,6 +5,17 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — argo-acp"
+description = "Argo — Agent Client Protocol server (§28.Y)"
 
 [dependencies]
+argo-capability = { path = "../argo-capability", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
