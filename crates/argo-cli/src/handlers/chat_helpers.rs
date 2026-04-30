@@ -1,13 +1,101 @@
 //! Pure helpers used by the agent loop in `chat.rs`. Extracted
 //! to keep that file under the 500-LOC budget.
-use argo_provider::ProviderManifest;
+use argo_provider::{ProviderManifest, ProviderRequest, ProviderResponseDelta, Transport};
 use argo_store::SessionStore;
 use argo_types::{
     ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId, TenantId,
     ToolCallId, ToolCallRequest,
 };
 use chrono::Utc;
+use futures::StreamExt;
+use std::collections::HashMap;
+use std::io::Write;
 use std::sync::Arc;
+
+/// Per-round response shape used by both the streaming and non-
+/// streaming paths in the agent loop. Lets the loop body stay
+/// one shape regardless of which transport call produced it.
+pub(crate) struct RoundResp {
+    pub(crate) text: String,
+    pub(crate) tool_calls: Vec<ToolCallRequest>,
+    pub(crate) tokens_in: Option<u32>,
+    pub(crate) tokens_out: Option<u32>,
+}
+
+/// Stream one provider round, printing text chunks to stdout as
+/// they arrive and accumulating tool-call deltas into proper
+/// `ToolCallRequest`s. The agent loop dispatches any returned
+/// tool calls just as it does for the non-streaming path.
+pub(crate) async fn stream_one_round(
+    transport: &dyn Transport,
+    req: &ProviderRequest,
+) -> ArgoResult<RoundResp> {
+    let mut stream = transport.complete_stream(req).await?;
+    let mut text = String::new();
+    let mut tokens_in: Option<u32> = None;
+    let mut tokens_out: Option<u32> = None;
+    // Accumulator: provider call_id → (tool_name, args fragment).
+    let mut acc: HashMap<String, (String, String)> = HashMap::new();
+    // Order in which call ids first appear, so the dispatch order
+    // matches the wire order rather than HashMap iteration.
+    let mut order: Vec<String> = Vec::new();
+    let mut stdout = std::io::stdout();
+    while let Some(delta) = stream.next().await {
+        match delta? {
+            ProviderResponseDelta::TextChunk(s) => {
+                text.push_str(&s);
+                let _ = stdout.write_all(s.as_bytes());
+                let _ = stdout.flush();
+            }
+            ProviderResponseDelta::TokenUsage {
+                tokens_in: ti,
+                tokens_out: to,
+            } => {
+                tokens_in = Some(ti);
+                tokens_out = Some(to);
+            }
+            ProviderResponseDelta::ToolCallDelta {
+                id,
+                name,
+                args_partial,
+            } => {
+                let entry = acc.entry(id.clone()).or_insert_with(|| {
+                    order.push(id.clone());
+                    (String::new(), String::new())
+                });
+                if !name.is_empty() {
+                    entry.0 = name;
+                }
+                entry.1.push_str(&args_partial);
+            }
+            ProviderResponseDelta::FinishReason(_) | ProviderResponseDelta::ReasoningChunk(_) => {
+                // Ignored for now — reasoning streams will land with
+                // the dedicated thinking-block surface.
+            }
+        }
+    }
+    let mut tool_calls = Vec::with_capacity(order.len());
+    for provider_id in order {
+        let (name, args_str) = acc.remove(&provider_id).unwrap_or_default();
+        let arguments = if args_str.is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str(&args_str).unwrap_or(serde_json::Value::String(args_str.clone()))
+        };
+        tool_calls.push(ToolCallRequest {
+            id: ToolCallId::new(),
+            provider_call_id: Some(provider_id),
+            name,
+            arguments,
+        });
+    }
+    Ok(RoundResp {
+        text,
+        tool_calls,
+        tokens_in,
+        tokens_out,
+    })
+}
 
 /// Static-for-the-turn data the agent loop needs to record spend
 /// (tenant + provider + model + price-per-1k tuple).

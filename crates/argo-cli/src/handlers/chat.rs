@@ -23,7 +23,7 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
 use argo_provider::{
     AnthropicTransport, BedrockTransport, OpenAiCompatTransport, OpenAiResponsesTransport,
-    ProviderFamily, ProviderManifest, ProviderRequest, ProviderResponseDelta, Sampling,
+    ProviderFamily, ProviderManifest, ProviderRequest, Sampling,
     ToolSchema as ProviderToolSchema, Transport,
 };
 use argo_store::SessionStore;
@@ -32,8 +32,6 @@ use argo_types::{
     ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, ToolCallRequest,
     ToolCallResult,
 };
-use futures::StreamExt;
-use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -192,21 +190,18 @@ pub async fn run_turn(
         model: session.model.as_str(),
         pricing,
     };
-    let result = if stream {
-        run_turn_stream(store, transport.as_ref(), session_id, &session.model).await
-    } else {
-        run_turn_with_tools(
-            store,
-            transport.as_ref(),
-            cwd,
-            session_id,
-            &session.model,
-            &audit,
-            &spend_ctx,
-            max_rounds,
-        )
-        .await
-    };
+    let result = run_turn_with_tools(
+        store,
+        transport.as_ref(),
+        cwd,
+        session_id,
+        &session.model,
+        &audit,
+        &spend_ctx,
+        max_rounds,
+        stream,
+    )
+    .await;
     let kind = if result.is_ok() {
         AuditKind::TurnEnd
     } else {
@@ -257,6 +252,7 @@ async fn run_turn_with_tools(
     audit: &AuditSink,
     spend: &SpendCtx<'_>,
     max_rounds: usize,
+    stream: bool,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -280,12 +276,22 @@ async fn run_turn_with_tools(
             system: None,
             sampling: Sampling::default(),
         };
-        let resp = transport.complete(&req).await?;
-        last_text = resp.text.clone().unwrap_or_default();
+        let resp = if stream {
+            super::chat_helpers::stream_one_round(transport, &req).await?
+        } else {
+            let r = transport.complete(&req).await?;
+            super::chat_helpers::RoundResp {
+                text: r.text.unwrap_or_default(),
+                tool_calls: r.tool_calls,
+                tokens_in: r.tokens_in,
+                tokens_out: r.tokens_out,
+            }
+        };
+        last_text = resp.text.clone();
         last_tokens_in = resp.tokens_in;
         last_tokens_out = resp.tokens_out;
 
-        let assistant_content = build_assistant_content(&last_text, &resp.tool_calls);
+        let assistant_content = build_assistant_content(&resp.text, &resp.tool_calls);
         last_assistant_id = store
             .append_message(
                 session_id,
@@ -381,76 +387,6 @@ async fn dispatch_one(
     }
 }
 
-async fn run_turn_stream(
-    store: &Arc<SessionStore>,
-    transport: &dyn Transport,
-    session_id: SessionId,
-    model: &str,
-) -> ArgoResult<TurnResult> {
-    let rows = store.list_messages(session_id).await?;
-    let messages = rows
-        .iter()
-        .map(|r| message_from_row(r, session_id))
-        .collect::<ArgoResult<Vec<_>>>()?;
-
-    let req = ProviderRequest {
-        model: model.to_string(),
-        messages,
-        tools: Vec::new(),
-        system: None,
-        sampling: Sampling::default(),
-    };
-    let (text, tokens_in, tokens_out) = run_stream(transport, &req).await?;
-    let content = if text.is_empty() {
-        serde_json::json!([])
-    } else {
-        serde_json::json!([{"type": "text", "text": text}])
-    };
-    let assistant_id = store
-        .append_message(session_id, MessageRole::Assistant, &content.to_string())
-        .await?;
-    Ok(TurnResult {
-        assistant_id,
-        text,
-        tokens_in,
-        tokens_out,
-    })
-}
-
-async fn run_stream(
-    transport: &dyn Transport,
-    req: &ProviderRequest,
-) -> ArgoResult<(String, Option<u32>, Option<u32>)> {
-    let mut stream = transport.complete_stream(req).await?;
-    let mut text = String::new();
-    let mut tokens_in: Option<u32> = None;
-    let mut tokens_out: Option<u32> = None;
-    let mut stdout = std::io::stdout();
-    while let Some(delta) = stream.next().await {
-        match delta? {
-            ProviderResponseDelta::TextChunk(s) => {
-                text.push_str(&s);
-                let _ = stdout.write_all(s.as_bytes());
-                let _ = stdout.flush();
-            }
-            ProviderResponseDelta::TokenUsage {
-                tokens_in: ti,
-                tokens_out: to,
-            } => {
-                tokens_in = Some(ti);
-                tokens_out = Some(to);
-            }
-            ProviderResponseDelta::FinishReason(_)
-            | ProviderResponseDelta::ReasoningChunk(_)
-            | ProviderResponseDelta::ToolCallDelta { .. } => {
-                // No-op for now — single-turn happy path. Reasoning
-                // / tool-call streams will be wired with the agent
-                // loop's full surface.
-            }
-        }
-    }
-    Ok((text, tokens_in, tokens_out))
-}
 
 /// Resolve a `ProviderManifest` to a live `Transport`. Anthropic /
 /// OpenAI families read the API key from `manifest.auth.api_key_env`;

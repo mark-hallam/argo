@@ -185,6 +185,14 @@ pub(super) async fn run_turn_response(
         .and_then(serde_json::Value::as_u64)
         .and_then(|n| usize::try_from(n).ok())
         .unwrap_or(crate::handlers::chat::MAX_TOOL_ROUNDS);
+    // The gateway always streams text to its own stdout (visible
+    // when running `argo gateway start` in foreground); the
+    // response body is still the final JSON. SSE / chunked
+    // streaming over HTTP is its own follow-up.
+    let stream = parsed
+        .get("stream")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
         Err(e) => {
@@ -194,7 +202,7 @@ pub(super) async fn run_turn_response(
             );
         }
     };
-    match crate::handlers::chat::run_turn(store, &cwd, id, user, false, max_rounds).await {
+    match crate::handlers::chat::run_turn(store, &cwd, id, user, stream, max_rounds).await {
         Ok(result) => (
             "201 Created",
             serde_json::to_string(&serde_json::json!({
