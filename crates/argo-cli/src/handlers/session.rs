@@ -15,6 +15,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             since_minutes,
         } => list_sessions(limit, json, since_minutes).await,
         SessionCmd::Show { id, json } => show_session(&id, json).await,
+        SessionCmd::Watch { id } => super::session_watch::run(&id).await,
         SessionCmd::Export {
             id,
             out,

@@ -24,6 +24,7 @@ pub mod session;
 mod session_aggregates;
 pub mod session_replay;
 mod session_resolve;
+mod session_watch;
 pub mod skill;
 pub mod steer;
 pub mod trace;

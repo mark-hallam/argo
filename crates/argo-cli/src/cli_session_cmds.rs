@@ -19,6 +19,12 @@ pub enum SessionCmd {
         #[arg(long)]
         since_minutes: Option<i64>,
     },
+    /// `tail -f`-style live watch of new messages on a session.
+    /// Polls every 500ms; prints each newly-appended row as a
+    /// one-liner (`[seq] role: text-summary`). Exit with Ctrl-C.
+    Watch {
+        id: String,
+    },
     /// Show one session header (model, provider, start time, message count).
     Show {
         id: String,
