@@ -26,8 +26,9 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /health ") {
         return ("200 OK", "{\"status\":\"ok\"}".to_string());
     }
-    if req.starts_with("GET /sessions ") {
-        return sessions_response(store).await;
+    if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
+        let since = parse_since_minutes_from_get(req, "/sessions");
+        return sessions_response(store, since).await;
     }
     if req.starts_with("GET /skills ") {
         return skills_response(store).await;
@@ -104,12 +105,33 @@ pub(super) async fn dispatch_route(
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
 }
 
-async fn sessions_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+/// Pull `since-minutes=<N>` out of `GET <path>?since-minutes=N HTTP/1.1`.
+fn parse_since_minutes_from_get(req: &str, path: &str) -> Option<i64> {
+    let prefix = format!("GET {path}?");
+    let rest = req.strip_prefix(&prefix)?;
+    let q = rest.split_once(' ').map(|(q, _)| q).unwrap_or(rest);
+    for kv in q.split('&') {
+        let (k, v) = kv.split_once('=')?;
+        if k == "since-minutes" {
+            return v.parse().ok();
+        }
+    }
+    None
+}
+
+async fn sessions_response(
+    store: Option<&Arc<SessionStore>>,
+    since_minutes: Option<i64>,
+) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
     match store.list_all_sessions(100).await {
-        Ok(rows) => {
+        Ok(mut rows) => {
+            if let Some(minutes) = since_minutes {
+                let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
+                rows.retain(|s| s.started_at >= cutoff);
+            }
             let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
             let arr: Vec<serde_json::Value> = rows
                 .iter()
