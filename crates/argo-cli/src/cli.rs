@@ -207,6 +207,13 @@ pub enum CronCmd {
     Trigger {
         name: String,
     },
+    /// Run one scheduler tick at the current time. Reports which
+    /// jobs would fire; pass `--dry-run` to skip writing the
+    /// last-fired cursor.
+    Tick {
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

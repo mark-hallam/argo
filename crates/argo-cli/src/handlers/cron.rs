@@ -1,8 +1,9 @@
-//! `argo cron` — list / create / delete / trigger jobs in the
-//! workspace's `cron/jobs/` directory.
+//! `argo cron` — list / create / delete / trigger / tick jobs in
+//! the workspace's `cron/jobs/` directory.
 use crate::cli::CronCmd;
-use argo_cron::{CronExpr, CronJob, CronTarget};
+use argo_cron::{CronExpr, CronJob, CronTarget, InMemoryJobStore, JobRunner, JobStore, Scheduler};
 use argo_types::{ArgoError, ArgoResult, TenantId};
+use async_trait::async_trait;
 use std::path::PathBuf;
 
 pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
@@ -28,10 +29,90 @@ pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
             );
             Ok(())
         }
-        CronCmd::Trigger { name } => {
-            println!("argo cron trigger {name}: requires a running daemon (separate PR).");
-            Ok(())
+        CronCmd::Trigger { name } => trigger_job(&dir, &name).await,
+        CronCmd::Tick { dry_run } => tick(&dir, dry_run).await,
+    }
+}
+
+async fn trigger_job(dir: &std::path::Path, name: &str) -> ArgoResult<()> {
+    let path = dir.join(format!("{name}.json"));
+    if !path.exists() {
+        return Err(ArgoError::Provider(format!("{} not found", path.display())));
+    }
+    let body = std::fs::read_to_string(&path)
+        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+    let job: CronJob = serde_json::from_str(&body)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
+    let runner = LoggingRunner;
+    runner.run(&job).await?;
+    println!("triggered '{name}' (no-op delivery; daemon binding wires the gateway send)");
+    Ok(())
+}
+
+async fn tick(dir: &std::path::Path, dry_run: bool) -> ArgoResult<()> {
+    // Load every job into an InMemoryJobStore so we can run a real
+    // scheduler tick. This is the same path the daemon takes; the
+    // only difference is the cursor lives in process memory, so
+    // the dedup check holds within one CLI invocation but resets
+    // on the next. The persisted cursor (under fcntl/msvcrt lock)
+    // is the daemon's job.
+    let store = InMemoryJobStore::new();
+    for entry in std::fs::read_dir(dir)
+        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+    {
+        let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
+        let p = e.path();
+        if p.extension().is_none_or(|x| x != "json") {
+            continue;
         }
+        let body = std::fs::read_to_string(&p)
+            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+        let job: CronJob = serde_json::from_str(&body)
+            .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", p.display())))?;
+        store.save(&job).await?;
+    }
+    let runner = LoggingRunner;
+    let now = chrono::Utc::now();
+    let report = if dry_run {
+        // Dry run: list which jobs are due without invoking the
+        // runner. We re-read directly off the in-memory store to
+        // avoid the side effect.
+        let due: Vec<_> = store
+            .list_all()
+            .await?
+            .into_iter()
+            .filter(|j| j.is_due(now))
+            .collect();
+        println!("dry run: {} job(s) due at {}", due.len(), now);
+        for j in due {
+            println!("  {} ({})", j.name, j.schedule.source);
+        }
+        return Ok(());
+    } else {
+        Scheduler.tick(&store, &runner, now).await?
+    };
+    println!(
+        "tick at {now}: attempted={} fired={} errors={}",
+        report.attempted.len(),
+        report.fired.len(),
+        report.errors.len()
+    );
+    Ok(())
+}
+
+/// Logs the job's `(name, prompt → platform/chat)` to stdout
+/// instead of actually delivering. The daemon swaps this out for
+/// the real \`argo-core::Agent\` + \`argo-gateway\` chain.
+struct LoggingRunner;
+
+#[async_trait]
+impl JobRunner for LoggingRunner {
+    async fn run(&self, job: &CronJob) -> ArgoResult<()> {
+        println!(
+            "  fire: {} → {}/{} | prompt: {}",
+            job.name, job.target.platform, job.target.chat, job.prompt
+        );
+        Ok(())
     }
 }
 
