@@ -9,6 +9,9 @@ use crossterm::terminal::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::{stdout, Stdout};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 
 /// Viewer state — sessions list, current selection, the detail-
 /// pane payload for the selected session, and a lazily-fetched
@@ -41,9 +44,19 @@ pub struct ViewerState {
     /// True while the user is editing the composer (vim-`i` mode).
     pub composer_mode: bool,
     /// Last "sent" composer draft (Enter snapshot). Visible in the
-    /// detail pane so the user can confirm the round-trip will
-    /// pick this up once live wiring lands.
+    /// detail pane so the user can confirm the agent picked it up.
     pub last_sent: Option<String>,
+    /// Background `argo_agent_runner::run_turn` task spawned when
+    /// the user hit Enter in composer mode. The event loop checks
+    /// `is_finished()` each tick; when it goes from `Some` to
+    /// `None`, the assistant reply (and any tool dispatches) have
+    /// already been persisted into the store and the auto-refresh
+    /// path will pick them up.
+    pub agent_handle: Option<JoinHandle<ArgoResult<()>>>,
+    /// Last error string from a finished agent task, if any. The
+    /// footer renders this so e.g. missing provider keys aren't
+    /// silently swallowed.
+    pub last_agent_error: Option<String>,
 }
 
 impl ViewerState {
@@ -61,7 +74,15 @@ impl ViewerState {
             composer: String::new(),
             composer_mode: false,
             last_sent: None,
+            agent_handle: None,
+            last_agent_error: None,
         }
+    }
+
+    /// `true` while a spawned `run_turn` task is still in flight.
+    #[must_use]
+    pub fn agent_running(&self) -> bool {
+        self.agent_handle.is_some()
     }
 
     /// Append a char to the composer draft.
@@ -231,16 +252,22 @@ impl ViewerState {
 /// returned result is `Ok(())` on a clean quit, `Err` if terminal
 /// setup or rendering blew up.
 ///
+/// `cwd` is the workspace root passed to
+/// `argo_agent_runner::run_turn` when the composer fires off a
+/// live agent turn — it points at the directory holding
+/// `manifests/providers/` so the runner can resolve the session's
+/// provider id to a real transport.
+///
 /// # Errors
 /// Returns [`ArgoError::Provider`] for terminal setup, draw, or
 /// store-query failures.
-pub async fn run_session_viewer(store: &SessionStore) -> ArgoResult<()> {
+pub async fn run_session_viewer(store: Arc<SessionStore>, cwd: PathBuf) -> ArgoResult<()> {
     let sessions = store.list_all_sessions(200).await?;
     let mut state = ViewerState::new(sessions);
-    fetch_message_count(store, &mut state).await?;
-    fetch_messages(store, &mut state).await?;
+    fetch_message_count(&store, &mut state).await?;
+    fetch_messages(&store, &mut state).await?;
     let mut terminal = setup_terminal()?;
-    let outcome = crate::input::run(&mut terminal, store, &mut state).await;
+    let outcome = crate::input::run(&mut terminal, store, cwd, &mut state).await;
     teardown_terminal(&mut terminal)?;
     outcome
 }
@@ -437,5 +464,12 @@ mod tests {
         assert_eq!(s.filter, "");
         assert!(!s.filter_mode);
         assert_eq!(s.filtered_indices(), vec![0, 1]);
+    }
+
+    #[test]
+    fn fresh_state_has_no_agent_in_flight() {
+        let s = ViewerState::new(Vec::new());
+        assert!(!s.agent_running());
+        assert!(s.last_agent_error.is_none());
     }
 }

@@ -555,6 +555,7 @@ dependencies = [
 name = "argo-tui"
 version = "0.0.1"
 dependencies = [
+ "argo-agent-runner",
  "argo-store",
  "argo-types",
  "chrono",

@@ -2,21 +2,29 @@
 //! from `app.rs` to keep that file under the 500-LOC budget.
 use crate::app::{fetch_message_count, fetch_messages, ViewerState};
 use crate::render::draw;
+use argo_agent_runner::{run_turn, MAX_TOOL_ROUNDS};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::Stdout;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub(crate) async fn run(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    store: &SessionStore,
+    store: Arc<SessionStore>,
+    cwd: PathBuf,
     state: &mut ViewerState,
 ) -> ArgoResult<()> {
     let mut last_refresh = std::time::Instant::now();
     loop {
+        // Reap a finished agent turn before drawing so the footer
+        // shows the right "running"/"done" state and any error
+        // surfaces immediately.
+        reap_agent(state).await;
         terminal
             .draw(|frame| draw(frame, state))
             .map_err(|e| ArgoError::Provider(format!("tui draw: {e}")))?;
@@ -26,7 +34,7 @@ pub(crate) async fn run(
         // without manual reselect.
         if last_refresh.elapsed() >= Duration::from_secs(1) {
             state.messages_loaded = false;
-            fetch_messages(store, state).await?;
+            fetch_messages(&store, state).await?;
             last_refresh = std::time::Instant::now();
         }
         // 200ms poll keeps the loop responsive without a busy-spin;
@@ -51,45 +59,26 @@ pub(crate) async fn run(
                     KeyCode::Enter => state.exit_filter_mode(),
                     KeyCode::Backspace => {
                         state.filter_pop();
-                        fetch_message_count(store, state).await?;
-                        fetch_messages(store, state).await?;
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
                     }
                     KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                         state.filter_push(c);
-                        fetch_message_count(store, state).await?;
-                        fetch_messages(store, state).await?;
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
                     }
                     _ => {}
                 }
                 continue;
             }
-            // Composer mode: type freely, Enter persists the draft
-            // as a user-role message on the selected session, Esc
-            // cancels. (Driving a full agent-loop turn from the
-            // TUI needs the chat helpers + a tokio handle threaded
-            // in; the persisted user message + reload pattern is
-            // the daemon-friendly half of that flow.)
+            // Composer mode: type freely, Enter spawns a live agent
+            // turn (persisting the user message + driving the run
+            // loop in a background task), Esc cancels.
             if state.composer_mode {
                 match key.code {
                     KeyCode::Esc => state.composer_cancel(),
                     KeyCode::Enter => {
-                        if let Some(session) = state.selected_session() {
-                            let sid = SessionId(session.id.0);
-                            let draft = state.composer.clone();
-                            if !draft.is_empty() {
-                                let content = serde_json::json!([{"type": "text", "text": draft}]);
-                                let _ = store
-                                    .append_message(
-                                        sid,
-                                        argo_types::MessageRole::User,
-                                        &content.to_string(),
-                                    )
-                                    .await;
-                                state.messages_loaded = false;
-                                fetch_messages(store, state).await?;
-                            }
-                        }
-                        state.composer_send();
+                        spawn_agent_turn(&store, &cwd, state).await;
                     }
                     KeyCode::Backspace => state.composer_pop(),
                     KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -120,38 +109,98 @@ pub(crate) async fn run(
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();
-                    fetch_message_count(store, state).await?;
-                    fetch_messages(store, state).await?;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     state.prev();
-                    fetch_message_count(store, state).await?;
-                    fetch_messages(store, state).await?;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
                 }
                 KeyCode::PageDown => {
                     state.next_n(10);
-                    fetch_message_count(store, state).await?;
-                    fetch_messages(store, state).await?;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
                 }
                 KeyCode::PageUp => {
                     state.prev_n(10);
-                    fetch_message_count(store, state).await?;
-                    fetch_messages(store, state).await?;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
                 }
                 KeyCode::Home | KeyCode::Char('g') => {
                     state.first();
-                    fetch_message_count(store, state).await?;
-                    fetch_messages(store, state).await?;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
                 }
                 KeyCode::End | KeyCode::Char('G') => {
                     state.last();
-                    fetch_message_count(store, state).await?;
-                    fetch_messages(store, state).await?;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
                 }
                 _ => {}
             }
         }
     }
+}
+
+/// Spawn `argo_agent_runner::run_turn` against the selected
+/// session, using the composer draft as the user prompt. Stores
+/// the `JoinHandle` on `state` so the event loop can reap it.
+/// No-op if no session is selected, the composer is empty, or a
+/// turn is already in flight.
+async fn spawn_agent_turn(store: &Arc<SessionStore>, cwd: &Path, state: &mut ViewerState) {
+    if state.agent_running() {
+        return;
+    }
+    let Some(session) = state.selected_session() else {
+        state.composer_send();
+        return;
+    };
+    let sid = SessionId(session.id.0);
+    let draft = state.composer.clone();
+    if draft.is_empty() {
+        state.composer_send();
+        return;
+    }
+    let store_h = Arc::clone(store);
+    let cwd_h = cwd.to_path_buf();
+    let user_text = draft.clone();
+    let handle = tokio::spawn(async move {
+        run_turn(
+            &store_h,
+            &cwd_h,
+            sid,
+            Some(&user_text),
+            false,
+            MAX_TOOL_ROUNDS,
+        )
+        .await
+        .map(|_| ())
+    });
+    state.last_agent_error = None;
+    state.agent_handle = Some(handle);
+    state.composer_send();
+}
+
+/// Poll the in-flight agent task; if it has finished, take the
+/// handle, await it (non-blocking — it's already done), and
+/// stash any error string on `state`.
+async fn reap_agent(state: &mut ViewerState) {
+    if !state.agent_handle.as_ref().is_some_and(|h| h.is_finished()) {
+        return;
+    }
+    let Some(handle) = state.agent_handle.take() else {
+        return;
+    };
+    match handle.await {
+        Ok(Ok(())) => state.last_agent_error = None,
+        Ok(Err(e)) => state.last_agent_error = Some(e.to_string()),
+        Err(join) => state.last_agent_error = Some(format!("agent task panic: {join}")),
+    }
+    // Force a re-fetch so the assistant reply (and any tool rows)
+    // appear in the messages pane right away rather than waiting
+    // for the 1s tick.
+    state.messages_loaded = false;
 }
 
 /// Choose what `y` copies: prefer the most recent message body,

@@ -3,6 +3,7 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_tui::run_session_viewer;
 use argo_types::{ArgoError, ArgoResult};
+use std::sync::Arc;
 
 pub async fn run() -> ArgoResult<()> {
     let cwd =
@@ -12,5 +13,5 @@ pub async fn run() -> ArgoResult<()> {
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
-    run_session_viewer(&store).await
+    run_session_viewer(Arc::new(store), cwd).await
 }

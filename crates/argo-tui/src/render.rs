@@ -210,6 +210,19 @@ fn draw_session_detail(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 }
 
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
+    // Agent-status line takes priority over keymap so the user
+    // sees an in-flight turn even when filter/composer are idle.
+    if state.agent_running() {
+        let p = Paragraph::new("● agent running… (assistant reply will appear above)");
+        frame.render_widget(p, area);
+        return;
+    }
+    if let Some(err) = state.last_agent_error.as_deref() {
+        let body = format!("✗ agent error: {} (press i to retry)", first_line(err));
+        let p = Paragraph::new(body);
+        frame.render_widget(p, area);
+        return;
+    }
     if state.composer_mode {
         let p = Paragraph::new("composer: type, Enter=send, Esc=cancel");
         frame.render_widget(p, area);
@@ -231,6 +244,10 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
     };
     let p = Paragraph::new(body);
     frame.render_widget(p, area);
+}
+
+fn first_line(s: &str) -> String {
+    s.lines().next().unwrap_or("").chars().take(80).collect()
 }
 
 fn short_id(s: &str) -> String {
@@ -316,6 +333,27 @@ mod tests {
         let after = render_to_strings(&state);
         assert!(after.contains("last sent: hi"));
         assert!(!after.contains("composer (Enter=send"));
+    }
+
+    #[tokio::test]
+    async fn footer_shows_agent_running_status() {
+        let mut state = ViewerState::new(vec![header("agent-target")]);
+        // Pretend a turn is in flight by putting any join-handle in
+        // place. We don't actually need it to do anything — the
+        // render path only checks `agent_running()`.
+        let handle = tokio::spawn(std::future::pending::<argo_types::ArgoResult<()>>());
+        state.agent_handle = Some(handle);
+        let frame = render_to_strings(&state);
+        assert!(frame.contains("agent running"));
+    }
+
+    #[test]
+    fn footer_shows_agent_error_when_set() {
+        let mut state = ViewerState::new(vec![header("agent-target")]);
+        state.last_agent_error = Some("ANTHROPIC_API_KEY not set".to_string());
+        let frame = render_to_strings(&state);
+        assert!(frame.contains("agent error"));
+        assert!(frame.contains("ANTHROPIC_API_KEY"));
     }
 
     #[test]
