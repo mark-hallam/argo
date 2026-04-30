@@ -59,21 +59,46 @@ fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 }
 
 fn first_line_of_content(content_json: &str) -> String {
-    // Best-effort: parse the JSON and look for the first text
-    // block; if anything goes sideways, fall back to the raw
-    // content_json truncated to 80 chars so the user still sees
-    // *something* meaningful.
+    // Best-effort summary: prefer the first text block; otherwise
+    // surface the first tool_use / tool_result so tool-dispatch
+    // turns don't render as walls of escaped JSON. Fall back to
+    // the raw content_json truncated to 80 chars on parse failure.
     let parsed: serde_json::Value =
         serde_json::from_str(content_json).unwrap_or(serde_json::Value::Null);
     if let Some(arr) = parsed.as_array() {
-        for block in arr {
-            if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
-                let line = t.lines().next().unwrap_or("");
-                return line.chars().take(80).collect();
-            }
+        if let Some(line) = arr.iter().find_map(content_block_summary) {
+            return line.chars().take(80).collect();
         }
     }
     content_json.chars().take(80).collect()
+}
+
+/// Single-line label for a content block, prioritising text > tool_use > tool_result.
+fn content_block_summary(b: &serde_json::Value) -> Option<String> {
+    let kind = b.get("type").and_then(|v| v.as_str())?;
+    match kind {
+        "text" => b
+            .get("text")
+            .and_then(|v| v.as_str())
+            .and_then(|t| t.lines().next())
+            .map(str::to_string),
+        "tool_use" => {
+            let name = b.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            Some(format!("→ {name}"))
+        }
+        "tool_result" => {
+            let id = b.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+            let is_error = b.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
+            let body = b
+                .get("content")
+                .and_then(|c| c.as_array())
+                .and_then(|a| a.iter().find_map(|cb| cb.get("text").and_then(|t| t.as_str())))
+                .unwrap_or("");
+            let tag = if is_error { " [error]" } else { "" };
+            Some(format!("← {id}{tag}: {body}"))
+        }
+        _ => None,
+    }
 }
 
 fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -234,5 +259,24 @@ mod tests {
         let frame = render_to_strings(&state);
         assert!(frame.contains("provider:"));
         assert!(frame.contains("mock-provider"));
+    }
+
+    #[test]
+    fn first_line_summarizes_tool_use_and_result() {
+        let json = serde_json::json!([
+            {"type":"tool_use","id":"01","name":"file_read","arguments":{"path":"/x"}}
+        ])
+        .to_string();
+        assert!(first_line_of_content(&json).starts_with("→ file_read"));
+
+        let res = serde_json::json!([
+            {"type":"tool_result","id":"abc","is_error":true,
+             "content":[{"type":"text","text":"boom"}]}
+        ])
+        .to_string();
+        let line = first_line_of_content(&res);
+        assert!(line.contains("← abc"));
+        assert!(line.contains("[error]"));
+        assert!(line.contains("boom"));
     }
 }
