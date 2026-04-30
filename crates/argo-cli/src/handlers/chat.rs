@@ -38,10 +38,11 @@ use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// Hard cap on tool-dispatch rounds within a single `run_turn` to
-/// stop runaway loops. Generous enough for legitimate planning
-/// chains; small enough that an accidental loop fails fast.
-const MAX_TOOL_ROUNDS: usize = 8;
+/// Default cap on tool-dispatch rounds within a single `run_turn`
+/// when callers don't pass an explicit `max_rounds`. Generous
+/// enough for legitimate planning chains; small enough that an
+/// accidental loop fails fast.
+pub const MAX_TOOL_ROUNDS: usize = 8;
 
 /// Outcome of one agent-loop turn. Consumed by both the CLI
 /// handler (which prints) and the gateway's
@@ -57,7 +58,13 @@ pub struct TurnResult {
     pub tokens_out: Option<u32>,
 }
 
-pub async fn run(raw: &str, user: Option<&str>, stream: bool, interactive: bool) -> ArgoResult<()> {
+pub async fn run(
+    raw: &str,
+    user: Option<&str>,
+    stream: bool,
+    interactive: bool,
+    max_tool_rounds: Option<usize>,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -67,12 +74,13 @@ pub async fn run(raw: &str, user: Option<&str>, stream: bool, interactive: bool)
     let id = uuid::Uuid::parse_str(raw)
         .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
 
+    let rounds = max_tool_rounds.unwrap_or(MAX_TOOL_ROUNDS);
     if interactive {
-        return run_interactive(&store, &cwd, SessionId(id), user, stream).await;
+        return run_interactive(&store, &cwd, SessionId(id), user, stream, rounds).await;
     }
 
     eprintln!("argo chat: → session {id} (stream={stream})");
-    let result = run_turn(&store, &cwd, SessionId(id), user, stream).await?;
+    let result = run_turn(&store, &cwd, SessionId(id), user, stream, rounds).await?;
     println!("\nargo chat: ← assistant message {}", result.assistant_id);
     if !stream && !result.text.is_empty() {
         println!("\n{}\n", result.text);
@@ -89,6 +97,7 @@ async fn run_interactive(
     session_id: SessionId,
     seed: Option<&str>,
     stream: bool,
+    max_rounds: usize,
 ) -> ArgoResult<()> {
     use std::io::BufRead;
     eprintln!(
@@ -101,7 +110,7 @@ async fn run_interactive(
     // can prime the REPL from the command line.
     if let Some(text) = seed {
         eprintln!("> {text}");
-        let result = run_turn(store, cwd, session_id, Some(text), stream).await?;
+        let result = run_turn(store, cwd, session_id, Some(text), stream, max_rounds).await?;
         print_result(&result, stream);
     }
 
@@ -121,7 +130,7 @@ async fn run_interactive(
         if line.is_empty() {
             continue;
         }
-        let result = run_turn(store, cwd, session_id, Some(&line), stream).await?;
+        let result = run_turn(store, cwd, session_id, Some(&line), stream, max_rounds).await?;
         print_result(&result, stream);
     }
 }
@@ -150,6 +159,7 @@ pub async fn run_turn(
     session_id: SessionId,
     user: Option<&str>,
     stream: bool,
+    max_rounds: usize,
 ) -> ArgoResult<TurnResult> {
     let session = store
         .get_session(session_id)
@@ -193,6 +203,7 @@ pub async fn run_turn(
             &session.model,
             &audit,
             &spend_ctx,
+            max_rounds,
         )
         .await
     };
@@ -236,6 +247,7 @@ fn provider_schemas(reg: &ToolRegistry) -> Vec<ProviderToolSchema> {
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_turn_with_tools(
     store: &Arc<SessionStore>,
     transport: &dyn Transport,
@@ -244,6 +256,7 @@ async fn run_turn_with_tools(
     model: &str,
     audit: &AuditSink,
     spend: &SpendCtx<'_>,
+    max_rounds: usize,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -253,7 +266,7 @@ async fn run_turn_with_tools(
     let mut last_tokens_out: Option<u32> = None;
     let mut last_assistant_id = Uuid::nil();
 
-    for round in 0..MAX_TOOL_ROUNDS {
+    for round in 0..max_rounds {
         let rows = store.list_messages(session_id).await?;
         let messages = rows
             .iter()
@@ -331,9 +344,9 @@ async fn run_turn_with_tools(
                 .await?;
         }
 
-        if round + 1 == MAX_TOOL_ROUNDS {
+        if round + 1 == max_rounds {
             return Err(ArgoError::Provider(format!(
-                "tool-dispatch loop hit MAX_TOOL_ROUNDS={MAX_TOOL_ROUNDS}; aborting"
+                "tool-dispatch loop hit max_rounds={max_rounds}; aborting"
             )));
         }
     }

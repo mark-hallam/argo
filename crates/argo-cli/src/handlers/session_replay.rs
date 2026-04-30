@@ -80,6 +80,7 @@ pub(crate) async fn run(
             new_id,
             Some(text),
             false,
+            crate::handlers::chat::MAX_TOOL_ROUNDS,
         )
         .await?;
         let s = snippet(&result.text);

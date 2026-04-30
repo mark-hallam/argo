@@ -438,7 +438,16 @@ async fn run_turn_response(
             );
         }
     };
-    match crate::handlers::chat::run_turn(store, &cwd, id, user, false).await {
+    match crate::handlers::chat::run_turn(
+        store,
+        &cwd,
+        id,
+        user,
+        false,
+        crate::handlers::chat::MAX_TOOL_ROUNDS,
+    )
+    .await
+    {
         Ok(result) => (
             "201 Created",
             serde_json::to_string(&serde_json::json!({

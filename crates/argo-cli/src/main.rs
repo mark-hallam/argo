@@ -50,7 +50,17 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             user,
             stream,
             interactive,
-        }) => handlers::chat::run(&id, user.as_deref(), stream, interactive).await,
+            max_tool_rounds,
+        }) => {
+            handlers::chat::run(
+                &id,
+                user.as_deref(),
+                stream,
+                interactive,
+                max_tool_rounds,
+            )
+            .await
+        }
         Some(Command::Steer { session_id, text }) => handlers::steer::run(&session_id, &text).await,
         Some(Command::Db { cmd }) => handlers::db::run(cmd).await,
         Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,

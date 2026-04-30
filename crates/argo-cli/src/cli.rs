@@ -156,6 +156,11 @@ pub enum Command {
         /// the response, repeat. Ctrl-D / EOF exits cleanly.
         #[arg(long, short = 'i')]
         interactive: bool,
+        /// Override `MAX_TOOL_ROUNDS` (default 8). Useful when
+        /// debugging — set to 1 to fail fast on the first tool
+        /// call, set higher for legitimately long planning chains.
+        #[arg(long)]
+        max_tool_rounds: Option<usize>,
     },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
