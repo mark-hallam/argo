@@ -35,6 +35,8 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             );
             Ok(())
         }
+        Some(Command::Agents { cmd }) => handlers::agents::run(cmd),
+        Some(Command::Gateway { cmd }) => handlers::gateway::run(cmd),
         Some(Command::Doctor) => handlers::doctor::run(),
         Some(Command::Db { cmd }) => handlers::db::run(cmd).await,
         Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,

@@ -1,11 +1,13 @@
 //! Subcommand handlers — each one wires a clap subcommand to the
 //! corresponding library primitive.
+pub mod agents;
 pub mod audit;
 pub mod costs;
 pub mod cron;
 pub mod db;
 pub mod doctor;
 pub mod forge;
+pub mod gateway;
 pub mod mcp;
 pub mod memory;
 pub mod plugin;
