@@ -128,3 +128,20 @@ fn read_page_returns_not_wired_stub() {
     let text = r["content"][0]["text"].as_str().unwrap();
     assert!(text.contains("not yet wired"));
 }
+
+#[test]
+fn eval_against_closed_port_surfaces_clean_error() {
+    let port = pick_free_port();
+    let req = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"eval","arguments":{{"port":{port},"expression":"1+1"}}}}}}"#
+    );
+    let resps = drive(&[req]);
+    assert_eq!(resps.len(), 1);
+    let r = &resps[0]["result"];
+    assert_eq!(r["isError"], true);
+    let text = r["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("no Chrome on port") || text.contains("/json"),
+        "unexpected text: {text}"
+    );
+}

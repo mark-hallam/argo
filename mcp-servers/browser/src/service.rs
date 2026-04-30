@@ -72,6 +72,9 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "chrome_version" {
             return Ok(crate::cdp::chrome_version(&params.arguments).await);
         }
+        if params.name.as_str() == "eval" {
+            return Ok(crate::cdp::eval(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -226,12 +229,25 @@ fn scroll_schema() -> McpToolSchema {
 fn eval_schema() -> McpToolSchema {
     McpToolSchema {
         name: "eval".into(),
-        description: "Run JavaScript in the page context. Caller is responsible for escaping."
+        description: "Run JavaScript in the first open page via CDP \
+            Runtime.evaluate. Returns the value (or description for thrown \
+            errors). Requires Chrome with `--remote-debugging-port=<port>` \
+            (default 9222) and at least one `page`-type tab."
             .into(),
         input_schema: serde_json::json!({
             "type": "object",
-            "properties": { "script": { "type": "string" } },
-            "required": ["script"]
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "JS source. Caller is responsible for escaping."
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "Chrome debug port. Defaults to 9222.",
+                    "default": 9222
+                }
+            },
+            "required": ["expression"]
         }),
     }
 }

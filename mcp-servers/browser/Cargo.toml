@@ -15,7 +15,9 @@ path = "src/main.rs"
 argo-mcp = { path = "../../crates/argo-mcp", version = "0.0.1" }
 argo-types = { path = "../../crates/argo-types", version = "0.0.1" }
 async-trait = { workspace = true }
+futures = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
