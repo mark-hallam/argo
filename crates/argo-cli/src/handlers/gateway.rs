@@ -67,33 +67,69 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET /version → {{\"version\":\"<crate>\"}}");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");
     let mut served = 0_u64;
+    let shutdown = shutdown_signal();
+    tokio::pin!(shutdown);
     loop {
-        let (mut stream, _peer) = listener
-            .accept()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("accept: {e}")))?;
-        let mut buf = [0_u8; 1024];
-        let n = stream.read(&mut buf).await.unwrap_or(0);
-        let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
-        let body = if req.starts_with("GET /version ") {
-            format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION"))
-        } else if req.starts_with("GET /health ") {
-            "{\"status\":\"ok\"}".to_string()
-        } else {
-            "{\"error\":\"not found\"}".to_string()
-        };
-        let resp = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
-            body.len(),
-            body
-        );
-        let _ = stream.write_all(resp.as_bytes()).await;
-        let _ = stream.shutdown().await;
-        served += 1;
-        if max_requests.is_some_and(|cap| served >= cap) {
-            eprintln!("argo gateway: served {served} request(s); exiting per --max-requests");
-            return Ok(());
+        tokio::select! {
+            biased;
+            _ = &mut shutdown => {
+                eprintln!("argo gateway: shutdown signal received; exiting cleanly");
+                return Ok(());
+            }
+            accept = listener.accept() => {
+                let (mut stream, _peer) = accept
+                    .map_err(|e| ArgoError::Provider(format!("accept: {e}")))?;
+                let mut buf = [0_u8; 1024];
+                let n = stream.read(&mut buf).await.unwrap_or(0);
+                let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
+                let body = if req.starts_with("GET /version ") {
+                    format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION"))
+                } else if req.starts_with("GET /health ") {
+                    "{\"status\":\"ok\"}".to_string()
+                } else {
+                    "{\"error\":\"not found\"}".to_string()
+                };
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(resp.as_bytes()).await;
+                let _ = stream.shutdown().await;
+                served += 1;
+                if max_requests.is_some_and(|cap| served >= cap) {
+                    eprintln!(
+                        "argo gateway: served {served} request(s); exiting per --max-requests"
+                    );
+                    return Ok(());
+                }
+            }
         }
+    }
+}
+
+/// Future that resolves when SIGTERM or SIGINT (Ctrl-C) arrives.
+/// On non-Unix targets we only watch Ctrl-C.
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = match signal(SignalKind::terminate()) {
+            Ok(s) => s,
+            Err(_) => return std::future::pending().await,
+        };
+        let mut int = match signal(SignalKind::interrupt()) {
+            Ok(s) => s,
+            Err(_) => return std::future::pending().await,
+        };
+        tokio::select! {
+            _ = term.recv() => {}
+            _ = int.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
     }
 }
 
