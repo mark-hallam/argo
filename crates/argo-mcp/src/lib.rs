@@ -27,11 +27,13 @@
 mod client;
 mod error;
 mod protocol;
+mod server;
 
 pub use client::{McpClient, DEFAULT_CALL_TIMEOUT};
 pub use error::{McpError, McpResult};
 pub use protocol::{
-    CallToolParams, CallToolResult, ClientInfo, InitializeParams, InitializeResult,
-    ListToolsResult, McpContent, McpToolSchema, ServerInfo, ARGO_CLIENT_NAME, ARGO_CLIENT_VERSION,
-    MCP_PROTOCOL_VERSION,
+    CallToolParams, CallToolResult, ClientInfo, InitializeParams, InitializeResult, JsonRpcError,
+    JsonRpcRequest, JsonRpcResponse, ListToolsResult, McpContent, McpToolSchema, ServerInfo,
+    ARGO_CLIENT_NAME, ARGO_CLIENT_VERSION, MCP_PROTOCOL_VERSION,
 };
+pub use server::{handle_request, run_loop, McpServerService};
