@@ -1,9 +1,9 @@
-//! `argo skill` — list / view skills in the workspace store.
+//! `argo skill` — list / view / install / lock / unlock skills.
 use crate::cli::SkillCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_skill::SkillStore;
+use argo_skill::{PrincipalOverride, SkillStore};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, Lock};
 use std::sync::Arc;
 
 pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
@@ -18,6 +18,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     match cmd {
         SkillCmd::List => list(&skills).await,
         SkillCmd::View { name } => view(&skills, &name).await,
+        SkillCmd::Install { source } => install(&skills, &source).await,
+        SkillCmd::Lock { name } => set_lock(&skills, &name, Lock::UserProtected).await,
+        SkillCmd::Unlock { name } => set_lock(&skills, &name, Lock::None).await,
         other => {
             println!(
                 "argo skill: '{other:?}' requires the daemon's capability + judge bindings (separate PR)."
@@ -59,4 +62,27 @@ async fn view(skills: &SkillStore, name: &str) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn install(skills: &SkillStore, source: &str) -> ArgoResult<()> {
+    let body = std::fs::read_to_string(source)
+        .map_err(|e| ArgoError::Provider(format!("read {source}: {e}")))?;
+    let installed = skills.install(&body, None).await?;
+    println!(
+        "installed {} v{} (id={})",
+        installed.frontmatter.name, installed.frontmatter.version, installed.id.0
+    );
+    Ok(())
+}
+
+async fn set_lock(skills: &SkillStore, name: &str, lock: Lock) -> ArgoResult<()> {
+    let s = skills
+        .find_active_by_name(name)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{name}'")))?;
+    skills
+        .set_lock(s.id, lock, PrincipalOverride::Force)
+        .await?;
+    println!("skill '{name}' lock = {lock:?}");
+    Ok(())
 }

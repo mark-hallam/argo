@@ -1,9 +1,9 @@
-//! `argo memory` — list / view memory entries.
+//! `argo memory` — list / view / revert / lock / unlock memory entries.
 use crate::cli::MemoryCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_memory::{MemoryFile, MemoryStore};
+use argo_memory::{MemoryFile, MemoryStore, PrincipalOverride};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, Lock};
 use std::sync::Arc;
 
 pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
@@ -22,6 +22,10 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     match cmd {
         MemoryCmd::List => list(&memory, workspace).await,
         MemoryCmd::View { entry } => view(&memory, &entry).await,
+        MemoryCmd::Revert { entry } => revert(&memory, &entry).await,
+        MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
+        MemoryCmd::Lock { entry } => set_lock(&memory, &entry, Lock::UserProtected).await,
+        MemoryCmd::Unlock { entry } => set_lock(&memory, &entry, Lock::None).await,
         other => {
             println!(
                 "argo memory: '{other:?}' requires the daemon's capability bindings (separate PR)."
@@ -64,8 +68,7 @@ async fn list(memory: &MemoryStore, workspace: argo_types::WorkspaceId) -> ArgoR
 }
 
 async fn view(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid uuid '{raw}': {e}")))?;
+    let id = parse_uuid(raw)?;
     let entry = memory.get(id).await?;
     println!(
         "entry {} ({:?}, lock={:?})",
@@ -81,4 +84,26 @@ async fn view(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
     println!("\n---\n");
     println!("{}", entry.body);
     Ok(())
+}
+
+async fn revert(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
+    let id = parse_uuid(raw)?;
+    let new = memory.revert(id, PrincipalOverride::Force).await?;
+    println!(
+        "reverted: new active entry {} (file={:?})",
+        new.id, new.file
+    );
+    Ok(())
+}
+
+async fn set_lock(memory: &MemoryStore, raw: &str, lock: Lock) -> ArgoResult<()> {
+    let id = parse_uuid(raw)?;
+    memory.set_lock(id, lock, PrincipalOverride::Force).await?;
+    println!("memory entry {id}: lock = {lock:?}");
+    Ok(())
+}
+
+fn parse_uuid(raw: &str) -> ArgoResult<uuid::Uuid> {
+    uuid::Uuid::parse_str(raw)
+        .map_err(|e| ArgoError::Provider(format!("invalid uuid '{raw}': {e}")))
 }
