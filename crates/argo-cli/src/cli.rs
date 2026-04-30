@@ -192,6 +192,9 @@ pub enum SkillCmd {
     },
     View {
         name: String,
+        /// Output as a single JSON object for scripting.
+        #[arg(long)]
+        json: bool,
     },
     /// Verify a skill's body matches its frontmatter `provenance.hash`.
     Verify {
@@ -256,7 +259,11 @@ pub enum MemoryCmd {
 #[derive(Subcommand, Debug)]
 pub enum CronCmd {
     /// List scheduled jobs in the workspace's `cron/jobs/` directory.
-    List,
+    List {
+        /// Output as JSON (one object per job) for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     /// Create a new job (`<name> <schedule> <prompt> <platform> <chat>`).
     Create {
         name: String,

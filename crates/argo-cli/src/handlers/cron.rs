@@ -17,7 +17,7 @@ pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
     std::fs::create_dir_all(&dir)
         .map_err(|e| ArgoError::Provider(format!("create_dir_all {}: {e}", dir.display())))?;
     match cmd {
-        CronCmd::List => list_jobs(&dir),
+        CronCmd::List { json } => list_jobs(&dir, json),
         CronCmd::Create {
             name,
             schedule,
@@ -200,7 +200,7 @@ impl JobRunner for LoggingRunner {
     }
 }
 
-fn list_jobs(dir: &std::path::Path) -> ArgoResult<()> {
+fn list_jobs(dir: &std::path::Path, json: bool) -> ArgoResult<()> {
     let mut entries: Vec<PathBuf> = Vec::new();
     for entry in std::fs::read_dir(dir)
         .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
@@ -212,7 +212,7 @@ fn list_jobs(dir: &std::path::Path) -> ArgoResult<()> {
         }
     }
     entries.sort();
-    if entries.is_empty() {
+    if !json && entries.is_empty() {
         println!("(no cron jobs in {})", dir.display());
         return Ok(());
     }
@@ -221,10 +221,18 @@ fn list_jobs(dir: &std::path::Path) -> ArgoResult<()> {
             .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
         let job: CronJob = serde_json::from_str(&body)
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", p.display())))?;
-        println!(
-            "  {:<24} {:<14} platform={:<10} enabled={}",
-            job.name, job.schedule.source, job.target.platform, job.enabled
-        );
+        if json {
+            // The on-disk JSON is already canonical — emit it verbatim
+            // (one object per line) so callers can pipe to `jq`.
+            let canonical = serde_json::to_string(&job)
+                .map_err(|e| ArgoError::Provider(format!("serialize job: {e}")))?;
+            println!("{canonical}");
+        } else {
+            println!(
+                "  {:<24} {:<14} platform={:<10} enabled={}",
+                job.name, job.schedule.source, job.target.platform, job.enabled
+            );
+        }
     }
     Ok(())
 }
