@@ -96,6 +96,12 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "submit" {
             return Ok(crate::cdp::submit(&params.arguments).await);
         }
+        if params.name.as_str() == "click" {
+            return Ok(crate::cdp::click(&params.arguments).await);
+        }
+        if params.name.as_str() == "fill" {
+            return Ok(crate::cdp::fill(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -167,20 +173,33 @@ fn navigate_schema() -> McpToolSchema {
 fn click_schema() -> McpToolSchema {
     McpToolSchema {
         name: "click".into(),
-        description: "Click a CSS selector.".into(),
-        input_schema: selector_schema(),
+        description: "Click an element matched by CSS selector via CDP \
+            Runtime.evaluate(el.click())."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string" },
+                "port":     { "type": "integer", "default": 9222 }
+            },
+            "required": ["selector"]
+        }),
     }
 }
 
 fn fill_schema() -> McpToolSchema {
     McpToolSchema {
         name: "fill".into(),
-        description: "Fill a form field.".into(),
+        description: "Set `value` on a form field (input/textarea/select) \
+            via CDP Runtime.evaluate, dispatching `input` + `change` events \
+            so client-side JS sees the change."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
                 "selector": { "type": "string" },
-                "value": { "type": "string" }
+                "value":    { "type": "string" },
+                "port":     { "type": "integer", "default": 9222 }
             },
             "required": ["selector", "value"]
         }),
@@ -355,14 +374,6 @@ fn pdf_schema() -> McpToolSchema {
             }
         }),
     }
-}
-
-fn selector_schema() -> serde_json::Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": { "selector": { "type": "string" } },
-        "required": ["selector"]
-    })
 }
 
 #[cfg(test)]

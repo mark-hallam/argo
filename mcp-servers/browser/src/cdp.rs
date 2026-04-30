@@ -299,6 +299,89 @@ pub async fn pdf(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// Click an element matched by a CSS selector via
+/// `Runtime.evaluate(el.click())`. Returns 'clicked' on match,
+/// 'no match for selector' otherwise.
+pub async fn click(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let selector = match args.get("selector").and_then(|v| v.as_str()) {
+        Some(s) => s.to_string(),
+        None => return error("missing required field 'selector'".into()),
+    };
+    let escaped = selector.replace('\\', "\\\\").replace('"', "\\\"");
+    let js = format!(
+        "(function(){{ \
+            var el = document.querySelector(\"{escaped}\"); \
+            if (!el) return 'no match for selector'; \
+            el.click(); \
+            return 'clicked'; \
+        }})()"
+    );
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Runtime.evaluate",
+        "params": { "expression": js, "returnByValue": true }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let value = parsed["result"]["result"]["value"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| "(no value)".into());
+    let is_err = value != "clicked";
+    CallToolResult {
+        content: vec![McpContent::Text { text: value }],
+        is_error: is_err,
+    }
+}
+
+/// Set the `value` of a form field (input/textarea/select) and
+/// dispatch an `input` event so client-side form-handling JS sees
+/// the change.
+pub async fn fill(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let selector = match args.get("selector").and_then(|v| v.as_str()) {
+        Some(s) => s.to_string(),
+        None => return error("missing required field 'selector'".into()),
+    };
+    let value = match args.get("value").and_then(|v| v.as_str()) {
+        Some(v) => v.to_string(),
+        None => return error("missing required field 'value'".into()),
+    };
+    let esc_sel = selector.replace('\\', "\\\\").replace('"', "\\\"");
+    let esc_val = value.replace('\\', "\\\\").replace('"', "\\\"");
+    let js = format!(
+        "(function(){{ \
+            var el = document.querySelector(\"{esc_sel}\"); \
+            if (!el) return 'no match for selector'; \
+            el.value = \"{esc_val}\"; \
+            el.dispatchEvent(new Event('input', {{ bubbles: true }})); \
+            el.dispatchEvent(new Event('change', {{ bubbles: true }})); \
+            return 'filled'; \
+        }})()"
+    );
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Runtime.evaluate",
+        "params": { "expression": js, "returnByValue": true }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let result = parsed["result"]["result"]["value"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| "(no value)".into());
+    let is_err = result != "filled";
+    CallToolResult {
+        content: vec![McpContent::Text { text: result }],
+        is_error: is_err,
+    }
+}
+
 /// Submit a form on the first page-type tab. CSS selector is
 /// required and must match a `<form>` (or any element whose
 /// nearest enclosing form will be submitted).
