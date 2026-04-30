@@ -43,29 +43,93 @@ pub async fn run(raw: &str) -> ArgoResult<()> {
     println!();
 
     for m in &messages {
-        let snippet = first_text_block(&m.content_json);
+        let body = render_content(&m.content_json);
         println!("--- [{:>3}] {} ---", m.seq, m.role);
-        if !snippet.is_empty() {
-            println!("{snippet}");
+        if body.is_empty() {
+            println!("(empty content; raw: {})", m.content_json);
         } else {
-            // Fall back to the raw content_json so the user sees
-            // *something* meaningful for tool-use / non-text blocks.
-            println!("(non-text content; raw: {})", m.content_json);
+            println!("{body}");
         }
         println!();
     }
     Ok(())
 }
 
-fn first_text_block(content_json: &str) -> String {
+/// Render every content block in a message's `content_json` into
+/// a human-readable transcript:
+/// - `text` → printed as-is
+/// - `tool_use` → `→ <tool>(<args>)`
+/// - `tool_result` → `← <tool_call_id> [error?]: <text>`
+///
+/// Blocks Argo doesn't display verbatim (image / audio / document)
+/// fall back to a one-line stub.
+fn render_content(content_json: &str) -> String {
     let parsed: serde_json::Value =
         serde_json::from_str(content_json).unwrap_or(serde_json::Value::Null);
     let arr = match parsed.as_array() {
         Some(a) => a,
         None => return String::new(),
     };
-    arr.iter()
-        .find_map(|b| b.get("text").and_then(|t| t.as_str()))
-        .unwrap_or("")
-        .to_string()
+    let mut out: Vec<String> = Vec::new();
+    for b in arr {
+        let kind = b.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        match kind {
+            "text" => {
+                if let Some(t) = b.get("text").and_then(|v| v.as_str()) {
+                    out.push(t.to_string());
+                }
+            }
+            "tool_use" => {
+                let name = b.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                let args = b
+                    .get("arguments")
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "{}".into());
+                out.push(format!("→ {name}({args})"));
+            }
+            "tool_result" => {
+                let id = b.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+                let is_error = b.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
+                let body = b
+                    .get("content")
+                    .and_then(|c| c.as_array())
+                    .and_then(|a| a.iter().find_map(|cb| cb.get("text").and_then(|t| t.as_str())))
+                    .unwrap_or("");
+                let tag = if is_error { " [error]" } else { "" };
+                out.push(format!("← {id}{tag}: {body}"));
+            }
+            "image" | "audio" | "document" => {
+                let url = b.get("url").and_then(|v| v.as_str()).unwrap_or("?");
+                out.push(format!("[{kind}: {url}]"));
+            }
+            _ => {}
+        }
+    }
+    out.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renders_text_tool_use_and_tool_result_in_order() {
+        let json = serde_json::json!([
+            {"type": "text", "text": "thinking..."},
+            {"type": "tool_use", "id": "01", "name": "ls", "arguments": {"path": "/"}},
+            {"type": "tool_result", "id": "abc", "is_error": false,
+             "content": [{"type": "text", "text": "ok"}]}
+        ])
+        .to_string();
+        let out = render_content(&json);
+        assert!(out.contains("thinking..."));
+        assert!(out.contains("→ ls("));
+        assert!(out.contains("← abc"));
+        assert!(out.contains(": ok"));
+    }
+
+    #[test]
+    fn empty_array_renders_empty_string() {
+        assert_eq!(render_content("[]"), "");
+    }
 }
