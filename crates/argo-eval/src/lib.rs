@@ -1,11 +1,54 @@
-//! argo-eval — see `docs/plan/argo-build-plan.md`.
+//! `argo-eval` — eval harness runtime.
 //!
-//! Stub crate. Implementation arrives per the phase plan in `ROADMAP.md`.
+//! Powers `argo forge bench` (§26 acceptance) and feeds the example
+//! batches that `argo forge optimize` consumes. The crate is the
+//! shared runtime; the on-disk task layout lives under
+//! `eval/tasks/<category>/*.jsonl` and is described in §3 of the
+//! build plan.
+//!
+//! Pieces:
+//!
+//! - **[`EvalTask`]** — `(name, input, expected, metric)`; one per
+//!   JSONL line.
+//! - **[`EvalMetric`]** — `ExactMatch`, `SubstringContains`,
+//!   `JaccardTokens`. Continuous metrics produce a `[0.0, 1.0]`
+//!   score; the runner derives a binary `passed` from `>= 0.5`.
+//! - **[`load_jsonl`]** — read a `*.jsonl` task file.
+//! - **[`EvalSubject`]** — async trait for what's under test
+//!   (typically wraps an `Agent` or a routing classifier).
+//! - **[`run_eval`]** — drives `subject` over `tasks`, returning
+//!   per-task `EvalRecord`s + an aggregate `EvalSummary`.
+//!
+//! ```
+//! use argo_eval::{run_eval, EvalMetric, EvalSubject, EvalTask};
+//! use argo_types::ArgoResult;
+//! struct Echo;
+//! #[async_trait::async_trait]
+//! impl EvalSubject for Echo {
+//!     async fn run(&self, task: &EvalTask) -> ArgoResult<String> {
+//!         Ok(task.expected.clone())
+//!     }
+//! }
+//! # async fn demo() {
+//! let tasks = vec![EvalTask {
+//!     name: "demo".into(),
+//!     input: "in".into(),
+//!     expected: "out".into(),
+//!     metric: EvalMetric::ExactMatch,
+//! }];
+//! let (recs, summary) = run_eval(&Echo, &tasks).await;
+//! assert_eq!(recs.len(), 1);
+//! assert!((summary.mean_score - 1.0).abs() < 1e-9);
+//! # }
+//! ```
 #![warn(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
+mod runner;
+mod task;
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn crate_compiles() {}
-}
+mod tests;
+
+pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
+pub use task::{load_jsonl, EvalMetric, EvalTask};
