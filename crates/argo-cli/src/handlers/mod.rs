@@ -22,6 +22,7 @@ pub mod resume;
 pub mod route;
 pub mod session;
 pub mod skill;
+pub mod steer;
 pub mod trace;
 pub mod tui;
 pub mod workspace;
