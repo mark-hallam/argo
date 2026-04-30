@@ -4,29 +4,40 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 ## Current phase
 
-**Library + integration tier complete. Live agent loop running.**
-Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
-**148+ PRs**.
+**Library + integration tier complete. Live agent loop with tool
+dispatch + spend tracking running across all four provider
+families.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
+tier across **159+ PRs**.
 
-`argo chat <id> [--user "..."] [--stream]` runs one turn of the
-live agent loop against a recorded session — it dispatches to
-the right argo-provider transport based on
-`manifest.provider.family` (Anthropic / OpenAI Compatible /
-OpenAI Responses; Bedrock pending sigv4 plumbing), calls the
-provider, and persists the assistant response. The same logic
-is exposed by the gateway as `POST /sessions/<id>/runs`, so
-external clients can drive create→append→run cycles without
-spawning the CLI.
+`argo chat <id> [--user "..."] [--stream] [-i]` drives a real
+multi-turn agent loop against a recorded session. Each round
+calls the provider, persists the assistant message, and — if
+the response carried `tool_calls` — dispatches each through
+`argo_tool::ToolRegistry` (capability-checked via
+`CapabilityEngine`), appends a tool-role message with the
+result, and runs another round. Capped at `MAX_TOOL_ROUNDS = 8`
+to bound runaway loops. Every turn is hash-chained into the
+audit log (`TurnStart → AssistantMessage → ToolCall → ToolResult
+→ TurnEnd`) and recorded into `spend_ledger` from the model's
+`price_per_1k_*` fields × the provider-reported token counts.
+Dispatches across **all four** v1 families now: Anthropic /
+OpenAI Compatible / OpenAI Responses / Bedrock (the last via
+`aws_config::load_defaults`). The same `run_turn` helper backs
+the gateway's `POST /sessions/<id>/runs`. `argo provider test`
+runs the same Transport ladder for a one-shot ping with token
+counts + reply snippet.
 
 The CLI binary (`argo`) drives ~55 subcommands. Beyond the read-
 side surface (`session list/show/diff`, `memory list/view`,
 `skill list/view`, `cron list`, `provider show`, `audit
-show/verify`, `costs show` — all `--json`-capable), `argo new` /
-`argo resume` / `argo chat` / `argo steer` cover the full session
-lifecycle. `skill verify --all` + `memory verify --all` give
-hash-chain CI hooks; `argo health` is a one-shot meta verifier.
-The TUI ships a session viewer with messages preview, `/`-filter
-and PgUp/PgDn navigation.
+show/verify`, `costs show` — now also rolling up actual spend
+across today / month-to-date / all-time — all `--json`-capable),
+`argo new` / `argo resume` / `argo chat` / `argo steer` cover
+the full session lifecycle. `argo resume` and the TUI both
+render `tool_use` / `tool_result` content blocks as readable
+arrows instead of escaped JSON. `skill verify --all` +
+`memory verify --all` give hash-chain CI hooks; `argo health`
+is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
@@ -53,14 +64,26 @@ surface. The CI matrix went back to green via the 4-PR hotfix lane
 (#121–#124) that fixed release.yml's YAML parse, the 500-LOC
 budget, the Windows test gating, and the deny advisory ignore-list.
 
-What's left is **tool dispatch** — the agent loop today reads
-recorded messages and emits a single assistant reply, but ignores
-any `tool_calls` the provider returns. Wiring tool execution +
-result persistence + the multi-turn until-no-tool-calls loop is
-the next major chunk. After that come the heavy native bindings
-(whisper-rs, piper-rs, chromiumoxide for stateful browser
-sessions), the cross-registry §23.3 marketplace integration, and
-HTTP streaming for `POST /runs`.
+What's left:
+
+- **Multi-turn streaming** — `argo chat --stream` and
+  `POST /sessions/<id>/runs` are still single-turn (no tool
+  dispatch on the streaming path). Wiring tool-call delta
+  accumulation through the loop is its own chunk.
+- **Gateway streaming endpoint** — `POST /sessions/<id>/runs`
+  always returns the final JSON; SSE / chunked-JSON for live
+  output is pending.
+- **Heavy native bindings** — whisper-rs / piper-rs for the
+  voice MCP, chromiumoxide for stateful browser sessions
+  (sticky tab ids, persistent WS, batch commands).
+- **§23.3 marketplace** — cross-registry integration test
+  (GHCR / Docker Hub / Artifact Registry) against real test
+  accounts.
+- **Daemon-coupled live commands** — `forge optimize/promote`,
+  `judge override`, `session replay --model X` against a
+  different provider.
+- **TUI v2** — sticky composer + live streaming + OSC-52
+  clipboard.
 
 ## Status
 
