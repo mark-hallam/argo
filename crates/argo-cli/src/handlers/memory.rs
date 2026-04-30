@@ -22,6 +22,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     match cmd {
         MemoryCmd::List => list(&memory, workspace).await,
         MemoryCmd::View { entry } => view(&memory, &entry).await,
+        MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Revert { entry } => revert(&memory, &entry).await,
         MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
         MemoryCmd::Lock { entry } => set_lock(&memory, &entry, Lock::UserProtected).await,
@@ -33,6 +34,33 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn append(
+    memory: &MemoryStore,
+    workspace: argo_types::WorkspaceId,
+    file: &str,
+    body: &str,
+) -> ArgoResult<()> {
+    let mf = match file {
+        "memory" => MemoryFile::Memory,
+        "user" => MemoryFile::User,
+        "soul" => MemoryFile::Soul,
+        "agents" => MemoryFile::Agents,
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown memory file '{other}': use one of memory|user|soul|agents"
+            )));
+        }
+    };
+    let entry = memory.append(workspace, mf, body.to_string(), None).await?;
+    println!(
+        "appended {} to {}.md ({} bytes)",
+        entry.id,
+        file,
+        body.len()
+    );
+    Ok(())
 }
 
 async fn list(memory: &MemoryStore, workspace: argo_types::WorkspaceId) -> ArgoResult<()> {

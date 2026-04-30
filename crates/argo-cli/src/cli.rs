@@ -176,12 +176,29 @@ pub enum SkillCmd {
 #[derive(Subcommand, Debug)]
 pub enum MemoryCmd {
     List,
-    View { entry: String },
-    Edit { entry: String },
-    Revert { entry: String },
-    Forget { entry: String },
-    Lock { entry: String },
-    Unlock { entry: String },
+    View {
+        entry: String,
+    },
+    /// Append a fresh memory entry. `<file>` is one of memory|user|soul|agents.
+    Append {
+        file: String,
+        body: String,
+    },
+    Edit {
+        entry: String,
+    },
+    Revert {
+        entry: String,
+    },
+    Forget {
+        entry: String,
+    },
+    Lock {
+        entry: String,
+    },
+    Unlock {
+        entry: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
