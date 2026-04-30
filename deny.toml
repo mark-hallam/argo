@@ -3,6 +3,24 @@ all-features = false
 
 [advisories]
 yanked = "deny"
+# Ignore advisories that are real but currently have no patched
+# release upstream — re-evaluate when the upstream cuts a fix.
+ignore = [
+    # `paste` — unmaintained as of 2024-10. Pulled in transitively
+    # by ratatui (proc-macro convenience). No drop-in replacement
+    # ratatui can adopt today; the advisory is informational, not
+    # a vulnerability.
+    "RUSTSEC-2024-0436",
+    # rustls-webpki 0.103.x — three advisories from April 2026.
+    # Latest stable is 0.103.13; the patches are in 0.104.0-alpha.
+    # All three are name-constraint / CRL parsing issues that
+    # don't affect Argo's use-case (we don't accept user-supplied
+    # certs or CRLs; reqwest only validates the provider TLS chain).
+    # Re-check on the next 0.103.x point release.
+    "RUSTSEC-2026-0098",
+    "RUSTSEC-2026-0099",
+    "RUSTSEC-2026-0104",
+]
 
 [licenses]
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "Unicode-3.0", "Zlib", "MPL-2.0", "CDLA-Permissive-2.0"]
