@@ -18,19 +18,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             session,
         } => search(&query, limit, session.as_deref()).await,
         SessionCmd::Delete { id, force } => delete_session(&id, force).await,
-        SessionCmd::Diff { id1, id2 } => {
-            // The diff against the live SQLite store needs the
-            // tool_call → TurnRecord projection, which lands with
-            // the daemon's session-replay-source binding (separate
-            // PR). Without it, we surface a clear "needs daemon"
-            // message rather than a half-working diff.
-            println!(
-                "session diff {id1} {id2}: requires the daemon's session-source binding (separate PR)."
-            );
-            Err(ArgoError::Provider(
-                "session diff requires the daemon binding".into(),
-            ))
-        }
+        SessionCmd::Diff { id1, id2 } => diff_sessions(&id1, &id2).await,
         SessionCmd::Bisect { id, hypothesis } => {
             println!(
                 "session bisect {id} '{hypothesis}': same as diff — needs the daemon binding."
@@ -62,6 +50,80 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn diff_sessions(raw1: &str, raw2: &str) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let id1 = uuid::Uuid::parse_str(raw1)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw1}': {e}")))?;
+    let id2 = uuid::Uuid::parse_str(raw2)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw2}': {e}")))?;
+    let s1 = store
+        .get_session(SessionId(id1))
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session {raw1}")))?;
+    let s2 = store
+        .get_session(SessionId(id2))
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session {raw2}")))?;
+    let m1 = store.list_messages(SessionId(id1)).await?;
+    let m2 = store.list_messages(SessionId(id2)).await?;
+    println!("session diff");
+    println!("  a: {} ({} messages)", s1.id.0, m1.len());
+    println!("  b: {} ({} messages)", s2.id.0, m2.len());
+    let mut header_diffs: Vec<(&str, String, String)> = Vec::new();
+    if s1.model != s2.model {
+        header_diffs.push(("model", s1.model.clone(), s2.model.clone()));
+    }
+    if s1.provider != s2.provider {
+        header_diffs.push(("provider", s1.provider.clone(), s2.provider.clone()));
+    }
+    if s1.title != s2.title {
+        header_diffs.push((
+            "title",
+            s1.title.clone().unwrap_or_default(),
+            s2.title.clone().unwrap_or_default(),
+        ));
+    }
+    if header_diffs.is_empty() {
+        println!("  header: identical (model/provider/title)");
+    } else {
+        println!("  header diffs:");
+        for (field, a, b) in &header_diffs {
+            println!("    {field}: a={a:?} b={b:?}");
+        }
+    }
+    let pairs = m1.len().min(m2.len());
+    let mut first_div: Option<usize> = None;
+    let mut diverged = 0_usize;
+    for i in 0..pairs {
+        if m1[i].role != m2[i].role || m1[i].content_json != m2[i].content_json {
+            diverged += 1;
+            if first_div.is_none() {
+                first_div = Some(i);
+            }
+        }
+    }
+    let trailing = m1.len().abs_diff(m2.len());
+    println!(
+        "  messages: {} compared, {diverged} diverged, {trailing} trailing-only on the longer side",
+        pairs
+    );
+    if let Some(i) = first_div {
+        println!(
+            "  first divergence: seq {} (role a={} b={})",
+            i, m1[i].role, m2[i].role
+        );
+    }
+    if header_diffs.is_empty() && diverged == 0 && trailing == 0 {
+        println!("sessions are byte-identical");
+    }
+    Ok(())
 }
 
 async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
