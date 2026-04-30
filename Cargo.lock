@@ -146,6 +146,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "clap",
+ "futures",
  "hex",
  "libc",
  "serde",

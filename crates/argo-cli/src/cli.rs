@@ -138,8 +138,9 @@ pub enum Command {
     },
     /// Run one turn of the agent loop against a recorded session:
     /// loads the session's messages, calls the configured provider
-    /// (Anthropic family for v0), and persists the assistant's
-    /// response. Requires the provider's API-key env var.
+    /// (Anthropic / OpenAI / OpenAI Responses), and persists the
+    /// assistant's response. Requires the provider's API-key env
+    /// var.
     Chat {
         /// Session id (from `argo new` / `argo session list`).
         id: String,
@@ -147,6 +148,10 @@ pub enum Command {
         /// Equivalent to a `POST /sessions/<id>/messages` round-trip.
         #[arg(long)]
         user: Option<String>,
+        /// Stream the response token-by-token to stdout. Final
+        /// persisted message is the same — but you see it live.
+        #[arg(long)]
+        stream: bool,
     },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,

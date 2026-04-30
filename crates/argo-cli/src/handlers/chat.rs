@@ -16,14 +16,16 @@
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_provider::{
     AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
-    ProviderManifest, ProviderRequest, Sampling, Transport,
+    ProviderManifest, ProviderRequest, ProviderResponseDelta, Sampling, Transport,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
 use chrono::Utc;
+use futures::StreamExt;
+use std::io::Write;
 use std::sync::Arc;
 
-pub async fn run(raw: &str, user: Option<&str>) -> ArgoResult<()> {
+pub async fn run(raw: &str, user: Option<&str>, stream: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -83,30 +85,75 @@ pub async fn run(raw: &str, user: Option<&str>) -> ArgoResult<()> {
         sampling: Sampling::default(),
     };
     eprintln!(
-        "argo chat: → {} {} ({} message(s))",
+        "argo chat: → {} {} ({} message(s){})",
         session.provider,
         session.model,
-        rows.len()
+        rows.len(),
+        if stream { ", streaming" } else { "" }
     );
-    let resp = transport.complete(&req).await?;
+    let (text, tokens_in, tokens_out) = if stream {
+        run_stream(transport.as_ref(), &req).await?
+    } else {
+        let resp = transport.complete(&req).await?;
+        (
+            resp.text.unwrap_or_default(),
+            resp.tokens_in,
+            resp.tokens_out,
+        )
+    };
 
-    let content = match (&resp.text, &resp.reasoning) {
-        (Some(t), _) => serde_json::json!([{"type": "text", "text": t}]),
-        (None, Some(r)) => serde_json::json!([{"type": "thinking", "thinking": r}]),
-        (None, None) => serde_json::json!([]),
+    let content = if text.is_empty() {
+        serde_json::json!([])
+    } else {
+        serde_json::json!([{"type": "text", "text": text}])
     };
     let assistant_id = store
         .append_message(SessionId(id), MessageRole::Assistant, &content.to_string())
         .await?;
 
-    println!("argo chat: ← assistant message {assistant_id}");
-    if let Some(t) = &resp.text {
-        println!("\n{t}\n");
+    println!("\nargo chat: ← assistant message {assistant_id}");
+    if !stream && !text.is_empty() {
+        println!("\n{text}\n");
     }
-    if let (Some(ti), Some(to)) = (resp.tokens_in, resp.tokens_out) {
+    if let (Some(ti), Some(to)) = (tokens_in, tokens_out) {
         println!("[{ti} prompt + {to} completion tokens]");
     }
     Ok(())
+}
+
+async fn run_stream(
+    transport: &dyn Transport,
+    req: &ProviderRequest,
+) -> ArgoResult<(String, Option<u32>, Option<u32>)> {
+    let mut stream = transport.complete_stream(req).await?;
+    let mut text = String::new();
+    let mut tokens_in: Option<u32> = None;
+    let mut tokens_out: Option<u32> = None;
+    let mut stdout = std::io::stdout();
+    while let Some(delta) = stream.next().await {
+        match delta? {
+            ProviderResponseDelta::TextChunk(s) => {
+                text.push_str(&s);
+                let _ = stdout.write_all(s.as_bytes());
+                let _ = stdout.flush();
+            }
+            ProviderResponseDelta::TokenUsage {
+                tokens_in: ti,
+                tokens_out: to,
+            } => {
+                tokens_in = Some(ti);
+                tokens_out = Some(to);
+            }
+            ProviderResponseDelta::FinishReason(_)
+            | ProviderResponseDelta::ReasoningChunk(_)
+            | ProviderResponseDelta::ToolCallDelta { .. } => {
+                // No-op for now — single-turn happy path. Reasoning
+                // / tool-call streams will be wired with the agent
+                // loop's full surface.
+            }
+        }
+    }
+    Ok((text, tokens_in, tokens_out))
 }
 
 fn load_manifest(cwd: &std::path::Path, provider_id: &str) -> ArgoResult<ProviderManifest> {
