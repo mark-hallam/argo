@@ -12,9 +12,11 @@ steer / per-session spend / messages pagination. TUI v2 sticky
 composer wired to user-message persistence + 1s auto-refresh.
 Browser MCP gains stateful sessions, voice MCP gains a `local`
 shell-out backend, marketplace ships a hermetic OCI round-trip
-test.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
-tier across **215+ PRs**, with zero LOC-budget violations across
-the ~37k-line workspace and 68 test suites green.
+test. Live monitoring via `argo audit show --watch`,
+short-prefix session ids, costs cap with `--reset`.** Phases 0–7
++ 4.5 + 6.5 + 7.5 all ship at the library tier across **223+
+PRs**, with zero LOC-budget violations across the ~37k-line
+workspace and 69 test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
