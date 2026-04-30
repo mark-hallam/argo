@@ -20,7 +20,7 @@ pub use models::SessionHeader;
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
-use models::SessionHeaderRow;
+use models::{RoutingDecisionRow, SessionHeaderRow};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Pool, Sqlite};
 use std::path::Path;
@@ -169,12 +169,11 @@ impl SessionStore {
     /// daemon binding will replace it with proper tenant + workspace
     /// resolution.
     pub async fn first_workspace(&self) -> StoreResult<Option<WorkspaceId>> {
-        let row: Option<Vec<u8>> = sqlx::query_scalar(
-            "SELECT id FROM workspace ORDER BY created_at ASC LIMIT 1",
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("first_workspace: {e}")))?;
+        let row: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT id FROM workspace ORDER BY created_at ASC LIMIT 1")
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("first_workspace: {e}")))?;
         Ok(row.map(|b| WorkspaceId(models::uuid_from_blob(&b))))
     }
 
@@ -247,6 +246,26 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("persist_routing_decision: {e}")))?;
         Ok(())
+    }
+
+    /// List routing decisions for `session_id` in turn order.
+    /// Used by `argo route inspect` to surface the cost-router's
+    /// per-turn picks (Amendment 1, §24.4).
+    pub async fn list_routing_decisions(
+        &self,
+        session_id: SessionId,
+    ) -> StoreResult<Vec<RoutingDecision>> {
+        let rows: Vec<RoutingDecisionRow> = sqlx::query_as::<_, RoutingDecisionRow>(
+            "SELECT id, session_id, turn, policy, tier, classifier_latency_ms, \
+             chosen_provider, chosen_model, reason, decided_at \
+             FROM routing_decision WHERE session_id = ? \
+             ORDER BY turn ASC",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_routing_decisions: {e}")))?;
+        Ok(rows.into_iter().map(RoutingDecision::from).collect())
     }
 
     /// Direct access to the underlying pool (for crates that need raw SQL).

@@ -1,5 +1,7 @@
 //! Read-side row models and conversions.
-use argo_types::{SessionId, TenantId, WorkspaceId};
+use argo_types::{
+    ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId, WorkspaceId,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -43,6 +45,41 @@ pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
     let n = b.len().min(16);
     a[..n].copy_from_slice(&b[..n]);
     Uuid::from_bytes(a)
+}
+
+/// Raw `routing_decision` row.
+#[derive(sqlx::FromRow)]
+pub(crate) struct RoutingDecisionRow {
+    pub id: Vec<u8>,
+    pub session_id: Vec<u8>,
+    pub turn: i64,
+    pub policy: String,
+    pub tier: String,
+    pub classifier_latency_ms: i64,
+    pub chosen_provider: String,
+    pub chosen_model: String,
+    pub reason: Option<String>,
+    pub decided_at: i64,
+}
+
+impl From<RoutingDecisionRow> for RoutingDecision {
+    fn from(r: RoutingDecisionRow) -> Self {
+        Self {
+            id: RoutingDecisionId(uuid_from_blob(&r.id)),
+            session_id: SessionId(uuid_from_blob(&r.session_id)),
+            turn: u32::try_from(r.turn).unwrap_or(0),
+            policy: r.policy,
+            tier: r.tier,
+            classifier_latency_ms: u64::try_from(r.classifier_latency_ms).unwrap_or(0),
+            chosen_provider_model: ProviderModel {
+                provider: r.chosen_provider,
+                model: r.chosen_model,
+            },
+            reason: r.reason.unwrap_or_default(),
+            classified_at: DateTime::<Utc>::from_timestamp_micros(r.decided_at)
+                .unwrap_or_else(Utc::now),
+        }
+    }
 }
 
 impl From<SessionHeaderRow> for SessionHeader {

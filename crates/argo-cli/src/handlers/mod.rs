@@ -8,6 +8,7 @@ pub mod doctor;
 pub mod mcp;
 pub mod memory;
 pub mod provider;
+pub mod route;
 pub mod session;
 pub mod skill;
 pub mod tui;
