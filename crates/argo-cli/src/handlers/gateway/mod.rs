@@ -98,9 +98,9 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
     eprintln!("  GET  /health   → {{\"status\":\"ok\"}}");
     eprintln!("  GET  /version  → {{\"version\":\"<crate>\"}}");
-    eprintln!("  GET  /sessions → recent sessions (JSON array; carries spent_usd_micros)");
+    eprintln!("  GET  /sessions[?since-minutes=N] → recent sessions (JSON array; carries spent_usd_micros)");
     eprintln!("  GET  /sessions/<uuid> → one session header + message_count + tool_call_count + spend");
-    eprintln!("  GET  /sessions/<uuid>/messages → every message on the session");
+    eprintln!("  GET  /sessions/<uuid>/messages[?limit=N&role=user] → messages on the session");
     eprintln!("  GET  /sessions/<uuid>/spend → per-session spend ledger rows + total");
     eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("  POST /sessions/<uuid>/messages → append a message ({{role, content}})");
