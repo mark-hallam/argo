@@ -282,7 +282,14 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
         .get_session(SessionId(id))
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
-    let count = store.message_count(SessionId(id)).await?;
+    let messages = store.list_messages(SessionId(id)).await?;
+    let count = messages.len() as u64;
+    let first = messages.first().map(message_summary);
+    let last = if messages.len() > 1 {
+        messages.last().map(message_summary)
+    } else {
+        None
+    };
     if json {
         let row = serde_json::json!({
             "id": session.id.0.to_string(),
@@ -294,6 +301,12 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
             "started_at": session.started_at.to_rfc3339(),
             "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
             "message_count": count,
+            "first_message": first.as_ref().map(|(role, snippet)|
+                serde_json::json!({"role": role, "snippet": snippet})
+            ),
+            "last_message": last.as_ref().map(|(role, snippet)|
+                serde_json::json!({"role": role, "snippet": snippet})
+            ),
         });
         let serialized = serde_json::to_string(&row)
             .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
@@ -318,7 +331,32 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
             .unwrap_or_else(|| "(open)".into())
     );
     println!("  messages:     {count}");
+    if let Some((role, snippet)) = &first {
+        println!("  first ({role}): {snippet}");
+    }
+    if let Some((role, snippet)) = &last {
+        println!("  last  ({role}): {snippet}");
+    }
     Ok(())
+}
+
+fn message_summary(row: &argo_store::MessageRow) -> (String, String) {
+    let parsed: serde_json::Value =
+        serde_json::from_str(&row.content_json).unwrap_or(serde_json::Value::Null);
+    let snippet = parsed
+        .as_array()
+        .and_then(|arr| {
+            arr.iter()
+                .find_map(|b| b.get("text").and_then(|t| t.as_str()))
+        })
+        .unwrap_or("")
+        .lines()
+        .next()
+        .unwrap_or("")
+        .chars()
+        .take(80)
+        .collect::<String>();
+    (row.role.clone(), snippet)
 }
 
 async fn list_sessions(limit: u32, json: bool) -> ArgoResult<()> {
