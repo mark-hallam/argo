@@ -142,6 +142,8 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                             "seq": r.seq,
                             "kind": r.kind,
                             "session_id": r.session_id,
+                            "payload": r.payload,
+                            "created_at_micros": r.created_at_micros,
                         })
                     })
                     .collect();
