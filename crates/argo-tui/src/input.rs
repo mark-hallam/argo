@@ -72,10 +72,20 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Help overlay: any key closes it (so the user
-            // doesn't have to memorise yet another exit key).
+            // Help overlay: any key closes it.
             if state.help_overlay {
                 state.help_overlay = false;
+                continue;
+            }
+            // Message-detail overlay: Esc/o/q close, anything
+            // else is ignored.
+            if state.message_overlay.is_some() {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('o') | KeyCode::Char('q')
+                ) {
+                    state.message_overlay = None;
+                }
                 continue;
             }
             // Pending-delete confirm: 'y' fires the delete, any
@@ -146,6 +156,20 @@ pub(crate) async fn run(
                 }
                 KeyCode::Tab => state.toggle_focus(),
                 KeyCode::Char('?') => state.help_overlay = true,
+                KeyCode::Char('o')
+                    if matches!(state.focus, PaneFocus::Messages)
+                        && !state.selected_messages.is_empty() =>
+                {
+                    // Open the highlighted message in a detail
+                    // overlay. The "highlight" is the topmost
+                    // visible row — i.e. `messages_scroll` — so
+                    // page up/down + j/k work as the cursor.
+                    state.message_overlay = Some(
+                        state
+                            .messages_scroll
+                            .min(state.selected_messages.len() - 1),
+                    );
+                }
                 KeyCode::Char('/') => state.enter_filter_mode(),
                 KeyCode::Char('i') => state.composer_mode = true,
                 KeyCode::Char('y') => {

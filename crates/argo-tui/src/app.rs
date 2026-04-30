@@ -76,6 +76,10 @@ pub struct ViewerState {
     /// True while the user has the keybinding-help overlay open
     /// (entered with `?`). Any key while open closes it.
     pub help_overlay: bool,
+    /// `Some(idx)` while the user has a message expanded (entered
+    /// with `o` while focused on the messages pane); the index
+    /// points into `selected_messages`. Esc / o / q closes.
+    pub message_overlay: Option<usize>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -120,6 +124,7 @@ impl ViewerState {
             focus: PaneFocus::Sessions,
             messages_scroll: 0,
             help_overlay: false,
+            message_overlay: None,
         }
     }
 

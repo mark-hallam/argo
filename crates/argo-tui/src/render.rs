@@ -36,41 +36,11 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     draw_composer(frame, outer[1], state);
     draw_footer(frame, outer[2], state);
     if state.help_overlay {
-        draw_help_overlay(frame, area);
+        crate::overlays::draw_help(frame, area);
     }
-}
-
-/// Centered keybinding cheatsheet shown while `state.help_overlay`
-/// is true. Any keypress closes it (handled in `input.rs`).
-fn draw_help_overlay(frame: &mut Frame<'_>, area: Rect) {
-    // Center a 60×16 panel inside the area.
-    let w = area.width.min(60);
-    let h = area.height.min(16);
-    let x = area.x + (area.width.saturating_sub(w)) / 2;
-    let y = area.y + (area.height.saturating_sub(h)) / 2;
-    let panel = Rect::new(x, y, w, h);
-    let body = vec![
-        Line::from("  Navigation"),
-        Line::from("    j/k        move down/up"),
-        Line::from("    PgDn/PgUp  page down/up        g/G  top/bottom"),
-        Line::from("    Tab        toggle pane focus (sessions / messages)"),
-        Line::from(""),
-        Line::from("  Session ops"),
-        Line::from("    n  new (clone selected)        r  rename"),
-        Line::from("    d  delete (y to confirm)       /  filter"),
-        Line::from(""),
-        Line::from("  Messaging"),
-        Line::from("    i  compose (Enter sends)       s  steer (system msg)"),
-        Line::from("    y  yank (OSC-52 copy)"),
-        Line::from(""),
-        Line::from("  q / Esc  quit       ?  this help (any key closes)"),
-    ];
-    let para = Paragraph::new(body)
-        .block(Block::default().borders(Borders::ALL).title(" keybindings "))
-        .style(Style::default().add_modifier(Modifier::BOLD));
-    // Clear the area so the underlying panes don't bleed through.
-    frame.render_widget(ratatui::widgets::Clear, panel);
-    frame.render_widget(para, panel);
+    if let Some(idx) = state.message_overlay {
+        crate::overlays::draw_message(frame, area, state, idx);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -458,6 +428,32 @@ mod tests {
         assert!(frame.contains("keybindings"));
         assert!(frame.contains("compose"));
         assert!(frame.contains("steer"));
+    }
+
+    #[test]
+    fn message_overlay_renders_pretty_json_body() {
+        let mut state = ViewerState::new(vec![header("drill-target")]);
+        state.selected_messages = vec![argo_store::MessageRow {
+            id: vec![0u8; 16],
+            session_id: vec![0u8; 16],
+            role: "tool".into(),
+            content_json:
+                r#"[{"type":"tool_result","id":"abc","is_error":false,"content":[{"type":"text","text":"hello world"}]}]"#
+                    .into(),
+            tool_calls_json: String::new(),
+            tool_call_id: None,
+            reasoning: None,
+            provider_meta: "null".into(),
+            created_at: 0,
+            seq: 5,
+        }];
+        state.message_overlay = Some(0);
+        let frame = render_to_strings(&state);
+        // Title carries seq + role
+        assert!(frame.contains("seq=5"));
+        assert!(frame.contains("role=tool"));
+        // Body is pretty-printed (so the inner text is visible).
+        assert!(frame.contains("hello world"));
     }
 
     #[test]
