@@ -38,10 +38,13 @@
 //! # }
 //! ```
 use crate::bundle::BundleManifest;
+use crate::oci_auth::{fetch_bearer_token, BearerChallenge};
 use crate::registry::{OciReference, OciRegistry};
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// OCI image manifest media type used for the manifest PUT.
 pub const MANIFEST_MEDIA_TYPE: &str = "application/vnd.oci.image.manifest.v1+json";
@@ -51,12 +54,25 @@ pub const CONFIG_MEDIA_TYPE: &str = "application/vnd.argo.bundle.config.v1+json"
 pub const LAYER_MEDIA_TYPE: &str = "application/vnd.argo.bundle.tar.v1";
 
 /// HTTP-backed registry. `base_url` is the registry root
-/// (e.g. `https://ghcr.io`). `auth_token`, when set, is sent as
-/// `Authorization: Bearer <token>` on every request.
+/// (e.g. `https://ghcr.io`). When the registry replies `401
+/// Unauthorized` and `basic_auth` is set, the client runs the
+/// OCI Distribution Spec challenge handshake (parse
+/// `WWW-Authenticate: Bearer …`, fetch a token via Basic auth,
+/// cache it for subsequent requests, retry the original).
 #[derive(Debug, Clone)]
 pub struct OciDistributionRegistry {
     base_url: String,
-    auth_token: Option<String>,
+    /// Static bearer token — used on every request when set,
+    /// bypasses the challenge handshake. For anonymous registries
+    /// (or local mocks) leave this `None`.
+    static_token: Option<String>,
+    /// Optional `(user, password)` for the Basic-auth half of the
+    /// challenge handshake. GHCR expects `(<anything>, GITHUB_PAT)`;
+    /// Docker Hub expects `(username, access_token)`.
+    basic_auth: Option<(String, String)>,
+    /// Cached bearer obtained via the challenge handshake. Reused
+    /// across subsequent requests; cleared on 401.
+    cached_token: Arc<Mutex<Option<String>>>,
     client: reqwest::Client,
 }
 
@@ -67,16 +83,91 @@ impl OciDistributionRegistry {
     pub fn new(base_url: &str, auth_token: Option<String>) -> Self {
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
-            auth_token,
+            static_token: auth_token,
+            basic_auth: None,
+            cached_token: Arc::new(Mutex::new(None)),
             client: reqwest::Client::new(),
         }
     }
 
-    fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        match &self.auth_token {
-            Some(t) => req.bearer_auth(t),
-            None => req,
+    /// Configure HTTP Basic auth for the challenge handshake. The
+    /// client falls back to this when a request returns `401
+    /// Unauthorized` + a `WWW-Authenticate: Bearer …` header.
+    #[must_use]
+    pub fn with_basic_auth(mut self, user: impl Into<String>, password: impl Into<String>) -> Self {
+        self.basic_auth = Some((user.into(), password.into()));
+        self
+    }
+
+    /// Add `Authorization: Bearer …` if we have a token (static
+    /// override or cached). Returns the request builder unchanged
+    /// otherwise.
+    async fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(t) = &self.static_token {
+            return req.bearer_auth(t);
         }
+        if let Some(t) = self.cached_token.lock().await.clone() {
+            return req.bearer_auth(t);
+        }
+        req
+    }
+
+    /// On a 401 response with a `Bearer …` challenge, run the
+    /// handshake (fetch a token via Basic auth, cache it). Returns
+    /// `Ok(true)` when the handshake succeeded — caller should
+    /// retry the original request — and `Ok(false)` when there's
+    /// no challenge or no Basic credentials configured.
+    async fn handle_challenge(
+        &self,
+        www_authenticate: Option<&str>,
+    ) -> ArgoResult<bool> {
+        let Some(header) = www_authenticate else {
+            return Ok(false);
+        };
+        let Some(challenge) = BearerChallenge::parse(header) else {
+            return Ok(false);
+        };
+        let Some((user, password)) = self.basic_auth.as_ref() else {
+            return Ok(false);
+        };
+        let token = fetch_bearer_token(&self.client, &challenge, user, password).await?;
+        *self.cached_token.lock().await = Some(token);
+        Ok(true)
+    }
+
+    /// Send a request, attaching `Authorization` from the cached
+    /// or static token. On 401 + a parseable challenge + Basic
+    /// credentials, fetch a token and retry once.
+    async fn execute_with_retry(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> ArgoResult<reqwest::Response> {
+        let cloned = req.try_clone();
+        let resp = self
+            .auth(req)
+            .await
+            .send()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("oci request: {e}")))?;
+        if resp.status().as_u16() != 401 {
+            return Ok(resp);
+        }
+        let www = resp
+            .headers()
+            .get(reqwest::header::WWW_AUTHENTICATE)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+        if !self.handle_challenge(www.as_deref()).await? {
+            return Ok(resp);
+        }
+        let Some(req2) = cloned else {
+            return Ok(resp);
+        };
+        self.auth(req2)
+            .await
+            .send()
+            .await
+            .map_err(|e| ArgoError::Provider(format!("oci retry: {e}")))
     }
 
     /// Hash bytes under SHA-256 and return the canonical
@@ -99,10 +190,8 @@ impl OciDistributionRegistry {
         let digest = Self::digest_of(&bytes);
         let init_url = format!("{}/v2/{}/blobs/uploads/", self.base_url, reference.repo);
         let init = self
-            .auth(self.client.post(&init_url))
-            .send()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("oci blob init: {e}")))?;
+            .execute_with_retry(self.client.post(&init_url))
+            .await?;
         if !matches!(init.status().as_u16(), 200..=299) {
             return Err(ArgoError::Provider(format!(
                 "oci blob init {}: {}",
@@ -127,16 +216,12 @@ impl OciDistributionRegistry {
         } else {
             format!("{upload_url}?digest={digest}")
         };
-        let put = self
-            .auth(self.client.put(&put_url))
-            .header(
-                reqwest::header::CONTENT_TYPE,
-                "application/octet-stream",
-            )
-            .body(bytes)
-            .send()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("oci blob put: {e}")))?;
+        let put_req = self
+            .client
+            .put(&put_url)
+            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+            .body(bytes);
+        let put = self.execute_with_retry(put_req).await?;
         if !matches!(put.status().as_u16(), 200..=299) {
             return Err(ArgoError::Provider(format!(
                 "oci blob put {}: {}",
@@ -152,11 +237,7 @@ impl OciDistributionRegistry {
             "{}/v2/{}/blobs/{}",
             self.base_url, reference.repo, digest
         );
-        let resp = self
-            .auth(self.client.get(&url))
-            .send()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("oci blob get: {e}")))?;
+        let resp = self.execute_with_retry(self.client.get(&url)).await?;
         if !matches!(resp.status().as_u16(), 200..=299) {
             return Err(ArgoError::Provider(format!(
                 "oci blob get {}: {}",
@@ -242,13 +323,12 @@ impl OciRegistry for OciDistributionRegistry {
             "{}/v2/{}/manifests/{}",
             self.base_url, reference.repo, reference.tag
         );
-        let resp = self
-            .auth(self.client.put(&url))
+        let put_req = self
+            .client
+            .put(&url)
             .header(reqwest::header::CONTENT_TYPE, MANIFEST_MEDIA_TYPE)
-            .body(manifest_json)
-            .send()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("oci manifest put: {e}")))?;
+            .body(manifest_json);
+        let resp = self.execute_with_retry(put_req).await?;
         if !matches!(resp.status().as_u16(), 200..=299) {
             return Err(ArgoError::Provider(format!(
                 "oci manifest put {}: {}",
@@ -264,12 +344,11 @@ impl OciRegistry for OciDistributionRegistry {
             "{}/v2/{}/manifests/{}",
             self.base_url, reference.repo, reference.tag
         );
-        let resp = self
-            .auth(self.client.get(&url))
-            .header(reqwest::header::ACCEPT, MANIFEST_MEDIA_TYPE)
-            .send()
-            .await
-            .map_err(|e| ArgoError::Provider(format!("oci manifest get: {e}")))?;
+        let get_req = self
+            .client
+            .get(&url)
+            .header(reqwest::header::ACCEPT, MANIFEST_MEDIA_TYPE);
+        let resp = self.execute_with_retry(get_req).await?;
         if !matches!(resp.status().as_u16(), 200..=299) {
             return Err(ArgoError::Provider(format!(
                 "oci manifest get {}: {}",

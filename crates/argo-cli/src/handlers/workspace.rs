@@ -256,7 +256,7 @@ async fn push(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()> {
     let tar_bytes = tokio::fs::read(&out_tar)
         .await
         .map_err(|e| ArgoError::Provider(format!("read {}: {e}", out_tar.display())))?;
-    let registry = OciDistributionRegistry::new(&host_base_url(&reference.host), oci_token());
+    let registry = build_registry(&reference.host);
     registry.push(&reference, &tar_bytes, &manifest).await?;
     println!(
         "pushed {} ({} bytes) → {}",
@@ -341,7 +341,7 @@ async fn record_artifact(
 
 async fn pull(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()> {
     let reference = OciReference::parse(oci_ref)?;
-    let registry = OciDistributionRegistry::new(&host_base_url(&reference.host), oci_token());
+    let registry = build_registry(&reference.host);
     let (tar_bytes, manifest) = registry.pull(&reference).await?;
     let out_tar = cwd.join(format!(
         "argo-pull-{}-{}.tar",
@@ -378,7 +378,23 @@ fn host_base_url(host: &str) -> String {
 }
 
 /// Read `ARGO_OCI_TOKEN` if set; sent as `Authorization: Bearer …`
-/// on every registry request.
+/// on every registry request, bypassing the challenge handshake.
 fn oci_token() -> Option<String> {
     std::env::var("ARGO_OCI_TOKEN").ok()
+}
+
+/// Build a registry from the host with optional Basic-auth
+/// credentials read from `ARGO_OCI_USER` + `ARGO_OCI_PASSWORD`
+/// (used in the `WWW-Authenticate: Bearer` challenge handshake
+/// — GHCR + Docker Hub style). The static `ARGO_OCI_TOKEN`
+/// path takes precedence and skips the handshake entirely.
+fn build_registry(host: &str) -> OciDistributionRegistry {
+    let mut reg = OciDistributionRegistry::new(&host_base_url(host), oci_token());
+    if let (Ok(user), Ok(password)) = (
+        std::env::var("ARGO_OCI_USER"),
+        std::env::var("ARGO_OCI_PASSWORD"),
+    ) {
+        reg = reg.with_basic_auth(user, password);
+    }
+    reg
 }
