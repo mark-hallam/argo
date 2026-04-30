@@ -7,7 +7,7 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 **Library + integration tier complete. Live agent loop with tool
 dispatch + spend tracking running across all four provider
 families.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
-tier across **159+ PRs**.
+tier across **168+ PRs**.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -31,11 +31,19 @@ The CLI binary (`argo`) drives ~55 subcommands. Beyond the read-
 side surface (`session list/show/diff`, `memory list/view`,
 `skill list/view`, `cron list`, `provider show`, `audit
 show/verify`, `costs show` — now also rolling up actual spend
-across today / month-to-date / all-time — all `--json`-capable),
-`argo new` / `argo resume` / `argo chat` / `argo steer` cover
-the full session lifecycle. `argo resume` and the TUI both
-render `tool_use` / `tool_result` content blocks as readable
-arrows instead of escaped JSON. `skill verify --all` +
+across today / month-to-date / all-time, plus `--by-model` /
+`--by-session` breakdowns — all `--json`-capable), `argo new` /
+`argo resume` / `argo chat` / `argo steer` cover the full session
+lifecycle. `argo session show` + `argo session list` surface
+per-session tool_call_count + spend, and the gateway's
+`GET /sessions` and `GET /sessions/<id>` mirror those numbers.
+`argo session replay <id> [--model X] [--provider Y]` re-runs the
+recorded user prompts against a different target. `argo audit
+show --tail` annotates each row with its payload detail
+(provider/model, tool name + duration, etc.) and `--session <id>`
+prints the full per-session audit chain. `argo resume` and the
+TUI both render `tool_use` / `tool_result` content blocks as
+readable arrows instead of escaped JSON. `skill verify --all` +
 `memory verify --all` give hash-chain CI hooks; `argo health`
 is a one-shot meta verifier.
 
