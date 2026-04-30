@@ -7,17 +7,25 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use std::sync::Arc;
 
-/// Top-level handler for `argo session replay`.
-///
-/// Creates a fresh session row and pumps each user-role message
-/// from the source through `chat::run_turn` against the target
-/// `(provider, model)`. Assistant / tool messages from the source
-/// are skipped — the new model regenerates them.
-pub(crate) async fn run(
+/// Outcome of one replay run, suitable for both CLI summaries and
+/// JSON serialization (e.g. the gateway's HTTP response).
+pub(crate) struct ReplayResult {
+    pub source_id: SessionId,
+    pub new_id: SessionId,
+    pub provider: String,
+    pub model: String,
+    pub user_message_count: usize,
+    pub final_text: String,
+}
+
+/// Pure replay core — does the work without any printing. Used by
+/// both the CLI handler (which prints progress) and the gateway
+/// handler (which serializes the result as JSON).
+pub(crate) async fn replay_core(
     raw: &str,
     model: Option<&str>,
     provider: Option<&str>,
-) -> ArgoResult<()> {
+) -> ArgoResult<ReplayResult> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -31,8 +39,8 @@ pub(crate) async fn run(
         .get_session(SessionId(id))
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
-    let target_model = model.unwrap_or(&source.model);
-    let target_provider = provider.unwrap_or(&source.provider);
+    let target_model = model.unwrap_or(&source.model).to_string();
+    let target_provider = provider.unwrap_or(&source.provider).to_string();
 
     let messages = store.list_messages(SessionId(id)).await?;
     let user_texts: Vec<String> = messages
@@ -58,22 +66,11 @@ pub(crate) async fn run(
         .map(|t| format!("replay of {t}"))
         .unwrap_or_else(|| format!("replay of {}", source.id.0));
     let new_id = store
-        .create_session(
-            tenant,
-            ws,
-            target_model,
-            target_provider,
-            Some(title.as_str()),
-        )
+        .create_session(tenant, ws, &target_model, &target_provider, Some(&title))
         .await?;
 
-    println!(
-        "session replay: {} → new session {} (provider={target_provider}, model={target_model})",
-        source.id.0, new_id.0
-    );
-    println!("replaying {} user message(s)…\n", user_texts.len());
-    for (i, text) in user_texts.iter().enumerate() {
-        println!("[turn {}] > {}", i + 1, snippet(text));
+    let mut final_text = String::new();
+    for text in &user_texts {
         let result = crate::handlers::chat::run_turn(
             &store,
             &cwd,
@@ -83,14 +80,38 @@ pub(crate) async fn run(
             crate::handlers::chat::MAX_TOOL_ROUNDS,
         )
         .await?;
-        let s = snippet(&result.text);
-        if !s.is_empty() {
-            println!("[turn {}] < {s}", i + 1);
-        }
+        final_text = result.text;
+    }
+    Ok(ReplayResult {
+        source_id: source.id,
+        new_id,
+        provider: target_provider,
+        model: target_model,
+        user_message_count: user_texts.len(),
+        final_text,
+    })
+}
+
+/// Top-level handler for `argo session replay`. Calls
+/// `replay_core` and prints a human-readable summary.
+pub(crate) async fn run(
+    raw: &str,
+    model: Option<&str>,
+    provider: Option<&str>,
+) -> ArgoResult<()> {
+    let result = replay_core(raw, model, provider).await?;
+    println!(
+        "session replay: {} → new session {} (provider={}, model={})",
+        result.source_id.0, result.new_id.0, result.provider, result.model
+    );
+    println!("replayed {} user message(s)", result.user_message_count);
+    let snippet_text = snippet(&result.final_text);
+    if !snippet_text.is_empty() {
+        println!("final reply: {snippet_text}");
     }
     println!(
-        "\nreplay complete. inspect with `argo session show {}`.",
-        new_id.0
+        "\ninspect with `argo session show {}`.",
+        result.new_id.0
     );
     Ok(())
 }

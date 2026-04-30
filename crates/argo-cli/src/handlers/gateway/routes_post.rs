@@ -220,6 +220,50 @@ pub(super) async fn run_turn_response(
     }
 }
 
+pub(super) async fn replay_response(
+    sid: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    if store.is_none() {
+        return store_unavailable();
+    }
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = if body.is_empty() {
+        serde_json::Value::Null
+    } else {
+        match serde_json::from_str(body) {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    "400 Bad Request",
+                    format!("{{\"error\":\"parse body: {e}\"}}"),
+                );
+            }
+        }
+    };
+    let model = parsed.get("model").and_then(|v| v.as_str());
+    let provider = parsed.get("provider").and_then(|v| v.as_str());
+    match crate::handlers::session_replay::replay_core(sid, model, provider).await {
+        Ok(r) => (
+            "201 Created",
+            serde_json::to_string(&serde_json::json!({
+                "source_id": r.source_id.0.to_string(),
+                "new_id": r.new_id.0.to_string(),
+                "provider": r.provider,
+                "model": r.model,
+                "user_message_count": r.user_message_count,
+                "final_text": r.final_text,
+            }))
+            .unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"replay: {e}\"}}"),
+        ),
+    }
+}
+
 pub(super) async fn steer_response(
     sid: &str,
     req: &str,

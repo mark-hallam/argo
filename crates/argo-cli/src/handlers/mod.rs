@@ -22,7 +22,7 @@ pub mod provider;
 pub mod resume;
 pub mod route;
 pub mod session;
-mod session_replay;
+pub mod session_replay;
 pub mod skill;
 pub mod steer;
 pub mod trace;

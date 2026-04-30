@@ -6,7 +6,7 @@
 //! single-line HTTP/1.1 response.
 use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
-    create_session_response, run_turn_response, steer_response,
+    create_session_response, replay_response, run_turn_response, steer_response,
 };
 use super::store_unavailable;
 use argo_store::SessionStore;
@@ -75,6 +75,9 @@ pub(super) async fn dispatch_route(
             }
             if tail.starts_with("steer ") {
                 return steer_response(sid, req, store).await;
+            }
+            if tail.starts_with("replay ") {
+                return replay_response(sid, req, store).await;
             }
         }
     }
