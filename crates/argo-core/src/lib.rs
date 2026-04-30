@@ -23,6 +23,7 @@
 
 mod agent;
 mod audit;
+mod iter_policy;
 mod resume;
 mod steer;
 
@@ -31,6 +32,9 @@ mod tests;
 
 pub use agent::{Agent, AgentDeps, RunTurnOptions, TurnOutcome};
 pub use audit::{AuditKind, AuditSink};
+pub use iter_policy::{
+    decide as decide_iteration_extension, ExtensionDecision, ExtensionLimits, IterationOnMax,
+};
 pub use resume::{
     apply_restart_policy, mark_session_discarded, scan_interrupted, InterruptedSession,
     RestartAction, RestartPolicy,
