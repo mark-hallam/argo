@@ -1,22 +1,102 @@
-//! `argo provider` — list / validate manifests.
+//! `argo provider` — list / validate / show / test manifests.
 use crate::cli::ProviderCmd;
-use argo_provider::ProviderManifest;
-use argo_types::{ArgoError, ArgoResult};
+use argo_provider::{
+    AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
+    ProviderManifest, ProviderRequest, Sampling, Transport,
+};
+use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
+use chrono::Utc;
 use std::path::PathBuf;
 
-pub fn run(cmd: ProviderCmd) -> ArgoResult<()> {
+pub async fn run(cmd: ProviderCmd) -> ArgoResult<()> {
     match cmd {
         ProviderCmd::List => list_manifests(),
         ProviderCmd::Show { id, json } => show(&id, json),
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
         ProviderCmd::ValidateAll => validate_all(),
-        ProviderCmd::Test { provider } => {
-            // Live provider test requires a real API key + reqwest;
-            // belongs with the daemon binding.
-            println!("provider test {provider}: requires daemon credentials (separate PR).");
-            Ok(())
-        }
+        ProviderCmd::Test { provider } => test(&provider).await,
     }
+}
+
+async fn test(provider_id: &str) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let path = cwd
+        .join("manifests")
+        .join("providers")
+        .join(format!("{provider_id}.toml"));
+    let body = std::fs::read_to_string(&path)
+        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+    let manifest = ProviderManifest::from_toml_str(&body)?;
+    let model = manifest
+        .models
+        .first()
+        .map(|m| m.id.clone())
+        .ok_or_else(|| {
+            ArgoError::Provider(format!(
+                "manifest {provider_id} has no models — add at least one entry to `[[models]]` or call with --model"
+            ))
+        })?;
+    let api_key_env = manifest.auth.api_key_env.clone();
+    let api_key = std::env::var(&api_key_env)
+        .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
+
+    println!("provider test: {provider_id} → {model}");
+    let transport: Box<dyn Transport> = match manifest.provider.family {
+        ProviderFamily::Anthropic => {
+            Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
+        }
+        ProviderFamily::OpenaiCompatible => {
+            Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
+        }
+        ProviderFamily::OpenaiResponses => {
+            Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
+        }
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "argo provider test doesn't yet drive provider family {other:?}"
+            )));
+        }
+    };
+
+    let session_id = SessionId(uuid::Uuid::nil());
+    let messages = vec![Message {
+        id: MessageId(uuid::Uuid::now_v7()),
+        session_id,
+        role: MessageRole::User,
+        content: vec![ContentBlock::Text {
+            text: "ping".into(),
+        }],
+        tool_calls: Vec::new(),
+        tool_call_id: None,
+        reasoning: None,
+        created_at: Utc::now(),
+        provider_meta: serde_json::Value::Null,
+    }];
+    let req = ProviderRequest {
+        model: model.clone(),
+        messages,
+        tools: Vec::new(),
+        system: None,
+        sampling: Sampling {
+            max_tokens: Some(16),
+            ..Sampling::default()
+        },
+    };
+    let started = std::time::Instant::now();
+    let resp = transport.complete(&req).await?;
+    let elapsed = started.elapsed();
+    let text = resp.text.unwrap_or_default();
+    let snippet: String = text.chars().take(160).collect();
+    println!("  status:    ok");
+    println!("  latency:   {} ms", elapsed.as_millis());
+    if let (Some(ti), Some(to)) = (resp.tokens_in, resp.tokens_out) {
+        println!("  tokens:    {ti} in / {to} out");
+    }
+    if !snippet.is_empty() {
+        println!("  reply:     {snippet}");
+    }
+    Ok(())
 }
 
 fn validate_all() -> ArgoResult<()> {
