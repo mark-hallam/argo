@@ -219,6 +219,47 @@ fn replay_stream_returns_chunked_ndjson_for_unknown_session() {
 }
 
 #[test]
+fn providers_and_tools_return_arrays() {
+    // /providers reads `<cwd>/manifests/providers/*.toml` (or
+    // returns `[]` on a clean workspace). /tools is built from
+    // `argo_tool::builtin_tools(cwd)` and always has the eight
+    // in-core tools.
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "2",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    let providers = http_get(port, "/providers");
+    assert!(providers.contains("HTTP/1.1 200 OK"), "resp={providers}");
+    let body = body_of(&providers);
+    assert!(body.starts_with('['), "body={body}");
+
+    let tools = http_get(port, "/tools");
+    assert!(tools.contains("HTTP/1.1 200 OK"), "resp={tools}");
+    let body = body_of(&tools);
+    assert!(body.starts_with('['), "body={body}");
+    assert!(body.contains("\"file_read\""), "body={body}");
+    assert!(body.contains("\"file_write\""), "body={body}");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn runs_stream_emits_chunked_ndjson_with_terminator() {
     // The gateway's streaming endpoint always returns 200 +
     // chunked-encoded NDJSON. Run against an unknown session so
