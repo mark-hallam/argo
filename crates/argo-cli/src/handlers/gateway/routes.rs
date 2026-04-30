@@ -426,6 +426,11 @@ async fn run_turn_response(
         }
     };
     let user = parsed.get("user").and_then(|v| v.as_str());
+    let max_rounds = parsed
+        .get("max_tool_rounds")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|n| usize::try_from(n).ok())
+        .unwrap_or(crate::handlers::chat::MAX_TOOL_ROUNDS);
     // Streaming over HTTP is the daemon's job; for now we always
     // run non-streaming and return the final body. Token-by-token
     // streaming will be a follow-up that emits chunked JSON.
@@ -438,14 +443,7 @@ async fn run_turn_response(
             );
         }
     };
-    match crate::handlers::chat::run_turn(
-        store,
-        &cwd,
-        id,
-        user,
-        false,
-        crate::handlers::chat::MAX_TOOL_ROUNDS,
-    )
+    match crate::handlers::chat::run_turn(store, &cwd, id, user, false, max_rounds)
     .await
     {
         Ok(result) => (
