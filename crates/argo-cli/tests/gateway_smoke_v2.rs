@@ -174,3 +174,47 @@ fn steer_endpoint_appends_system_message_and_404s_unknown_session() {
     let status = child.wait().expect("wait");
     assert!(status.success());
 }
+
+#[test]
+fn runs_stream_emits_chunked_ndjson_with_terminator() {
+    // The gateway's streaming endpoint always returns 200 +
+    // chunked-encoded NDJSON. Run against an unknown session so
+    // run_turn fails fast and we get a single error event + the
+    // chunk terminator without needing a live provider.
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    let resp = http_post(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/runs/stream",
+        r#"{"user":"hi"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert!(
+        resp.contains("Transfer-Encoding: chunked"),
+        "no chunked header: {resp}"
+    );
+    let body = body_of(&resp);
+    // RFC 7230 chunked terminator + at least one error event chunk.
+    assert!(body.contains("\"event\":\"error\""), "body={body}");
+    assert!(body.ends_with("0\r\n\r\n"), "no chunk terminator: {body}");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
