@@ -43,6 +43,13 @@ pub(super) async fn dispatch_route(
             return audit_session_response(sid, store).await;
         }
     }
+    if let Some(rest) = req.strip_prefix("GET /sessions/") {
+        if let Some((sid, tail)) = rest.split_once('/') {
+            if tail.starts_with("spend ") {
+                return session_spend_response(sid, store).await;
+            }
+        }
+    }
     if req.starts_with("GET /costs ") {
         return costs_response();
     }
@@ -262,6 +269,62 @@ fn costs_response() -> (&'static str, String) {
     (
         "200 OK",
         serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+async fn session_spend_response(
+    sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let total = super::session_spend_micros(store, id).await.unwrap_or(0);
+    type Row = (i64, i64, String, String);
+    let rows: Vec<Row> = match sqlx::query_as(
+        "SELECT charged_at_micros, amount_usd_micros, provider, model FROM spend_ledger \
+         WHERE session_id = ? ORDER BY charged_at_micros ASC",
+    )
+    .bind(id.0.as_bytes().as_slice())
+    .fetch_all(store.pool())
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"session spend rows: {e}\"}}"),
+            );
+        }
+    };
+    let entries: Vec<serde_json::Value> = rows
+        .into_iter()
+        .map(|(ts, micros, provider, model)| {
+            serde_json::json!({
+                "charged_at_micros": ts,
+                "amount_usd_micros": u64::try_from(micros).unwrap_or(0),
+                "provider": provider,
+                "model": model,
+            })
+        })
+        .collect();
+    let body = serde_json::json!({
+        "session_id": sid,
+        "total_usd_micros": total,
+        "rows": entries,
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
     )
 }
 
