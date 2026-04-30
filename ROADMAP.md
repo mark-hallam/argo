@@ -6,20 +6,22 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**90+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
-the workspace store; the read-side surface (`session list/show`,
-`memory list`, `skill list/view`, `cron list`) all support `--json`
-NDJSON output for scripting; the TUI ships a session viewer with
-messages preview, `/`-filter and PgUp/PgDn navigation; voice +
-browser MCP server scaffolds advertise their full schemas;
-`argo workspace init` registers a workspace row in the DB so memory
-subcommands work straight after init; `argo doctor` reports DB
-schema + workspace + row counts; three end-to-end integration
-tests cover the workspace+memory chain, provider+workspace
-verification, and cron CRUD lifecycle. What's left is the heavy
-native bindings (whisper-rs, piper-rs, chromiumoxide), cross-
-registry marketplace integration, and the daemon-coupled commands
-that need a live gateway / router / judge.
+**95+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
+the workspace store; the read-side surface (`session list/show/diff`,
+`memory list`, `skill list/view`, `cron list`, `provider show`) all
+support `--json` NDJSON output for scripting; the TUI ships a session
+viewer with messages preview, `/`-filter and PgUp/PgDn navigation;
+voice MCP now has a real OpenAI TTS + Whisper backend behind
+`backend = "openai"` (heavy native whisper-rs / piper-rs bindings
+still pending); browser MCP scaffolds advertise full schemas + Chrome
+:9222 auto-detect; `argo workspace init` registers a workspace row in
+the DB so memory subcommands work straight after init; `argo doctor`
+reports DB schema + workspace + row counts + cron daemon state +
+provider creds; four end-to-end integration tests cover workspace+
+memory, provider+workspace, cron CRUD, and the voice MCP stdio loop.
+What's left is the heavy native bindings (whisper-rs, piper-rs,
+chromiumoxide), cross-registry marketplace integration, and the
+daemon-coupled commands that need a live gateway / router / judge.
 
 ## Status
 
@@ -100,6 +102,9 @@ that need a live gateway / router / judge.
 | `argo memory list --json [--file <name>]` | ✅ | #87, #88 |
 | `argo skill list / view --json` | ✅ | #87, #90 |
 | `argo cron list --json` | ✅ | #90 |
+| `argo session diff --json` | ✅ | #92 |
+| `argo doctor` reports cron lock + provider creds | ✅ | #94 |
+| `argo provider show <id> --json` | ✅ | #95 |
 | `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
 
 ## MCP servers shipped as standalone bins
@@ -107,14 +112,21 @@ that need a live gateway / router / judge.
 | Server | Status | PR |
 |---|---|---|
 | `argo-mcp-voice` (transcribe / synthesize / voice_chat) | ✅ schema + dispatcher | #57 |
+| `argo-mcp-voice` — real OpenAI TTS backend (`backend="openai"`) | ✅ | #93 |
+| `argo-mcp-voice` — real OpenAI Whisper transcribe (`backend="openai"`) | ✅ | #96 |
+| `argo-mcp-voice` stdio integration test | ✅ | #97 |
 | `argo-mcp-browser` (12 tools) | ✅ schema + dispatcher | #58 |
+| `argo-mcp-browser` — Chrome :9222 auto-detect (A10) | ✅ | #73 |
 
 ## Pending integration tier
 
-- **Voice MCP backend** — whisper-rs (STT) + piper-rs (TTS) +
-  opus (OGG/Opus); cloud TTS (OpenAI / ElevenLabs / MiniMax).
+- **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
+  + opus (OGG/Opus). OpenAI cloud TTS + Whisper transcribe already
+  shipped (#93, #96); ElevenLabs / MiniMax cloud paths still
+  pending.
 - **Browser MCP backend** — chromiumoxide / local Playwright;
-  cloud (Browserbase / BrowserUse) opt-in.
+  cloud (Browserbase / BrowserUse) opt-in. The `:9222` Chrome
+  auto-detect is in (#73); the actual driver is not.
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test accounts.
 - **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
