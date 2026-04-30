@@ -30,3 +30,4 @@ pub mod steer;
 pub mod trace;
 pub mod tui;
 pub mod workspace;
+mod workspace_marketplace;

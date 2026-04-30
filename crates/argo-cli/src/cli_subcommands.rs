@@ -288,8 +288,17 @@ pub enum WorkspaceCmd {
     ///   bundle dirs exist, agent persona files exist, manifests
     ///   referenced from `[provider.profiles.*]` resolve.
     Verify,
+    /// Pull a workspace bundle from an OCI ref and extract it
+    /// into `--into <dir>` (defaults to a sibling directory named
+    /// after the repo). The destination directory must not exist.
     Fork {
+        /// `<host>/<repo>:<tag>` reference, e.g.
+        /// `ghcr.io/argo-agents/example:v1`.
         source: String,
+        /// Destination directory. Defaults to
+        /// `./fork-<repo>-<tag>` next to the cwd.
+        #[arg(long)]
+        into: Option<String>,
     },
     Push {
         oci_ref: String,
