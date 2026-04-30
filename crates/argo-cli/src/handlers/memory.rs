@@ -23,6 +23,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         MemoryCmd::List => list(&memory, workspace).await,
         MemoryCmd::View { entry } => view(&memory, &entry).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
+        MemoryCmd::Verify { entry } => verify_hash(&memory, &entry).await,
         MemoryCmd::Revert { entry } => revert(&memory, &entry).await,
         MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
         MemoryCmd::Lock { entry } => set_lock(&memory, &entry, Lock::UserProtected).await,
@@ -112,6 +113,29 @@ async fn view(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
     println!("\n---\n");
     println!("{}", entry.body);
     Ok(())
+}
+
+async fn verify_hash(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
+    use sha2::{Digest, Sha256};
+    let id = parse_uuid(raw)?;
+    let entry = memory.get(id).await?;
+    let mut h = Sha256::new();
+    h.update(entry.body.as_bytes());
+    let computed: [u8; 32] = h.finalize().into();
+    let stored_hex = hex::encode(entry.hash);
+    let computed_hex = hex::encode(computed);
+    if computed == entry.hash {
+        println!(
+            "memory entry {id} ({:?}) — hash ok ({computed_hex})",
+            entry.file
+        );
+        Ok(())
+    } else {
+        Err(ArgoError::Provider(format!(
+            "memory entry {id} ({:?}) — hash MISMATCH\n  stored:   {stored_hex}\n  computed: {computed_hex}",
+            entry.file
+        )))
+    }
 }
 
 async fn revert(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {

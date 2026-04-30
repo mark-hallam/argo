@@ -221,6 +221,10 @@ pub enum MemoryCmd {
         file: String,
         body: String,
     },
+    /// Verify a memory entry's body matches its stored SHA-256 hash.
+    Verify {
+        entry: String,
+    },
     Edit {
         entry: String,
     },
