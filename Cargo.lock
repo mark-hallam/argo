@@ -339,6 +339,7 @@ dependencies = [
  "argo-mcp",
  "argo-types",
  "async-trait",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",

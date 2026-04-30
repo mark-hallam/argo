@@ -29,6 +29,11 @@ const TOOL_NAMES: &[&str] = &[
     "pdf",
 ];
 
+/// Tool we wire today (the 12 spec tools still need chromiumoxide;
+/// `list_tabs` is a thin HTTP probe against Chrome's `/json` endpoint
+/// so the user can verify their attach setup before driving anything).
+const HTTP_ONLY_TOOLS: &[&str] = &["list_tabs"];
+
 /// Browser MCP service.
 pub struct BrowserService;
 
@@ -55,11 +60,16 @@ impl McpServerService for BrowserService {
             eval_schema(),
             cookies_schema(),
             pdf_schema(),
+            list_tabs_schema(),
         ]
     }
 
     async fn call_tool(&self, params: CallToolParams) -> McpResult<CallToolResult> {
-        let known = TOOL_NAMES.contains(&params.name.as_str());
+        if params.name.as_str() == "list_tabs" {
+            return Ok(crate::cdp::list_tabs(&params.arguments).await);
+        }
+        let known = TOOL_NAMES.contains(&params.name.as_str())
+            || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
             NOT_WIRED.to_string()
         } else {
@@ -69,6 +79,26 @@ impl McpServerService for BrowserService {
             content: vec![McpContent::Text { text }],
             is_error: true,
         })
+    }
+}
+
+fn list_tabs_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "list_tabs".into(),
+        description: "Probe Chrome's `/json` endpoint and return the open tabs. \
+            Requires Chrome to be running with `--remote-debugging-port=<port>` \
+            (default 9222). Pure HTTP — does not need the chromiumoxide driver."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "description": "Chrome debug port. Defaults to 9222.",
+                    "default": 9222
+                }
+            }
+        }),
     }
 }
 
@@ -224,10 +254,10 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn list_advertises_twelve_tools() {
+    async fn list_advertises_twelve_spec_tools_plus_list_tabs() {
         let s = BrowserService;
         let tools = s.list_tools();
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), 13, "12 spec tools + the list_tabs probe");
     }
 
     #[tokio::test]
@@ -237,6 +267,8 @@ mod tests {
         for (i, expected) in TOOL_NAMES.iter().enumerate() {
             assert_eq!(tools[i].name, *expected, "position {i}");
         }
+        // list_tabs lives at the end, after the 12 spec tools.
+        assert_eq!(tools[TOOL_NAMES.len()].name, "list_tabs");
     }
 
     #[tokio::test]
