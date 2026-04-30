@@ -335,6 +335,13 @@ pub enum SessionCmd {
     Show {
         id: String,
     },
+    /// Dump a session's messages to JSONL (defaults to stdout;
+    /// pass `--out <path>` to write to a file).
+    Export {
+        id: String,
+        #[arg(long)]
+        out: Option<String>,
+    },
     Replay {
         id: String,
         #[arg(long)]

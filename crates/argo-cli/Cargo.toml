@@ -27,6 +27,7 @@ argo-types = { path = "../argo-types", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+hex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

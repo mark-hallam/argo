@@ -16,7 +16,7 @@ mod migrations;
 mod models;
 mod spend;
 
-pub use models::{ForgeRunRow, SessionHeader};
+pub use models::{ForgeRunRow, MessageRow, SessionHeader};
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
@@ -246,6 +246,21 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("persist_routing_decision: {e}")))?;
         Ok(())
+    }
+
+    /// Stream a session's messages in `seq` order. Used by
+    /// `argo session export` to dump sessions to JSONL.
+    pub async fn list_messages(&self, session_id: SessionId) -> StoreResult<Vec<MessageRow>> {
+        let rows = sqlx::query_as::<_, MessageRow>(
+            "SELECT id, session_id, role, content_json, tool_calls_json, \
+             tool_call_id, reasoning, provider_meta, created_at, seq \
+             FROM message WHERE session_id = ? ORDER BY seq ASC",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_messages: {e}")))?;
+        Ok(rows)
     }
 
     /// List recent Forge runs (most-recent first). Used by

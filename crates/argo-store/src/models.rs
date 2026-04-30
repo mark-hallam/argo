@@ -47,6 +47,31 @@ pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
     Uuid::from_bytes(a)
 }
 
+/// One `message` row. Surfaced as-is for `argo session export`.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
+pub struct MessageRow {
+    /// Message id (uuid blob).
+    pub id: Vec<u8>,
+    /// Session id (uuid blob).
+    pub session_id: Vec<u8>,
+    /// Role (`system`/`user`/`assistant`/`tool`).
+    pub role: String,
+    /// JSON-encoded content blocks.
+    pub content_json: String,
+    /// JSON-encoded tool calls.
+    pub tool_calls_json: String,
+    /// Tool-call id (uuid blob) when role is `tool`.
+    pub tool_call_id: Option<Vec<u8>>,
+    /// Reasoning content (for thinking-token providers).
+    pub reasoning: Option<String>,
+    /// Provider-specific metadata (JSON).
+    pub provider_meta: String,
+    /// Created-at timestamp (UTC, micros).
+    pub created_at: i64,
+    /// Per-session sequence number.
+    pub seq: i64,
+}
+
 /// One Forge run row. Surfaced as-is for `argo forge runs list`.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct ForgeRunRow {
