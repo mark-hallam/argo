@@ -35,6 +35,17 @@ pub struct ViewerState {
     /// `true` when the user is currently typing the filter (the
     /// composer pane in the footer captures keystrokes).
     pub filter_mode: bool,
+    /// Draft text in the sticky composer pane. Cleared after
+    /// "send" (currently a no-op staging slot — wiring it through
+    /// to `argo chat` lands in a later PR; for now Enter just
+    /// snapshots the draft into `last_sent`).
+    pub composer: String,
+    /// True while the user is editing the composer (vim-`i` mode).
+    pub composer_mode: bool,
+    /// Last "sent" composer draft (Enter snapshot). Visible in the
+    /// detail pane so the user can confirm the round-trip will
+    /// pick this up once live wiring lands.
+    pub last_sent: Option<String>,
 }
 
 impl ViewerState {
@@ -49,7 +60,36 @@ impl ViewerState {
             messages_loaded: false,
             filter: String::new(),
             filter_mode: false,
+            composer: String::new(),
+            composer_mode: false,
+            last_sent: None,
         }
+    }
+
+    /// Append a char to the composer draft.
+    pub fn composer_push(&mut self, c: char) {
+        self.composer.push(c);
+    }
+
+    /// Pop the last char from the composer draft (Backspace).
+    pub fn composer_pop(&mut self) {
+        self.composer.pop();
+    }
+
+    /// Snapshot the draft into `last_sent` and clear it. Today the
+    /// snapshot is purely visible — wiring it through to `argo
+    /// chat` lands when the TUI gets a `SessionStore` handle.
+    pub fn composer_send(&mut self) {
+        if !self.composer.is_empty() {
+            self.last_sent = Some(std::mem::take(&mut self.composer));
+        }
+        self.composer_mode = false;
+    }
+
+    /// Discard the draft and exit composer mode.
+    pub fn composer_cancel(&mut self) {
+        self.composer.clear();
+        self.composer_mode = false;
     }
 
     /// Indices into `sessions` for rows matching `filter`. Empty
@@ -250,6 +290,21 @@ async fn event_loop(
                 }
                 continue;
             }
+            // Composer mode: type freely, Enter snapshots draft into
+            // last_sent (live wiring to argo chat is a follow-up),
+            // Esc cancels.
+            if state.composer_mode {
+                match key.code {
+                    KeyCode::Esc => state.composer_cancel(),
+                    KeyCode::Enter => state.composer_send(),
+                    KeyCode::Backspace => state.composer_pop(),
+                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        state.composer_push(c);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -257,6 +312,9 @@ async fn event_loop(
                 }
                 KeyCode::Char('/') => {
                     state.enter_filter_mode();
+                }
+                KeyCode::Char('i') => {
+                    state.composer_mode = true;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();

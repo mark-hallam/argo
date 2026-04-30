@@ -13,9 +13,14 @@ use ratatui::Frame;
 /// a scrolling messages pane. Footer carries a one-line keymap.
 pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     let area = frame.area();
+    // Outer rows: main · sticky composer · footer.
     let outer = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .constraints([
+            Constraint::Min(1),
+            Constraint::Length(3),
+            Constraint::Length(1),
+        ])
         .split(area);
     let panes = Layout::default()
         .direction(Direction::Horizontal)
@@ -28,7 +33,35 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     draw_session_list(frame, panes[0], state);
     draw_session_detail(frame, right[0], state);
     draw_messages_pane(frame, right[1], state);
-    draw_footer(frame, outer[1], state);
+    draw_composer(frame, outer[1], state);
+    draw_footer(frame, outer[2], state);
+}
+
+fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
+    let title = if state.composer_mode {
+        " composer (Enter=send · Esc=cancel) ".to_string()
+    } else {
+        " composer (i=edit) ".to_string()
+    };
+    let style = if state.composer_mode {
+        Style::default().add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().add_modifier(Modifier::DIM)
+    };
+    let body = if state.composer.is_empty() && !state.composer_mode {
+        match &state.last_sent {
+            Some(s) => format!("(last sent: {}…)", s.chars().take(60).collect::<String>()),
+            None => String::new(),
+        }
+    } else {
+        state.composer.clone()
+    };
+    let para = Paragraph::new(body).style(style).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title),
+    );
+    frame.render_widget(para, area);
 }
 
 fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -177,13 +210,18 @@ fn draw_session_detail(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 }
 
 fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
+    if state.composer_mode {
+        let p = Paragraph::new("composer: type, Enter=send, Esc=cancel");
+        frame.render_widget(p, area);
+        return;
+    }
     let body = if state.filter_mode {
         format!(
             "/{}  (Enter applies, Esc clears, Backspace edits)",
             state.filter
         )
     } else if state.filter.is_empty() {
-        "↑/k  ↓/j  PgUp/PgDn  g/G  /  filter    q/esc  quit".to_string()
+        "↑/k  ↓/j  PgUp/PgDn  g/G  /  filter    i  compose    q/esc  quit".to_string()
     } else {
         format!(
             "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",
@@ -259,6 +297,25 @@ mod tests {
         let frame = render_to_strings(&state);
         assert!(frame.contains("provider:"));
         assert!(frame.contains("mock-provider"));
+    }
+
+    #[test]
+    fn composer_pane_shows_idle_hint_then_draft_when_typing() {
+        let mut state = ViewerState::new(vec![header("compose-target")]);
+        let idle = render_to_strings(&state);
+        assert!(idle.contains("composer (i=edit)"));
+
+        state.composer_mode = true;
+        state.composer_push('h');
+        state.composer_push('i');
+        let typing = render_to_strings(&state);
+        assert!(typing.contains("composer (Enter=send"));
+        assert!(typing.contains("hi"));
+
+        state.composer_send();
+        let after = render_to_strings(&state);
+        assert!(after.contains("last sent: hi"));
+        assert!(!after.contains("composer (Enter=send"));
     }
 
     #[test]
