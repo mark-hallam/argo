@@ -16,6 +16,18 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
             let v = store.schema_version().await?;
             println!("schema_version: {v}");
             println!("db_path: {}", db.display());
+            let stats = store.db_stats().await?;
+            println!("rows:");
+            println!("  sessions:           {:>8}", stats.sessions);
+            println!("  messages:           {:>8}", stats.messages);
+            println!("  tool_calls:         {:>8}", stats.tool_calls);
+            println!("  audit_records:      {:>8}", stats.audit_rows);
+            println!("  routing_decisions:  {:>8}", stats.routing_decisions);
+            println!("  judge_records:      {:>8}", stats.judge_records);
+            println!("  memory_entries:     {:>8}", stats.memory_entries);
+            println!("  skills:             {:>8}", stats.skills);
+            println!("  forge_runs:         {:>8}", stats.forge_runs);
+            println!("  spend_ledger:       {:>8}", stats.spend_rows);
         }
         DbCmd::MigrateUp => {
             let before = store.schema_version().await?;
