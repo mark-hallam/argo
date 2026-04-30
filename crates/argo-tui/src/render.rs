@@ -28,7 +28,7 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     draw_session_list(frame, panes[0], state);
     draw_session_detail(frame, right[0], state);
     draw_messages_pane(frame, right[1], state);
-    draw_footer(frame, outer[1]);
+    draw_footer(frame, outer[1], state);
 }
 
 fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -77,9 +77,10 @@ fn first_line_of_content(content_json: &str) -> String {
 }
 
 fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
-    let items: Vec<ListItem> = state
-        .sessions
+    let indices = state.filtered_indices();
+    let items: Vec<ListItem> = indices
         .iter()
+        .filter_map(|i| state.sessions.get(*i))
         .map(|s| {
             let title = s.title.as_deref().unwrap_or("(untitled)");
             ListItem::new(Line::from(vec![
@@ -91,13 +92,24 @@ fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             ]))
         })
         .collect();
+    let title = if state.filter.is_empty() {
+        format!(" sessions ({}) ", state.sessions.len())
+    } else {
+        format!(
+            " sessions ({}/{} match '{}') ",
+            indices.len(),
+            state.sessions.len(),
+            state.filter
+        )
+    };
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(" sessions "))
+        .block(Block::default().borders(Borders::ALL).title(title))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("▸ ");
     let mut list_state = ListState::default();
-    if !state.sessions.is_empty() {
-        list_state.select(Some(state.selected));
+    if !indices.is_empty() {
+        let clamped = state.selected.min(indices.len() - 1);
+        list_state.select(Some(clamped));
     }
     frame.render_stateful_widget(list, area, &mut list_state);
 }
@@ -139,8 +151,22 @@ fn draw_session_detail(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
     frame.render_widget(p, area);
 }
 
-fn draw_footer(frame: &mut Frame<'_>, area: Rect) {
-    let p = Paragraph::new("↑/k  ↓/j  ←/PgUp →/PgDn  g/G  navigate    q/esc  quit");
+fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
+    let body = if state.filter_mode {
+        format!(
+            "/{}  (Enter applies, Esc clears, Backspace edits)",
+            state.filter
+        )
+    } else if state.filter.is_empty() {
+        "↑/k  ↓/j  PgUp/PgDn  g/G  /  filter    q/esc  quit".to_string()
+    } else {
+        format!(
+            "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",
+            state.filter,
+            state.filtered_indices().len()
+        )
+    };
+    let p = Paragraph::new(body);
     frame.render_widget(p, area);
 }
 
@@ -190,7 +216,8 @@ mod tests {
         let state = ViewerState::new(Vec::new());
         let frame = render_to_strings(&state);
         assert!(frame.contains("(no sessions"));
-        assert!(frame.contains("navigate"));
+        // Footer always shows the filter / quit keymap.
+        assert!(frame.contains("quit"));
     }
 
     #[test]

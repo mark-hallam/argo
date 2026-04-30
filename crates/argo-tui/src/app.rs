@@ -14,11 +14,13 @@ use std::time::Duration;
 
 /// Viewer state — sessions list, current selection, the detail-
 /// pane payload for the selected session, and a lazily-fetched
-/// message preview list.
+/// message preview list. `filter` + `filter_mode` drive the
+/// `/`-style search-in-list (Vim convention).
 pub struct ViewerState {
     /// Loaded session headers (reverse-chronological).
     pub sessions: Vec<SessionHeader>,
-    /// Currently-selected index into `sessions`.
+    /// Currently-selected index into the **filtered** view (see
+    /// [`Self::filtered_indices`]).
     pub selected: usize,
     /// Message count for the selected session (lazily fetched).
     pub selected_message_count: Option<u64>,
@@ -28,6 +30,11 @@ pub struct ViewerState {
     /// Whether the messages list has been fetched for the current
     /// selection (so we don't re-query when nothing changed).
     pub messages_loaded: bool,
+    /// Active filter substring (empty = no filter).
+    pub filter: String,
+    /// `true` when the user is currently typing the filter (the
+    /// composer pane in the footer captures keystrokes).
+    pub filter_mode: bool,
 }
 
 impl ViewerState {
@@ -40,16 +47,42 @@ impl ViewerState {
             selected_message_count: None,
             selected_messages: Vec::new(),
             messages_loaded: false,
+            filter: String::new(),
+            filter_mode: false,
         }
+    }
+
+    /// Indices into `sessions` for rows matching `filter`. Empty
+    /// filter returns every index in order.
+    #[must_use]
+    pub fn filtered_indices(&self) -> Vec<usize> {
+        if self.filter.is_empty() {
+            return (0..self.sessions.len()).collect();
+        }
+        let needle = self.filter.to_lowercase();
+        self.sessions
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| {
+                s.title
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(&needle)
+                    || s.model.to_lowercase().contains(&needle)
+                    || s.provider.to_lowercase().contains(&needle)
+            })
+            .map(|(i, _)| i)
+            .collect()
     }
 
     /// Move the selection down (if not already at the end).
     pub fn next(&mut self) {
-        if self.sessions.is_empty() {
+        let len = self.filtered_indices().len();
+        if len == 0 {
             return;
         }
-        let max_idx = self.sessions.len() - 1;
-        if self.selected < max_idx {
+        if self.selected + 1 < len {
             self.selected += 1;
             self.invalidate();
         }
@@ -65,10 +98,11 @@ impl ViewerState {
 
     /// Jump down by `step` (clamped at the end).
     pub fn next_n(&mut self, step: usize) {
-        if self.sessions.is_empty() {
+        let len = self.filtered_indices().len();
+        if len == 0 {
             return;
         }
-        let max_idx = self.sessions.len() - 1;
+        let max_idx = len - 1;
         let new = (self.selected + step).min(max_idx);
         if new != self.selected {
             self.selected = new;
@@ -85,7 +119,7 @@ impl ViewerState {
         }
     }
 
-    /// Jump to the first session.
+    /// Jump to the first row.
     pub fn first(&mut self) {
         if self.selected != 0 {
             self.selected = 0;
@@ -93,16 +127,51 @@ impl ViewerState {
         }
     }
 
-    /// Jump to the last session.
+    /// Jump to the last row.
     pub fn last(&mut self) {
-        if self.sessions.is_empty() {
+        let len = self.filtered_indices().len();
+        if len == 0 {
             return;
         }
-        let max_idx = self.sessions.len() - 1;
+        let max_idx = len - 1;
         if self.selected != max_idx {
             self.selected = max_idx;
             self.invalidate();
         }
+    }
+
+    /// Enter filter-input mode (the footer becomes a composer that
+    /// captures keystrokes).
+    pub fn enter_filter_mode(&mut self) {
+        self.filter_mode = true;
+    }
+
+    /// Leave filter-input mode (filter remains applied).
+    pub fn exit_filter_mode(&mut self) {
+        self.filter_mode = false;
+    }
+
+    /// Push a character into the filter; clamps selection back to
+    /// 0 since the filtered list shape changed.
+    pub fn filter_push(&mut self, c: char) {
+        self.filter.push(c);
+        self.selected = 0;
+        self.invalidate();
+    }
+
+    /// Backspace one character from the filter.
+    pub fn filter_pop(&mut self) {
+        self.filter.pop();
+        self.selected = 0;
+        self.invalidate();
+    }
+
+    /// Clear the filter and exit filter mode.
+    pub fn filter_clear(&mut self) {
+        self.filter.clear();
+        self.filter_mode = false;
+        self.selected = 0;
+        self.invalidate();
     }
 
     fn invalidate(&mut self) {
@@ -111,10 +180,12 @@ impl ViewerState {
         self.messages_loaded = false;
     }
 
-    /// Currently-selected session, if any.
+    /// Currently-selected session, honoring the filter.
     #[must_use]
     pub fn selected_session(&self) -> Option<&SessionHeader> {
-        self.sessions.get(self.selected)
+        let indices = self.filtered_indices();
+        let raw = indices.get(self.selected).copied()?;
+        self.sessions.get(raw)
     }
 }
 
@@ -157,10 +228,35 @@ async fn event_loop(
             if key.kind != KeyEventKind::Press {
                 continue;
             }
+            // While typing the filter, intercept keystrokes:
+            // letters/digits/punct extend the filter, Backspace
+            // removes a char, Enter applies + exits filter mode,
+            // Esc clears + exits.
+            if state.filter_mode {
+                match key.code {
+                    KeyCode::Esc => state.filter_clear(),
+                    KeyCode::Enter => state.exit_filter_mode(),
+                    KeyCode::Backspace => {
+                        state.filter_pop();
+                        fetch_message_count(store, state).await?;
+                        fetch_messages(store, state).await?;
+                    }
+                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        state.filter_push(c);
+                        fetch_message_count(store, state).await?;
+                        fetch_messages(store, state).await?;
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     return Ok(());
+                }
+                KeyCode::Char('/') => {
+                    state.enter_filter_mode();
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();
@@ -329,5 +425,65 @@ mod tests {
         s.first();
         s.last();
         assert!(s.selected_session().is_none());
+    }
+
+    #[test]
+    fn empty_filter_shows_all() {
+        let s = ViewerState::new(vec![fake_session("morning"), fake_session("afternoon")]);
+        assert_eq!(s.filtered_indices(), vec![0, 1]);
+    }
+
+    #[test]
+    fn filter_substring_match() {
+        let mut s = ViewerState::new(vec![
+            fake_session("morning summary"),
+            fake_session("afternoon stand-up"),
+            fake_session("evening review"),
+        ]);
+        s.filter_push('m');
+        s.filter_push('o');
+        s.filter_push('r');
+        assert_eq!(s.filtered_indices(), vec![0]);
+    }
+
+    #[test]
+    fn filter_is_case_insensitive() {
+        let mut s = ViewerState::new(vec![fake_session("Morning")]);
+        s.filter_push('m');
+        assert_eq!(s.filtered_indices(), vec![0]);
+    }
+
+    #[test]
+    fn changing_filter_resets_selection() {
+        let mut s = ViewerState::new(vec![
+            fake_session("alpha"),
+            fake_session("beta"),
+            fake_session("gamma"),
+        ]);
+        s.selected = 2;
+        s.filter_push('a');
+        assert_eq!(s.selected, 0);
+    }
+
+    #[test]
+    fn selected_session_honors_filter() {
+        let mut s = ViewerState::new(vec![
+            fake_session("a-thing"),
+            fake_session("b-thing"),
+            fake_session("c-thing"),
+        ]);
+        s.filter_push('b');
+        let title = s.selected_session().unwrap().title.as_deref().unwrap();
+        assert_eq!(title, "b-thing");
+    }
+
+    #[test]
+    fn filter_clear_returns_to_full_list() {
+        let mut s = ViewerState::new(vec![fake_session("alpha"), fake_session("beta")]);
+        s.filter_push('a');
+        s.filter_clear();
+        assert_eq!(s.filter, "");
+        assert!(!s.filter_mode);
+        assert_eq!(s.filtered_indices(), vec![0, 1]);
     }
 }
