@@ -8,17 +8,19 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 ships as a reusable library crate (`argo-agent-runner`) — the
 TUI drives turns directly, no longer just persisting user
 messages and waiting on a separate `argo chat` process. The
-TUI itself is a self-contained workflow: \`n\` clones a new
-session, \`r\` renames, \`d\` deletes (y-confirm), \`i\` composes,
-\`y\` yanks via OSC-52, with a real-time `RunEvent` trail
-streaming under the messages pane while a turn runs. Gateway
-gains \`GET /providers\` and \`GET /tools\` for client
-introspection. Streaming end-to-end (chat + gateway, real-time
-via mpsc channel — no polling). Full gateway parity for replay
-/ steer / per-session spend / messages pagination.** Phases
-0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
-**234+ PRs**, with zero LOC-budget violations across the
-~38k-line workspace and 70+ test suites green.
+TUI is now a self-contained workflow: i compose / s steer /
+n new (clone) / r rename / d delete (y-confirm) / y yank
+(OSC-52) / Tab toggles pane focus + j/k/PgUp/PgDn/g/G route by
+focus / ? opens a help overlay; a real-time `RunEvent` trail
+streams under the messages pane while a turn runs. Gateway
+gains `GET /providers`, `GET /tools`, `GET /search?q=…`. New
+`argo session watch <id>` for `tail -f`-style live message
+viewing. Streaming end-to-end (chat + gateway, real-time via
+mpsc channel — no polling). Full gateway parity for replay /
+steer / per-session spend / messages pagination.** Phases 0–7
++ 4.5 + 6.5 + 7.5 all ship at the library tier across **241+
+PRs**, with zero LOC-budget violations across the ~39k-line
+workspace and 70+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -61,14 +63,15 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **25 endpoints** —
+shutdown via SIGTERM/SIGINT). It exposes **26 endpoints** —
 `/health`, `/version`, `GET /sessions` (with per-row spend +
 `?since-minutes=N` filter), `GET /sessions/<id>` (+
 tool_call_count + spend), `GET /sessions/<id>/messages?limit=N
 &role=<r>`, `GET /sessions/<id>/spend`, `GET /skills`,
 `GET /memory`, `GET /audit`, `GET /audit/sessions/<id>`,
 `GET /costs`, `GET /costs/by-model`, `GET /costs/by-session`,
-`GET /providers`, `GET /tools`, `POST /sessions`,
+`GET /providers`, `GET /tools`,
+`GET /search?q=…[&limit=N&session=<id>]`, `POST /sessions`,
 `POST /sessions/<id>/messages`,
 `POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
 `POST /sessions/<id>/runs/stream` (chunked-NDJSON live event
