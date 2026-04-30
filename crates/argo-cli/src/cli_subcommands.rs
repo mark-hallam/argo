@@ -246,12 +246,15 @@ pub enum AuditCmd {
         json: bool,
     },
     /// Stream the audit log to ndjson. Defaults to stdout; pass
-    /// `--out <path>` to write to a file.
+    /// `--out <path>` to write to a file. Pass `--session <id>` to
+    /// scope the export to one session.
     Export {
         #[arg(long, default_value = "ndjson")]
         format: String,
         #[arg(long)]
         out: Option<String>,
+        #[arg(long)]
+        session: Option<String>,
     },
 }
 
