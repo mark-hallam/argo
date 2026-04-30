@@ -7,7 +7,10 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 **Library + integration tier complete. Live agent loop with tool
 dispatch + spend tracking running across all four provider
 families.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
-tier across **177+ PRs**.
+tier across **183+ PRs**, with zero LOC-budget violations across
+the ~37k-line workspace (`gateway/routes.rs`, `mcp-browser/cdp.rs`,
+and `gateway_smoke.rs` were all split or trimmed back under 500 LOC
+in #179 / #181 / #182).
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -32,7 +35,8 @@ side surface (`session list/show/diff`, `memory list/view`,
 `skill list/view`, `cron list`, `provider show`, `audit
 show/verify`, `costs show` — now also rolling up actual spend
 across today / month-to-date / all-time, plus `--by-model` /
-`--by-session` breakdowns — all `--json`-capable), `argo new` /
+`--by-session` breakdowns and `costs export` for NDJSON ledger
+dumps — all `--json`-capable), `argo new` /
 `argo resume` / `argo chat` / `argo steer` cover the full session
 lifecycle. `argo session show` + `argo session list` surface
 per-session tool_call_count + spend, and the gateway's
