@@ -86,7 +86,11 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             session,
             kinds,
             since_minutes,
+            watch,
         } => {
+            if watch {
+                return watch_audit(&store, session.as_deref(), kinds.as_deref()).await;
+            }
             let kind_filter = parse_kinds(kinds.as_deref());
             let cutoff = since_minutes
                 .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
@@ -270,6 +274,62 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 eprintln!("audit export: wrote {n} rows");
             }
             Ok(())
+        }
+    }
+}
+
+/// `tail -f`-style live tail of the audit chain. Polls the audit
+/// rows every 250ms; prints any rows that newly appeared since
+/// the last poll. Optional session filter + kinds filter mirror
+/// the static-show path.
+async fn watch_audit(
+    store: &std::sync::Arc<argo_store::SessionStore>,
+    session: Option<&str>,
+    kinds: Option<&str>,
+) -> ArgoResult<()> {
+    let kind_filter = parse_kinds(kinds);
+    let session_id = match session {
+        Some(raw) => Some(SessionId(uuid::Uuid::parse_str(raw).map_err(|e| {
+            ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+        })?)),
+        None => None,
+    };
+    eprintln!("watching audit chain (Ctrl-C to exit)…");
+    let mut last_seq = match session_id {
+        Some(sid) => argo_audit::rows_for_session(store, sid)
+            .await?
+            .into_iter()
+            .map(|r| r.seq)
+            .max()
+            .unwrap_or(0),
+        None => sqlx::query_scalar::<_, i64>("SELECT COALESCE(MAX(seq), 0) FROM audit_record")
+            .fetch_one(store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("max seq: {e}")))?,
+    };
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        let rows = match session_id {
+            Some(sid) => argo_audit::rows_for_session(store, sid).await?,
+            None => argo_audit::tail_rows(store, 100).await?,
+        };
+        let new_rows: Vec<_> = rows.into_iter().filter(|r| r.seq > last_seq).collect();
+        for r in &new_rows {
+            if let Some(allowed) = &kind_filter {
+                if !allowed.contains(r.kind.as_str()) {
+                    continue;
+                }
+            }
+            let detail = payload_detail(&r.kind, &r.payload);
+            println!(
+                "  seq={:<6} kind={:<22} session={} {detail}",
+                r.seq,
+                r.kind,
+                r.session_id.as_deref().unwrap_or("-")
+            );
+        }
+        if let Some(max) = new_rows.iter().map(|r| r.seq).max() {
+            last_seq = last_seq.max(max);
         }
     }
 }

@@ -240,6 +240,11 @@ pub enum AuditCmd {
         /// Applies to both the tail view and `--session`.
         #[arg(long)]
         since_minutes: Option<i64>,
+        /// `tail -f` style: poll for new rows every 250ms and
+        /// print them as they arrive. Combine with `--session <id>`
+        /// to watch one session live; Ctrl-C to exit.
+        #[arg(long)]
+        watch: bool,
     },
     /// Verify the hash chain. Pass `--session <id>` to check one
     /// session only (fast on huge logs).
