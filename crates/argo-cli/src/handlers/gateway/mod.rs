@@ -93,17 +93,18 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     let _guard = PidGuard(pidfile.clone());
 
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
-    eprintln!("  GET /health    → {{\"status\":\"ok\"}}");
-    eprintln!("  GET /version   → {{\"version\":\"<crate>\"}}");
-    eprintln!("  GET /sessions  → recent sessions (JSON array)");
-    eprintln!("  GET /skills    → active skills (JSON array)");
-    eprintln!("  GET /memory    → active memory entries (JSON array)");
-    eprintln!("  GET  /sessions/<uuid> → one session header (with message_count)");
+    eprintln!("  GET  /health   → {{\"status\":\"ok\"}}");
+    eprintln!("  GET  /version  → {{\"version\":\"<crate>\"}}");
+    eprintln!("  GET  /sessions → recent sessions (JSON array; carries spent_usd_micros)");
+    eprintln!("  GET  /sessions/<uuid> → one session header + message_count + tool_call_count + spend");
     eprintln!("  GET  /sessions/<uuid>/messages → every message on the session");
     eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("  POST /sessions/<uuid>/messages → append a message ({{role, content}})");
     eprintln!("  POST /sessions/<uuid>/runs → run one agent turn ({{user?, stream:false}})");
+    eprintln!("  GET  /skills   → active skills (JSON array)");
+    eprintln!("  GET  /memory   → active memory entries (JSON array)");
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
+    eprintln!("  GET  /audit/sessions/<uuid> → per-session audit chain (JSON array)");
     eprintln!("  GET  /costs    → cost ceilings (per_session/day/month + notify_at_pct)");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");
 
