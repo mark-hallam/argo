@@ -61,21 +61,45 @@ where
     .map_err(|e| ArgoError::Provider(format!("audit export query: {e}")))?;
     let mut count = 0_usize;
     for row in rows {
-        let exported = ExportedRow {
-            seq: row.seq,
-            id: hex::encode(&row.id),
-            session_id: row.session_id.map(|b| hex::encode(&b)),
-            kind: row.kind,
-            payload: serde_json::from_str(&row.payload_json)
-                .map_err(|e| ArgoError::Provider(format!("audit payload parse: {e}")))?,
-            parent_hash: hex::encode(&row.parent_hash),
-            self_hash: hex::encode(&row.self_hash),
-            created_at_micros: row.created_at,
-        };
+        let exported = row_to_exported(row)?;
         emit(&exported)?;
         count += 1;
     }
     Ok(count)
+}
+
+/// Fetch the most recent `n` rows in `seq` order (oldest first).
+/// Used by the CLI's `argo audit show --tail N`.
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] on SQL or payload parse failure.
+pub async fn tail_rows(store: &SessionStore, n: u32) -> ArgoResult<Vec<ExportedRow>> {
+    let rows = sqlx::query_as::<_, Row>(
+        "SELECT * FROM (
+             SELECT seq, id, session_id, kind, payload_json, \
+                    parent_hash, self_hash, created_at \
+             FROM audit_record ORDER BY seq DESC LIMIT ?
+         ) ORDER BY seq ASC",
+    )
+    .bind(i64::from(n))
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("audit tail query: {e}")))?;
+    rows.into_iter().map(row_to_exported).collect()
+}
+
+fn row_to_exported(row: Row) -> ArgoResult<ExportedRow> {
+    Ok(ExportedRow {
+        seq: row.seq,
+        id: hex::encode(&row.id),
+        session_id: row.session_id.map(|b| hex::encode(&b)),
+        kind: row.kind,
+        payload: serde_json::from_str(&row.payload_json)
+            .map_err(|e| ArgoError::Provider(format!("audit payload parse: {e}")))?,
+        parent_hash: hex::encode(&row.parent_hash),
+        self_hash: hex::encode(&row.self_hash),
+        created_at_micros: row.created_at,
+    })
 }
 
 #[cfg(test)]

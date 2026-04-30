@@ -231,7 +231,11 @@ pub enum CronCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum AuditCmd {
-    Show,
+    /// Show the kind histogram + (optionally) the last `--tail N` rows.
+    Show {
+        #[arg(long)]
+        tail: Option<u32>,
+    },
     /// Verify the hash chain.
     Verify {
         #[arg(long)]
@@ -304,6 +308,10 @@ pub enum SessionCmd {
     List {
         #[arg(long, default_value_t = 25)]
         limit: u32,
+    },
+    /// Show one session header (model, provider, start time, message count).
+    Show {
+        id: String,
     },
     Replay {
         id: String,

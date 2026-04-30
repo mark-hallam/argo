@@ -1,7 +1,7 @@
 //! `argo audit` — chain inspection / verification / export.
 use crate::cli::AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::{export_ndjson, verify_all};
+use argo_audit::{export_ndjson, tail_rows, verify_all};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::io::{BufWriter, Write};
@@ -39,9 +39,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 ))
             }
         }
-        AuditCmd::Show => {
-            // The DB-backed render landed on top of `verify_all`'s
-            // kind_counts. Future TUI / `--tail N` lives separately.
+        AuditCmd::Show { tail } => {
             let report = verify_all(&store).await?;
             println!("audit log — {} rows", report.rows);
             let mut kinds: Vec<(&String, &usize)> = report.kind_counts.iter().collect();
@@ -54,6 +52,18 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                     "(chain has {} break(s); run `argo audit verify` for detail)",
                     report.breaks.len()
                 );
+            }
+            if let Some(n) = tail {
+                let rows = tail_rows(&store, n).await?;
+                println!("\nlast {} rows:", rows.len());
+                for r in rows {
+                    println!(
+                        "  seq={:<6} kind={:<22} session={}",
+                        r.seq,
+                        r.kind,
+                        r.session_id.as_deref().unwrap_or("-")
+                    );
+                }
             }
             Ok(())
         }

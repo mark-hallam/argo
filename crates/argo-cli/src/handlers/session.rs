@@ -4,11 +4,12 @@
 use crate::cli::SessionCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, SessionId};
 
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
         SessionCmd::List { limit } => list_sessions(limit).await,
+        SessionCmd::Show { id } => show_session(&id).await,
         SessionCmd::Diff { id1, id2 } => {
             // The diff against the live SQLite store needs the
             // tool_call → TurnRecord projection, which lands with
@@ -53,6 +54,42 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn show_session(raw: &str) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let db = db_path(&home);
+    let store = SessionStore::open(&db).await?;
+    store.migrate().await?;
+    let id = uuid::Uuid::parse_str(raw)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let session = store
+        .get_session(SessionId(id))
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
+    let count = store.message_count(SessionId(id)).await?;
+    println!("session {}", session.id.0);
+    println!("  tenant_id:    {}", session.tenant_id.0);
+    println!("  workspace_id: {}", session.workspace_id.0);
+    println!("  provider:     {}", session.provider);
+    println!("  model:        {}", session.model);
+    println!(
+        "  title:        {}",
+        session.title.as_deref().unwrap_or("(none)")
+    );
+    println!("  started_at:   {}", session.started_at);
+    println!(
+        "  ended_at:     {}",
+        session
+            .ended_at
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| "(open)".into())
+    );
+    println!("  messages:     {count}");
+    Ok(())
 }
 
 async fn list_sessions(limit: u32) -> ArgoResult<()> {
