@@ -21,6 +21,7 @@ async-trait = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
+parking_lot = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 sqlx = { workspace = true }
@@ -29,5 +30,4 @@ uuid = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 futures = { workspace = true }
-parking_lot = { workspace = true }
 tempfile = "3"

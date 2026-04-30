@@ -12,6 +12,7 @@
 //! retry/repair, subagent delegation, routing, judge integration, steer
 //! hooks, heartbeat. Those land with Phase 2 of §6.
 use crate::audit::{AuditKind, AuditSink};
+use crate::steer::SteerChannel;
 use argo_capability::CapabilityEngine;
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_tool::{ToolContext, ToolRegistry};
@@ -37,6 +38,10 @@ pub struct AgentDeps {
     pub capability_engine: Arc<CapabilityEngine>,
     /// Hash-chained audit log.
     pub audit: Arc<AuditSink>,
+    /// Mid-run steer channel (Amendment 14). Drained between tool
+    /// results and the next provider call so steers reach the
+    /// model on the very next turn without breaking prompt cache.
+    pub steer: Arc<SteerChannel>,
 }
 
 impl std::fmt::Debug for AgentDeps {
@@ -173,6 +178,28 @@ impl Agent {
                 self.persist_message(session_id, &result_msg).await?;
                 history.push(result_msg);
             }
+            // Amendment 14: drain any steers enqueued during this
+            // turn and inject them as a synthesized user message
+            // BEFORE the next provider call. Steers come after the
+            // last cached prefix so the next call still hits cache.
+            let steers = self.deps.steer.drain(session_id);
+            if !steers.is_empty() {
+                let steer_msg = build_steer_message(session_id, &steers);
+                self.persist_message(session_id, &steer_msg).await?;
+                self.deps
+                    .audit
+                    .write(
+                        Some(session_id),
+                        AuditKind::SteerEnqueued,
+                        serde_json::json!({
+                            "session_id": session_id.to_string(),
+                            "by_principal": opts.principal,
+                            "count": steers.len(),
+                        }),
+                    )
+                    .await?;
+                history.push(steer_msg);
+            }
         };
         self.deps
             .audit
@@ -287,6 +314,20 @@ fn build_user_message(session_id: SessionId, text: &str) -> Message {
         created_at: Utc::now(),
         provider_meta: serde_json::Value::Null,
     }
+}
+
+fn build_steer_message(session_id: SessionId, steers: &[String]) -> Message {
+    let body = if steers.len() == 1 {
+        format!("[steer] {}", steers[0])
+    } else {
+        let mut s = String::from("[steer]");
+        for line in steers {
+            s.push('\n');
+            s.push_str(line);
+        }
+        s
+    };
+    build_user_message(session_id, &body)
 }
 
 fn build_assistant_message(

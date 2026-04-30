@@ -23,9 +23,11 @@
 
 mod agent;
 mod audit;
+mod steer;
 
 #[cfg(test)]
 mod tests;
 
 pub use agent::{Agent, AgentDeps, RunTurnOptions, TurnOutcome};
 pub use audit::{AuditKind, AuditSink};
+pub use steer::SteerChannel;
