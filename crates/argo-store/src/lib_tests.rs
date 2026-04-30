@@ -281,6 +281,33 @@ async fn override_judge_verdict_updates_in_place() {
 }
 
 #[tokio::test]
+async fn start_then_finish_forge_run_round_trips() {
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+
+    let id = store
+        .start_forge_run("my-skill", "0.1", 5)
+        .await
+        .unwrap();
+    let row = store.get_forge_run(id).await.unwrap().unwrap();
+    assert_eq!(row.status, "running");
+    assert!(row.ended_at.is_none());
+    assert_eq!(row.iterations, 0);
+    assert!(row.final_score.is_none());
+
+    let affected = store
+        .finish_forge_run(id, "succeeded", Some(0.842), 5)
+        .await
+        .unwrap();
+    assert_eq!(affected, 1);
+    let row = store.get_forge_run(id).await.unwrap().unwrap();
+    assert_eq!(row.status, "succeeded");
+    assert!(row.ended_at.is_some());
+    assert_eq!(row.iterations, 5);
+    assert_eq!(row.final_score, Some(0.842));
+}
+
+#[tokio::test]
 async fn record_marketplace_artifact_appends_and_lists_newest_first() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();

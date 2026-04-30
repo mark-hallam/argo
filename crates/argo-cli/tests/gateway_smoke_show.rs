@@ -48,7 +48,7 @@ fn boot(port: u16, max_requests: u32) -> (std::process::Child, BufReader<std::pr
     // Persist the tempdir for the child's lifetime by leaking
     // its path into ARGO_HOME — the test process tears it down
     // when it exits.
-    let home_path = home.into_path();
+    let home_path = home.keep();
     let mut child = Command::new(argo_bin())
         .env("ARGO_HOME", home_path)
         .args([

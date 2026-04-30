@@ -4,10 +4,13 @@
 use crate::cli::{ForgeCmd, ForgeRunsCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{AuditKind, AuditSink};
+use argo_eval::{load_jsonl, run_eval, EvalSubject, EvalTask};
 use argo_skill::SkillStore;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, SessionId};
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
@@ -18,10 +21,170 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::Abort { id } => abort_run(&id).await,
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
+        ForgeCmd::Bench {
+            skill,
+            examples,
+            provider,
+            model,
+        } => bench(&skill, &examples, &provider, &model).await,
         other => {
             println!("argo forge: '{other:?}' requires the daemon's forge worker (separate PR).");
             Ok(())
         }
+    }
+}
+
+async fn bench(
+    skill_name: &str,
+    examples_path: &str,
+    provider: &str,
+    model: &str,
+) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let store = Arc::new(open_store().await?);
+    let skills = SkillStore::new(Arc::clone(&store));
+
+    // Resolve skill (lookup is informational — body isn't yet
+    // injected into the prompt; that lands with the skill-loader
+    // PR).
+    let active = skills
+        .find_active_by_name(skill_name)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{skill_name}'")))?;
+
+    let tasks = load_jsonl(&PathBuf::from(examples_path)).await?;
+    if tasks.is_empty() {
+        return Err(ArgoError::Provider(format!(
+            "no eval tasks parsed from {examples_path}"
+        )));
+    }
+    println!(
+        "argo forge bench: {skill_name} v{} → {} task(s) from {examples_path}",
+        active.frontmatter.version,
+        tasks.len()
+    );
+
+    // Bootstrap the workspace bookkeeping so each bench session
+    // can claim a tenant + workspace row.
+    let ws_name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let ws_root = cwd.to_string_lossy();
+    let (tenant, workspace) = store.ensure_workspace(ws_name, &ws_root).await?;
+
+    let run_id = store
+        .start_forge_run(
+            skill_name,
+            &active.frontmatter.version,
+            tasks.len() as u32,
+        )
+        .await?;
+    let _ = AuditSink::new(Arc::clone(&store))
+        .write(
+            None,
+            AuditKind::ForgeRunStart,
+            serde_json::json!({
+                "run_id": run_id.to_string(),
+                "skill_name": skill_name,
+                "examples": examples_path,
+                "n": tasks.len(),
+            }),
+        )
+        .await;
+
+    let subject = BenchSubject {
+        store: Arc::clone(&store),
+        cwd: cwd.clone(),
+        tenant,
+        workspace,
+        provider: provider.to_string(),
+        model: model.to_string(),
+        skill_name: skill_name.to_string(),
+    };
+    let (records, summary) = run_eval(&subject, &tasks).await;
+
+    let status = if summary.errors > 0 && summary.errors == summary.n {
+        "failed"
+    } else if summary.errors > 0 {
+        "partial"
+    } else {
+        "succeeded"
+    };
+    let _ = store
+        .finish_forge_run(run_id, status, Some(summary.mean_score), summary.n as i64)
+        .await;
+    let _ = AuditSink::new(Arc::clone(&store))
+        .write(
+            None,
+            AuditKind::ForgeRunEnd,
+            serde_json::json!({
+                "run_id": run_id.to_string(),
+                "status": status,
+                "mean_score": summary.mean_score,
+                "pass_rate": summary.pass_rate,
+                "errors": summary.errors,
+            }),
+        )
+        .await;
+
+    println!("\n  task                     score  passed  output (truncated)");
+    for r in &records {
+        let pass_tag = if r.passed { "yes" } else { "no" };
+        let preview: String = r.output.chars().take(48).collect();
+        println!(
+            "  {name:<24} {score:.3}  {pass:<6}  {preview}",
+            name = r.task,
+            score = r.score,
+            pass = pass_tag,
+        );
+    }
+    println!(
+        "\nsummary: n={} mean_score={:.3} pass_rate={:.3} errors={} (run_id={})",
+        summary.n, summary.mean_score, summary.pass_rate, summary.errors, run_id
+    );
+    Ok(())
+}
+
+/// `EvalSubject` impl that runs each task as a fresh recorded
+/// session via `argo_agent_runner::run_turn`. Returns the final
+/// assistant text; the runner's metric scores it.
+#[allow(dead_code)]
+struct BenchSubject {
+    store: Arc<SessionStore>,
+    cwd: PathBuf,
+    tenant: argo_types::TenantId,
+    workspace: argo_types::WorkspaceId,
+    provider: String,
+    model: String,
+    skill_name: String,
+}
+
+#[async_trait]
+impl EvalSubject for BenchSubject {
+    async fn run(&self, task: &EvalTask) -> ArgoResult<String> {
+        let title = format!("forge bench: {}", task.name);
+        let sid = self
+            .store
+            .create_session(
+                self.tenant,
+                self.workspace,
+                &self.model,
+                &self.provider,
+                Some(&title),
+            )
+            .await?;
+        let result = argo_agent_runner::run_turn(
+            &self.store,
+            &self.cwd,
+            SessionId(sid.0),
+            Some(&task.input),
+            false,
+            argo_agent_runner::MAX_TOOL_ROUNDS,
+        )
+        .await?;
+        Ok(result.text)
     }
 }
 

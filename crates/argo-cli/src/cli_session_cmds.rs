@@ -105,8 +105,27 @@ pub enum ForgeCmd {
         #[arg(long, default_value_t = 5.0)]
         budget: f64,
     },
+    /// Run an eval-task JSONL file through the agent loop and
+    /// score each task. Records a `forge_run` row with the mean
+    /// score + pass rate when the run finishes. Skill name is
+    /// captured for the row's metadata; the active skill body
+    /// isn't (yet) injected into the prompt — that lands with
+    /// the daemon-side prompt-loader PR.
     Bench {
         skill: String,
+        /// Path to a JSONL eval-task file (parsed by `argo eval
+        /// validate`).
+        #[arg(long)]
+        examples: String,
+        /// Provider id (matches `manifests/providers/<id>.toml`).
+        /// Defaults to `anthropic`.
+        #[arg(long, default_value = "anthropic")]
+        provider: String,
+        /// Model id (matches an entry in the manifest's
+        /// `[[models]]` list). Defaults to
+        /// `claude-3-5-sonnet-20241022`.
+        #[arg(long, default_value = "claude-3-5-sonnet-20241022")]
+        model: String,
     },
     Promote {
         skill: String,
