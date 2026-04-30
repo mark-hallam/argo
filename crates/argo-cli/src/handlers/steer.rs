@@ -14,7 +14,7 @@
 //! steers from regular system prompts.
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, MessageRole, SessionId};
+use argo_types::{ArgoError, ArgoResult, MessageRole};
 
 pub async fn run(raw: &str, text: &str) -> ArgoResult<()> {
     let cwd =
@@ -23,16 +23,16 @@ pub async fn run(raw: &str, text: &str) -> ArgoResult<()> {
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let session_id = super::session_resolve::resolve(&store, raw).await?;
+    let id = session_id.0;
     // Confirm session exists so we don't append into thin air.
-    if store.get_session(SessionId(id)).await?.is_none() {
+    if store.get_session(session_id).await?.is_none() {
         return Err(ArgoError::Provider(format!("no session {raw}")));
     }
     let body = format!("[steer] {text}");
     let content = serde_json::json!([{ "type": "text", "text": body }]);
     let msg_id = store
-        .append_message(SessionId(id), MessageRole::System, &content.to_string())
+        .append_message(session_id, MessageRole::System, &content.to_string())
         .await?;
     println!("argo steer: appended system message {msg_id} to session {id}");
     println!("  next `argo chat {id}` will see this as a system-prefix steer.");

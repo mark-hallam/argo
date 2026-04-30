@@ -6,7 +6,7 @@
 //! the daemon's `/sessions/<id>/runs` binding.
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(raw: &str) -> ArgoResult<()> {
     let cwd =
@@ -16,13 +16,12 @@ pub async fn run(raw: &str) -> ArgoResult<()> {
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
 
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let session_id = super::session_resolve::resolve(&store, raw).await?;
     let session = store
-        .get_session(SessionId(id))
+        .get_session(session_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
-    let messages = store.list_messages(SessionId(id)).await?;
+    let messages = store.list_messages(session_id).await?;
 
     println!("=== session {} ===", session.id.0);
     println!("  provider:    {}", session.provider);

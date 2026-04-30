@@ -70,8 +70,7 @@ pub async fn run(
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
     store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let id = super::session_resolve::resolve(&store, raw).await?.0;
 
     let rounds = max_tool_rounds.unwrap_or(MAX_TOOL_ROUNDS);
     if interactive {

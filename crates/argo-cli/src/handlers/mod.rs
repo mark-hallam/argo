@@ -23,6 +23,7 @@ pub mod resume;
 pub mod route;
 pub mod session;
 pub mod session_replay;
+mod session_resolve;
 pub mod skill;
 pub mod steer;
 pub mod trace;

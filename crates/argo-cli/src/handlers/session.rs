@@ -293,13 +293,13 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let session_id = super::session_resolve::resolve(&store, raw).await?;
+    let id = session_id.0;
     let session = store
-        .get_session(SessionId(id))
+        .get_session(session_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
-    let messages = store.list_messages(SessionId(id)).await?;
+    let messages = store.list_messages(session_id).await?;
     let count = messages.len() as u64;
     let first = messages.first().map(message_summary);
     let last = if messages.len() > 1 {
