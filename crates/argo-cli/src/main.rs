@@ -47,6 +47,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Judge { cmd }) => handlers::judge::run(cmd).await,
         Some(Command::Mcp { cmd }) => handlers::mcp::run(cmd).await,
         Some(Command::Memory { cmd }) => handlers::memory::run(cmd).await,
+        Some(Command::Model { cmd }) => handlers::model::run(cmd),
         Some(Command::Plugin { cmd }) => handlers::plugin::run(cmd),
         Some(Command::Provider { cmd }) => handlers::provider::run(cmd),
         Some(Command::Route { cmd }) => handlers::route::run(cmd).await,
