@@ -450,6 +450,9 @@ pub enum SessionCmd {
     Diff {
         id1: String,
         id2: String,
+        /// Output as a single JSON object for scripting.
+        #[arg(long)]
+        json: bool,
     },
     Bisect {
         id: String,

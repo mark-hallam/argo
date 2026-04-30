@@ -18,7 +18,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             session,
         } => search(&query, limit, session.as_deref()).await,
         SessionCmd::Delete { id, force } => delete_session(&id, force).await,
-        SessionCmd::Diff { id1, id2 } => diff_sessions(&id1, &id2).await,
+        SessionCmd::Diff { id1, id2, json } => diff_sessions(&id1, &id2, json).await,
         SessionCmd::Bisect { id, hypothesis } => {
             println!(
                 "session bisect {id} '{hypothesis}': same as diff — needs the daemon binding."
@@ -52,7 +52,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     }
 }
 
-async fn diff_sessions(raw1: &str, raw2: &str) -> ArgoResult<()> {
+async fn diff_sessions(raw1: &str, raw2: &str, json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -73,9 +73,6 @@ async fn diff_sessions(raw1: &str, raw2: &str) -> ArgoResult<()> {
         .ok_or_else(|| ArgoError::Provider(format!("no session {raw2}")))?;
     let m1 = store.list_messages(SessionId(id1)).await?;
     let m2 = store.list_messages(SessionId(id2)).await?;
-    println!("session diff");
-    println!("  a: {} ({} messages)", s1.id.0, m1.len());
-    println!("  b: {} ({} messages)", s2.id.0, m2.len());
     let mut header_diffs: Vec<(&str, String, String)> = Vec::new();
     if s1.model != s2.model {
         header_diffs.push(("model", s1.model.clone(), s2.model.clone()));
@@ -90,14 +87,6 @@ async fn diff_sessions(raw1: &str, raw2: &str) -> ArgoResult<()> {
             s2.title.clone().unwrap_or_default(),
         ));
     }
-    if header_diffs.is_empty() {
-        println!("  header: identical (model/provider/title)");
-    } else {
-        println!("  header diffs:");
-        for (field, a, b) in &header_diffs {
-            println!("    {field}: a={a:?} b={b:?}");
-        }
-    }
     let pairs = m1.len().min(m2.len());
     let mut first_div: Option<usize> = None;
     let mut diverged = 0_usize;
@@ -110,6 +99,37 @@ async fn diff_sessions(raw1: &str, raw2: &str) -> ArgoResult<()> {
         }
     }
     let trailing = m1.len().abs_diff(m2.len());
+    if json {
+        let header_diff_objects: Vec<_> = header_diffs
+            .iter()
+            .map(|(field, a, b)| serde_json::json!({"field": field, "a": a, "b": b}))
+            .collect();
+        let row = serde_json::json!({
+            "a": {"id": s1.id.0.to_string(), "messages": m1.len()},
+            "b": {"id": s2.id.0.to_string(), "messages": m2.len()},
+            "header_diffs": header_diff_objects,
+            "messages_compared": pairs,
+            "messages_diverged": diverged,
+            "trailing_only": trailing,
+            "first_divergence": first_div,
+            "byte_identical": header_diffs.is_empty() && diverged == 0 && trailing == 0,
+        });
+        let serialized = serde_json::to_string(&row)
+            .map_err(|e| ArgoError::Provider(format!("serialize diff: {e}")))?;
+        println!("{serialized}");
+        return Ok(());
+    }
+    println!("session diff");
+    println!("  a: {} ({} messages)", s1.id.0, m1.len());
+    println!("  b: {} ({} messages)", s2.id.0, m2.len());
+    if header_diffs.is_empty() {
+        println!("  header: identical (model/provider/title)");
+    } else {
+        println!("  header diffs:");
+        for (field, a, b) in &header_diffs {
+            println!("    {field}: a={a:?} b={b:?}");
+        }
+    }
     println!(
         "  messages: {} compared, {diverged} diverged, {trailing} trailing-only on the longer side",
         pairs
