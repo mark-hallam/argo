@@ -314,6 +314,46 @@ async fn record_marketplace_artifact_appends_and_lists_newest_first() {
 }
 
 #[tokio::test]
+async fn abort_forge_run_marks_status_and_ended_at() {
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+    let id = uuid::Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO forge_run (id, skill_name, started_at, ended_at, base_version, \
+         candidate_version, examples_count, iterations, spend_usd_micros, final_score, status) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(id.as_bytes().as_slice())
+    .bind("my-skill")
+    .bind(0_i64)
+    .bind(Option::<i64>::None)
+    .bind("0.1")
+    .bind(Option::<&str>::None)
+    .bind(0_i64)
+    .bind(0_i64)
+    .bind(0_i64)
+    .bind(Option::<f64>::None)
+    .bind("running")
+    .execute(store.pool())
+    .await
+    .unwrap();
+
+    let affected = store.abort_forge_run(id).await.unwrap();
+    assert_eq!(affected, 1);
+
+    let row = store.get_forge_run(id).await.unwrap().unwrap();
+    assert_eq!(row.status, "aborted");
+    assert!(row.ended_at.is_some());
+
+    // Re-aborting an unknown id is a no-op.
+    let none = store
+        .abort_forge_run(uuid::Uuid::now_v7())
+        .await
+        .unwrap();
+    assert_eq!(none, 0);
+}
+
+#[tokio::test]
 async fn override_judge_verdict_returns_none_for_unknown_id() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();

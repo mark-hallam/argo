@@ -144,6 +144,9 @@ pub struct MessageRow {
 /// One Forge run row. Surfaced as-is for `argo forge runs list`.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct ForgeRunRow {
+    /// Run id (UUID blob). Used by `argo forge runs show <id>` /
+    /// `argo forge runs abort <id>`.
+    pub id: Vec<u8>,
     /// Skill name being optimized.
     pub skill_name: String,
     /// Start timestamp (UTC, micros).

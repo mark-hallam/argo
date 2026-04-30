@@ -234,6 +234,7 @@ pub(super) async fn forge_runs_response(
                 .into_iter()
                 .map(|r| {
                     serde_json::json!({
+                        "id": hex::encode(&r.id),
                         "skill_name": r.skill_name,
                         "started_at": r.started_at,
                         "ended_at": r.ended_at,

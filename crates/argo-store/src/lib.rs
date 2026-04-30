@@ -12,6 +12,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod forge_meta;
 mod marketplace_meta;
 mod migrations;
 mod models;
@@ -407,7 +408,7 @@ impl SessionStore {
     /// `argo forge runs list` to surface optimization history.
     pub async fn list_forge_runs(&self, limit: u32) -> StoreResult<Vec<ForgeRunRow>> {
         let rows = sqlx::query_as::<_, ForgeRunRow>(
-            "SELECT skill_name, started_at, ended_at, base_version, \
+            "SELECT id, skill_name, started_at, ended_at, base_version, \
              candidate_version, iterations, spend_usd_micros, \
              final_score, status FROM forge_run \
              ORDER BY started_at DESC LIMIT ?",
