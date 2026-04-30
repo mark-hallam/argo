@@ -434,9 +434,14 @@ async fn list_sessions(
         sessions.retain(|s| s.started_at >= cutoff);
     }
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
+    let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
     if json {
         for s in &sessions {
             let spent = spend_by_sid
+                .get(s.id.0.as_bytes().as_slice())
+                .copied()
+                .unwrap_or(0);
+            let tcs = tool_calls_by_sid
                 .get(s.id.0.as_bytes().as_slice())
                 .copied()
                 .unwrap_or(0);
@@ -444,6 +449,7 @@ async fn list_sessions(
                 .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
             if let serde_json::Value::Object(ref mut m) = value {
                 m.insert("spent_usd_micros".into(), serde_json::Value::from(spent));
+                m.insert("tool_call_count".into(), serde_json::Value::from(tcs));
             }
             let line = serde_json::to_string(&value)
                 .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
@@ -456,27 +462,52 @@ async fn list_sessions(
         return Ok(());
     }
     println!(
-        "{sid:<38} {prov:<12} {model:<24} {spend:>10} title",
+        "{sid:<38} {prov:<12} {model:<24} {spend:>10} {tools:>5} title",
         sid = "session_id",
         prov = "provider",
         model = "model",
         spend = "spend",
+        tools = "tools",
     );
     for s in sessions {
         let spent = spend_by_sid
             .get(s.id.0.as_bytes().as_slice())
             .copied()
             .unwrap_or(0);
+        let tcs = tool_calls_by_sid
+            .get(s.id.0.as_bytes().as_slice())
+            .copied()
+            .unwrap_or(0);
         println!(
-            "{:<38} {:<12} {:<24} {:>10.4} {}",
+            "{:<38} {:<12} {:<24} {:>10.4} {:>5} {}",
             s.id.0,
             short(&s.provider, 12),
             short(&s.model, 24),
             spent as f64 / 1_000_000.0,
+            tcs,
             s.title.as_deref().unwrap_or("")
         );
     }
     Ok(())
+}
+
+/// `session_id (blob) → COUNT(audit_record where kind='ToolCall')`
+/// for every session that fired at least one tool call. One
+/// indexed GROUP BY query — no per-session round-trip.
+async fn tool_calls_per_session(
+    store: &SessionStore,
+) -> ArgoResult<std::collections::HashMap<Vec<u8>, u64>> {
+    let rows: Vec<(Vec<u8>, i64)> = sqlx::query_as(
+        "SELECT session_id, COUNT(*) FROM audit_record \
+         WHERE kind = 'ToolCall' GROUP BY session_id",
+    )
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("tool_calls_per_session: {e}")))?;
+    Ok(rows
+        .into_iter()
+        .map(|(sid, count)| (sid, u64::try_from(count).unwrap_or(0)))
+        .collect())
 }
 
 /// `session_id (blob) → SUM(amount_usd_micros)` for every session
