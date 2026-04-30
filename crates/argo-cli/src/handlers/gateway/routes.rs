@@ -41,6 +41,9 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /doctor ") {
         return doctor_response().await;
     }
+    if req.starts_with("GET /health/full ") {
+        return health_full_response().await;
+    }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
         if let Some((sid, _)) = rest.split_once(' ') {
             return audit_session_response(sid, store).await;
@@ -229,6 +232,26 @@ async fn doctor_response() -> (&'static str, String) {
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"doctor: {e}\"}}"),
+        ),
+    }
+}
+
+async fn health_full_response() -> (&'static str, String) {
+    match crate::handlers::health::collect().await {
+        Ok(v) => {
+            let status = if v["ok"].as_bool().unwrap_or(false) {
+                "200 OK"
+            } else {
+                "500 Internal Server Error"
+            };
+            (
+                status,
+                serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"health: {e}\"}}"),
         ),
     }
 }
