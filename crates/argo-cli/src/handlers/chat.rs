@@ -1,17 +1,23 @@
 //! `argo chat <id> [--user <text>]` — run one turn of the agent
 //! loop against a recorded session.
 //!
-//! v0 scope: Anthropic family only (the manifest at
-//! `manifests/providers/<id>.toml` must have `family = "anthropic"`).
-//! Calls the provider once, persists the assistant response. No
-//! tool dispatch, no streaming, no router — just the
-//! happy-path single-turn round-trip.
+//! Dispatches by `manifest.provider.family`:
+//!   - `anthropic` → AnthropicTransport
+//!   - `openai-compatible` → OpenAiCompatTransport
+//!   - `openai-responses` → OpenAiResponsesTransport
+//!   - `bedrock` → not yet wired (sigv4 needs daemon plumbing)
 //!
-//! Heavier surfaces (multi-turn loop, tool calls, streaming, cost
-//! accounting, audit emission) belong with the daemon-resident
-//! agent loop and will land via `POST /sessions/<id>/runs`.
+//! Calls the provider once, persists the assistant response. No
+//! tool dispatch, no streaming, no router — just the happy-path
+//! single-turn round-trip. Heavier surfaces (multi-turn loop, tool
+//! calls, streaming, cost accounting, audit emission) belong with
+//! the daemon-resident agent loop and will land via
+//! `POST /sessions/<id>/runs`.
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_provider::{AnthropicTransport, ProviderManifest, ProviderRequest, Sampling, Transport};
+use argo_provider::{
+    AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
+    ProviderManifest, ProviderRequest, Sampling, Transport,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
 use chrono::Utc;
@@ -44,7 +50,23 @@ pub async fn run(raw: &str, user: Option<&str>) -> ArgoResult<()> {
     let api_key_env = manifest.auth.api_key_env.clone();
     let api_key = std::env::var(&api_key_env)
         .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
-    let transport = AnthropicTransport::from_manifest(manifest, &api_key)?;
+    let transport: Box<dyn Transport> = match manifest.provider.family {
+        ProviderFamily::Anthropic => {
+            Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
+        }
+        ProviderFamily::OpenaiCompatible => {
+            Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
+        }
+        ProviderFamily::OpenaiResponses => {
+            Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
+        }
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "argo chat doesn't yet drive provider family {other:?} \
+                 (Bedrock needs sigv4 plumbing the daemon owns)"
+            )));
+        }
+    };
 
     // Reload messages so the freshly-appended user input is included.
     let rows = store.list_messages(SessionId(id)).await?;
