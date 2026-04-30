@@ -271,6 +271,79 @@ pub async fn read_page(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// Render the first page-type tab to a PDF via `Page.printToPDF`.
+/// Returns the base64 payload as an MCP `Image` content block
+/// (no `Pdf` variant in McpContent today; we use the same envelope
+/// as screenshot but advertise the correct mime type).
+pub async fn pdf(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Page.printToPDF",
+        "params": {}
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let data = parsed["result"]["data"].as_str().map(String::from);
+    let Some(data) = data else {
+        return error(format!("no `data` in printToPDF response: {parsed}"));
+    };
+    CallToolResult {
+        content: vec![McpContent::Image {
+            data: Some(format!("data:application/pdf;base64,{data}")),
+            mime_type: Some("application/pdf".into()),
+        }],
+        is_error: false,
+    }
+}
+
+/// Submit a form on the first page-type tab. CSS selector is
+/// required and must match a `<form>` (or any element whose
+/// nearest enclosing form will be submitted).
+pub async fn submit(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let selector = match args.get("selector").and_then(|v| v.as_str()) {
+        Some(s) => s.to_string(),
+        None => return error("missing required field 'selector'".into()),
+    };
+    // `el.form` walks to the enclosing form when `el` is a button
+    // / input / etc. — works for both `<form>` and an inner field.
+    let escaped = selector.replace('\\', "\\\\").replace('"', "\\\"");
+    let js = format!(
+        "(function(){{ \
+            var el = document.querySelector(\"{escaped}\"); \
+            if (!el) return 'no match for selector'; \
+            var form = el.tagName === 'FORM' ? el : el.form; \
+            if (!form) return 'matched element has no enclosing <form>'; \
+            form.submit(); \
+            return 'submitted'; \
+        }})()"
+    );
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Runtime.evaluate",
+        "params": {
+            "expression": js,
+            "returnByValue": true,
+        }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let value = parsed["result"]["result"]["value"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| "(no value)".into());
+    let is_err = value != "submitted";
+    CallToolResult {
+        content: vec![McpContent::Text { text: value }],
+        is_error: is_err,
+    }
+}
+
 /// Capture a viewport (or full-page) screenshot via
 /// `Page.captureScreenshot`. Returns the base64 PNG payload as an
 /// MCP `Image` content block.

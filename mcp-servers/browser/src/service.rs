@@ -90,6 +90,12 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "scroll" {
             return Ok(crate::cdp::scroll(&params.arguments).await);
         }
+        if params.name.as_str() == "pdf" {
+            return Ok(crate::cdp::pdf(&params.arguments).await);
+        }
+        if params.name.as_str() == "submit" {
+            return Ok(crate::cdp::submit(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -184,8 +190,18 @@ fn fill_schema() -> McpToolSchema {
 fn submit_schema() -> McpToolSchema {
     McpToolSchema {
         name: "submit".into(),
-        description: "Submit a form (clicks the submit button or presses Enter).".into(),
-        input_schema: selector_schema(),
+        description: "Submit a form via CDP Runtime.evaluate. The selector \
+            can match the `<form>` directly or any enclosed input — we walk \
+            up to the form via `el.form`."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string" },
+                "port":     { "type": "integer", "default": 9222 }
+            },
+            "required": ["selector"]
+        }),
     }
 }
 
@@ -328,8 +344,16 @@ fn cookies_schema() -> McpToolSchema {
 fn pdf_schema() -> McpToolSchema {
     McpToolSchema {
         name: "pdf".into(),
-        description: "Render the page to a PDF. Returns base64.".into(),
-        input_schema: serde_json::json!({"type": "object"}),
+        description: "Render the first open page to PDF via CDP \
+            Page.printToPDF. Returns the base64 payload wrapped in a \
+            `data:application/pdf;base64,...` URL."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "port": { "type": "integer", "default": 9222 }
+            }
+        }),
     }
 }
 
