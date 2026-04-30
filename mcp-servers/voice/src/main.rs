@@ -11,6 +11,7 @@
 //! the schema without a real audio rig.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod openai;
 mod service;
 
 use argo_mcp::run_loop;

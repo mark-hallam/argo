@@ -40,7 +40,8 @@ impl McpServerService for VoiceService {
 
     async fn call_tool(&self, params: CallToolParams) -> McpResult<CallToolResult> {
         match params.name.as_str() {
-            "transcribe" | "synthesize" | "voice_chat" => Ok(CallToolResult {
+            "synthesize" => Ok(synthesize_dispatch(&params.arguments).await),
+            "transcribe" | "voice_chat" => Ok(CallToolResult {
                 content: vec![McpContent::Text {
                     text: NOT_WIRED.into(),
                 }],
@@ -54,6 +55,36 @@ impl McpServerService for VoiceService {
             }),
         }
     }
+}
+
+async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
+    let backend = args
+        .get("backend")
+        .and_then(|v| v.as_str())
+        .unwrap_or("piper");
+    let text = match args.get("text").and_then(|v| v.as_str()) {
+        Some(t) => t,
+        None => {
+            return CallToolResult {
+                content: vec![McpContent::Text {
+                    text: "missing required field 'text'".into(),
+                }],
+                is_error: true,
+            };
+        }
+    };
+    if backend != "openai" {
+        return CallToolResult {
+            content: vec![McpContent::Text {
+                text: NOT_WIRED.into(),
+            }],
+            is_error: true,
+        };
+    }
+    let voice = args.get("voice").and_then(|v| v.as_str());
+    let instructions = args.get("instructions").and_then(|v| v.as_str());
+    let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("mp3");
+    crate::openai::synthesize(text, voice, instructions, format).await
 }
 
 fn transcribe_schema() -> McpToolSchema {
