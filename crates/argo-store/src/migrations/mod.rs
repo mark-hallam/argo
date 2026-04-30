@@ -1,5 +1,6 @@
 //! Versioned, reversible schema migrations.
 mod v1;
+mod v2;
 
 use argo_types::ArgoError;
 use sqlx::{Pool, Sqlite};
@@ -101,9 +102,16 @@ pub(super) struct Migration {
 }
 
 fn all_migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        up: |tx| Box::pin(v1::up(tx)),
-        down: |tx| Box::pin(v1::down(tx)),
-    }]
+    vec![
+        Migration {
+            version: 1,
+            up: |tx| Box::pin(v1::up(tx)),
+            down: |tx| Box::pin(v1::down(tx)),
+        },
+        Migration {
+            version: 2,
+            up: |tx| Box::pin(v2::up(tx)),
+            down: |tx| Box::pin(v2::down(tx)),
+        },
+    ]
 }

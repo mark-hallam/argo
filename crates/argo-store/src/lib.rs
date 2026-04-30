@@ -14,6 +14,7 @@
 
 mod migrations;
 mod models;
+mod spend;
 
 pub use models::SessionHeader;
 
@@ -223,6 +224,43 @@ impl SessionStore {
     pub fn pool(&self) -> &Pool<Sqlite> {
         &self.pool
     }
+
+    /// Append a spend record to `spend_ledger` (item C — hard $$$
+    /// cost ceilings). Idempotent against `(tenant, session,
+    /// charged_at_micros)` is **not** enforced; callers should pass
+    /// the timestamp + amount they actually charged.
+    pub async fn record_spend(
+        &self,
+        tenant_id: TenantId,
+        session_id: SessionId,
+        charged_at_micros: i64,
+        amount_usd_micros: u64,
+        provider: &str,
+        model: &str,
+    ) -> StoreResult<()> {
+        spend::record_spend(
+            &self.pool,
+            tenant_id,
+            session_id,
+            charged_at_micros,
+            amount_usd_micros,
+            provider,
+            model,
+        )
+        .await
+    }
+
+    /// Load the per-`(tenant, session)` spend counters as of `now`.
+    /// Returns `(session_used, day_used, month_used)` in USD micros,
+    /// suitable for [`argo_types::SpendCounters`].
+    pub async fn load_spend_counters(
+        &self,
+        tenant_id: TenantId,
+        session_id: SessionId,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> StoreResult<argo_types::SpendCounters> {
+        spend::load_spend_counters(&self.pool, tenant_id, session_id, now).await
+    }
 }
 
 #[cfg(test)]
@@ -233,7 +271,7 @@ mod tests {
     async fn open_and_migrate() {
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 1);
+        assert_eq!(store.schema_version().await.unwrap(), 2);
     }
 
     #[tokio::test]
@@ -243,7 +281,128 @@ mod tests {
         store.migrate_down_to(0).await.unwrap();
         assert_eq!(store.schema_version().await.unwrap(), 0);
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 1);
+        assert_eq!(store.schema_version().await.unwrap(), 2);
+    }
+
+    async fn fresh_store_with_workspace() -> (SessionStore, TenantId, WorkspaceId) {
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        let tenant = TenantId::new();
+        let ws = WorkspaceId::new();
+        sqlx::query(
+            "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+             VALUES (?, ?, 'test', '.', strftime('%s','now'))",
+        )
+        .bind(ws.0.as_bytes().as_slice())
+        .bind(tenant.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .unwrap();
+        (store, tenant, ws)
+    }
+
+    #[tokio::test]
+    async fn spend_ledger_records_and_aggregates_session_total() {
+        let (store, tenant, ws) = fresh_store_with_workspace().await;
+        let session = store
+            .create_session(tenant, ws, "m", "p", None)
+            .await
+            .unwrap();
+        let now = chrono::Utc::now();
+        store
+            .record_spend(
+                tenant,
+                session,
+                now.timestamp_micros(),
+                250_000,
+                "anth",
+                "haiku",
+            )
+            .await
+            .unwrap();
+        store
+            .record_spend(
+                tenant,
+                session,
+                now.timestamp_micros(),
+                750_000,
+                "anth",
+                "haiku",
+            )
+            .await
+            .unwrap();
+        let counters = store
+            .load_spend_counters(tenant, session, now)
+            .await
+            .unwrap();
+        assert_eq!(counters.session_used, 1_000_000);
+        assert_eq!(counters.day_used, 1_000_000);
+        assert_eq!(counters.month_used, 1_000_000);
+    }
+
+    #[tokio::test]
+    async fn spend_ledger_isolates_by_tenant() {
+        let (store, tenant_a, ws_a) = fresh_store_with_workspace().await;
+        let session_a = store
+            .create_session(tenant_a, ws_a, "m", "p", None)
+            .await
+            .unwrap();
+        // Other tenant's row in the same store.
+        let tenant_b = TenantId::new();
+        let ws_b = WorkspaceId::new();
+        sqlx::query(
+            "INSERT INTO workspace (id, tenant_id, name, root_path, created_at)
+             VALUES (?, ?, 'b', '.', strftime('%s','now'))",
+        )
+        .bind(ws_b.0.as_bytes().as_slice())
+        .bind(tenant_b.0.as_bytes().as_slice())
+        .execute(store.pool())
+        .await
+        .unwrap();
+        let session_b = store
+            .create_session(tenant_b, ws_b, "m", "p", None)
+            .await
+            .unwrap();
+        let now = chrono::Utc::now();
+        store
+            .record_spend(
+                tenant_b,
+                session_b,
+                now.timestamp_micros(),
+                5_000_000,
+                "p",
+                "m",
+            )
+            .await
+            .unwrap();
+        let a = store
+            .load_spend_counters(tenant_a, session_a, now)
+            .await
+            .unwrap();
+        assert_eq!(a.session_used, 0);
+        assert_eq!(a.day_used, 0);
+        assert_eq!(a.month_used, 0);
+    }
+
+    #[tokio::test]
+    async fn spend_ledger_day_window_excludes_yesterday() {
+        let (store, tenant, ws) = fresh_store_with_workspace().await;
+        let session = store
+            .create_session(tenant, ws, "m", "p", None)
+            .await
+            .unwrap();
+        let now = chrono::Utc::now();
+        let yesterday = now - chrono::Duration::days(2);
+        store
+            .record_spend(tenant, session, yesterday.timestamp_micros(), 123, "p", "m")
+            .await
+            .unwrap();
+        let counters = store
+            .load_spend_counters(tenant, session, now)
+            .await
+            .unwrap();
+        assert_eq!(counters.session_used, 123);
+        assert_eq!(counters.day_used, 0);
     }
 
     #[tokio::test]
