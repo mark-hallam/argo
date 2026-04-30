@@ -9,6 +9,7 @@
 
 mod budget;
 mod capability;
+mod cost_ceilings;
 mod error;
 mod ids;
 mod judge;
@@ -18,6 +19,10 @@ mod routing;
 
 pub use budget::{Budget, BudgetExhausted, BudgetKind, BudgetNode};
 pub use capability::{Capability, CapabilitySet, Principal, Role, RoleBinding, SpawnKind};
+pub use cost_ceilings::{
+    enforce_pre_spend, CapBlocked, CapScope, CostCeilings, EnforceContext, NotifyEvent,
+    SpendCounters,
+};
 pub use error::{ArgoError, ArgoResult};
 pub use ids::{
     AgentId, AgentName, ForgeRunId, JudgeRecordId, MessageId, RequestId, RoutingDecisionId,
@@ -119,6 +124,127 @@ mod tests {
         assert!(n.charge(BudgetKind::Iterations, 1).is_err());
         assert!(n.charge(BudgetKind::TokensIn, 50).is_ok());
         assert!(n.charge(BudgetKind::TokensIn, 1).is_err());
+    }
+
+    fn enforce_ctx() -> EnforceContext {
+        EnforceContext {
+            tenant: TenantId::new(),
+            session: SessionId::new(),
+        }
+    }
+
+    #[test]
+    fn cost_ceilings_block_at_session_cap() {
+        let c = CostCeilings {
+            per_session_usd_micros: Some(1_000_000),
+            ..CostCeilings::default()
+        };
+        let used = SpendCounters {
+            session_used: 900_000,
+            ..SpendCounters::default()
+        };
+        let err = enforce_pre_spend(&c, used, 200_000, enforce_ctx()).unwrap_err();
+        assert_eq!(err.scope, CapScope::Session);
+        assert_eq!(err.cap_usd_micros, 1_000_000);
+    }
+
+    #[test]
+    fn cost_ceilings_block_at_day_cap_even_if_session_ok() {
+        let c = CostCeilings {
+            per_session_usd_micros: Some(1_000_000_000),
+            per_day_usd_micros: Some(10_000_000),
+            ..CostCeilings::default()
+        };
+        let used = SpendCounters {
+            session_used: 0,
+            day_used: 9_500_000,
+            month_used: 0,
+        };
+        let err = enforce_pre_spend(&c, used, 1_000_000, enforce_ctx()).unwrap_err();
+        assert_eq!(err.scope, CapScope::Day);
+    }
+
+    #[test]
+    fn cost_ceilings_unlimited_never_blocks() {
+        let c = CostCeilings::unlimited();
+        let used = SpendCounters {
+            session_used: u64::MAX / 2,
+            day_used: u64::MAX / 2,
+            month_used: u64::MAX / 2,
+        };
+        let events = enforce_pre_spend(&c, used, 1_000_000, enforce_ctx()).unwrap();
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn cost_ceilings_emit_80_pct_notification_on_first_crossing() {
+        let c = CostCeilings {
+            per_session_usd_micros: Some(1_000_000),
+            notify_at_pct: vec![80, 95],
+            ..CostCeilings::default()
+        };
+        let used = SpendCounters {
+            session_used: 700_000,
+            ..SpendCounters::default()
+        };
+        let events = enforce_pre_spend(&c, used, 150_000, enforce_ctx()).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].scope, CapScope::Session);
+        assert_eq!(events[0].threshold_pct, 80);
+    }
+
+    #[test]
+    fn cost_ceilings_emit_both_80_and_95_when_jump_crosses_both() {
+        let c = CostCeilings {
+            per_session_usd_micros: Some(1_000_000),
+            notify_at_pct: vec![80, 95],
+            ..CostCeilings::default()
+        };
+        let used = SpendCounters {
+            session_used: 100_000,
+            ..SpendCounters::default()
+        };
+        let events = enforce_pre_spend(&c, used, 900_000, enforce_ctx()).unwrap();
+        let pcts: Vec<u8> = events.iter().map(|e| e.threshold_pct).collect();
+        assert!(pcts.contains(&80));
+        assert!(pcts.contains(&95));
+    }
+
+    #[test]
+    fn cost_ceilings_no_notification_on_subsequent_charge_after_crossing() {
+        // First charge crosses 80% → emits one event.
+        // Second charge (still under cap) is past 80% already →
+        // emits no event.
+        let c = CostCeilings {
+            per_session_usd_micros: Some(1_000_000),
+            notify_at_pct: vec![80, 95],
+            ..CostCeilings::default()
+        };
+        let after_first = SpendCounters {
+            session_used: 850_000,
+            ..SpendCounters::default()
+        };
+        let events = enforce_pre_spend(&c, after_first, 50_000, enforce_ctx()).unwrap();
+        assert!(events.iter().all(|e| e.threshold_pct != 80));
+    }
+
+    #[test]
+    fn cost_ceilings_block_uses_pre_spend_state() {
+        // CapBlocked is returned BEFORE spend is mutated externally.
+        // This is the contract: callers must not record a charge
+        // when an Err comes back.
+        let c = CostCeilings {
+            per_session_usd_micros: Some(1_000),
+            ..CostCeilings::default()
+        };
+        let used = SpendCounters {
+            session_used: 500,
+            ..SpendCounters::default()
+        };
+        let result = enforce_pre_spend(&c, used, 600, enforce_ctx());
+        assert!(result.is_err());
+        // `used` still reads as 500 — this module does not mutate it.
+        assert_eq!(used.session_used, 500);
     }
 
     proptest! {
