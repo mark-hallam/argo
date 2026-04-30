@@ -6,7 +6,7 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**105+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
+**109+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
 the workspace store; the read-side surface (`session list/show/diff`,
 `memory list`, `skill list/view`, `cron list`, `provider show`) all
 support `--json` NDJSON output for scripting; the TUI ships a session
@@ -108,6 +108,9 @@ daemon-coupled commands that need a live gateway / router / judge.
 | `argo audit show --json [--tail N]` | ✅ | #99 |
 | `argo costs show --json` | ✅ | #100 |
 | `argo session show` prints first + last message snippets | ✅ | #101 |
+| `argo audit verify --json` | ✅ | #107 |
+| `argo memory view --json` | ✅ | #108 |
+| `argo skill verify --all` (CI hook) | ✅ | #109 |
 | `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
 
 ## MCP servers shipped as standalone bins
