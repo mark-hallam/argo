@@ -176,6 +176,70 @@ impl SkillStore {
         Ok(())
     }
 
+    /// Attach an active skill to a session. The agent runner's
+    /// system-prompt loader checks for attached skills first;
+    /// when any are present, only those are injected (instead
+    /// of every active row).
+    pub async fn attach_to_session(
+        &self,
+        session_id: SessionId,
+        skill_id: SkillId,
+    ) -> ArgoResult<()> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO session_skill (session_id, skill_id, attached_at) \
+             VALUES (?, ?, ?)",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .bind(skill_id.0.as_bytes().as_slice())
+        .bind(Utc::now().timestamp_micros())
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("attach_to_session: {e}")))?;
+        Ok(())
+    }
+
+    /// Detach a skill from a session. Returns rows affected
+    /// (0 when the (session, skill) pair wasn't attached).
+    pub async fn detach_from_session(
+        &self,
+        session_id: SessionId,
+        skill_id: SkillId,
+    ) -> ArgoResult<u64> {
+        let res = sqlx::query(
+            "DELETE FROM session_skill WHERE session_id = ? AND skill_id = ?",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .bind(skill_id.0.as_bytes().as_slice())
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("detach_from_session: {e}")))?;
+        Ok(res.rows_affected())
+    }
+
+    /// List the skill ids attached to a session in
+    /// attachment-order. Returns an empty vec when nothing's
+    /// attached — the agent runner falls back to all active
+    /// in that case.
+    pub async fn skills_for_session(
+        &self,
+        session_id: SessionId,
+    ) -> ArgoResult<Vec<Skill>> {
+        let rows: Vec<RawSkill> = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             FROM session_skill ss \
+             JOIN skill s ON s.id = ss.skill_id \
+             LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE ss.session_id = ? \
+             ORDER BY ss.attached_at ASC",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skills_for_session: {e}")))?;
+        rows.into_iter().map(Skill::try_from).collect()
+    }
+
     /// Active (non-superseded) version for `name`, if any.
     pub async fn find_active_by_name(&self, name: &str) -> ArgoResult<Option<Skill>> {
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(

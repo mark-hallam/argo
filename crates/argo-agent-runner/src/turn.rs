@@ -148,7 +148,7 @@ async fn run_turn_with_tools(
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
-    let system_prompt = build_system_prompt(store).await?;
+    let system_prompt = build_system_prompt(store, session_id).await?;
 
     let mut last_text = String::new();
     let mut last_tokens_in: Option<u32> = None;
@@ -260,30 +260,26 @@ async fn run_turn_with_tools(
     })
 }
 
-/// Concatenate the workspace's active-skill bodies into a single
-/// system-prompt string that's passed on every round of the
-/// turn. Returns `None` when no skills are installed (the
-/// provider transport then sends no `system` block at all).
+/// Concatenate skill bodies into a single system-prompt string
+/// that's passed on every round of the turn. Returns `None` when
+/// nothing is in scope (the provider transport then sends no
+/// `system` block at all).
 ///
-/// Format: each skill is emitted as
-///
-/// ```text
-/// ## <name> (v<version>)
-/// <description>
-///
-/// <body>
-///
-/// ---
-/// ```
-///
-/// concatenated and prefixed with a one-line preamble. This is
-/// deliberately simple — per-session skill selection (so the
-/// agent only sees a curated subset) lands when the
-/// `session_skill` association table does. For now: every active
-/// skill is in scope.
-async fn build_system_prompt(store: &Arc<SessionStore>) -> ArgoResult<Option<String>> {
+/// Resolution order:
+/// 1. If `session_skill` rows exist for `session_id`, use *only*
+///    those skills (per-session curation, #279).
+/// 2. Otherwise fall back to every active row in the workspace.
+async fn build_system_prompt(
+    store: &Arc<SessionStore>,
+    session_id: SessionId,
+) -> ArgoResult<Option<String>> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    let active = skills.list_active().await?;
+    let attached = skills.skills_for_session(session_id).await?;
+    let active = if attached.is_empty() {
+        skills.list_active().await?
+    } else {
+        attached
+    };
     if active.is_empty() {
         return Ok(None);
     }
@@ -317,7 +313,9 @@ mod tests {
     async fn build_system_prompt_returns_none_for_empty_workspace() {
         let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
         store.migrate().await.unwrap();
-        let prompt = build_system_prompt(&store).await.unwrap();
+        let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()))
+            .await
+            .unwrap();
         assert!(prompt.is_none());
     }
 
@@ -329,9 +327,49 @@ mod tests {
         let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
                    lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
         skills.install(raw, None).await.unwrap();
-        let prompt = build_system_prompt(&store).await.unwrap().unwrap();
+        let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()))
+            .await
+            .unwrap()
+            .unwrap();
         assert!(prompt.contains("## alpha (v0.1)"));
         assert!(prompt.contains("body-of-alpha"));
         assert!(prompt.starts_with("You have access to"));
+    }
+
+    #[tokio::test]
+    async fn build_system_prompt_honours_per_session_attachments() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/sa").await.unwrap();
+        let sid = store
+            .create_session(tenant, ws, "m", "p", Some("t"))
+            .await
+            .unwrap();
+
+        let skills = argo_skill::SkillStore::new(Arc::clone(&store));
+        let raw_a = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
+                     lock: none\nprovenance:\n  source: x\n  hash: sha256-x\n---\nbody-A";
+        let raw_b = "---\nname: beta\nversion: \"0.1\"\ndescription: D\n\
+                     lock: none\nprovenance:\n  source: x\n  hash: sha256-x\n---\nbody-B";
+        let _alpha = skills.install(raw_a, None).await.unwrap();
+        let beta = skills.install(raw_b, None).await.unwrap();
+
+        // Default behaviour: both active skills are in scope.
+        let prompt_default = build_system_prompt(&store, sid).await.unwrap().unwrap();
+        assert!(prompt_default.contains("body-A"));
+        assert!(prompt_default.contains("body-B"));
+
+        // Attach only beta — alpha should now drop out.
+        skills.attach_to_session(sid, beta.id).await.unwrap();
+        let prompt_curated = build_system_prompt(&store, sid).await.unwrap().unwrap();
+        assert!(prompt_curated.contains("body-B"));
+        assert!(!prompt_curated.contains("body-A"));
+
+        // Detach: falls back to all-active.
+        let removed = skills.detach_from_session(sid, beta.id).await.unwrap();
+        assert_eq!(removed, 1);
+        let prompt_after = build_system_prompt(&store, sid).await.unwrap().unwrap();
+        assert!(prompt_after.contains("body-A"));
+        assert!(prompt_after.contains("body-B"));
     }
 }

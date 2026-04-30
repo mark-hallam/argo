@@ -25,6 +25,23 @@ pub enum SessionCmd {
     Watch {
         id: String,
     },
+    /// Attach an active skill to a session. While at least one
+    /// skill is attached, the agent runner's system-prompt loader
+    /// uses *only* the attached set instead of every active skill.
+    AttachSkill {
+        id: String,
+        skill: String,
+    },
+    /// Detach a skill from a session. With no remaining
+    /// attachments, the loader falls back to all active skills.
+    DetachSkill {
+        id: String,
+        skill: String,
+    },
+    /// List the skills attached to a session (one per line).
+    Skills {
+        id: String,
+    },
     /// Show one session header (model, provider, start time, message count).
     Show {
         id: String,

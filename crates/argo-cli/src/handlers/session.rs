@@ -16,6 +16,13 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         } => list_sessions(limit, json, since_minutes).await,
         SessionCmd::Show { id, json } => show_session(&id, json).await,
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
+        SessionCmd::AttachSkill { id, skill } => {
+            super::session_skills::attach(&id, &skill).await
+        }
+        SessionCmd::DetachSkill { id, skill } => {
+            super::session_skills::detach(&id, &skill).await
+        }
+        SessionCmd::Skills { id } => super::session_skills::list(&id).await,
         SessionCmd::Export {
             id,
             out,
