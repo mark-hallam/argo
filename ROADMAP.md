@@ -4,32 +4,50 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 ## Current phase
 
-**Library tier complete; integration tier mostly shipped.** Phases
-0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**124+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
-the workspace store; the read-side surface (`session list/show/diff`,
+**Library tier complete; integration tier shipped end-to-end.**
+Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
+**140+ PRs**.
+
+The CLI binary (`argo`) drives ~52 subcommands against the workspace
+store. The read-side surface (`session list/show/diff`,
 `memory list/view`, `skill list/view`, `cron list`, `provider show`,
 `audit show/verify`, `costs show`) all support `--json` NDJSON output
 for scripting; `skill verify --all` and `memory verify --all` give
-CI-friendly hash-chain hooks; the TUI ships a session viewer with
-messages preview, `/`-filter and PgUp/PgDn navigation; voice MCP has
-real OpenAI TTS + Whisper backends behind `backend = "openai"`; the
-browser MCP has all 14 spec tools wired against raw CDP (HTTP `/json*`
-+ WebSocket `Runtime.evaluate` / `Page.*` / `Network.*`) without
-chromiumoxide; `argo workspace init` registers a workspace row in the
-DB so memory subcommands work straight after init; `argo doctor`
-reports DB schema + workspace + row counts + cron daemon state +
-provider creds; six end-to-end integration tests cover workspace+
-memory, provider+workspace, cron CRUD, voice + browser MCP stdio
-loops, and the `--json` schema pins. The CI matrix is back to green
-after the 4-PR hotfix lane (#121–#124) that fixed release.yml's YAML
-parse, the 500-LOC budget, the Windows test gating, and the deny
-advisory ignore-list.
+CI-friendly hash-chain hooks; `argo new` and `argo resume` round-trip
+sessions through the local store. The TUI ships a session viewer
+with messages preview, `/`-filter and PgUp/PgDn navigation.
 
-What's left is the heavy native bindings (whisper-rs, piper-rs,
-chromiumoxide for stateful browser sessions), cross-registry
-marketplace integration, and the daemon-coupled commands that need
-a live gateway / router / judge.
+`argo gateway start` is now a real, signal-clean HTTP daemon
+listening on 127.0.0.1:7400 with PID-file lifecycle (start/stop
+graceful shutdown via SIGTERM). It exposes 9 endpoints —
+`/health`, `/version`, `GET /sessions`, `GET /sessions/<id>`,
+`GET /sessions/<id>/messages`, `GET /skills`, `GET /memory`,
+`POST /sessions`, `POST /sessions/<id>/messages` — all wired
+against the same `SessionStore` the CLI uses, so external clients
+can read + record without spawning a CLI subprocess.
+
+Voice MCP has all four cloud TTS backends wired (`backend ∈ {piper,
+openai, elevenlabs, minimax}`); OpenAI Whisper transcribe is also
+live. The browser MCP has all 14 spec tools wired against raw CDP
+(HTTP `/json*` + WebSocket `Runtime.evaluate` / `Page.*` /
+`Network.*`) without chromiumoxide.
+
+`argo workspace init` registers a workspace row in the DB so memory
+subcommands work straight after init; `argo doctor` + `argo health`
+report DB schema + workspace + row counts + cron daemon state +
+provider creds; ten end-to-end integration tests cover workspace+
+memory, provider+workspace, cron CRUD, voice + browser MCP stdio
+loops, the `--json` schema pins, and the gateway's read+write
+surface. The CI matrix is back to green after the 4-PR hotfix lane
+(#121–#124) that fixed release.yml's YAML parse, the 500-LOC
+budget, the Windows test gating, and the deny advisory ignore-list.
+
+What's left is the **live agent loop** — the gateway today only
+records sessions; the next layer is `POST /sessions/<id>/runs` that
+calls a provider via reqwest, decodes the response, persists each
+message, and runs tool calls. After that come the heavy native
+bindings (whisper-rs, piper-rs, chromiumoxide for stateful browser
+sessions) and the cross-registry §23.3 marketplace integration.
 
 ## Status
 
@@ -120,7 +138,18 @@ a live gateway / router / judge.
 | `argo memory view --json` | ✅ | #108 |
 | `argo skill verify --all` (CI hook) | ✅ | #109 |
 | `argo memory verify --all` (CI hook) | ✅ | #111 |
-| `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
+| `argo health` (one-shot meta verifier) | ✅ | #127 |
+| `argo gateway start` (real HTTP listener) | ✅ | #131 |
+| `argo gateway stop` (SIGTERM via PID file) | ✅ | #132 |
+| `argo gateway start` graceful SIGTERM/SIGINT shutdown | ✅ | #133 |
+| `gateway` `GET /sessions` | ✅ | #134 |
+| `gateway` `GET /skills` + `GET /memory` | ✅ | #135 |
+| `gateway` `POST /sessions` | ✅ | #136 |
+| `gateway` `POST /sessions/<id>/messages` | ✅ | #138 |
+| `gateway` `GET /sessions/<id>` + `.../messages` | ✅ | #139 |
+| `argo new --provider <p> --model <m> [--title <t>]` | ✅ | #140 |
+| `argo resume <id>` (re-render recorded session) | ✅ | #141 |
+| `argo chat / steer (live)` | ⏳ deferred | needs daemon agent loop |
 
 ## MCP servers shipped as standalone bins
 
@@ -130,6 +159,8 @@ a live gateway / router / judge.
 | `argo-mcp-voice` — real OpenAI TTS backend (`backend="openai"`) | ✅ | #93 |
 | `argo-mcp-voice` — real OpenAI Whisper transcribe (`backend="openai"`) | ✅ | #96 |
 | `argo-mcp-voice` stdio integration test | ✅ | #97 |
+| `argo-mcp-voice` — real ElevenLabs TTS (`backend="elevenlabs"`) | ✅ | #129 |
+| `argo-mcp-voice` — real MiniMax TTS (`backend="minimax"`) | ✅ | #130 |
 | `argo-mcp-browser` (12 tools) | ✅ schema + dispatcher | #58 |
 | `argo-mcp-browser` — Chrome :9222 auto-detect (A10) | ✅ | #73 |
 | `argo-mcp-browser` — `list_tabs` (HTTP probe of `/json`) | ✅ | #103 |
@@ -146,19 +177,25 @@ a live gateway / router / judge.
 
 ## Pending integration tier
 
+- **Live agent loop** — the gateway records sessions today
+  (#136/#138) but doesn't yet *call* a provider. The next chunk
+  is `POST /sessions/<id>/runs` that builds a provider request from
+  the session's recorded messages, calls reqwest, decodes the
+  response into typed content blocks, and persists each one. After
+  that comes tool dispatch + cost accounting + audit emission.
 - **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
-  + opus (OGG/Opus). OpenAI cloud TTS + Whisper transcribe already
-  shipped (#93, #96); ElevenLabs / MiniMax cloud paths still
-  pending.
-- **Browser MCP backend** — all 14 spec tools are now wired against
-  raw CDP via tokio-tungstenite (#113–#120). What's still pending is
-  the *stateful-session* upgrade: chromiumoxide (or a hand-rolled
-  CDP session manager) for sticky tab ids, persistent WebSocket
-  connections, and batch commands. Cloud opt-ins (Browserbase /
-  BrowserUse) are also still pending.
+  + opus (OGG/Opus). All four cloud backends already wired (OpenAI
+  TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
+- **Browser MCP — stateful sessions** — all 14 spec tools are wired
+  against raw CDP via tokio-tungstenite (#113–#120). What's still
+  pending is the *stateful-session* upgrade: chromiumoxide (or a
+  hand-rolled CDP session manager) for sticky tab ids, persistent
+  WebSocket connections, and batch commands. Cloud opt-ins
+  (Browserbase / BrowserUse) are also still pending.
 - **§23.3 marketplace integration test** — `oci-distribution` push
-  / pull against GHCR / Docker Hub / Artifact Registry test accounts.
+  / pull against GHCR / Docker Hub / Artifact Registry test
+  accounts.
 - **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
-- **Daemon-coupled CLI** — `argo gateway start`, `argo session
-  replay <id> --model X` (live), `argo steer <id>`, `argo forge
-  optimize / promote`, `argo provider test`, `argo judge override`.
+- **Daemon-coupled live commands** — `argo session replay <id>
+  --model X` (live), `argo steer <id>`, `argo forge optimize /
+  promote`, `argo provider test`, `argo judge override`.
