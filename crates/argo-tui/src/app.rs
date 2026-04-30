@@ -290,13 +290,34 @@ async fn event_loop(
                 }
                 continue;
             }
-            // Composer mode: type freely, Enter snapshots draft into
-            // last_sent (live wiring to argo chat is a follow-up),
-            // Esc cancels.
+            // Composer mode: type freely, Enter persists the draft
+            // as a user-role message on the selected session, Esc
+            // cancels. (Driving a full agent-loop turn from the
+            // TUI needs the chat helpers + a tokio handle threaded
+            // in; the persisted user message + reload pattern is
+            // the daemon-friendly half of that flow.)
             if state.composer_mode {
                 match key.code {
                     KeyCode::Esc => state.composer_cancel(),
-                    KeyCode::Enter => state.composer_send(),
+                    KeyCode::Enter => {
+                        if let Some(session) = state.selected_session() {
+                            let sid = SessionId(session.id.0);
+                            let draft = state.composer.clone();
+                            if !draft.is_empty() {
+                                let content = serde_json::json!([{"type": "text", "text": draft}]);
+                                let _ = store
+                                    .append_message(
+                                        sid,
+                                        argo_types::MessageRole::User,
+                                        &content.to_string(),
+                                    )
+                                    .await;
+                                state.messages_loaded = false;
+                                fetch_messages(store, state).await?;
+                            }
+                        }
+                        state.composer_send();
+                    }
                     KeyCode::Backspace => state.composer_pop(),
                     KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                         state.composer_push(c);
