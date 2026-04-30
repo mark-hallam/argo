@@ -16,7 +16,7 @@ mod migrations;
 mod models;
 mod spend;
 
-pub use models::{AuditRow, ForgeRunRow, MessageRow, MessageSearchHit, SessionHeader};
+pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
@@ -246,6 +246,22 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("persist_routing_decision: {e}")))?;
         Ok(())
+    }
+
+    /// List judge records for a session, oldest first. Used by
+    /// `argo judge inspect <session_id>`.
+    pub async fn list_judge_records(&self, session_id: SessionId) -> StoreResult<Vec<JudgeRow>> {
+        let rows = sqlx::query_as::<_, JudgeRow>(
+            "SELECT subject_kind, subject_ref, verdict, reason, judge_provider, \
+             judge_model, rubric_id, rubric_version, created_at \
+             FROM judge_record WHERE session_id = ? \
+             ORDER BY created_at ASC",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_judge_records: {e}")))?;
+        Ok(rows)
     }
 
     /// Stream a session's audit-log rows in `seq` order. Used by

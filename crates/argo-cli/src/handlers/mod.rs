@@ -8,6 +8,7 @@ pub mod db;
 pub mod doctor;
 pub mod forge;
 pub mod gateway;
+pub mod judge;
 pub mod mcp;
 pub mod memory;
 pub mod plugin;

@@ -47,6 +47,29 @@ pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
     Uuid::from_bytes(a)
 }
 
+/// One `judge_record` row exposed for read-side rendering.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
+pub struct JudgeRow {
+    /// What was judged (`skill`, `memory`, `tool_call`, …).
+    pub subject_kind: String,
+    /// Stringly-typed reference to the subject.
+    pub subject_ref: String,
+    /// Verdict label (`success` / `partial` / `failure`).
+    pub verdict: String,
+    /// Free-form reason from the judge.
+    pub reason: Option<String>,
+    /// Provider that issued the verdict.
+    pub judge_provider: String,
+    /// Model id.
+    pub judge_model: String,
+    /// Rubric id.
+    pub rubric_id: String,
+    /// Rubric version.
+    pub rubric_version: String,
+    /// Created-at (UTC, micros).
+    pub created_at: i64,
+}
+
 /// One `audit_record` row exposed for read-side rendering.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct AuditRow {
