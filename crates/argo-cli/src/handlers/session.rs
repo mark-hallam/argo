@@ -15,7 +15,11 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             since_minutes,
         } => list_sessions(limit, json, since_minutes).await,
         SessionCmd::Show { id, json } => show_session(&id, json).await,
-        SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
+        SessionCmd::Export {
+            id,
+            out,
+            include_audit,
+        } => export_session(&id, out.as_deref(), include_audit).await,
         SessionCmd::Search {
             query,
             limit,
@@ -204,7 +208,11 @@ async fn search(query: &str, limit: u32, session: Option<&str>) -> ArgoResult<()
     Ok(())
 }
 
-async fn export_session(raw: &str, out: Option<&str>) -> ArgoResult<()> {
+async fn export_session(
+    raw: &str,
+    out: Option<&str>,
+    include_audit: bool,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -248,11 +256,31 @@ async fn export_session(raw: &str, out: Option<&str>) -> ArgoResult<()> {
             .and_then(|()| writer.write_all(b"\n"))
             .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
     }
+    let mut audit_count = 0_usize;
+    if include_audit {
+        let rows = argo_audit::rows_for_session(&store, SessionId(id)).await?;
+        audit_count = rows.len();
+        for r in &rows {
+            let line = serde_json::to_string(r)
+                .map_err(|e| ArgoError::Provider(format!("serialize audit: {e}")))?;
+            writer
+                .write_all(line.as_bytes())
+                .and_then(|()| writer.write_all(b"\n"))
+                .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+        }
+    }
     writer
         .flush()
         .map_err(|e| ArgoError::Provider(format!("flush: {e}")))?;
     if out.is_some() {
-        eprintln!("session export: wrote {} messages", messages.len());
+        if include_audit {
+            eprintln!(
+                "session export: wrote {} message(s) + {audit_count} audit row(s)",
+                messages.len()
+            );
+        } else {
+            eprintln!("session export: wrote {} messages", messages.len());
+        }
     }
     Ok(())
 }

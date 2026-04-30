@@ -383,6 +383,12 @@ pub enum SessionCmd {
         id: String,
         #[arg(long)]
         out: Option<String>,
+        /// Append audit rows for the session after the messages.
+        /// Each audit line has the standard `ExportedRow` shape;
+        /// distinguishable from message lines by the `kind` field
+        /// (audit rows) vs `role` (message rows).
+        #[arg(long)]
+        include_audit: bool,
     },
     /// Full-text search the message corpus via FTS5. Pass
     /// `--session <id>` to scope to one session.
