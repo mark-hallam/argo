@@ -20,7 +20,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         .ok_or_else(|| ArgoError::Provider("no workspace registered yet".into()))?;
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
-        MemoryCmd::List { json } => list(&memory, workspace, json).await,
+        MemoryCmd::List { json, file } => list(&memory, workspace, json, file.as_deref()).await,
         MemoryCmd::View { entry } => view(&memory, &entry).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Verify { entry } => verify_hash(&memory, &entry).await,
@@ -38,17 +38,7 @@ async fn append(
     file: &str,
     body: &str,
 ) -> ArgoResult<()> {
-    let mf = match file {
-        "memory" => MemoryFile::Memory,
-        "user" => MemoryFile::User,
-        "soul" => MemoryFile::Soul,
-        "agents" => MemoryFile::Agents,
-        other => {
-            return Err(ArgoError::Provider(format!(
-                "unknown memory file '{other}': use one of memory|user|soul|agents"
-            )));
-        }
-    };
+    let mf = parse_memory_file(file)?;
     let entry = memory.append(workspace, mf, body.to_string(), None).await?;
     println!(
         "appended {} to {}.md ({} bytes)",
@@ -63,14 +53,25 @@ async fn list(
     memory: &MemoryStore,
     workspace: argo_types::WorkspaceId,
     json: bool,
+    only: Option<&str>,
 ) -> ArgoResult<()> {
+    let only_file = match only {
+        None => None,
+        Some(s) => Some(parse_memory_file(s)?),
+    };
     let mut total = 0_usize;
-    for file in [
+    let all = [
         MemoryFile::Memory,
         MemoryFile::User,
         MemoryFile::Soul,
         MemoryFile::Agents,
-    ] {
+    ];
+    for file in all {
+        if let Some(f) = only_file {
+            if file != f {
+                continue;
+            }
+        }
         let entries = memory.list_active(workspace, file).await?;
         if json {
             for e in &entries {
@@ -211,4 +212,16 @@ async fn set_lock(memory: &MemoryStore, raw: &str, lock: Lock) -> ArgoResult<()>
 fn parse_uuid(raw: &str) -> ArgoResult<uuid::Uuid> {
     uuid::Uuid::parse_str(raw)
         .map_err(|e| ArgoError::Provider(format!("invalid uuid '{raw}': {e}")))
+}
+
+fn parse_memory_file(raw: &str) -> ArgoResult<MemoryFile> {
+    match raw {
+        "memory" => Ok(MemoryFile::Memory),
+        "user" => Ok(MemoryFile::User),
+        "soul" => Ok(MemoryFile::Soul),
+        "agents" => Ok(MemoryFile::Agents),
+        other => Err(ArgoError::Provider(format!(
+            "unknown memory file '{other}': use one of memory|user|soul|agents"
+        ))),
+    }
 }

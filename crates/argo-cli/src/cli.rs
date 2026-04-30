@@ -220,6 +220,9 @@ pub enum MemoryCmd {
         /// Output as JSON (one object per entry) for scripting.
         #[arg(long)]
         json: bool,
+        /// Limit to one file: memory|user|soul|agents.
+        #[arg(long)]
+        file: Option<String>,
     },
     View {
         entry: String,
