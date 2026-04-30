@@ -105,6 +105,12 @@ pub enum Command {
         #[arg(long)]
         session: Option<String>,
     },
+    /// Validate an eval task JSONL file (parses every row, reports
+    /// per-line errors + the metric histogram).
+    Eval {
+        #[command(subcommand)]
+        cmd: EvalCmd,
+    },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
     /// Diagnose configuration / sandbox / port issues.
@@ -436,4 +442,11 @@ pub enum RouteCmd {
 #[derive(Subcommand, Debug)]
 pub enum ImportCmd {
     Hermes { path: String },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum EvalCmd {
+    /// Validate an eval task JSONL file: parse every row, report
+    /// per-line errors and the metric histogram.
+    Validate { path: String },
 }

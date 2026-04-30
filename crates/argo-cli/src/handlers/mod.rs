@@ -6,6 +6,7 @@ pub mod costs;
 pub mod cron;
 pub mod db;
 pub mod doctor;
+pub mod eval;
 pub mod forge;
 pub mod gateway;
 pub mod judge;

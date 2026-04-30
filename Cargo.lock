@@ -132,6 +132,7 @@ dependencies = [
  "argo-audit",
  "argo-config",
  "argo-cron",
+ "argo-eval",
  "argo-marketplace",
  "argo-mcp",
  "argo-memory",
