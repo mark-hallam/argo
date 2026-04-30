@@ -22,6 +22,7 @@ pub mod resume;
 pub mod route;
 pub mod session;
 mod session_aggregates;
+mod session_bisect;
 pub mod session_replay;
 mod session_resolve;
 mod session_watch;

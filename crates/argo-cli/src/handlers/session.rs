@@ -29,12 +29,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Delete { id, force } => delete_session(&id, force).await,
         SessionCmd::Diff { id1, id2, json } => diff_sessions(&id1, &id2, json).await,
         SessionCmd::Bisect { id, hypothesis } => {
-            println!(
-                "session bisect {id} '{hypothesis}': same as diff — needs the daemon binding."
-            );
-            Err(ArgoError::Provider(
-                "session bisect requires the daemon binding".into(),
-            ))
+            super::session_bisect::run(&id, &hypothesis).await
         }
         SessionCmd::Replay {
             id,
