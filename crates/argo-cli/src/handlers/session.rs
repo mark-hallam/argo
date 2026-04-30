@@ -13,6 +13,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Show { id } => show_session(&id).await,
         SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
         SessionCmd::Search { query, limit } => search(&query, limit).await,
+        SessionCmd::Delete { id, force } => delete_session(&id, force).await,
         SessionCmd::Diff { id1, id2 } => {
             // The diff against the live SQLite store needs the
             // tool_call → TurnRecord projection, which lands with
@@ -57,6 +58,38 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let db = db_path(&home);
+    let store = SessionStore::open(&db).await?;
+    store.migrate().await?;
+    let id = uuid::Uuid::parse_str(raw)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    if !force {
+        // Show what we're about to delete; refuse without --force.
+        let header = store
+            .get_session(SessionId(id))
+            .await?
+            .ok_or_else(|| ArgoError::Provider(format!("no session {raw} (already deleted?)")))?;
+        return Err(ArgoError::Provider(format!(
+            "would delete session '{}' ({}/{}) — re-run with --force",
+            header.title.as_deref().unwrap_or("(untitled)"),
+            header.provider,
+            header.model
+        )));
+    }
+    let n = store.delete_session(SessionId(id)).await?;
+    if n == 0 {
+        println!("(no session {raw} — nothing deleted)");
+    } else {
+        println!("deleted {raw} ({n} session row + cascaded children)");
+    }
+    Ok(())
 }
 
 async fn search(query: &str, limit: u32) -> ArgoResult<()> {

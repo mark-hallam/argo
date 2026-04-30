@@ -348,6 +348,13 @@ pub enum SessionCmd {
         #[arg(long, default_value_t = 20)]
         limit: u32,
     },
+    /// Delete a session and all its dependent rows. Pass `--force`
+    /// to skip the confirmation prompt.
+    Delete {
+        id: String,
+        #[arg(long)]
+        force: bool,
+    },
     Replay {
         id: String,
         #[arg(long)]

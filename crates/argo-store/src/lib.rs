@@ -248,6 +248,21 @@ impl SessionStore {
         Ok(())
     }
 
+    /// Delete a session and all its dependent rows. SQLite's
+    /// ON DELETE CASCADE on `message`, `tool_call`, `audit_record`,
+    /// `routing_decision`, and `judge_record` cleans up the
+    /// children automatically; this method just deletes the parent
+    /// `session` row. Returns the number of rows deleted (0 if the
+    /// session was not found).
+    pub async fn delete_session(&self, session_id: SessionId) -> StoreResult<u64> {
+        let result = sqlx::query("DELETE FROM session WHERE id = ?")
+            .bind(session_id.0.as_bytes().as_slice())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("delete_session: {e}")))?;
+        Ok(result.rows_affected())
+    }
+
     /// List judge records for a session, oldest first. Used by
     /// `argo judge inspect <session_id>`.
     pub async fn list_judge_records(&self, session_id: SessionId) -> StoreResult<Vec<JudgeRow>> {
