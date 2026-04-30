@@ -249,6 +249,13 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
         frame.render_widget(p, area);
         return;
     }
+    if let Some(buf) = state.steer_buffer.as_deref() {
+        let p = Paragraph::new(format!(
+            "steer: '{buf}'  (Enter persists [steer] msg, Esc cancels)"
+        ));
+        frame.render_widget(p, area);
+        return;
+    }
     if state.pending_delete.is_some() {
         let title = state
             .selected_session()
@@ -266,7 +273,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filter
         )
     } else if state.filter.is_empty() {
-        "j/k  / filter  i comp  n new  r ren  d del  y yank  q quit".to_string()
+        "j/k  / filter  i comp  s steer  n new  r ren  d del  y yank  q quit".to_string()
     } else {
         format!(
             "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",

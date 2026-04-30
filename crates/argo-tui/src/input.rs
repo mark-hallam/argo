@@ -3,7 +3,7 @@
 //! the sibling `actions.rs` so this file stays under 500 LOC as
 //! keybindings get added.
 use crate::actions::{
-    apply_delete, apply_rename, create_cloned_session, reap_agent, spawn_agent_turn,
+    apply_delete, apply_rename, apply_steer, create_cloned_session, reap_agent, spawn_agent_turn,
 };
 use crate::app::ViewerState;
 use crate::render::draw;
@@ -100,6 +100,24 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Steer mode: same shape as rename, Enter persists a
+            // system-role `[steer] <text>` message.
+            if state.steer_mode() {
+                match key.code {
+                    KeyCode::Esc => state.steer_cancel(),
+                    KeyCode::Enter => {
+                        if let Some(text) = state.steer_take() {
+                            apply_steer(&store, state, &text).await;
+                        }
+                    }
+                    KeyCode::Backspace => state.steer_pop(),
+                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        state.steer_push(c);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             // Composer mode: Enter spawns a live agent turn.
             if state.composer_mode {
                 match key.code {
@@ -134,6 +152,9 @@ pub(crate) async fn run(
                 }
                 KeyCode::Char('r') if state.selected_session().is_some() => {
                     state.enter_rename_mode();
+                }
+                KeyCode::Char('s') if state.selected_session().is_some() => {
+                    state.enter_steer_mode();
                 }
                 KeyCode::Char('d') => {
                     if let Some(s) = state.selected_session() {

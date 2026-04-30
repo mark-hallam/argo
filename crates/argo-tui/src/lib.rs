@@ -18,6 +18,7 @@ mod clipboard;
 mod input;
 mod live_event;
 mod render;
+mod text_input;
 mod viewer;
 
 pub use app::ViewerState;

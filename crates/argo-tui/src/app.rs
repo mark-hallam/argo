@@ -54,6 +54,10 @@ pub struct ViewerState {
     pub last_agent_error: Option<String>,
     /// Active rename buffer: `Some` in rename mode (entered with `r`).
     pub rename_buffer: Option<String>,
+    /// Active steer buffer: `Some` in steer mode (entered with `s`).
+    /// On Enter the contents are persisted as a system-role
+    /// message prefixed with `[steer]`, mirroring `argo steer`.
+    pub steer_buffer: Option<String>,
     /// `Some(sid)` while a pending-delete confirm is in flight
     /// (entered with `d`); next `y` deletes, anything else cancels.
     pub pending_delete: Option<argo_types::SessionId>,
@@ -89,46 +93,12 @@ impl ViewerState {
             last_agent_error: None,
             live_events: Vec::new(),
             rename_buffer: None,
+            steer_buffer: None,
             pending_delete: None,
         }
     }
 
-    /// `true` while the user is editing the rename buffer.
-    #[must_use]
-    pub fn rename_mode(&self) -> bool {
-        self.rename_buffer.is_some()
-    }
-
-    /// Enter rename mode, seeding the buffer with the selected
-    /// session's existing title (or empty when there isn't one).
-    pub fn enter_rename_mode(&mut self) {
-        let seed = self.selected_session().and_then(|s| s.title.as_deref()).unwrap_or("").to_string();
-        self.rename_buffer = Some(seed);
-    }
-
-    /// Append a char to the rename buffer (no-op outside rename mode).
-    pub fn rename_push(&mut self, c: char) {
-        if let Some(buf) = self.rename_buffer.as_mut() {
-            buf.push(c);
-        }
-    }
-
-    /// Pop the last char from the rename buffer (Backspace).
-    pub fn rename_pop(&mut self) {
-        if let Some(buf) = self.rename_buffer.as_mut() {
-            buf.pop();
-        }
-    }
-
-    /// Discard the rename buffer (Esc).
-    pub fn rename_cancel(&mut self) {
-        self.rename_buffer = None;
-    }
-
-    /// Take the rename buffer; exits rename mode. `None` outside.
-    pub fn rename_take(&mut self) -> Option<String> {
-        self.rename_buffer.take()
-    }
+    // Rename + steer text-input methods live in `text_input.rs`.
 
     /// `true` while a spawned `run_turn` task is still in flight.
     #[must_use]

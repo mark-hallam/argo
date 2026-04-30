@@ -5,7 +5,7 @@
 use crate::app::ViewerState;
 use argo_agent_runner::{run_turn_with_events, MAX_TOOL_ROUNDS};
 use argo_store::SessionStore;
-use argo_types::{ArgoResult, SessionId};
+use argo_types::{ArgoResult, MessageRole, SessionId};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -109,6 +109,36 @@ pub(crate) async fn apply_delete(
     }
     state.selected_message_count = None;
     state.selected_messages.clear();
+    state.messages_loaded = false;
+}
+
+/// Append a system-role `[steer] <text>` message to the
+/// selected session, mirroring `argo steer <id> <text>`. The
+/// next agent turn will see it as a system-prefix steer. No-op
+/// on empty input or when nothing is selected.
+pub(crate) async fn apply_steer(
+    store: &Arc<SessionStore>,
+    state: &mut ViewerState,
+    text: &str,
+) {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    let Some(session) = state.selected_session() else {
+        return;
+    };
+    let sid = SessionId(session.id.0);
+    let body = format!("[steer] {trimmed}");
+    let content = serde_json::json!([{ "type": "text", "text": body }]);
+    if let Err(e) = store
+        .append_message(sid, MessageRole::System, &content.to_string())
+        .await
+    {
+        state.last_agent_error = Some(format!("steer: {e}"));
+        return;
+    }
+    // Force a re-fetch so the new system row appears immediately.
     state.messages_loaded = false;
 }
 
@@ -283,6 +313,46 @@ mod tests {
         assert_eq!(state.sessions[0].id, a);
         assert_eq!(state.selected, 0);
         assert!(state.last_agent_error.is_none());
+    }
+
+    #[tokio::test]
+    async fn apply_steer_persists_system_role_message() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/s").await.unwrap();
+        store
+            .create_session(tenant, ws, "m", "p", Some("name"))
+            .await
+            .unwrap();
+        let sessions = store.list_all_sessions(200).await.unwrap();
+        let mut state = ViewerState::new(sessions);
+        let sid = state.selected_session().unwrap().id;
+
+        apply_steer(&store, &mut state, "be more terse").await;
+
+        let msgs = store.list_messages(sid).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].role, "system");
+        assert!(msgs[0].content_json.contains("[steer] be more terse"));
+        assert!(state.last_agent_error.is_none());
+    }
+
+    #[tokio::test]
+    async fn apply_steer_no_op_on_empty() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/s2").await.unwrap();
+        store
+            .create_session(tenant, ws, "m", "p", Some("n"))
+            .await
+            .unwrap();
+        let sessions = store.list_all_sessions(200).await.unwrap();
+        let mut state = ViewerState::new(sessions);
+        let sid = state.selected_session().unwrap().id;
+
+        apply_steer(&store, &mut state, "   ").await;
+
+        assert!(store.list_messages(sid).await.unwrap().is_empty());
     }
 
     #[tokio::test]
