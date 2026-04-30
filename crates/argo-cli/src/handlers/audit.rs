@@ -84,12 +84,17 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             tail,
             json,
             session,
+            kinds,
         } => {
+            let kind_filter = parse_kinds(kinds.as_deref());
             if let Some(raw) = session {
                 let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
                     ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
                 })?;
-                let rows = rows_for_session(&store, SessionId(id)).await?;
+                let mut rows = rows_for_session(&store, SessionId(id)).await?;
+                if let Some(allowed) = &kind_filter {
+                    rows.retain(|r| allowed.contains(r.kind.as_str()));
+                }
                 if json {
                     for r in &rows {
                         let line = serde_json::to_string(r).map_err(|e| {
@@ -117,10 +122,13 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 return Ok(());
             }
             let report = verify_all(&store).await?;
-            let tail_rows_data = match tail {
+            let mut tail_rows_data = match tail {
                 Some(n) => tail_rows(&store, n).await?,
                 None => Vec::new(),
             };
+            if let Some(allowed) = &kind_filter {
+                tail_rows_data.retain(|r| allowed.contains(r.kind.as_str()));
+            }
             if json {
                 let kinds_obj: serde_json::Map<String, serde_json::Value> = report
                     .kind_counts
@@ -230,6 +238,20 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+/// Parse the `--kinds <a,b,c>` flag into a `HashSet` for fast row
+/// filtering. Returns `None` when the flag is absent (i.e. no filter).
+/// Empty / whitespace-only entries are skipped.
+fn parse_kinds(spec: Option<&str>) -> Option<std::collections::HashSet<String>> {
+    let raw = spec?;
+    let set: std::collections::HashSet<String> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+    Some(set)
 }
 
 /// Summary counts derived from a session's audit chain.

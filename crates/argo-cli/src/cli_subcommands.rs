@@ -231,6 +231,11 @@ pub enum AuditCmd {
         /// session's full audit chain (seq order, oldest first).
         #[arg(long)]
         session: Option<String>,
+        /// Comma-separated list of audit kinds to include (case-
+        /// sensitive label match, e.g. `ToolCall,ToolResult`). When
+        /// set, the tail / per-session view drops every other kind.
+        #[arg(long)]
+        kinds: Option<String>,
     },
     /// Verify the hash chain. Pass `--session <id>` to check one
     /// session only (fast on huge logs).
