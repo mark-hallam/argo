@@ -20,6 +20,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             from: _,
             to: _,
             session,
+            json,
         } => {
             let report = match session {
                 Some(raw) => {
@@ -30,6 +31,34 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 }
                 None => verify_all(&store).await?,
             };
+            if json {
+                let breaks_arr: Vec<_> = report
+                    .breaks
+                    .iter()
+                    .map(|b| {
+                        serde_json::json!({
+                            "seq": b.seq,
+                            "kind": b.kind,
+                            "reason": b.reason,
+                        })
+                    })
+                    .collect();
+                let payload = serde_json::json!({
+                    "ok": report.ok,
+                    "rows": report.rows,
+                    "kinds": report.kind_counts.len(),
+                    "breaks": breaks_arr,
+                });
+                let serialized = serde_json::to_string(&payload)
+                    .map_err(|e| ArgoError::Provider(format!("serialize verify: {e}")))?;
+                println!("{serialized}");
+                if !report.ok {
+                    return Err(ArgoError::Provider(
+                        "audit chain verification failed".into(),
+                    ));
+                }
+                return Ok(());
+            }
             if report.ok {
                 println!(
                     "audit chain ok: {} rows verified across {} kinds",

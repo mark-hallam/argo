@@ -327,6 +327,9 @@ pub enum AuditCmd {
         to: Option<u64>,
         #[arg(long)]
         session: Option<String>,
+        /// Output as a single JSON object (ok / rows / breaks).
+        #[arg(long)]
+        json: bool,
     },
     /// Stream the audit log to ndjson. Defaults to stdout; pass
     /// `--out <path>` to write to a file.
