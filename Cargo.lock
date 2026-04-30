@@ -129,7 +129,20 @@ dependencies = [
 name = "argo-cli"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
+ "argo-config",
+ "argo-cron",
+ "argo-marketplace",
+ "argo-store",
+ "argo-types",
+ "chrono",
  "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "toml",
+ "tracing",
 ]
 
 [[package]]

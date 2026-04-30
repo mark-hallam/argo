@@ -1,0 +1,9 @@
+//! Subcommand handlers — each one wires a clap subcommand to the
+//! corresponding library primitive.
+pub mod audit;
+pub mod costs;
+pub mod cron;
+pub mod db;
+pub mod doctor;
+pub mod session;
+pub mod workspace;
