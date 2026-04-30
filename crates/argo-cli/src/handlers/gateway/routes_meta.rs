@@ -1,6 +1,7 @@
 //! Read-side meta endpoints: `GET /providers` (workspace
 //! provider manifests), `GET /tools` (registered in-core tools),
-//! `GET /search?q=…` (FTS5 search across the message corpus).
+//! `GET /search?q=…` (FTS5 search across the message corpus),
+//! `GET /workspace/artifacts` (recorded marketplace pushes).
 //! Lives in its own file to keep `routes.rs` under the 500-LOC
 //! budget and to scope the I/O (filesystem walk for providers,
 //! registry build for tools) away from the dispatch shape.
@@ -178,6 +179,40 @@ pub(super) async fn search_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"search: {e}\"}}"),
+        ),
+    }
+}
+
+/// `GET /workspace/artifacts[?limit=N]` — list recorded
+/// marketplace pushes from the workspace's `marketplace_artifact`
+/// table, newest first. Defaults to 25 rows. Returns 503 if the
+/// store is unavailable or 200 + an empty array if no workspace
+/// is registered yet.
+pub(super) async fn artifacts_response(
+    limit: u32,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let workspace = match store.first_workspace().await {
+        Ok(Some(w)) => w,
+        Ok(None) => return ("200 OK", "[]".to_string()),
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+            );
+        }
+    };
+    match store.list_marketplace_artifacts(workspace, limit).await {
+        Ok(rows) => (
+            "200 OK",
+            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list_marketplace_artifacts: {e}\"}}"),
         ),
     }
 }

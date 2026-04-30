@@ -4,7 +4,9 @@
 //! under the 500-LOC budget. Each handler returns a
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
-use super::routes_meta::{providers_response, search_response, tools_response};
+use super::routes_meta::{
+    artifacts_response, providers_response, search_response, tools_response,
+};
 use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
     create_session_response, replay_response, run_turn_response, steer_response,
@@ -56,6 +58,16 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /search ") || req.starts_with("GET /search?") {
         let (q, limit, session) = parse_search_args(req);
         return search_response(q.as_deref(), limit, session.as_deref(), store).await;
+    }
+    if req.starts_with("GET /workspace/artifacts ")
+        || req.starts_with("GET /workspace/artifacts?")
+    {
+        let limit: u32 = req
+            .strip_prefix("GET ")
+            .and_then(|tail| parse_query_kv(tail, "limit"))
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(25);
+        return artifacts_response(limit, store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
         if let Some((sid, _)) = rest.split_once(' ') {

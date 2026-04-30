@@ -219,6 +219,36 @@ fn replay_stream_returns_chunked_ndjson_for_unknown_session() {
 }
 
 #[test]
+fn workspace_artifacts_returns_empty_array_on_clean_db() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    let resp = http_get(port, "/workspace/artifacts");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.starts_with('['), "body={body}");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn search_endpoint_returns_400_on_missing_q_and_array_on_clean_db() {
     // /search returns 400 when `q` is absent (the smoke test
     // hits this path because there's no message in the DB).
