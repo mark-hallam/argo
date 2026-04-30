@@ -34,6 +34,6 @@ mod verify;
 mod tests;
 
 pub use event::AuditKind;
-pub use export::{export_ndjson, tail_rows, ExportedRow};
+pub use export::{export_ndjson, rows_for_session, tail_rows, ExportedRow};
 pub use sink::{compute_chain_hash, AuditSink};
 pub use verify::{verify_all, verify_session, ChainBreak, VerifyReport};

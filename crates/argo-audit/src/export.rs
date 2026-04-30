@@ -88,6 +88,28 @@ pub async fn tail_rows(store: &SessionStore, n: u32) -> ArgoResult<Vec<ExportedR
     rows.into_iter().map(row_to_exported).collect()
 }
 
+/// Fetch every audit row for one session in `seq` order.
+/// Used by `argo audit show --session <id>` for full per-session
+/// timeline inspection. No LIMIT — sessions are typically small.
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] on SQL or payload parse failure.
+pub async fn rows_for_session(
+    store: &SessionStore,
+    session_id: argo_types::SessionId,
+) -> ArgoResult<Vec<ExportedRow>> {
+    let rows = sqlx::query_as::<_, Row>(
+        "SELECT seq, id, session_id, kind, payload_json, \
+                parent_hash, self_hash, created_at \
+         FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
+    )
+    .bind(session_id.0.as_bytes().as_slice())
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("audit session query: {e}")))?;
+    rows.into_iter().map(row_to_exported).collect()
+}
+
 fn row_to_exported(row: Row) -> ArgoResult<ExportedRow> {
     Ok(ExportedRow {
         seq: row.seq,

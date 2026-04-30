@@ -1,7 +1,7 @@
 //! `argo audit` — chain inspection / verification / export.
 use crate::cli::AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::{export_ndjson, tail_rows, verify_all, verify_session};
+use argo_audit::{export_ndjson, rows_for_session, tail_rows, verify_all, verify_session};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use std::io::{BufWriter, Write};
@@ -80,7 +80,32 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 ))
             }
         }
-        AuditCmd::Show { tail, json } => {
+        AuditCmd::Show {
+            tail,
+            json,
+            session,
+        } => {
+            if let Some(raw) = session {
+                let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
+                    ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+                })?;
+                let rows = rows_for_session(&store, SessionId(id)).await?;
+                if json {
+                    for r in &rows {
+                        let line = serde_json::to_string(r).map_err(|e| {
+                            ArgoError::Provider(format!("serialize row: {e}"))
+                        })?;
+                        println!("{line}");
+                    }
+                    return Ok(());
+                }
+                println!("audit chain for session {raw} — {} rows", rows.len());
+                for r in &rows {
+                    let detail = payload_detail(&r.kind, &r.payload);
+                    println!("  seq={:<6} kind={:<22} {detail}", r.seq, r.kind);
+                }
+                return Ok(());
+            }
             let report = verify_all(&store).await?;
             let tail_rows_data = match tail {
                 Some(n) => tail_rows(&store, n).await?,

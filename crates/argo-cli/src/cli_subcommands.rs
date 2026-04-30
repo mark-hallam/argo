@@ -218,13 +218,19 @@ pub enum CronCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum AuditCmd {
-    /// Show the kind histogram + (optionally) the last `--tail N` rows.
+    /// Show the kind histogram + (optionally) the last `--tail N`
+    /// rows. Pass `--session <id>` to print every audit row for one
+    /// session in `seq` order instead of the global histogram view.
     Show {
         #[arg(long)]
         tail: Option<u32>,
         /// Output as a single JSON object (kind histogram + tail).
         #[arg(long)]
         json: bool,
+        /// Session id to scope to. With this set, the output is the
+        /// session's full audit chain (seq order, oldest first).
+        #[arg(long)]
+        session: Option<String>,
     },
     /// Verify the hash chain. Pass `--session <id>` to check one
     /// session only (fast on huge logs).
