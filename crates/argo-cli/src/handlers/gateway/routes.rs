@@ -6,7 +6,7 @@
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
     artifacts_response, forge_run_show_response, forge_runs_response, providers_response,
-    routes_response, search_response, tools_response,
+    routes_response, search_response, skill_show_response, tools_response,
 };
 use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
@@ -37,6 +37,11 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /skills ") {
         return skills_response(store).await;
+    }
+    if let Some(rest) = req.strip_prefix("GET /skills/") {
+        if let Some((name, _)) = rest.split_once(' ') {
+            return skill_show_response(name, store).await;
+        }
     }
     if req.starts_with("GET /memory ") {
         return memory_response(store).await;

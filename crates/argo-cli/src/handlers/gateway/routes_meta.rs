@@ -259,6 +259,46 @@ pub(super) async fn forge_runs_response(
     }
 }
 
+/// `GET /skills/<name>` — fetch the active skill for a name
+/// (mirrors `argo skill view <name>`). Returns 404 if no active
+/// row matches; the body includes the skill body text + lock +
+/// frontmatter for clients that want the full document.
+pub(super) async fn skill_show_response(
+    name: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    match skills.find_active_by_name(name).await {
+        Ok(Some(s)) => {
+            let body = serde_json::json!({
+                "id": s.id.0.to_string(),
+                "name": s.frontmatter.name,
+                "version": s.frontmatter.version,
+                "description": s.frontmatter.description,
+                "lock": format!("{:?}", s.frontmatter.lock),
+                "hash": hex::encode(s.hash),
+                "body": s.body,
+                "created_at": s.created_at.to_rfc3339(),
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no active skill named '{name}'\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"skill_show: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /forge/runs/<id>` — fetch one forge_run row by id (mirrors
 /// `argo forge runs show <id>`). Returns 404 when no row matches,
 /// 503 when the store is unavailable, 400 when the id isn't a
@@ -323,6 +363,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>)"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
         ("GET", "/skills", "active skills"),
+        ("GET", "/skills/<name>", "one skill view (full body)"),
         ("GET", "/memory", "memory entries"),
         ("GET", "/audit", "audit chain summary"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain"),
