@@ -21,7 +21,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
         MemoryCmd::List { json, file } => list(&memory, workspace, json, file.as_deref()).await,
-        MemoryCmd::View { entry } => view(&memory, &entry).await,
+        MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Verify { entry } => verify_hash(&memory, &entry).await,
         MemoryCmd::Edit { entry } => edit(&memory, &entry).await,
@@ -114,9 +114,24 @@ async fn list(
     Ok(())
 }
 
-async fn view(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
+async fn view(memory: &MemoryStore, raw: &str, json: bool) -> ArgoResult<()> {
     let id = parse_uuid(raw)?;
     let entry = memory.get(id).await?;
+    if json {
+        let row = serde_json::json!({
+            "id": entry.id.to_string(),
+            "file": format!("{:?}", entry.file),
+            "lock": format!("{:?}", entry.lock),
+            "hash": hex::encode(entry.hash),
+            "learned_in": entry.learned_in.map(|s| s.0.to_string()),
+            "learned_at": entry.learned_at.to_rfc3339(),
+            "body": entry.body,
+        });
+        let serialized = serde_json::to_string(&row)
+            .map_err(|e| ArgoError::Provider(format!("serialize entry: {e}")))?;
+        println!("{serialized}");
+        return Ok(());
+    }
     println!(
         "entry {} ({:?}, lock={:?})",
         entry.id, entry.file, entry.lock

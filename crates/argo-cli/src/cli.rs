@@ -232,6 +232,9 @@ pub enum MemoryCmd {
     },
     View {
         entry: String,
+        /// Output the entry as a single JSON object (incl. body).
+        #[arg(long)]
+        json: bool,
     },
     /// Append a fresh memory entry. `<file>` is one of memory|user|soul|agents.
     Append {
