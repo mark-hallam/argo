@@ -1,8 +1,8 @@
 //! `argo provider` — list / validate / show / test manifests.
 use crate::cli::ProviderCmd;
 use argo_provider::{
-    AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
-    ProviderManifest, ProviderRequest, Sampling, Transport,
+    AnthropicTransport, BedrockTransport, OpenAiCompatTransport, OpenAiResponsesTransport,
+    ProviderFamily, ProviderManifest, ProviderRequest, Sampling, Transport,
 };
 use argo_types::{ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, SessionId};
 use chrono::Utc;
@@ -37,25 +37,29 @@ async fn test(provider_id: &str) -> ArgoResult<()> {
                 "manifest {provider_id} has no models — add at least one entry to `[[models]]` or call with --model"
             ))
         })?;
-    let api_key_env = manifest.auth.api_key_env.clone();
-    let api_key = std::env::var(&api_key_env)
-        .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
-
     println!("provider test: {provider_id} → {model}");
     let transport: Box<dyn Transport> = match manifest.provider.family {
+        ProviderFamily::Bedrock => {
+            let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+            Box::new(BedrockTransport::from_manifest(manifest, &cfg)?)
+        }
         ProviderFamily::Anthropic => {
+            let api_key = std::env::var(&manifest.auth.api_key_env).map_err(|_| {
+                ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
+            })?;
             Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiCompatible => {
+            let api_key = std::env::var(&manifest.auth.api_key_env).map_err(|_| {
+                ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
+            })?;
             Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiResponses => {
+            let api_key = std::env::var(&manifest.auth.api_key_env).map_err(|_| {
+                ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
+            })?;
             Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
-        }
-        other => {
-            return Err(ArgoError::Provider(format!(
-                "argo provider test doesn't yet drive provider family {other:?}"
-            )));
         }
     };
 

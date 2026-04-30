@@ -22,8 +22,8 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
 use argo_provider::{
-    AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
-    ProviderManifest, ProviderRequest, ProviderResponseDelta, Sampling,
+    AnthropicTransport, BedrockTransport, OpenAiCompatTransport, OpenAiResponsesTransport,
+    ProviderFamily, ProviderManifest, ProviderRequest, ProviderResponseDelta, Sampling,
     ToolSchema as ProviderToolSchema, Transport,
 };
 use argo_store::SessionStore;
@@ -164,28 +164,9 @@ pub async fn run_turn(
     }
 
     let manifest = load_manifest(cwd, &session.provider)?;
-    let api_key_env = manifest.auth.api_key_env.clone();
-    let api_key = std::env::var(&api_key_env)
-        .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
     let pricing = price_for(&manifest, &session.model);
     let provider_id = manifest.provider.id.clone();
-    let transport: Box<dyn Transport> = match manifest.provider.family {
-        ProviderFamily::Anthropic => {
-            Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
-        }
-        ProviderFamily::OpenaiCompatible => {
-            Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
-        }
-        ProviderFamily::OpenaiResponses => {
-            Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
-        }
-        other => {
-            return Err(ArgoError::Provider(format!(
-                "argo chat doesn't yet drive provider family {other:?} \
-                 (Bedrock needs sigv4 plumbing the daemon owns)"
-            )));
-        }
-    };
+    let transport: Box<dyn Transport> = build_transport(manifest).await?;
 
     let audit = AuditSink::new(store.clone());
     audit
@@ -456,6 +437,35 @@ async fn run_stream(
         }
     }
     Ok((text, tokens_in, tokens_out))
+}
+
+/// Resolve a `ProviderManifest` to a live `Transport`. Anthropic /
+/// OpenAI families read the API key from `manifest.auth.api_key_env`;
+/// Bedrock loads AWS credentials via `aws_config::load_from_env()`
+/// (honours the standard `AWS_*` env vars + `~/.aws` profile).
+async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
+    if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
+        let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+        return Ok(Box::new(BedrockTransport::from_manifest(manifest, &cfg)?));
+    }
+    let api_key_env = manifest.auth.api_key_env.clone();
+    let api_key = std::env::var(&api_key_env)
+        .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
+    let t: Box<dyn Transport> = match manifest.provider.family {
+        ProviderFamily::Anthropic => {
+            Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
+        }
+        ProviderFamily::OpenaiCompatible => {
+            Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
+        }
+        ProviderFamily::OpenaiResponses => {
+            Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
+        }
+        // Already handled above; reachable only if a new family is
+        // added without wiring it through. Fail loud.
+        ProviderFamily::Bedrock => unreachable!("bedrock handled above"),
+    };
+    Ok(t)
 }
 
 fn load_manifest(cwd: &std::path::Path, provider_id: &str) -> ArgoResult<ProviderManifest> {

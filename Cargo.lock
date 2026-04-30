@@ -146,6 +146,7 @@ dependencies = [
  "argo-tui",
  "argo-types",
  "async-trait",
+ "aws-config",
  "chrono",
  "clap",
  "futures",
