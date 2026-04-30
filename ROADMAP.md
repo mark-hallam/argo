@@ -4,19 +4,21 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 ## Current phase
 
-**Library + integration tier complete. Live agent loop with tool
-dispatch + spend tracking running across all four provider
-families. Streaming end-to-end (chat + gateway, real-time via
-mpsc channel — no polling). Full gateway parity for replay /
-steer / per-session spend / messages pagination. TUI v2 sticky
-composer wired to user-message persistence + 1s auto-refresh.
-Browser MCP gains stateful sessions, voice MCP gains a `local`
-shell-out backend, marketplace ships a hermetic OCI round-trip
-test. Live monitoring via `argo audit show --watch`,
-short-prefix session ids, costs cap with `--reset`.** Phases 0–7
-+ 4.5 + 6.5 + 7.5 all ship at the library tier across **223+
-PRs**, with zero LOC-budget violations across the ~37k-line
-workspace and 69 test suites green.
+**Library + integration tier complete. Live agent loop now
+ships as a reusable library crate (`argo-agent-runner`) — the
+TUI drives turns directly, no longer just persisting user
+messages and waiting on a separate `argo chat` process. The
+TUI itself is a self-contained workflow: \`n\` clones a new
+session, \`r\` renames, \`d\` deletes (y-confirm), \`i\` composes,
+\`y\` yanks via OSC-52, with a real-time `RunEvent` trail
+streaming under the messages pane while a turn runs. Gateway
+gains \`GET /providers\` and \`GET /tools\` for client
+introspection. Streaming end-to-end (chat + gateway, real-time
+via mpsc channel — no polling). Full gateway parity for replay
+/ steer / per-session spend / messages pagination.** Phases
+0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
+**234+ PRs**, with zero LOC-budget violations across the
+~38k-line workspace and 70+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -59,14 +61,15 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **19 endpoints** —
-`/health`, `/version`, `GET /sessions` (with per-row spend),
-`GET /sessions/<id>` (+ tool_call_count + spend), `GET
-/sessions/<id>/messages?limit=N`, `GET /sessions/<id>/spend`,
-`GET /skills`, `GET /memory`, `GET /audit`,
-`GET /audit/sessions/<id>`, `GET /costs`,
-`GET /costs/by-model`, `GET /costs/by-session`,
-`POST /sessions`, `POST /sessions/<id>/messages`,
+shutdown via SIGTERM/SIGINT). It exposes **25 endpoints** —
+`/health`, `/version`, `GET /sessions` (with per-row spend +
+`?since-minutes=N` filter), `GET /sessions/<id>` (+
+tool_call_count + spend), `GET /sessions/<id>/messages?limit=N
+&role=<r>`, `GET /sessions/<id>/spend`, `GET /skills`,
+`GET /memory`, `GET /audit`, `GET /audit/sessions/<id>`,
+`GET /costs`, `GET /costs/by-model`, `GET /costs/by-session`,
+`GET /providers`, `GET /tools`, `POST /sessions`,
+`POST /sessions/<id>/messages`,
 `POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
 `POST /sessions/<id>/runs/stream` (chunked-NDJSON live event
 stream, mpsc-driven for sub-millisecond latency),
@@ -100,15 +103,12 @@ What's left:
 - **Daemon-coupled forge / judge-override** — `forge optimize`,
   `forge promote`, `judge override` still stub out to "needs
   the daemon's worker"; wiring them through the agent-loop
-  helpers + judge engine is its own big chunk.
-- **Argo agent loop as a library crate** — chat helpers + run
-  loop currently live in `argo-cli` (binary-only). Extracting
-  them into `argo-agent-runner` would let the TUI spawn live
-  agent turns directly (today the composer persists user
-  messages via `SessionStore::append_message` and relies on a
-  separate `argo chat` to drive the assistant turn).
-- **OSC-52 clipboard + multi-pane focus** in the TUI for the
-  v2.1 polish layer.
+  helpers (`argo-agent-runner`, #228) + judge engine is its
+  own big chunk.
+- **Multi-pane focus + scroll + tool-result drill-in** in the
+  TUI for the v2.2 polish layer (the v2.1 wave landed in
+  #229–#234: composer drives turns directly + n/r/d/y
+  keybindings + live-event trail + OSC-52 yank).
 - **Voice / browser native bindings** — `local` shell-out
   (#209) and `session_*` reuse-WS (#208) cover the workflows;
   truly native (whisper-rs, chromiumoxide) is a perf upgrade.
