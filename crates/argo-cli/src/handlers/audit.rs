@@ -39,7 +39,21 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             }
         }
         AuditCmd::Show => {
-            println!("argo audit show: render-only path lands with the TUI; use --format ndjson for export.");
+            // The DB-backed render landed on top of `verify_all`'s
+            // kind_counts. Future TUI / `--tail N` lives separately.
+            let report = verify_all(&store).await?;
+            println!("audit log — {} rows", report.rows);
+            let mut kinds: Vec<(&String, &usize)> = report.kind_counts.iter().collect();
+            kinds.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+            for (kind, count) in kinds {
+                println!("  {count:>6}  {kind}");
+            }
+            if !report.ok {
+                println!(
+                    "(chain has {} break(s); run `argo audit verify` for detail)",
+                    report.breaks.len()
+                );
+            }
             Ok(())
         }
         AuditCmd::Export { format } => {

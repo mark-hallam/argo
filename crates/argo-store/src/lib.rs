@@ -163,6 +163,21 @@ impl SessionStore {
         Ok(row.map(SessionHeader::from))
     }
 
+    /// List sessions across all tenants, ordered by recency. Used
+    /// by the CLI's `argo session list` when no tenant filter is
+    /// provided.
+    pub async fn list_all_sessions(&self, limit: u32) -> StoreResult<Vec<SessionHeader>> {
+        let rows = sqlx::query_as::<_, SessionHeaderRow>(
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at
+             FROM session ORDER BY started_at DESC LIMIT ?",
+        )
+        .bind(i64::from(limit))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_all_sessions: {e}")))?;
+        Ok(rows.into_iter().map(SessionHeader::from).collect())
+    }
+
     /// List sessions for a tenant, ordered by recency.
     pub async fn list_sessions(
         &self,

@@ -133,6 +133,7 @@ dependencies = [
  "argo-config",
  "argo-cron",
  "argo-marketplace",
+ "argo-provider",
  "argo-store",
  "argo-types",
  "chrono",

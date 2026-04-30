@@ -276,6 +276,11 @@ pub enum CostsCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum SessionCmd {
+    /// List recent sessions for the current tenant.
+    List {
+        #[arg(long, default_value_t = 25)]
+        limit: u32,
+    },
     Replay {
         id: String,
         #[arg(long)]

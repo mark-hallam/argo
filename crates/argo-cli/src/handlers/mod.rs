@@ -5,5 +5,6 @@ pub mod costs;
 pub mod cron;
 pub mod db;
 pub mod doctor;
+pub mod provider;
 pub mod session;
 pub mod workspace;
