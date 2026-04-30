@@ -124,6 +124,16 @@ pub(crate) async fn run(
                         crate::clipboard::write_to_clipboard(&text);
                     }
                 }
+                KeyCode::Char('n') => {
+                    // Clone the selected session's provider+model
+                    // into a fresh session row. No-op when nothing
+                    // is selected — the user has nothing to copy
+                    // from, so the footer hint nudges them to
+                    // `argo new` instead.
+                    if let Err(e) = create_cloned_session(&store, &cwd, state).await {
+                        state.last_agent_error = Some(format!("new session: {e}"));
+                    }
+                }
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();
                     fetch_message_count(&store, state).await?;
@@ -234,6 +244,53 @@ async fn reap_agent(state: &mut ViewerState) -> bool {
     true
 }
 
+/// Clone the selected session's `(provider, model)` into a fresh
+/// session row, refresh the list, and select the new row. The
+/// title is "untitled" — the user can rename via `argo session
+/// rename` (CLI) or just compose into it. Returns the new
+/// session id on success.
+///
+/// Returns `Ok(())` even when no session is selected — the
+/// keybinding has nothing to clone from in that case and the
+/// footer hint already nudges the user to use `argo new`.
+async fn create_cloned_session(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    state: &mut ViewerState,
+) -> ArgoResult<()> {
+    let Some(template) = state.selected_session() else {
+        state.last_agent_error =
+            Some("no session selected to clone — use `argo new` first".to_string());
+        return Ok(());
+    };
+    let model = template.model.clone();
+    let provider = template.provider.clone();
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, ws) = store.ensure_workspace(name, &root).await?;
+    let new_id = store
+        .create_session(tenant, ws, &model, &provider, Some("untitled"))
+        .await?;
+    // Re-fetch the session list and select the freshly-created
+    // row. `list_all_sessions` is reverse-chronological so the
+    // new row should land at index 0.
+    let sessions = store.list_all_sessions(200).await?;
+    state.sessions = sessions;
+    state.selected = state
+        .sessions
+        .iter()
+        .position(|s| s.id == new_id)
+        .unwrap_or(0);
+    state.selected_message_count = None;
+    state.selected_messages.clear();
+    state.messages_loaded = false;
+    state.last_agent_error = None;
+    Ok(())
+}
+
 /// Choose what `y` copies: prefer the most recent message body,
 /// fall back to the selected session id when the messages pane
 /// is empty.
@@ -249,4 +306,45 @@ fn pick_yank_text(state: &ViewerState) -> Option<String> {
         }
     }
     state.selected_session().map(|s| s.id.0.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn create_cloned_session_clones_provider_and_model() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/x").await.unwrap();
+        let original = store
+            .create_session(tenant, ws, "claude-x", "anthropic", Some("first"))
+            .await
+            .unwrap();
+        let sessions = store.list_all_sessions(200).await.unwrap();
+        let mut state = ViewerState::new(sessions);
+
+        create_cloned_session(&store, std::path::Path::new("/tmp/x"), &mut state)
+            .await
+            .unwrap();
+
+        assert_eq!(state.sessions.len(), 2, "list grows by one");
+        let new = state.selected_session().expect("new session selected");
+        assert_eq!(new.model, "claude-x");
+        assert_eq!(new.provider, "anthropic");
+        assert_eq!(new.title.as_deref(), Some("untitled"));
+        assert_ne!(new.id, original, "new session has a fresh id");
+    }
+
+    #[tokio::test]
+    async fn create_cloned_session_no_op_on_empty_list() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let mut state = ViewerState::new(Vec::new());
+        create_cloned_session(&store, std::path::Path::new("/tmp/x"), &mut state)
+            .await
+            .unwrap();
+        assert!(state.sessions.is_empty());
+        assert!(state.last_agent_error.as_deref().is_some());
+    }
 }

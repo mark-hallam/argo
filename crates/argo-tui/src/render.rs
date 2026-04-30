@@ -248,7 +248,7 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filter
         )
     } else if state.filter.is_empty() {
-        "↑/k  ↓/j  PgUp/PgDn  g/G  /  filter    i  compose    y  yank    q/esc  quit".to_string()
+        "j/k  PgUp/Dn  g/G  / filter  i compose  n new  y yank  q quit".to_string()
     } else {
         format!(
             "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",
