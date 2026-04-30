@@ -2,7 +2,9 @@
 use crate::cli::WorkspaceCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_config::ArgoConfig;
-use argo_marketplace::{build_bundle, OciReference};
+use argo_marketplace::{
+    build_bundle, OciDistributionRegistry, OciReference, OciRegistry,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
@@ -47,7 +49,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
         WorkspaceCmd::Status => status(&cwd).await,
         WorkspaceCmd::Verify => verify(&cwd),
         WorkspaceCmd::Push { oci_ref } => push(&cwd, &oci_ref).await,
-        WorkspaceCmd::Pull { oci_ref } => pull(&oci_ref),
+        WorkspaceCmd::Pull { oci_ref } => pull(&cwd, &oci_ref).await,
         WorkspaceCmd::Diff { other } => {
             println!("workspace diff vs {other}: 3-way merge UI lands with §23.3 wiring.");
             Ok(())
@@ -249,14 +251,56 @@ async fn push(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()> {
     println!("  tag:       {}", manifest.tag);
     println!("  digest:    sha256:{}", manifest.digest);
     println!("  entries:   {}", manifest.entries.len());
-    println!("note: actual OCI registry push lands with the §23.3 follow-up.");
+
+    let tar_bytes = tokio::fs::read(&out_tar)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", out_tar.display())))?;
+    let registry = OciDistributionRegistry::new(&host_base_url(&reference.host), oci_token());
+    registry.push(&reference, &tar_bytes, &manifest).await?;
+    println!("pushed {} ({} bytes) → {}", reference.to_canonical(), tar_bytes.len(), reference.host);
     Ok(())
 }
 
-fn pull(oci_ref: &str) -> ArgoResult<()> {
-    // Parse-only path until §23.3 wires the real client. This is
-    // still useful: rejects malformed refs with a clean error.
-    let _ = OciReference::parse(oci_ref)?;
-    println!("workspace pull from {oci_ref}: registry client lands with §23.3.");
+async fn pull(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()> {
+    let reference = OciReference::parse(oci_ref)?;
+    let registry = OciDistributionRegistry::new(&host_base_url(&reference.host), oci_token());
+    let (tar_bytes, manifest) = registry.pull(&reference).await?;
+    let out_tar = cwd.join(format!(
+        "argo-pull-{}-{}.tar",
+        reference.repo.replace('/', "-"),
+        reference.tag
+    ));
+    tokio::fs::write(&out_tar, &tar_bytes)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", out_tar.display())))?;
+    println!(
+        "pulled {} → {} ({} bytes)",
+        reference.to_canonical(),
+        out_tar.display(),
+        tar_bytes.len()
+    );
+    println!("  workspace: {}", manifest.workspace_name);
+    println!("  tag:       {}", manifest.tag);
+    println!("  digest:    {}", manifest.digest);
+    println!("  entries:   {}", manifest.entries.len());
     Ok(())
+}
+
+/// Determine the registry's HTTP base URL from the OCI host
+/// (e.g. `ghcr.io` → `https://ghcr.io`; `localhost:5000` →
+/// `http://localhost:5000` — useful for local dev registries
+/// + the smoke-test mock).
+fn host_base_url(host: &str) -> String {
+    let scheme = if host.starts_with("localhost") || host.starts_with("127.0.0.1") {
+        "http"
+    } else {
+        "https"
+    };
+    format!("{scheme}://{host}")
+}
+
+/// Read `ARGO_OCI_TOKEN` if set; sent as `Authorization: Bearer …`
+/// on every registry request.
+fn oci_token() -> Option<String> {
+    std::env::var("ARGO_OCI_TOKEN").ok()
 }
