@@ -181,3 +181,34 @@ fn status(cfg: &ArgoConfig) -> ArgoResult<()> {
     }
     Ok(())
 }
+
+/// Count the `ToolCall` audit rows scoped to one session — cheaper
+/// than walking message content_json. Used by `GET /sessions/<id>`.
+pub(super) async fn session_tool_call_count(
+    store: &argo_store::SessionStore,
+    sid: argo_types::SessionId,
+) -> argo_types::ArgoResult<u64> {
+    let n: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM audit_record WHERE session_id = ? AND kind = 'ToolCall'",
+    )
+    .bind(sid.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .map_err(|e| argo_types::ArgoError::Provider(format!("audit count: {e}")))?;
+    Ok(u64::try_from(n).unwrap_or(0))
+}
+
+/// Sum of spend ledger micros for one session.
+pub(super) async fn session_spend_micros(
+    store: &argo_store::SessionStore,
+    sid: argo_types::SessionId,
+) -> argo_types::ArgoResult<u64> {
+    let total: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger WHERE session_id = ?",
+    )
+    .bind(sid.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .map_err(|e| argo_types::ArgoError::Provider(format!("spend sum: {e}")))?;
+    Ok(u64::try_from(total).unwrap_or(0))
+}

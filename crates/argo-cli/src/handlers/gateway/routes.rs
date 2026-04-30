@@ -361,6 +361,8 @@ async fn session_show_response(
         }
     };
     let count = store.message_count(id).await.unwrap_or(0);
+    let tool_calls = super::session_tool_call_count(store, id).await.unwrap_or(0);
+    let spent = super::session_spend_micros(store, id).await.unwrap_or(0);
     let row = serde_json::json!({
         "id": session.id.0.to_string(),
         "tenant_id": session.tenant_id.0.to_string(),
@@ -371,6 +373,8 @@ async fn session_show_response(
         "started_at": session.started_at.to_rfc3339(),
         "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
         "message_count": count,
+        "tool_call_count": tool_calls,
+        "spent_usd_micros": spent,
     });
     (
         "200 OK",
