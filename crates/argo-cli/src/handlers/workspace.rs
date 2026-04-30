@@ -1,6 +1,9 @@
 //! `argo workspace` — bundle init / push / pull / diff.
 use crate::cli::WorkspaceCmd;
+use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_config::ArgoConfig;
 use argo_marketplace::{build_bundle, OciReference};
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
 
@@ -41,6 +44,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     match cmd {
         WorkspaceCmd::Init => init(&cwd),
+        WorkspaceCmd::Status => status(&cwd).await,
         WorkspaceCmd::Push { oci_ref } => push(&cwd, &oci_ref).await,
         WorkspaceCmd::Pull { oci_ref } => pull(&oci_ref),
         WorkspaceCmd::Diff { other } => {
@@ -55,6 +59,43 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
             println!("workspace publish: lands with the §23.3 release-pipeline wiring.");
             Ok(())
         }
+    }
+}
+
+async fn status(cwd: &std::path::Path) -> ArgoResult<()> {
+    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let db = db_path(&home);
+    let store = SessionStore::open(&db).await?;
+    store.migrate().await?;
+    let stats = store.db_stats().await?;
+    let ceilings = cfg.budget.to_cost_ceilings();
+    println!("workspace status");
+    println!("  cwd:        {}", cwd.display());
+    println!("  ARGO_HOME:  {}", home.display());
+    println!("  profile:    {}", cfg.core.profile);
+    println!(
+        "  tenant:     {} (mode={})",
+        cfg.tenant.default_id, cfg.tenant.mode
+    );
+    println!(
+        "  caps:       session={}  day={}  month={}",
+        format_cap(ceilings.per_session_usd_micros),
+        format_cap(ceilings.per_day_usd_micros),
+        format_cap(ceilings.per_month_usd_micros),
+    );
+    println!(
+        "  rows:       sessions={}  messages={}  audit={}  forge_runs={}",
+        stats.sessions, stats.messages, stats.audit_rows, stats.forge_runs
+    );
+    Ok(())
+}
+
+fn format_cap(value: Option<u64>) -> String {
+    match value {
+        Some(v) => format!("${:.2}", v as f64 / 1_000_000.0),
+        None => "(unlimited)".into(),
     }
 }
 

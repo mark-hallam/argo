@@ -286,6 +286,8 @@ pub enum WorkspaceCmd {
     /// Initialize a fresh workspace at `.` (writes argo.toml + the
     /// canonical bundle directories).
     Init,
+    /// One-line status summary (workspace + db + costs).
+    Status,
     Fork {
         source: String,
     },
