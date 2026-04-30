@@ -12,6 +12,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod elevenlabs;
+mod minimax;
 mod openai;
 mod service;
 

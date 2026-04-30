@@ -108,6 +108,7 @@ async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
     match backend {
         "openai" => crate::openai::synthesize(text, voice, instructions, format).await,
         "elevenlabs" => crate::elevenlabs::synthesize(text, voice).await,
+        "minimax" => crate::minimax::synthesize(text, voice).await,
         _ => CallToolResult {
             content: vec![McpContent::Text {
                 text: NOT_WIRED.into(),
