@@ -24,6 +24,7 @@
 
 mod anthropic;
 mod bedrock;
+mod discovery;
 mod extractors;
 mod heartbeat;
 mod manifest;
@@ -34,6 +35,7 @@ mod transport;
 
 pub use anthropic::AnthropicTransport;
 pub use bedrock::BedrockTransport;
+pub use discovery::resolve_latest;
 pub use extractors::{
     anthropic_tool_use, bedrock_tool_use, extract_tool_calls, llm_extracted, openai_response_tools,
     openai_tool_calls, xml_tool_call,

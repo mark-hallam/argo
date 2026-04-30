@@ -28,6 +28,10 @@ aws-config = { workspace = true }
 aws-sdk-bedrockruntime = { workspace = true }
 aws-smithy-types = { workspace = true }
 parking_lot = { workspace = true }
+# `regex` for [discovery].include_pattern / exclude_pattern (§8.1
+# manifest schema literally specifies regex syntax: `^gpt-[0-9]`,
+# `preview|legacy|deprecated`).
+regex = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
