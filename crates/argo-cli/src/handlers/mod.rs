@@ -14,6 +14,7 @@ pub mod judge;
 pub mod mcp;
 pub mod memory;
 pub mod model;
+pub mod new;
 pub mod plugin;
 pub mod provider;
 pub mod route;

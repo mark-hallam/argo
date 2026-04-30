@@ -24,8 +24,22 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Start a fresh session.
-    New,
+    /// Start a fresh session row in the local store. Without a
+    /// daemon to actually call the LLM this is just a header
+    /// insert — useful for prototyping the read-side surface and
+    /// for capturing externally-streamed messages via the gateway
+    /// (`POST /sessions/<id>/messages`).
+    New {
+        /// Provider id (matches `manifests/providers/<id>.toml`).
+        #[arg(long)]
+        provider: String,
+        /// Model id (e.g. claude-haiku, gpt-5-1).
+        #[arg(long)]
+        model: String,
+        /// Optional human-readable title.
+        #[arg(long)]
+        title: Option<String>,
+    },
     /// Resume an existing session by id (or interactive picker if omitted).
     Resume {
         id: Option<String>,
