@@ -47,6 +47,30 @@ pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
     Uuid::from_bytes(a)
 }
 
+/// One Forge run row. Surfaced as-is for `argo forge runs list`.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
+pub struct ForgeRunRow {
+    /// Skill name being optimized.
+    pub skill_name: String,
+    /// Start timestamp (UTC, micros).
+    pub started_at: i64,
+    /// End timestamp; `None` while running.
+    pub ended_at: Option<i64>,
+    /// Base skill version.
+    pub base_version: String,
+    /// Candidate version (set on success/partial).
+    pub candidate_version: Option<String>,
+    /// Iteration count actually run.
+    pub iterations: i64,
+    /// Spend in USD-micros.
+    pub spend_usd_micros: i64,
+    /// Final score in `[0.0, 1.0]` if known.
+    pub final_score: Option<f64>,
+    /// Status string (`pending` / `running` / `succeeded` /
+    /// `partial` / `failed` / `aborted` per §26.4).
+    pub status: String,
+}
+
 /// Raw `routing_decision` row.
 #[derive(sqlx::FromRow)]
 pub(crate) struct RoutingDecisionRow {

@@ -16,7 +16,7 @@ mod migrations;
 mod models;
 mod spend;
 
-pub use models::SessionHeader;
+pub use models::{ForgeRunRow, SessionHeader};
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
@@ -246,6 +246,22 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("persist_routing_decision: {e}")))?;
         Ok(())
+    }
+
+    /// List recent Forge runs (most-recent first). Used by
+    /// `argo forge runs list` to surface optimization history.
+    pub async fn list_forge_runs(&self, limit: u32) -> StoreResult<Vec<ForgeRunRow>> {
+        let rows = sqlx::query_as::<_, ForgeRunRow>(
+            "SELECT skill_name, started_at, ended_at, base_version, \
+             candidate_version, iterations, spend_usd_micros, \
+             final_score, status FROM forge_run \
+             ORDER BY started_at DESC LIMIT ?",
+        )
+        .bind(i64::from(limit))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_forge_runs: {e}")))?;
+        Ok(rows)
     }
 
     /// List routing decisions for `session_id` in turn order.
