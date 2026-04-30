@@ -133,6 +133,38 @@ pub async fn eval(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// Return all `<a href>` links on the first open page as a JSON
+/// array of `{href, text}` objects. Single-shot `Runtime.evaluate`.
+pub async fn extract_links(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Runtime.evaluate",
+        "params": {
+            "expression": "JSON.stringify(Array.from(document.querySelectorAll('a[href]')).map(a => ({ href: a.href, text: (a.innerText || '').trim() })))",
+            "returnByValue": true,
+        }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let raw = parsed["result"]["result"]["value"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_else(|| "[]".to_string());
+    // The expression returns a JSON-string of an array; parse it
+    // and re-serialize pretty so callers piping through `jq` get
+    // a useful structure.
+    let parsed_arr: serde_json::Value =
+        serde_json::from_str(&raw).unwrap_or(serde_json::Value::Array(Vec::new()));
+    let pretty = serde_json::to_string_pretty(&parsed_arr).unwrap_or(raw);
+    CallToolResult {
+        content: vec![McpContent::Text { text: pretty }],
+        is_error: false,
+    }
+}
+
 /// Return `document.body.innerText` of the first open page via
 /// `Runtime.evaluate`. Convenience wrapper around `eval` for the
 /// common "give me the page text" case.

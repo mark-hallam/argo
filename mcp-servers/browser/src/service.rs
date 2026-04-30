@@ -81,6 +81,9 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "read_page" {
             return Ok(crate::cdp::read_page(&params.arguments).await);
         }
+        if params.name.as_str() == "extract_links" {
+            return Ok(crate::cdp::extract_links(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -217,8 +220,19 @@ fn read_page_schema() -> McpToolSchema {
 fn extract_links_schema() -> McpToolSchema {
     McpToolSchema {
         name: "extract_links".into(),
-        description: "List all hyperlinks (href + visible text) on the page.".into(),
-        input_schema: serde_json::json!({"type": "object"}),
+        description: "List every `<a href>` on the first open page as JSON \
+            (`[{href, text}, …]`). Single-shot CDP Runtime.evaluate."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "description": "Chrome debug port. Defaults to 9222.",
+                    "default": 9222
+                }
+            }
+        }),
     }
 }
 
