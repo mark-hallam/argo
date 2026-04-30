@@ -340,10 +340,13 @@ pub enum CostsCmd {
     },
     /// Dump every row in `spend_ledger` as NDJSON (one JSON object
     /// per line). Pass `--out <path>` to write to a file; otherwise
-    /// streams to stdout.
+    /// streams to stdout. `--since-minutes` scopes to recent rows.
     Export {
         #[arg(long)]
         out: Option<String>,
+        /// Filter to rows charged within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
     },
 }
 

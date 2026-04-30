@@ -26,7 +26,9 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
                 show(&cwd, &cfg, json).await
             }
         }
-        Some(CostsCmd::Export { out }) => export_ledger(&cwd, out.as_deref()).await,
+        Some(CostsCmd::Export { out, since_minutes }) => {
+            export_ledger(&cwd, out.as_deref(), since_minutes).await
+        }
         Some(CostsCmd::Cap {
             session,
             day,
@@ -192,19 +194,35 @@ async fn load_global_spend(cwd: &std::path::Path) -> ArgoResult<GlobalSpend> {
 /// a file. Each row is `{tenant_id, session_id, charged_at_micros,
 /// amount_usd_micros, provider, model}` (uuids hex-encoded for
 /// portability).
-async fn export_ledger(cwd: &std::path::Path, out: Option<&str>) -> ArgoResult<()> {
+async fn export_ledger(
+    cwd: &std::path::Path,
+    out: Option<&str>,
+    since_minutes: Option<i64>,
+) -> ArgoResult<()> {
     use std::io::Write;
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     type SpendRow = (Vec<u8>, Vec<u8>, i64, i64, String, String);
-    let rows: Vec<SpendRow> = sqlx::query_as(
-        "SELECT tenant_id, session_id, charged_at_micros, amount_usd_micros, provider, model \
-         FROM spend_ledger ORDER BY charged_at_micros ASC",
-    )
-    .fetch_all(store.pool())
-    .await
+    let cutoff = since_minutes.map(|m| {
+        (Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
+    });
+    let rows: Vec<SpendRow> = match cutoff {
+        Some(c) => sqlx::query_as(
+            "SELECT tenant_id, session_id, charged_at_micros, amount_usd_micros, provider, model \
+             FROM spend_ledger WHERE charged_at_micros >= ? ORDER BY charged_at_micros ASC",
+        )
+        .bind(c)
+        .fetch_all(store.pool())
+        .await,
+        None => sqlx::query_as(
+            "SELECT tenant_id, session_id, charged_at_micros, amount_usd_micros, provider, model \
+             FROM spend_ledger ORDER BY charged_at_micros ASC",
+        )
+        .fetch_all(store.pool())
+        .await,
+    }
     .map_err(|e| ArgoError::Provider(format!("export_ledger: {e}")))?;
 
     let mut writer: Box<dyn Write> = match out {
