@@ -98,6 +98,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-agent-runner"
+version = "0.0.1"
+dependencies = [
+ "argo-audit",
+ "argo-capability",
+ "argo-provider",
+ "argo-store",
+ "argo-tool",
+ "argo-types",
+ "async-trait",
+ "aws-config",
+ "chrono",
+ "futures",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "argo-audit"
 version = "0.0.1"
 dependencies = [
@@ -129,6 +148,7 @@ dependencies = [
 name = "argo-cli"
 version = "0.0.1"
 dependencies = [
+ "argo-agent-runner",
  "argo-audit",
  "argo-capability",
  "argo-config",

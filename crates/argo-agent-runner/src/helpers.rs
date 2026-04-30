@@ -1,5 +1,6 @@
-//! Pure helpers used by the agent loop in `chat.rs`. Extracted
-//! to keep that file under the 500-LOC budget.
+//! Pure helpers used by the agent loop in `turn.rs`. Public so
+//! external drivers (e.g. eval harnesses) can reuse the same
+//! lifting + spend math without re-implementing it.
 use argo_provider::{ProviderManifest, ProviderRequest, ProviderResponseDelta, Transport};
 use argo_store::SessionStore;
 use argo_types::{
@@ -20,12 +21,12 @@ use std::sync::Arc;
 /// Each variant maps 1:1 to an `AuditKind`, which keeps the wire
 /// shape stable: clients can parse `RunEvent` JSON the same way
 /// they parse `ExportedRow.payload`.
-pub(crate) type RunEventSink = tokio::sync::mpsc::UnboundedSender<serde_json::Value>;
+pub type RunEventSink = tokio::sync::mpsc::UnboundedSender<serde_json::Value>;
 
 /// Send a JSON event to the optional sink. Drops the message if
 /// the receiver has been closed (the gateway streaming task may
 /// have torn down e.g. on client disconnect).
-pub(crate) fn emit_event(sink: Option<&RunEventSink>, kind: &str, payload: serde_json::Value) {
+pub fn emit_event(sink: Option<&RunEventSink>, kind: &str, payload: serde_json::Value) {
     if let Some(tx) = sink {
         let env = serde_json::json!({"event": kind, "payload": payload});
         let _ = tx.send(env);
@@ -35,18 +36,22 @@ pub(crate) fn emit_event(sink: Option<&RunEventSink>, kind: &str, payload: serde
 /// Per-round response shape used by both the streaming and non-
 /// streaming paths in the agent loop. Lets the loop body stay
 /// one shape regardless of which transport call produced it.
-pub(crate) struct RoundResp {
-    pub(crate) text: String,
-    pub(crate) tool_calls: Vec<ToolCallRequest>,
-    pub(crate) tokens_in: Option<u32>,
-    pub(crate) tokens_out: Option<u32>,
+pub struct RoundResp {
+    /// Assistant text accumulated across this round.
+    pub text: String,
+    /// Tool calls the assistant requested (in wire order).
+    pub tool_calls: Vec<ToolCallRequest>,
+    /// Provider-reported input tokens, if any.
+    pub tokens_in: Option<u32>,
+    /// Provider-reported output tokens, if any.
+    pub tokens_out: Option<u32>,
 }
 
 /// Stream one provider round, printing text chunks to stdout as
 /// they arrive and accumulating tool-call deltas into proper
 /// `ToolCallRequest`s. The agent loop dispatches any returned
 /// tool calls just as it does for the non-streaming path.
-pub(crate) async fn stream_one_round(
+pub async fn stream_one_round(
     transport: &dyn Transport,
     req: &ProviderRequest,
 ) -> ArgoResult<RoundResp> {
@@ -119,18 +124,22 @@ pub(crate) async fn stream_one_round(
 
 /// Static-for-the-turn data the agent loop needs to record spend
 /// (tenant + provider + model + price-per-1k tuple).
-pub(crate) struct SpendCtx<'a> {
-    pub(crate) tenant_id: TenantId,
-    pub(crate) provider: &'a str,
-    pub(crate) model: &'a str,
-    pub(crate) pricing: Option<(f64, f64)>,
+pub struct SpendCtx<'a> {
+    /// Acting tenant for the spend row.
+    pub tenant_id: TenantId,
+    /// Provider id (matches manifest `provider.id`).
+    pub provider: &'a str,
+    /// Model id (matches manifest `models[*].id`).
+    pub model: &'a str,
+    /// `(price_per_1k_in, price_per_1k_out)` if the manifest carries it.
+    pub pricing: Option<(f64, f64)>,
 }
 
 /// Look up `(price_per_1k_in, price_per_1k_out)` for a given model
 /// id within a manifest. Returns `None` if the model isn't listed
 /// or if either price field is missing — chat skips spend recording
 /// in that case (no silent zero-cost rows).
-pub(crate) fn price_for(manifest: &ProviderManifest, model: &str) -> Option<(f64, f64)> {
+pub fn price_for(manifest: &ProviderManifest, model: &str) -> Option<(f64, f64)> {
     let spec = manifest.models.iter().find(|m| m.id == model)?;
     Some((spec.price_per_1k_in?, spec.price_per_1k_out?))
 }
@@ -138,7 +147,7 @@ pub(crate) fn price_for(manifest: &ProviderManifest, model: &str) -> Option<(f64
 /// Convert `(tokens_in, tokens_out)` × pricing into USD-micros and
 /// record one spend row per turn. No-op when pricing or token
 /// counts are missing.
-pub(crate) async fn record_turn_spend(
+pub async fn record_turn_spend(
     store: &Arc<SessionStore>,
     session_id: SessionId,
     spend: &SpendCtx<'_>,
@@ -170,7 +179,7 @@ pub(crate) async fn record_turn_spend(
 /// `Message` the wire layer expects. Tool-call / tool-result
 /// content blocks are lifted onto `tool_calls` / `tool_call_id`
 /// (see [`lift_tool_blocks`]).
-pub(crate) fn message_from_row(
+pub fn message_from_row(
     row: &argo_store::MessageRow,
     session_id: SessionId,
 ) -> ArgoResult<Message> {
@@ -215,7 +224,7 @@ pub(crate) fn message_from_row(
 /// hoisted to `Message.tool_call_id`. Tool-result blocks remain
 /// in `content` so wire layers (Anthropic `push_tool_result`)
 /// can read the body.
-pub(crate) fn lift_tool_blocks(
+pub fn lift_tool_blocks(
     blocks: Vec<ContentBlock>,
 ) -> (Vec<ContentBlock>, Vec<ToolCallRequest>, Option<ToolCallId>) {
     let mut content = Vec::with_capacity(blocks.len());
@@ -239,7 +248,7 @@ pub(crate) fn lift_tool_blocks(
 /// Build the `content_json` payload for an assistant message
 /// that may also carry tool calls. Tool calls are serialized as
 /// `ContentBlock::ToolUse` blocks alongside any leading text.
-pub(crate) fn build_assistant_content(
+pub fn build_assistant_content(
     text: &str,
     tool_calls: &[ToolCallRequest],
 ) -> serde_json::Value {
@@ -297,7 +306,7 @@ mod tests {
     #[tokio::test]
     async fn stream_one_round_accumulates_tool_calls_in_wire_order() {
         use argo_provider::{
-            ProviderResponseDelta, ProviderResponse, Sampling, StopReason,
+            ProviderResponse, ProviderResponseDelta, Sampling, StopReason,
             ToolSchema as ProviderToolSchema,
         };
         use argo_types::CapabilitySet;

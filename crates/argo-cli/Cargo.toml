@@ -12,6 +12,7 @@ name = "argo"
 path = "src/main.rs"
 
 [dependencies]
+argo-agent-runner = { path = "../argo-agent-runner", version = "0.0.1" }
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-config = { path = "../argo-config", version = "0.0.1" }

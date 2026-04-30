@@ -3,7 +3,6 @@
 pub mod agents;
 pub mod audit;
 pub mod chat;
-mod chat_helpers;
 pub mod costs;
 pub mod cron;
 pub mod db;

@@ -35,7 +35,7 @@ pub(crate) async fn replay_core_with_events(
     raw: &str,
     model: Option<&str>,
     provider: Option<&str>,
-    events: Option<&crate::handlers::chat_helpers::RunEventSink>,
+    events: Option<&argo_agent_runner::RunEventSink>,
 ) -> ArgoResult<ReplayResult> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/argo-types",
+  "crates/argo-agent-runner",
   "crates/argo-config",
   "crates/argo-store",
   "crates/argo-capability",
