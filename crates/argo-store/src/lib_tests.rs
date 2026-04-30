@@ -229,3 +229,68 @@ async fn fts5_table_exists() {
     .unwrap();
     assert_eq!(n, 1);
 }
+
+#[tokio::test]
+async fn override_judge_verdict_updates_in_place() {
+    use argo_types::JudgeRecordId;
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+    let (tenant, ws) = store.ensure_workspace("ws", "/tmp/jo").await.unwrap();
+    let sid = store
+        .create_session(tenant, ws, "m", "p", Some("t"))
+        .await
+        .unwrap();
+    // Insert a judge_record row directly so we don't have to spin
+    // up the full judge engine just to test override semantics.
+    let record_id = JudgeRecordId::new();
+    sqlx::query(
+        "INSERT INTO judge_record (id, session_id, subject_kind, subject_ref, verdict, \
+         reason, judge_provider, judge_model, rubric_id, rubric_version, \
+         evidence_hashes, created_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(record_id.0.as_bytes().as_slice())
+    .bind(sid.0.as_bytes().as_slice())
+    .bind("turn")
+    .bind("turn-1")
+    .bind("partial")
+    .bind(Option::<&str>::Some("orig reason"))
+    .bind("anthropic")
+    .bind("claude-x")
+    .bind("default")
+    .bind("v1")
+    .bind("[]")
+    .bind(0_i64)
+    .execute(store.pool())
+    .await
+    .unwrap();
+
+    let outcome = store
+        .override_judge_verdict(record_id, "success", Some("explicit override"))
+        .await
+        .unwrap();
+    assert_eq!(outcome, Some((sid, "partial".to_string())));
+
+    let verdict: String =
+        sqlx::query_scalar("SELECT verdict FROM judge_record WHERE id = ?")
+            .bind(record_id.0.as_bytes().as_slice())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+    assert_eq!(verdict, "success");
+}
+
+#[tokio::test]
+async fn override_judge_verdict_returns_none_for_unknown_id() {
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+    let result = store
+        .override_judge_verdict(
+            argo_types::JudgeRecordId::new(),
+            "success",
+            None,
+        )
+        .await
+        .unwrap();
+    assert!(result.is_none());
+}
