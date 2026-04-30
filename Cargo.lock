@@ -320,6 +320,16 @@ dependencies = [
 [[package]]
 name = "argo-replay"
 version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "argo-routing"
