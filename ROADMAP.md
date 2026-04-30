@@ -6,7 +6,7 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**100+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
+**105+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
 the workspace store; the read-side surface (`session list/show/diff`,
 `memory list`, `skill list/view`, `cron list`, `provider show`) all
 support `--json` NDJSON output for scripting; the TUI ships a session
@@ -120,6 +120,9 @@ daemon-coupled commands that need a live gateway / router / judge.
 | `argo-mcp-voice` stdio integration test | ✅ | #97 |
 | `argo-mcp-browser` (12 tools) | ✅ schema + dispatcher | #58 |
 | `argo-mcp-browser` — Chrome :9222 auto-detect (A10) | ✅ | #73 |
+| `argo-mcp-browser` — `list_tabs` (HTTP probe of `/json`) | ✅ | #103 |
+| `argo-mcp-browser` — `chrome_version` (HTTP probe of `/json/version`) | ✅ | #104 |
+| `argo-mcp-browser` stdio integration test | ✅ | #105 |
 
 ## Pending integration tier
 
@@ -128,8 +131,10 @@ daemon-coupled commands that need a live gateway / router / judge.
   shipped (#93, #96); ElevenLabs / MiniMax cloud paths still
   pending.
 - **Browser MCP backend** — chromiumoxide / local Playwright;
-  cloud (Browserbase / BrowserUse) opt-in. The `:9222` Chrome
-  auto-detect is in (#73); the actual driver is not.
+  cloud (Browserbase / BrowserUse) opt-in. Pure-HTTP probes
+  (`list_tabs`, `chrome_version`) are wired (#103, #104); the
+  CDP-over-WebSocket driver for the 12 spec tools is the
+  remaining lift.
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test accounts.
 - **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
