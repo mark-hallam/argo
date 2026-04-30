@@ -33,8 +33,6 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             month,
             usd,
         }) => {
-            // No flag selected → print help-ish message instead of
-            // silently picking a scope.
             if !session && !day && !month {
                 return Err(ArgoError::Provider(
                     "specify exactly one of --session / --day / --month".into(),
@@ -48,13 +46,40 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             } else {
                 "month"
             };
-            println!("would set per-{scope} cap to ${usd} ({micros} usd-micros);");
-            println!(
-                "  edit `argo.toml` directly under [budget]; the daemon hot-reloads on SIGHUP."
-            );
-            Ok(())
+            apply_cap(&cwd, scope, micros, usd)
         }
     }
+}
+
+/// Persist a new spend cap to `argo.toml` under `[budget]`. Reads
+/// the file, mutates `default_spend_per_<scope>_usd_micros` in
+/// place, and writes back. Comments are NOT preserved (toml crate
+/// limitation); for cap-on-bootstrap workflows that's acceptable.
+fn apply_cap(cwd: &std::path::Path, scope: &str, micros: u64, usd: f64) -> ArgoResult<()> {
+    let path = cwd.join("argo.toml");
+    let body = std::fs::read_to_string(&path)
+        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+    let mut value: toml::Value = toml::from_str(&body)
+        .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
+    let key = format!("default_spend_per_{scope}_usd_micros");
+    let table = value
+        .as_table_mut()
+        .ok_or_else(|| ArgoError::Provider("argo.toml is not a table".into()))?
+        .entry("budget")
+        .or_insert_with(|| toml::Value::Table(toml::value::Table::new()))
+        .as_table_mut()
+        .ok_or_else(|| ArgoError::Provider("[budget] is not a table".into()))?;
+    table.insert(key.clone(), toml::Value::Integer(micros as i64));
+    let serialized = toml::to_string_pretty(&value)
+        .map_err(|e| ArgoError::Provider(format!("serialize argo.toml: {e}")))?;
+    std::fs::write(&path, serialized)
+        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+    println!(
+        "argo costs cap: per-{scope} cap set to ${usd} ({micros} usd-micros) in {}",
+        path.display()
+    );
+    println!("  daemon hot-reloads on SIGHUP; CLI picks it up on next invocation.");
+    Ok(())
 }
 
 async fn show(cwd: &std::path::Path, cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
