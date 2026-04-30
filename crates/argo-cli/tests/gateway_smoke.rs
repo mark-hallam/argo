@@ -200,6 +200,82 @@ fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
 }
 
 #[test]
+fn gateway_get_session_by_id_and_list_messages() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    Command::new(argo_bin())
+        .current_dir(workspace.path())
+        .env("ARGO_HOME", home.path())
+        .args(["workspace", "init"])
+        .output()
+        .expect("workspace init");
+
+    let mut child = Command::new(argo_bin())
+        .current_dir(workspace.path())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "4",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let stderr = child.stderr.take().expect("stderr");
+    let mut stderr = BufReader::new(stderr);
+    let mut line = String::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("listener did not announce in 2s");
+        }
+        line.clear();
+        stderr.read_line(&mut line).expect("read line");
+        if line.contains("listening on") {
+            break;
+        }
+    }
+
+    // Create + append.
+    let r = http_post(port, "/sessions", r#"{"model":"m","provider":"p"}"#);
+    let create: serde_json::Value = serde_json::from_str(body_of(&r)).unwrap();
+    let sid = create["id"].as_str().unwrap();
+    let path = format!("/sessions/{sid}/messages");
+    http_post(
+        port,
+        &path,
+        r#"{"role":"user","content":[{"type":"text","text":"hi"}]}"#,
+    );
+
+    // GET /sessions/<id>
+    let r = http_get(port, &format!("/sessions/{sid}"));
+    assert!(r.contains("HTTP/1.1 200 OK"), "got: {r}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&r)).expect("valid json");
+    assert_eq!(parsed["id"], sid);
+    assert_eq!(parsed["model"], "m");
+    assert_eq!(parsed["provider"], "p");
+    assert_eq!(parsed["message_count"], 1);
+
+    // GET /sessions/<id>/messages
+    let r = http_get(port, &format!("/sessions/{sid}/messages"));
+    assert!(r.contains("HTTP/1.1 200 OK"), "got: {r}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&r)).expect("valid json");
+    let arr = parsed.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["role"], "user");
+    assert_eq!(arr[0]["seq"], 1);
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn gateway_post_messages_appends_to_session_then_round_trips() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();

@@ -40,6 +40,19 @@ pub(super) async fn dispatch_route(
             }
         }
     }
+    // GET /sessions/<uuid> — fetch one session header
+    // GET /sessions/<uuid>/messages — list every message on a session
+    if let Some(rest) = req.strip_prefix("GET /sessions/") {
+        if let Some((sid, tail)) = rest.split_once('/') {
+            if tail.starts_with("messages ") {
+                return list_messages_response(sid, store).await;
+            }
+        }
+        // Strip trailing " HTTP/..." → just the session id
+        if let Some((sid, _)) = rest.split_once(' ') {
+            return session_show_response(sid, store).await;
+        }
+    }
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
 }
 
@@ -303,6 +316,98 @@ async fn append_message_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"append_message: {e}\"}}"),
+        ),
+    }
+}
+
+async fn session_show_response(
+    sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let session = match store.get_session(id).await {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session {sid}\"}}"),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"get_session: {e}\"}}"),
+            );
+        }
+    };
+    let count = store.message_count(id).await.unwrap_or(0);
+    let row = serde_json::json!({
+        "id": session.id.0.to_string(),
+        "tenant_id": session.tenant_id.0.to_string(),
+        "workspace_id": session.workspace_id.0.to_string(),
+        "model": session.model,
+        "provider": session.provider,
+        "title": session.title,
+        "started_at": session.started_at.to_rfc3339(),
+        "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
+        "message_count": count,
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&row).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+async fn list_messages_response(
+    sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    match store.list_messages(id).await {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|m| {
+                    serde_json::json!({
+                        "seq": m.seq,
+                        "id": hex::encode(&m.id),
+                        "role": m.role,
+                        "content": serde_json::from_str::<serde_json::Value>(&m.content_json)
+                            .unwrap_or(serde_json::Value::Null),
+                        "created_at_micros": m.created_at,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list_messages: {e}\"}}"),
         ),
     }
 }
