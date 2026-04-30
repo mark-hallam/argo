@@ -25,6 +25,7 @@
 mod anthropic;
 mod bedrock;
 mod extractors;
+mod heartbeat;
 mod manifest;
 mod openai_compat;
 mod openai_responses;
@@ -37,6 +38,7 @@ pub use extractors::{
     anthropic_tool_use, bedrock_tool_use, extract_tool_calls, llm_extracted, openai_response_tools,
     openai_tool_calls, xml_tool_call,
 };
+pub use heartbeat::HeartbeatMonitor;
 pub use manifest::{
     AuthSpec, CapabilitiesSpec, DiscoverySpec, HooksSpec, ModelSpec, PreferRule, ProviderFamily,
     ProviderHeader, ProviderManifest, ReasoningSpec, StreamingMode, ToolCallFormat, ToolCallsSpec,

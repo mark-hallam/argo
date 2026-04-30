@@ -347,6 +347,7 @@ dependencies = [
  "aws-sdk-bedrockruntime",
  "aws-smithy-types",
  "futures",
+ "parking_lot",
  "proptest",
  "reqwest",
  "serde",
