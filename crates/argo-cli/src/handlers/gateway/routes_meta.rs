@@ -1,12 +1,15 @@
 //! Read-side meta endpoints: `GET /providers` (workspace
-//! provider manifests) and `GET /tools` (registered in-core
-//! tools). Lives in its own file to keep `routes.rs` under the
-//! 500-LOC budget and to scope the I/O (filesystem walk for
-//! providers, registry build for tools) away from the dispatch
-//! shape.
+//! provider manifests), `GET /tools` (registered in-core tools),
+//! `GET /search?q=…` (FTS5 search across the message corpus).
+//! Lives in its own file to keep `routes.rs` under the 500-LOC
+//! budget and to scope the I/O (filesystem walk for providers,
+//! registry build for tools) away from the dispatch shape.
 use argo_provider::ProviderManifest;
+use argo_store::SessionStore;
 use argo_tool::{builtin_tools, ToolRegistry};
+use argo_types::SessionId;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// `GET /providers` — list every parseable manifest under
 /// `<cwd>/manifests/providers/*.toml` as a JSON array of
@@ -111,4 +114,70 @@ pub(super) async fn tools_response() -> (&'static str, String) {
         "200 OK",
         serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
     )
+}
+
+/// `GET /search?q=<query>[&limit=N][&session=<uuid>]` — FTS5
+/// search across the message corpus. Mirrors `argo session search
+/// <query>` so external clients (web UI, scripts) can reuse the
+/// same query syntax.
+///
+/// Each row is `{session_id, seq, role, snippet}`. Returns 503
+/// when the store is unavailable, 400 when `q` is missing or
+/// `session` is not a valid UUID.
+pub(super) async fn search_response(
+    query: Option<&str>,
+    limit: u32,
+    session: Option<&str>,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let Some(q) = query else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing q parameter\"}".to_string(),
+        );
+    };
+    if q.is_empty() {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"empty q parameter\"}".to_string(),
+        );
+    }
+    let result = match session {
+        None => store.search_messages(q, limit).await,
+        Some(s) => match uuid::Uuid::parse_str(s) {
+            Ok(u) => store.search_messages_in_session(SessionId(u), q, limit).await,
+            Err(e) => {
+                return (
+                    "400 Bad Request",
+                    format!("{{\"error\":\"invalid session id: {e}\"}}"),
+                );
+            }
+        },
+    };
+    match result {
+        Ok(hits) => {
+            let rows: Vec<serde_json::Value> = hits
+                .into_iter()
+                .map(|h| {
+                    serde_json::json!({
+                        "session_id": h.session_id.0.to_string(),
+                        "seq": h.seq,
+                        "role": h.role,
+                        "snippet": h.snippet,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"search: {e}\"}}"),
+        ),
+    }
 }

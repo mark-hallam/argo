@@ -4,7 +4,7 @@
 //! under the 500-LOC budget. Each handler returns a
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
-use super::routes_meta::{providers_response, tools_response};
+use super::routes_meta::{providers_response, search_response, tools_response};
 use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
     create_session_response, replay_response, run_turn_response, steer_response,
@@ -52,6 +52,10 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /tools ") {
         return tools_response().await;
+    }
+    if req.starts_with("GET /search ") || req.starts_with("GET /search?") {
+        let (q, limit, session) = parse_search_args(req);
+        return search_response(q.as_deref(), limit, session.as_deref(), store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
         if let Some((sid, _)) = rest.split_once(' ') {
@@ -356,6 +360,20 @@ fn parse_limit(tail: &str) -> Option<usize> {
 /// Pull `role=<s>` out of the path tail (e.g. `?role=user`).
 fn parse_role(tail: &str) -> Option<String> {
     parse_query_kv(tail, "role")
+}
+
+/// Pull `(q, limit, session)` out of a `/search?…` request.
+/// `limit` defaults to 20 when missing or unparseable. `q` is
+/// URL-decoded for `+` only — full % decoding is left to the
+/// CLI client (the smoke test sends pre-decoded queries).
+fn parse_search_args(req: &str) -> (Option<String>, u32, Option<String>) {
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let q = parse_query_kv(tail, "q").map(|s| s.replace('+', " "));
+    let limit = parse_query_kv(tail, "limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20);
+    let session = parse_query_kv(tail, "session");
+    (q, limit, session)
 }
 
 fn parse_query_kv(tail: &str, key: &str) -> Option<String> {
