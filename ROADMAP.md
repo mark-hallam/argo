@@ -6,13 +6,13 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**60+ PRs**. The CLI binary (`argo`) drives ~35 subcommands against
-the workspace store, the TUI ships a session viewer with messages
-preview, and both voice + browser MCP server scaffolds advertise
-their full schemas. What's left is the heavy native bindings
-(whisper-rs, piper-rs, chromiumoxide), cross-registry marketplace
-integration, and the daemon-coupled commands that need a live
-gateway / router / judge.
+**67+ PRs**. The CLI binary (`argo`) drives ~40 subcommands against
+the workspace store; the TUI ships a session viewer with messages
+preview + PgUp/PgDn navigation; voice + browser MCP server
+scaffolds advertise their full schemas. What's left is the heavy
+native bindings (whisper-rs, piper-rs, chromiumoxide), cross-
+registry marketplace integration, and the daemon-coupled commands
+that need a live gateway / router / judge.
 
 ## Status
 
@@ -75,6 +75,11 @@ gateway / router / judge.
 | `argo trace --session <id>` | ✅ | #56 |
 | `argo gateway status` + `argo agents list` | ✅ | #59 |
 | `argo judge verdict <session_id>` | ✅ | #60 |
+| `argo model list` | ✅ | #62 |
+| `argo session delete [--force]` | ✅ | #63 |
+| `argo db prune --older-than-days N` | ✅ | #64 |
+| `argo eval validate <path>` | ✅ | #65 |
+| `argo session search --session <id>` | ✅ | #66 |
 | `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
 
 ## MCP servers shipped as standalone bins
