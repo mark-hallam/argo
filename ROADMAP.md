@@ -6,22 +6,30 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**109+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
+**124+ PRs**. The CLI binary (`argo`) drives ~50 subcommands against
 the workspace store; the read-side surface (`session list/show/diff`,
-`memory list`, `skill list/view`, `cron list`, `provider show`) all
-support `--json` NDJSON output for scripting; the TUI ships a session
-viewer with messages preview, `/`-filter and PgUp/PgDn navigation;
-voice MCP now has a real OpenAI TTS + Whisper backend behind
-`backend = "openai"` (heavy native whisper-rs / piper-rs bindings
-still pending); browser MCP scaffolds advertise full schemas + Chrome
-:9222 auto-detect; `argo workspace init` registers a workspace row in
-the DB so memory subcommands work straight after init; `argo doctor`
+`memory list/view`, `skill list/view`, `cron list`, `provider show`,
+`audit show/verify`, `costs show`) all support `--json` NDJSON output
+for scripting; `skill verify --all` and `memory verify --all` give
+CI-friendly hash-chain hooks; the TUI ships a session viewer with
+messages preview, `/`-filter and PgUp/PgDn navigation; voice MCP has
+real OpenAI TTS + Whisper backends behind `backend = "openai"`; the
+browser MCP has all 14 spec tools wired against raw CDP (HTTP `/json*`
++ WebSocket `Runtime.evaluate` / `Page.*` / `Network.*`) without
+chromiumoxide; `argo workspace init` registers a workspace row in the
+DB so memory subcommands work straight after init; `argo doctor`
 reports DB schema + workspace + row counts + cron daemon state +
-provider creds; four end-to-end integration tests cover workspace+
-memory, provider+workspace, cron CRUD, and the voice MCP stdio loop.
+provider creds; six end-to-end integration tests cover workspace+
+memory, provider+workspace, cron CRUD, voice + browser MCP stdio
+loops, and the `--json` schema pins. The CI matrix is back to green
+after the 4-PR hotfix lane (#121–#124) that fixed release.yml's YAML
+parse, the 500-LOC budget, the Windows test gating, and the deny
+advisory ignore-list.
+
 What's left is the heavy native bindings (whisper-rs, piper-rs,
-chromiumoxide), cross-registry marketplace integration, and the
-daemon-coupled commands that need a live gateway / router / judge.
+chromiumoxide for stateful browser sessions), cross-registry
+marketplace integration, and the daemon-coupled commands that need
+a live gateway / router / judge.
 
 ## Status
 
@@ -111,6 +119,7 @@ daemon-coupled commands that need a live gateway / router / judge.
 | `argo audit verify --json` | ✅ | #107 |
 | `argo memory view --json` | ✅ | #108 |
 | `argo skill verify --all` (CI hook) | ✅ | #109 |
+| `argo memory verify --all` (CI hook) | ✅ | #111 |
 | `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
 
 ## MCP servers shipped as standalone bins
@@ -126,6 +135,14 @@ daemon-coupled commands that need a live gateway / router / judge.
 | `argo-mcp-browser` — `list_tabs` (HTTP probe of `/json`) | ✅ | #103 |
 | `argo-mcp-browser` — `chrome_version` (HTTP probe of `/json/version`) | ✅ | #104 |
 | `argo-mcp-browser` stdio integration test | ✅ | #105 |
+| `argo-mcp-browser` — `eval` via raw CDP WebSocket | ✅ | #113 |
+| `argo-mcp-browser` — `screenshot` (Page.captureScreenshot) | ✅ | #114 |
+| `argo-mcp-browser` — `read_page` (Runtime.evaluate) | ✅ | #115 |
+| `argo-mcp-browser` — `extract_links` | ✅ | #116 |
+| `argo-mcp-browser` — `navigate` + `scroll` | ✅ | #117 |
+| `argo-mcp-browser` — `pdf` + `submit` | ✅ | #118 |
+| `argo-mcp-browser` — `click` + `fill` | ✅ | #119 |
+| `argo-mcp-browser` — `wait_for` + `cookies` (all 14 spec tools wired) | ✅ | #120 |
 
 ## Pending integration tier
 
@@ -133,11 +150,12 @@ daemon-coupled commands that need a live gateway / router / judge.
   + opus (OGG/Opus). OpenAI cloud TTS + Whisper transcribe already
   shipped (#93, #96); ElevenLabs / MiniMax cloud paths still
   pending.
-- **Browser MCP backend** — chromiumoxide / local Playwright;
-  cloud (Browserbase / BrowserUse) opt-in. Pure-HTTP probes
-  (`list_tabs`, `chrome_version`) are wired (#103, #104); the
-  CDP-over-WebSocket driver for the 12 spec tools is the
-  remaining lift.
+- **Browser MCP backend** — all 14 spec tools are now wired against
+  raw CDP via tokio-tungstenite (#113–#120). What's still pending is
+  the *stateful-session* upgrade: chromiumoxide (or a hand-rolled
+  CDP session manager) for sticky tab ids, persistent WebSocket
+  connections, and batch commands. Cloud opt-ins (Browserbase /
+  BrowserUse) are also still pending.
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test accounts.
 - **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
