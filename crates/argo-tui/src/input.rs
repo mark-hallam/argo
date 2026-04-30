@@ -110,6 +110,14 @@ pub(crate) async fn run(
                 KeyCode::Char('i') => {
                     state.composer_mode = true;
                 }
+                KeyCode::Char('y') => {
+                    // OSC-52: copy the selected session's last
+                    // message body (or, if no messages yet, the
+                    // session id) to the system clipboard.
+                    if let Some(text) = pick_yank_text(state) {
+                        crate::clipboard::write_to_clipboard(&text);
+                    }
+                }
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();
                     fetch_message_count(store, state).await?;
@@ -144,4 +152,21 @@ pub(crate) async fn run(
             }
         }
     }
+}
+
+/// Choose what `y` copies: prefer the most recent message body,
+/// fall back to the selected session id when the messages pane
+/// is empty.
+fn pick_yank_text(state: &ViewerState) -> Option<String> {
+    if let Some(last) = state.selected_messages.last() {
+        let parsed: serde_json::Value =
+            serde_json::from_str(&last.content_json).unwrap_or(serde_json::Value::Null);
+        if let Some(t) = parsed
+            .as_array()
+            .and_then(|arr| arr.iter().find_map(|b| b.get("text").and_then(|v| v.as_str())))
+        {
+            return Some(t.to_string());
+        }
+    }
+    state.selected_session().map(|s| s.id.0.to_string())
 }
