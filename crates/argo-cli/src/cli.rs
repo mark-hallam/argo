@@ -40,9 +40,13 @@ pub enum Command {
         #[arg(long)]
         title: Option<String>,
     },
-    /// Resume an existing session by id (or interactive picker if omitted).
+    /// Re-render a recorded session: prints its header and every
+    /// message in order. Read-only — for the live "continue this
+    /// session against an LLM" flow, see the daemon's
+    /// /sessions/<id>/runs binding (separate PR).
     Resume {
-        id: Option<String>,
+        /// Session id (full UUID).
+        id: String,
     },
     Agents {
         #[command(subcommand)]

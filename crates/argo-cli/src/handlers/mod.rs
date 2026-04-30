@@ -17,6 +17,7 @@ pub mod model;
 pub mod new;
 pub mod plugin;
 pub mod provider;
+pub mod resume;
 pub mod route;
 pub mod session;
 pub mod skill;

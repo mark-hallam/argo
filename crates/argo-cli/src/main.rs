@@ -44,6 +44,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             model,
             title,
         }) => handlers::new::run(&provider, &model, title.as_deref()).await,
+        Some(Command::Resume { id }) => handlers::resume::run(&id).await,
         Some(Command::Db { cmd }) => handlers::db::run(cmd).await,
         Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,
         Some(Command::Audit { cmd }) => handlers::audit::run(cmd).await,
