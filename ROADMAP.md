@@ -10,20 +10,18 @@ TUI is a fully self-contained workflow with a complete keymap
 (compose / steer / new / rename / delete / yank, Tab pane
 focus, `o` for message-detail overlay, `?` for help). The
 marketplace ships an HTTP-backed `OciDistributionRegistry`
-against the OCI Distribution Spec v2 with full Bearer
-challenge handshake (GHCR / Docker Hub / Artifact Registry /
-Harbor); `argo workspace push/pull` round-trips against any
-v2-compliant registry, with `marketplace_artifact` rows
-recorded for `argo workspace artifacts` (CLI + gateway).
-Forge gains offline runs `list/show/abort` + `promote`;
-`judge override` is a one-shot CLI op. Gateway exposes 29
-endpoints including `GET /providers`, `GET /tools`, `GET
-/search?q=…`, `GET /workspace/artifacts`, `GET /forge/runs`,
-`GET /routes` (discovery). Streaming end-to-end (chat +
-gateway, real-time via mpsc channel — no polling).** Phases
-0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
-**255+ PRs**, with zero LOC-budget violations across the
-~40k-line workspace and 75+ test suites green.
+against OCI Distribution Spec v2 with the Bearer challenge
+handshake (GHCR / Docker Hub / Artifact Registry / Harbor);
+`argo workspace push/pull/fork/diff/artifacts` cover the full
+publish + consume + introspect flow against any v2-compliant
+registry. Forge gains offline `runs list/show/abort` + `promote`;
+`judge override` + `trace --turn` are one-shot CLI ops.
+Gateway exposes 29 endpoints, all enumerable via
+`GET /routes`. Streaming end-to-end (chat + gateway, real-time
+via mpsc channel — no polling).** Phases 0–7 + 4.5 + 6.5 + 7.5
+all ship at the library tier across **260+ PRs**, with zero
+LOC-budget violations across the ~40k-line workspace and 75+
+test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -100,17 +98,20 @@ budget, the Windows test gating, and the deny advisory ignore-list.
 
 What's left:
 
-- **Daemon-coupled forge** — only `forge optimize` and
-  `forge bench` still stub to "needs the daemon's worker"; they
-  need the agent loop running in a worker (loop over examples,
-  score via judge, persist a candidate row). Everything else
-  shipped offline: `forge runs list/show/abort` (#254),
-  `forge promote` (#255), `judge override` (#246).
-- **Forge optimize as a CLI-driven loop** — could ship without
-  a daemon if we run the optimization synchronously (CLI
-  blocks while the agent loop iterates); the daemon's
-  contribution is the *background* execution, not the
-  optimization logic itself.
+- **Daemon-coupled `forge optimize` / `bench`** — the only ops
+  that genuinely need a worker (loop over examples, score via
+  the judge, persist a candidate row). Could ship as a
+  CLI-driven *synchronous* loop without the daemon; the
+  daemon's contribution is the *background* execution shape.
+  Everything else shipped offline: `forge runs list/show/abort`
+  (#254), `forge promote` (#255), `judge override` (#246),
+  `trace --turn` (#257), `workspace diff` (#258), `workspace
+  fork` (#259).
+- **Daemon-coupled `session bisect` and `skill` capability +
+  judge ops** — same shape: re-running sub-runs to bisect a
+  failure, or running a candidate skill against a rubric
+  needs an agent loop with provider calls. Out of scope for
+  the offline tier.
 - **Voice / browser native bindings** — `local` shell-out
   (#209) and `session_*` reuse-WS (#208) cover the workflows;
   truly native (whisper-rs, chromiumoxide) is a perf upgrade.
