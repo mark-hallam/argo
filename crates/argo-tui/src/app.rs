@@ -63,6 +63,48 @@ impl ViewerState {
         }
     }
 
+    /// Jump down by `step` (clamped at the end).
+    pub fn next_n(&mut self, step: usize) {
+        if self.sessions.is_empty() {
+            return;
+        }
+        let max_idx = self.sessions.len() - 1;
+        let new = (self.selected + step).min(max_idx);
+        if new != self.selected {
+            self.selected = new;
+            self.invalidate();
+        }
+    }
+
+    /// Jump up by `step` (clamped at zero).
+    pub fn prev_n(&mut self, step: usize) {
+        let new = self.selected.saturating_sub(step);
+        if new != self.selected {
+            self.selected = new;
+            self.invalidate();
+        }
+    }
+
+    /// Jump to the first session.
+    pub fn first(&mut self) {
+        if self.selected != 0 {
+            self.selected = 0;
+            self.invalidate();
+        }
+    }
+
+    /// Jump to the last session.
+    pub fn last(&mut self) {
+        if self.sessions.is_empty() {
+            return;
+        }
+        let max_idx = self.sessions.len() - 1;
+        if self.selected != max_idx {
+            self.selected = max_idx;
+            self.invalidate();
+        }
+    }
+
     fn invalidate(&mut self) {
         self.selected_message_count = None;
         self.selected_messages.clear();
@@ -127,6 +169,26 @@ async fn event_loop(
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     state.prev();
+                    fetch_message_count(store, state).await?;
+                    fetch_messages(store, state).await?;
+                }
+                KeyCode::PageDown => {
+                    state.next_n(10);
+                    fetch_message_count(store, state).await?;
+                    fetch_messages(store, state).await?;
+                }
+                KeyCode::PageUp => {
+                    state.prev_n(10);
+                    fetch_message_count(store, state).await?;
+                    fetch_messages(store, state).await?;
+                }
+                KeyCode::Home | KeyCode::Char('g') => {
+                    state.first();
+                    fetch_message_count(store, state).await?;
+                    fetch_messages(store, state).await?;
+                }
+                KeyCode::End | KeyCode::Char('G') => {
+                    state.last();
                     fetch_message_count(store, state).await?;
                     fetch_messages(store, state).await?;
                 }
@@ -231,5 +293,41 @@ mod tests {
         s.selected_message_count = Some(7);
         s.next();
         assert_eq!(s.selected_message_count, None);
+    }
+
+    #[test]
+    fn next_n_clamps_at_end() {
+        let mut s = ViewerState::new((0..5).map(|i| fake_session(&i.to_string())).collect());
+        s.next_n(3);
+        assert_eq!(s.selected, 3);
+        s.next_n(99);
+        assert_eq!(s.selected, 4);
+    }
+
+    #[test]
+    fn prev_n_clamps_at_zero() {
+        let mut s = ViewerState::new((0..5).map(|i| fake_session(&i.to_string())).collect());
+        s.selected = 4;
+        s.prev_n(3);
+        assert_eq!(s.selected, 1);
+        s.prev_n(99);
+        assert_eq!(s.selected, 0);
+    }
+
+    #[test]
+    fn first_and_last_jump() {
+        let mut s = ViewerState::new((0..5).map(|i| fake_session(&i.to_string())).collect());
+        s.last();
+        assert_eq!(s.selected, 4);
+        s.first();
+        assert_eq!(s.selected, 0);
+    }
+
+    #[test]
+    fn first_and_last_no_op_on_empty() {
+        let mut s = ViewerState::new(Vec::new());
+        s.first();
+        s.last();
+        assert!(s.selected_session().is_none());
     }
 }

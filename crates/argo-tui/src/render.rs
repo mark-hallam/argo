@@ -140,7 +140,7 @@ fn draw_session_detail(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 }
 
 fn draw_footer(frame: &mut Frame<'_>, area: Rect) {
-    let p = Paragraph::new("↑/k  ↓/j  navigate    q/esc  quit");
+    let p = Paragraph::new("↑/k  ↓/j  ←/PgUp →/PgDn  g/G  navigate    q/esc  quit");
     frame.render_widget(p, area);
 }
 
