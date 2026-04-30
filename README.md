@@ -4,8 +4,8 @@
 
 Argo is the agent framework that **a single engineer can fully audit on a weekend** and that **a 200-person company can deploy to production** without writing the multi-tenant layer themselves.
 
-> **Status:** Phases 0–3 + the §6 walking skeleton are shipped. Provider manifests for `openai-compatible` / `openai-responses` / `anthropic` / `bedrock` deserialize; 4 in-core tools (`file_read` / `file_write` / `file_patch` / `terminal`) run end-to-end; cost-tier router persists non-Fixed decisions; memory + skill stores enforce user-protected locks; the external-LLM judge produces three-state verdicts; and `argo-core::Agent::run_turn` exercises the full chain against a scripted transport. **Next up: Phase 4 — plugin host + MCP integration.**
-> See `docs/plan/argo-build-plan.md` for the full master spec and `ROADMAP.md` for what's shipping next.
+> **Status:** Phases 0–7 + 4.5 + 6.5 + 7.5 are all shipped as a stack of 28 PRs. All 13 v0.2 amendments + capability items have library-tier implementations with tests: cost-tier router, external judge, user-locked skills/memory, gateway RBAC, multi-agent, ACP server, voice/browser MCP servers (deferred — heavy native bindings), Forge, time-travel replay, workspace OCI marketplace, hard cost ceilings, mid-run `/steer`, resume-on-restart, plus the §22 cron scheduler core and the eval harness runtime. **Next up: the integration tier — the daemon binary (`argo-cli`), the TUI, and the heavy MCP servers.**
+> See `docs/plan/argo-build-plan.md` for the full master spec and `ROADMAP.md` for the per-PR map.
 
 ## The five non-negotiable invariants
 
