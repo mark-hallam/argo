@@ -82,9 +82,14 @@ async fn sessions_response(store: Option<&Arc<SessionStore>>) -> (&'static str, 
     };
     match store.list_all_sessions(100).await {
         Ok(rows) => {
+            let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|s| {
+                    let spent = spend_by_sid
+                        .get(s.id.0.as_bytes().as_slice())
+                        .copied()
+                        .unwrap_or(0);
                     serde_json::json!({
                         "id": s.id.0.to_string(),
                         "model": s.model,
@@ -92,6 +97,7 @@ async fn sessions_response(store: Option<&Arc<SessionStore>>) -> (&'static str, 
                         "title": s.title,
                         "started_at": s.started_at.to_rfc3339(),
                         "ended_at": s.ended_at.map(|d| d.to_rfc3339()),
+                        "spent_usd_micros": spent,
                     })
                 })
                 .collect();

@@ -212,3 +212,22 @@ pub(super) async fn session_spend_micros(
     .map_err(|e| argo_types::ArgoError::Provider(format!("spend sum: {e}")))?;
     Ok(u64::try_from(total).unwrap_or(0))
 }
+
+/// `(session_id_blob → SUM(amount_usd_micros))` map across every
+/// session that has a spend row. One indexed query — used by
+/// `GET /sessions` to enrich the list response.
+pub(super) async fn spend_per_session(
+    store: &argo_store::SessionStore,
+) -> argo_types::ArgoResult<std::collections::HashMap<Vec<u8>, u64>> {
+    let rows: Vec<(Vec<u8>, i64)> = sqlx::query_as(
+        "SELECT session_id, COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger \
+         GROUP BY session_id",
+    )
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| argo_types::ArgoError::Provider(format!("spend_per_session: {e}")))?;
+    Ok(rows
+        .into_iter()
+        .map(|(sid, total)| (sid, u64::try_from(total).unwrap_or(0)))
+        .collect())
+}
