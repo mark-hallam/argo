@@ -62,6 +62,56 @@ pub async fn list_tabs(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// `GET http://127.0.0.1:<port>/json/version` and return the
+/// User-Agent + ProtocolVersion + browser WebSocket URL as JSON.
+pub async fn chrome_version(args: &serde_json::Value) -> CallToolResult {
+    let port = args
+        .get("port")
+        .and_then(|v| v.as_u64())
+        .and_then(|n| u16::try_from(n).ok())
+        .unwrap_or(DEFAULT_PORT);
+    let url = format!("http://127.0.0.1:{port}/json/version");
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return error(format!("build http client: {e}")),
+    };
+    let resp = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            return error(format!(
+                "no Chrome on port {port} ({e}); start Chrome with `--remote-debugging-port={port}`"
+            ));
+        }
+    };
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return error(format!("/json/version returned {status}: {body}"));
+    }
+    let body = match resp.text().await {
+        Ok(b) => b,
+        Err(e) => return error(format!("read /json/version body: {e}")),
+    };
+    // Pass the body through verbatim (after re-pretty-printing for
+    // readability). Fields are well-defined: Browser, Protocol-Version,
+    // User-Agent, V8-Version, WebKit-Version, webSocketDebuggerUrl.
+    let parsed: serde_json::Value = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => return error(format!("parse /json/version: {e}")),
+    };
+    let serialized = match serde_json::to_string_pretty(&parsed) {
+        Ok(s) => s,
+        Err(e) => return error(format!("re-serialize: {e}")),
+    };
+    CallToolResult {
+        content: vec![McpContent::Text { text: serialized }],
+        is_error: false,
+    }
+}
+
 fn trim_tabs(parsed: &serde_json::Value) -> serde_json::Value {
     let Some(arr) = parsed.as_array() else {
         return parsed.clone();
@@ -120,13 +170,16 @@ mod tests {
         assert!(e.get("devtoolsFrontendUrl").is_none());
     }
 
-    #[tokio::test]
-    async fn list_tabs_with_no_chrome_returns_clean_error() {
-        // Pick a high port nobody's listening on. We use 0 here →
-        // bind a TCP listener to find a free port, drop it.
+    fn pick_free_port() -> u16 {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
+        port
+    }
+
+    #[tokio::test]
+    async fn list_tabs_with_no_chrome_returns_clean_error() {
+        let port = pick_free_port();
         let args = serde_json::json!({"port": port});
         let result = list_tabs(&args).await;
         assert!(result.is_error);
@@ -134,6 +187,23 @@ mod tests {
             McpContent::Text { text } => {
                 assert!(
                     text.contains("no Chrome on port") || text.contains("/json"),
+                    "unexpected error text: {text}"
+                );
+            }
+            _ => panic!("expected text content"),
+        }
+    }
+
+    #[tokio::test]
+    async fn chrome_version_with_no_chrome_returns_clean_error() {
+        let port = pick_free_port();
+        let args = serde_json::json!({"port": port});
+        let result = chrome_version(&args).await;
+        assert!(result.is_error);
+        match &result.content[0] {
+            McpContent::Text { text } => {
+                assert!(
+                    text.contains("no Chrome on port") || text.contains("/json/version"),
                     "unexpected error text: {text}"
                 );
             }

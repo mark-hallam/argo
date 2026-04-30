@@ -29,10 +29,10 @@ const TOOL_NAMES: &[&str] = &[
     "pdf",
 ];
 
-/// Tool we wire today (the 12 spec tools still need chromiumoxide;
-/// `list_tabs` is a thin HTTP probe against Chrome's `/json` endpoint
-/// so the user can verify their attach setup before driving anything).
-const HTTP_ONLY_TOOLS: &[&str] = &["list_tabs"];
+/// Tools we wire today (the 12 spec tools still need chromiumoxide;
+/// these are thin HTTP probes against Chrome's `/json*` endpoints so
+/// the user can verify their attach setup before driving anything).
+const HTTP_ONLY_TOOLS: &[&str] = &["list_tabs", "chrome_version"];
 
 /// Browser MCP service.
 pub struct BrowserService;
@@ -61,12 +61,16 @@ impl McpServerService for BrowserService {
             cookies_schema(),
             pdf_schema(),
             list_tabs_schema(),
+            chrome_version_schema(),
         ]
     }
 
     async fn call_tool(&self, params: CallToolParams) -> McpResult<CallToolResult> {
         if params.name.as_str() == "list_tabs" {
             return Ok(crate::cdp::list_tabs(&params.arguments).await);
+        }
+        if params.name.as_str() == "chrome_version" {
+            return Ok(crate::cdp::chrome_version(&params.arguments).await);
         }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
@@ -89,17 +93,32 @@ fn list_tabs_schema() -> McpToolSchema {
             Requires Chrome to be running with `--remote-debugging-port=<port>` \
             (default 9222). Pure HTTP — does not need the chromiumoxide driver."
             .into(),
-        input_schema: serde_json::json!({
-            "type": "object",
-            "properties": {
-                "port": {
-                    "type": "integer",
-                    "description": "Chrome debug port. Defaults to 9222.",
-                    "default": 9222
-                }
-            }
-        }),
+        input_schema: chrome_port_schema(),
     }
+}
+
+fn chrome_version_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "chrome_version".into(),
+        description: "Probe Chrome's `/json/version` endpoint and return the \
+            User-Agent + protocol version + browser-level WebSocket URL. \
+            Pure HTTP."
+            .into(),
+        input_schema: chrome_port_schema(),
+    }
+}
+
+fn chrome_port_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "port": {
+                "type": "integer",
+                "description": "Chrome debug port. Defaults to 9222.",
+                "default": 9222
+            }
+        }
+    })
 }
 
 fn navigate_schema() -> McpToolSchema {
@@ -254,10 +273,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn list_advertises_twelve_spec_tools_plus_list_tabs() {
+    async fn list_advertises_twelve_spec_tools_plus_http_probes() {
         let s = BrowserService;
         let tools = s.list_tools();
-        assert_eq!(tools.len(), 13, "12 spec tools + the list_tabs probe");
+        assert_eq!(
+            tools.len(),
+            14,
+            "12 spec tools + list_tabs + chrome_version"
+        );
     }
 
     #[tokio::test]
@@ -267,8 +290,9 @@ mod tests {
         for (i, expected) in TOOL_NAMES.iter().enumerate() {
             assert_eq!(tools[i].name, *expected, "position {i}");
         }
-        // list_tabs lives at the end, after the 12 spec tools.
+        // HTTP probes live at the end, after the 12 spec tools.
         assert_eq!(tools[TOOL_NAMES.len()].name, "list_tabs");
+        assert_eq!(tools[TOOL_NAMES.len() + 1].name, "chrome_version");
     }
 
     #[tokio::test]
