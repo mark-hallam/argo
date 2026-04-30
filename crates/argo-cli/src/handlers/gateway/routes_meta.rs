@@ -217,6 +217,47 @@ pub(super) async fn artifacts_response(
     }
 }
 
+/// `GET /forge/runs[?limit=N]` — list recorded forge optimization
+/// runs from the local DB (the same rows `argo forge runs list`
+/// surfaces). Defaults to 50 rows. Returns 503 when the store is
+/// unavailable; 200 + an empty array on a clean DB.
+pub(super) async fn forge_runs_response(
+    limit: u32,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    match store.list_forge_runs(limit).await {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "skill_name": r.skill_name,
+                        "started_at": r.started_at,
+                        "ended_at": r.ended_at,
+                        "base_version": r.base_version,
+                        "candidate_version": r.candidate_version,
+                        "iterations": r.iterations,
+                        "spend_usd_micros": r.spend_usd_micros,
+                        "final_score": r.final_score,
+                        "status": r.status,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list_forge_runs: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /routes` — discovery endpoint listing every route the
 /// gateway dispatches, with a one-line description per row.
 /// Lets a UI / docs surface enumerate the API without scraping
@@ -241,6 +282,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/tools", "registered in-core tools"),
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes"),
+        ("GET", "/forge/runs", "recorded forge optimization runs"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing"),
