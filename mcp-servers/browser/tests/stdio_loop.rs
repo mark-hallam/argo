@@ -58,7 +58,8 @@ fn tools_list_advertises_twelve_spec_tools_plus_two_http_probes() {
     let resps = drive(&[r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#.into()]);
     assert_eq!(resps.len(), 1);
     let tools = resps[0]["result"]["tools"].as_array().expect("tools array");
-    assert_eq!(tools.len(), 14);
+    // 12 spec + list_tabs + chrome_version + session_open/close/eval
+    assert_eq!(tools.len(), 17);
     let names: Vec<String> = tools
         .iter()
         .map(|t| t["name"].as_str().unwrap().to_string())
@@ -76,6 +77,9 @@ fn tools_list_advertises_twelve_spec_tools_plus_two_http_probes() {
         "eval",
         "cookies",
         "pdf",
+        "session_open",
+        "session_close",
+        "session_eval",
     ] {
         assert!(names.contains(&(*spec).to_string()), "missing {spec}");
     }

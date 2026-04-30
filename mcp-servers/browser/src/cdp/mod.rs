@@ -19,9 +19,11 @@
 //! pdf / screenshot) + helpers + HTTP probes stay here.
 mod dom;
 mod forms;
+mod sessions;
 
 pub use dom::{eval, extract_links, read_page};
 pub use forms::{click, cookies, fill, submit, wait_for};
+pub use sessions::{session_close, session_eval, session_open};
 
 use argo_mcp::{CallToolResult, McpContent};
 use std::time::Duration;
@@ -83,6 +85,10 @@ pub async fn list_tabs(args: &serde_json::Value) -> CallToolResult {
 
 /// `GET http://127.0.0.1:<port>/json` and return the parsed array
 /// of tabs. Internal helper for `eval`.
+pub(super) async fn fetch_tabs_pub(port: u16) -> Result<Vec<serde_json::Value>, String> {
+    fetch_tabs(port).await
+}
+
 async fn fetch_tabs(port: u16) -> Result<Vec<serde_json::Value>, String> {
     let url = format!("http://127.0.0.1:{port}/json");
     let client = reqwest::Client::builder()

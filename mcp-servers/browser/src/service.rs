@@ -64,6 +64,9 @@ impl McpServerService for BrowserService {
             pdf_schema(),
             list_tabs_schema(),
             chrome_version_schema(),
+            session_open_schema(),
+            session_close_schema(),
+            session_eval_schema(),
         ]
     }
 
@@ -109,6 +112,15 @@ impl McpServerService for BrowserService {
         }
         if params.name.as_str() == "cookies" {
             return Ok(crate::cdp::cookies(&params.arguments).await);
+        }
+        if params.name.as_str() == "session_open" {
+            return Ok(crate::cdp::session_open(&params.arguments).await);
+        }
+        if params.name.as_str() == "session_close" {
+            return Ok(crate::cdp::session_close(&params.arguments).await);
+        }
+        if params.name.as_str() == "session_eval" {
+            return Ok(crate::cdp::session_eval(&params.arguments).await);
         }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
@@ -396,6 +408,53 @@ fn pdf_schema() -> McpToolSchema {
     }
 }
 
+fn session_open_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_open".into(),
+        description: "Open a persistent CDP WebSocket pinned to one \
+            tab. Returns `{session_id}` for use with subsequent \
+            `session_eval` / `session_close` calls — no /json round-\
+            trip per call."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": { "port": { "type": "integer", "default": 9222 } }
+        }),
+    }
+}
+
+fn session_close_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_close".into(),
+        description: "Close a session opened with `session_open` and \
+            drop its WebSocket."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id"],
+            "properties": { "session_id": { "type": "string" } }
+        }),
+    }
+}
+
+fn session_eval_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_eval".into(),
+        description: "Like `eval`, but runs against an existing \
+            persistent session — saves the /json + WS-handshake \
+            round-trip on every call."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id", "expression"],
+            "properties": {
+                "session_id": { "type": "string" },
+                "expression": { "type": "string" }
+            }
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -406,8 +465,8 @@ mod tests {
         let tools = s.list_tools();
         assert_eq!(
             tools.len(),
-            14,
-            "12 spec tools + list_tabs + chrome_version"
+            17,
+            "12 spec tools + list_tabs + chrome_version + 3 session-* tools"
         );
     }
 
