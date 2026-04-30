@@ -20,7 +20,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         .ok_or_else(|| ArgoError::Provider("no workspace registered yet".into()))?;
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
-        MemoryCmd::List => list(&memory, workspace).await,
+        MemoryCmd::List { json } => list(&memory, workspace, json).await,
         MemoryCmd::View { entry } => view(&memory, &entry).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Verify { entry } => verify_hash(&memory, &entry).await,
@@ -59,7 +59,11 @@ async fn append(
     Ok(())
 }
 
-async fn list(memory: &MemoryStore, workspace: argo_types::WorkspaceId) -> ArgoResult<()> {
+async fn list(
+    memory: &MemoryStore,
+    workspace: argo_types::WorkspaceId,
+    json: bool,
+) -> ArgoResult<()> {
     let mut total = 0_usize;
     for file in [
         MemoryFile::Memory,
@@ -68,6 +72,24 @@ async fn list(memory: &MemoryStore, workspace: argo_types::WorkspaceId) -> ArgoR
         MemoryFile::Agents,
     ] {
         let entries = memory.list_active(workspace, file).await?;
+        if json {
+            for e in &entries {
+                let row = serde_json::json!({
+                    "id": e.id.to_string(),
+                    "file": format!("{:?}", e.file),
+                    "bytes": e.body.len(),
+                    "lock": format!("{:?}", e.lock),
+                    "hash": hex::encode(e.hash),
+                    "learned_in": e.learned_in.map(|s| s.0.to_string()),
+                    "learned_at": e.learned_at.to_rfc3339(),
+                });
+                let serialized = serde_json::to_string(&row)
+                    .map_err(|err| ArgoError::Provider(format!("serialize memory: {err}")))?;
+                println!("{serialized}");
+            }
+            total += entries.len();
+            continue;
+        }
         if entries.is_empty() {
             continue;
         }
@@ -85,7 +107,7 @@ async fn list(memory: &MemoryStore, workspace: argo_types::WorkspaceId) -> ArgoR
             println!("  {} ({} bytes)  {head}", e.id, e.body.len());
         }
     }
-    if total == 0 {
+    if !json && total == 0 {
         println!("(no active memory entries)");
     }
     Ok(())

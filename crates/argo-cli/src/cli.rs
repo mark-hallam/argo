@@ -185,7 +185,11 @@ pub enum ModelCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum SkillCmd {
-    List,
+    List {
+        /// Output as JSON (one object per skill) for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     View {
         name: String,
     },
@@ -212,7 +216,11 @@ pub enum SkillCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum MemoryCmd {
-    List,
+    List {
+        /// Output as JSON (one object per entry) for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     View {
         entry: String,
     },

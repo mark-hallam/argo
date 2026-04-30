@@ -16,7 +16,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     store.migrate().await?;
     let skills = SkillStore::new(store);
     match cmd {
-        SkillCmd::List => list(&skills).await,
+        SkillCmd::List { json } => list(&skills, json).await,
         SkillCmd::View { name } => view(&skills, &name).await,
         SkillCmd::Verify { name } => verify_hash(&skills, &name).await,
         SkillCmd::Install { source } => install(&skills, &source).await,
@@ -31,8 +31,24 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     }
 }
 
-async fn list(skills: &SkillStore) -> ArgoResult<()> {
+async fn list(skills: &SkillStore, json: bool) -> ArgoResult<()> {
     let active = skills.list_active().await?;
+    if json {
+        for s in &active {
+            let line = serde_json::json!({
+                "id": s.id.0.to_string(),
+                "name": s.frontmatter.name,
+                "version": s.frontmatter.version,
+                "lock": format!("{:?}", s.frontmatter.lock),
+                "hash": hex::encode(s.hash),
+                "created_at": s.created_at.to_rfc3339(),
+            });
+            let serialized = serde_json::to_string(&line)
+                .map_err(|e| ArgoError::Provider(format!("serialize skill: {e}")))?;
+            println!("{serialized}");
+        }
+        return Ok(());
+    }
     if active.is_empty() {
         println!("(no active skills)");
         return Ok(());
