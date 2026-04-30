@@ -14,14 +14,16 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod sink;
+mod tracing_sink;
 
 #[cfg(test)]
 mod tests;
 
 pub use sink::{
-    InMemoryTelemetry, NoopTelemetry, RecordedCounter, RecordedHistogram, RecordedSpan,
+    InMemoryTelemetry, NoopTelemetry, RecordedCounter, RecordedHistogram, RecordedSpan, SpanGuard,
     TelemetrySink,
 };
+pub use tracing_sink::TracingTelemetry;
 
 /// Span names from §18.1.
 pub mod spans {

@@ -6,6 +6,7 @@
 mod cli;
 mod handlers;
 mod home;
+mod tracing_setup;
 
 use argo_types::ArgoResult;
 use clap::Parser;
@@ -13,6 +14,7 @@ use cli::{Cli, Command};
 
 #[tokio::main]
 async fn main() {
+    tracing_setup::init();
     let cli = Cli::parse();
     let exit_code = match dispatch(cli).await {
         Ok(()) => 0,
