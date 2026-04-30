@@ -310,11 +310,19 @@ pub enum CostsCmd {
         month: bool,
         usd: f64,
     },
-    /// Show the configured caps.
+    /// Show the configured caps + actual-spend roll-up.
     Show {
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,
+        /// Group spend by `(provider, model)` and print the
+        /// top spenders instead of the default ceilings view.
+        #[arg(long, conflicts_with = "by_session")]
+        by_model: bool,
+        /// Group spend by `session_id` and print the top
+        /// spenders instead of the default ceilings view.
+        #[arg(long)]
+        by_session: bool,
     },
 }
 

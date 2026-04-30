@@ -13,7 +13,19 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
     let cfg = ArgoConfig::load(&cwd.join("argo.toml"))?;
     match cmd {
         None => show(&cwd, &cfg, false).await,
-        Some(CostsCmd::Show { json }) => show(&cwd, &cfg, json).await,
+        Some(CostsCmd::Show {
+            json,
+            by_model,
+            by_session,
+        }) => {
+            if by_model {
+                show_grouped(&cwd, "by_model", json).await
+            } else if by_session {
+                show_grouped(&cwd, "by_session", json).await
+            } else {
+                show(&cwd, &cfg, json).await
+            }
+        }
         Some(CostsCmd::Cap {
             session,
             day,
@@ -147,4 +159,57 @@ async fn load_global_spend(cwd: &std::path::Path) -> ArgoResult<GlobalSpend> {
         this_month: u64::try_from(this_month).unwrap_or(0),
         all_time: u64::try_from(all_time).unwrap_or(0),
     })
+}
+
+/// Group spend rows by `(provider, model)` or `session_id` and
+/// print the top 20 spenders. Cheap one-shot SQL — no in-memory
+/// rollup. `mode` is `"by_model"` or `"by_session"`.
+async fn show_grouped(cwd: &std::path::Path, mode: &str, json: bool) -> ArgoResult<()> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let sql = match mode {
+        "by_model" => {
+            "SELECT provider || ' / ' || model AS bucket, \
+             COALESCE(SUM(amount_usd_micros), 0) AS total \
+             FROM spend_ledger GROUP BY provider, model ORDER BY total DESC LIMIT 20"
+        }
+        "by_session" => {
+            "SELECT lower(hex(session_id)) AS bucket, \
+             COALESCE(SUM(amount_usd_micros), 0) AS total \
+             FROM spend_ledger GROUP BY session_id ORDER BY total DESC LIMIT 20"
+        }
+        _ => unreachable!("mode must be by_model or by_session"),
+    };
+    let rows: Vec<(String, i64)> = sqlx::query_as(sql)
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("group query: {e}")))?;
+    if json {
+        let arr: Vec<serde_json::Value> = rows
+            .iter()
+            .map(|(b, t)| {
+                serde_json::json!({"bucket": b, "spent_usd_micros": u64::try_from(*t).unwrap_or(0)})
+            })
+            .collect();
+        let out = serde_json::to_string(&serde_json::json!({mode: arr}))
+            .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?;
+        println!("{out}");
+        return Ok(());
+    }
+    if rows.is_empty() {
+        println!("(no spend rows yet — run `argo chat` against a priced model first)");
+        return Ok(());
+    }
+    let header = if mode == "by_model" {
+        "spend by model (USD, top 20):"
+    } else {
+        "spend by session (USD, top 20):"
+    };
+    println!("{header}");
+    for (bucket, total) in rows {
+        println!("  ${:>10.4}  {bucket}", total as f64 / 1_000_000.0);
+    }
+    Ok(())
 }
