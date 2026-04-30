@@ -30,12 +30,24 @@ pub async fn run(turn: Option<String>, session: Option<String>) -> ArgoResult<()
         return Ok(());
     }
     let first = DateTime::<Utc>::from_timestamp_micros(rows[0].created_at).unwrap_or_else(Utc::now);
+    let last = DateTime::<Utc>::from_timestamp_micros(rows[rows.len() - 1].created_at)
+        .unwrap_or_else(Utc::now);
+    let total_ms = (rows[rows.len() - 1].created_at - rows[0].created_at) / 1000;
     println!("trace for {raw} ({} rows; start={})", rows.len(), first);
     let start = rows[0].created_at;
-    for r in rows {
+    let mut turn_starts = 0_u32;
+    let mut tool_calls = 0_u32;
+    let mut tool_errors = 0_u32;
+    for r in &rows {
         let dt = DateTime::<Utc>::from_timestamp_micros(r.created_at).unwrap_or_else(Utc::now);
         let dt_ms = (r.created_at - start) / 1000;
         let preview = preview(&r.payload_json);
+        match r.kind.as_str() {
+            "TurnStart" => turn_starts += 1,
+            "ToolCall" => tool_calls += 1,
+            "ToolResult" if r.payload_json.contains("\"is_error\":true") => tool_errors += 1,
+            _ => {}
+        }
         println!(
             "  +{ms:>6}ms  seq={seq:<5} {dt}  {kind:<24} {preview}",
             ms = dt_ms,
@@ -45,6 +57,10 @@ pub async fn run(turn: Option<String>, session: Option<String>) -> ArgoResult<()
             preview = preview,
         );
     }
+    println!(
+        "\nsummary: {turn_starts} turn(s), {tool_calls} tool call(s) ({tool_errors} error(s)), \
+         span={total_ms} ms (last={last})"
+    );
     Ok(())
 }
 
