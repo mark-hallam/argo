@@ -15,7 +15,9 @@
 //! (`--stream`) stays single-turn for now; multi-turn streaming
 //! lands once the wire layer can accumulate tool-call deltas
 //! through the agent loop.
+use super::chat_helpers::{build_assistant_content, message_from_row};
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
 use argo_provider::{
     AnthropicTransport, OpenAiCompatTransport, OpenAiResponsesTransport, ProviderFamily,
@@ -25,10 +27,9 @@ use argo_provider::{
 use argo_store::SessionStore;
 use argo_tool::{builtin_tools, ToolContext, ToolRegistry};
 use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, Message, MessageId, MessageRole, Principal, SessionId,
-    ToolCallId, ToolCallRequest, ToolCallResult,
+    ArgoError, ArgoResult, ContentBlock, MessageRole, Principal, SessionId, ToolCallRequest,
+    ToolCallResult,
 };
-use chrono::Utc;
 use futures::StreamExt;
 use std::io::Write;
 use std::path::Path;
@@ -182,10 +183,36 @@ pub async fn run_turn(
         }
     };
 
-    if stream {
-        return run_turn_stream(store, transport.as_ref(), session_id, &session.model).await;
-    }
-    run_turn_with_tools(store, transport.as_ref(), cwd, session_id, &session.model).await
+    let audit = AuditSink::new(store.clone());
+    audit
+        .write(
+            Some(session_id),
+            AuditKind::TurnStart,
+            serde_json::json!({"provider": session.provider, "model": session.model}),
+        )
+        .await?;
+    let result = if stream {
+        run_turn_stream(store, transport.as_ref(), session_id, &session.model).await
+    } else {
+        run_turn_with_tools(
+            store,
+            transport.as_ref(),
+            cwd,
+            session_id,
+            &session.model,
+            &audit,
+        )
+        .await
+    };
+    let kind = if result.is_ok() {
+        AuditKind::TurnEnd
+    } else {
+        AuditKind::Halt
+    };
+    let _ = audit
+        .write(Some(session_id), kind, serde_json::json!({}))
+        .await;
+    result
 }
 
 /// Build a tool registry + capability engine that grants the
@@ -223,6 +250,7 @@ async fn run_turn_with_tools(
     cwd: &Path,
     session_id: SessionId,
     model: &str,
+    audit: &AuditSink,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -259,6 +287,19 @@ async fn run_turn_with_tools(
                 &assistant_content.to_string(),
             )
             .await?;
+        audit
+            .write(
+                Some(session_id),
+                AuditKind::AssistantMessage,
+                serde_json::json!({
+                    "message_id": last_assistant_id,
+                    "round": round,
+                    "tool_calls": resp.tool_calls.len(),
+                    "tokens_in": last_tokens_in,
+                    "tokens_out": last_tokens_out,
+                }),
+            )
+            .await?;
 
         if resp.tool_calls.is_empty() {
             return Ok(TurnResult {
@@ -270,7 +311,26 @@ async fn run_turn_with_tools(
         }
 
         for call in &resp.tool_calls {
+            audit
+                .write(
+                    Some(session_id),
+                    AuditKind::ToolCall,
+                    serde_json::json!({"tool": call.name, "call_id": call.id}),
+                )
+                .await?;
             let result = dispatch_one(&registry, &engine, &principal, cwd, call).await;
+            audit
+                .write(
+                    Some(session_id),
+                    AuditKind::ToolResult,
+                    serde_json::json!({
+                        "tool": call.name,
+                        "call_id": call.id,
+                        "is_error": result.is_error,
+                        "duration_ms": result.duration_ms,
+                    }),
+                )
+                .await?;
             let tool_msg = serde_json::json!([ContentBlock::ToolResult(result)]);
             store
                 .append_message(session_id, MessageRole::Tool, &tool_msg.to_string())
@@ -289,22 +349,6 @@ async fn run_turn_with_tools(
         tokens_in: last_tokens_in,
         tokens_out: last_tokens_out,
     })
-}
-
-pub(crate) fn build_assistant_content(
-    text: &str,
-    tool_calls: &[ToolCallRequest],
-) -> serde_json::Value {
-    let mut blocks: Vec<ContentBlock> = Vec::new();
-    if !text.is_empty() {
-        blocks.push(ContentBlock::Text {
-            text: text.to_string(),
-        });
-    }
-    for tc in tool_calls {
-        blocks.push(ContentBlock::ToolUse(tc.clone()));
-    }
-    serde_json::json!(blocks)
 }
 
 async fn dispatch_one(
@@ -411,65 +455,3 @@ fn load_manifest(cwd: &std::path::Path, provider_id: &str) -> ArgoResult<Provide
     ProviderManifest::from_toml_str(&body)
 }
 
-fn message_from_row(row: &argo_store::MessageRow, session_id: SessionId) -> ArgoResult<Message> {
-    let id_bytes: [u8; 16] = row
-        .id
-        .as_slice()
-        .try_into()
-        .map_err(|_| ArgoError::Provider("message id is not 16 bytes".into()))?;
-    let role = match row.role.as_str() {
-        "system" => MessageRole::System,
-        "user" => MessageRole::User,
-        "assistant" => MessageRole::Assistant,
-        "tool" => MessageRole::Tool,
-        other => {
-            return Err(ArgoError::Provider(format!("unknown role '{other}'")));
-        }
-    };
-    let raw_content: Vec<ContentBlock> = serde_json::from_str(&row.content_json).map_err(|e| {
-        ArgoError::Provider(format!("parse content_json: {e}: {}", row.content_json))
-    })?;
-    let (content, tool_calls, tool_call_id) = lift_tool_blocks(raw_content);
-    let created_at = chrono::DateTime::from_timestamp_micros(row.created_at)
-        .ok_or_else(|| ArgoError::Provider("created_at out of range".into()))?
-        .with_timezone(&Utc);
-    Ok(Message {
-        id: MessageId(uuid::Uuid::from_bytes(id_bytes)),
-        session_id,
-        role,
-        content,
-        tool_calls,
-        tool_call_id,
-        reasoning: None,
-        created_at,
-        provider_meta: serde_json::Value::Null,
-    })
-}
-
-/// Split a `Vec<ContentBlock>` (the on-disk form) into the
-/// shape the wire layer expects: plain content blocks stay on
-/// `Message.content`, `ToolUse` blocks get hoisted to
-/// `Message.tool_calls`, and the first `ToolResult`'s id is
-/// hoisted to `Message.tool_call_id`. Tool-result blocks remain
-/// in `content` so wire layers (Anthropic `push_tool_result`)
-/// can read the body.
-pub(crate) fn lift_tool_blocks(
-    blocks: Vec<ContentBlock>,
-) -> (Vec<ContentBlock>, Vec<ToolCallRequest>, Option<ToolCallId>) {
-    let mut content = Vec::with_capacity(blocks.len());
-    let mut tool_calls = Vec::new();
-    let mut tool_call_id: Option<ToolCallId> = None;
-    for b in blocks {
-        match b {
-            ContentBlock::ToolUse(tc) => tool_calls.push(tc),
-            ContentBlock::ToolResult(r) => {
-                if tool_call_id.is_none() {
-                    tool_call_id = Some(r.id);
-                }
-                content.push(ContentBlock::ToolResult(r));
-            }
-            other => content.push(other),
-        }
-    }
-    (content, tool_calls, tool_call_id)
-}
