@@ -148,6 +148,7 @@ async fn run_turn_with_tools(
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
+    let system_prompt = build_system_prompt(store).await?;
 
     let mut last_text = String::new();
     let mut last_tokens_in: Option<u32> = None;
@@ -165,7 +166,7 @@ async fn run_turn_with_tools(
             model: model.to_string(),
             messages,
             tools: tools.clone(),
-            system: None,
+            system: system_prompt.clone(),
             sampling: Sampling::default(),
         };
         let resp = if stream {
@@ -257,4 +258,80 @@ async fn run_turn_with_tools(
         tokens_in: last_tokens_in,
         tokens_out: last_tokens_out,
     })
+}
+
+/// Concatenate the workspace's active-skill bodies into a single
+/// system-prompt string that's passed on every round of the
+/// turn. Returns `None` when no skills are installed (the
+/// provider transport then sends no `system` block at all).
+///
+/// Format: each skill is emitted as
+///
+/// ```text
+/// ## <name> (v<version>)
+/// <description>
+///
+/// <body>
+///
+/// ---
+/// ```
+///
+/// concatenated and prefixed with a one-line preamble. This is
+/// deliberately simple — per-session skill selection (so the
+/// agent only sees a curated subset) lands when the
+/// `session_skill` association table does. For now: every active
+/// skill is in scope.
+async fn build_system_prompt(store: &Arc<SessionStore>) -> ArgoResult<Option<String>> {
+    let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    let active = skills.list_active().await?;
+    if active.is_empty() {
+        return Ok(None);
+    }
+    let mut out = String::from(
+        "You have access to the following workspace skills. \
+         Apply them as guidance for tool selection, response style, \
+         and domain knowledge.\n\n",
+    );
+    for s in active {
+        out.push_str(&format!(
+            "## {} (v{})\n",
+            s.frontmatter.name, s.frontmatter.version
+        ));
+        if !s.frontmatter.description.is_empty() {
+            out.push_str(&s.frontmatter.description);
+            out.push('\n');
+        }
+        out.push('\n');
+        out.push_str(s.body.trim_end());
+        out.push_str("\n\n---\n\n");
+    }
+    Ok(Some(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use argo_store::SessionStore;
+
+    #[tokio::test]
+    async fn build_system_prompt_returns_none_for_empty_workspace() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let prompt = build_system_prompt(&store).await.unwrap();
+        assert!(prompt.is_none());
+    }
+
+    #[tokio::test]
+    async fn build_system_prompt_concatenates_active_skills() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let skills = argo_skill::SkillStore::new(Arc::clone(&store));
+        let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
+                   lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
+        skills.install(raw, None).await.unwrap();
+        let prompt = build_system_prompt(&store).await.unwrap().unwrap();
+        assert!(prompt.contains("## alpha (v0.1)"));
+        assert!(prompt.contains("body-of-alpha"));
+        assert!(prompt.starts_with("You have access to"));
+    }
 }

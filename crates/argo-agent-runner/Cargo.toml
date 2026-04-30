@@ -11,6 +11,7 @@ description = "Argo — reusable multi-turn agent loop driver (live `run_turn` a
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-provider = { path = "../argo-provider", version = "0.0.1" }
+argo-skill = { path = "../argo-skill", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-tool = { path = "../argo-tool", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }

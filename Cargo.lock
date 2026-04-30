@@ -104,6 +104,7 @@ dependencies = [
  "argo-audit",
  "argo-capability",
  "argo-provider",
+ "argo-skill",
  "argo-store",
  "argo-tool",
  "argo-types",
