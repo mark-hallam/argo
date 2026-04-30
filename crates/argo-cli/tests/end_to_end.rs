@@ -131,3 +131,80 @@ fn workspace_init_then_memory_append_verify_edit() {
         "list should NOT mention the superseded id"
     );
 }
+
+#[test]
+fn agents_create_then_list_then_delete_round_trips() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+
+    let out = run(workspace.path(), home.path(), &["workspace", "init"], &[]);
+    assert!(
+        out.status.success(),
+        "workspace init failed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &[
+            "agents",
+            "create",
+            "alice",
+            "--model",
+            "claude-test",
+            "--toolset",
+            "default",
+        ],
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "agents create failed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(String::from_utf8_lossy(&out.stdout).contains("[agents.alice]"));
+
+    let out = run(workspace.path(), home.path(), &["agents", "list"], &[]);
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("alice"));
+    assert!(stdout.contains("claude-test"));
+
+    let toml_path = workspace.path().join("argo.toml");
+    let body = std::fs::read_to_string(&toml_path).unwrap();
+    assert!(body.contains("[agents.alice]"));
+
+    // Re-creating fails (already exists).
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["agents", "create", "alice"],
+        &[],
+    );
+    assert!(!out.status.success(), "duplicate create must fail");
+
+    // Delete + verify the block is gone.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["agents", "delete", "alice"],
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "agents delete failed: stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let body = std::fs::read_to_string(&toml_path).unwrap();
+    assert!(!body.contains("[agents.alice]"));
+
+    // Deleting a missing agent fails cleanly.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["agents", "delete", "ghost"],
+        &[],
+    );
+    assert!(!out.status.success(), "delete-missing must fail");
+}
