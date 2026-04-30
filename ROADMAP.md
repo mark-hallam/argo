@@ -6,11 +6,15 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library + integration tier complete. Live agent loop with tool
 dispatch + spend tracking running across all four provider
-families. Streaming end-to-end (chat + gateway). Full gateway
-parity for replay / steer / per-session spend / messages
-pagination.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the
-library tier across **202+ PRs**, with zero LOC-budget violations
-across the ~37k-line workspace and 68 test suites green.
+families. Streaming end-to-end (chat + gateway, real-time via
+mpsc channel — no polling). Full gateway parity for replay /
+steer / per-session spend / messages pagination. TUI v2 sticky
+composer wired to user-message persistence + 1s auto-refresh.
+Browser MCP gains stateful sessions, voice MCP gains a `local`
+shell-out backend, marketplace ships a hermetic OCI round-trip
+test.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
+tier across **215+ PRs**, with zero LOC-budget violations across
+the ~37k-line workspace and 68 test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -63,9 +67,11 @@ shutdown via SIGTERM/SIGINT). It exposes **19 endpoints** —
 `POST /sessions`, `POST /sessions/<id>/messages`,
 `POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
 `POST /sessions/<id>/runs/stream` (chunked-NDJSON live event
-stream), `POST /sessions/<id>/steer`,
-`POST /sessions/<id>/replay` — all wired against the
-same `SessionStore` the CLI uses.
+stream, mpsc-driven for sub-millisecond latency),
+`POST /sessions/<id>/steer`, `POST /sessions/<id>/replay`,
+`POST /sessions/<id>/replay/stream`, `GET /doctor`,
+`GET /health/full` — all wired against the same `SessionStore`
+the CLI uses.
 
 Voice MCP has all four cloud TTS backends wired (`backend ∈ {piper,
 openai, elevenlabs, minimax}`); OpenAI Whisper transcribe is also
@@ -85,20 +91,25 @@ budget, the Windows test gating, and the deny advisory ignore-list.
 
 What's left:
 
-- **Heavy native bindings** — whisper-rs / piper-rs for the
-  voice MCP, chromiumoxide for stateful browser sessions
-  (sticky tab ids, persistent WS, batch commands).
-- **§23.3 marketplace** — cross-registry integration test
-  (GHCR / Docker Hub / Artifact Registry) against real test
-  accounts.
-- **Daemon-coupled live commands** — `forge optimize/promote`,
-  `judge override`.
-- **TUI v2** — sticky composer + live streaming + OSC-52
-  clipboard.
-- **Channel-based real-time gateway streaming** — the current
-  `POST /runs/stream` polls `audit_record` every 100ms; an
-  `mpsc::Sender<RunEvent>` wired through `run_turn` would
-  shave that latency to zero.
+- **Real OCI-distribution push/pull** — `MemoryRegistry` (#211)
+  proves the bundle/manifest contract; the HTTP-backed
+  `OciDistributionRegistry` against GHCR / Docker Hub /
+  Artifact Registry is the remaining wire surface.
+- **Daemon-coupled forge / judge-override** — `forge optimize`,
+  `forge promote`, `judge override` still stub out to "needs
+  the daemon's worker"; wiring them through the agent-loop
+  helpers + judge engine is its own big chunk.
+- **Argo agent loop as a library crate** — chat helpers + run
+  loop currently live in `argo-cli` (binary-only). Extracting
+  them into `argo-agent-runner` would let the TUI spawn live
+  agent turns directly (today the composer persists user
+  messages via `SessionStore::append_message` and relies on a
+  separate `argo chat` to drive the assistant turn).
+- **OSC-52 clipboard + multi-pane focus** in the TUI for the
+  v2.1 polish layer.
+- **Voice / browser native bindings** — `local` shell-out
+  (#209) and `session_*` reuse-WS (#208) cover the workflows;
+  truly native (whisper-rs, chromiumoxide) is a perf upgrade.
 
 ## Status
 
