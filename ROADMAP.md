@@ -4,21 +4,32 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 ## Current phase
 
-**Library + integration tier complete. Live agent loop ships as
-a reusable library crate (`argo-agent-runner`); TUI is a fully
-self-contained workflow with a complete keymap. Marketplace
-ships HTTP-backed OCI v2 push/pull (with the Bearer challenge
-handshake — GHCR / Docker Hub / Artifact Registry / Harbor).
-Forge ships its full offline lifecycle (`runs list/show/abort`
-+ `promote` + `bench` + `optimize` — all driving the agent
-runner over `argo-eval` task files). Sessions ship `bisect`,
-`watch`, `diff/show/list/export/replay/replay-stream`. Gateway
-exposes 32+ endpoints, all enumerable via `GET /routes`.
-Streaming end-to-end (chat + gateway, real-time via mpsc
-channel — no polling).** Phases 0–7 + 4.5 + 6.5 + 7.5 all
-ship at the library tier across **268+ PRs**, with zero
-LOC-budget violations across the ~43k-line workspace and 75+
-test suites green.
+**Library + integration tier 100% complete. The full offline
+roadmap lifecycle is operational:**
+- Live agent loop is a reusable library crate
+  (`argo-agent-runner`) with the system-prompt loader injecting
+  active skills into every turn (#270).
+- Forge ships the full lifecycle: `runs list/show/abort` +
+  `promote` + `bench` + `optimize` (with both mechanical
+  fallback + LLM-driven mutation #273), each picking the
+  highest-scoring candidate version and promoting it to active.
+- Skills ship `create` (#274), `install`, `view`, `lock`,
+  `unlock`, `verify`, `refine` (#271), `promote` (#255).
+- Sessions ship `new`, `chat`, `resume`, `steer`, `replay`,
+  `replay-stream`, `watch`, `bisect`, `show`, `list`, `export`,
+  `diff`, `delete`.
+- Workspace ships `init`, `status`, `verify`, `push`, `pull`,
+  `fork` (#259), `diff` (#258), `artifacts` against any v2-
+  compliant OCI registry (Bearer challenge handshake #253).
+- TUI ships compose / steer / new / rename / delete / yank /
+  Tab-pane-focus / `o`-message-detail-overlay / `?`-help.
+- Gateway exposes 34 endpoints, all enumerable via
+  `GET /routes`; write endpoints `POST /skills` (#275),
+  `POST /memory` (#276) round out CLI parity.
+
+Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
+across **276+ PRs**, ~44k LOC across 27 crates, zero LOC-budget
+violations, 75+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -93,24 +104,21 @@ surface. The CI matrix went back to green via the 4-PR hotfix lane
 (#121–#124) that fixed release.yml's YAML parse, the 500-LOC
 budget, the Windows test gating, and the deny advisory ignore-list.
 
-What's left:
+What's left (forward-looking — these are *not* on the original
+roadmap; the offline tier is fully shipped):
 
-- **Skill mutation in `forge optimize`** — the synchronous CLI
-  loop ships in #267 as a best-of-N consistency check; real
-  candidate-version generation needs a system-prompt loader so
-  mutated skills actually take effect during a turn. Loader is
-  the next big prerequisite.
-- **`skill create` / `skill refine`** — interactive +
-  judge-driven flows, both blocked on the prompt-loader.
-  Everything else shipped offline:
-  - **Forge**: runs list/show/abort (#254), promote (#255),
-    bench (#266), optimize (#267).
-  - **Sessions**: bisect (#268), watch (#238), diff/show/list,
-    replay/replay-stream.
-  - **Workspace**: init/status/verify, push/pull/fork/diff
-    (#258/#259), artifacts.
-  - **One-shot ops**: judge override (#246), trace --turn
-    (#257), agents create/delete (#261).
+- **Real-daemon background-execution shape** — `forge optimize`
+  with high `--iterations` blocks the user's terminal because
+  the loop runs synchronously. A daemon that owns the loop +
+  reports progress via the gateway's stream endpoint would
+  let users drive long optimizations from the TUI.
+- **TUI surface for forge runs** — list / show / abort /
+  optimize from inside the TUI. The CLI surface is complete;
+  TUI integration is purely UX.
+- **Per-session skill selection** — every turn currently sees
+  every active skill in the system prompt. A `session_skill`
+  association table would let a session opt into a curated
+  subset.
 - **Voice / browser native bindings** — `local` shell-out
   (#209) and `session_*` reuse-WS (#208) cover the workflows;
   truly native (whisper-rs, chromiumoxide) is a perf upgrade.
