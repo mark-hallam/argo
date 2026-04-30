@@ -137,20 +137,19 @@ fn read_page_against_closed_port_surfaces_clean_error() {
     );
 }
 
-/// One unwired spec tool kept on the stub path so we can detect a
-/// regression in the dispatcher. `cookies` needs a stateful CDP
-/// session (Network.setCookies) and stays deferred until the
-/// chromiumoxide rework lands.
+/// All 14 spec tools are now wired (#103-#119). Detect a dispatcher
+/// regression by sending an obviously-unknown tool name — the
+/// service should fall through to the "unknown tool" branch.
 #[test]
-fn cookies_returns_not_wired_stub() {
+fn unknown_tool_name_returns_unknown_tool_error() {
     let resps = drive(&[
-        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"cookies","arguments":{"op":"get"}}}"#.into(),
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"definitely-not-a-tool","arguments":{}}}"#.into(),
     ]);
     assert_eq!(resps.len(), 1);
     let r = &resps[0]["result"];
     assert_eq!(r["isError"], true);
     let text = r["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("not yet wired"));
+    assert!(text.contains("unknown tool"));
 }
 
 #[test]

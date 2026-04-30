@@ -1,10 +1,12 @@
-//! Browser MCP service — 12 tools per §28.AA Hermes-parity:
+//! Browser MCP service — 12 spec tools per §28.AA Hermes-parity:
 //! navigate, click, fill, submit, screenshot, read_page,
-//! extract_links, wait_for, scroll, eval, cookies, pdf.
+//! extract_links, wait_for, scroll, eval, cookies, pdf — plus
+//! 2 HTTP-only diagnostic probes (list_tabs, chrome_version).
 //!
-//! The schemas + dispatcher land today; chromiumoxide / local-
-//! Playwright wiring + Browserbase / BrowserUse cloud backends
-//! land per §12.2.1 in a follow-up.
+//! All 14 are wired against the user's running Chrome via raw CDP
+//! (HTTP `/json*` + WebSocket `Runtime.evaluate` / `Page.*` /
+//! `Network.*`). Browserbase / BrowserUse cloud backends are still
+//! opt-in via server.toml and not wired today.
 use argo_mcp::{
     CallToolParams, CallToolResult, McpContent, McpResult, McpServerService, McpToolSchema,
     ServerInfo,
@@ -101,6 +103,12 @@ impl McpServerService for BrowserService {
         }
         if params.name.as_str() == "fill" {
             return Ok(crate::cdp::fill(&params.arguments).await);
+        }
+        if params.name.as_str() == "wait_for" {
+            return Ok(crate::cdp::wait_for(&params.arguments).await);
+        }
+        if params.name.as_str() == "cookies" {
+            return Ok(crate::cdp::cookies(&params.arguments).await);
         }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
@@ -287,14 +295,18 @@ fn extract_links_schema() -> McpToolSchema {
 fn wait_for_schema() -> McpToolSchema {
     McpToolSchema {
         name: "wait_for".into(),
-        description: "Wait for a selector to appear or for network-idle.".into(),
+        description: "Poll for a CSS selector to appear via CDP \
+            Runtime.evaluate (200ms cadence) until truthy or timeout. \
+            Network-idle waiting is not yet wired."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
                 "selector":   { "type": "string" },
-                "network_idle": { "type": "boolean", "default": false },
-                "timeout_ms": { "type": "integer", "default": 30000 }
-            }
+                "timeout_ms": { "type": "integer", "default": 30000 },
+                "port":       { "type": "integer", "default": 9222 }
+            },
+            "required": ["selector"]
         }),
     }
 }
@@ -347,13 +359,21 @@ fn eval_schema() -> McpToolSchema {
 fn cookies_schema() -> McpToolSchema {
     McpToolSchema {
         name: "cookies".into(),
-        description: "Get or set cookies for the current origin.".into(),
+        description: "Get / set / clear cookies via CDP Network domain. \
+            `op=get` returns the full cookie array; `op=set` requires \
+            `name` (and accepts `value`, `domain`, `path`, `url`); \
+            `op=clear` calls Network.clearBrowserCookies."
+            .into(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
-                "op":    { "type": "string", "enum": ["get", "set", "clear"] },
-                "name":  { "type": "string" },
-                "value": { "type": "string" }
+                "op":     { "type": "string", "enum": ["get", "set", "clear"] },
+                "name":   { "type": "string" },
+                "value":  { "type": "string" },
+                "domain": { "type": "string" },
+                "path":   { "type": "string" },
+                "url":    { "type": "string" },
+                "port":   { "type": "integer", "default": 9222 }
             },
             "required": ["op"]
         }),
@@ -421,22 +441,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unwired_spec_tool_returns_not_wired_error() {
-        // `cookies` still needs a stateful CDP session — that's
-        // the chromiumoxide rework. Pick it as the canary for the
-        // not-wired stub path. (Was previously `navigate`, which
-        // is now a real CDP tool.)
+    async fn unknown_tool_returns_unknown_error() {
+        // All 14 spec tools are now wired. The dispatcher's
+        // fallback branch only fires for unknown names.
         let s = BrowserService;
         let r = s
             .call_tool(CallToolParams {
-                name: "cookies".into(),
-                arguments: serde_json::json!({"op": "get"}),
+                name: "definitely-not-a-tool".into(),
+                arguments: serde_json::json!({}),
             })
             .await
             .unwrap();
         assert!(r.is_error);
         match &r.content[0] {
-            McpContent::Text { text } => assert!(text.contains("not yet wired")),
+            McpContent::Text { text } => assert!(text.contains("unknown tool")),
             _ => panic!("expected text"),
         }
     }
