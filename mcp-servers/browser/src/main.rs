@@ -11,10 +11,12 @@
 //! the schemas and handle missing browser rigs gracefully.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod chrome_probe;
 mod service;
 
 use argo_mcp::run_loop;
 use argo_types::ArgoResult;
+use chrome_probe::{probe_default_chrome, ChromeAttachStrategy};
 use std::io::{self, BufReader};
 
 #[tokio::main]
@@ -30,6 +32,18 @@ async fn main() {
 }
 
 async fn run() -> ArgoResult<()> {
+    // §28.AA point 2: auto-detect a running Chrome on
+    // --remote-debugging-port=9222. The probe runs at startup so
+    // operators can see in the daemon log whether we'd attach or
+    // spawn fresh.
+    match probe_default_chrome() {
+        ChromeAttachStrategy::AttachExisting { port } => {
+            eprintln!("argo-mcp-browser: chrome detected on 127.0.0.1:{port} — would attach");
+        }
+        ChromeAttachStrategy::SpawnFresh => {
+            eprintln!("argo-mcp-browser: no chrome on :9222 — would spawn fresh headless");
+        }
+    }
     let svc = service::BrowserService;
     let stdin = io::stdin();
     let stdout = io::stdout();
