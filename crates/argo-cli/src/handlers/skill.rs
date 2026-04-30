@@ -18,6 +18,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     match cmd {
         SkillCmd::List => list(&skills).await,
         SkillCmd::View { name } => view(&skills, &name).await,
+        SkillCmd::Verify { name } => verify_hash(&skills, &name).await,
         SkillCmd::Install { source } => install(&skills, &source).await,
         SkillCmd::Lock { name } => set_lock(&skills, &name, Lock::UserProtected).await,
         SkillCmd::Unlock { name } => set_lock(&skills, &name, Lock::None).await,
@@ -61,6 +62,30 @@ async fn view(skills: &SkillStore, name: &str) -> ArgoResult<()> {
             println!("{}", s.body);
             Ok(())
         }
+    }
+}
+
+async fn verify_hash(skills: &SkillStore, name: &str) -> ArgoResult<()> {
+    use sha2::{Digest, Sha256};
+    let s = skills
+        .find_active_by_name(name)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no active skill named '{name}'")))?;
+    let mut h = Sha256::new();
+    h.update(s.body.as_bytes());
+    let computed = format!("sha256-{}", hex::encode(h.finalize()));
+    let stored = &s.frontmatter.provenance.hash;
+    if &computed == stored {
+        println!(
+            "skill '{name}' v{} — provenance hash ok ({})",
+            s.frontmatter.version, computed
+        );
+        Ok(())
+    } else {
+        Err(ArgoError::Provider(format!(
+            "skill '{name}' v{} — provenance hash MISMATCH\n  stored:   {stored}\n  computed: {computed}",
+            s.frontmatter.version
+        )))
     }
 }
 

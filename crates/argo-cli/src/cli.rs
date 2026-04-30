@@ -186,12 +186,28 @@ pub enum ModelCmd {
 #[derive(Subcommand, Debug)]
 pub enum SkillCmd {
     List,
-    View { name: String },
-    Create { name: String },
-    Refine { name: String },
-    Install { source: String },
-    Lock { name: String },
-    Unlock { name: String },
+    View {
+        name: String,
+    },
+    /// Verify a skill's body matches its frontmatter `provenance.hash`.
+    Verify {
+        name: String,
+    },
+    Create {
+        name: String,
+    },
+    Refine {
+        name: String,
+    },
+    Install {
+        source: String,
+    },
+    Lock {
+        name: String,
+    },
+    Unlock {
+        name: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
