@@ -47,6 +47,19 @@ pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
     Uuid::from_bytes(a)
 }
 
+/// One `audit_record` row exposed for read-side rendering.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
+pub struct AuditRow {
+    /// Append-only sequence number (monotonic across the DB).
+    pub seq: i64,
+    /// Event kind label.
+    pub kind: String,
+    /// Canonical payload JSON.
+    pub payload_json: String,
+    /// `created_at` (UTC, epoch micros).
+    pub created_at: i64,
+}
+
 /// One FTS5 hit on the message corpus.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSearchHit {

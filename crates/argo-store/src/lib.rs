@@ -16,7 +16,7 @@ mod migrations;
 mod models;
 mod spend;
 
-pub use models::{ForgeRunRow, MessageRow, MessageSearchHit, SessionHeader};
+pub use models::{AuditRow, ForgeRunRow, MessageRow, MessageSearchHit, SessionHeader};
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
@@ -246,6 +246,24 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("persist_routing_decision: {e}")))?;
         Ok(())
+    }
+
+    /// Stream a session's audit-log rows in `seq` order. Used by
+    /// `argo trace --session <id>` to render the per-session
+    /// trace timeline.
+    pub async fn list_audit_for_session(
+        &self,
+        session_id: SessionId,
+    ) -> StoreResult<Vec<AuditRow>> {
+        let rows = sqlx::query_as::<_, AuditRow>(
+            "SELECT seq, kind, payload_json, created_at FROM audit_record \
+             WHERE session_id = ? ORDER BY seq ASC",
+        )
+        .bind(session_id.0.as_bytes().as_slice())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_audit_for_session: {e}")))?;
+        Ok(rows)
     }
 
     /// Full-text search the message log via FTS5. Returns the

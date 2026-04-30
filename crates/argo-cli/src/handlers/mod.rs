@@ -13,5 +13,6 @@ pub mod provider;
 pub mod route;
 pub mod session;
 pub mod skill;
+pub mod trace;
 pub mod tui;
 pub mod workspace;
