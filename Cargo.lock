@@ -133,7 +133,9 @@ dependencies = [
  "argo-config",
  "argo-cron",
  "argo-marketplace",
+ "argo-memory",
  "argo-provider",
+ "argo-skill",
  "argo-store",
  "argo-types",
  "chrono",
@@ -144,6 +146,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

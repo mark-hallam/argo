@@ -163,6 +163,21 @@ impl SessionStore {
         Ok(row.map(SessionHeader::from))
     }
 
+    /// First workspace registered in the DB (by `created_at`),
+    /// if any. The CLI's read-only commands fall through to this
+    /// when the user hasn't configured a tenant explicitly — the
+    /// daemon binding will replace it with proper tenant + workspace
+    /// resolution.
+    pub async fn first_workspace(&self) -> StoreResult<Option<WorkspaceId>> {
+        let row: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT id FROM workspace ORDER BY created_at ASC LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("first_workspace: {e}")))?;
+        Ok(row.map(|b| WorkspaceId(models::uuid_from_blob(&b))))
+    }
+
     /// List sessions across all tenants, ordered by recency. Used
     /// by the CLI's `argo session list` when no tenant filter is
     /// provided.
