@@ -411,6 +411,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/skills", "active skills"),
         ("GET", "/skills/<name>", "one skill view (full body)"),
         ("POST", "/skills", "install a SKILL.md document"),
+        ("POST", "/memory", "append a memory entry ({file, body})"),
         ("GET", "/memory", "memory entries"),
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/audit", "audit chain summary"),

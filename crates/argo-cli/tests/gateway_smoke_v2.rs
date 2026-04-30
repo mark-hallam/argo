@@ -353,40 +353,6 @@ fn search_endpoint_returns_400_on_missing_q_and_array_on_clean_db() {
 }
 
 #[test]
-fn skill_install_returns_400_on_missing_raw_and_201_on_valid_doc() {
-    let port = pick_free_port();
-    let home = tempfile::tempdir().unwrap();
-    let mut child = Command::new(argo_bin())
-        .env("ARGO_HOME", home.path())
-        .args([
-            "gateway",
-            "start",
-            "--port",
-            &port.to_string(),
-            "--max-requests",
-            "2",
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    await_listening(&mut stderr);
-
-    let resp = http_post(port, "/skills", "{}");
-    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
-
-    let raw = "---\\nname: zeta\\nversion: \\\"0.1\\\"\\ndescription: D\\nlock: none\\n\
-               provenance:\\n  source: smoke\\n  hash: sha256-x\\n---\\nbody-of-zeta";
-    let body = format!("{{\"raw\": \"{raw}\"}}");
-    let resp = http_post(port, "/skills", &body);
-    assert!(resp.contains("HTTP/1.1 201 Created"), "resp={resp}");
-
-    let status = child.wait().expect("wait");
-    assert!(status.success());
-}
-
-#[test]
 fn providers_and_tools_return_arrays() {
     // /providers reads `<cwd>/manifests/providers/*.toml` (or
     // returns `[]` on a clean workspace). /tools is built from

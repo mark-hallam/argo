@@ -10,9 +10,9 @@ use super::routes_meta::{
 };
 use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
-    create_session_response, install_skill_response, replay_response, run_turn_response,
-    steer_response,
+    create_session_response, replay_response, run_turn_response, steer_response,
 };
+use super::routes_post_writes::{append_memory_response, install_skill_response};
 use super::routes_session::{session_show_response, session_spend_response};
 use super::store_unavailable;
 use argo_store::SessionStore;
@@ -123,6 +123,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /skills ") {
         return install_skill_response(req, store).await;
+    }
+    if req.starts_with("POST /memory ") {
+        return append_memory_response(req, store).await;
     }
     // POST /sessions/<uuid>/messages — append a message to a
     // recorded session. We do the URL parse here to keep
