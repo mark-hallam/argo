@@ -1,21 +1,56 @@
 //! `argo route` — inspect cost-router decisions for a session.
 use crate::cli::RouteCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_routing::{FixedRouter, Router, RoutingContext};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult, ProviderModel, RoutingPolicy, SessionId};
+use std::time::{Duration, Instant};
 
 pub async fn run(cmd: RouteCmd) -> ArgoResult<()> {
     match cmd {
         RouteCmd::Inspect { session_id } => inspect(&session_id).await,
-        RouteCmd::Bench => {
-            // Real bench needs a live router + provider — that's the
-            // daemon's job. The lib-tier `argo-routing` carries the
-            // FixedRouter / TieredRouter / PolicyPluginRouter that
-            // a future PR will exercise here.
-            println!("argo route bench: requires the daemon's router binding (separate PR).");
-            Ok(())
-        }
+        RouteCmd::Bench => bench().await,
     }
+}
+
+async fn bench() -> ArgoResult<()> {
+    let iters: usize = 100_000;
+    let router = FixedRouter::new();
+    let session_id = SessionId::new();
+    let default_model = ProviderModel {
+        provider: "anthropic".into(),
+        model: "claude-haiku".into(),
+    };
+    let mut samples: Vec<u128> = Vec::with_capacity(iters);
+    let total_start = Instant::now();
+    for turn in 0..iters {
+        let ctx = RoutingContext {
+            session_id,
+            turn: u32::try_from(turn).unwrap_or(u32::MAX),
+            messages: &[],
+            user_message: "bench",
+            tools_in_scope: &[],
+            default_model: default_model.clone(),
+            policy: RoutingPolicy::Fixed,
+            deadline: Instant::now() + Duration::from_secs(60),
+        };
+        let t = Instant::now();
+        let _ = router.route(&ctx).await?;
+        samples.push(t.elapsed().as_nanos());
+    }
+    let total = total_start.elapsed();
+    samples.sort_unstable();
+    let p50 = samples[iters / 2];
+    let p99 = samples[(iters * 99) / 100];
+    let max = samples[iters - 1];
+    let throughput = iters as f64 / total.as_secs_f64();
+    println!("argo route bench — FixedRouter ({iters} iterations)");
+    println!("  total:      {:.2?}", total);
+    println!("  throughput: {throughput:.0} routes/s");
+    println!("  p50:        {p50} ns");
+    println!("  p99:        {p99} ns");
+    println!("  max:        {max} ns");
+    Ok(())
 }
 
 async fn inspect(raw: &str) -> ArgoResult<()> {

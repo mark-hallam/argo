@@ -137,6 +137,7 @@ dependencies = [
  "argo-mcp",
  "argo-memory",
  "argo-provider",
+ "argo-routing",
  "argo-skill",
  "argo-store",
  "argo-telemetry",
