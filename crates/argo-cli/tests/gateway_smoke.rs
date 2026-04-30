@@ -276,6 +276,92 @@ fn gateway_get_session_by_id_and_list_messages() {
 }
 
 #[test]
+fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
+    // Spawns the gateway, creates a session against the bundled
+    // anthropic manifest, then runs `POST /runs` with no
+    // ANTHROPIC_API_KEY in env. The agent loop's missing-key
+    // error should bubble back through the gateway as
+    // 500 Internal Server Error with the env-var name in the body
+    // — that's the contract external clients rely on to give the
+    // user an actionable hint.
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let workspace = tempfile::tempdir().unwrap();
+    Command::new(argo_bin())
+        .current_dir(workspace.path())
+        .env("ARGO_HOME", home.path())
+        .args(["workspace", "init"])
+        .output()
+        .expect("workspace init");
+    // Copy the bundled anthropic manifest so manifest loading works.
+    let manifests_dst = workspace.path().join("manifests").join("providers");
+    std::fs::create_dir_all(&manifests_dst).unwrap();
+    let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    std::fs::copy(
+        repo_root.join("manifests/providers/anthropic.toml"),
+        manifests_dst.join("anthropic.toml"),
+    )
+    .unwrap();
+
+    let mut child = Command::new(argo_bin())
+        .current_dir(workspace.path())
+        .env("ARGO_HOME", home.path())
+        .env_remove("ANTHROPIC_API_KEY")
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "2",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let stderr = child.stderr.take().expect("stderr");
+    let mut stderr = BufReader::new(stderr);
+    let mut line = String::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("listener did not announce in 2s");
+        }
+        line.clear();
+        stderr.read_line(&mut line).expect("read line");
+        if line.contains("listening on") {
+            break;
+        }
+    }
+
+    let r = http_post(
+        port,
+        "/sessions",
+        r#"{"model":"claude-haiku-4-5","provider":"anthropic"}"#,
+    );
+    let create: serde_json::Value = serde_json::from_str(body_of(&r)).unwrap();
+    let sid = create["id"].as_str().unwrap();
+
+    let r = http_post(port, &format!("/sessions/{sid}/runs"), "{}");
+    assert!(r.contains("HTTP/1.1 500"), "expected 500, got: {r}");
+    let body = body_of(&r);
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("valid json");
+    let err = parsed["error"].as_str().unwrap_or("");
+    assert!(
+        err.contains("ANTHROPIC_API_KEY"),
+        "expected ANTHROPIC_API_KEY in error, got: {err}"
+    );
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn gateway_post_messages_appends_to_session_then_round_trips() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
