@@ -7,7 +7,7 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 **Library + integration tier complete. Live agent loop with tool
 dispatch + spend tracking running across all four provider
 families.** Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library
-tier across **168+ PRs**.
+tier across **177+ PRs**.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -49,11 +49,15 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **12 endpoints** —
-`/health`, `/version`, `GET /sessions`, `GET /sessions/<id>`,
-`GET /sessions/<id>/messages`, `GET /skills`, `GET /memory`,
-`GET /audit`, `GET /costs`, `POST /sessions`, `POST /sessions/<id>/messages`,
-`POST /sessions/<id>/runs` — all wired against the same
+shutdown via SIGTERM/SIGINT). It exposes **16 endpoints** —
+`/health`, `/version`, `GET /sessions` (with per-row spend),
+`GET /sessions/<id>` (+ tool_call_count + spend), `GET
+/sessions/<id>/messages`, `GET /skills`, `GET /memory`,
+`GET /audit`, `GET /audit/sessions/<id>`, `GET /costs`,
+`GET /costs/by-model`, `GET /costs/by-session`,
+`POST /sessions`, `POST /sessions/<id>/messages`,
+`POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
+`POST /sessions/<id>/steer` — all wired against the same
 `SessionStore` the CLI uses.
 
 Voice MCP has all four cloud TTS backends wired (`backend ∈ {piper,
