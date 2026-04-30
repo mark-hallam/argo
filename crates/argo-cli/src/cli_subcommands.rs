@@ -6,8 +6,24 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum AgentsCmd {
+    /// List `[agents.*]` blocks from `argo.toml`.
     List,
-    Create { name: String },
+    /// Add a new `[agents.<name>]` block to `argo.toml`. Use the
+    /// flags to populate keys; defaults are sensible enough that
+    /// the agent shows up in `argo agents list` immediately.
+    Create {
+        name: String,
+        /// `default_model` field. Defaults to "claude-3-5-sonnet".
+        #[arg(long)]
+        model: Option<String>,
+        /// `default_toolset` field. Defaults to "default".
+        #[arg(long)]
+        toolset: Option<String>,
+        /// `memory_namespace` field. Defaults to the agent name.
+        #[arg(long)]
+        memory_namespace: Option<String>,
+    },
+    /// Remove an `[agents.<name>]` block from `argo.toml`.
     Delete { name: String },
 }
 
