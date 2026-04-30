@@ -259,6 +259,56 @@ pub(super) async fn forge_runs_response(
     }
 }
 
+/// `GET /forge/runs/<id>` — fetch one forge_run row by id (mirrors
+/// `argo forge runs show <id>`). Returns 404 when no row matches,
+/// 503 when the store is unavailable, 400 when the id isn't a
+/// valid UUID.
+pub(super) async fn forge_run_show_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid forge run id: {e}\"}}"),
+            );
+        }
+    };
+    match store.get_forge_run(id).await {
+        Ok(Some(r)) => {
+            let body = serde_json::json!({
+                "id": hex::encode(&r.id),
+                "skill_name": r.skill_name,
+                "started_at": r.started_at,
+                "ended_at": r.ended_at,
+                "base_version": r.base_version,
+                "candidate_version": r.candidate_version,
+                "iterations": r.iterations,
+                "spend_usd_micros": r.spend_usd_micros,
+                "final_score": r.final_score,
+                "status": r.status,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no forge run with id {raw_id}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"get_forge_run: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /routes` — discovery endpoint listing every route the
 /// gateway dispatches, with a one-line description per row.
 /// Lets a UI / docs surface enumerate the API without scraping
@@ -284,6 +334,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes"),
         ("GET", "/forge/runs", "recorded forge optimization runs"),
+        ("GET", "/forge/runs/<id>", "one forge_run row"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing"),
