@@ -7,6 +7,7 @@
 mod lifecycle;
 mod routes;
 mod routes_post;
+mod streaming;
 
 use crate::cli::GatewayCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
@@ -103,6 +104,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("  POST /sessions/<uuid>/messages → append a message ({{role, content}})");
     eprintln!("  POST /sessions/<uuid>/runs → run one agent turn ({{user?, stream:false, max_tool_rounds?}})");
+    eprintln!("  POST /sessions/<uuid>/runs/stream → chunked-NDJSON stream of audit events as the run progresses");
     eprintln!("  POST /sessions/<uuid>/steer → inject a system-role steer ({{text}})");
     eprintln!("  GET  /skills   → active skills (JSON array)");
     eprintln!("  GET  /memory   → active memory entries (JSON array)");
@@ -129,14 +131,19 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                 let mut buf = [0_u8; 4096];
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
-                let (status_line, body) = routes::dispatch_route(req, store.as_ref()).await;
-                let resp = format!(
-                    "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
-                let _ = stream.write_all(resp.as_bytes()).await;
-                let _ = stream.shutdown().await;
+                if streaming::is_streaming_runs_request(req) {
+                    let _ = streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
+                    let _ = stream.shutdown().await;
+                } else {
+                    let (status_line, body) = routes::dispatch_route(req, store.as_ref()).await;
+                    let resp = format!(
+                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(resp.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                }
                 served += 1;
                 if max_requests.is_some_and(|cap| served >= cap) {
                     eprintln!(
