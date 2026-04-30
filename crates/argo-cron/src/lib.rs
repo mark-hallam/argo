@@ -1,11 +1,48 @@
-//! argo-cron — see `docs/plan/argo-build-plan.md`.
+//! `argo-cron` — cron expressions + tenant-aware scheduler (§22).
 //!
-//! Stub crate. Implementation arrives per the phase plan in `ROADMAP.md`.
+//! Three pieces:
+//!
+//! - **[`CronExpr`]** — five-field POSIX-ish cron expression
+//!   parser + match against a [`chrono::DateTime<chrono::Utc>`].
+//!   Day-of-month / day-of-week follow standard cron's "either
+//!   field matches" semantics when both are non-wildcard.
+//! - **[`CronJob`]** + **[`JobStore`]** — `(schedule, prompt,
+//!   target)` plus `last_fired_at` bookkeeping; tenant-isolated by
+//!   `(tenant_id, name)`. The shipped [`InMemoryJobStore`] is used
+//!   in tests + the walking skeleton; production stores plug into
+//!   `argo-store` or the workspace's `cron/jobs/` directory.
+//! - **[`Scheduler`]** — stateless `tick(now)` that filters due
+//!   jobs and dispatches them to a [`JobRunner`]. The surrounding
+//!   daemon (`argo-cli`'s daemon mode + `argo-gateway`) calls
+//!   `tick` once per minute under a file lock so multiple gateway
+//!   processes never double-fire a job.
+//!
+//! ```
+//! use argo_cron::{CronExpr, CronJob, CronTarget, InMemoryJobStore, JobStore};
+//! use argo_types::TenantId;
+//! # async fn demo() -> argo_types::ArgoResult<()> {
+//! let schedule = CronExpr::parse("0 8 * * 1-5").unwrap();
+//! let job = CronJob::new(
+//!     TenantId::new(),
+//!     "morning-summary",
+//!     schedule,
+//!     "Summarize my unread Slack DMs.",
+//!     CronTarget { platform: "telegram".into(), chat: "abc".into() },
+//! );
+//! let store = InMemoryJobStore::new();
+//! store.save(&job).await?;
+//! # Ok(()) }
+//! ```
 #![warn(missing_docs)]
-#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
+mod expr;
+mod job;
+mod scheduler;
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn crate_compiles() {}
-}
+mod tests;
+
+pub use expr::{CronExpr, CronParseError};
+pub use job::{CronJob, CronTarget, InMemoryJobStore, JobStore};
+pub use scheduler::{JobRunner, Scheduler, TickReport};

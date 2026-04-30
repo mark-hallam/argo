@@ -165,6 +165,17 @@ dependencies = [
 [[package]]
 name = "argo-cron"
 version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "parking_lot",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "argo-delegate"
