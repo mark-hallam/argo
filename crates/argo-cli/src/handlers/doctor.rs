@@ -1,9 +1,10 @@
 //! `argo doctor` — config / workspace sanity report.
-use crate::home::resolve_home;
+use crate::home::{db_path, resolve_home};
 use argo_config::ArgoConfig;
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
-pub fn run() -> ArgoResult<()> {
+pub async fn run() -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let toml = cwd.join("argo.toml");
@@ -54,5 +55,43 @@ pub fn run() -> ArgoResult<()> {
             missing_m.join(", ")
         );
     }
+    db_health(&home).await;
     Ok(())
+}
+
+async fn db_health(home: &std::path::Path) {
+    let db = db_path(home);
+    if !db.exists() {
+        println!("  db:         (no sessions.db yet — runs `argo workspace init`)");
+        return;
+    }
+    let store = match SessionStore::open(&db).await {
+        Ok(s) => s,
+        Err(e) => {
+            println!("  db:         OPEN FAILED ({e})");
+            return;
+        }
+    };
+    if let Err(e) = store.migrate().await {
+        println!("  db:         MIGRATE FAILED ({e})");
+        return;
+    }
+    let version = store.schema_version().await.unwrap_or(0);
+    let stats = match store.db_stats().await {
+        Ok(s) => s,
+        Err(e) => {
+            println!("  db:         schema v{version}, stats failed ({e})");
+            return;
+        }
+    };
+    let ws_status = match store.first_workspace().await {
+        Ok(Some(_)) => "registered",
+        Ok(None) => "MISSING — run `argo workspace init`",
+        Err(_) => "lookup failed",
+    };
+    println!("  db:         schema v{version}  workspace={ws_status}");
+    println!(
+        "  rows:       sessions={} messages={} audit={} memory={} skills={}",
+        stats.sessions, stats.messages, stats.audit_rows, stats.memory_entries, stats.skills
+    );
 }
