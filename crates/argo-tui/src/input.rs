@@ -1,8 +1,9 @@
 //! Crossterm event-loop for the TUI session viewer. Extracted
 //! from `app.rs` to keep that file under the 500-LOC budget.
-use crate::app::{fetch_message_count, fetch_messages, ViewerState};
+use crate::app::ViewerState;
+use crate::viewer::{fetch_message_count, fetch_messages};
 use crate::render::draw;
-use argo_agent_runner::{run_turn, MAX_TOOL_ROUNDS};
+use argo_agent_runner::{run_turn_with_events, MAX_TOOL_ROUNDS};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -12,6 +13,7 @@ use std::io::Stdout;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 pub(crate) async fn run(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
@@ -20,11 +22,26 @@ pub(crate) async fn run(
     state: &mut ViewerState,
 ) -> ArgoResult<()> {
     let mut last_refresh = std::time::Instant::now();
+    // Live-event channel for the in-flight agent task. `Some` only
+    // while a task is running; reset to `None` after `reap_agent`.
+    let mut events_rx: Option<UnboundedReceiver<serde_json::Value>> = None;
     loop {
+        // Drain any events the spawned `run_turn` task has emitted
+        // since the last tick. The receiver is closed when the task
+        // drops its sender (i.e. when the run finishes).
+        if let Some(rx) = events_rx.as_mut() {
+            while let Ok(env) = rx.try_recv() {
+                state.push_live_event(&env);
+            }
+        }
         // Reap a finished agent turn before drawing so the footer
         // shows the right "running"/"done" state and any error
         // surfaces immediately.
-        reap_agent(state).await;
+        if reap_agent(state).await {
+            // Drop the receiver once the task completes; any
+            // un-drained events were collected above.
+            events_rx = None;
+        }
         terminal
             .draw(|frame| draw(frame, state))
             .map_err(|e| ArgoError::Provider(format!("tui draw: {e}")))?;
@@ -78,7 +95,7 @@ pub(crate) async fn run(
                 match key.code {
                     KeyCode::Esc => state.composer_cancel(),
                     KeyCode::Enter => {
-                        spawn_agent_turn(&store, &cwd, state).await;
+                        events_rx = spawn_agent_turn(&store, &cwd, state).await;
                     }
                     KeyCode::Backspace => state.composer_pop(),
                     KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -143,54 +160,67 @@ pub(crate) async fn run(
     }
 }
 
-/// Spawn `argo_agent_runner::run_turn` against the selected
-/// session, using the composer draft as the user prompt. Stores
-/// the `JoinHandle` on `state` so the event loop can reap it.
-/// No-op if no session is selected, the composer is empty, or a
-/// turn is already in flight.
-async fn spawn_agent_turn(store: &Arc<SessionStore>, cwd: &Path, state: &mut ViewerState) {
+/// Spawn `argo_agent_runner::run_turn_with_events` against the
+/// selected session, using the composer draft as the user prompt.
+/// Stores the `JoinHandle` on `state` so the event loop can reap
+/// it; returns the receive side of the event channel so the
+/// caller can drain envelopes between key presses.
+///
+/// Returns `None` when no task was spawned (no session selected,
+/// empty composer, or a turn is already in flight).
+async fn spawn_agent_turn(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    state: &mut ViewerState,
+) -> Option<UnboundedReceiver<serde_json::Value>> {
     if state.agent_running() {
-        return;
+        return None;
     }
     let Some(session) = state.selected_session() else {
         state.composer_send();
-        return;
+        return None;
     };
     let sid = SessionId(session.id.0);
     let draft = state.composer.clone();
     if draft.is_empty() {
         state.composer_send();
-        return;
+        return None;
     }
     let store_h = Arc::clone(store);
     let cwd_h = cwd.to_path_buf();
     let user_text = draft.clone();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let handle = tokio::spawn(async move {
-        run_turn(
+        run_turn_with_events(
             &store_h,
             &cwd_h,
             sid,
             Some(&user_text),
             false,
             MAX_TOOL_ROUNDS,
+            Some(&tx),
         )
         .await
         .map(|_| ())
     });
     state.last_agent_error = None;
+    state.clear_live_events();
     state.agent_handle = Some(handle);
     state.composer_send();
+    Some(rx)
 }
 
 /// Poll the in-flight agent task; if it has finished, take the
 /// handle, await it (non-blocking — it's already done), and
-/// stash any error string on `state`.
-async fn reap_agent(state: &mut ViewerState) {
+/// stash any error string on `state`. Returns `true` when a task
+/// was reaped this tick (so the caller can drop the events
+/// receiver), `false` otherwise.
+async fn reap_agent(state: &mut ViewerState) -> bool {
     if !state.agent_handle.as_ref().is_some_and(|h| h.is_finished()) {
-        return;
+        return false;
     }
     let Some(handle) = state.agent_handle.take() else {
-        return;
+        return false;
     };
     match handle.await {
         Ok(Ok(())) => state.last_agent_error = None,
@@ -201,6 +231,7 @@ async fn reap_agent(state: &mut ViewerState) {
     // appear in the messages pane right away rather than waiting
     // for the 1s tick.
     state.messages_loaded = false;
+    true
 }
 
 /// Choose what `y` copies: prefer the most recent message body,

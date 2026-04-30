@@ -65,7 +65,7 @@ fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 }
 
 fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
-    let items: Vec<ListItem> = state
+    let mut items: Vec<ListItem> = state
         .selected_messages
         .iter()
         .map(|m| {
@@ -80,9 +80,23 @@ fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             ]))
         })
         .collect();
+    // Append the live-event trail (if any) at the bottom so the
+    // user sees streaming progress without leaving the TUI. The
+    // trail is auto-cleared when a new turn spawns.
+    for line in &state.live_events {
+        items.push(ListItem::new(Line::from(vec![Span::styled(
+            line.clone(),
+            Style::default().add_modifier(Modifier::DIM),
+        )])));
+    }
     let title = match state.selected_session() {
         Some(_) if !state.selected_messages.is_empty() => {
-            format!(" messages ({}) ", state.selected_messages.len())
+            let live = if state.live_events.is_empty() {
+                String::new()
+            } else {
+                format!(" + {} live", state.live_events.len())
+            };
+            format!(" messages ({}{live}) ", state.selected_messages.len())
         }
         Some(_) => " messages (none) ".to_string(),
         None => " messages ".to_string(),
@@ -354,6 +368,25 @@ mod tests {
         let frame = render_to_strings(&state);
         assert!(frame.contains("agent error"));
         assert!(frame.contains("ANTHROPIC_API_KEY"));
+    }
+
+    #[test]
+    fn messages_pane_appends_live_event_trail() {
+        let mut state = ViewerState::new(vec![header("live-target")]);
+        state.push_live_event(&serde_json::json!({
+            "event": "TurnStart",
+            "payload": {"provider": "anthropic", "model": "claude-x"}
+        }));
+        state.push_live_event(&serde_json::json!({
+            "event": "ToolCall",
+            "payload": {"tool": "file_read"}
+        }));
+        let frame = render_to_strings(&state);
+        // Title shows the live count.
+        assert!(frame.contains("live"));
+        // Both events render as one-line trail entries.
+        assert!(frame.contains("TurnStart"));
+        assert!(frame.contains("file_read"));
     }
 
     #[test]

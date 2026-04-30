@@ -15,6 +15,9 @@
 mod app;
 mod clipboard;
 mod input;
+mod live_event;
 mod render;
+mod viewer;
 
-pub use app::{run_session_viewer, ViewerState};
+pub use app::ViewerState;
+pub use viewer::run_session_viewer;

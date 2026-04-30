@@ -1,16 +1,11 @@
-//! State machine for the session viewer. The crossterm event-loop
-//! body lives in `input.rs` so this file stays under 500 LOC.
-use argo_store::{MessageRow, SessionHeader, SessionStore};
-use argo_types::{ArgoError, ArgoResult, SessionId};
-use crossterm::execute;
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
-use std::io::{stdout, Stdout};
-use std::path::PathBuf;
-use std::sync::Arc;
+//! State machine for the session viewer.
+//!
+//! The crossterm event-loop body lives in `input.rs`; the entry
+//! point + terminal lifecycle + fetch helpers live in `viewer.rs`.
+//! This file stays under 500 LOC by keeping only the `ViewerState`
+//! type + its impls here.
+use argo_store::{MessageRow, SessionHeader};
+use argo_types::ArgoResult;
 use tokio::task::JoinHandle;
 
 /// Viewer state — sessions list, current selection, the detail-
@@ -57,7 +52,18 @@ pub struct ViewerState {
     /// footer renders this so e.g. missing provider keys aren't
     /// silently swallowed.
     pub last_agent_error: Option<String>,
+    /// Live event log appended as the agent task emits
+    /// `TurnStart` / `AssistantMessage` / `ToolCall` / `ToolResult`
+    /// / `TurnEnd` chunks. The render layer surfaces the most
+    /// recent few lines as a "stream" trail in the messages pane.
+    /// Capped at [`MAX_LIVE_EVENTS`] entries.
+    pub live_events: Vec<String>,
 }
+
+/// Hard cap on the live-event ring so a long agent run can't
+/// blow up TUI memory. Showing more than a screenful of stream
+/// trail in a fixed-height TUI pane has no real value.
+pub const MAX_LIVE_EVENTS: usize = 32;
 
 impl ViewerState {
     /// Build state from a freshly-loaded session list.
@@ -76,6 +82,7 @@ impl ViewerState {
             last_sent: None,
             agent_handle: None,
             last_agent_error: None,
+            live_events: Vec::new(),
         }
     }
 
@@ -83,6 +90,25 @@ impl ViewerState {
     #[must_use]
     pub fn agent_running(&self) -> bool {
         self.agent_handle.is_some()
+    }
+
+    /// Append a `RunEvent` envelope (one JSON value per call)
+    /// formatted as a one-line summary. Capped at
+    /// [`MAX_LIVE_EVENTS`]; oldest entries are dropped from the
+    /// front when the cap is reached.
+    pub fn push_live_event(&mut self, env: &serde_json::Value) {
+        let line = crate::live_event::format_live_event(env);
+        self.live_events.push(line);
+        if self.live_events.len() > MAX_LIVE_EVENTS {
+            let overflow = self.live_events.len() - MAX_LIVE_EVENTS;
+            self.live_events.drain(..overflow);
+        }
+    }
+
+    /// Reset the live-event ring (called when a new agent turn
+    /// is spawned so old chunks don't bleed into the new run).
+    pub fn clear_live_events(&mut self) {
+        self.live_events.clear();
     }
 
     /// Append a char to the composer draft.
@@ -248,76 +274,6 @@ impl ViewerState {
     }
 }
 
-/// Drive the TUI event loop. Quits on `q` or `Ctrl-C`. The
-/// returned result is `Ok(())` on a clean quit, `Err` if terminal
-/// setup or rendering blew up.
-///
-/// `cwd` is the workspace root passed to
-/// `argo_agent_runner::run_turn` when the composer fires off a
-/// live agent turn — it points at the directory holding
-/// `manifests/providers/` so the runner can resolve the session's
-/// provider id to a real transport.
-///
-/// # Errors
-/// Returns [`ArgoError::Provider`] for terminal setup, draw, or
-/// store-query failures.
-pub async fn run_session_viewer(store: Arc<SessionStore>, cwd: PathBuf) -> ArgoResult<()> {
-    let sessions = store.list_all_sessions(200).await?;
-    let mut state = ViewerState::new(sessions);
-    fetch_message_count(&store, &mut state).await?;
-    fetch_messages(&store, &mut state).await?;
-    let mut terminal = setup_terminal()?;
-    let outcome = crate::input::run(&mut terminal, store, cwd, &mut state).await;
-    teardown_terminal(&mut terminal)?;
-    outcome
-}
-
-
-pub(crate) async fn fetch_message_count(store: &SessionStore, state: &mut ViewerState) -> ArgoResult<()> {
-    if state.selected_message_count.is_some() {
-        return Ok(());
-    }
-    let Some(session) = state.selected_session() else {
-        return Ok(());
-    };
-    let count = store.message_count(SessionId(session.id.0)).await?;
-    state.selected_message_count = Some(count);
-    Ok(())
-}
-
-pub(crate) async fn fetch_messages(store: &SessionStore, state: &mut ViewerState) -> ArgoResult<()> {
-    if state.messages_loaded {
-        return Ok(());
-    }
-    let Some(session) = state.selected_session() else {
-        return Ok(());
-    };
-    let mut rows = store.list_messages(SessionId(session.id.0)).await?;
-    // Cap at 50 rows so the preview pane stays bounded.
-    rows.truncate(50);
-    state.selected_messages = rows;
-    state.messages_loaded = true;
-    Ok(())
-}
-
-fn setup_terminal() -> ArgoResult<Terminal<CrosstermBackend<Stdout>>> {
-    enable_raw_mode().map_err(|e| ArgoError::Provider(format!("enable_raw_mode: {e}")))?;
-    let mut out = stdout();
-    execute!(out, EnterAlternateScreen)
-        .map_err(|e| ArgoError::Provider(format!("enter_alt_screen: {e}")))?;
-    Terminal::new(CrosstermBackend::new(out))
-        .map_err(|e| ArgoError::Provider(format!("Terminal::new: {e}")))
-}
-
-fn teardown_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> ArgoResult<()> {
-    disable_raw_mode().map_err(|e| ArgoError::Provider(format!("disable_raw_mode: {e}")))?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)
-        .map_err(|e| ArgoError::Provider(format!("leave_alt_screen: {e}")))?;
-    terminal
-        .show_cursor()
-        .map_err(|e| ArgoError::Provider(format!("show_cursor: {e}")))?;
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
@@ -471,5 +427,27 @@ mod tests {
         let s = ViewerState::new(Vec::new());
         assert!(!s.agent_running());
         assert!(s.last_agent_error.is_none());
+        assert!(s.live_events.is_empty());
+    }
+
+    #[test]
+    fn push_live_event_caps_at_max() {
+        let mut s = ViewerState::new(Vec::new());
+        for _ in 0..(MAX_LIVE_EVENTS + 5) {
+            s.push_live_event(&serde_json::json!({
+                "event": "TurnEnd",
+                "payload": {}
+            }));
+        }
+        assert_eq!(s.live_events.len(), MAX_LIVE_EVENTS);
+    }
+
+    #[test]
+    fn clear_live_events_resets_ring() {
+        let mut s = ViewerState::new(Vec::new());
+        s.push_live_event(&serde_json::json!({"event":"TurnStart","payload":{}}));
+        assert!(!s.live_events.is_empty());
+        s.clear_live_events();
+        assert!(s.live_events.is_empty());
     }
 }
