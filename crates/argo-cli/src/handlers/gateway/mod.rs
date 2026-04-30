@@ -7,6 +7,7 @@
 mod lifecycle;
 mod routes;
 mod routes_post;
+mod routes_session;
 mod streaming;
 
 use crate::cli::GatewayCmd;

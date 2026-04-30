@@ -62,7 +62,7 @@ fn ok(text: String) -> CallToolResult {
 /// register it in the session registry.
 pub async fn session_open(args: &serde_json::Value) -> CallToolResult {
     let port = port_from_args(args);
-    let tabs = match super::fetch_tabs_pub(port).await {
+    let tabs = match super::fetch_tabs(port).await {
         Ok(t) => t,
         Err(e) => return error(e),
     };

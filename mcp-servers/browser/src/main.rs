@@ -13,6 +13,7 @@
 
 mod cdp;
 mod chrome_probe;
+mod schemas;
 mod service;
 
 use argo_mcp::run_loop;

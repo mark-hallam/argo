@@ -83,13 +83,7 @@ pub async fn list_tabs(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
-/// `GET http://127.0.0.1:<port>/json` and return the parsed array
-/// of tabs. Internal helper for `eval`.
-pub(super) async fn fetch_tabs_pub(port: u16) -> Result<Vec<serde_json::Value>, String> {
-    fetch_tabs(port).await
-}
-
-async fn fetch_tabs(port: u16) -> Result<Vec<serde_json::Value>, String> {
+pub(super) async fn fetch_tabs(port: u16) -> Result<Vec<serde_json::Value>, String> {
     let url = format!("http://127.0.0.1:{port}/json");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))

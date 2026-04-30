@@ -4,6 +4,9 @@
 //! both files stay under the 500-LOC ceiling.
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
+#[path = "cli_session_cmds.rs"]
+mod cli_session_cmds;
+pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
 
 use clap::{Parser, Subcommand};

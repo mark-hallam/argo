@@ -13,6 +13,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod app;
+mod input;
 mod render;
 
 pub use app::{run_session_viewer, ViewerState};
