@@ -257,7 +257,44 @@ async fn push(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Provider(format!("read {}: {e}", out_tar.display())))?;
     let registry = OciDistributionRegistry::new(&host_base_url(&reference.host), oci_token());
     registry.push(&reference, &tar_bytes, &manifest).await?;
-    println!("pushed {} ({} bytes) → {}", reference.to_canonical(), tar_bytes.len(), reference.host);
+    println!(
+        "pushed {} ({} bytes) → {}",
+        reference.to_canonical(),
+        tar_bytes.len(),
+        reference.host
+    );
+
+    // Record the artifact in the local DB so `argo workspace
+    // status` (and a future `argo workspace artifacts` listing
+    // command) can show what's been pushed.
+    if let Err(e) = record_artifact(cwd, &reference, &manifest.digest).await {
+        eprintln!("warning: marketplace_artifact insert failed: {e}");
+    }
+    Ok(())
+}
+
+async fn record_artifact(
+    cwd: &std::path::Path,
+    reference: &OciReference,
+    digest: &str,
+) -> ArgoResult<()> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
+    let by = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .map(|u| format!("cli:{u}"))
+        .unwrap_or_else(|_| "cli".into());
+    store
+        .record_marketplace_artifact(workspace, &reference.to_canonical(), digest, &by)
+        .await?;
     Ok(())
 }
 

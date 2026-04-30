@@ -12,6 +12,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod marketplace_meta;
 mod migrations;
 mod models;
 mod session_meta;
@@ -19,6 +20,7 @@ mod spend;
 mod stats;
 mod workspace;
 
+pub use marketplace_meta::MarketplaceArtifactRow;
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
 pub use stats::DbStats;
 

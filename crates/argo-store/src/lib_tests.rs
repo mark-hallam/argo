@@ -281,6 +281,39 @@ async fn override_judge_verdict_updates_in_place() {
 }
 
 #[tokio::test]
+async fn record_marketplace_artifact_appends_and_lists_newest_first() {
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+    let (_tenant, workspace) = store.ensure_workspace("ws", "/tmp/m").await.unwrap();
+
+    store
+        .record_marketplace_artifact(
+            workspace,
+            "ghcr.io/argo/x:0.1",
+            "sha256:aaa",
+            "cli:test",
+        )
+        .await
+        .unwrap();
+    // Bump the clock so the second row sorts strictly after.
+    tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+    store
+        .record_marketplace_artifact(
+            workspace,
+            "ghcr.io/argo/x:0.2",
+            "sha256:bbb",
+            "cli:test",
+        )
+        .await
+        .unwrap();
+
+    let rows = store.list_marketplace_artifacts(workspace, 10).await.unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].oci_ref, "ghcr.io/argo/x:0.2");
+    assert_eq!(rows[1].oci_ref, "ghcr.io/argo/x:0.1");
+}
+
+#[tokio::test]
 async fn override_judge_verdict_returns_none_for_unknown_id() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
