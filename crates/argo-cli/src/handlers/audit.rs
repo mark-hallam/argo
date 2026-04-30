@@ -187,6 +187,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             format,
             out,
             session,
+            since_minutes,
         } => {
             if format != "ndjson" {
                 return Err(ArgoError::Provider(format!(
@@ -201,11 +202,16 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 }
                 None => Box::new(BufWriter::new(std::io::stdout())),
             };
+            let cutoff = since_minutes
+                .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
             let n = if let Some(raw) = session {
                 let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
                     ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
                 })?;
-                let rows = rows_for_session(&store, SessionId(id)).await?;
+                let mut rows = rows_for_session(&store, SessionId(id)).await?;
+                if let Some(c) = cutoff {
+                    rows.retain(|r| r.created_at_micros >= c);
+                }
                 for row in &rows {
                     let line = serde_json::to_string(row)
                         .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
@@ -215,6 +221,23 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                         .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
                 }
                 rows.len()
+            } else if let Some(c) = cutoff {
+                let mut count = 0_usize;
+                export_ndjson(&store, |row| {
+                    if row.created_at_micros < c {
+                        return Ok(());
+                    }
+                    count += 1;
+                    let line = serde_json::to_string(row)
+                        .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
+                    writer
+                        .write_all(line.as_bytes())
+                        .and_then(|()| writer.write_all(b"\n"))
+                        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+                    Ok(())
+                })
+                .await?;
+                count
             } else {
                 export_ndjson(&store, |row| {
                     let line = serde_json::to_string(row)

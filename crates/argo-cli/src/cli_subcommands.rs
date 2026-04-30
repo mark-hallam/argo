@@ -252,7 +252,8 @@ pub enum AuditCmd {
     },
     /// Stream the audit log to ndjson. Defaults to stdout; pass
     /// `--out <path>` to write to a file. Pass `--session <id>` to
-    /// scope the export to one session.
+    /// scope the export to one session, or `--since-minutes <N>`
+    /// to scope to recent rows.
     Export {
         #[arg(long, default_value = "ndjson")]
         format: String,
@@ -260,6 +261,10 @@ pub enum AuditCmd {
         out: Option<String>,
         #[arg(long)]
         session: Option<String>,
+        /// Filter to rows created within this many recent minutes.
+        /// Combined with `--session` if both are set.
+        #[arg(long)]
+        since_minutes: Option<i64>,
     },
 }
 
