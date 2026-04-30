@@ -1,0 +1,227 @@
+//! HTTP route dispatch + per-endpoint response builders. Each
+//! handler returns a `(status_line, body)` pair the listener loop
+//! formats into a single-line HTTP/1.1 response.
+use argo_store::SessionStore;
+use std::sync::Arc;
+
+pub(super) async fn dispatch_route(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    if req.starts_with("GET /version ") {
+        return (
+            "200 OK",
+            format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION")),
+        );
+    }
+    if req.starts_with("GET /health ") {
+        return ("200 OK", "{\"status\":\"ok\"}".to_string());
+    }
+    if req.starts_with("GET /sessions ") {
+        return sessions_response(store).await;
+    }
+    if req.starts_with("GET /skills ") {
+        return skills_response(store).await;
+    }
+    if req.starts_with("GET /memory ") {
+        return memory_response(store).await;
+    }
+    if req.starts_with("POST /sessions ") {
+        return create_session_response(req, store).await;
+    }
+    ("404 Not Found", "{\"error\":\"not found\"}".to_string())
+}
+
+fn store_unavailable() -> (&'static str, String) {
+    (
+        "503 Service Unavailable",
+        "{\"error\":\"session store unavailable\"}".to_string(),
+    )
+}
+
+fn body_from_request(req: &str) -> &str {
+    req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
+}
+
+async fn sessions_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    match store.list_all_sessions(100).await {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "id": s.id.0.to_string(),
+                        "model": s.model,
+                        "provider": s.provider,
+                        "title": s.title,
+                        "started_at": s.started_at.to_rfc3339(),
+                        "ended_at": s.ended_at.map(|d| d.to_rfc3339()),
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list sessions: {e}\"}}"),
+        ),
+    }
+}
+
+async fn skills_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    match skills.list_active().await {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "id": s.id.0.to_string(),
+                        "name": s.frontmatter.name,
+                        "version": s.frontmatter.version,
+                        "lock": format!("{:?}", s.frontmatter.lock),
+                        "hash": hex::encode(s.hash),
+                        "created_at": s.created_at.to_rfc3339(),
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list skills: {e}\"}}"),
+        ),
+    }
+}
+
+async fn memory_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+    use argo_memory::{MemoryFile, MemoryStore};
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let workspace = match store.first_workspace().await {
+        Ok(Some(w)) => w,
+        Ok(None) => return ("200 OK", "[]".to_string()),
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+            );
+        }
+    };
+    let memory = MemoryStore::new(Arc::clone(store));
+    let mut all: Vec<serde_json::Value> = Vec::new();
+    for f in [
+        MemoryFile::Memory,
+        MemoryFile::User,
+        MemoryFile::Soul,
+        MemoryFile::Agents,
+    ] {
+        match memory.list_active(workspace, f).await {
+            Ok(entries) => {
+                for e in entries {
+                    all.push(serde_json::json!({
+                        "id": e.id.to_string(),
+                        "file": format!("{:?}", e.file),
+                        "bytes": e.body.len(),
+                        "lock": format!("{:?}", e.lock),
+                        "hash": hex::encode(e.hash),
+                        "learned_at": e.learned_at.to_rfc3339(),
+                    }));
+                }
+            }
+            Err(e) => {
+                return (
+                    "500 Internal Server Error",
+                    format!("{{\"error\":\"list {f:?}: {e}\"}}"),
+                );
+            }
+        }
+    }
+    (
+        "200 OK",
+        serde_json::to_string(&all).unwrap_or_else(|_| "[]".to_string()),
+    )
+}
+
+async fn create_session_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse body: {e}\"}}"),
+            );
+        }
+    };
+    let model = parsed["model"].as_str().unwrap_or("");
+    let provider = parsed["provider"].as_str().unwrap_or("");
+    if model.is_empty() || provider.is_empty() {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"required fields: model, provider\"}".to_string(),
+        );
+    }
+    let title = parsed["title"].as_str();
+    let cwd = match std::env::current_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"cwd: {e}\"}}"),
+            );
+        }
+    };
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, workspace) = match store.ensure_workspace(name, &root).await {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"ensure_workspace: {e}\"}}"),
+            );
+        }
+    };
+    match store
+        .create_session(tenant, workspace, model, provider, title)
+        .await
+    {
+        Ok(id) => (
+            "201 Created",
+            serde_json::to_string(&serde_json::json!({
+                "id": id.0.to_string(),
+                "model": model,
+                "provider": provider,
+                "title": title,
+            }))
+            .unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"create_session: {e}\"}}"),
+        ),
+    }
+}
