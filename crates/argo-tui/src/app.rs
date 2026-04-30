@@ -147,6 +147,28 @@ impl ViewerState {
         self.messages_scroll = self.messages_scroll.saturating_sub(1);
     }
 
+    /// Scroll messages by `step` rows (positive = down, clamped
+    /// at the last row). Used by Page Down + the `G` jump.
+    pub fn scroll_messages_down_n(&mut self, step: usize) {
+        let max = self.selected_messages.len().saturating_sub(1);
+        self.messages_scroll = (self.messages_scroll + step).min(max);
+    }
+
+    /// Scroll messages up by `step` rows (clamped at zero).
+    pub fn scroll_messages_up_n(&mut self, step: usize) {
+        self.messages_scroll = self.messages_scroll.saturating_sub(step);
+    }
+
+    /// Snap messages scroll to the top.
+    pub fn scroll_messages_first(&mut self) {
+        self.messages_scroll = 0;
+    }
+
+    /// Snap messages scroll to the last row.
+    pub fn scroll_messages_last(&mut self) {
+        self.messages_scroll = self.selected_messages.len().saturating_sub(1);
+    }
+
     // Rename + steer text-input methods live in `text_input.rs`.
 
     /// `true` while a spawned `run_turn` task is still in flight.

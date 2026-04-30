@@ -178,26 +178,38 @@ pub(crate) async fn run(
                     }
                     PaneFocus::Messages => state.scroll_messages_up(),
                 },
-                KeyCode::PageDown => {
-                    state.next_n(10);
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                }
-                KeyCode::PageUp => {
-                    state.prev_n(10);
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                }
-                KeyCode::Home | KeyCode::Char('g') => {
-                    state.first();
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                }
-                KeyCode::End | KeyCode::Char('G') => {
-                    state.last();
-                    fetch_message_count(&store, state).await?;
-                    fetch_messages(&store, state).await?;
-                }
+                KeyCode::PageDown => match state.focus {
+                    PaneFocus::Sessions => {
+                        state.next_n(10);
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
+                    }
+                    PaneFocus::Messages => state.scroll_messages_down_n(10),
+                },
+                KeyCode::PageUp => match state.focus {
+                    PaneFocus::Sessions => {
+                        state.prev_n(10);
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
+                    }
+                    PaneFocus::Messages => state.scroll_messages_up_n(10),
+                },
+                KeyCode::Home | KeyCode::Char('g') => match state.focus {
+                    PaneFocus::Sessions => {
+                        state.first();
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
+                    }
+                    PaneFocus::Messages => state.scroll_messages_first(),
+                },
+                KeyCode::End | KeyCode::Char('G') => match state.focus {
+                    PaneFocus::Sessions => {
+                        state.last();
+                        fetch_message_count(&store, state).await?;
+                        fetch_messages(&store, state).await?;
+                    }
+                    PaneFocus::Messages => state.scroll_messages_last(),
+                },
                 _ => {}
             }
         }

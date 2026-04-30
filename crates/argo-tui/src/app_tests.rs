@@ -212,3 +212,20 @@ fn scroll_messages_clamps_at_zero_and_top() {
     s.scroll_messages_down();
     assert_eq!(s.messages_scroll, 2, "clamps at last row");
 }
+
+#[test]
+fn scroll_messages_page_jumps_clamp_and_snap() {
+    let mut s = ViewerState::new(Vec::new());
+    s.selected_messages = (0..30).map(fake_msg_row).collect();
+
+    s.scroll_messages_down_n(10);
+    assert_eq!(s.messages_scroll, 10);
+    s.scroll_messages_down_n(99);
+    assert_eq!(s.messages_scroll, 29, "clamps at last row");
+    s.scroll_messages_up_n(15);
+    assert_eq!(s.messages_scroll, 14);
+    s.scroll_messages_first();
+    assert_eq!(s.messages_scroll, 0);
+    s.scroll_messages_last();
+    assert_eq!(s.messages_scroll, 29);
+}
