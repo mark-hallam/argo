@@ -301,6 +301,10 @@ pub enum WorkspaceCmd {
     Init,
     /// One-line status summary (workspace + db + costs).
     Status,
+    /// Verify workspace integrity: argo.toml parses, memory files +
+    ///   bundle dirs exist, agent persona files exist, manifests
+    ///   referenced from `[provider.profiles.*]` resolve.
+    Verify,
     Fork {
         source: String,
     },

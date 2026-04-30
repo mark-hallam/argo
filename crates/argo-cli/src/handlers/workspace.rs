@@ -45,6 +45,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
     match cmd {
         WorkspaceCmd::Init => init(&cwd),
         WorkspaceCmd::Status => status(&cwd).await,
+        WorkspaceCmd::Verify => verify(&cwd),
         WorkspaceCmd::Push { oci_ref } => push(&cwd, &oci_ref).await,
         WorkspaceCmd::Pull { oci_ref } => pull(&oci_ref),
         WorkspaceCmd::Diff { other } => {
@@ -90,6 +91,102 @@ async fn status(cwd: &std::path::Path) -> ArgoResult<()> {
         stats.sessions, stats.messages, stats.audit_rows, stats.forge_runs
     );
     Ok(())
+}
+
+fn verify(cwd: &std::path::Path) -> ArgoResult<()> {
+    let mut problems: Vec<String> = Vec::new();
+    // 1. argo.toml exists + parses
+    let toml_path = cwd.join("argo.toml");
+    if !toml_path.exists() {
+        problems.push(format!("missing argo.toml at {}", toml_path.display()));
+    }
+    let body = std::fs::read_to_string(&toml_path).unwrap_or_default();
+    let value: toml::Value = match toml::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            problems.push(format!("argo.toml parse error: {e}"));
+            toml::Value::Table(toml::map::Map::new())
+        }
+    };
+    // 2. memory files
+    for f in ["MEMORY.md", "USER.md", "SOUL.md", "AGENTS.md"] {
+        if !cwd.join(f).exists() {
+            problems.push(format!("missing memory file: {f}"));
+        }
+    }
+    // 3. bundle dirs
+    for d in ["skills", "personas", "cron", "rubrics"] {
+        if !cwd.join(d).exists() {
+            problems.push(format!("missing bundle dir: {d}/"));
+        }
+    }
+    // 4. agent persona files exist (per [agents.*].persona_file)
+    if let Some(agents) = value.get("agents").and_then(toml::Value::as_table) {
+        for (name, block) in agents {
+            if let Some(persona_rel) = block.get("persona_file").and_then(toml::Value::as_str) {
+                let persona_path = cwd.join(persona_rel);
+                if !persona_path.exists() {
+                    problems.push(format!(
+                        "agent '{name}' persona_file missing: {}",
+                        persona_path.display()
+                    ));
+                }
+            }
+        }
+    }
+    // 5. provider profiles resolve to bundled manifests
+    if let Some(provider) = value.get("provider").and_then(toml::Value::as_table) {
+        let manifests_dir = cwd.join("manifests").join("providers");
+        let known_ids = if manifests_dir.exists() {
+            collect_manifest_ids(&manifests_dir)
+        } else {
+            Vec::new()
+        };
+        for (profile_name, block) in provider {
+            if profile_name == "default" || profile_name == "profiles" {
+                continue;
+            }
+            if let Some(id) = block.get("id").and_then(toml::Value::as_str) {
+                if !known_ids.iter().any(|k| k == id) {
+                    problems.push(format!(
+                        "[provider.{profile_name}].id = '{id}' has no matching manifest"
+                    ));
+                }
+            }
+        }
+    }
+    if problems.is_empty() {
+        println!("workspace ok: {}", cwd.display());
+        Ok(())
+    } else {
+        for p in &problems {
+            eprintln!("  - {p}");
+        }
+        Err(ArgoError::Provider(format!(
+            "{} integrity issue(s) in {}",
+            problems.len(),
+            cwd.display()
+        )))
+    }
+}
+
+fn collect_manifest_ids(dir: &std::path::Path) -> Vec<String> {
+    let mut ids = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return ids;
+    };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.extension().is_none_or(|x| x != "toml") {
+            continue;
+        }
+        if let Ok(body) = std::fs::read_to_string(&p) {
+            if let Ok(m) = argo_provider::ProviderManifest::from_toml_str(&body) {
+                ids.push(m.provider.id);
+            }
+        }
+    }
+    ids
 }
 
 fn format_cap(value: Option<u64>) -> String {
