@@ -6,13 +6,15 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 **Library tier complete; integration tier mostly shipped.** Phases
 0–7 + 4.5 + 6.5 + 7.5 are all shipped at the library tier across
-**67+ PRs**. The CLI binary (`argo`) drives ~40 subcommands against
+**80+ PRs**. The CLI binary (`argo`) drives ~45 subcommands against
 the workspace store; the TUI ships a session viewer with messages
-preview + PgUp/PgDn navigation; voice + browser MCP server
-scaffolds advertise their full schemas. What's left is the heavy
-native bindings (whisper-rs, piper-rs, chromiumoxide), cross-
-registry marketplace integration, and the daemon-coupled commands
-that need a live gateway / router / judge.
+preview, `/`-filter and PgUp/PgDn navigation; voice + browser MCP
+server scaffolds advertise their full schemas; `argo workspace init`
+now registers a workspace row in the DB so memory subcommands work
+straight after init. What's left is the heavy native bindings
+(whisper-rs, piper-rs, chromiumoxide), cross-registry marketplace
+integration, and the daemon-coupled commands that need a live
+gateway / router / judge.
 
 ## Status
 
@@ -63,10 +65,14 @@ that need a live gateway / router / judge.
 | `argo audit verify [--session] / show [--tail] / export` | ✅ | #35, #36, #38, #45, #52 |
 | `argo cron list / create / delete / trigger / tick / daemon` | ✅ | #35, #42, #44, #47 |
 | `argo costs show / cap` | ✅ | #35 |
-| `argo session list / show / export / search / diff / bisect / replay` | ✅ | #35, #45, #53, #54 |
-| `argo provider list / validate` | ✅ | #36 |
+| `argo session list / show / export / search / replay` | ✅ | #35, #45, #53, #54 |
+| `argo session diff <id1> <id2>` (offline structural diff) | ✅ | #80 |
+| `argo provider list / validate / show / validate-all` | ✅ | #36, #74, #75 |
 | `argo skill list / view / install / lock / unlock` | ✅ | #37, #40 |
+| `argo skill verify <name>` (provenance hash check) | ✅ | #77 |
 | `argo memory list / view / append / revert / forget / lock / unlock` | ✅ | #37, #40, #46 |
+| `argo memory verify <uuid>` (entry hash check) | ✅ | #78 |
+| `argo memory edit <uuid>` (`$EDITOR` + supersede) | ✅ | #81 |
 | `argo mcp serve` (3 read tools) | ✅ | #41 |
 | `argo tui` (ratatui session viewer + messages pane) | ✅ | #48, #55 |
 | `argo route inspect <session_id>` | ✅ | #49 |
@@ -80,6 +86,10 @@ that need a live gateway / router / judge.
 | `argo db prune --older-than-days N` | ✅ | #64 |
 | `argo eval validate <path>` | ✅ | #65 |
 | `argo session search --session <id>` | ✅ | #66 |
+| `argo workspace status / verify` | ✅ | #70, #76 |
+| `argo workspace init` (registers workspace row) | ✅ | #79 |
+| `argo db status / prune / vacuum` | ✅ | #69, #64, #71 |
+| `argo route bench` (FixedRouter micro-benchmark) | ✅ | #82 |
 | `argo new / resume / chat / steer (live)` | ⏳ deferred | needs daemon binding |
 
 ## MCP servers shipped as standalone bins
