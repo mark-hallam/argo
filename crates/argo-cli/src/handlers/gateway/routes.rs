@@ -95,7 +95,8 @@ pub(super) async fn dispatch_route(
         if let Some((sid, tail)) = rest.split_once('/') {
             if tail.starts_with("messages ") || tail.starts_with("messages?") {
                 let limit = parse_limit(tail);
-                return list_messages_response(sid, store, limit).await;
+                let role = parse_role(tail);
+                return list_messages_response(sid, store, limit, role).await;
             }
         }
         // Strip trailing " HTTP/..." → just the session id
@@ -342,12 +343,21 @@ fn costs_response() -> (&'static str, String) {
 /// Returns `None` if absent or unparseable; caller treats `None` as
 /// "all rows".
 fn parse_limit(tail: &str) -> Option<usize> {
+    parse_query_kv(tail, "limit").and_then(|v| v.parse().ok())
+}
+
+/// Pull `role=<s>` out of the path tail (e.g. `?role=user`).
+fn parse_role(tail: &str) -> Option<String> {
+    parse_query_kv(tail, "role")
+}
+
+fn parse_query_kv(tail: &str, key: &str) -> Option<String> {
     let q = tail.split_once('?')?.1;
     let q = q.split_once(' ').map(|(q, _)| q).unwrap_or(q);
     for kv in q.split('&') {
         let (k, v) = kv.split_once('=')?;
-        if k == "limit" {
-            return v.parse().ok();
+        if k == key {
+            return Some(v.to_string());
         }
     }
     None
@@ -357,6 +367,7 @@ async fn list_messages_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
     limit: Option<usize>,
+    role: Option<String>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -372,6 +383,9 @@ async fn list_messages_response(
     };
     match store.list_messages(id).await {
         Ok(mut rows) => {
+            if let Some(want) = role.as_deref() {
+                rows.retain(|m| m.role == want);
+            }
             if let Some(n) = limit {
                 if rows.len() > n {
                     rows.truncate(n);
