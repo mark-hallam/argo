@@ -9,7 +9,11 @@ use std::io::{BufWriter, Write};
 
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
-        SessionCmd::List { limit, json } => list_sessions(limit, json).await,
+        SessionCmd::List {
+            limit,
+            json,
+            since_minutes,
+        } => list_sessions(limit, json, since_minutes).await,
         SessionCmd::Show { id, json } => show_session(&id, json).await,
         SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
         SessionCmd::Search {
@@ -384,7 +388,11 @@ fn message_summary(row: &argo_store::MessageRow) -> (String, String) {
     (row.role.clone(), snippet)
 }
 
-async fn list_sessions(limit: u32, json: bool) -> ArgoResult<()> {
+async fn list_sessions(
+    limit: u32,
+    json: bool,
+    since_minutes: Option<i64>,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -392,7 +400,11 @@ async fn list_sessions(limit: u32, json: bool) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
-    let sessions = store.list_all_sessions(limit).await?;
+    let mut sessions = store.list_all_sessions(limit).await?;
+    if let Some(minutes) = since_minutes {
+        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
+        sessions.retain(|s| s.started_at >= cutoff);
+    }
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     if json {
         for s in &sessions {

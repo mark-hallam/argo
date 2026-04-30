@@ -356,6 +356,11 @@ pub enum SessionCmd {
         /// Output as JSON (one object per session) for scripting.
         #[arg(long)]
         json: bool,
+        /// Filter to sessions started within this many recent
+        /// minutes (e.g. `--since 60` for the last hour). Compared
+        /// against `started_at`.
+        #[arg(long)]
+        since_minutes: Option<i64>,
     },
     /// Show one session header (model, provider, start time, message count).
     Show {
