@@ -242,13 +242,20 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
         frame.render_widget(p, area);
         return;
     }
+    if let Some(buf) = state.rename_buffer.as_deref() {
+        let p = Paragraph::new(format!(
+            "rename: '{buf}'  (Enter saves, Esc cancels, Backspace edits)"
+        ));
+        frame.render_widget(p, area);
+        return;
+    }
     let body = if state.filter_mode {
         format!(
             "/{}  (Enter applies, Esc clears, Backspace edits)",
             state.filter
         )
     } else if state.filter.is_empty() {
-        "j/k  PgUp/Dn  g/G  / filter  i compose  n new  y yank  q quit".to_string()
+        "j/k  / filter  i compose  n new  r rename  y yank  q quit".to_string()
     } else {
         format!(
             "filter='{}' ({} match)    /  edit    Esc  clear    q  quit",

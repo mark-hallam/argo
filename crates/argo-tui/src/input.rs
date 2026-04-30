@@ -88,6 +88,26 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Rename mode: type freely, Enter persists the new
+            // title via `SessionStore::set_session_title`, Esc
+            // cancels. Captures keystrokes before composer/normal
+            // so 'r' chars while in rename go to the buffer.
+            if state.rename_mode() {
+                match key.code {
+                    KeyCode::Esc => state.rename_cancel(),
+                    KeyCode::Enter => {
+                        if let Some(new_title) = state.rename_take() {
+                            apply_rename(&store, state, &new_title).await;
+                        }
+                    }
+                    KeyCode::Backspace => state.rename_pop(),
+                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        state.rename_push(c);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             // Composer mode: type freely, Enter spawns a live agent
             // turn (persisting the user message + driving the run
             // loop in a background task), Esc cancels.
@@ -133,6 +153,11 @@ pub(crate) async fn run(
                     if let Err(e) = create_cloned_session(&store, &cwd, state).await {
                         state.last_agent_error = Some(format!("new session: {e}"));
                     }
+                }
+                KeyCode::Char('r') if state.selected_session().is_some() => {
+                    // Enter rename mode for the selected session.
+                    // No-op when nothing is selected.
+                    state.enter_rename_mode();
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();
@@ -244,6 +269,31 @@ async fn reap_agent(state: &mut ViewerState) -> bool {
     true
 }
 
+/// Persist a new title against the selected session and refresh
+/// the in-memory session list so the change is visible. No-op
+/// when nothing is selected. Errors get stashed on
+/// `state.last_agent_error` so the footer surfaces them.
+async fn apply_rename(store: &Arc<SessionStore>, state: &mut ViewerState, new_title: &str) {
+    let Some(session) = state.selected_session() else {
+        return;
+    };
+    let sid = SessionId(session.id.0);
+    if let Err(e) = store.set_session_title(sid, new_title).await {
+        state.last_agent_error = Some(format!("rename: {e}"));
+        return;
+    }
+    // Patch the in-memory list so we don't need a full re-fetch.
+    let trimmed = new_title.trim();
+    let next: Option<String> = if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    };
+    if let Some(idx) = state.sessions.iter().position(|s| s.id.0 == sid.0) {
+        state.sessions[idx].title = next;
+    }
+}
+
 /// Clone the selected session's `(provider, model)` into a fresh
 /// session row, refresh the list, and select the new row. The
 /// title is "untitled" — the user can rename via `argo session
@@ -346,5 +396,45 @@ mod tests {
             .unwrap();
         assert!(state.sessions.is_empty());
         assert!(state.last_agent_error.as_deref().is_some());
+    }
+
+    #[tokio::test]
+    async fn apply_rename_persists_and_patches_in_memory_list() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/r").await.unwrap();
+        store
+            .create_session(tenant, ws, "m", "p", Some("old name"))
+            .await
+            .unwrap();
+        let sessions = store.list_all_sessions(200).await.unwrap();
+        let mut state = ViewerState::new(sessions);
+
+        apply_rename(&store, &mut state, "shiny new name").await;
+
+        let s = state.selected_session().unwrap();
+        assert_eq!(s.title.as_deref(), Some("shiny new name"));
+        assert!(state.last_agent_error.is_none());
+
+        // Re-open the row from the DB to confirm persistence.
+        let fresh = store.get_session(s.id).await.unwrap().unwrap();
+        assert_eq!(fresh.title.as_deref(), Some("shiny new name"));
+    }
+
+    #[tokio::test]
+    async fn apply_rename_with_empty_string_clears_title() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/r2").await.unwrap();
+        store
+            .create_session(tenant, ws, "m", "p", Some("named"))
+            .await
+            .unwrap();
+        let sessions = store.list_all_sessions(200).await.unwrap();
+        let mut state = ViewerState::new(sessions);
+
+        apply_rename(&store, &mut state, "   ").await;
+
+        assert!(state.selected_session().unwrap().title.is_none());
     }
 }

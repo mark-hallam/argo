@@ -14,6 +14,7 @@
 
 mod migrations;
 mod models;
+mod session_meta;
 mod spend;
 mod stats;
 mod workspace;
@@ -299,13 +300,9 @@ impl SessionStore {
     /// children automatically; this method just deletes the parent
     /// `session` row. Returns the number of rows deleted (0 if the
     /// session was not found).
-    pub async fn delete_session(&self, session_id: SessionId) -> StoreResult<u64> {
-        let result = sqlx::query("DELETE FROM session WHERE id = ?")
-            .bind(session_id.0.as_bytes().as_slice())
-            .execute(&self.pool)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("delete_session: {e}")))?;
-        Ok(result.rows_affected())
+    pub async fn delete_session(&self, sid: SessionId) -> StoreResult<u64> {
+        session_meta::delete_session(&self.pool, sid).await
+            .map_err(|e| ArgoError::Provider(format!("delete_session: {e}")))
     }
 
     /// List judge records for a session, oldest first. Used by
