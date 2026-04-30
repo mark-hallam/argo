@@ -5,22 +5,27 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 ## Current phase
 
 **Library + integration tier complete. Live agent loop now
-ships as a reusable library crate (`argo-agent-runner`) — the
-TUI drives turns directly, no longer just persisting user
-messages and waiting on a separate `argo chat` process. The
-TUI is now a self-contained workflow: i compose / s steer /
-n new (clone) / r rename / d delete (y-confirm) / y yank
-(OSC-52) / Tab toggles pane focus + j/k/PgUp/PgDn/g/G route by
-focus / ? opens a help overlay; a real-time `RunEvent` trail
-streams under the messages pane while a turn runs. Gateway
-gains `GET /providers`, `GET /tools`, `GET /search?q=…`. New
-`argo session watch <id>` for `tail -f`-style live message
-viewing. Streaming end-to-end (chat + gateway, real-time via
-mpsc channel — no polling). Full gateway parity for replay /
-steer / per-session spend / messages pagination.** Phases 0–7
-+ 4.5 + 6.5 + 7.5 all ship at the library tier across **241+
-PRs**, with zero LOC-budget violations across the ~39k-line
-workspace and 70+ test suites green.
+ships as a reusable library crate (`argo-agent-runner`); the
+TUI is a fully self-contained workflow (compose / steer / new
+/ rename / delete / yank, Tab pane focus + j/k/PgUp/Dn/g/G
+routing, `o` opens a message-detail overlay, `?` shows the
+keybinding cheatsheet, real-time `RunEvent` trail streams
+under the messages pane while a turn runs). The marketplace
+ships an HTTP-backed `OciDistributionRegistry` against the
+OCI Distribution Spec v2 — `argo workspace push/pull` round-
+trips against any conformant registry (GHCR, Docker Hub,
+Artifact Registry, Harbor); each push records a row in
+`marketplace_artifact` for `argo workspace artifacts` (CLI
++ gateway). `argo judge override <record-id> --to <verdict>`
+takes the daemon out of the offline override path and writes
+a `JudgeVerdict` audit row. Gateway exposes 28 endpoints
+including `GET /providers`, `GET /tools`, `GET /search?q=…`,
+`GET /workspace/artifacts`, `GET /routes` (discovery).
+Streaming end-to-end (chat + gateway, real-time via mpsc
+channel — no polling).** Phases 0–7 + 4.5 + 6.5 + 7.5 all
+ship at the library tier across **250+ PRs**, with zero
+LOC-budget violations across the ~40k-line workspace and 75+
+test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -63,23 +68,21 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **26 endpoints** —
-`/health`, `/version`, `GET /sessions` (with per-row spend +
-`?since-minutes=N` filter), `GET /sessions/<id>` (+
-tool_call_count + spend), `GET /sessions/<id>/messages?limit=N
-&role=<r>`, `GET /sessions/<id>/spend`, `GET /skills`,
-`GET /memory`, `GET /audit`, `GET /audit/sessions/<id>`,
-`GET /costs`, `GET /costs/by-model`, `GET /costs/by-session`,
+shutdown via SIGTERM/SIGINT). It exposes **28 endpoints** —
+all read-side surfaces are introspectable via `GET /routes`,
+the discovery endpoint that returns the full catalogue as a
+JSON array of `{method, path, description}` rows. Highlights:
+`GET /sessions` (with per-row spend + `?since-minutes=N`
+filter), `GET /sessions/<id>/messages?limit=N&role=<r>`,
 `GET /providers`, `GET /tools`,
-`GET /search?q=…[&limit=N&session=<id>]`, `POST /sessions`,
-`POST /sessions/<id>/messages`,
+`GET /search?q=…[&limit=N&session=<id>]`,
+`GET /workspace/artifacts[?limit=N]`,
 `POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
 `POST /sessions/<id>/runs/stream` (chunked-NDJSON live event
 stream, mpsc-driven for sub-millisecond latency),
-`POST /sessions/<id>/steer`, `POST /sessions/<id>/replay`,
-`POST /sessions/<id>/replay/stream`, `GET /doctor`,
-`GET /health/full` — all wired against the same `SessionStore`
-the CLI uses.
+`POST /sessions/<id>/steer`, `POST /sessions/<id>/replay[/stream]`,
+plus `/doctor` and `/health/full` deep checks — all wired
+against the same `SessionStore` the CLI uses.
 
 Voice MCP has all four cloud TTS backends wired (`backend ∈ {piper,
 openai, elevenlabs, minimax}`); OpenAI Whisper transcribe is also
@@ -99,19 +102,16 @@ budget, the Windows test gating, and the deny advisory ignore-list.
 
 What's left:
 
-- **Real OCI-distribution push/pull** — `MemoryRegistry` (#211)
-  proves the bundle/manifest contract; the HTTP-backed
-  `OciDistributionRegistry` against GHCR / Docker Hub /
-  Artifact Registry is the remaining wire surface.
-- **Daemon-coupled forge / judge-override** — `forge optimize`,
-  `forge promote`, `judge override` still stub out to "needs
-  the daemon's worker"; wiring them through the agent-loop
-  helpers (`argo-agent-runner`, #228) + judge engine is its
-  own big chunk.
-- **Multi-pane focus + scroll + tool-result drill-in** in the
-  TUI for the v2.2 polish layer (the v2.1 wave landed in
-  #229–#234: composer drives turns directly + n/r/d/y
-  keybindings + live-event trail + OSC-52 yank).
+- **Daemon-coupled forge** — `forge optimize`, `forge promote`,
+  `forge bench` still stub to "needs the daemon's worker";
+  wiring them through `argo-agent-runner` (#228) + the judge
+  engine is the remaining big chunk. (`judge override` shipped
+  offline in #246; the daemon coupling there is only re-running
+  a verdict against a live judge, not the override itself.)
+- **OCI auth challenge flow** — `OciDistributionRegistry`
+  (#243) supports anonymous + Bearer token; the GHCR / Docker
+  Hub `WWW-Authenticate` token-exchange dance is left to
+  callers as a few reqwest lines.
 - **Voice / browser native bindings** — `local` shell-out
   (#209) and `session_*` reuse-WS (#208) cover the workflows;
   truly native (whisper-rs, chromiumoxide) is a perf upgrade.
