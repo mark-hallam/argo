@@ -107,6 +107,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /sessions/<uuid>/runs/stream → chunked-NDJSON stream of audit events as the run progresses");
     eprintln!("  POST /sessions/<uuid>/steer → inject a system-role steer ({{text}})");
     eprintln!("  POST /sessions/<uuid>/replay → replay user prompts in a fresh session ({{model?, provider?}})");
+    eprintln!("  POST /sessions/<uuid>/replay/stream → chunked-NDJSON stream of replay events");
     eprintln!("  GET  /skills   → active skills (JSON array)");
     eprintln!("  GET  /memory   → active memory entries (JSON array)");
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");

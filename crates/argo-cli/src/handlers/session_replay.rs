@@ -26,6 +26,17 @@ pub(crate) async fn replay_core(
     model: Option<&str>,
     provider: Option<&str>,
 ) -> ArgoResult<ReplayResult> {
+    replay_core_with_events(raw, model, provider, None).await
+}
+
+/// Like `replay_core`, but pipes per-turn `RunEvent`s through an
+/// `mpsc` sender. Used by the gateway's `replay/stream` endpoint.
+pub(crate) async fn replay_core_with_events(
+    raw: &str,
+    model: Option<&str>,
+    provider: Option<&str>,
+    events: Option<&crate::handlers::chat_helpers::RunEventSink>,
+) -> ArgoResult<ReplayResult> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -71,13 +82,14 @@ pub(crate) async fn replay_core(
 
     let mut final_text = String::new();
     for text in &user_texts {
-        let result = crate::handlers::chat::run_turn(
+        let result = crate::handlers::chat::run_turn_with_events(
             &store,
             &cwd,
             new_id,
             Some(text),
             false,
             crate::handlers::chat::MAX_TOOL_ROUNDS,
+            events,
         )
         .await?;
         final_text = result.text;

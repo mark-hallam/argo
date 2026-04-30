@@ -20,21 +20,32 @@ use tokio::sync::mpsc;
 /// non-streaming `POST /sessions/<id>/runs` keeps its existing
 /// one-shot dispatch.
 pub(super) fn is_streaming_runs_request(req: &str) -> bool {
-    if !req.starts_with("POST /sessions/") {
-        return false;
-    }
-    let Some(rest) = req.strip_prefix("POST /sessions/") else {
-        return false;
-    };
-    let Some((_, tail)) = rest.split_once('/') else {
-        return false;
-    };
-    tail.starts_with("runs/stream ")
+    streaming_kind(req).is_some()
 }
 
-/// Run the agent loop and stream its `RunEvent` emissions back as
-/// chunked NDJSON. Real-time — events land as soon as the agent
-/// loop emits them (no polling).
+/// Internal: which streaming endpoint matches, or None.
+fn streaming_kind(req: &str) -> Option<StreamKind> {
+    let rest = req.strip_prefix("POST /sessions/")?;
+    let (_, tail) = rest.split_once('/')?;
+    if tail.starts_with("runs/stream ") {
+        Some(StreamKind::Runs)
+    } else if tail.starts_with("replay/stream ") {
+        Some(StreamKind::Replay)
+    } else {
+        None
+    }
+}
+
+#[derive(Copy, Clone)]
+enum StreamKind {
+    Runs,
+    Replay,
+}
+
+/// Run either the agent loop (`runs/stream`) or a session replay
+/// (`replay/stream`) and stream its `RunEvent` emissions back as
+/// chunked NDJSON. Real-time — events land as soon as the loop
+/// emits them (no polling).
 pub(super) async fn serve_streamed_run(
     req: &str,
     store: Option<&Arc<SessionStore>>,
@@ -44,7 +55,7 @@ pub(super) async fn serve_streamed_run(
         return write_one_shot_error(out, "503 Service Unavailable", "session store unavailable")
             .await;
     };
-    let Some(sid) = parse_session_id(req) else {
+    let Some(sid_str) = parse_session_id_str(req) else {
         return write_one_shot_error(out, "400 Bad Request", "invalid session id").await;
     };
     let body = body_from_request(req);
@@ -63,15 +74,6 @@ pub(super) async fn serve_streamed_run(
             }
         }
     };
-    let user = parsed
-        .get("user")
-        .and_then(|v| v.as_str())
-        .map(String::from);
-    let max_rounds = parsed
-        .get("max_tool_rounds")
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|n| usize::try_from(n).ok())
-        .unwrap_or(crate::handlers::chat::MAX_TOOL_ROUNDS);
 
     let head = "HTTP/1.1 200 OK\r\n\
                 Content-Type: application/x-ndjson\r\n\
@@ -92,20 +94,82 @@ pub(super) async fn serve_streamed_run(
         }
     };
 
-    let store_clone = Arc::clone(store);
+    let kind = streaming_kind(req).unwrap_or(StreamKind::Runs);
     let (tx, mut rx) = mpsc::unbounded_channel::<serde_json::Value>();
-    let task = tokio::spawn(async move {
-        crate::handlers::chat::run_turn_with_events(
-            &store_clone,
-            &cwd,
-            sid,
-            user.as_deref(),
-            false,
-            max_rounds,
-            Some(&tx),
-        )
-        .await
-    });
+    let task = match kind {
+        StreamKind::Runs => {
+            let user = parsed
+                .get("user")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let max_rounds = parsed
+                .get("max_tool_rounds")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|n| usize::try_from(n).ok())
+                .unwrap_or(crate::handlers::chat::MAX_TOOL_ROUNDS);
+            let store_clone = Arc::clone(store);
+            let cwd_clone = cwd.clone();
+            let sid = match uuid::Uuid::parse_str(&sid_str) {
+                Ok(u) => SessionId(u),
+                Err(e) => {
+                    write_chunk(
+                        out,
+                        &format!("{{\"event\":\"error\",\"message\":\"sid: {e}\"}}\n"),
+                    )
+                    .await?;
+                    return write_terminator(out).await;
+                }
+            };
+            TaskHandle::Run(tokio::spawn(async move {
+                crate::handlers::chat::run_turn_with_events(
+                    &store_clone,
+                    &cwd_clone,
+                    sid,
+                    user.as_deref(),
+                    false,
+                    max_rounds,
+                    Some(&tx),
+                )
+                .await
+                .map(|r| {
+                    serde_json::json!({
+                        "event": "done",
+                        "assistant_id": r.assistant_id.to_string(),
+                        "tokens_in": r.tokens_in,
+                        "tokens_out": r.tokens_out,
+                    })
+                })
+            }))
+        }
+        StreamKind::Replay => {
+            let model = parsed
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let provider = parsed
+                .get("provider")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let sid_owned = sid_str.clone();
+            TaskHandle::Replay(tokio::spawn(async move {
+                crate::handlers::session_replay::replay_core_with_events(
+                    &sid_owned,
+                    model.as_deref(),
+                    provider.as_deref(),
+                    Some(&tx),
+                )
+                .await
+                .map(|r| {
+                    serde_json::json!({
+                        "event": "done",
+                        "source_id": r.source_id.0.to_string(),
+                        "new_id": r.new_id.0.to_string(),
+                        "user_message_count": r.user_message_count,
+                    })
+                })
+            }))
+        }
+    };
 
     // Drain events until the task finishes. tokio::select! lets us
     // forward each event chunk as soon as it arrives.
@@ -124,18 +188,25 @@ pub(super) async fn serve_streamed_run(
         }
     }
 
-    let summary = match task.await {
-        Ok(Ok(result)) => serde_json::json!({
-            "event": "done",
-            "assistant_id": result.assistant_id.to_string(),
-            "tokens_in": result.tokens_in,
-            "tokens_out": result.tokens_out,
-        }),
-        Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
-        Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
+    let summary = match task {
+        TaskHandle::Run(h) => match h.await {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
+            Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
+        },
+        TaskHandle::Replay(h) => match h.await {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
+            Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
+        },
     };
     write_chunk(out, &format!("{summary}\n")).await?;
     write_terminator(out).await
+}
+
+enum TaskHandle {
+    Run(tokio::task::JoinHandle<argo_types::ArgoResult<serde_json::Value>>),
+    Replay(tokio::task::JoinHandle<argo_types::ArgoResult<serde_json::Value>>),
 }
 
 /// Write one HTTP chunk: `<hex_size>\r\n<body>\r\n`.
@@ -171,8 +242,8 @@ fn body_from_request(req: &str) -> &str {
     req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
 }
 
-fn parse_session_id(req: &str) -> Option<SessionId> {
+fn parse_session_id_str(req: &str) -> Option<String> {
     let rest = req.strip_prefix("POST /sessions/")?;
     let (sid, _) = rest.split_once('/')?;
-    Some(SessionId(uuid::Uuid::parse_str(sid).ok()?))
+    Some(sid.to_string())
 }
