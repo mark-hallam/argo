@@ -26,6 +26,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
                 show(&cwd, &cfg, json).await
             }
         }
+        Some(CostsCmd::Export { out }) => export_ledger(&cwd, out.as_deref()).await,
         Some(CostsCmd::Cap {
             session,
             day,
@@ -159,6 +160,57 @@ async fn load_global_spend(cwd: &std::path::Path) -> ArgoResult<GlobalSpend> {
         this_month: u64::try_from(this_month).unwrap_or(0),
         all_time: u64::try_from(all_time).unwrap_or(0),
     })
+}
+
+/// Stream every spend-ledger row as NDJSON (one JSON object per
+/// line). Default destination is stdout; `--out <path>` writes to
+/// a file. Each row is `{tenant_id, session_id, charged_at_micros,
+/// amount_usd_micros, provider, model}` (uuids hex-encoded for
+/// portability).
+async fn export_ledger(cwd: &std::path::Path, out: Option<&str>) -> ArgoResult<()> {
+    use std::io::Write;
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    type SpendRow = (Vec<u8>, Vec<u8>, i64, i64, String, String);
+    let rows: Vec<SpendRow> = sqlx::query_as(
+        "SELECT tenant_id, session_id, charged_at_micros, amount_usd_micros, provider, model \
+         FROM spend_ledger ORDER BY charged_at_micros ASC",
+    )
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("export_ledger: {e}")))?;
+
+    let mut writer: Box<dyn Write> = match out {
+        Some(p) => {
+            let f = std::fs::File::create(p)
+                .map_err(|e| ArgoError::Provider(format!("create {p}: {e}")))?;
+            Box::new(std::io::BufWriter::new(f))
+        }
+        None => Box::new(std::io::BufWriter::new(std::io::stdout())),
+    };
+    for (tenant, session, ts, micros, provider, model) in &rows {
+        let line = serde_json::json!({
+            "tenant_id": hex::encode(tenant),
+            "session_id": hex::encode(session),
+            "charged_at_micros": ts,
+            "amount_usd_micros": u64::try_from(*micros).unwrap_or(0),
+            "provider": provider,
+            "model": model,
+        });
+        let serialized = serde_json::to_string(&line)
+            .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?;
+        writeln!(writer, "{serialized}")
+            .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    }
+    writer
+        .flush()
+        .map_err(|e| ArgoError::Provider(format!("flush: {e}")))?;
+    if let Some(p) = out {
+        eprintln!("costs export: wrote {} rows to {p}", rows.len());
+    }
+    Ok(())
 }
 
 /// Group spend rows by `(provider, model)` or `session_id` and

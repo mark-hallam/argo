@@ -330,6 +330,13 @@ pub enum CostsCmd {
         #[arg(long)]
         by_session: bool,
     },
+    /// Dump every row in `spend_ledger` as NDJSON (one JSON object
+    /// per line). Pass `--out <path>` to write to a file; otherwise
+    /// streams to stdout.
+    Export {
+        #[arg(long)]
+        out: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
