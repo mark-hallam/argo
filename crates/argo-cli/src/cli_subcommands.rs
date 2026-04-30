@@ -118,8 +118,27 @@ pub enum SkillCmd {
         #[arg(long, conflicts_with = "name")]
         all: bool,
     },
+    /// Create a new skill from CLI flags or stdin. Inserts a
+    /// fresh row via `SkillStore::install`; rejects duplicate
+    /// names (use `argo skill refine` to bump an existing
+    /// skill instead).
     Create {
         name: String,
+        /// One-line description for the frontmatter. Defaults
+        /// to a stub (`<name> — created via argo skill create`).
+        #[arg(long)]
+        description: Option<String>,
+        /// Skill body text. Mutually exclusive with
+        /// `--from-file`; without either flag, body is read
+        /// from stdin until EOF.
+        #[arg(long, conflicts_with = "from_file")]
+        body: Option<String>,
+        /// Read the skill body from a path on disk.
+        #[arg(long)]
+        from_file: Option<String>,
+        /// Version label for the new row. Defaults to "0.1".
+        #[arg(long = "new-version", default_value = "0.1")]
+        new_version: String,
     },
     /// Append a hint to the active skill's body and supersede it
     /// with a fresh version. Manual mutator — the score-driven
