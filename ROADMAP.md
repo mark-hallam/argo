@@ -4,27 +4,38 @@ The canonical phase plan lives in `docs/plan/argo-build-plan.md` §27.
 
 ## Current phase
 
-**Library tier complete; integration tier shipped end-to-end.**
+**Library + integration tier complete. Live agent loop running.**
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier across
-**140+ PRs**.
+**148+ PRs**.
 
-The CLI binary (`argo`) drives ~52 subcommands against the workspace
-store. The read-side surface (`session list/show/diff`,
-`memory list/view`, `skill list/view`, `cron list`, `provider show`,
-`audit show/verify`, `costs show`) all support `--json` NDJSON output
-for scripting; `skill verify --all` and `memory verify --all` give
-CI-friendly hash-chain hooks; `argo new` and `argo resume` round-trip
-sessions through the local store. The TUI ships a session viewer
-with messages preview, `/`-filter and PgUp/PgDn navigation.
+`argo chat <id> [--user "..."] [--stream]` runs one turn of the
+live agent loop against a recorded session — it dispatches to
+the right argo-provider transport based on
+`manifest.provider.family` (Anthropic / OpenAI Compatible /
+OpenAI Responses; Bedrock pending sigv4 plumbing), calls the
+provider, and persists the assistant response. The same logic
+is exposed by the gateway as `POST /sessions/<id>/runs`, so
+external clients can drive create→append→run cycles without
+spawning the CLI.
 
-`argo gateway start` is now a real, signal-clean HTTP daemon
-listening on 127.0.0.1:7400 with PID-file lifecycle (start/stop
-graceful shutdown via SIGTERM). It exposes 9 endpoints —
+The CLI binary (`argo`) drives ~55 subcommands. Beyond the read-
+side surface (`session list/show/diff`, `memory list/view`,
+`skill list/view`, `cron list`, `provider show`, `audit
+show/verify`, `costs show` — all `--json`-capable), `argo new` /
+`argo resume` / `argo chat` / `argo steer` cover the full session
+lifecycle. `skill verify --all` + `memory verify --all` give
+hash-chain CI hooks; `argo health` is a one-shot meta verifier.
+The TUI ships a session viewer with messages preview, `/`-filter
+and PgUp/PgDn navigation.
+
+`argo gateway start` is a real signal-clean HTTP daemon listening
+on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
+shutdown via SIGTERM/SIGINT). It exposes **12 endpoints** —
 `/health`, `/version`, `GET /sessions`, `GET /sessions/<id>`,
 `GET /sessions/<id>/messages`, `GET /skills`, `GET /memory`,
-`POST /sessions`, `POST /sessions/<id>/messages` — all wired
-against the same `SessionStore` the CLI uses, so external clients
-can read + record without spawning a CLI subprocess.
+`GET /audit`, `GET /costs`, `POST /sessions`, `POST /sessions/<id>/messages`,
+`POST /sessions/<id>/runs` — all wired against the same
+`SessionStore` the CLI uses.
 
 Voice MCP has all four cloud TTS backends wired (`backend ∈ {piper,
 openai, elevenlabs, minimax}`); OpenAI Whisper transcribe is also
@@ -35,19 +46,21 @@ live. The browser MCP has all 14 spec tools wired against raw CDP
 `argo workspace init` registers a workspace row in the DB so memory
 subcommands work straight after init; `argo doctor` + `argo health`
 report DB schema + workspace + row counts + cron daemon state +
-provider creds; ten end-to-end integration tests cover workspace+
+provider creds. Ten end-to-end integration tests cover workspace+
 memory, provider+workspace, cron CRUD, voice + browser MCP stdio
 loops, the `--json` schema pins, and the gateway's read+write
-surface. The CI matrix is back to green after the 4-PR hotfix lane
+surface. The CI matrix went back to green via the 4-PR hotfix lane
 (#121–#124) that fixed release.yml's YAML parse, the 500-LOC
 budget, the Windows test gating, and the deny advisory ignore-list.
 
-What's left is the **live agent loop** — the gateway today only
-records sessions; the next layer is `POST /sessions/<id>/runs` that
-calls a provider via reqwest, decodes the response, persists each
-message, and runs tool calls. After that come the heavy native
-bindings (whisper-rs, piper-rs, chromiumoxide for stateful browser
-sessions) and the cross-registry §23.3 marketplace integration.
+What's left is **tool dispatch** — the agent loop today reads
+recorded messages and emits a single assistant reply, but ignores
+any `tool_calls` the provider returns. Wiring tool execution +
+result persistence + the multi-turn until-no-tool-calls loop is
+the next major chunk. After that come the heavy native bindings
+(whisper-rs, piper-rs, chromiumoxide for stateful browser
+sessions), the cross-registry §23.3 marketplace integration, and
+HTTP streaming for `POST /runs`.
 
 ## Status
 
@@ -149,7 +162,13 @@ sessions) and the cross-registry §23.3 marketplace integration.
 | `gateway` `GET /sessions/<id>` + `.../messages` | ✅ | #139 |
 | `argo new --provider <p> --model <m> [--title <t>]` | ✅ | #140 |
 | `argo resume <id>` (re-render recorded session) | ✅ | #141 |
-| `argo chat / steer (live)` | ⏳ deferred | needs daemon agent loop |
+| `gateway` `GET /audit` + `GET /costs` | ✅ | #143 |
+| `argo chat <id> [--user <text>]` (single-turn live) | ✅ | #144 |
+| `argo chat` dispatches by `provider.family` | ✅ | #145 |
+| `argo steer <session_id> <text>` | ✅ | #146 |
+| `argo chat --stream` (token-by-token) | ✅ | #147 |
+| `gateway` `POST /sessions/<id>/runs` (live agent turn) | ✅ | #148 |
+| **Tool dispatch in the agent loop** | ⏳ pending | next big chunk |
 
 ## MCP servers shipped as standalone bins
 
@@ -177,12 +196,13 @@ sessions) and the cross-registry §23.3 marketplace integration.
 
 ## Pending integration tier
 
-- **Live agent loop** — the gateway records sessions today
-  (#136/#138) but doesn't yet *call* a provider. The next chunk
-  is `POST /sessions/<id>/runs` that builds a provider request from
-  the session's recorded messages, calls reqwest, decodes the
-  response into typed content blocks, and persists each one. After
-  that comes tool dispatch + cost accounting + audit emission.
+- **Tool dispatch in the agent loop** — `argo chat` (#144/#145/#147)
+  + `POST /sessions/<id>/runs` (#148) drive a single round-trip
+  to the provider. Tool calls in the response are parsed (via
+  argo-provider extractors) but ignored; the next chunk runs them
+  via `argo-tool::ToolRegistry` and feeds results back to the
+  provider until no `tool_calls` remain. After that come cost
+  accounting + audit emission for every turn.
 - **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
   + opus (OGG/Opus). All four cloud backends already wired (OpenAI
   TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
@@ -197,5 +217,10 @@ sessions) and the cross-registry §23.3 marketplace integration.
   accounts.
 - **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
 - **Daemon-coupled live commands** — `argo session replay <id>
-  --model X` (live), `argo steer <id>`, `argo forge optimize /
-  promote`, `argo provider test`, `argo judge override`.
+  --model X` (live), `argo forge optimize / promote`,
+  `argo provider test`, `argo judge override`. (`argo chat` /
+  `argo steer` already shipped.)
+- **HTTP streaming for `POST /sessions/<id>/runs`** — current
+  endpoint always runs non-streaming. Chunked-JSON / SSE follow-up
+  will let HTTP clients see token-by-token output the way
+  `argo chat --stream` does.
