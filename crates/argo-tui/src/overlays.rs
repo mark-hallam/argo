@@ -31,11 +31,58 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    i  compose (Enter sends)       s  steer (system msg)"),
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from(""),
+        Line::from("  Forge"),
+        Line::from("    F  open recent forge_run rows (any key closes)"),
+        Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
     let para = Paragraph::new(body)
         .block(Block::default().borders(Borders::ALL).title(" keybindings "))
         .style(Style::default().add_modifier(Modifier::BOLD));
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Recent forge_run rows. Triggered by `F` from anywhere
+/// outside compose / rename / delete. Read-only — any keypress
+/// closes the overlay.
+pub(crate) fn draw_forge_runs(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[argo_store::ForgeRunRow],
+) {
+    let w = area.width.saturating_mul(9) / 10;
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(format!(
+        " {:<8} {:<18} {:<8} {:<8} {:<6} {}",
+        "id", "skill", "base", "candidate", "score", "status",
+    )));
+    if rows.is_empty() {
+        lines.push(Line::from("  (no forge runs recorded yet)"));
+    } else {
+        for r in rows {
+            let id_short: String = hex::encode(&r.id).chars().take(8).collect();
+            let cand = r.candidate_version.clone().unwrap_or_else(|| "-".into());
+            let score = r
+                .final_score
+                .map(|s| format!("{s:.3}"))
+                .unwrap_or_else(|| "-".into());
+            lines.push(Line::from(format!(
+                " {:<8} {:<18} {:<8} {:<8} {:<6} {}",
+                id_short, r.skill_name, r.base_version, cand, score, r.status,
+            )));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" forge runs ({}) — any key closes ", rows.len())),
+    );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
 }

@@ -80,6 +80,9 @@ pub struct ViewerState {
     /// with `o` while focused on the messages pane); the index
     /// points into `selected_messages`. Esc / o / q closes.
     pub message_overlay: Option<usize>,
+    /// Loaded forge_run rows when the user has the forge-runs
+    /// overlay open (entered with `F`). `None` when closed.
+    pub forge_runs: Option<Vec<argo_store::ForgeRunRow>>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -125,6 +128,7 @@ impl ViewerState {
             messages_scroll: 0,
             help_overlay: false,
             message_overlay: None,
+            forge_runs: None,
         }
     }
 

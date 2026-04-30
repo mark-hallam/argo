@@ -563,6 +563,7 @@ dependencies = [
  "argo-types",
  "chrono",
  "crossterm",
+ "hex",
  "ratatui",
  "serde_json",
  "tokio",

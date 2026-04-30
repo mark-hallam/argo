@@ -88,6 +88,11 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Forge-runs overlay: any key closes.
+            if state.forge_runs.is_some() {
+                state.forge_runs = None;
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -156,6 +161,13 @@ pub(crate) async fn run(
                 }
                 KeyCode::Tab => state.toggle_focus(),
                 KeyCode::Char('?') => state.help_overlay = true,
+                KeyCode::Char('F') => {
+                    // Load the forge_run rows once and stash on
+                    // state. Errors → empty list (UI shows
+                    // "(no forge runs recorded yet)").
+                    let rows = store.list_forge_runs(50).await.unwrap_or_default();
+                    state.forge_runs = Some(rows);
+                }
                 KeyCode::Char('o')
                     if matches!(state.focus, PaneFocus::Messages)
                         && !state.selected_messages.is_empty() =>

@@ -10,6 +10,7 @@ description = "Argo — interactive TUI (ratatui + crossterm) (§20)"
 [dependencies]
 argo-agent-runner = { path = "../argo-agent-runner", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
+hex = { workspace = true }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
