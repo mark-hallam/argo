@@ -133,6 +133,33 @@ pub async fn eval(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// Return `document.body.innerText` of the first open page via
+/// `Runtime.evaluate`. Convenience wrapper around `eval` for the
+/// common "give me the page text" case.
+pub async fn read_page(args: &serde_json::Value) -> CallToolResult {
+    let port = port_from_args(args);
+    let req = serde_json::json!({
+        "id": 1,
+        "method": "Runtime.evaluate",
+        "params": {
+            "expression": "document.body ? document.body.innerText : ''",
+            "returnByValue": true,
+        }
+    });
+    let parsed = match cdp_round_trip(port, req).await {
+        Ok(p) => p,
+        Err(e) => return error(e),
+    };
+    let value = parsed["result"]["result"]["value"]
+        .as_str()
+        .map(String::from)
+        .unwrap_or_default();
+    CallToolResult {
+        content: vec![McpContent::Text { text: value }],
+        is_error: false,
+    }
+}
+
 /// Capture a viewport (or full-page) screenshot via
 /// `Page.captureScreenshot`. Returns the base64 PNG payload as an
 /// MCP `Image` content block.

@@ -78,6 +78,9 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "screenshot" {
             return Ok(crate::cdp::screenshot(&params.arguments).await);
         }
+        if params.name.as_str() == "read_page" {
+            return Ok(crate::cdp::read_page(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -195,8 +198,19 @@ fn screenshot_schema() -> McpToolSchema {
 fn read_page_schema() -> McpToolSchema {
     McpToolSchema {
         name: "read_page".into(),
-        description: "Extract the page's visible text content (Hermes parity).".into(),
-        input_schema: serde_json::json!({"type": "object"}),
+        description: "Return `document.body.innerText` of the first open page \
+            via CDP Runtime.evaluate. Convenience wrapper around `eval`."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "description": "Chrome debug port. Defaults to 9222.",
+                    "default": 9222
+                }
+            }
+        }),
     }
 }
 

@@ -118,9 +118,33 @@ fn chrome_version_against_closed_port_surfaces_clean_error() {
 }
 
 #[test]
-fn read_page_returns_not_wired_stub() {
+fn read_page_against_closed_port_surfaces_clean_error() {
+    // read_page is now wired (#115) — calling it without Chrome
+    // running surfaces the same "no Chrome on port" hint as the
+    // other CDP tools, NOT the legacy "not yet wired" stub.
+    let port = pick_free_port();
+    let req = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"read_page","arguments":{{"port":{port}}}}}}}"#
+    );
+    let resps = drive(&[req]);
+    assert_eq!(resps.len(), 1);
+    let r = &resps[0]["result"];
+    assert_eq!(r["isError"], true);
+    let text = r["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("no Chrome on port") || text.contains("/json"),
+        "unexpected text: {text}"
+    );
+}
+
+/// One unwired spec tool kept on the stub path so we can detect a
+/// regression in the dispatcher. `cookies` needs a stateful CDP
+/// session (Network.setCookies) and stays deferred until the
+/// chromiumoxide rework lands.
+#[test]
+fn cookies_returns_not_wired_stub() {
     let resps = drive(&[
-        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_page","arguments":{}}}"#.into(),
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"cookies","arguments":{"op":"get"}}}"#.into(),
     ]);
     assert_eq!(resps.len(), 1);
     let r = &resps[0]["result"];
