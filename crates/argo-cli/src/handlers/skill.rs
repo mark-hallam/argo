@@ -18,7 +18,14 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     match cmd {
         SkillCmd::List { json } => list(&skills, json).await,
         SkillCmd::View { name, json } => view(&skills, &name, json).await,
-        SkillCmd::Verify { name } => verify_hash(&skills, &name).await,
+        SkillCmd::Verify { name, all } => {
+            if all {
+                verify_all(&skills).await
+            } else {
+                let n = name.unwrap_or_default();
+                verify_hash(&skills, &n).await
+            }
+        }
         SkillCmd::Install { source } => install(&skills, &source).await,
         SkillCmd::Lock { name } => set_lock(&skills, &name, Lock::UserProtected).await,
         SkillCmd::Unlock { name } => set_lock(&skills, &name, Lock::None).await,
@@ -94,6 +101,50 @@ async fn view(skills: &SkillStore, name: &str, json: bool) -> ArgoResult<()> {
             println!("{}", s.body);
             Ok(())
         }
+    }
+}
+
+async fn verify_all(skills: &SkillStore) -> ArgoResult<()> {
+    use sha2::{Digest, Sha256};
+    let active = skills.list_active().await?;
+    if active.is_empty() {
+        println!("(no active skills)");
+        return Ok(());
+    }
+    let mut failures: Vec<String> = Vec::new();
+    for s in &active {
+        let mut h = Sha256::new();
+        h.update(s.body.as_bytes());
+        let computed = format!("sha256-{}", hex::encode(h.finalize()));
+        if computed == s.frontmatter.provenance.hash {
+            println!(
+                "  ok       {} v{}",
+                s.frontmatter.name, s.frontmatter.version
+            );
+        } else {
+            failures.push(format!(
+                "{} v{} stored={} computed={}",
+                s.frontmatter.name, s.frontmatter.version, s.frontmatter.provenance.hash, computed
+            ));
+            println!(
+                "  MISMATCH {} v{}",
+                s.frontmatter.name, s.frontmatter.version
+            );
+        }
+    }
+    if failures.is_empty() {
+        println!(
+            "all {} skill(s) verified — provenance hashes match",
+            active.len()
+        );
+        Ok(())
+    } else {
+        Err(ArgoError::Provider(format!(
+            "{} of {} skill(s) failed verification:\n  {}",
+            failures.len(),
+            active.len(),
+            failures.join("\n  ")
+        )))
     }
 }
 

@@ -200,8 +200,13 @@ pub enum SkillCmd {
         json: bool,
     },
     /// Verify a skill's body matches its frontmatter `provenance.hash`.
+    /// Pass `--all` to verify every active skill in the workspace.
     Verify {
-        name: String,
+        #[arg(required_unless_present = "all")]
+        name: Option<String>,
+        /// Verify every active skill instead of one named skill.
+        #[arg(long, conflicts_with = "name")]
+        all: bool,
     },
     Create {
         name: String,
