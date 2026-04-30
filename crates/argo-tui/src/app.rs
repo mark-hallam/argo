@@ -252,10 +252,20 @@ async fn event_loop(
     store: &SessionStore,
     state: &mut ViewerState,
 ) -> ArgoResult<()> {
+    let mut last_refresh = std::time::Instant::now();
     loop {
         terminal
             .draw(|frame| draw(frame, state))
             .map_err(|e| ArgoError::Provider(format!("tui draw: {e}")))?;
+        // Auto-refresh: every 1s, force a re-fetch of the
+        // selected session's messages so newly-appended turns
+        // (from `argo chat`, the gateway, or another TUI) appear
+        // without manual reselect.
+        if last_refresh.elapsed() >= Duration::from_secs(1) {
+            state.messages_loaded = false;
+            fetch_messages(store, state).await?;
+            last_refresh = std::time::Instant::now();
+        }
         // 200ms poll keeps the loop responsive without a busy-spin;
         // ratatui's recommended idiom is poll-then-read.
         if !event::poll(Duration::from_millis(200))
