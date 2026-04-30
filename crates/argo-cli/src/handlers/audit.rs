@@ -1,9 +1,9 @@
 //! `argo audit` — chain inspection / verification / export.
 use crate::cli::AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::{export_ndjson, tail_rows, verify_all};
+use argo_audit::{export_ndjson, tail_rows, verify_all, verify_session};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, SessionId};
 use std::io::{BufWriter, Write};
 use std::sync::Arc;
 
@@ -16,8 +16,20 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
     let store = Arc::new(SessionStore::open(&db).await?);
     store.migrate().await?;
     match cmd {
-        AuditCmd::Verify { from: _, to: _ } => {
-            let report = verify_all(&store).await?;
+        AuditCmd::Verify {
+            from: _,
+            to: _,
+            session,
+        } => {
+            let report = match session {
+                Some(raw) => {
+                    let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
+                        ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+                    })?;
+                    verify_session(&store, SessionId(id)).await?
+                }
+                None => verify_all(&store).await?,
+            };
             if report.ok {
                 println!(
                     "audit chain ok: {} rows verified across {} kinds",

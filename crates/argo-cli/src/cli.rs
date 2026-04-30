@@ -255,12 +255,15 @@ pub enum AuditCmd {
         #[arg(long)]
         tail: Option<u32>,
     },
-    /// Verify the hash chain.
+    /// Verify the hash chain. Pass `--session <id>` to check one
+    /// session only (fast on huge logs).
     Verify {
         #[arg(long)]
         from: Option<u64>,
         #[arg(long)]
         to: Option<u64>,
+        #[arg(long)]
+        session: Option<String>,
     },
     /// Stream the audit log to ndjson. Defaults to stdout; pass
     /// `--out <path>` to write to a file.
