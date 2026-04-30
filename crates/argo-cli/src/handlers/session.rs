@@ -408,9 +408,19 @@ async fn list_sessions(limit: u32, json: bool) -> ArgoResult<()> {
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
     let sessions = store.list_all_sessions(limit).await?;
+    let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     if json {
         for s in &sessions {
-            let line = serde_json::to_string(s)
+            let spent = spend_by_sid
+                .get(s.id.0.as_bytes().as_slice())
+                .copied()
+                .unwrap_or(0);
+            let mut value = serde_json::to_value(s)
+                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
+            if let serde_json::Value::Object(ref mut m) = value {
+                m.insert("spent_usd_micros".into(), serde_json::Value::from(spent));
+            }
+            let line = serde_json::to_string(&value)
                 .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
             println!("{line}");
         }
@@ -421,21 +431,46 @@ async fn list_sessions(limit: u32, json: bool) -> ArgoResult<()> {
         return Ok(());
     }
     println!(
-        "{sid:<38} {prov:<12} {model:<24} title",
+        "{sid:<38} {prov:<12} {model:<24} {spend:>10} title",
         sid = "session_id",
         prov = "provider",
-        model = "model"
+        model = "model",
+        spend = "spend",
     );
     for s in sessions {
+        let spent = spend_by_sid
+            .get(s.id.0.as_bytes().as_slice())
+            .copied()
+            .unwrap_or(0);
         println!(
-            "{:<38} {:<12} {:<24} {}",
+            "{:<38} {:<12} {:<24} {:>10.4} {}",
             s.id.0,
             short(&s.provider, 12),
             short(&s.model, 24),
+            spent as f64 / 1_000_000.0,
             s.title.as_deref().unwrap_or("")
         );
     }
     Ok(())
+}
+
+/// `session_id (blob) → SUM(amount_usd_micros)` for every session
+/// that has at least one row in `spend_ledger`. One query, no
+/// per-session round-trip.
+async fn spend_per_session(
+    store: &SessionStore,
+) -> ArgoResult<std::collections::HashMap<Vec<u8>, u64>> {
+    let rows: Vec<(Vec<u8>, i64)> = sqlx::query_as(
+        "SELECT session_id, COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger \
+         GROUP BY session_id",
+    )
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("spend_per_session: {e}")))?;
+    Ok(rows
+        .into_iter()
+        .map(|(sid, total)| (sid, u64::try_from(total).unwrap_or(0)))
+        .collect())
 }
 
 fn short(s: &str, max: usize) -> String {
