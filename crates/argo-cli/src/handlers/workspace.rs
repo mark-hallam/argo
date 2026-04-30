@@ -50,6 +50,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
         WorkspaceCmd::Verify => verify(&cwd),
         WorkspaceCmd::Push { oci_ref } => push(&cwd, &oci_ref).await,
         WorkspaceCmd::Pull { oci_ref } => pull(&cwd, &oci_ref).await,
+        WorkspaceCmd::Artifacts { limit, json } => artifacts(&cwd, limit, json).await,
         WorkspaceCmd::Diff { other } => {
             println!("workspace diff vs {other}: 3-way merge UI lands with §23.3 wiring.");
             Ok(())
@@ -269,6 +270,46 @@ async fn push(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()> {
     // command) can show what's been pushed.
     if let Err(e) = record_artifact(cwd, &reference, &manifest.digest).await {
         eprintln!("warning: marketplace_artifact insert failed: {e}");
+    }
+    Ok(())
+}
+
+async fn artifacts(cwd: &std::path::Path, limit: u32, json: bool) -> ArgoResult<()> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
+    let rows = store.list_marketplace_artifacts(workspace, limit).await?;
+    if json {
+        for r in &rows {
+            let line = serde_json::to_string(r).unwrap_or_else(|_| "{}".into());
+            println!("{line}");
+        }
+        return Ok(());
+    }
+    if rows.is_empty() {
+        println!("(no marketplace pushes recorded for {})", cwd.display());
+        return Ok(());
+    }
+    println!(
+        "{:<48}  {:<24}  {:<32}  by",
+        "oci_ref", "pushed_at (utc)", "digest"
+    );
+    for r in rows {
+        let dt = chrono::DateTime::<chrono::Utc>::from_timestamp_micros(r.pushed_at)
+            .map(|d| d.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            .unwrap_or_else(|| "?".into());
+        let digest_short: String = r.digest.chars().take(28).collect();
+        println!(
+            "{:<48}  {:<24}  {:<32}  {}",
+            r.oci_ref, dt, digest_short, r.pushed_by
+        );
     }
     Ok(())
 }

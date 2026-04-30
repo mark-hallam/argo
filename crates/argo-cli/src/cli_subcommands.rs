@@ -297,6 +297,16 @@ pub enum WorkspaceCmd {
     Pull {
         oci_ref: String,
     },
+    /// List recorded marketplace pushes (newest first). Each row
+    /// shows the OCI reference, bundle digest, pushed-at
+    /// timestamp, and `pushed_by` attribution.
+    Artifacts {
+        #[arg(long, default_value_t = 25)]
+        limit: u32,
+        /// Output as JSON (one object per row) for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     Diff {
         other: String,
     },
