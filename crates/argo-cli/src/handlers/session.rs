@@ -9,7 +9,7 @@ use std::io::{BufWriter, Write};
 
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
-        SessionCmd::List { limit } => list_sessions(limit).await,
+        SessionCmd::List { limit, json } => list_sessions(limit, json).await,
         SessionCmd::Show { id } => show_session(&id).await,
         SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
         SessionCmd::Search {
@@ -284,7 +284,7 @@ async fn show_session(raw: &str) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn list_sessions(limit: u32) -> ArgoResult<()> {
+async fn list_sessions(limit: u32, json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -293,6 +293,14 @@ async fn list_sessions(limit: u32) -> ArgoResult<()> {
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
     let sessions = store.list_all_sessions(limit).await?;
+    if json {
+        for s in &sessions {
+            let line = serde_json::to_string(s)
+                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
+            println!("{line}");
+        }
+        return Ok(());
+    }
     if sessions.is_empty() {
         println!("(no sessions in {})", db.display());
         return Ok(());

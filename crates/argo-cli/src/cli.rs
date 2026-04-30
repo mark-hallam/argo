@@ -385,6 +385,9 @@ pub enum SessionCmd {
     List {
         #[arg(long, default_value_t = 25)]
         limit: u32,
+        /// Output as JSON (one object per session) for scripting.
+        #[arg(long)]
+        json: bool,
     },
     /// Show one session header (model, provider, start time, message count).
     Show {
