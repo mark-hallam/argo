@@ -502,6 +502,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "ratatui",
+ "serde_json",
  "tokio",
 ]
 

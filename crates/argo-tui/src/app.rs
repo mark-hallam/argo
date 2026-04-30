@@ -1,6 +1,6 @@
 //! Event loop + state machine for the session viewer.
 use crate::render::draw;
-use argo_store::{SessionHeader, SessionStore};
+use argo_store::{MessageRow, SessionHeader, SessionStore};
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::execute;
@@ -12,8 +12,9 @@ use ratatui::Terminal;
 use std::io::{stdout, Stdout};
 use std::time::Duration;
 
-/// Viewer state — sessions list, current selection, and the
-/// detail-pane payload for the selected session.
+/// Viewer state — sessions list, current selection, the detail-
+/// pane payload for the selected session, and a lazily-fetched
+/// message preview list.
 pub struct ViewerState {
     /// Loaded session headers (reverse-chronological).
     pub sessions: Vec<SessionHeader>,
@@ -21,6 +22,12 @@ pub struct ViewerState {
     pub selected: usize,
     /// Message count for the selected session (lazily fetched).
     pub selected_message_count: Option<u64>,
+    /// First few messages for the selected session, lazily fetched
+    /// on selection change. Used by the right pane's preview list.
+    pub selected_messages: Vec<MessageRow>,
+    /// Whether the messages list has been fetched for the current
+    /// selection (so we don't re-query when nothing changed).
+    pub messages_loaded: bool,
 }
 
 impl ViewerState {
@@ -31,6 +38,8 @@ impl ViewerState {
             sessions,
             selected: 0,
             selected_message_count: None,
+            selected_messages: Vec::new(),
+            messages_loaded: false,
         }
     }
 
@@ -42,7 +51,7 @@ impl ViewerState {
         let max_idx = self.sessions.len() - 1;
         if self.selected < max_idx {
             self.selected += 1;
-            self.selected_message_count = None;
+            self.invalidate();
         }
     }
 
@@ -50,8 +59,14 @@ impl ViewerState {
     pub fn prev(&mut self) {
         if self.selected > 0 {
             self.selected -= 1;
-            self.selected_message_count = None;
+            self.invalidate();
         }
+    }
+
+    fn invalidate(&mut self) {
+        self.selected_message_count = None;
+        self.selected_messages.clear();
+        self.messages_loaded = false;
     }
 
     /// Currently-selected session, if any.
@@ -72,6 +87,7 @@ pub async fn run_session_viewer(store: &SessionStore) -> ArgoResult<()> {
     let sessions = store.list_all_sessions(200).await?;
     let mut state = ViewerState::new(sessions);
     fetch_message_count(store, &mut state).await?;
+    fetch_messages(store, &mut state).await?;
     let mut terminal = setup_terminal()?;
     let outcome = event_loop(&mut terminal, store, &mut state).await;
     teardown_terminal(&mut terminal)?;
@@ -107,10 +123,12 @@ async fn event_loop(
                 KeyCode::Down | KeyCode::Char('j') => {
                     state.next();
                     fetch_message_count(store, state).await?;
+                    fetch_messages(store, state).await?;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     state.prev();
                     fetch_message_count(store, state).await?;
+                    fetch_messages(store, state).await?;
                 }
                 _ => {}
             }
@@ -127,6 +145,21 @@ async fn fetch_message_count(store: &SessionStore, state: &mut ViewerState) -> A
     };
     let count = store.message_count(SessionId(session.id.0)).await?;
     state.selected_message_count = Some(count);
+    Ok(())
+}
+
+async fn fetch_messages(store: &SessionStore, state: &mut ViewerState) -> ArgoResult<()> {
+    if state.messages_loaded {
+        return Ok(());
+    }
+    let Some(session) = state.selected_session() else {
+        return Ok(());
+    };
+    let mut rows = store.list_messages(SessionId(session.id.0)).await?;
+    // Cap at 50 rows so the preview pane stays bounded.
+    rows.truncate(50);
+    state.selected_messages = rows;
+    state.messages_loaded = true;
     Ok(())
 }
 

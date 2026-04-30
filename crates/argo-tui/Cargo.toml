@@ -12,6 +12,7 @@ argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
+serde_json = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]

@@ -9,7 +9,8 @@ use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wra
 use ratatui::Frame;
 
 /// Top-level draw — splits the frame into a left list pane and a
-/// right detail pane. Footer carries a one-line keymap.
+/// right column. The right column stacks the session detail above
+/// a scrolling messages pane. Footer carries a one-line keymap.
 pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     let area = frame.area();
     let outer = Layout::default()
@@ -20,9 +21,59 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(outer[0]);
+    let right = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(12), Constraint::Min(1)])
+        .split(panes[1]);
     draw_session_list(frame, panes[0], state);
-    draw_session_detail(frame, panes[1], state);
+    draw_session_detail(frame, right[0], state);
+    draw_messages_pane(frame, right[1], state);
     draw_footer(frame, outer[1]);
+}
+
+fn draw_messages_pane(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
+    let items: Vec<ListItem> = state
+        .selected_messages
+        .iter()
+        .map(|m| {
+            let body = first_line_of_content(&m.content_json);
+            ListItem::new(Line::from(vec![
+                Span::raw(format!("[{:>3}] ", m.seq)),
+                Span::styled(
+                    format!("{:<10}", m.role),
+                    Style::default().add_modifier(Modifier::DIM),
+                ),
+                Span::raw(body),
+            ]))
+        })
+        .collect();
+    let title = match state.selected_session() {
+        Some(_) if !state.selected_messages.is_empty() => {
+            format!(" messages ({}) ", state.selected_messages.len())
+        }
+        Some(_) => " messages (none) ".to_string(),
+        None => " messages ".to_string(),
+    };
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
+    frame.render_widget(list, area);
+}
+
+fn first_line_of_content(content_json: &str) -> String {
+    // Best-effort: parse the JSON and look for the first text
+    // block; if anything goes sideways, fall back to the raw
+    // content_json truncated to 80 chars so the user still sees
+    // *something* meaningful.
+    let parsed: serde_json::Value =
+        serde_json::from_str(content_json).unwrap_or(serde_json::Value::Null);
+    if let Some(arr) = parsed.as_array() {
+        for block in arr {
+            if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
+                let line = t.lines().next().unwrap_or("");
+                return line.chars().take(80).collect();
+            }
+        }
+    }
+    content_json.chars().take(80).collect()
 }
 
 fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
