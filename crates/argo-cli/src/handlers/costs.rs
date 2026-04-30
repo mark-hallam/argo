@@ -29,6 +29,10 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
         Some(CostsCmd::Export { out, since_minutes }) => {
             export_ledger(&cwd, out.as_deref(), since_minutes).await
         }
+        Some(CostsCmd::Alert {
+            threshold_usd,
+            json,
+        }) => alert_over_threshold(&cwd, threshold_usd, json).await,
         Some(CostsCmd::Cap {
             session,
             day,
@@ -254,6 +258,71 @@ async fn export_ledger(
         eprintln!("costs export: wrote {} rows to {p}", rows.len());
     }
     Ok(())
+}
+
+/// List sessions whose total spend exceeds `threshold_usd`, sorted
+/// by spend desc. Reads the spend ledger once (one GROUP BY query
+/// + threshold filter in SQL).
+async fn alert_over_threshold(
+    cwd: &std::path::Path,
+    threshold_usd: f64,
+    json: bool,
+) -> ArgoResult<()> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let threshold_micros = (threshold_usd * 1_000_000.0).round().max(0.0) as i64;
+    let rows: Vec<(Vec<u8>, i64)> = sqlx::query_as(
+        "SELECT session_id, COALESCE(SUM(amount_usd_micros), 0) AS total \
+         FROM spend_ledger GROUP BY session_id HAVING total > ? \
+         ORDER BY total DESC",
+    )
+    .bind(threshold_micros)
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("alert query: {e}")))?;
+    if json {
+        for (sid, total) in &rows {
+            let line = serde_json::json!({
+                "session_id": hex::encode(sid),
+                "spent_usd_micros": u64::try_from(*total).unwrap_or(0),
+                "threshold_usd": threshold_usd,
+            });
+            println!(
+                "{}",
+                serde_json::to_string(&line)
+                    .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+            );
+        }
+        return Ok(());
+    }
+    if rows.is_empty() {
+        println!(
+            "no sessions over ${threshold_usd:.4} (queried {} ledger rows)",
+            ledger_row_count(&store).await.unwrap_or(0)
+        );
+        return Ok(());
+    }
+    println!(
+        "sessions over ${threshold_usd:.4} ({} match(es)):",
+        rows.len()
+    );
+    for (sid, total) in &rows {
+        println!(
+            "  ${:>10.4}  {}",
+            *total as f64 / 1_000_000.0,
+            hex::encode(sid)
+        );
+    }
+    Ok(())
+}
+
+async fn ledger_row_count(store: &SessionStore) -> ArgoResult<i64> {
+    sqlx::query_scalar("SELECT COUNT(*) FROM spend_ledger")
+        .fetch_one(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("count: {e}")))
 }
 
 /// Group spend rows by `(provider, model)` or `session_id` and

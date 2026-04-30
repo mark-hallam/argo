@@ -353,6 +353,18 @@ pub enum CostsCmd {
         #[arg(long)]
         since_minutes: Option<i64>,
     },
+    /// List sessions whose total spend exceeds `--threshold-usd`.
+    /// Useful for spotting runaway sessions / abuse / model
+    /// misconfiguration without parsing the ledger by hand.
+    Alert {
+        /// USD threshold; sessions with `SUM(amount_usd_micros)` >
+        /// `threshold * 1e6` are reported.
+        #[arg(long, default_value_t = 1.0)]
+        threshold_usd: f64,
+        /// Output as NDJSON (one row per offending session).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
