@@ -62,10 +62,11 @@ async fn daemon(
         Err(e) => return Err(ArgoError::Provider(e.to_string())),
     };
     println!(
-        "argo cron daemon: tick every {interval_secs}s (lock={})",
+        "argo cron daemon: tick every {interval_secs}s (lock={}); SIGHUP triggers a config-reload + immediate tick",
         lock_path.display()
     );
     let mut ticks = 0_u64;
+    let mut sighup = sighup_stream();
     loop {
         if let Err(e) = tick(dir, false).await {
             eprintln!("tick error: {e}");
@@ -75,8 +76,46 @@ async fn daemon(
             println!("daemon: reached --max-ticks {ticks}; exiting");
             return Ok(());
         }
-        tokio::time::sleep(Duration::from_secs(interval_secs)).await;
+        // Race the regular interval against SIGHUP. On SIGHUP we
+        // log "config reload" and immediately fall through to the
+        // next tick — the next iteration re-reads `cron/jobs/`
+        // from disk, so any edits since boot are picked up.
+        let sleep = tokio::time::sleep(Duration::from_secs(interval_secs));
+        tokio::pin!(sleep);
+        tokio::select! {
+            () = &mut sleep => {}
+            _ = wait_sighup(&mut sighup) => {
+                println!("daemon: received SIGHUP — reloading jobs on next tick");
+            }
+        }
     }
+}
+
+/// Per-platform SIGHUP stream.
+#[cfg(unix)]
+fn sighup_stream() -> Option<tokio::signal::unix::Signal> {
+    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup()).ok()
+}
+
+#[cfg(not(unix))]
+fn sighup_stream() -> Option<()> {
+    None
+}
+
+#[cfg(unix)]
+async fn wait_sighup(s: &mut Option<tokio::signal::unix::Signal>) {
+    match s {
+        Some(s) => {
+            let _ = s.recv().await;
+        }
+        None => std::future::pending::<()>().await,
+    }
+}
+
+#[cfg(not(unix))]
+async fn wait_sighup(_s: &mut Option<()>) {
+    // Windows: SIGHUP doesn't exist; fall through to interval.
+    std::future::pending::<()>().await
 }
 
 async fn trigger_job(dir: &std::path::Path, name: &str) -> ArgoResult<()> {
