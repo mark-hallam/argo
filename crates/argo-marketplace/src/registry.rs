@@ -87,6 +87,60 @@ impl OciRegistry for StubRegistry {
     }
 }
 
+/// In-memory `OciRegistry` for tests + the §23.3 integration suite.
+/// Stores `(canonical reference → (tar bytes, manifest))` in a
+/// process-local map so push/pull round-trip without a network /
+/// real OCI registry. Callers that want a real registry will slot
+/// in `oci-distribution` (or the eventual workspace `--registry-url`
+/// flag) here.
+#[derive(Debug, Default)]
+pub struct MemoryRegistry {
+    inner: tokio::sync::Mutex<std::collections::HashMap<String, (Vec<u8>, BundleManifest)>>,
+}
+
+impl MemoryRegistry {
+    /// Empty registry.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Number of refs currently stored — useful for tests asserting
+    /// tear-down semantics.
+    pub async fn len(&self) -> usize {
+        self.inner.lock().await.len()
+    }
+
+    /// Whether the registry holds zero refs.
+    pub async fn is_empty(&self) -> bool {
+        self.len().await == 0
+    }
+}
+
+#[async_trait]
+impl OciRegistry for MemoryRegistry {
+    async fn push(
+        &self,
+        reference: &OciReference,
+        tar_bytes: &[u8],
+        manifest: &BundleManifest,
+    ) -> ArgoResult<()> {
+        self.inner
+            .lock()
+            .await
+            .insert(reference.to_canonical(), (tar_bytes.to_vec(), manifest.clone()));
+        Ok(())
+    }
+
+    async fn pull(&self, reference: &OciReference) -> ArgoResult<(Vec<u8>, BundleManifest)> {
+        let key = reference.to_canonical();
+        let map = self.inner.lock().await;
+        map.get(&key)
+            .cloned()
+            .ok_or_else(|| ArgoError::Provider(format!("no such reference: {key}")))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

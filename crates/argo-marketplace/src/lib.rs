@@ -28,4 +28,4 @@ mod bundle;
 mod registry;
 
 pub use bundle::{build_bundle, manifests_match, BundleEntry, BundleManifest, BUNDLE_PATHS};
-pub use registry::{OciReference, OciRegistry, StubRegistry};
+pub use registry::{MemoryRegistry, OciReference, OciRegistry, StubRegistry};
