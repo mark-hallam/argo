@@ -273,4 +273,84 @@ mod tests {
         let v = build_assistant_content("", &[]);
         assert_eq!(v.as_array().map(Vec::len), Some(0));
     }
+
+    #[tokio::test]
+    async fn stream_one_round_accumulates_tool_calls_in_wire_order() {
+        use argo_provider::{
+            ProviderResponseDelta, ProviderResponse, Sampling, StopReason,
+            ToolSchema as ProviderToolSchema,
+        };
+        use argo_types::CapabilitySet;
+        use async_trait::async_trait;
+        use futures::stream::{self, BoxStream};
+
+        struct MockTransport;
+        #[async_trait]
+        impl Transport for MockTransport {
+            fn id(&self) -> &str {
+                "mock"
+            }
+            fn capabilities(&self) -> &CapabilitySet {
+                static CAPS: std::sync::OnceLock<CapabilitySet> = std::sync::OnceLock::new();
+                CAPS.get_or_init(CapabilitySet::empty)
+            }
+            async fn complete(&self, _: &ProviderRequest) -> ArgoResult<ProviderResponse> {
+                unreachable!("test only uses streaming path")
+            }
+            async fn complete_stream(
+                &self,
+                _: &ProviderRequest,
+            ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>> {
+                let deltas = vec![
+                    Ok(ProviderResponseDelta::TextChunk("hi ".into())),
+                    Ok(ProviderResponseDelta::ToolCallDelta {
+                        id: "call_a".into(),
+                        name: "ls".into(),
+                        args_partial: "{\"path\":\"/\"".into(),
+                    }),
+                    Ok(ProviderResponseDelta::ToolCallDelta {
+                        id: "call_a".into(),
+                        name: String::new(),
+                        args_partial: "}".into(),
+                    }),
+                    Ok(ProviderResponseDelta::ToolCallDelta {
+                        id: "call_b".into(),
+                        name: "echo".into(),
+                        args_partial: "{}".into(),
+                    }),
+                    Ok(ProviderResponseDelta::TextChunk("there".into())),
+                    Ok(ProviderResponseDelta::TokenUsage {
+                        tokens_in: 12,
+                        tokens_out: 4,
+                    }),
+                    Ok(ProviderResponseDelta::FinishReason(StopReason::ToolUse)),
+                ];
+                Ok(Box::pin(stream::iter(deltas)))
+            }
+        }
+
+        let req = ProviderRequest {
+            model: "m".into(),
+            messages: vec![],
+            tools: Vec::<ProviderToolSchema>::new(),
+            system: None,
+            sampling: Sampling::default(),
+        };
+        let resp = stream_one_round(&MockTransport, &req).await.unwrap();
+        assert_eq!(resp.text, "hi there");
+        assert_eq!(resp.tokens_in, Some(12));
+        assert_eq!(resp.tokens_out, Some(4));
+        assert_eq!(resp.tool_calls.len(), 2);
+        assert_eq!(resp.tool_calls[0].name, "ls");
+        assert_eq!(
+            resp.tool_calls[0].provider_call_id.as_deref(),
+            Some("call_a")
+        );
+        assert_eq!(resp.tool_calls[0].arguments["path"], "/");
+        assert_eq!(resp.tool_calls[1].name, "echo");
+        assert_eq!(
+            resp.tool_calls[1].provider_call_id.as_deref(),
+            Some("call_b")
+        );
+    }
 }
