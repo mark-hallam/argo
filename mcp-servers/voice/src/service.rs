@@ -74,16 +74,19 @@ async fn transcribe_dispatch(args: &serde_json::Value) -> CallToolResult {
             };
         }
     };
-    if backend != "openai" {
-        return CallToolResult {
+    match backend {
+        "openai" => {
+            let language = args.get("language").and_then(|v| v.as_str());
+            crate::openai::transcribe(audio, language).await
+        }
+        "local" => crate::local::transcribe(audio).await,
+        _ => CallToolResult {
             content: vec![McpContent::Text {
                 text: NOT_WIRED.into(),
             }],
             is_error: true,
-        };
+        },
     }
-    let language = args.get("language").and_then(|v| v.as_str());
-    crate::openai::transcribe(audio, language).await
 }
 
 async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
@@ -109,6 +112,7 @@ async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
         "openai" => crate::openai::synthesize(text, voice, instructions, format).await,
         "elevenlabs" => crate::elevenlabs::synthesize(text, voice).await,
         "minimax" => crate::minimax::synthesize(text, voice).await,
+        "local" => crate::local::synthesize(text, format).await,
         _ => CallToolResult {
             content: vec![McpContent::Text {
                 text: NOT_WIRED.into(),
@@ -130,7 +134,7 @@ fn transcribe_schema() -> McpToolSchema {
             "properties": {
                 "audio":    { "type": "string", "description": "File path of the audio clip." },
                 "language": { "type": "string", "description": "ISO-639 hint (optional)." },
-                "backend":  { "type": "string", "enum": ["whisper", "openai"], "default": "whisper" }
+                "backend":  { "type": "string", "enum": ["whisper", "openai", "local"], "default": "whisper" }
             },
             "required": ["audio"]
         }),
@@ -150,7 +154,7 @@ fn synthesize_schema() -> McpToolSchema {
                 "text":         { "type": "string" },
                 "voice":        { "type": "string", "description": "Backend-specific voice id." },
                 "format":       { "type": "string", "enum": ["ogg-opus", "mp3"], "default": "ogg-opus" },
-                "backend":      { "type": "string", "enum": ["piper", "openai", "elevenlabs", "minimax"], "default": "piper" },
+                "backend":      { "type": "string", "enum": ["piper", "openai", "elevenlabs", "minimax", "local"], "default": "piper" },
                 "instructions": { "type": "string", "description": "OpenAI-TTS style/instructions field (Hermes parity)." }
             },
             "required": ["text"]
