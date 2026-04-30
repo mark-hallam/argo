@@ -16,11 +16,11 @@ mod migrations;
 mod models;
 mod spend;
 
-pub use models::{ForgeRunRow, MessageRow, SessionHeader};
+pub use models::{ForgeRunRow, MessageRow, MessageSearchHit, SessionHeader};
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
-use models::{RoutingDecisionRow, SessionHeaderRow};
+use models::{MessageSearchHitRow, RoutingDecisionRow, SessionHeaderRow};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Pool, Sqlite};
 use std::path::Path;
@@ -248,6 +248,29 @@ impl SessionStore {
         Ok(())
     }
 
+    /// Full-text search the message log via FTS5. Returns the
+    /// per-row `(session_id, seq, role, snippet)` for the top
+    /// `limit` matches across all sessions, ordered by relevance.
+    /// Used by `argo session search`.
+    pub async fn search_messages(
+        &self,
+        query: &str,
+        limit: u32,
+    ) -> StoreResult<Vec<MessageSearchHit>> {
+        let rows: Vec<MessageSearchHitRow> = sqlx::query_as::<_, MessageSearchHitRow>(
+            "SELECT m.session_id, m.seq, m.role, \
+             snippet(message_fts, 0, '[', ']', '…', 32) AS snippet \
+             FROM message_fts JOIN message m ON m.rowid = message_fts.rowid \
+             WHERE message_fts MATCH ? ORDER BY rank LIMIT ?",
+        )
+        .bind(query)
+        .bind(i64::from(limit))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("search_messages: {e}")))?;
+        Ok(rows.into_iter().map(MessageSearchHit::from).collect())
+    }
+
     /// Stream a session's messages in `seq` order. Used by
     /// `argo session export` to dump sessions to JSONL.
     pub async fn list_messages(&self, session_id: SessionId) -> StoreResult<Vec<MessageRow>> {
@@ -351,7 +374,7 @@ mod tests {
     async fn open_and_migrate() {
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 2);
+        assert_eq!(store.schema_version().await.unwrap(), 3);
     }
 
     #[tokio::test]
@@ -361,7 +384,7 @@ mod tests {
         store.migrate_down_to(0).await.unwrap();
         assert_eq!(store.schema_version().await.unwrap(), 0);
         store.migrate().await.unwrap();
-        assert_eq!(store.schema_version().await.unwrap(), 2);
+        assert_eq!(store.schema_version().await.unwrap(), 3);
     }
 
     async fn fresh_store_with_workspace() -> (SessionStore, TenantId, WorkspaceId) {

@@ -47,6 +47,39 @@ pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
     Uuid::from_bytes(a)
 }
 
+/// One FTS5 hit on the message corpus.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageSearchHit {
+    /// Session the hit belongs to.
+    pub session_id: SessionId,
+    /// Per-session sequence number.
+    pub seq: i64,
+    /// Role of the message (`user`/`assistant`/`tool`).
+    pub role: String,
+    /// FTS5-rendered snippet with `[match]` highlights.
+    pub snippet: String,
+}
+
+/// Raw FTS5 row.
+#[derive(sqlx::FromRow)]
+pub(crate) struct MessageSearchHitRow {
+    pub session_id: Vec<u8>,
+    pub seq: i64,
+    pub role: String,
+    pub snippet: String,
+}
+
+impl From<MessageSearchHitRow> for MessageSearchHit {
+    fn from(r: MessageSearchHitRow) -> Self {
+        Self {
+            session_id: SessionId(uuid_from_blob(&r.session_id)),
+            seq: r.seq,
+            role: r.role,
+            snippet: r.snippet,
+        }
+    }
+}
+
 /// One `message` row. Surfaced as-is for `argo session export`.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct MessageRow {

@@ -342,6 +342,12 @@ pub enum SessionCmd {
         #[arg(long)]
         out: Option<String>,
     },
+    /// Full-text search the message corpus via FTS5.
+    Search {
+        query: String,
+        #[arg(long, default_value_t = 20)]
+        limit: u32,
+    },
     Replay {
         id: String,
         #[arg(long)]

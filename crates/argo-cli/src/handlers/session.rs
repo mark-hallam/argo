@@ -12,6 +12,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::List { limit } => list_sessions(limit).await,
         SessionCmd::Show { id } => show_session(&id).await,
         SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
+        SessionCmd::Search { query, limit } => search(&query, limit).await,
         SessionCmd::Diff { id1, id2 } => {
             // The diff against the live SQLite store needs the
             // tool_call → TurnRecord projection, which lands with
@@ -56,6 +57,34 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+async fn search(query: &str, limit: u32) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let db = db_path(&home);
+    let store = SessionStore::open(&db).await?;
+    store.migrate().await?;
+    let hits = store.search_messages(query, limit).await?;
+    if hits.is_empty() {
+        println!("(no matches for '{query}')");
+        return Ok(());
+    }
+    println!("{} match(es):", hits.len());
+    for h in hits {
+        // FTS5 snippet has `[...]` markers around matches; render
+        // it as-is so users can spot the highlight in a terminal.
+        println!(
+            "  {sid}  seq={seq:<5} {role:<10} {snippet}",
+            sid = h.session_id.0,
+            seq = h.seq,
+            role = h.role,
+            snippet = h.snippet
+        );
+    }
+    Ok(())
 }
 
 async fn export_session(raw: &str, out: Option<&str>) -> ArgoResult<()> {
