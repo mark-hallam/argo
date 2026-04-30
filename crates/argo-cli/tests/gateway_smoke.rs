@@ -496,8 +496,5 @@ fn gateway_stop_with_no_pidfile_returns_clean_error() {
         .expect("spawn");
     assert!(!stop.status.success());
     let stderr = String::from_utf8_lossy(&stop.stderr);
-    assert!(
-        stderr.contains("no PID file"),
-        "expected 'no PID file' hint, got: {stderr}"
-    );
+    assert!(stderr.contains("no PID file"), "stderr: {stderr}");
 }
