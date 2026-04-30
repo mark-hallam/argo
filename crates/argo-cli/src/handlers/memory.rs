@@ -23,7 +23,14 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         MemoryCmd::List { json, file } => list(&memory, workspace, json, file.as_deref()).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
-        MemoryCmd::Verify { entry } => verify_hash(&memory, &entry).await,
+        MemoryCmd::Verify { entry, all } => {
+            if all {
+                verify_all(&memory, workspace).await
+            } else {
+                let raw = entry.unwrap_or_default();
+                verify_hash(&memory, &raw).await
+            }
+        }
         MemoryCmd::Edit { entry } => edit(&memory, &entry).await,
         MemoryCmd::Revert { entry } => revert(&memory, &entry).await,
         MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
@@ -146,6 +153,54 @@ async fn view(memory: &MemoryStore, raw: &str, json: bool) -> ArgoResult<()> {
     println!("\n---\n");
     println!("{}", entry.body);
     Ok(())
+}
+
+async fn verify_all(memory: &MemoryStore, workspace: argo_types::WorkspaceId) -> ArgoResult<()> {
+    use sha2::{Digest, Sha256};
+    let files = [
+        MemoryFile::Memory,
+        MemoryFile::User,
+        MemoryFile::Soul,
+        MemoryFile::Agents,
+    ];
+    let mut total = 0_usize;
+    let mut failures: Vec<String> = Vec::new();
+    for file in files {
+        let entries = memory.list_active(workspace, file).await?;
+        for e in entries {
+            total += 1;
+            let mut h = Sha256::new();
+            h.update(e.body.as_bytes());
+            let computed: [u8; 32] = h.finalize().into();
+            if computed == e.hash {
+                println!("  ok       {} ({:?})", e.id, file);
+            } else {
+                failures.push(format!(
+                    "{} ({:?}) stored={} computed={}",
+                    e.id,
+                    file,
+                    hex::encode(e.hash),
+                    hex::encode(computed)
+                ));
+                println!("  MISMATCH {} ({:?})", e.id, file);
+            }
+        }
+    }
+    if total == 0 {
+        println!("(no active memory entries)");
+        return Ok(());
+    }
+    if failures.is_empty() {
+        println!("all {total} memory entries verified — body hashes match");
+        Ok(())
+    } else {
+        Err(ArgoError::Provider(format!(
+            "{} of {} memory entries failed verification:\n  {}",
+            failures.len(),
+            total,
+            failures.join("\n  ")
+        )))
+    }
 }
 
 async fn verify_hash(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {

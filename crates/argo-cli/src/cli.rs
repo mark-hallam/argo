@@ -247,8 +247,14 @@ pub enum MemoryCmd {
         body: String,
     },
     /// Verify a memory entry's body matches its stored SHA-256 hash.
+    /// Pass `--all` to verify every active entry across all four
+    /// memory files in the workspace.
     Verify {
-        entry: String,
+        #[arg(required_unless_present = "all")]
+        entry: Option<String>,
+        /// Verify every active memory entry instead of one named entry.
+        #[arg(long, conflicts_with = "entry")]
+        all: bool,
     },
     Edit {
         entry: String,
