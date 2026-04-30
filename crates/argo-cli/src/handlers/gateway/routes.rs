@@ -58,6 +58,9 @@ pub(super) async fn dispatch_route(
             if tail.starts_with("runs ") {
                 return run_turn_response(sid, req, store).await;
             }
+            if tail.starts_with("steer ") {
+                return steer_response(sid, req, store).await;
+            }
         }
     }
     // GET /sessions/<uuid> — fetch one session header
@@ -465,6 +468,61 @@ async fn run_turn_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"run_turn: {e}\"}}"),
+        ),
+    }
+}
+
+async fn steer_response(
+    sid: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse body: {e}\"}}"),
+            );
+        }
+    };
+    let Some(text) = parsed.get("text").and_then(|v| v.as_str()) else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing 'text' field\"}".to_string(),
+        );
+    };
+    if let Ok(None) = store.get_session(id).await {
+        return ("404 Not Found", format!("{{\"error\":\"no session {sid}\"}}"));
+    }
+    let content = serde_json::json!([{
+        "type": "text",
+        "text": format!("[steer] {text}"),
+    }]);
+    match store
+        .append_message(id, MessageRole::System, &content.to_string())
+        .await
+    {
+        Ok(msg_id) => (
+            "201 Created",
+            format!("{{\"message_id\":\"{msg_id}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"steer: {e}\"}}"),
         ),
     }
 }

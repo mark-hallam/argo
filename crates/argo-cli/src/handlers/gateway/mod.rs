@@ -100,7 +100,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /sessions/<uuid>/messages → every message on the session");
     eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("  POST /sessions/<uuid>/messages → append a message ({{role, content}})");
-    eprintln!("  POST /sessions/<uuid>/runs → run one agent turn ({{user?, stream:false}})");
+    eprintln!("  POST /sessions/<uuid>/runs → run one agent turn ({{user?, stream:false, max_tool_rounds?}})");
+    eprintln!("  POST /sessions/<uuid>/steer → inject a system-role steer ({{text}})");
     eprintln!("  GET  /skills   → active skills (JSON array)");
     eprintln!("  GET  /memory   → active memory entries (JSON array)");
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
