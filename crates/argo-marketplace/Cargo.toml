@@ -19,7 +19,8 @@ async-trait = { workspace = true }
 tokio = { workspace = true, features = ["fs", "macros"] }
 tracing = { workspace = true }
 thiserror = { workspace = true }
+reqwest = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
 tempfile = "3"
