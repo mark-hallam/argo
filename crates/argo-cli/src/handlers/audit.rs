@@ -104,6 +104,16 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                     let detail = payload_detail(&r.kind, &r.payload);
                     println!("  seq={:<6} kind={:<22} {detail}", r.seq, r.kind);
                 }
+                let summary = summarize_session_rows(&rows);
+                println!(
+                    "\nsummary: {turns} turn(s), {tools} tool call(s) ({errs} error(s)), \
+                     {tin} prompt + {tout} completion tokens",
+                    turns = summary.turns,
+                    tools = summary.tool_calls,
+                    errs = summary.tool_errors,
+                    tin = summary.tokens_in,
+                    tout = summary.tokens_out,
+                );
                 return Ok(());
             }
             let report = verify_all(&store).await?;
@@ -200,6 +210,46 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             Ok(())
         }
     }
+}
+
+/// Summary counts derived from a session's audit chain.
+struct SessionSummary {
+    turns: u32,
+    tool_calls: u32,
+    tool_errors: u32,
+    tokens_in: u64,
+    tokens_out: u64,
+}
+
+fn summarize_session_rows(rows: &[argo_audit::ExportedRow]) -> SessionSummary {
+    let mut s = SessionSummary {
+        turns: 0,
+        tool_calls: 0,
+        tool_errors: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+    };
+    for r in rows {
+        match r.kind.as_str() {
+            "TurnStart" => s.turns += 1,
+            "ToolCall" => s.tool_calls += 1,
+            "ToolResult"
+                if r.payload.get("is_error").and_then(|v| v.as_bool()) == Some(true) =>
+            {
+                s.tool_errors += 1;
+            }
+            "AssistantMessage" => {
+                if let Some(n) = r.payload.get("tokens_in").and_then(|v| v.as_u64()) {
+                    s.tokens_in += n;
+                }
+                if let Some(n) = r.payload.get("tokens_out").and_then(|v| v.as_u64()) {
+                    s.tokens_out += n;
+                }
+            }
+            _ => {}
+        }
+    }
+    s
 }
 
 /// One-line "interesting field" extract from a row's payload, keyed
