@@ -403,6 +403,9 @@ pub enum SessionCmd {
     /// Show one session header (model, provider, start time, message count).
     Show {
         id: String,
+        /// Output as a single JSON object for scripting.
+        #[arg(long)]
+        json: bool,
     },
     /// Dump a session's messages to JSONL (defaults to stdout;
     /// pass `--out <path>` to write to a file).

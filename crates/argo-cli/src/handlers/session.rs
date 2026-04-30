@@ -10,7 +10,7 @@ use std::io::{BufWriter, Write};
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
         SessionCmd::List { limit, json } => list_sessions(limit, json).await,
-        SessionCmd::Show { id } => show_session(&id).await,
+        SessionCmd::Show { id, json } => show_session(&id, json).await,
         SessionCmd::Export { id, out } => export_session(&id, out.as_deref()).await,
         SessionCmd::Search {
             query,
@@ -248,7 +248,7 @@ async fn export_session(raw: &str, out: Option<&str>) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn show_session(raw: &str) -> ArgoResult<()> {
+async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -263,6 +263,23 @@ async fn show_session(raw: &str) -> ArgoResult<()> {
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session {raw}")))?;
     let count = store.message_count(SessionId(id)).await?;
+    if json {
+        let row = serde_json::json!({
+            "id": session.id.0.to_string(),
+            "tenant_id": session.tenant_id.0.to_string(),
+            "workspace_id": session.workspace_id.0.to_string(),
+            "provider": session.provider,
+            "model": session.model,
+            "title": session.title,
+            "started_at": session.started_at.to_rfc3339(),
+            "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
+            "message_count": count,
+        });
+        let serialized = serde_json::to_string(&row)
+            .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
+        println!("{serialized}");
+        return Ok(());
+    }
     println!("session {}", session.id.0);
     println!("  tenant_id:    {}", session.tenant_id.0);
     println!("  workspace_id: {}", session.workspace_id.0);
