@@ -117,6 +117,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /tools    → registered in-core tools + JSON-Schema parameters");
     eprintln!("  GET  /search?q=…[&limit=N&session=<id>] → FTS5 hits across the message corpus");
     eprintln!("  GET  /workspace/artifacts[?limit=N] → recorded marketplace pushes (oci_ref + digest + pushed_at)");
+    eprintln!("  GET  /routes  → discovery: every route + a one-line description");
     eprintln!("  GET  /doctor       → JSON snapshot of `argo doctor` (cwd, db, cron, creds, …)");
     eprintln!("  GET  /health/full  → deep health (audit chain + skill + memory provenance)");
     eprintln!("  GET  /audit/sessions/<uuid> → per-session audit chain (JSON array)");

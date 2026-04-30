@@ -216,3 +216,54 @@ pub(super) async fn artifacts_response(
         ),
     }
 }
+
+/// `GET /routes` — discovery endpoint listing every route the
+/// gateway dispatches, with a one-line description per row.
+/// Lets a UI / docs surface enumerate the API without scraping
+/// the help banner. Static — no DB or filesystem I/O — so it's
+/// always fast and never 503.
+pub(super) fn routes_response() -> (&'static str, String) {
+    let rows = [
+        ("GET", "/health", "liveness probe"),
+        ("GET", "/version", "build version"),
+        ("GET", "/sessions", "list sessions (?since-minutes=N)"),
+        ("GET", "/sessions/<id>", "one session header + counts"),
+        ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>)"),
+        ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
+        ("GET", "/skills", "active skills"),
+        ("GET", "/memory", "memory entries"),
+        ("GET", "/audit", "audit chain summary"),
+        ("GET", "/audit/sessions/<id>", "per-session audit chain"),
+        ("GET", "/costs", "cost ceilings"),
+        ("GET", "/costs/by-model", "spend grouped by (provider, model)"),
+        ("GET", "/costs/by-session", "spend grouped by session_id"),
+        ("GET", "/providers", "workspace provider manifests"),
+        ("GET", "/tools", "registered in-core tools"),
+        ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
+        ("GET", "/workspace/artifacts", "recorded marketplace pushes"),
+        ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
+        ("GET", "/health/full", "deep health (chain + skill + memory)"),
+        ("GET", "/routes", "this listing"),
+        ("POST", "/sessions", "create a session row"),
+        ("POST", "/sessions/<id>/messages", "append a message"),
+        ("POST", "/sessions/<id>/runs", "run one agent turn"),
+        ("POST", "/sessions/<id>/runs/stream", "chunked-NDJSON live event stream"),
+        ("POST", "/sessions/<id>/steer", "inject a system-role steer"),
+        ("POST", "/sessions/<id>/replay", "replay user prompts in a fresh session"),
+        ("POST", "/sessions/<id>/replay/stream", "chunked-NDJSON replay event stream"),
+    ];
+    let body: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|(method, path, description)| {
+            serde_json::json!({
+                "method": method,
+                "path": path,
+                "description": description,
+            })
+        })
+        .collect();
+    (
+        "200 OK",
+        serde_json::to_string(&body).unwrap_or_else(|_| "[]".to_string()),
+    )
+}
