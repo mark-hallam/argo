@@ -26,6 +26,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod event;
+mod export;
 mod sink;
 mod verify;
 
@@ -33,5 +34,6 @@ mod verify;
 mod tests;
 
 pub use event::AuditKind;
+pub use export::{export_ndjson, ExportedRow};
 pub use sink::{compute_chain_hash, AuditSink};
 pub use verify::{verify_all, verify_session, ChainBreak, VerifyReport};

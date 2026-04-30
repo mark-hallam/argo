@@ -1,9 +1,10 @@
 //! `argo audit` — chain inspection / verification / export.
 use crate::cli::AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::verify_all;
+use argo_audit::{export_ndjson, verify_all};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
+use std::io::{BufWriter, Write};
 use std::sync::Arc;
 
 pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
@@ -56,14 +57,38 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             }
             Ok(())
         }
-        AuditCmd::Export { format } => {
-            // ndjson is the canonical export format per §17.
+        AuditCmd::Export { format, out } => {
             if format != "ndjson" {
-                eprintln!("warning: only ndjson export is implemented; got '{format}'");
+                return Err(ArgoError::Provider(format!(
+                    "unsupported audit export format '{format}' (only 'ndjson' for now)"
+                )));
             }
-            println!(
-                "audit export not yet wired to stdout streaming; the daemon writes ndjson per §17.4."
-            );
+            let mut writer: Box<dyn Write> = match out.as_deref() {
+                Some(path) => {
+                    let f = std::fs::File::create(path)
+                        .map_err(|e| ArgoError::Provider(format!("create {path}: {e}")))?;
+                    Box::new(BufWriter::new(f))
+                }
+                None => Box::new(BufWriter::new(std::io::stdout())),
+            };
+            let n = export_ndjson(&store, |row| {
+                let line = serde_json::to_string(row)
+                    .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
+                writer
+                    .write_all(line.as_bytes())
+                    .and_then(|()| writer.write_all(b"\n"))
+                    .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+                Ok(())
+            })
+            .await?;
+            writer
+                .flush()
+                .map_err(|e| ArgoError::Provider(format!("flush: {e}")))?;
+            // Only print the summary if we wrote to a file (stdout
+            // already has the rows).
+            if out.is_some() {
+                eprintln!("audit export: wrote {n} rows");
+            }
             Ok(())
         }
     }

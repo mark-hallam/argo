@@ -219,9 +219,13 @@ pub enum AuditCmd {
         #[arg(long)]
         to: Option<u64>,
     },
+    /// Stream the audit log to ndjson. Defaults to stdout; pass
+    /// `--out <path>` to write to a file.
     Export {
         #[arg(long, default_value = "ndjson")]
         format: String,
+        #[arg(long)]
+        out: Option<String>,
     },
 }
 
