@@ -24,16 +24,11 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         MemoryCmd::View { entry } => view(&memory, &entry).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Verify { entry } => verify_hash(&memory, &entry).await,
+        MemoryCmd::Edit { entry } => edit(&memory, &entry).await,
         MemoryCmd::Revert { entry } => revert(&memory, &entry).await,
         MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
         MemoryCmd::Lock { entry } => set_lock(&memory, &entry, Lock::UserProtected).await,
         MemoryCmd::Unlock { entry } => set_lock(&memory, &entry, Lock::None).await,
-        other => {
-            println!(
-                "argo memory: '{other:?}' requires the daemon's capability bindings (separate PR)."
-            );
-            Ok(())
-        }
     }
 }
 
@@ -136,6 +131,42 @@ async fn verify_hash(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
             entry.file
         )))
     }
+}
+
+async fn edit(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
+    let id = parse_uuid(raw)?;
+    let prev = memory.get(id).await?;
+    let editor = std::env::var("EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .unwrap_or_else(|_| "vi".into());
+    let mut tmp = std::env::temp_dir();
+    tmp.push(format!("argo-memory-{id}.md"));
+    std::fs::write(&tmp, &prev.body)
+        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", tmp.display())))?;
+    let status = std::process::Command::new(&editor)
+        .arg(&tmp)
+        .status()
+        .map_err(|e| ArgoError::Provider(format!("spawn {editor}: {e}")))?;
+    if !status.success() {
+        return Err(ArgoError::Provider(format!(
+            "{editor} exited non-zero ({status}); aborting edit"
+        )));
+    }
+    let new_body = std::fs::read_to_string(&tmp)
+        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", tmp.display())))?;
+    let _ = std::fs::remove_file(&tmp);
+    if new_body == prev.body {
+        println!("memory entry {id}: body unchanged — nothing written");
+        return Ok(());
+    }
+    let new = memory
+        .supersede(id, new_body, None, PrincipalOverride::Force)
+        .await?;
+    println!(
+        "edited: new active entry {} (file={:?}, supersedes {id})",
+        new.id, new.file
+    );
+    Ok(())
 }
 
 async fn revert(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
