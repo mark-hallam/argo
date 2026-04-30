@@ -23,6 +23,7 @@
 
 mod agent;
 mod audit;
+mod resume;
 mod steer;
 
 #[cfg(test)]
@@ -30,4 +31,8 @@ mod tests;
 
 pub use agent::{Agent, AgentDeps, RunTurnOptions, TurnOutcome};
 pub use audit::{AuditKind, AuditSink};
+pub use resume::{
+    apply_restart_policy, mark_session_discarded, scan_interrupted, InterruptedSession,
+    RestartAction, RestartPolicy,
+};
 pub use steer::SteerChannel;
