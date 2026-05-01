@@ -10,9 +10,7 @@
 use super::routes_msgs::{last_message_response, list_messages_response};
 use super::routes_post::session_judge_response;
 use super::routes_query::{parse_limit, parse_query_kv, parse_role};
-use super::routes_session::{
-    session_show_response, session_spend_response, session_spend_total_response,
-};
+use super::routes_session::{session_spend_response, session_spend_total_response};
 use super::routes_session_skills::session_skills_list_response;
 use argo_store::{MessageRow, SessionStore};
 use argo_types::SessionId;
@@ -73,9 +71,24 @@ pub(super) async fn dispatch_session_get(
             return Some(export_response(sid, tail, store).await);
         }
     }
-    // Bare `GET /sessions/<uuid>` — strip trailing " HTTP/..." → just the session id.
-    if let Some((sid, _)) = rest.split_once(' ') {
-        return Some(session_show_response(sid, store).await);
+    // Bare `GET /sessions/<uuid>[?format=markdown]` — strip
+    // trailing " HTTP/..." → split off the query string.
+    if let Some((sid_with_query, _)) = rest.split_once(' ') {
+        let (sid, query) = match sid_with_query.split_once('?') {
+            Some((s, q)) => (s, Some(q)),
+            None => (sid_with_query, None),
+        };
+        let format = query
+            .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+            .map(str::to_string);
+        return Some(
+            super::routes_session::session_show_response_with_format(
+                sid,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
     }
     None
 }

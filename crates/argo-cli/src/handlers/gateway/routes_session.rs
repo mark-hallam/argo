@@ -91,9 +91,16 @@ pub(super) async fn session_spend_response(
     )
 }
 
-pub(super) async fn session_show_response(
+/// `GET /sessions/<id>[?format=markdown]` — header view.
+/// Default JSON shape: `{id, model, provider, title,
+/// started_at, ended_at, elapsed_seconds, message_count,
+/// tool_call_count, spent_usd_micros, …}`. With
+/// `?format=markdown`, returns a paste-able header doc with
+/// the same fields rendered as markdown bullets.
+pub(super) async fn session_show_response_with_format(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -128,6 +135,31 @@ pub(super) async fn session_show_response(
     let now = chrono::Utc::now();
     let end = session.ended_at.unwrap_or(now);
     let elapsed_seconds = (end - session.started_at).num_seconds().max(0);
+    if matches!(format, Some("markdown")) {
+        let title = session
+            .title
+            .as_deref()
+            .filter(|t| !t.is_empty())
+            .unwrap_or("(untitled)");
+        let mut out = format!("# Session {title} (`{}`)\n\n", session.id.0);
+        out.push_str(&format!("- **Provider**: `{}`\n", session.provider));
+        out.push_str(&format!("- **Model**: `{}`\n", session.model));
+        out.push_str(&format!(
+            "- **Started**: {}\n",
+            session.started_at.to_rfc3339()
+        ));
+        if let Some(end) = session.ended_at {
+            out.push_str(&format!("- **Ended**: {}\n", end.to_rfc3339()));
+        }
+        out.push_str(&format!("- **Elapsed**: {elapsed_seconds}s\n"));
+        out.push_str(&format!("- **Messages**: {count}\n"));
+        out.push_str(&format!("- **Tool calls**: {tool_calls}\n"));
+        out.push_str(&format!(
+            "- **Spend**: ${:.4}\n",
+            spent as f64 / 1_000_000.0
+        ));
+        return ("200 OK", out);
+    }
     let row = serde_json::json!({
         "id": session.id.0.to_string(),
         "tenant_id": session.tenant_id.0.to_string(),

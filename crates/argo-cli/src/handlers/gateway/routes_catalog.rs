@@ -12,7 +12,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/health", "liveness probe"),
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max)"),
-        ("GET", "/sessions/<id>", "one session header + counts"),
+        ("GET", "/sessions/<id>", "one session header + counts (?format=markdown for a paste-able header doc)"),
         ("GET", "/sessions/count", "count of sessions (?status=open|ended|all&since-minutes=N&older-than-minutes=N&provider=…&model=…)"),
         ("GET", "/sessions/<id>/messages", "messages (?limit&tail&role&since-minutes&seq-min&seq-max&content-contains)"),
         ("GET", "/sessions/<id>/export", "session messages as JSONL or markdown (?format=jsonl|markdown&include-audit=true)"),
