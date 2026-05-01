@@ -46,9 +46,13 @@ pub(super) async fn dispatch_route(
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     if req.starts_with("GET /version ") {
+        let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
         return (
             "200 OK",
-            format!("{{\"version\":\"{}\"}}", env!("CARGO_PKG_VERSION")),
+            format!(
+                "{{\"version\":\"{}\",\"profile\":\"{profile}\"}}",
+                env!("CARGO_PKG_VERSION")
+            ),
         );
     }
     if req.starts_with("GET /health ") {
