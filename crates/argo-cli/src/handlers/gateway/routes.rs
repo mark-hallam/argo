@@ -32,7 +32,7 @@ use super::routes_post_admin::{
 use super::routes_skill_refine::skill_refine_response;
 use super::routes_top::{
     audit_breaks_response, audit_response, dispatch_sessions, doctor_response,
-    health_full_response,
+    health_full_response, sessions_count_response,
 };
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
@@ -78,6 +78,11 @@ pub(super) async fn dispatch_route(
                 now.timestamp_micros()
             ),
         );
+    }
+    if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let status = parse_query_kv(tail, "status");
+        return sessions_count_response(status.as_deref(), store).await;
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         return dispatch_sessions(req, store).await;

@@ -228,6 +228,48 @@ pub(super) async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'stat
     )
 }
 
+/// `GET /sessions/count[?status=open|ended|all]` — print just
+/// the count of session rows. Mirrors the CLI's
+/// `argo session count`. Caps the underlying fetch at 10,000
+/// rows.
+pub(super) async fn sessions_count_response(
+    status: Option<&str>,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    match store.list_all_sessions(10_000).await {
+        Ok(rows) => {
+            let n = match status {
+                Some("open") => rows.iter().filter(|s| s.ended_at.is_none()).count(),
+                Some("ended") => rows.iter().filter(|s| s.ended_at.is_some()).count(),
+                Some("all") | None => rows.len(),
+                Some(other) => {
+                    return (
+                        "400 Bad Request",
+                        format!(
+                            "{{\"error\":\"unknown status '{other}' — use open|ended|all\"}}"
+                        ),
+                    );
+                }
+            };
+            let payload = serde_json::json!({
+                "count": n,
+                "status": status.unwrap_or("all"),
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list_all_sessions: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /audit/breaks` — actual ChainBreak rows (not just the
 /// count). Each break is `{seq, kind, reason}`. Useful for
 /// debugging a broken chain — `argo audit verify --json`
