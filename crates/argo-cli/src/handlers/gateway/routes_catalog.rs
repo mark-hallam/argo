@@ -65,6 +65,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/<id>/judge", "judge_record rows for the session"),
         ("POST", "/sessions/<id>/skills/attach", "attach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/skills/detach", "detach a skill ({skill: name})"),
+        ("POST", "/sessions/<id>/skills/clear", "detach every attached skill"),
         ("POST", "/sessions/<id>/delete", "delete a session + dependent rows"),
         ("POST", "/sessions/<id>/title", "rename a session ({title}, empty clears)"),
         ("POST", "/sessions/<id>/end", "mark a session ended (stamps ended_at)"),

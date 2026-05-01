@@ -29,8 +29,9 @@ use super::routes_post_admin::{
 };
 use super::routes_skill_refine::skill_refine_response;
 use super::routes_session_skills::{
-    session_attach_skill_response, session_delete_response, session_detach_skill_response,
-    session_end_response, session_set_title_response, session_skills_list_response,
+    session_attach_skill_response, session_clear_skills_response, session_delete_response,
+    session_detach_skill_response, session_end_response, session_set_title_response,
+    session_skills_list_response,
 };
 use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
@@ -380,6 +381,9 @@ pub(super) async fn dispatch_route(
             }
             if tail.starts_with("skills/detach ") {
                 return session_detach_skill_response(sid, req, store).await;
+            }
+            if tail.starts_with("skills/clear ") {
+                return session_clear_skills_response(sid, store).await;
             }
             if tail.starts_with("delete ") {
                 return session_delete_response(sid, store).await;

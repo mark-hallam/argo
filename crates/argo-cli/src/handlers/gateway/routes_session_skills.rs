@@ -166,6 +166,57 @@ pub(super) async fn session_skills_list_response(
     }
 }
 
+/// `POST /sessions/<id>/skills/clear` — detach every attached
+/// skill from a session. Returns 200 + `{cleared, session,
+/// detached: <count>}`. Useful for "reset to fall-through-all-
+/// active-skills" without pre-listing the attached set. 400
+/// on bad uuid.
+pub(super) async fn session_clear_skills_response(
+    raw_sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let sid = match uuid::Uuid::parse_str(raw_sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let skills = SkillStore::new(Arc::clone(store));
+    let attached = match skills.skills_for_session(sid).await {
+        Ok(rows) => rows,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"skills_for_session: {e}\"}}"),
+            );
+        }
+    };
+    let mut detached: u64 = 0;
+    for s in attached {
+        match skills.detach_from_session(sid, s.id).await {
+            Ok(n) => detached += n,
+            Err(e) => {
+                return (
+                    "500 Internal Server Error",
+                    format!("{{\"error\":\"detach_from_session: {e}\"}}"),
+                );
+            }
+        }
+    }
+    (
+        "200 OK",
+        format!(
+            "{{\"cleared\":true,\"session\":\"{raw_sid}\",\"detached\":{detached}}}"
+        ),
+    )
+}
+
 /// `POST /sessions/<id>/end` — mark the session ended (stamps
 /// `ended_at`). Idempotent. Returns 200 + `{ended:true,
 /// session}`; 400 on bad uuid; 404 when no row matches.
