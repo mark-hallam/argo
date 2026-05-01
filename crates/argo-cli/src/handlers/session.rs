@@ -119,6 +119,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Bisect { id, hypothesis } => {
             super::session_bisect::run(&id, &hypothesis).await
         }
+        SessionCmd::Title { id, new, clear } => {
+            set_title(&id, new.as_deref(), clear).await
+        }
         SessionCmd::End { id } => end_session(&id).await,
         SessionCmd::EndAll { older_than_minutes } => end_all(older_than_minutes).await,
         SessionCmd::Reopen { id } => reopen_session(&id).await,
@@ -154,6 +157,31 @@ async fn reopen_session(raw: &str) -> ArgoResult<()> {
         println!("(session {raw} not found)");
     } else {
         println!("reopened {raw}");
+    }
+    Ok(())
+}
+
+/// `argo session title <id> <new> | --clear` — set or clear a
+/// session's title. `--clear` writes SQL NULL; `<new>` is
+/// trimmed and an empty trim clears too. Mirrors the gateway's
+/// `POST /sessions/<id>/title`.
+async fn set_title(raw: &str, new: Option<&str>, clear: bool) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let id = uuid::Uuid::parse_str(raw)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let title = if clear { "" } else { new.unwrap_or("") };
+    let n = store.set_session_title(SessionId(id), title).await?;
+    if n == 0 {
+        println!("(session {raw} not found)");
+    } else if clear || title.trim().is_empty() {
+        println!("cleared title on {raw}");
+    } else {
+        println!("set title on {raw} to {title:?}");
     }
     Ok(())
 }

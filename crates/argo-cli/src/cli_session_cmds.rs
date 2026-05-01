@@ -233,6 +233,18 @@ pub enum SessionCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
+    /// Set or clear a session's title. Pass `--clear` to remove
+    /// the title, or `<new>` to set a fresh one. Mirrors the
+    /// gateway's `POST /sessions/<id>/title`.
+    Title {
+        id: String,
+        /// New title. Required unless `--clear` is set.
+        #[arg(required_unless_present = "clear")]
+        new: Option<String>,
+        /// Clear the title (set to NULL).
+        #[arg(long, conflicts_with = "new")]
+        clear: bool,
+    },
     /// Mark a session ended (stamps `ended_at`). Idempotent.
     End { id: String },
     /// Reopen an ended session (clears `ended_at`). Idempotent.
