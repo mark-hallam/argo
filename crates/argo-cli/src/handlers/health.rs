@@ -9,26 +9,45 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::sync::Arc;
 
-pub async fn run(json: bool) -> ArgoResult<()> {
+pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     let payload = collect().await?;
     let ok = payload["ok"].as_bool().unwrap_or(false);
     let failures: Vec<&str> = payload["failures"]
         .as_array()
         .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
         .unwrap_or_default();
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string(&payload)
-                .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
-        );
-        if ok {
-            return Ok(());
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            println!(
+                "{}",
+                serde_json::to_string(&payload)
+                    .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+            );
+            if ok {
+                return Ok(());
+            }
+            return Err(ArgoError::Provider(format!(
+                "argo health: {} check(s) failed",
+                failures.len()
+            )));
         }
-        return Err(ArgoError::Provider(format!(
-            "argo health: {} check(s) failed",
-            failures.len()
-        )));
+        "markdown" => {
+            print_markdown(&payload);
+            if ok {
+                return Ok(());
+            }
+            return Err(ArgoError::Provider(format!(
+                "argo health: {} check(s) failed",
+                failures.len()
+            )));
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     let audit = &payload["checks"]["audit"];
     let skill = &payload["checks"]["skill"];
@@ -63,6 +82,63 @@ pub async fn run(json: bool) -> ArgoResult<()> {
             failures.len(),
             failures.join(", ")
         )))
+    }
+}
+
+/// Markdown render of the health payload — one section per
+/// check with a ✓ / FAIL marker. Matches the doctor markdown
+/// shape so the two reports compose cleanly side-by-side.
+fn print_markdown(payload: &serde_json::Value) {
+    let ok = payload["ok"].as_bool().unwrap_or(false);
+    let audit = &payload["checks"]["audit"];
+    let skill = &payload["checks"]["skill"];
+    let memory = &payload["checks"]["memory"];
+    println!("# argo health");
+    println!();
+    println!(
+        "**Status**: {}",
+        if ok { "all checks ok ✓" } else { "**FAILED**" }
+    );
+    println!();
+    println!("## Audit chain");
+    println!();
+    if audit["ok"].as_bool().unwrap_or(false) {
+        println!("- ✓ ok ({} rows)", audit["rows"].as_u64().unwrap_or(0));
+    } else if let Some(b) = audit["breaks"].as_u64() {
+        println!("- **FAIL** ({b} break(s))");
+    } else {
+        println!(
+            "- **FAIL** ({})",
+            audit["error"].as_str().unwrap_or("?")
+        );
+    }
+    println!();
+    println!("## Skill provenance");
+    println!();
+    if skill["ok"].as_bool().unwrap_or(false) {
+        println!(
+            "- ✓ ok ({} skill(s))",
+            skill["count"].as_u64().unwrap_or(0)
+        );
+    } else {
+        println!(
+            "- **FAIL** ({})",
+            skill["error"].as_str().unwrap_or("?")
+        );
+    }
+    println!();
+    println!("## Memory provenance");
+    println!();
+    if memory["ok"].as_bool().unwrap_or(false) {
+        println!(
+            "- ✓ ok ({} entries)",
+            memory["count"].as_u64().unwrap_or(0)
+        );
+    } else {
+        println!(
+            "- **FAIL** ({})",
+            memory["error"].as_str().unwrap_or("?")
+        );
     }
 }
 

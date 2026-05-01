@@ -187,8 +187,13 @@ pub enum Command {
     /// CI hook.
     Health {
         /// Output a single JSON object with per-check status.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     Import {
         #[command(subcommand)]
