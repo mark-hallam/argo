@@ -61,9 +61,33 @@ pub async fn run(json: bool) -> ArgoResult<()> {
         );
     }
     print_db(&payload["db"]);
+    print_audit(&payload["audit"]);
     print_cron(&payload["cron"]);
     print_creds(&payload["creds"]);
+    print_gateway(&payload["gateway"]);
     Ok(())
+}
+
+fn print_audit(v: &serde_json::Value) {
+    if !v["available"].as_bool().unwrap_or(false) {
+        println!("  audit:      (store not available)");
+        return;
+    }
+    let ok = v["ok"].as_bool().unwrap_or(false);
+    let rows = v["rows"].as_u64().unwrap_or(0);
+    let breaks = v["breaks"].as_u64().unwrap_or(0);
+    let status = if ok { "OK" } else { "BROKEN" };
+    println!("  audit:      {status} ({rows} row(s), {breaks} break(s))");
+}
+
+fn print_gateway(v: &serde_json::Value) {
+    let running = v["running"].as_bool().unwrap_or(false);
+    if running {
+        let pid = v["pid"].as_u64().unwrap_or(0);
+        println!("  gateway:    RUNNING (pid={pid})");
+    } else {
+        println!("  gateway:    not running");
+    }
 }
 
 /// Gather every doctor check into a single JSON document. Shared
