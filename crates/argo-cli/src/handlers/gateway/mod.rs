@@ -50,24 +50,40 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             max_requests,
         } => start(&bind, port, max_requests).await,
         GatewayCmd::Stop => stop().await,
-        GatewayCmd::Routes { json, method } => print_routes(json, method.as_deref()),
+        GatewayCmd::Routes {
+            json,
+            method,
+            grep,
+        } => print_routes(json, method.as_deref(), grep.as_deref()),
     }
 }
 
-/// `argo gateway routes [--json] [--method GET|POST]` — pretty-
-/// print the static route catalog the gateway dispatches over.
-/// No daemon required; reads the in-binary catalog.
-fn print_routes(json: bool, method: Option<&str>) -> ArgoResult<()> {
+/// `argo gateway routes [--json] [--method] [--grep]` — pretty-
+/// print the static route catalog. `--grep` is case-insensitive
+/// substring match on path or description; applied after the
+/// `--method` filter.
+fn print_routes(json: bool, method: Option<&str>, grep: Option<&str>) -> ArgoResult<()> {
     let (_status, body) = routes_catalog::routes_response(method);
-    if json {
-        println!("{body}");
-        return Ok(());
-    }
     let parsed: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse: {e}")))?;
-    let arr = parsed.as_array().cloned().unwrap_or_default();
-    println!("argo gateway routes ({} endpoints)", arr.len());
-    for row in arr {
+    let mut rows = parsed.as_array().cloned().unwrap_or_default();
+    if let Some(needle) = grep {
+        let lower = needle.to_lowercase();
+        rows.retain(|r| {
+            let path = r["path"].as_str().unwrap_or("").to_lowercase();
+            let desc = r["description"].as_str().unwrap_or("").to_lowercase();
+            path.contains(&lower) || desc.contains(&lower)
+        });
+    }
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string())
+        );
+        return Ok(());
+    }
+    println!("argo gateway routes ({} endpoints)", rows.len());
+    for row in rows {
         let m = row["method"].as_str().unwrap_or("?");
         let p = row["path"].as_str().unwrap_or("?");
         let d = row["description"].as_str().unwrap_or("");
