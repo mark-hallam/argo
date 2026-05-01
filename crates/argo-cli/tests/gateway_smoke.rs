@@ -1,36 +1,11 @@
 //! Smoke test for `argo gateway start` — spawns the binary, hits
 //! `/health` and `/version`, asserts the response shapes, then
 //! waits for the `--max-requests` exit.
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
+mod common;
+use common::{argo_bin, body_of, http_get, pick_free_port};
+use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::time::Duration;
-
-fn argo_bin() -> &'static str {
-    env!("CARGO_BIN_EXE_argo")
-}
-
-fn pick_free_port() -> u16 {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    drop(listener);
-    port
-}
-
-fn http_get(port: u16, path: &str) -> String {
-    // Hand-rolled HTTP/1.1 client to keep argo-cli's dev-deps tight
-    // (no reqwest / hyper here).
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
-    let req = format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
-    stream.write_all(req.as_bytes()).expect("write");
-    let mut resp = String::new();
-    stream.read_to_string(&mut resp).expect("read");
-    resp
-}
-
-fn body_of(resp: &str) -> &str {
-    resp.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
-}
 
 #[test]
 fn gateway_start_serves_health_and_version_then_exits_on_max_requests() {
@@ -127,17 +102,7 @@ fn gateway_sessions_endpoint_returns_json_array_for_empty_db() {
     assert!(status.success());
 }
 
-fn http_post(port: u16, path: &str, body: &str) -> String {
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
-    let req = format!(
-        "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    );
-    stream.write_all(req.as_bytes()).expect("write");
-    let mut resp = String::new();
-    stream.read_to_string(&mut resp).expect("read");
-    resp
-}
+use common::http_post;
 
 #[test]
 fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {

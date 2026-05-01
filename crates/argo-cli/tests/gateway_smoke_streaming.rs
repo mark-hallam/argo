@@ -3,62 +3,10 @@
 //! `GET /audit/sessions/<id>/verify`. Pulled out of
 //! `gateway_smoke_v2.rs` so each integration-test binary
 //! stays under the 500-LOC ceiling.
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
+mod common;
+use common::{argo_bin, await_listening, body_of, http_get, http_post, pick_free_port};
+use std::io::BufReader;
 use std::process::{Command, Stdio};
-use std::time::Duration;
-
-fn argo_bin() -> &'static str {
-    env!("CARGO_BIN_EXE_argo")
-}
-
-fn pick_free_port() -> u16 {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    drop(listener);
-    port
-}
-
-fn http_get(port: u16, path: &str) -> String {
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
-    let req = format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
-    stream.write_all(req.as_bytes()).expect("write");
-    let mut resp = String::new();
-    stream.read_to_string(&mut resp).expect("read");
-    resp
-}
-
-fn http_post(port: u16, path: &str, body: &str) -> String {
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
-    let req = format!(
-        "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n\
-         Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    );
-    stream.write_all(req.as_bytes()).expect("write");
-    let mut resp = String::new();
-    stream.read_to_string(&mut resp).expect("read");
-    resp
-}
-
-fn body_of(resp: &str) -> &str {
-    resp.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
-}
-
-fn await_listening(stderr: &mut BufReader<impl Read>) {
-    let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
-    loop {
-        if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 2s");
-        }
-        line.clear();
-        stderr.read_line(&mut line).expect("read line");
-        if line.contains("listening on") {
-            break;
-        }
-    }
-}
 
 #[test]
 fn forge_optimize_stream_returns_chunked_ndjson_with_error_chunk() {
