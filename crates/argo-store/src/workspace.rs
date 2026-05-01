@@ -7,6 +7,58 @@ use argo_types::{ArgoError, TenantId, WorkspaceId};
 use chrono::Utc;
 use sqlx::{Pool, Sqlite};
 
+use crate::models;
+use crate::SessionStore;
+use crate::StoreResult;
+
+impl SessionStore {
+    /// `WorkspaceId` of the first registered workspace, or
+    /// `None` when none exists. Used by anything that wants to
+    /// bootstrap memory/skill writes against "the" workspace.
+    pub async fn first_workspace(&self) -> StoreResult<Option<WorkspaceId>> {
+        let row: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT id FROM workspace ORDER BY created_at ASC LIMIT 1")
+                .fetch_optional(self.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("first_workspace: {e}")))?;
+        Ok(row.map(|b| WorkspaceId(models::uuid_from_blob(&b))))
+    }
+
+    /// `name` of the first registered workspace. Used by the
+    /// TUI footer.
+    pub async fn first_workspace_name(&self) -> StoreResult<Option<String>> {
+        let row: Option<String> =
+            sqlx::query_scalar("SELECT name FROM workspace ORDER BY created_at ASC LIMIT 1")
+                .fetch_optional(self.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("first_workspace_name: {e}")))?;
+        Ok(row)
+    }
+
+    /// Full info for the first registered workspace —
+    /// `(workspace_id, name, root_path, created_at_micros)`.
+    /// Used by `GET /workspace/info`.
+    pub async fn first_workspace_info(
+        &self,
+    ) -> StoreResult<Option<(WorkspaceId, String, String, i64)>> {
+        let row: Option<(Vec<u8>, String, String, i64)> = sqlx::query_as(
+            "SELECT id, name, root_path, created_at \
+             FROM workspace ORDER BY created_at ASC LIMIT 1",
+        )
+        .fetch_optional(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("first_workspace_info: {e}")))?;
+        Ok(row.map(|(id, name, root, ts)| {
+            (
+                WorkspaceId(models::uuid_from_blob(&id)),
+                name,
+                root,
+                ts,
+            )
+        }))
+    }
+}
+
 /// Insert a tenant + workspace pair if no workspace already exists at
 /// `root_path`. Returns the resolved `(TenantId, WorkspaceId)`.
 ///

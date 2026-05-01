@@ -214,6 +214,37 @@ fn last_message_returns_404_on_session_with_no_messages() {
 }
 
 #[test]
+fn workspace_info_returns_404_on_clean_workspace() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    // Clean workspace → 404 (no row registered yet).
+    let resp = http_get(port, "/workspace/info");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("no workspace"), "body={body}");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn db_stats_returns_zero_counts_for_clean_workspace() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();

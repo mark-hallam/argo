@@ -171,33 +171,6 @@ impl SessionStore {
         Ok(row.map(SessionHeader::from))
     }
 
-    /// First workspace registered in the DB (by `created_at`),
-    /// if any. The CLI's read-only commands fall through to this
-    /// when the user hasn't configured a tenant explicitly — the
-    /// daemon binding will replace it with proper tenant + workspace
-    /// resolution.
-    pub async fn first_workspace(&self) -> StoreResult<Option<WorkspaceId>> {
-        let row: Option<Vec<u8>> =
-            sqlx::query_scalar("SELECT id FROM workspace ORDER BY created_at ASC LIMIT 1")
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(|e| ArgoError::Provider(format!("first_workspace: {e}")))?;
-        Ok(row.map(|b| WorkspaceId(models::uuid_from_blob(&b))))
-    }
-
-    /// `name` of the first registered workspace (the same row
-    /// `first_workspace` returns the id for). Used by the TUI
-    /// footer to surface the active workspace at a glance.
-    /// Returns `None` when no workspace row exists.
-    pub async fn first_workspace_name(&self) -> StoreResult<Option<String>> {
-        let row: Option<String> =
-            sqlx::query_scalar("SELECT name FROM workspace ORDER BY created_at ASC LIMIT 1")
-                .fetch_optional(&self.pool)
-                .await
-                .map_err(|e| ArgoError::Provider(format!("first_workspace_name: {e}")))?;
-        Ok(row)
-    }
-
     /// List sessions across all tenants, ordered by recency. Used
     /// by the CLI's `argo session list` when no tenant filter is
     /// provided.

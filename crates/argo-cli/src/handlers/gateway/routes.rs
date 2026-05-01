@@ -5,10 +5,12 @@
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
-    artifacts_response, costs_response, db_stats_response, forge_run_show_response,
-    forge_runs_response, memory_show_response, providers_response, routes_response,
-    search_response, skill_show_response, skill_versions_response, tools_response,
+    costs_response, db_stats_response, forge_run_show_response, forge_runs_response,
+    memory_show_response, providers_response, routes_response, search_response,
+    skill_show_response, skill_versions_response, tools_response,
 };
+use super::routes_lists::{memory_response, skills_response};
+use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_post::{
     append_message_response, audit_session_response, audit_session_verify_response,
     costs_breakdown_response, create_session_response, replay_response, run_turn_response,
@@ -103,6 +105,9 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /search ") || req.starts_with("GET /search?") {
         let (q, limit, session) = parse_search_args(req);
         return search_response(q.as_deref(), limit, session.as_deref(), store).await;
+    }
+    if req.starts_with("GET /workspace/info ") {
+        return workspace_info_response(store).await;
     }
     if req.starts_with("GET /workspace/artifacts ")
         || req.starts_with("GET /workspace/artifacts?")
@@ -347,88 +352,6 @@ async fn sessions_response(
             format!("{{\"error\":\"list sessions: {e}\"}}"),
         ),
     }
-}
-
-async fn skills_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
-    let Some(store) = store else {
-        return store_unavailable();
-    };
-    let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    match skills.list_active().await {
-        Ok(rows) => {
-            let arr: Vec<serde_json::Value> = rows
-                .iter()
-                .map(|s| {
-                    serde_json::json!({
-                        "id": s.id.0.to_string(),
-                        "name": s.frontmatter.name,
-                        "version": s.frontmatter.version,
-                        "lock": format!("{:?}", s.frontmatter.lock),
-                        "hash": hex::encode(s.hash),
-                        "created_at": s.created_at.to_rfc3339(),
-                    })
-                })
-                .collect();
-            (
-                "200 OK",
-                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
-            )
-        }
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"list skills: {e}\"}}"),
-        ),
-    }
-}
-
-async fn memory_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
-    use argo_memory::{MemoryFile, MemoryStore};
-    let Some(store) = store else {
-        return store_unavailable();
-    };
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => return ("200 OK", "[]".to_string()),
-        Err(e) => {
-            return (
-                "500 Internal Server Error",
-                format!("{{\"error\":\"first_workspace: {e}\"}}"),
-            );
-        }
-    };
-    let memory = MemoryStore::new(Arc::clone(store));
-    let mut all: Vec<serde_json::Value> = Vec::new();
-    for f in [
-        MemoryFile::Memory,
-        MemoryFile::User,
-        MemoryFile::Soul,
-        MemoryFile::Agents,
-    ] {
-        match memory.list_active(workspace, f).await {
-            Ok(entries) => {
-                for e in entries {
-                    all.push(serde_json::json!({
-                        "id": e.id.to_string(),
-                        "file": format!("{:?}", e.file),
-                        "bytes": e.body.len(),
-                        "lock": format!("{:?}", e.lock),
-                        "hash": hex::encode(e.hash),
-                        "learned_at": e.learned_at.to_rfc3339(),
-                    }));
-                }
-            }
-            Err(e) => {
-                return (
-                    "500 Internal Server Error",
-                    format!("{{\"error\":\"list {f:?}: {e}\"}}"),
-                );
-            }
-        }
-    }
-    (
-        "200 OK",
-        serde_json::to_string(&all).unwrap_or_else(|_| "[]".to_string()),
-    )
 }
 
 async fn doctor_response() -> (&'static str, String) {

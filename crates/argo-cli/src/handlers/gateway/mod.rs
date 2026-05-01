@@ -9,6 +9,7 @@ mod metrics;
 mod routes;
 mod routes_catalog;
 mod routes_cron;
+mod routes_lists;
 mod routes_meta;
 mod routes_msgs;
 mod routes_post;
@@ -17,6 +18,7 @@ mod routes_post_writes;
 mod routes_query;
 mod routes_session;
 mod routes_session_skills;
+mod routes_workspace;
 mod streaming;
 
 use crate::cli::GatewayCmd;
@@ -136,6 +138,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /providers → workspace provider manifests + their model lists");
     eprintln!("  GET  /tools    → registered in-core tools + JSON-Schema parameters");
     eprintln!("  GET  /search?q=…[&limit=N&session=<id>] → FTS5 hits across the message corpus");
+    eprintln!("  GET  /workspace/info → first workspace row (id, name, root_path, created_at)");
     eprintln!("  GET  /workspace/artifacts[?limit=N] → recorded marketplace pushes (oci_ref + digest + pushed_at)");
     eprintln!("  GET  /forge/runs[?limit=N] → recorded forge optimization runs");
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");

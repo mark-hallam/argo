@@ -183,40 +183,6 @@ pub(super) async fn search_response(
     }
 }
 
-/// `GET /workspace/artifacts[?limit=N]` — list recorded
-/// marketplace pushes from the workspace's `marketplace_artifact`
-/// table, newest first. Defaults to 25 rows. Returns 503 if the
-/// store is unavailable or 200 + an empty array if no workspace
-/// is registered yet.
-pub(super) async fn artifacts_response(
-    limit: u32,
-    store: Option<&Arc<SessionStore>>,
-) -> (&'static str, String) {
-    let Some(store) = store else {
-        return super::store_unavailable();
-    };
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => return ("200 OK", "[]".to_string()),
-        Err(e) => {
-            return (
-                "500 Internal Server Error",
-                format!("{{\"error\":\"first_workspace: {e}\"}}"),
-            );
-        }
-    };
-    match store.list_marketplace_artifacts(workspace, limit).await {
-        Ok(rows) => (
-            "200 OK",
-            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
-        ),
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"list_marketplace_artifacts: {e}\"}}"),
-        ),
-    }
-}
-
 /// `GET /forge/runs[?limit=N]` — list recorded forge optimization
 /// runs from the local DB (the same rows `argo forge runs list`
 /// surfaces). Defaults to 50 rows. Returns 503 when the store is
