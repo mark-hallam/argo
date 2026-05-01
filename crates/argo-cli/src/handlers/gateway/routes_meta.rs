@@ -163,105 +163,9 @@ pub(super) async fn search_response(
     }
 }
 
-/// `GET /forge/runs[?limit&since-minutes&status&score-min&skill&has-candidate]`
-/// — list recorded forge optimization runs. All flags AND'd
-/// together. `has-candidate=true` keeps only rows whose
-/// `candidate_version` is non-NULL (i.e. produced at least
-/// one iteration's worth of mutation). `score-min` and
-/// `score-max` define an inclusive band on `final_score`;
-/// rows with `NULL` final_score never satisfy either.
-/// `iterations-min` and `iterations-max` define an inclusive
-/// band on the iteration count (a fresh run has 0).
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn forge_runs_response(
-    limit: u32,
-    since_minutes: Option<i64>,
-    status: Option<&str>,
-    score_min: Option<f64>,
-    score_max: Option<f64>,
-    skill: Option<&str>,
-    has_candidate: Option<bool>,
-    iterations_min: Option<i64>,
-    iterations_max: Option<i64>,
-    store: Option<&Arc<SessionStore>>,
-) -> (&'static str, String) {
-    let Some(store) = store else {
-        return super::store_unavailable();
-    };
-    match store.list_forge_runs(limit).await {
-        Ok(rows) => {
-            let cutoff_micros = since_minutes.map(|m| {
-                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
-            });
-            let arr: Vec<serde_json::Value> = rows
-                .into_iter()
-                .filter(|r| match cutoff_micros {
-                    Some(c) => r.started_at >= c,
-                    None => true,
-                })
-                .filter(|r| match status {
-                    Some(want) => r.status == want,
-                    None => true,
-                })
-                .filter(|r| match score_min {
-                    Some(threshold) => r.final_score.is_some_and(|s| s >= threshold),
-                    None => true,
-                })
-                .filter(|r| match score_max {
-                    Some(threshold) => r.final_score.is_some_and(|s| s <= threshold),
-                    None => true,
-                })
-                .filter(|r| match skill {
-                    Some(want) => r.skill_name == want,
-                    None => true,
-                })
-                .filter(|r| match has_candidate {
-                    Some(true) => r.candidate_version.is_some(),
-                    Some(false) => r.candidate_version.is_none(),
-                    None => true,
-                })
-                .filter(|r| match iterations_min {
-                    Some(min) => r.iterations >= min,
-                    None => true,
-                })
-                .filter(|r| match iterations_max {
-                    Some(max) => r.iterations <= max,
-                    None => true,
-                })
-                .map(|r| {
-                    // Mirror forge_run_show_response so list +
-                    // single-row views agree on the elapsed math:
-                    // running rows count from now, ended rows
-                    // count from ended_at - started_at.
-                    let now_micros = chrono::Utc::now().timestamp_micros();
-                    let end_micros = r.ended_at.unwrap_or(now_micros);
-                    let elapsed_seconds = ((end_micros - r.started_at) / 1_000_000).max(0);
-                    serde_json::json!({
-                        "id": hex::encode(&r.id),
-                        "skill_name": r.skill_name,
-                        "started_at": r.started_at,
-                        "ended_at": r.ended_at,
-                        "elapsed_seconds": elapsed_seconds,
-                        "base_version": r.base_version,
-                        "candidate_version": r.candidate_version,
-                        "iterations": r.iterations,
-                        "spend_usd_micros": r.spend_usd_micros,
-                        "final_score": r.final_score,
-                        "status": r.status,
-                    })
-                })
-                .collect();
-            (
-                "200 OK",
-                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
-            )
-        }
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"list_forge_runs: {e}\"}}"),
-        ),
-    }
-}
+// `forge_runs_response` lives in `super::routes_forge` to keep
+// this file under the 500-LOC budget.
+pub(super) use super::routes_forge::forge_runs_response;
 
 /// `GET /memory/<id>` — fetch a memory entry by id (mirrors
 /// `argo memory view <id>`). Returns 404 when no entry matches,
@@ -392,61 +296,9 @@ pub(super) async fn skill_show_response(
     }
 }
 
-/// `GET /forge/runs/<id>` — fetch one forge_run row by id (mirrors
-/// `argo forge runs show <id>`). Returns 404 when no row matches,
-/// 503 when the store is unavailable, 400 when the id isn't a
-/// valid UUID.
-pub(super) async fn forge_run_show_response(
-    raw_id: &str,
-    store: Option<&Arc<SessionStore>>,
-) -> (&'static str, String) {
-    let Some(store) = store else {
-        return super::store_unavailable();
-    };
-    let id = match uuid::Uuid::parse_str(raw_id) {
-        Ok(u) => u,
-        Err(e) => {
-            return (
-                "400 Bad Request",
-                format!("{{\"error\":\"invalid forge run id: {e}\"}}"),
-            );
-        }
-    };
-    match store.get_forge_run(id).await {
-        Ok(Some(r)) => {
-            // For running rows: time-since-start; for ended
-            // rows: ended_at - started_at. Both in whole seconds.
-            let now_micros = chrono::Utc::now().timestamp_micros();
-            let end_micros = r.ended_at.unwrap_or(now_micros);
-            let elapsed_seconds = ((end_micros - r.started_at) / 1_000_000).max(0);
-            let body = serde_json::json!({
-                "id": hex::encode(&r.id),
-                "skill_name": r.skill_name,
-                "started_at": r.started_at,
-                "ended_at": r.ended_at,
-                "elapsed_seconds": elapsed_seconds,
-                "base_version": r.base_version,
-                "candidate_version": r.candidate_version,
-                "iterations": r.iterations,
-                "spend_usd_micros": r.spend_usd_micros,
-                "final_score": r.final_score,
-                "status": r.status,
-            });
-            (
-                "200 OK",
-                serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()),
-            )
-        }
-        Ok(None) => (
-            "404 Not Found",
-            format!("{{\"error\":\"no forge run with id {raw_id}\"}}"),
-        ),
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"get_forge_run: {e}\"}}"),
-        ),
-    }
-}
+// `forge_run_show_response` lives in `super::routes_forge` to
+// keep this file under the 500-LOC budget.
+pub(super) use super::routes_forge::forge_run_show_response;
 
 /// `GET /routes` — discovery endpoint listing every route the
 /// gateway dispatches, with a one-line description per row.

@@ -25,6 +25,7 @@ pub mod route;
 pub mod session;
 mod session_aggregates;
 mod session_bisect;
+mod session_diff;
 pub mod session_replay;
 mod session_resolve;
 mod session_skills;
