@@ -37,7 +37,9 @@ use super::routes_post_writes::{
     forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
     workspace_init_response,
 };
-use super::routes_session::{session_show_response, session_spend_response};
+use super::routes_session::{
+    session_show_response, session_spend_response, session_spend_total_response,
+};
 use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
@@ -190,6 +192,9 @@ pub(super) async fn dispatch_route(
     }
     if let Some(rest) = req.strip_prefix("GET /sessions/") {
         if let Some((sid, tail)) = rest.split_once('/') {
+            if tail.starts_with("spend/total ") {
+                return session_spend_total_response(sid, store).await;
+            }
             if tail.starts_with("spend ") {
                 return session_spend_response(sid, store).await;
             }

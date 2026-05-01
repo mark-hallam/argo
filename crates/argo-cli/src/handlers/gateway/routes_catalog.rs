@@ -15,6 +15,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>&since-minutes=M)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
+        ("GET", "/sessions/<id>/spend/total", "single-number total for one session"),
         ("GET", "/skills", "active skills (?include-superseded=true for full history)"),
         ("GET", "/skills/<name>", "one skill view (full body)"),
         ("GET", "/skills/<name>/versions", "supersede chain for one skill name"),

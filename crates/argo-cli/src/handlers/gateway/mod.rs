@@ -115,6 +115,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /sessions/<uuid>/messages[?limit=N&role=user&since-minutes=M] → messages on the session");
     eprintln!("  GET  /sessions/<uuid>/messages/last → just the last message");
     eprintln!("  GET  /sessions/<uuid>/spend → per-session spend ledger rows + total");
+    eprintln!("  GET  /sessions/<uuid>/spend/total → single-number total for one session");
     eprintln!("  POST /sessions → create a session row ({{model, provider, title?}})");
     eprintln!("  POST /sessions/<uuid>/messages → append a message ({{role, content}})");
     eprintln!("  POST /sessions/<uuid>/runs → run one agent turn ({{user?, stream:false, max_tool_rounds?}})");

@@ -7,6 +7,34 @@ use std::sync::Arc;
 
 use super::store_unavailable;
 
+/// `GET /sessions/<id>/spend/total` — single-number total
+/// spend for one session, in USD micros. Convenient for
+/// dashboards that only want the figure (no ledger rows).
+pub(super) async fn session_spend_total_response(
+    sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let total = super::session_spend_micros(store, id).await.unwrap_or(0);
+    (
+        "200 OK",
+        format!(
+            "{{\"session_id\":\"{sid}\",\"total_usd_micros\":{total}}}"
+        ),
+    )
+}
+
 pub(super) async fn session_spend_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
