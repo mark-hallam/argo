@@ -258,6 +258,42 @@ pub(super) async fn session_end_all_response(
     ("200 OK", format!("{{\"ended\":{ended}}}"))
 }
 
+/// `POST /sessions/<id>/reopen` — clear `ended_at` back to
+/// NULL. Inverse of `/end`. Idempotent. Returns 200 +
+/// `{reopened:true, session}`; 400 on bad uuid; 404 when no
+/// row matches.
+pub(super) async fn session_reopen_response(
+    raw_sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let sid = match uuid::Uuid::parse_str(raw_sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    match store.reopen_session(sid).await {
+        Ok(0) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no session with id {raw_sid}\"}}"),
+        ),
+        Ok(_) => (
+            "200 OK",
+            format!("{{\"reopened\":true,\"session\":\"{raw_sid}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"reopen_session: {e}\"}}"),
+        ),
+    }
+}
+
 /// `POST /sessions/<id>/end` — mark the session ended (stamps
 /// `ended_at`). Idempotent. Returns 200 + `{ended:true,
 /// session}`; 400 on bad uuid; 404 when no row matches.

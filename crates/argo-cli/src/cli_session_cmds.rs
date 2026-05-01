@@ -163,6 +163,8 @@ pub enum SessionCmd {
     },
     /// Mark a session ended (stamps `ended_at`). Idempotent.
     End { id: String },
+    /// Reopen an ended session (clears `ended_at`). Idempotent.
+    Reopen { id: String },
     /// Bulk-mark every open session as ended. Without
     /// `--older-than-minutes`, the operator-emergency-stop
     /// behaviour applies (every open session gets ended).

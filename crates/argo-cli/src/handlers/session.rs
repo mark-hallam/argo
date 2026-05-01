@@ -80,6 +80,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         }
         SessionCmd::End { id } => end_session(&id).await,
         SessionCmd::EndAll { older_than_minutes } => end_all(older_than_minutes).await,
+        SessionCmd::Reopen { id } => reopen_session(&id).await,
         SessionCmd::Replay {
             id,
             model,
@@ -91,6 +92,26 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
 }
 
 use super::session_diff::diff_sessions;
+
+/// `argo session reopen <id>` — clears `ended_at` back to NULL.
+/// Inverse of `argo session end`. Idempotent.
+async fn reopen_session(raw: &str) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let id = uuid::Uuid::parse_str(raw)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let n = store.reopen_session(SessionId(id)).await?;
+    if n == 0 {
+        println!("(session {raw} not found)");
+    } else {
+        println!("reopened {raw}");
+    }
+    Ok(())
+}
 
 /// `argo session end <id>` — stamps `ended_at` on the session
 /// row. Idempotent; ending an already-ended session is a no-op.

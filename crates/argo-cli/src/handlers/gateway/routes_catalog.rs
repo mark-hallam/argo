@@ -73,6 +73,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/sessions/<id>/delete", "delete a session + dependent rows"),
         ("POST", "/sessions/<id>/title", "rename a session ({title}, empty clears)"),
         ("POST", "/sessions/<id>/end", "mark a session ended (stamps ended_at)"),
+        ("POST", "/sessions/<id>/reopen", "clear ended_at — inverse of /end"),
         ("POST", "/sessions/end-all", "mark open sessions ended (?older-than-minutes=N for stale-only)"),
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry"),

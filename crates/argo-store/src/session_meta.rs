@@ -29,6 +29,15 @@ impl SessionStore {
             .map_err(|e| ArgoError::Provider(format!("end_session: {e}")))
     }
 
+    /// Mark a session reopened — clears `ended_at` back to
+    /// NULL. Inverse of [`end_session`]. Returns rows affected
+    /// (0 when the session id has no row).
+    pub async fn reopen_session(&self, sid: SessionId) -> StoreResult<u64> {
+        reopen_session(self.pool(), sid)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("reopen_session: {e}")))
+    }
+
     /// Update a judge_record's verdict (and optionally its
     /// reason) in place. Returns
     /// `Some((session_id, old_verdict))` for the row that was
@@ -82,6 +91,18 @@ pub(super) async fn end_session(
 ) -> Result<u64, sqlx::Error> {
     let res = sqlx::query("UPDATE session SET ended_at = ? WHERE id = ?")
         .bind(chrono::Utc::now().timestamp_micros())
+        .bind(sid.0.as_bytes().as_slice())
+        .execute(pool)
+        .await?;
+    Ok(res.rows_affected())
+}
+
+/// Inverse of [`end_session`]: clear `ended_at` back to NULL.
+pub(super) async fn reopen_session(
+    pool: &Pool<Sqlite>,
+    sid: SessionId,
+) -> Result<u64, sqlx::Error> {
+    let res = sqlx::query("UPDATE session SET ended_at = NULL WHERE id = ?")
         .bind(sid.0.as_bytes().as_slice())
         .execute(pool)
         .await?;
