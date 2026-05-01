@@ -440,6 +440,7 @@ pub(super) async fn audit_session_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
     kind: Option<&str>,
+    since_minutes: Option<i64>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -457,6 +458,11 @@ pub(super) async fn audit_session_response(
         Ok(mut rows) => {
             if let Some(want) = kind {
                 rows.retain(|r| r.kind == want);
+            }
+            if let Some(m) = since_minutes {
+                let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m))
+                    .timestamp_micros();
+                rows.retain(|r| r.created_at_micros >= cutoff_micros);
             }
             (
                 "200 OK",
