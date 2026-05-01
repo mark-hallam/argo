@@ -55,20 +55,16 @@ pub(crate) async fn run(
             // (e.g. via `argo cron add`) appear without the
             // user having to close + re-open with `K`.
             if state.cron_overlay.is_some() {
-                let mut names: Vec<String> = Vec::new();
-                let dir = cwd.join("cron").join("jobs");
-                if let Ok(entries) = std::fs::read_dir(&dir) {
-                    for entry in entries.flatten() {
-                        let p = entry.path();
-                        if p.extension().is_some_and(|x| x == "json") {
-                            if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
-                                names.push(stem.to_string());
-                            }
-                        }
-                    }
-                }
-                names.sort();
-                state.cron_overlay = Some(names);
+                state.cron_overlay = Some(scan_dir_basenames(&cwd.join("cron").join("jobs"), "json"));
+            }
+            // Same for the providers overlay — when a manifest
+            // appears in manifests/providers/*.toml externally
+            // (`argo provider add`), it shows up next tick.
+            if state.providers_overlay.is_some() {
+                state.providers_overlay = Some(scan_dir_basenames(
+                    &cwd.join("manifests").join("providers"),
+                    "toml",
+                ));
             }
             last_refresh = std::time::Instant::now();
         }
@@ -508,48 +504,16 @@ pub(crate) async fn run(
                     state.cost_overlay = Some(snap);
                 }
                 KeyCode::Char('K') => {
-                    // Read cron/jobs/*.json basenames from cwd.
-                    let mut names: Vec<String> = Vec::new();
-                    if let Ok(cwd) = std::env::current_dir() {
-                        let dir = cwd.join("cron").join("jobs");
-                        if let Ok(entries) = std::fs::read_dir(&dir) {
-                            for entry in entries.flatten() {
-                                let p = entry.path();
-                                if p.extension().is_some_and(|x| x == "json") {
-                                    if let Some(stem) =
-                                        p.file_stem().and_then(|s| s.to_str())
-                                    {
-                                        names.push(stem.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    names.sort();
-                    state.cron_overlay = Some(names);
+                    state.cron_overlay = Some(scan_dir_basenames(
+                        &cwd.join("cron").join("jobs"),
+                        "json",
+                    ));
                 }
                 KeyCode::Char('P') => {
-                    // Read manifests/providers/*.toml basenames
-                    // from cwd. Errors / missing dir → empty
-                    // list (overlay says "no manifests found").
-                    let mut ids: Vec<String> = Vec::new();
-                    if let Ok(cwd) = std::env::current_dir() {
-                        let dir = cwd.join("manifests").join("providers");
-                        if let Ok(entries) = std::fs::read_dir(&dir) {
-                            for entry in entries.flatten() {
-                                let p = entry.path();
-                                if p.extension().is_some_and(|x| x == "toml") {
-                                    if let Some(stem) =
-                                        p.file_stem().and_then(|s| s.to_str())
-                                    {
-                                        ids.push(stem.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    ids.sort();
-                    state.providers_overlay = Some(ids);
+                    state.providers_overlay = Some(scan_dir_basenames(
+                        &cwd.join("manifests").join("providers"),
+                        "toml",
+                    ));
                 }
                 KeyCode::Char('A') => {
                     // Audit chain for the selected session. No
@@ -698,6 +662,27 @@ pub(crate) async fn run(
             }
         }
     }
+}
+
+/// Walk one directory and return every basename whose extension
+/// matches `ext`, sorted lexically. Errors / missing dir → empty
+/// vec (so an overlay just shows nothing instead of erroring out).
+/// Shared between the K-key open path and the 1s tick refresh
+/// for both the cron + providers overlays.
+fn scan_dir_basenames(dir: &std::path::Path, ext: &str) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension().is_some_and(|x| x == ext) {
+                if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+                    names.push(stem.to_string());
+                }
+            }
+        }
+    }
+    names.sort();
+    names
 }
 
 /// Choose what `y` copies: prefer the most recent message body,
