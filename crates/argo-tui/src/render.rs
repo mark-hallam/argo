@@ -269,7 +269,14 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
     // Agent-status line takes priority over keymap so the user
     // sees an in-flight turn even when filter/composer are idle.
     if state.agent_running() {
-        let p = Paragraph::new("● agent running… (assistant reply will appear above)");
+        let n = state.live_events.len();
+        let body = if n == 0 {
+            "● agent running… (assistant reply will appear above)".to_string()
+        } else {
+            format!("● agent running… ({n} live event{plural} so far)",
+                plural = if n == 1 { "" } else { "s" })
+        };
+        let p = Paragraph::new(body);
         frame.render_widget(p, area);
         return;
     }
