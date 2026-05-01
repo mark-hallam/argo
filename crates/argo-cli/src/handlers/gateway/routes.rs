@@ -7,7 +7,7 @@
 use super::routes_meta::{
     costs_response, costs_total_response, db_stats_response,
     forge_runs_response, memory_show_response, routes_response, search_response,
-    skill_show_response, skill_versions_response, tool_show_response, tools_response,
+    skill_versions_response, tool_show_response, tools_response,
 };
 use super::routes_providers::{
     provider_models_response, providers_response,
@@ -108,8 +108,20 @@ pub(super) async fn dispatch_route(
                 return skill_versions_response(name, store).await;
             }
         }
-        if let Some((name, _)) = rest.split_once(' ') {
-            return skill_show_response(name, store).await;
+        if let Some((name_with_query, _)) = rest.split_once(' ') {
+            let (name, query) = match name_with_query.split_once('?') {
+                Some((n, q)) => (n, Some(q)),
+                None => (name_with_query, None),
+            };
+            let format = query
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+                .map(str::to_string);
+            return super::routes_meta::skill_show_response_with_format(
+                name,
+                store,
+                format.as_deref(),
+            )
+            .await;
         }
     }
     if req.starts_with("GET /memory/count ") || req.starts_with("GET /memory/count?") {

@@ -300,9 +300,16 @@ pub(super) async fn skill_versions_response(
     }
 }
 
-pub(super) async fn skill_show_response(
+/// `GET /skills/<name>[?format=markdown]` — single skill row
+/// with body. Default JSON shape (`{id, name, version,
+/// description, lock, hash, body, created_at}`). With
+/// `?format=markdown`, reconstructs the original SKILL.md
+/// document (YAML frontmatter + body) — paste-able straight
+/// into `argo skill install`.
+pub(super) async fn skill_show_response_with_format(
     name: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -310,6 +317,24 @@ pub(super) async fn skill_show_response(
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     match skills.find_active_by_name(name).await {
         Ok(Some(s)) => {
+            if matches!(format, Some("markdown")) {
+                let mut out = String::from("---\n");
+                out.push_str(&format!("name: {}\n", s.frontmatter.name));
+                out.push_str(&format!("version: \"{}\"\n", s.frontmatter.version));
+                out.push_str(&format!(
+                    "description: {}\n",
+                    s.frontmatter.description
+                ));
+                out.push_str(&format!("lock: {:?}\n", s.frontmatter.lock));
+                out.push_str("provenance:\n");
+                out.push_str(&format!("  hash: sha256-{}\n", hex::encode(s.hash)));
+                out.push_str("---\n\n");
+                out.push_str(&s.body);
+                if !s.body.ends_with('\n') {
+                    out.push('\n');
+                }
+                return ("200 OK", out);
+            }
             let body = serde_json::json!({
                 "id": s.id.0.to_string(),
                 "name": s.frontmatter.name,

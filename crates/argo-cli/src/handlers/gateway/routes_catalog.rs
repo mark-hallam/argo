@@ -21,7 +21,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/<id>/spend/total", "single-number total for one session"),
         ("GET", "/skills", "active skills (?include-superseded&name-contains&lock&body-contains&limit)"),
         ("GET", "/skills/count", "count of active skills (?include-superseded=true)"),
-        ("GET", "/skills/<name>", "one skill view (full body)"),
+        ("GET", "/skills/<name>", "one skill view (full body; ?format=markdown reconstructs the SKILL.md doc)"),
         ("GET", "/skills/<name>/versions", "supersede chain for one skill name"),
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry ({file, body})"),
