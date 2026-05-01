@@ -70,8 +70,13 @@ pub enum DbCmd {
     /// Show current schema version + per-table row counts.
     Status {
         /// Output as a single JSON object.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Drop sessions whose `started_at` is older than `--older-than-days`
     /// days. Pass `--force` to actually delete; otherwise dry-runs.

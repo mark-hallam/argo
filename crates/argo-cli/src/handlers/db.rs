@@ -12,7 +12,7 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     match cmd {
-        DbCmd::Status { json } => {
+        DbCmd::Status { json, format } => {
             let v = store.schema_version().await?;
             let stats = store.db_stats().await?;
             let meta = std::fs::metadata(&db).ok();
@@ -23,41 +23,72 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_micros() as i64)
                 .unwrap_or(0);
-            if json {
-                let payload = serde_json::json!({
-                    "schema_version": v,
-                    "db_path": db.display().to_string(),
-                    "file_bytes": file_bytes,
-                    "last_modified_micros": last_modified_micros,
-                    "rows": {
-                        "sessions":          stats.sessions,
-                        "messages":          stats.messages,
-                        "tool_calls":        stats.tool_calls,
-                        "audit_records":     stats.audit_rows,
-                        "routing_decisions": stats.routing_decisions,
-                        "judge_records":     stats.judge_records,
-                        "memory_entries":    stats.memory_entries,
-                        "skills":            stats.skills,
-                        "forge_runs":        stats.forge_runs,
-                        "spend_ledger":      stats.spend_rows,
-                    },
-                });
-                println!("{}", serde_json::to_string(&payload).unwrap_or_default());
-            } else {
-                println!("schema_version: {v}");
-                println!("db_path:        {}", db.display());
-                println!("file size:      {file_bytes} bytes");
-                println!("rows:");
-                println!("  sessions:           {:>8}", stats.sessions);
-                println!("  messages:           {:>8}", stats.messages);
-                println!("  tool_calls:         {:>8}", stats.tool_calls);
-                println!("  audit_records:      {:>8}", stats.audit_rows);
-                println!("  routing_decisions:  {:>8}", stats.routing_decisions);
-                println!("  judge_records:      {:>8}", stats.judge_records);
-                println!("  memory_entries:     {:>8}", stats.memory_entries);
-                println!("  skills:             {:>8}", stats.skills);
-                println!("  forge_runs:         {:>8}", stats.forge_runs);
-                println!("  spend_ledger:       {:>8}", stats.spend_rows);
+            let pick = if json { "json" } else { format.as_str() };
+            match pick {
+                "json" => {
+                    let payload = serde_json::json!({
+                        "schema_version": v,
+                        "db_path": db.display().to_string(),
+                        "file_bytes": file_bytes,
+                        "last_modified_micros": last_modified_micros,
+                        "rows": {
+                            "sessions":          stats.sessions,
+                            "messages":          stats.messages,
+                            "tool_calls":        stats.tool_calls,
+                            "audit_records":     stats.audit_rows,
+                            "routing_decisions": stats.routing_decisions,
+                            "judge_records":     stats.judge_records,
+                            "memory_entries":    stats.memory_entries,
+                            "skills":            stats.skills,
+                            "forge_runs":        stats.forge_runs,
+                            "spend_ledger":      stats.spend_rows,
+                        },
+                    });
+                    println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+                }
+                "markdown" => {
+                    println!("# Database status");
+                    println!();
+                    println!("- **Schema**: v{v}");
+                    println!("- **Path**: `{}`", db.display());
+                    println!("- **Size**: {file_bytes} bytes");
+                    println!();
+                    println!("## Rows per table");
+                    println!();
+                    println!("| table | rows |");
+                    println!("| --- | ---: |");
+                    println!("| `sessions` | {} |", stats.sessions);
+                    println!("| `messages` | {} |", stats.messages);
+                    println!("| `tool_calls` | {} |", stats.tool_calls);
+                    println!("| `audit_record` | {} |", stats.audit_rows);
+                    println!("| `routing_decisions` | {} |", stats.routing_decisions);
+                    println!("| `judge_record` | {} |", stats.judge_records);
+                    println!("| `memory_entries` | {} |", stats.memory_entries);
+                    println!("| `skills` | {} |", stats.skills);
+                    println!("| `forge_run` | {} |", stats.forge_runs);
+                    println!("| `spend_ledger` | {} |", stats.spend_rows);
+                }
+                "text" => {
+                    println!("schema_version: {v}");
+                    println!("db_path:        {}", db.display());
+                    println!("file size:      {file_bytes} bytes");
+                    println!("rows:");
+                    println!("  sessions:           {:>8}", stats.sessions);
+                    println!("  messages:           {:>8}", stats.messages);
+                    println!("  tool_calls:         {:>8}", stats.tool_calls);
+                    println!("  audit_records:      {:>8}", stats.audit_rows);
+                    println!("  routing_decisions:  {:>8}", stats.routing_decisions);
+                    println!("  judge_records:      {:>8}", stats.judge_records);
+                    println!("  memory_entries:     {:>8}", stats.memory_entries);
+                    println!("  skills:             {:>8}", stats.skills);
+                    println!("  forge_runs:         {:>8}", stats.forge_runs);
+                    println!("  spend_ledger:       {:>8}", stats.spend_rows);
+                }
+                other => {
+                    return Err(argo_types::ArgoError::Provider(format!(
+                        "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+                    )));
+                }
             }
         }
         DbCmd::MigrateUp => {
