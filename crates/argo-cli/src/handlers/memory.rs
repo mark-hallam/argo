@@ -44,7 +44,11 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             )
             .await
         }
-        MemoryCmd::Count { file, json } => count(&memory, workspace, file.as_deref(), json).await,
+        MemoryCmd::Count {
+            file,
+            since_minutes,
+            json,
+        } => count(&memory, workspace, file.as_deref(), since_minutes, json).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Verify { entry, all } => {
@@ -88,12 +92,15 @@ async fn count(
     memory: &MemoryStore,
     workspace: argo_types::WorkspaceId,
     only: Option<&str>,
+    since_minutes: Option<i64>,
     json: bool,
 ) -> ArgoResult<()> {
     let only_file = match only {
         None => None,
         Some(s) => Some(parse_memory_file(s)?),
     };
+    let cutoff = since_minutes
+        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut total = 0_usize;
     let all = [
         MemoryFile::Memory,
@@ -108,7 +115,11 @@ async fn count(
             }
         }
         let entries = memory.list_active(workspace, file).await?;
-        total += entries.len();
+        let n = match cutoff {
+            Some(c) => entries.iter().filter(|e| e.learned_at >= c).count(),
+            None => entries.len(),
+        };
+        total += n;
     }
     if json {
         let payload = serde_json::json!({
