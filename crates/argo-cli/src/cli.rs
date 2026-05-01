@@ -6,6 +6,8 @@
 mod cli_subcommands;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
+#[path = "cli_workspace_cmds.rs"]
+pub(crate) mod cli_workspace_cmds;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
 
