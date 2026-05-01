@@ -13,7 +13,15 @@
 //! onto the rows already in the store.
 use argo_store::SessionStore;
 use std::fmt::Write;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use std::time::Instant;
+
+/// Gateway boot time. Initialised on first /metrics scrape so
+/// `argo_uptime_seconds` reports time-since-first-scrape rather
+/// than time-since-startup. Close enough for a Prometheus
+/// uptime gauge — Prometheus' own scrape resets capture the
+/// same signal.
+static BOOT_TIME: OnceLock<Instant> = OnceLock::new();
 
 /// Returns the rendered exposition body. Errors from any single
 /// query are surfaced as `# error: …` comment lines + a `0`
@@ -26,6 +34,14 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
          # TYPE argo_build_info gauge\n\
          argo_build_info{{version=\"{}\"}} 1",
         env!("CARGO_PKG_VERSION")
+    );
+    let boot = BOOT_TIME.get_or_init(Instant::now);
+    let _ = writeln!(
+        out,
+        "\n# HELP argo_uptime_seconds Seconds since the gateway started serving /metrics\n\
+         # TYPE argo_uptime_seconds gauge\n\
+         argo_uptime_seconds {}",
+        boot.elapsed().as_secs()
     );
 
     let Some(store) = store else {
