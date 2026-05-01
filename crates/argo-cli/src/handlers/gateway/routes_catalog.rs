@@ -32,6 +32,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/costs/by-session", "spend grouped by session_id"),
         ("GET", "/providers", "workspace provider manifests"),
         ("GET", "/providers/<id>", "one provider manifest by basename"),
+        ("GET", "/providers/<id>/models", "just the [[models]] array for one provider"),
         ("GET", "/tools", "registered in-core tools"),
         ("GET", "/tools/<name>", "one tool by name"),
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),

@@ -143,6 +143,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
     eprintln!("  GET  /providers → workspace provider manifests + their model lists");
     eprintln!("  GET  /providers/<id> → one provider manifest by basename");
+    eprintln!("  GET  /providers/<id>/models → just the [[models]] array");
     eprintln!("  GET  /tools    → registered in-core tools + JSON-Schema parameters");
     eprintln!("  GET  /tools/<name> → one tool's name + description + parameters");
     eprintln!("  GET  /search?q=…[&limit=N&session=<id>] → FTS5 hits across the message corpus");

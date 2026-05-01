@@ -9,7 +9,9 @@ use super::routes_meta::{
     memory_show_response, routes_response, search_response, skill_show_response,
     skill_versions_response, tool_show_response, tools_response,
 };
-use super::routes_providers::{provider_show_response, providers_response};
+use super::routes_providers::{
+    provider_models_response, provider_show_response, providers_response,
+};
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_post::{
@@ -138,6 +140,13 @@ pub(super) async fn dispatch_route(
         return providers_response().await;
     }
     if let Some(rest) = req.strip_prefix("GET /providers/") {
+        // `/providers/<id>/models` takes priority over the bare
+        // `/providers/<id>` manifest view.
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("models ") {
+                return provider_models_response(id).await;
+            }
+        }
         if let Some((id, _)) = rest.split_once(' ') {
             return provider_show_response(id).await;
         }

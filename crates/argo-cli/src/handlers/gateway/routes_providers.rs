@@ -54,6 +54,34 @@ pub(super) async fn providers_response() -> (&'static str, String) {
     )
 }
 
+/// `GET /providers/<id>/models` — just the `[[models]]` array
+/// from one provider's manifest. 200 + JSON array of
+/// `{id, context_window, price_per_1k_in, price_per_1k_out,
+/// tier}`. 404 when manifest missing; 400 on path-traversal.
+pub(super) async fn provider_models_response(raw_id: &str) -> (&'static str, String) {
+    let (status, body) = provider_show_response(raw_id).await;
+    if !status.starts_with("200") {
+        return (status, body);
+    }
+    let parsed: serde_json::Value = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"reparse manifest JSON: {e}\"}}"),
+            );
+        }
+    };
+    let models = parsed
+        .get("models")
+        .cloned()
+        .unwrap_or_else(|| serde_json::Value::Array(Vec::new()));
+    (
+        "200 OK",
+        serde_json::to_string(&models).unwrap_or_else(|_| "[]".to_string()),
+    )
+}
+
 /// `GET /providers/<id>` — fetch one provider manifest by
 /// basename. Returns 200 + manifest JSON; 404 when no
 /// `manifests/providers/<id>.toml` exists; 400 on path-
