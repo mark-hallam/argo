@@ -161,6 +161,17 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Mark a session ended (stamps `ended_at`). Idempotent.
+    End { id: String },
+    /// Bulk-mark every open session as ended. Without
+    /// `--older-than-minutes`, the operator-emergency-stop
+    /// behaviour applies (every open session gets ended).
+    EndAll {
+        /// Only end sessions whose `started_at` is older than
+        /// N minutes ago — periodic cleanup of stale sessions.
+        #[arg(long)]
+        older_than_minutes: Option<i64>,
+    },
     Bisect {
         id: String,
         hypothesis: String,

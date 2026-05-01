@@ -78,6 +78,8 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Bisect { id, hypothesis } => {
             super::session_bisect::run(&id, &hypothesis).await
         }
+        SessionCmd::End { id } => end_session(&id).await,
+        SessionCmd::EndAll { older_than_minutes } => end_all(older_than_minutes).await,
         SessionCmd::Replay {
             id,
             model,
@@ -89,6 +91,58 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
 }
 
 use super::session_diff::diff_sessions;
+
+/// `argo session end <id>` — stamps `ended_at` on the session
+/// row. Idempotent; ending an already-ended session is a no-op.
+async fn end_session(raw: &str) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let id = uuid::Uuid::parse_str(raw)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let n = store.end_session(SessionId(id)).await?;
+    if n == 0 {
+        println!("(session {raw} already ended or not found)");
+    } else {
+        println!("ended {raw}");
+    }
+    Ok(())
+}
+
+/// `argo session end-all [--older-than-minutes N]` — bulk-end
+/// open sessions. Without the filter, every open session
+/// (ended_at IS NULL) is ended; with the filter, only sessions
+/// whose started_at is older than N minutes ago. Mirrors the
+/// gateway's POST /sessions/end-all (#438).
+async fn end_all(older_than_minutes: Option<i64>) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let rows = store.list_all_sessions(10_000).await?;
+    let cutoff = older_than_minutes
+        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let mut ended: u64 = 0;
+    for s in rows
+        .into_iter()
+        .filter(|s| s.ended_at.is_none())
+        .filter(|s| match cutoff {
+            Some(c) => s.started_at < c,
+            None => true,
+        })
+    {
+        if let Ok(n) = store.end_session(SessionId(s.id.0)).await {
+            ended += n;
+        }
+    }
+    println!("ended {ended} session(s)");
+    Ok(())
+}
 
 async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
     let cwd =
