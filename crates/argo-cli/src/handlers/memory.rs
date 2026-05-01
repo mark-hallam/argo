@@ -25,7 +25,23 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             file,
             sort_by,
             limit,
-        } => list(&memory, workspace, json, file.as_deref(), &sort_by, limit).await,
+            since_minutes,
+            lock,
+            body_contains,
+        } => {
+            list(
+                &memory,
+                workspace,
+                json,
+                file.as_deref(),
+                &sort_by,
+                limit,
+                since_minutes,
+                lock.as_deref(),
+                body_contains.as_deref(),
+            )
+            .await
+        }
         MemoryCmd::Count { file, json } => count(&memory, workspace, file.as_deref(), json).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
@@ -104,6 +120,7 @@ async fn count(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn list(
     memory: &MemoryStore,
     workspace: argo_types::WorkspaceId,
@@ -111,11 +128,28 @@ async fn list(
     only: Option<&str>,
     sort_by: &str,
     limit: Option<u32>,
+    since_minutes: Option<i64>,
+    lock: Option<&str>,
+    body_contains: Option<&str>,
 ) -> ArgoResult<()> {
     let only_file = match only {
         None => None,
         Some(s) => Some(parse_memory_file(s)?),
     };
+    let lock_filter = match lock {
+        None => None,
+        Some("none") => Some(Lock::None),
+        Some("user-protected") => Some(Lock::UserProtected),
+        Some("content-locked") => Some(Lock::ContentLocked),
+        Some(other) => {
+            return Err(ArgoError::Provider(format!(
+                "unknown --lock '{other}' — use none|user-protected|content-locked"
+            )));
+        }
+    };
+    let cutoff = since_minutes
+        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let needle = body_contains.map(str::to_lowercase);
     let all = [
         MemoryFile::Memory,
         MemoryFile::User,
@@ -131,7 +165,24 @@ async fn list(
             }
         }
         let entries = memory.list_active(workspace, file).await?;
-        all_entries.extend(entries);
+        for e in entries {
+            if let Some(c) = cutoff {
+                if e.learned_at < c {
+                    continue;
+                }
+            }
+            if let Some(want) = lock_filter {
+                if e.lock != want {
+                    continue;
+                }
+            }
+            if let Some(n) = needle.as_deref() {
+                if !e.body.to_lowercase().contains(n) {
+                    continue;
+                }
+            }
+            all_entries.push(e);
+        }
     }
     match sort_by {
         "learned-at" => {

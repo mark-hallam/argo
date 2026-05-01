@@ -240,6 +240,18 @@ pub enum MemoryCmd {
         /// most-recent / biggest entries.
         #[arg(long)]
         limit: Option<u32>,
+        /// Filter to entries learned within this many recent
+        /// minutes. Mirrors the gateway's `?since-minutes=N`.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Filter by lock status: `none` / `user-protected` /
+        /// `content-locked`. Mirrors the gateway's `?lock=…`.
+        #[arg(long)]
+        lock: Option<String>,
+        /// Case-insensitive substring filter on the entry body.
+        /// Mirrors the gateway's `?body-contains=…`.
+        #[arg(long)]
+        body_contains: Option<String>,
     },
     View {
         entry: String,
