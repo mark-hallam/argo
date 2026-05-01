@@ -146,15 +146,18 @@ pub(super) async fn search_response(
     }
 }
 
-/// `GET /forge/runs[?limit&since-minutes&status&score-min&skill]`
-/// — list recorded forge optimization runs. All four query
-/// flags are AND'd together.
+/// `GET /forge/runs[?limit&since-minutes&status&score-min&skill&has-candidate]`
+/// — list recorded forge optimization runs. All flags AND'd
+/// together. `has-candidate=true` keeps only rows whose
+/// `candidate_version` is non-NULL (i.e. produced at least
+/// one iteration's worth of mutation).
 pub(super) async fn forge_runs_response(
     limit: u32,
     since_minutes: Option<i64>,
     status: Option<&str>,
     score_min: Option<f64>,
     skill: Option<&str>,
+    has_candidate: Option<bool>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -181,6 +184,11 @@ pub(super) async fn forge_runs_response(
                 })
                 .filter(|r| match skill {
                     Some(want) => r.skill_name == want,
+                    None => true,
+                })
+                .filter(|r| match has_candidate {
+                    Some(true) => r.candidate_version.is_some(),
+                    Some(false) => r.candidate_version.is_none(),
                     None => true,
                 })
                 .map(|r| {

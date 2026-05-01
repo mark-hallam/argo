@@ -209,12 +209,15 @@ pub(super) async fn dispatch_route(
         let status = parse_query_kv(tail, "status");
         let score_min = parse_query_kv(tail, "score-min").and_then(|v| v.parse::<f64>().ok());
         let skill = parse_query_kv(tail, "skill");
+        let has_candidate = parse_query_kv(tail, "has-candidate")
+            .map(|v| v == "true" || v == "1");
         return forge_runs_response(
             limit,
             since,
             status.as_deref(),
             score_min,
             skill.as_deref(),
+            has_candidate,
             store,
         )
         .await;
