@@ -65,8 +65,14 @@ pub enum GatewayCmd {
     /// N` truncates to the first N rows; `--json` for the
     /// machine-readable form.
     Routes {
+        /// Output as JSON. Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (renders the catalog as a markdown table — paste-able
+        /// into READMEs). `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         #[arg(long)]
         method: Option<String>,
         /// Case-insensitive substring filter on both path and
@@ -94,8 +100,13 @@ pub enum PluginCmd {
     /// List plugins configured under `[plugin].auto_load`.
     List {
         /// Output as a JSON array of strings for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     Install { source: String },
     Enable { name: String },
@@ -139,7 +150,15 @@ pub enum ProviderCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum ModelCmd {
-    List,
+    List {
+        /// Output as JSON. Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
     Set { model: String },
     Test { model: String },
 }

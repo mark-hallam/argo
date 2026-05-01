@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 pub fn run(cmd: ModelCmd) -> ArgoResult<()> {
     match cmd {
-        ModelCmd::List => list(),
+        ModelCmd::List { json, format } => list(json, &format),
         ModelCmd::Set { model } => {
             println!(
                 "argo model set {model}: edit \\[provider.<name>\\].model in argo.toml; daemon hot-reloads on SIGHUP."
@@ -22,7 +22,7 @@ pub fn run(cmd: ModelCmd) -> ArgoResult<()> {
     }
 }
 
-fn list() -> ArgoResult<()> {
+fn list(json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let mut paths: Vec<PathBuf> = Vec::new();
@@ -41,6 +41,69 @@ fn list() -> ArgoResult<()> {
         }
     }
     paths.sort();
+    let manifests: Vec<ProviderManifest> = paths
+        .iter()
+        .filter_map(|p| {
+            let body = std::fs::read_to_string(p).ok()?;
+            ProviderManifest::from_toml_str(&body).ok()
+        })
+        .collect();
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            let mut all_rows: Vec<serde_json::Value> = Vec::new();
+            for m in &manifests {
+                for spec in &m.models {
+                    all_rows.push(serde_json::json!({
+                        "provider": m.provider.id,
+                        "family": format!("{:?}", m.provider.family),
+                        "id": spec.id,
+                        "context_window": spec.context_window,
+                        "tier": spec.tier,
+                        "price_per_1k_in": spec.price_per_1k_in,
+                        "price_per_1k_out": spec.price_per_1k_out,
+                    }));
+                }
+            }
+            for row in &all_rows {
+                println!("{}", serde_json::to_string(row).unwrap_or_default());
+            }
+            return Ok(());
+        }
+        "markdown" => {
+            let total: usize = manifests.iter().map(|m| m.models.len()).sum();
+            println!("# Models ({total} across {} provider(s))", manifests.len());
+            println!();
+            if total == 0 {
+                println!("_(no manifests / models found)_");
+                return Ok(());
+            }
+            println!("| provider | id | ctx | tier | input/1k | output/1k |");
+            println!("| --- | --- | ---: | --- | ---: | ---: |");
+            for m in &manifests {
+                for spec in &m.models {
+                    let ctx = spec
+                        .context_window
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "-".into());
+                    let tier = spec.tier.as_deref().unwrap_or("-");
+                    let in_p = price_field(&spec.price_per_1k_in);
+                    let out_p = price_field(&spec.price_per_1k_out);
+                    println!(
+                        "| `{}` | `{}` | {} | `{tier}` | {in_p} | {out_p} |",
+                        m.provider.id, spec.id, ctx
+                    );
+                }
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
+    }
     if paths.is_empty() {
         println!(
             "(no provider manifests under {}/manifests/providers/)",

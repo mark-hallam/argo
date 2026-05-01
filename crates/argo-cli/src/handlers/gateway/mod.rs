@@ -54,18 +54,20 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
         GatewayCmd::Stop => stop().await,
         GatewayCmd::Routes {
             json,
+            format,
             method,
             grep,
             limit,
-        } => print_routes(json, method.as_deref(), grep.as_deref(), limit),
+        } => print_routes(json, &format, method.as_deref(), grep.as_deref(), limit),
     }
 }
 
-/// `argo gateway routes [--json] [--method] [--grep] [--limit]`
+/// `argo gateway routes [--json|--format] [--method] [--grep] [--limit]`
 /// — pretty-print the static route catalog. Filters apply in
 /// order: method → grep → limit.
 fn print_routes(
     json: bool,
+    format: &str,
     method: Option<&str>,
     grep: Option<&str>,
     limit: Option<usize>,
@@ -85,12 +87,37 @@ fn print_routes(
     if let Some(n) = limit {
         rows.truncate(n);
     }
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string())
-        );
-        return Ok(());
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            println!(
+                "{}",
+                serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string())
+            );
+            return Ok(());
+        }
+        "markdown" => {
+            println!("# Gateway routes ({} endpoints)", rows.len());
+            println!();
+            if rows.is_empty() {
+                return Ok(());
+            }
+            println!("| method | path | description |");
+            println!("| :---: | --- | --- |");
+            for row in &rows {
+                let m = row["method"].as_str().unwrap_or("?");
+                let p = row["path"].as_str().unwrap_or("?");
+                let d = row["description"].as_str().unwrap_or("").replace('|', "\\|");
+                println!("| `{m}` | `{p}` | {d} |");
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     println!("argo gateway routes ({} endpoints)", rows.len());
     let width = (rows.len().max(1) as f64).log10().ceil() as usize;

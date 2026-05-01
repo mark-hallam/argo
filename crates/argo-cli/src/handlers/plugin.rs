@@ -9,7 +9,7 @@ pub fn run(cmd: PluginCmd) -> ArgoResult<()> {
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     match cmd {
-        PluginCmd::List { json } => list(&cfg, json),
+        PluginCmd::List { json, format } => list(&cfg, json, &format),
         other => {
             println!("argo plugin: '{other:?}' requires the daemon's plugin host (separate PR).");
             Ok(())
@@ -17,14 +17,35 @@ pub fn run(cmd: PluginCmd) -> ArgoResult<()> {
     }
 }
 
-fn list(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
-    if json {
-        let arr: Vec<&String> = cfg.plugin.auto_load.iter().collect();
-        println!(
-            "{}",
-            serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
-        );
-        return Ok(());
+fn list(cfg: &ArgoConfig, json: bool, format: &str) -> ArgoResult<()> {
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            let arr: Vec<&String> = cfg.plugin.auto_load.iter().collect();
+            println!(
+                "{}",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
+            );
+            return Ok(());
+        }
+        "markdown" => {
+            println!("# Plugins ({} configured)", cfg.plugin.auto_load.len());
+            println!();
+            if cfg.plugin.auto_load.is_empty() {
+                println!("_(no plugins configured under [plugin].auto_load)_");
+                return Ok(());
+            }
+            for name in &cfg.plugin.auto_load {
+                println!("- `{name}`");
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if cfg.plugin.auto_load.is_empty() {
         println!("(no plugins configured under [plugin].auto_load)");
