@@ -45,10 +45,10 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
         crate::overlays::draw_forge_runs(frame, area, rows, state.forge_runs_scroll);
     }
     if let Some(rows) = state.skills_overlay.as_ref() {
-        crate::overlays::draw_skills(frame, area, rows);
+        crate::overlays::draw_skills(frame, area, rows, state.skills_overlay_scroll);
     }
     if let Some(rows) = state.memory_overlay.as_ref() {
-        crate::overlays::draw_memory(frame, area, rows);
+        crate::overlays::draw_memory(frame, area, rows, state.memory_overlay_scroll);
     }
     if let Some(snap) = state.cost_overlay.as_ref() {
         crate::overlays::draw_cost(frame, area, snap);

@@ -139,29 +139,77 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Active-skills overlay: Esc/S/q close, anything
-            // else is ignored. The list doesn't auto-refresh —
-            // skills change rarely + always via explicit CLI
-            // ops, so a stale view costs little.
-            if state.skills_overlay.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('S') | KeyCode::Char('q')
-                ) {
-                    state.skills_overlay = None;
+            // Active-skills overlay: Esc/S/q close, j/k scroll.
+            if let Some(rows) = state.skills_overlay.as_ref() {
+                let n = rows.len();
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('S') | KeyCode::Char('q') => {
+                        state.skills_overlay = None;
+                        state.skills_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = n.saturating_sub(1);
+                        if state.skills_overlay_scroll < max {
+                            state.skills_overlay_scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.skills_overlay_scroll =
+                            state.skills_overlay_scroll.saturating_sub(1);
+                    }
+                    KeyCode::PageDown => {
+                        let max = n.saturating_sub(1);
+                        state.skills_overlay_scroll =
+                            (state.skills_overlay_scroll + 10).min(max);
+                    }
+                    KeyCode::PageUp => {
+                        state.skills_overlay_scroll =
+                            state.skills_overlay_scroll.saturating_sub(10);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.skills_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('G') | KeyCode::End => {
+                        state.skills_overlay_scroll = n.saturating_sub(1);
+                    }
+                    _ => {}
                 }
                 continue;
             }
-            // Active-memory overlay: Esc/M/q close. Same no-
-            // refresh story as the skills list — memory writes
-            // come from explicit CLI ops, so the snapshot is
-            // good enough for one open.
-            if state.memory_overlay.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('M') | KeyCode::Char('q')
-                ) {
-                    state.memory_overlay = None;
+            // Active-memory overlay: Esc/M/q close, j/k scroll.
+            if let Some(rows) = state.memory_overlay.as_ref() {
+                let n = rows.len();
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('M') | KeyCode::Char('q') => {
+                        state.memory_overlay = None;
+                        state.memory_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = n.saturating_sub(1);
+                        if state.memory_overlay_scroll < max {
+                            state.memory_overlay_scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.memory_overlay_scroll =
+                            state.memory_overlay_scroll.saturating_sub(1);
+                    }
+                    KeyCode::PageDown => {
+                        let max = n.saturating_sub(1);
+                        state.memory_overlay_scroll =
+                            (state.memory_overlay_scroll + 10).min(max);
+                    }
+                    KeyCode::PageUp => {
+                        state.memory_overlay_scroll =
+                            state.memory_overlay_scroll.saturating_sub(10);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.memory_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('G') | KeyCode::End => {
+                        state.memory_overlay_scroll = n.saturating_sub(1);
+                    }
+                    _ => {}
                 }
                 continue;
             }

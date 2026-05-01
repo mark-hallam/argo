@@ -95,9 +95,13 @@ pub struct ViewerState {
     /// Loaded active-skill rows when the user has the skills
     /// overlay open (entered with `S`). `None` when closed.
     pub skills_overlay: Option<Vec<argo_skill::Skill>>,
+    /// Scroll offset (in rows) into the skills overlay.
+    pub skills_overlay_scroll: usize,
     /// Loaded active memory entries when the user has the memory
     /// overlay open (entered with `M`). `None` when closed.
     pub memory_overlay: Option<Vec<argo_memory::MemoryEntry>>,
+    /// Scroll offset (in rows) into the memory overlay.
+    pub memory_overlay_scroll: usize,
     /// Loaded cross-tenant spend rollup when the user has the
     /// cost overlay open (entered with `$`). `None` when closed.
     pub cost_overlay: Option<argo_store::GlobalSpend>,
@@ -169,7 +173,9 @@ impl ViewerState {
             forge_runs: None,
             forge_runs_scroll: 0,
             skills_overlay: None,
+            skills_overlay_scroll: 0,
             memory_overlay: None,
+            memory_overlay_scroll: 0,
             cost_overlay: None,
             audit_overlay: None,
             audit_overlay_scroll: 0,

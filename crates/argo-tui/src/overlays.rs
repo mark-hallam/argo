@@ -113,6 +113,7 @@ pub(crate) fn draw_skills(
     frame: &mut Frame<'_>,
     area: Rect,
     rows: &[argo_skill::Skill],
+    scroll: usize,
 ) {
     let w = area.width.saturating_mul(9) / 10;
     let h = area.height.saturating_mul(8) / 10;
@@ -128,7 +129,8 @@ pub(crate) fn draw_skills(
     if rows.is_empty() {
         lines.push(Line::from("  (no active skills installed)"));
     } else {
-        for s in rows {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for s in &rows[clamped..] {
             let lock = format!("{:?}", s.frontmatter.lock).to_lowercase();
             let hash_short: String = hex::encode(s.hash).chars().take(12).collect();
             lines.push(Line::from(format!(
@@ -156,6 +158,7 @@ pub(crate) fn draw_memory(
     frame: &mut Frame<'_>,
     area: Rect,
     rows: &[argo_memory::MemoryEntry],
+    scroll: usize,
 ) {
     let w = area.width.saturating_mul(9) / 10;
     let h = area.height.saturating_mul(8) / 10;
@@ -173,7 +176,8 @@ pub(crate) fn draw_memory(
             "  (no active memory entries — this workspace hasn't recorded any)",
         ));
     } else {
-        for e in rows {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for e in &rows[clamped..] {
             let id_short: String = e.id.to_string().chars().take(8).collect();
             let lock = format!("{:?}", e.lock).to_lowercase();
             let hash_short: String = hex::encode(e.hash).chars().take(12).collect();
