@@ -144,6 +144,13 @@ pub enum SessionCmd {
     Skills {
         id: String,
     },
+    /// Detach every attached skill from a session — reset to
+    /// fall-through-all-active-skills without having to list the
+    /// attached set first. Mirrors
+    /// `POST /sessions/<id>/skills/clear`.
+    ClearSkills {
+        id: String,
+    },
     /// Show one session header (model, provider, start time, message count).
     Show {
         id: String,

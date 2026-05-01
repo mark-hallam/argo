@@ -91,6 +91,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             super::session_skills::detach(&id, &skill).await
         }
         SessionCmd::Skills { id } => super::session_skills::list(&id).await,
+        SessionCmd::ClearSkills { id } => super::session_skills::clear(&id).await,
         SessionCmd::Export {
             id,
             out,

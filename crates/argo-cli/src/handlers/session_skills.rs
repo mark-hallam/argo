@@ -40,6 +40,24 @@ pub(crate) async fn detach(raw_session: &str, skill_name: &str) -> ArgoResult<()
     Ok(())
 }
 
+/// `argo session clear-skills <id>` — detach every attached
+/// skill from a session. Mirrors
+/// `POST /sessions/<id>/skills/clear`. Useful for resetting to
+/// the fall-through-all-active-skills loader behaviour without
+/// pre-listing the attached set.
+pub(crate) async fn clear(raw_session: &str) -> ArgoResult<()> {
+    let (_, sid, skills) = open_handles(raw_session).await?;
+    let attached = skills.skills_for_session(sid).await?;
+    let mut detached: u64 = 0;
+    for s in attached {
+        detached += skills.detach_from_session(sid, s.id).await?;
+    }
+    println!(
+        "argo session clear-skills: {raw_session} → detached {detached}"
+    );
+    Ok(())
+}
+
 pub(crate) async fn list(raw_session: &str) -> ArgoResult<()> {
     let (_, sid, skills) = open_handles(raw_session).await?;
     let attached = skills.skills_for_session(sid).await?;
