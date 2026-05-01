@@ -217,6 +217,30 @@ fn memory_overlay_renders_active_entries() {
 }
 
 #[test]
+fn cost_overlay_renders_today_mtd_and_all_time_totals() {
+    let mut state = ViewerState::new(vec![header("cost-target")]);
+    state.cost_overlay = Some(argo_store::GlobalSpend {
+        today: 1_500_000,         // $1.50
+        this_month: 12_000_000,   // $12.00
+        all_time: 145_750_000,    // $145.75
+    });
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("cost rollup"));
+    assert!(frame.contains("today:"));
+    assert!(frame.contains("$      1.50"), "missing today: {frame}");
+    assert!(frame.contains("$     12.00"), "missing mtd: {frame}");
+    assert!(frame.contains("$    145.75"), "missing all-time: {frame}");
+}
+
+#[test]
+fn cost_overlay_renders_zero_state_for_fresh_workspace() {
+    let mut state = ViewerState::new(vec![header("cost-target")]);
+    state.cost_overlay = Some(argo_store::GlobalSpend::default());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("$      0.00"), "missing zero: {frame}");
+}
+
+#[test]
 fn memory_overlay_handles_empty_list() {
     let mut state = ViewerState::new(vec![header("memory-target")]);
     state.memory_overlay = Some(Vec::new());

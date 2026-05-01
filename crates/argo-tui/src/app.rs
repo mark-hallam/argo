@@ -95,6 +95,9 @@ pub struct ViewerState {
     /// Loaded active memory entries when the user has the memory
     /// overlay open (entered with `M`). `None` when closed.
     pub memory_overlay: Option<Vec<argo_memory::MemoryEntry>>,
+    /// Loaded cross-tenant spend rollup when the user has the
+    /// cost overlay open (entered with `$`). `None` when closed.
+    pub cost_overlay: Option<argo_store::GlobalSpend>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -144,6 +147,7 @@ impl ViewerState {
             forge_runs: None,
             skills_overlay: None,
             memory_overlay: None,
+            cost_overlay: None,
         }
     }
 

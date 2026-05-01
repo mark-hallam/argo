@@ -23,6 +23,7 @@ mod workspace;
 
 pub use marketplace_meta::MarketplaceArtifactRow;
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
+pub use spend::GlobalSpend;
 pub use stats::DbStats;
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
@@ -481,6 +482,14 @@ impl SessionStore {
         now: chrono::DateTime<chrono::Utc>,
     ) -> StoreResult<argo_types::SpendCounters> {
         spend::load_spend_counters(&self.pool, tenant_id, session_id, now).await
+    }
+
+    /// Cross-tenant spend rollup — `(today, this_month, all_time)`
+    /// totals in USD micros, all relative to `Utc::now()`. Used by
+    /// `argo costs show` and the TUI cost overlay so we don't
+    /// replicate the SQL in the caller.
+    pub async fn load_global_spend(&self) -> StoreResult<spend::GlobalSpend> {
+        spend::load_global_spend(&self.pool, chrono::Utc::now()).await
     }
 
     /// Insert a tenant + workspace pair (or reuse the existing one if

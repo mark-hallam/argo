@@ -140,6 +140,17 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Cost-rollup overlay: Esc/$/q close. Snapshot is
+            // taken once at open — re-press `$` to refresh.
+            if state.cost_overlay.is_some() {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('$') | KeyCode::Char('q')
+                ) {
+                    state.cost_overlay = None;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -221,6 +232,12 @@ pub(crate) async fn run(
                     let skills = argo_skill::SkillStore::new(Arc::clone(&store));
                     let rows = skills.list_active().await.unwrap_or_default();
                     state.skills_overlay = Some(rows);
+                }
+                KeyCode::Char('$') => {
+                    // Snapshot cross-tenant spend rollup. Errors
+                    // → zero-snapshot (overlay shows $0.00).
+                    let snap = store.load_global_spend().await.unwrap_or_default();
+                    state.cost_overlay = Some(snap);
                 }
                 KeyCode::Char('M') => {
                     // Load the active-memory rows across all 4

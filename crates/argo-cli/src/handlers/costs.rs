@@ -5,7 +5,7 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
-use chrono::{Datelike, TimeZone, Utc};
+use chrono::Utc;
 
 pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
     let cwd =
@@ -184,49 +184,20 @@ fn micros_to_usd(m: u64) -> f64 {
 }
 
 /// Roll the spend ledger up across all tenants for "today" (UTC),
-/// month-to-date, and all-time totals. Skipped silently when the
-/// store / spend table doesn't exist yet — `argo costs show` is
-/// useful even on a brand-new workspace.
+/// month-to-date, and all-time totals. Now a thin wrapper over
+/// `SessionStore::load_global_spend` — the SQL lives in
+/// `argo-store::spend` so the TUI cost overlay can call it
+/// without re-implementing the queries.
 async fn load_global_spend(cwd: &std::path::Path) -> ArgoResult<GlobalSpend> {
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
-    let now = Utc::now();
-    let day_start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 0, 0, 0)
-        .single()
-        .map(|t| t.timestamp_micros())
-        .unwrap_or(0);
-    let month_start = Utc
-        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
-        .single()
-        .map(|t| t.timestamp_micros())
-        .unwrap_or(0);
-    let pool = store.pool();
-    let today: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger WHERE charged_at_micros >= ?",
-    )
-    .bind(day_start)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("today sum: {e}")))?;
-    let this_month: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger WHERE charged_at_micros >= ?",
-    )
-    .bind(month_start)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("month sum: {e}")))?;
-    let all_time: i64 =
-        sqlx::query_scalar("SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger")
-            .fetch_one(pool)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("all-time sum: {e}")))?;
+    let snap = store.load_global_spend().await?;
     Ok(GlobalSpend {
-        today: u64::try_from(today).unwrap_or(0),
-        this_month: u64::try_from(this_month).unwrap_or(0),
-        all_time: u64::try_from(all_time).unwrap_or(0),
+        today: snap.today,
+        this_month: snap.this_month,
+        all_time: snap.all_time,
     })
 }
 

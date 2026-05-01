@@ -32,9 +32,9 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory"),
-        Line::from("    F  open recent forge_run rows (auto-refresh)"),
-        Line::from("    S  open active-skill list      M  open active-memory list"),
+        Line::from("  Forge / Skills / Memory / Cost"),
+        Line::from("    F  forge runs (auto-refresh)   S  active skills"),
+        Line::from("    M  active memory               $  cost rollup"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
@@ -188,6 +188,40 @@ pub(crate) fn draw_memory(
             " active memory ({}) — Esc/M/q closes ",
             rows.len()
         )),
+    );
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Cross-tenant spend rollup overlay. Triggered by `$`. Shows
+/// today / month-to-date / all-time totals; ceilings live in
+/// argo.toml and aren't rendered here (the CLI already gives
+/// them with `argo costs show`). Esc / `$` / q close.
+pub(crate) fn draw_cost(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    snap: &argo_store::GlobalSpend,
+) {
+    let w = area.width.min(60);
+    let h = area.height.min(10);
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(7));
+
+    let to_usd = |micros: u64| micros as f64 / 1_000_000.0;
+    let lines = vec![
+        Line::from("  spend rollup (USD, all tenants)"),
+        Line::from(""),
+        Line::from(format!("    today:        ${:>10.2}", to_usd(snap.today))),
+        Line::from(format!("    this month:   ${:>10.2}", to_usd(snap.this_month))),
+        Line::from(format!("    all time:     ${:>10.2}", to_usd(snap.all_time))),
+        Line::from(""),
+        Line::from("  (ceilings live in argo.toml; see `argo costs show`)"),
+    ];
+    let para = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" cost rollup — Esc/$/q closes "),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
