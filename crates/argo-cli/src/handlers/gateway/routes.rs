@@ -52,7 +52,15 @@ pub(super) async fn dispatch_route(
         );
     }
     if req.starts_with("GET /health ") {
-        return ("200 OK", "{\"status\":\"ok\"}".to_string());
+        let now = chrono::Utc::now();
+        return (
+            "200 OK",
+            format!(
+                "{{\"status\":\"ok\",\"time\":\"{}\",\"epoch_micros\":{}}}",
+                now.to_rfc3339(),
+                now.timestamp_micros()
+            ),
+        );
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         let since = parse_since_minutes_from_get(req, "/sessions");

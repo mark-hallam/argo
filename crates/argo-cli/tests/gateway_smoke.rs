@@ -68,7 +68,9 @@ fn gateway_start_serves_health_and_version_then_exits_on_max_requests() {
 
     let h = http_get(port, "/health");
     assert!(h.contains("HTTP/1.1 200 OK"), "h={h}");
-    assert_eq!(body_of(&h), r#"{"status":"ok"}"#);
+    let h_body = body_of(&h);
+    assert!(h_body.contains(r#""status":"ok""#), "h_body={h_body}");
+    assert!(h_body.contains(r#""epoch_micros""#), "h_body={h_body}");
 
     let v = http_get(port, "/version");
     assert!(v.contains("HTTP/1.1 200 OK"), "v={v}");
