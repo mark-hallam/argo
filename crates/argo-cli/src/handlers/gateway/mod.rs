@@ -15,6 +15,7 @@ mod routes_msgs;
 mod routes_post;
 mod routes_post_admin;
 mod routes_post_writes;
+mod routes_providers;
 mod routes_query;
 mod routes_session;
 mod routes_session_skills;
@@ -137,6 +138,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /memory/<id>/versions → supersede chain for that entry");
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");
     eprintln!("  GET  /providers → workspace provider manifests + their model lists");
+    eprintln!("  GET  /providers/<id> → one provider manifest by basename");
     eprintln!("  GET  /tools    → registered in-core tools + JSON-Schema parameters");
     eprintln!("  GET  /search?q=…[&limit=N&session=<id>] → FTS5 hits across the message corpus");
     eprintln!("  GET  /workspace/info → first workspace row (id, name, root_path, created_at)");

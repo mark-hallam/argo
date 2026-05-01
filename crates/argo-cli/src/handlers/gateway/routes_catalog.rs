@@ -30,6 +30,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/costs/by-model", "spend grouped by (provider, model)"),
         ("GET", "/costs/by-session", "spend grouped by session_id"),
         ("GET", "/providers", "workspace provider manifests"),
+        ("GET", "/providers/<id>", "one provider manifest by basename"),
         ("GET", "/tools", "registered in-core tools"),
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
         ("GET", "/workspace/info", "first workspace row (id, name, root_path, created_at)"),
