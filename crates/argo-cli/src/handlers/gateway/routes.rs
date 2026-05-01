@@ -17,7 +17,7 @@ use super::routes_post::{
 use super::routes_cron::{
     cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
 };
-use super::routes_msgs::list_messages_response;
+use super::routes_msgs::{last_message_response, list_messages_response};
 use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
     memory_unlock_response, skill_lock_response, skill_unlock_response,
@@ -276,6 +276,9 @@ pub(super) async fn dispatch_route(
     // GET /sessions/<uuid>/messages — list every message on a session
     if let Some(rest) = req.strip_prefix("GET /sessions/") {
         if let Some((sid, tail)) = rest.split_once('/') {
+            if tail.starts_with("messages/last ") {
+                return last_message_response(sid, store).await;
+            }
             if tail.starts_with("messages ") || tail.starts_with("messages?") {
                 let limit = parse_limit(tail);
                 let role = parse_role(tail);
