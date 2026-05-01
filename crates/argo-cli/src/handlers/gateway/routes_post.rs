@@ -322,6 +322,7 @@ pub(super) async fn steer_response(
 pub(super) async fn costs_breakdown_response(
     mode: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -344,6 +345,26 @@ pub(super) async fn costs_breakdown_response(
         .await
     {
         Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let title = if mode == "by_model" {
+                    "Spend by model"
+                } else {
+                    "Spend by session"
+                };
+                let n = rows.len();
+                let mut out = format!("# {title} ({n} bucket{})\n\n", if n == 1 { "" } else { "s" });
+                if !rows.is_empty() {
+                    out.push_str("| bucket | total (USD) |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (b, t) in &rows {
+                        out.push_str(&format!(
+                            "| `{b}` | ${:.4} |\n",
+                            *t as f64 / 1_000_000.0
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
             let arr: Vec<serde_json::Value> = rows
                 .into_iter()
                 .map(|(b, t)| {

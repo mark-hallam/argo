@@ -368,17 +368,25 @@ pub(super) async fn dispatch_route(
         }
         return audit_session_response(sid, store, kind.as_deref(), since).await;
     }
-    if req.starts_with("GET /costs ") {
-        return costs_response();
+    if req.starts_with("GET /costs ") || req.starts_with("GET /costs?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return costs_response(format.as_deref());
     }
-    if req.starts_with("GET /costs/total ") {
-        return costs_total_response(store).await;
+    if req.starts_with("GET /costs/total ") || req.starts_with("GET /costs/total?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return costs_total_response(store, format.as_deref()).await;
     }
-    if req.starts_with("GET /costs/by-model ") {
-        return costs_breakdown_response("by_model", store).await;
+    if req.starts_with("GET /costs/by-model ") || req.starts_with("GET /costs/by-model?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return costs_breakdown_response("by_model", store, format.as_deref()).await;
     }
-    if req.starts_with("GET /costs/by-session ") {
-        return costs_breakdown_response("by_session", store).await;
+    if req.starts_with("GET /costs/by-session ") || req.starts_with("GET /costs/by-session?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return costs_breakdown_response("by_session", store, format.as_deref()).await;
     }
     if req.starts_with("POST /sessions ") {
         return create_session_response(req, store).await;

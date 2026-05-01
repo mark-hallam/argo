@@ -419,8 +419,9 @@ pub(super) async fn skill_show_response_with_format(
 /// always fast and never 503.
 pub(super) use super::routes_catalog::routes_response;
 
-/// `GET /costs` — cost ceilings from `argo.toml`. No DB hit.
-pub(super) fn costs_response() -> (&'static str, String) {
+/// `GET /costs[?format=markdown]` — cost ceilings from
+/// `argo.toml`. No DB hit. Markdown returns a 4-bullet doc.
+pub(super) fn costs_response(format: Option<&str>) -> (&'static str, String) {
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
         Err(e) => {
@@ -432,6 +433,29 @@ pub(super) fn costs_response() -> (&'static str, String) {
     };
     let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     let ceilings = cfg.budget.to_cost_ceilings();
+    if matches!(format, Some("markdown")) {
+        let mut out = String::from("# Cost ceilings\n\n");
+        for (label, val) in [
+            ("per-session", ceilings.per_session_usd_micros),
+            ("per-day", ceilings.per_day_usd_micros),
+            ("per-month", ceilings.per_month_usd_micros),
+        ] {
+            match val {
+                Some(v) => out.push_str(&format!("- **{label}**: ${:.2}\n", v as f64 / 1_000_000.0)),
+                None => out.push_str(&format!("- **{label}**: _(unlimited)_\n")),
+            }
+        }
+        out.push_str(&format!(
+            "- **notify_at_pct**: {}\n",
+            ceilings
+                .notify_at_pct
+                .iter()
+                .map(u8::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+        return ("200 OK", out);
+    }
     let payload = serde_json::json!({
         "per_session_usd_micros": ceilings.per_session_usd_micros,
         "per_day_usd_micros":     ceilings.per_day_usd_micros,
@@ -450,12 +474,29 @@ pub(super) fn costs_response() -> (&'static str, String) {
 /// `{today, this_month, all_time}` in usd_micros.
 pub(super) async fn costs_total_response(
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
     match store.load_global_spend().await {
         Ok(snap) => {
+            if matches!(format, Some("markdown")) {
+                let mut out = String::from("# Spend roll-up\n\n");
+                out.push_str(&format!(
+                    "- **Today**: ${:.4}\n",
+                    snap.today as f64 / 1_000_000.0
+                ));
+                out.push_str(&format!(
+                    "- **This month**: ${:.4}\n",
+                    snap.this_month as f64 / 1_000_000.0
+                ));
+                out.push_str(&format!(
+                    "- **All time**: ${:.4}\n",
+                    snap.all_time as f64 / 1_000_000.0
+                ));
+                return ("200 OK", out);
+            }
             let payload = serde_json::json!({
                 "today":       snap.today,
                 "this_month":  snap.this_month,
