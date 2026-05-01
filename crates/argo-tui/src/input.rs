@@ -151,14 +151,42 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Audit-chain overlay: Esc/A/q close. Snapshot at
-            // open — re-press `A` to refresh after a new turn.
-            if state.audit_overlay.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('A') | KeyCode::Char('q')
-                ) {
-                    state.audit_overlay = None;
+            // Audit-chain overlay: Esc/A/q close, j/k/PgUp/PgDn
+            // scroll, anything else is ignored. Snapshot at
+            // open — re-press `A` (or `R` global) to refresh.
+            if let Some(rows) = state.audit_overlay.as_ref() {
+                let n = rows.len();
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('A') | KeyCode::Char('q') => {
+                        state.audit_overlay = None;
+                        state.audit_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = n.saturating_sub(1);
+                        if state.audit_overlay_scroll < max {
+                            state.audit_overlay_scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.audit_overlay_scroll =
+                            state.audit_overlay_scroll.saturating_sub(1);
+                    }
+                    KeyCode::PageDown => {
+                        let max = n.saturating_sub(1);
+                        state.audit_overlay_scroll =
+                            (state.audit_overlay_scroll + 10).min(max);
+                    }
+                    KeyCode::PageUp => {
+                        state.audit_overlay_scroll =
+                            state.audit_overlay_scroll.saturating_sub(10);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.audit_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('G') | KeyCode::End => {
+                        state.audit_overlay_scroll = n.saturating_sub(1);
+                    }
+                    _ => {}
                 }
                 continue;
             }

@@ -102,6 +102,9 @@ pub struct ViewerState {
     /// the user has the audit overlay open (entered with `A`).
     /// `None` when closed.
     pub audit_overlay: Option<Vec<argo_store::AuditRow>>,
+    /// Scroll offset (in rows) into the audit overlay. Honoured
+    /// by `j`/`k`/`PgUp`/`PgDn` while the overlay is open.
+    pub audit_overlay_scroll: usize,
     /// Provider ids found in `manifests/providers/*.toml` when
     /// the providers overlay is open (entered with `P`). Just
     /// the basenames — no manifest-parse load on render.
@@ -165,6 +168,7 @@ impl ViewerState {
             memory_overlay: None,
             cost_overlay: None,
             audit_overlay: None,
+            audit_overlay_scroll: 0,
             providers_overlay: None,
             workspace_label: None,
         }

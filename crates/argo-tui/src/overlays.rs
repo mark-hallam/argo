@@ -231,11 +231,13 @@ pub(crate) fn draw_providers(frame: &mut Frame<'_>, area: Rect, rows: &[String])
 /// every audit row scoped to the currently-selected session
 /// (TurnStart / AssistantMessage / ToolCall / ToolResult /
 /// TurnEnd / etc.) with seq + kind + a 60-char payload preview.
-/// Esc / A / q close.
+/// Scrollable with `j`/`k`/`PgUp`/`PgDn` (#336). Esc / A / q
+/// close.
 pub(crate) fn draw_audit(
     frame: &mut Frame<'_>,
     area: Rect,
     rows: &[argo_store::AuditRow],
+    scroll: usize,
 ) {
     let w = area.width.saturating_mul(9) / 10;
     let h = area.height.saturating_mul(8) / 10;
@@ -253,7 +255,8 @@ pub(crate) fn draw_audit(
             "  (no audit rows for this session — start a turn first)",
         ));
     } else {
-        for r in rows {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for r in &rows[clamped..] {
             let preview: String = r
                 .payload_json
                 .chars()
@@ -266,9 +269,14 @@ pub(crate) fn draw_audit(
             )));
         }
     }
+    let scroll_tag = if scroll > 0 {
+        format!(" @{scroll}")
+    } else {
+        String::new()
+    };
     let para = Paragraph::new(lines).block(
         Block::default().borders(Borders::ALL).title(format!(
-            " audit chain ({}) — Esc/A/q closes ",
+            " audit chain ({}{scroll_tag}) — j/k scroll · Esc/A/q closes ",
             rows.len()
         )),
     );
