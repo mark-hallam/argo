@@ -24,7 +24,8 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             json,
             file,
             sort_by,
-        } => list(&memory, workspace, json, file.as_deref(), &sort_by).await,
+            limit,
+        } => list(&memory, workspace, json, file.as_deref(), &sort_by, limit).await,
         MemoryCmd::Count { file, json } => count(&memory, workspace, file.as_deref(), json).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
@@ -109,6 +110,7 @@ async fn list(
     json: bool,
     only: Option<&str>,
     sort_by: &str,
+    limit: Option<u32>,
 ) -> ArgoResult<()> {
     let only_file = match only {
         None => None,
@@ -143,6 +145,9 @@ async fn list(
                 "unknown --sort-by '{other}' — use learned-at|size"
             )));
         }
+    }
+    if let Some(n) = limit {
+        all_entries.truncate(n as usize);
     }
     let total = all_entries.len();
     if json {

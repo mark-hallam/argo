@@ -244,12 +244,14 @@ pub(super) async fn memory_versions_response(
 /// `body_contains` keeps only entries whose body contains the
 /// given substring (case-insensitive). 200 + `[]` when no
 /// workspace is registered; 400 on unknown `file` or `lock`.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn memory_response(
     store: Option<&Arc<SessionStore>>,
     file: Option<String>,
     since_minutes: Option<i64>,
     lock: Option<String>,
     body_contains: Option<String>,
+    limit: Option<usize>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
@@ -340,6 +342,16 @@ pub(super) async fn memory_response(
                 );
             }
         }
+    }
+    // Sort newest-first across files, then truncate to `limit`.
+    // Mirrors the CLI's --sort-by=learned-at + --limit semantics.
+    all.sort_by(|a, b| {
+        let la = a.get("learned_at").and_then(|s| s.as_str()).unwrap_or("");
+        let lb = b.get("learned_at").and_then(|s| s.as_str()).unwrap_or("");
+        lb.cmp(la)
+    });
+    if let Some(n) = limit {
+        all.truncate(n);
     }
     (
         "200 OK",

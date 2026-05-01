@@ -232,6 +232,11 @@ pub enum MemoryCmd {
         /// `size` (body byte length descending — biggest first).
         #[arg(long, default_value = "learned-at")]
         sort_by: String,
+        /// Truncate to the first N rows (after sorting). Useful
+        /// when the corpus is large and you only want the top-N
+        /// most-recent / biggest entries.
+        #[arg(long)]
+        limit: Option<u32>,
     },
     View {
         entry: String,
