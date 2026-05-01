@@ -8,6 +8,7 @@ mod lifecycle;
 mod metrics;
 mod routes;
 mod routes_meta;
+mod routes_msgs;
 mod routes_post;
 mod routes_post_writes;
 mod routes_session;
@@ -127,6 +128,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
     eprintln!("  POST /forge/optimize → kick off `argo forge optimize` ({{skill, examples, iterations?, budget_usd?}})");
     eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");
+    eprintln!("  POST /forge/runs/<id>/abort → flip a run's status to 'aborted'");
+    eprintln!("  POST /skills/<name>/promote → promote a version to active ({{version}})");
     eprintln!("  GET  /metrics        → Prometheus-style text exposition (text/plain)");
     eprintln!("  GET  /routes  → discovery: every route + a one-line description");
     eprintln!("  GET  /doctor       → JSON snapshot of `argo doctor` (cwd, db, cron, creds, …)");

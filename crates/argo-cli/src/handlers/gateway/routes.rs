@@ -12,13 +12,14 @@ use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
     create_session_response, replay_response, run_turn_response, steer_response,
 };
+use super::routes_msgs::list_messages_response;
 use super::routes_post_writes::{
-    append_memory_response, forge_bench_response, forge_optimize_response, install_skill_response,
+    append_memory_response, forge_abort_response, forge_bench_response, forge_optimize_response,
+    install_skill_response, skill_promote_response,
 };
 use super::routes_session::{session_show_response, session_spend_response};
 use super::store_unavailable;
 use argo_store::SessionStore;
-use argo_types::SessionId;
 use std::sync::Arc;
 
 pub(super) async fn dispatch_route(
@@ -134,6 +135,24 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /forge/bench ") {
         return forge_bench_response(req).await;
+    }
+    // POST /forge/runs/<id>/abort — flip status to "aborted".
+    if let Some(rest) = req.strip_prefix("POST /forge/runs/") {
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("abort ") {
+                return forge_abort_response(id, store).await;
+            }
+        }
+    }
+    // POST /skills/<name>/promote — promote a specific version
+    // to active. We do the URL parse here to keep dispatch as
+    // the single entry-point.
+    if let Some(rest) = req.strip_prefix("POST /skills/") {
+        if let Some((name, tail)) = rest.split_once('/') {
+            if tail.starts_with("promote ") {
+                return skill_promote_response(name, req, store).await;
+            }
+        }
     }
     // POST /sessions/<uuid>/messages — append a message to a
     // recorded session. We do the URL parse here to keep
@@ -442,55 +461,3 @@ fn parse_query_kv(tail: &str, key: &str) -> Option<String> {
     None
 }
 
-async fn list_messages_response(
-    sid: &str,
-    store: Option<&Arc<SessionStore>>,
-    limit: Option<usize>,
-    role: Option<String>,
-) -> (&'static str, String) {
-    let Some(store) = store else {
-        return store_unavailable();
-    };
-    let id = match uuid::Uuid::parse_str(sid) {
-        Ok(u) => SessionId(u),
-        Err(e) => {
-            return (
-                "400 Bad Request",
-                format!("{{\"error\":\"invalid session id: {e}\"}}"),
-            );
-        }
-    };
-    match store.list_messages(id).await {
-        Ok(mut rows) => {
-            if let Some(want) = role.as_deref() {
-                rows.retain(|m| m.role == want);
-            }
-            if let Some(n) = limit {
-                if rows.len() > n {
-                    rows.truncate(n);
-                }
-            }
-            let arr: Vec<serde_json::Value> = rows
-                .iter()
-                .map(|m| {
-                    serde_json::json!({
-                        "seq": m.seq,
-                        "id": hex::encode(&m.id),
-                        "role": m.role,
-                        "content": serde_json::from_str::<serde_json::Value>(&m.content_json)
-                            .unwrap_or(serde_json::Value::Null),
-                        "created_at_micros": m.created_at,
-                    })
-                })
-                .collect();
-            (
-                "200 OK",
-                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
-            )
-        }
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"list_messages: {e}\"}}"),
-        ),
-    }
-}

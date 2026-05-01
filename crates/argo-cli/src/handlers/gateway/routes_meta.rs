@@ -440,6 +440,8 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/memory", "append a memory entry"),
         ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),
         ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
+        ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
+        ("POST", "/skills/<name>/promote", "promote a skill version to active"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()

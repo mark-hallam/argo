@@ -164,3 +164,49 @@ fn forge_bench_post_returns_202_with_provider_defaults() {
 
     assert!(child.wait().expect("wait").success());
 }
+
+#[test]
+fn forge_abort_returns_400_on_short_id_and_404_on_missing_uuid() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    // Short id (8 hex) — rejected at parse step.
+    let resp = http_post(port, "/forge/runs/abcdef12/abort", "");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid uuid that isn't in the DB — 404.
+    let resp = http_post(
+        port,
+        "/forge/runs/00000000-0000-0000-0000-000000000000/abort",
+        "",
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("no forge run"), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
+fn skill_promote_returns_400_on_missing_version_and_unknown_skill() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    // Missing version → 400.
+    let resp = http_post(port, "/skills/anything/promote", r#"{}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("missing or empty `version`"), "body={body}");
+
+    // Unknown skill → 400 from SkillStore::promote.
+    let resp = http_post(
+        port,
+        "/skills/never-installed/promote",
+        r#"{"version":"0.1"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("promote"), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}

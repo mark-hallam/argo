@@ -1,5 +1,6 @@
 //! Write-side POST handlers for non-session resources —
-//! `POST /skills`, `POST /memory`, `POST /forge/{optimize,bench}`.
+//! `POST /skills`, `POST /skills/<name>/promote`, `POST /memory`,
+//! `POST /forge/{optimize,bench}`, `POST /forge/runs/<id>/abort`.
 //! Lives in its own module so `routes_post.rs` (the session-
 //! flavoured POSTs) stays under the 500-LOC ceiling.
 use super::{body_from_request, store_unavailable};
@@ -235,6 +236,100 @@ pub(super) async fn forge_bench_response(req: &str) -> (&'static str, String) {
         "202 Accepted",
         serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
     )
+}
+
+/// `POST /forge/runs/<id>/abort` — flip a forge_run row's
+/// status to `"aborted"` and stamp `ended_at`. Mirrors
+/// `argo forge runs abort <id>`. The path id may be a full
+/// UUID; short prefixes are rejected with 400 (matching the
+/// CLI). Returns 200 + `{aborted:true,run_id}`, 404 when the
+/// row doesn't exist, 400 on a malformed id.
+pub(super) async fn forge_abort_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"invalid forge run id '{raw_id}' \
+                     (pass the full uuid)\"}}"
+                ),
+            );
+        }
+    };
+    match store.abort_forge_run(id).await {
+        Ok(0) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no forge run with id {raw_id}\"}}"),
+        ),
+        Ok(_) => (
+            "200 OK",
+            format!("{{\"aborted\":true,\"run_id\":\"{raw_id}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"abort_forge_run: {e}\"}}"),
+        ),
+    }
+}
+
+/// `POST /skills/<name>/promote` — promote a specific skill
+/// version to active. Mirrors `argo forge promote --skill X
+/// --version Y`. Body shape: `{"version":"<x.y>"}`. Returns
+/// 200 + `{name, version, skill_id}` on success; 400 on
+/// missing version / unknown skill; 503 on store-unavailable.
+pub(super) async fn skill_promote_response(
+    name: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+            );
+        }
+    };
+    let Some(version) = parsed
+        .get("version")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+    else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `version`\"}".to_string(),
+        );
+    };
+    let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    match skills.promote(name, version).await {
+        Ok(s) => {
+            let resp = serde_json::json!({
+                "name": s.frontmatter.name,
+                "version": s.frontmatter.version,
+                "skill_id": s.id.0.to_string(),
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "400 Bad Request",
+            format!("{{\"error\":\"promote: {e}\"}}"),
+        ),
+    }
 }
 
 struct ForgeBody {
