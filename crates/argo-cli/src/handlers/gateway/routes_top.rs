@@ -29,6 +29,7 @@ pub(super) async fn dispatch_sessions(
     let limit: u32 = parse_query_kv(tail, "limit")
         .and_then(|v| v.parse().ok())
         .unwrap_or(100);
+    let format = parse_query_kv(tail, "format");
     sessions_response(
         store,
         since,
@@ -40,6 +41,7 @@ pub(super) async fn dispatch_sessions(
         spent_min,
         spent_max,
         limit,
+        format.as_deref(),
     )
     .await
 }
@@ -49,7 +51,8 @@ pub(super) async fn dispatch_sessions(
 /// (newer than), `older-than-minutes` (older than), `status=
 /// open|ended`, `provider=<id>`, `model=<id>`,
 /// `title-contains=<sub>`, `spent-min=<usd_micros>`,
-/// `spent-max=<usd_micros>`, `limit=<N>` (default 100).
+/// `spent-max=<usd_micros>`, `limit=<N>` (default 100),
+/// `format=markdown` (markdown table render, paste-able).
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn sessions_response(
     store: Option<&Arc<SessionStore>>,
@@ -62,6 +65,7 @@ pub(super) async fn sessions_response(
     spent_min: Option<i64>,
     spent_max: Option<i64>,
     limit: u32,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -123,6 +127,33 @@ pub(super) async fn sessions_response(
                     }
                     true
                 });
+            }
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Sessions ({n} match{})\n\n",
+                    if n == 1 { "" } else { "es" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| status | session_id | provider | model | spend (USD) | title |\n");
+                    out.push_str("| :---: | --- | --- | --- | ---: | --- |\n");
+                    for s in &rows {
+                        let spent = spend_by_sid
+                            .get(s.id.0.as_bytes().as_slice())
+                            .copied()
+                            .unwrap_or(0);
+                        let marker = if s.ended_at.is_none() { "●" } else { "○" };
+                        let title = s.title.as_deref().unwrap_or("").replace('|', "\\|");
+                        out.push_str(&format!(
+                            "| {marker} | `{}` | `{}` | `{}` | ${:.4} | {title} |\n",
+                            s.id.0,
+                            s.provider,
+                            s.model,
+                            spent as f64 / 1_000_000.0,
+                        ));
+                    }
+                }
+                return ("200 OK", out);
             }
             let arr: Vec<serde_json::Value> = rows
                 .iter()
