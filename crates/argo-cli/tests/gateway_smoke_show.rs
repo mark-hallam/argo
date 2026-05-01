@@ -108,3 +108,28 @@ fn memory_show_returns_404_on_unknown_id_and_400_on_garbage() {
 
     assert!(child.wait().expect("wait").success());
 }
+
+#[test]
+fn session_export_handles_bad_uuid_and_unknown_format() {
+    // Pins the new GET /sessions/:id/export endpoint (#486) — bad
+    // uuid → 400, unknown format → 400, unknown session uuid →
+    // 200 + empty body (since list_messages returns []).
+    let port = pick_free_port();
+    let (mut child, mut stderr) = boot(port, 3);
+    await_listening(&mut stderr);
+
+    let resp = http_get(port, "/sessions/not-a-uuid/export");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    let resp = http_get(port, "/sessions/00000000-0000-0000-0000-000000000000/export?format=bogus");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+    assert!(
+        resp.contains("expected 'jsonl' or 'markdown'"),
+        "expected hint about valid formats, got resp={resp}"
+    );
+
+    let resp = http_get(port, "/sessions/00000000-0000-0000-0000-000000000000/export");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
