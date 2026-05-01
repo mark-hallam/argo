@@ -86,6 +86,10 @@ pub struct ViewerState {
     /// — useful for drilling into a tool_result without the
     /// JSON noise.
     pub message_overlay_text_only: bool,
+    /// Vertical scroll offset (in rows) for the message-detail
+    /// overlay. Bumped by j/k/PgDn/PgUp while the overlay is
+    /// open.
+    pub message_overlay_scroll: u16,
     /// Loaded forge_run rows when the user has the forge-runs
     /// overlay open (entered with `F`). `None` when closed.
     pub forge_runs: Option<Vec<argo_store::ForgeRunRow>>,
@@ -172,6 +176,7 @@ impl ViewerState {
             help_overlay: false,
             message_overlay: None,
             message_overlay_text_only: false,
+            message_overlay_scroll: 0,
             forge_runs: None,
             forge_runs_scroll: 0,
             skills_overlay: None,

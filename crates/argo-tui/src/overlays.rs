@@ -366,12 +366,18 @@ pub(crate) fn draw_message(
     } else {
         "json"
     };
+    let scroll_tag = if state.message_overlay_scroll > 0 {
+        format!(" @{}", state.message_overlay_scroll)
+    } else {
+        String::new()
+    };
     let title = format!(
-        " message [seq={} role={} {mode_tag}]  (t=toggle · Esc/o/q closes) ",
+        " message [seq={} role={} {mode_tag}{scroll_tag}]  (t=toggle · j/k scroll · Esc/o/q closes) ",
         msg.seq, msg.role
     );
     let para = Paragraph::new(body)
         .wrap(Wrap { trim: false })
+        .scroll((state.message_overlay_scroll, 0))
         .block(Block::default().borders(Borders::ALL).title(title));
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);

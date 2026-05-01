@@ -85,17 +85,38 @@ pub(crate) async fn run(
                 state.help_overlay = false;
                 continue;
             }
-            // Message-detail overlay: Esc/o/q close; `t` toggles
-            // the drill-into-text-content view; other keys are
-            // ignored.
+            // Message-detail overlay: Esc/o/q close, t toggles
+            // drill view, j/k/PgUp/PgDn scroll the body, other
+            // keys ignored.
             if state.message_overlay.is_some() {
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('o') | KeyCode::Char('q') => {
                         state.message_overlay = None;
                         state.message_overlay_text_only = false;
+                        state.message_overlay_scroll = 0;
                     }
                     KeyCode::Char('t') => {
                         state.message_overlay_text_only = !state.message_overlay_text_only;
+                        state.message_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        state.message_overlay_scroll =
+                            state.message_overlay_scroll.saturating_add(1);
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.message_overlay_scroll =
+                            state.message_overlay_scroll.saturating_sub(1);
+                    }
+                    KeyCode::PageDown => {
+                        state.message_overlay_scroll =
+                            state.message_overlay_scroll.saturating_add(10);
+                    }
+                    KeyCode::PageUp => {
+                        state.message_overlay_scroll =
+                            state.message_overlay_scroll.saturating_sub(10);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.message_overlay_scroll = 0;
                     }
                     _ => {}
                 }
