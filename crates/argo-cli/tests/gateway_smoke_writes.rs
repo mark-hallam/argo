@@ -241,6 +241,34 @@ fn memory_lock_validates_id_and_unknown_lock_label() {
 }
 
 #[test]
+fn memory_edit_returns_400_on_missing_body_and_unknown_id() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+
+    // Bad uuid → 400.
+    let resp = http_post(port, "/memory/not-a-uuid/edit", r#"{"body":"x"}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Missing body → 400.
+    let resp = http_post(
+        port,
+        "/memory/00000000-0000-0000-0000-000000000000/edit",
+        r#"{}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid uuid with body but no entry exists → 400 from supersede.
+    let resp = http_post(
+        port,
+        "/memory/00000000-0000-0000-0000-000000000000/edit",
+        r#"{"body":"hello"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn memory_forget_returns_400_on_bad_id_and_unknown_uuid() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);

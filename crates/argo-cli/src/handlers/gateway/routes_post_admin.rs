@@ -65,6 +65,72 @@ pub(super) async fn memory_lock_response(
     }
 }
 
+/// `POST /memory/<id>/edit` — supersede an existing memory
+/// entry with a new body. Body shape: `{"body":"<new content>"}`.
+/// Returns 200 + `{edited, prev, new_head}` on success; 400 on
+/// bad uuid / empty body / unknown entry / lock violation.
+/// Mirrors `argo memory edit <id>` (sans the `$EDITOR` step).
+pub(super) async fn memory_edit_response(
+    raw_id: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid memory id: {e}\"}}"),
+            );
+        }
+    };
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+            );
+        }
+    };
+    let Some(new_body) = parsed
+        .get("body")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+    else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `body`\"}".to_string(),
+        );
+    };
+    let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    match memory
+        .supersede(
+            id,
+            new_body.to_string(),
+            None,
+            argo_memory::PrincipalOverride::Force,
+        )
+        .await
+    {
+        Ok(entry) => (
+            "200 OK",
+            format!(
+                "{{\"edited\":true,\"prev\":\"{raw_id}\",\"new_head\":\"{}\"}}",
+                entry.id
+            ),
+        ),
+        Err(e) => (
+            "400 Bad Request",
+            format!("{{\"error\":\"edit: {e}\"}}"),
+        ),
+    }
+}
+
 /// `POST /memory/<id>/forget` — revert a memory entry to the
 /// previous head (or no-op when this is already the head).
 /// Mirrors `argo memory forget <id>` which is itself a thin
