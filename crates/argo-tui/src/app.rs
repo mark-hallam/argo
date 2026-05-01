@@ -116,6 +116,8 @@ pub struct ViewerState {
     /// the providers overlay is open (entered with `P`). Just
     /// the basenames — no manifest-parse load on render.
     pub providers_overlay: Option<Vec<String>>,
+    /// Scroll offset (in rows) into the providers overlay.
+    pub providers_overlay_scroll: usize,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -180,6 +182,7 @@ impl ViewerState {
             audit_overlay: None,
             audit_overlay_scroll: 0,
             providers_overlay: None,
+            providers_overlay_scroll: 0,
             workspace_label: None,
         }
     }

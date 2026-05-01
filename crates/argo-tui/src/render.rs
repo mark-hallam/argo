@@ -57,7 +57,7 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
         crate::overlays::draw_audit(frame, area, rows, state.audit_overlay_scroll);
     }
     if let Some(rows) = state.providers_overlay.as_ref() {
-        crate::overlays::draw_providers(frame, area, rows);
+        crate::overlays::draw_providers(frame, area, rows, state.providers_overlay_scroll);
     }
 }
 

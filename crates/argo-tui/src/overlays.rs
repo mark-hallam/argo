@@ -205,7 +205,12 @@ pub(crate) fn draw_memory(
 /// `manifests/providers/*.toml` basename (no manifest parse —
 /// the basename IS the provider id by convention). Esc / P /
 /// q close.
-pub(crate) fn draw_providers(frame: &mut Frame<'_>, area: Rect, rows: &[String]) {
+pub(crate) fn draw_providers(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[String],
+    scroll: usize,
+) {
     let w = area.width.min(60);
     let h = area.height.saturating_mul(8) / 10;
     let x = area.x + (area.width.saturating_sub(w)) / 2;
@@ -219,7 +224,8 @@ pub(crate) fn draw_providers(frame: &mut Frame<'_>, area: Rect, rows: &[String])
             "  (no manifests/providers/*.toml found in cwd)",
         ));
     } else {
-        for id in rows {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for id in &rows[clamped..] {
             lines.push(Line::from(format!("  {id}")));
         }
     }

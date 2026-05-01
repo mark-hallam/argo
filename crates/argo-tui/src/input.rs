@@ -263,13 +263,31 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Providers overlay: Esc/P/q close. Snapshot at open.
-            if state.providers_overlay.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('P') | KeyCode::Char('q')
-                ) {
-                    state.providers_overlay = None;
+            // Providers overlay: Esc/P/q close, j/k scroll.
+            if let Some(rows) = state.providers_overlay.as_ref() {
+                let n = rows.len();
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('P') | KeyCode::Char('q') => {
+                        state.providers_overlay = None;
+                        state.providers_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = n.saturating_sub(1);
+                        if state.providers_overlay_scroll < max {
+                            state.providers_overlay_scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.providers_overlay_scroll =
+                            state.providers_overlay_scroll.saturating_sub(1);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.providers_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('G') | KeyCode::End => {
+                        state.providers_overlay_scroll = n.saturating_sub(1);
+                    }
+                    _ => {}
                 }
                 continue;
             }
