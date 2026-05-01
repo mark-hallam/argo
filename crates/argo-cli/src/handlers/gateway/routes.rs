@@ -175,7 +175,16 @@ pub(super) async fn dispatch_route(
         let since = parse_since_minutes_from_get(req, "/forge/runs");
         let status = parse_query_kv(tail, "status");
         let score_min = parse_query_kv(tail, "score-min").and_then(|v| v.parse::<f64>().ok());
-        return forge_runs_response(limit, since, status.as_deref(), score_min, store).await;
+        let skill = parse_query_kv(tail, "skill");
+        return forge_runs_response(
+            limit,
+            since,
+            status.as_deref(),
+            score_min,
+            skill.as_deref(),
+            store,
+        )
+        .await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
         if let Some((id, _)) = rest.split_once(' ') {
