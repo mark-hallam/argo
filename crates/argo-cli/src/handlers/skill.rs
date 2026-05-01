@@ -17,6 +17,10 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     let skills = SkillStore::new(store);
     match cmd {
         SkillCmd::List { json } => list(&skills, json).await,
+        SkillCmd::Count {
+            include_superseded,
+            json,
+        } => count(&skills, include_superseded, json).await,
         SkillCmd::View { name, json } => view(&skills, &name, json).await,
         SkillCmd::Verify { name, all } => {
             if all {
@@ -156,6 +160,24 @@ fn body_hash(body: &str) -> String {
     let mut h = Sha256::new();
     h.update(body.as_bytes());
     hex::encode(h.finalize())
+}
+
+/// `argo skill count [--include-superseded] [--json]` — print
+/// just the count of active skills (or all versions with
+/// --include-superseded). Default: one int per line.
+async fn count(skills: &SkillStore, include_superseded: bool, json: bool) -> ArgoResult<()> {
+    let n = if include_superseded {
+        skills.list_all().await?.len()
+    } else {
+        skills.list_active().await?.len()
+    };
+    if json {
+        let payload = serde_json::json!({"count": n});
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+    } else {
+        println!("{n}");
+    }
+    Ok(())
 }
 
 async fn list(skills: &SkillStore, json: bool) -> ArgoResult<()> {

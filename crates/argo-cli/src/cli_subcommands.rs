@@ -103,6 +103,15 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Print just the count of active skills. Default: one int
+    /// per line; `--json` emits `{count}`.
+    Count {
+        /// Include superseded versions in the count too.
+        #[arg(long)]
+        include_superseded: bool,
+        #[arg(long)]
+        json: bool,
+    },
     View {
         name: String,
         /// Output as a single JSON object for scripting.
