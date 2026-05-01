@@ -188,6 +188,29 @@ impl MemoryStore {
     }
 
     /// Fetch a single entry by id (active or superseded).
+    /// Walk the supersede chain starting from `entry_id`. Returns
+    /// the entries oldest-first (i.e. starting with the row whose
+    /// `superseded_by` points at the root, walking forward to the
+    /// active head). Used by `GET /memory/<id>/versions` to surface
+    /// the full chain to gateway clients.
+    pub async fn versions_for_entry(&self, entry_id: Uuid) -> ArgoResult<Vec<MemoryEntry>> {
+        let head = self.get(entry_id).await?;
+        let rows = sqlx::query_as::<_, RawEntry>(
+            "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
+             m.learned_at, m.superseded_by, m.hash, l.lock \
+             FROM memory_entry m LEFT JOIN memory_lock l ON l.entry_id = m.id \
+             WHERE m.workspace_id = ? AND m.file = ? \
+             ORDER BY m.learned_at ASC",
+        )
+        .bind(head.workspace_id.0.as_bytes().as_slice())
+        .bind(head.file.filename())
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("versions_for_entry: {e}")))?;
+        rows.into_iter().map(MemoryEntry::try_from).collect()
+    }
+
+    /// Fetch a single entry by id (active or superseded).
     pub async fn get(&self, entry_id: Uuid) -> ArgoResult<MemoryEntry> {
         let row = sqlx::query_as::<_, RawEntry>(
             "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \

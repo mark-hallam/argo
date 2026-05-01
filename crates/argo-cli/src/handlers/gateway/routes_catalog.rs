@@ -22,6 +22,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/memory", "append a memory entry ({file, body})"),
         ("GET", "/memory", "memory entries"),
         ("GET", "/memory/<id>", "one memory entry (full body)"),
+        ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain"),
         ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity"),

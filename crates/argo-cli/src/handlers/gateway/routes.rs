@@ -6,10 +6,10 @@
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
     costs_response, db_stats_response, forge_run_show_response, forge_runs_response,
-    memory_show_response, providers_response, routes_response, search_response,
-    skill_show_response, skill_versions_response, tools_response,
+    memory_show_response, providers_response, routes_response,
+    search_response, skill_show_response, skill_versions_response, tools_response,
 };
-use super::routes_lists::{memory_response, skills_response};
+use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_post::{
     append_message_response, audit_session_response, audit_session_verify_response,
@@ -93,6 +93,11 @@ pub(super) async fn dispatch_route(
         return memory_response(store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /memory/") {
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("versions ") {
+                return memory_versions_response(id, store).await;
+            }
+        }
         if let Some((id, _)) = rest.split_once(' ') {
             return memory_show_response(id, store).await;
         }

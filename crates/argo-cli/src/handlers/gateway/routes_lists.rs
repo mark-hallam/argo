@@ -49,6 +49,55 @@ pub(super) async fn skills_response(
     }
 }
 
+/// `GET /memory/<id>/versions` — supersede chain for a memory
+/// entry. Returns every entry in the same `(workspace, file)`
+/// scope, oldest first. 200 + JSON array, 400 on bad uuid,
+/// 404 when the entry doesn't exist.
+pub(super) async fn memory_versions_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid memory id: {e}\"}}"),
+            );
+        }
+    };
+    let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    match memory.versions_for_entry(id).await {
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|e| {
+                    serde_json::json!({
+                        "id": e.id.to_string(),
+                        "file": format!("{:?}", e.file),
+                        "bytes": e.body.len(),
+                        "lock": format!("{:?}", e.lock),
+                        "hash": hex::encode(e.hash),
+                        "superseded_by": e.superseded_by.map(|i| i.to_string()),
+                        "learned_at": e.learned_at.to_rfc3339(),
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "404 Not Found",
+            format!("{{\"error\":\"versions_for_entry: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /memory` — every active memory entry across the four
 /// canonical files (MEMORY / USER / SOUL / AGENTS) for the
 /// first registered workspace. 200 + `[]` when no workspace
