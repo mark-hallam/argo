@@ -11,6 +11,7 @@ pub(super) async fn run(
     raw: &str,
     json: bool,
     limit: Option<u32>,
+    tail: Option<u32>,
     role: Option<&str>,
     since_minutes: Option<i64>,
     seq_min: Option<i64>,
@@ -63,6 +64,12 @@ pub(super) async fn run(
     });
     if let Some(n) = limit {
         messages.truncate(n as usize);
+    } else if let Some(n) = tail {
+        let n = n as usize;
+        if messages.len() > n {
+            let drop = messages.len() - n;
+            messages.drain(..drop);
+        }
     }
 
     if json {

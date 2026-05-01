@@ -58,7 +58,9 @@ pub(super) async fn last_message_response(
 /// `GET /sessions/<id>/messages?limit&role&since-minutes&seq-min&seq-max&content-contains`
 /// — list messages on a session. Optional filters:
 /// - `role`: drop messages whose role doesn't match
-/// - `limit`: truncate to N rows
+/// - `limit`: truncate to the FIRST N rows
+/// - `tail`: keep only the LAST N rows (mutually exclusive with
+///   `limit`; the dispatcher caller decides which one wins)
 /// - `since-minutes`: drop messages older than M minutes
 /// - `seq-min`/`seq-max`: keep only rows in that seq window
 /// - `content-contains`: case-insensitive substring match
@@ -69,6 +71,7 @@ pub(super) async fn list_messages_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
     limit: Option<usize>,
+    tail: Option<usize>,
     role: Option<String>,
     since_minutes: Option<i64>,
     seq_min: Option<i64>,
@@ -120,6 +123,11 @@ pub(super) async fn list_messages_response(
             if let Some(n) = limit {
                 if rows.len() > n {
                     rows.truncate(n);
+                }
+            } else if let Some(n) = tail {
+                if rows.len() > n {
+                    let drop = rows.len() - n;
+                    rows.drain(..drop);
                 }
             }
             let arr: Vec<serde_json::Value> = rows

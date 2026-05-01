@@ -90,8 +90,13 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
         /// Truncate to the first N rows after filtering.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "tail")]
         limit: Option<u32>,
+        /// Take the LAST N rows after filtering (inverse of
+        /// `--limit`). Useful for `tail -f`-style inspection of
+        /// the most recent activity.
+        #[arg(long)]
+        tail: Option<u32>,
         /// Filter to one role: `user|assistant|tool|system`.
         #[arg(long)]
         role: Option<String>,

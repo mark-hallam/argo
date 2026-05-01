@@ -38,6 +38,7 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("messages ") || tail.starts_with("messages?") {
             let limit = parse_limit(tail);
+            let tail_n = parse_query_kv(tail, "tail").and_then(|v| v.parse::<usize>().ok());
             let role = parse_role(tail);
             let since = parse_query_kv(tail, "since-minutes")
                 .and_then(|v| v.parse::<i64>().ok());
@@ -52,6 +53,7 @@ pub(super) async fn dispatch_session_get(
                     sid,
                     store,
                     limit,
+                    tail_n,
                     role,
                     since,
                     seq_min,
