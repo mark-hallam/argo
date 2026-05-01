@@ -276,43 +276,16 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             Ok(())
         }
         AuditCmd::Breaks { json } => print_breaks(json).await,
+        AuditCmd::Count {
+            kind,
+            since_minutes,
+            session,
+            json,
+        } => print_count(kind, since_minutes, session, json).await,
     }
 }
 
-/// `argo audit breaks [--json]` — print just the chain-break
-/// rows. Mirrors `GET /audit/breaks` (#406). Empty output (or
-/// `[]` with `--json`) when the chain is clean.
-async fn print_breaks(json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let store = std::sync::Arc::new(argo_store::SessionStore::open(&db_path(&home)).await?);
-    store.migrate().await?;
-    let report = argo_audit::verify_all(&store).await?;
-    if json {
-        let arr: Vec<serde_json::Value> = report
-            .breaks
-            .iter()
-            .map(|b| {
-                serde_json::json!({
-                    "seq":    b.seq,
-                    "kind":   b.kind,
-                    "reason": b.reason,
-                })
-            })
-            .collect();
-        println!("{}", serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()));
-    } else {
-        for b in &report.breaks {
-            println!("[{}] {} — {}", b.seq, b.kind, b.reason);
-        }
-        if report.breaks.is_empty() {
-            eprintln!("(audit chain is clean)");
-        }
-    }
-    Ok(())
-}
+use super::audit_count::{print_breaks, print_count};
 
 /// `tail -f`-style live tail of the audit chain. Polls the audit
 /// rows every 250ms; prints any rows that newly appeared since

@@ -380,6 +380,22 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Print just the count of audit rows after filters.
+    /// Mirrors `GET /audit/count` (#458).
+    Count {
+        /// Filter by audit kind (e.g. tool_call, turn_start).
+        #[arg(long)]
+        kind: Option<String>,
+        /// Filter to rows created within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Filter to rows on one session (uuid).
+        #[arg(long)]
+        session: Option<String>,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
