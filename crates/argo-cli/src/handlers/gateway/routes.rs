@@ -183,6 +183,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /routes ") || req.starts_with("GET /routes?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let method = parse_query_kv(tail, "method");
+        let format = parse_query_kv(tail, "format");
+        if matches!(format.as_deref(), Some("markdown")) {
+            return super::routes_catalog::routes_markdown(method.as_deref());
+        }
         return routes_response(method.as_deref());
     }
     if req.starts_with("GET /search ") || req.starts_with("GET /search?") {

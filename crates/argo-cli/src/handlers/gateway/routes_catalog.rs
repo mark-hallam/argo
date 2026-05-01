@@ -58,7 +58,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/judge/<record_id>/override", "override a judge verdict ({to})"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
-        ("GET", "/routes", "this listing (?method=GET|POST filter)"),
+        ("GET", "/routes", "this listing (?method=GET|POST&format=markdown)"),
         ("GET", "/metrics", "Prometheus-style text exposition"),
         ("POST", "/metrics/reset", "zero out the scrape counter; returns {previous, current}"),
         ("GET", "/db/stats", "per-table row counts (sessions, messages, audit, …)"),
@@ -116,4 +116,30 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         "200 OK",
         serde_json::to_string(&body).unwrap_or_else(|_| "[]".to_string()),
     )
+}
+
+/// Markdown table render of the route catalog. Returned when
+/// `GET /routes?format=markdown` is requested. Same `method`
+/// filter semantics as the JSON variant. Pipes in descriptions
+/// are escaped so unusual characters don't break the table.
+pub(crate) fn routes_markdown(method_filter: Option<&str>) -> (&'static str, String) {
+    let (_status, json_body) = routes_response(method_filter);
+    let parsed: serde_json::Value = match serde_json::from_str(&json_body) {
+        Ok(v) => v,
+        Err(_) => return ("500 Internal Server Error", String::from("# error")),
+    };
+    let arr = parsed.as_array().cloned().unwrap_or_default();
+    let mut out = format!("# Gateway routes ({} endpoints)\n\n", arr.len());
+    if arr.is_empty() {
+        return ("200 OK", out);
+    }
+    out.push_str("| method | path | description |\n");
+    out.push_str("| :---: | --- | --- |\n");
+    for row in &arr {
+        let m = row["method"].as_str().unwrap_or("?");
+        let p = row["path"].as_str().unwrap_or("?");
+        let d = row["description"].as_str().unwrap_or("").replace('|', "\\|");
+        out.push_str(&format!("| `{m}` | `{p}` | {d} |\n"));
+    }
+    ("200 OK", out)
 }
