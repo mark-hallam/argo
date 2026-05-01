@@ -126,6 +126,7 @@ fn format_markdown_flag_pins() {
         &["costs", "show"][..],
         &["doctor"][..],
         &["health"][..],
+        &["tools", "list"][..],
     ] {
         let h = help(args);
         assert!(
@@ -143,6 +144,22 @@ fn forge_runs_abort_all_renders_help() {
         h.contains("Usage:"),
         "`argo forge runs abort-all --help` lacks 'Usage:' header:\n{h}"
     );
+}
+
+#[test]
+fn tools_list_show_render_help() {
+    // Pins #525 — the new `argo tools list / show` surface.
+    let h = help(&["tools", "list"]);
+    assert!(h.contains("Usage:"), "tools list --help: {h}");
+    assert!(h.contains("--format"), "tools list missing --format: {h}");
+    assert!(
+        h.contains("--name-contains"),
+        "tools list missing --name-contains: {h}"
+    );
+
+    let h = help(&["tools", "show"]);
+    assert!(h.contains("Usage:"), "tools show --help: {h}");
+    assert!(h.contains("<NAME>"), "tools show missing <NAME>: {h}");
 }
 
 #[test]
