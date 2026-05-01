@@ -189,6 +189,18 @@ pub enum MemoryCmd {
         file: String,
         body: String,
     },
+    /// Print just the count of active memory entries. Mirrors
+    /// `argo session count`. Default: one int per line; `--json`
+    /// emits `{count, file}`.
+    Count {
+        /// Limit to one file: memory|user|soul|agents (default
+        /// counts across all four).
+        #[arg(long)]
+        file: Option<String>,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
     /// Verify a memory entry's body matches its stored SHA-256 hash.
     /// Pass `--all` to verify every active entry across all four
     /// memory files in the workspace.

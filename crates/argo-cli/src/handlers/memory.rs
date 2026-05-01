@@ -21,6 +21,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
         MemoryCmd::List { json, file } => list(&memory, workspace, json, file.as_deref()).await,
+        MemoryCmd::Count { file, json } => count(&memory, workspace, file.as_deref(), json).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
         MemoryCmd::Verify { entry, all } => {
@@ -53,6 +54,48 @@ async fn append(
         file,
         body.len()
     );
+    Ok(())
+}
+
+/// `argo memory count [--file] [--json]` — print just the count
+/// of active memory entries (across all four files by default,
+/// or one file with --file). Default: one int per line; --json
+/// emits `{count, file}`.
+async fn count(
+    memory: &MemoryStore,
+    workspace: argo_types::WorkspaceId,
+    only: Option<&str>,
+    json: bool,
+) -> ArgoResult<()> {
+    let only_file = match only {
+        None => None,
+        Some(s) => Some(parse_memory_file(s)?),
+    };
+    let mut total = 0_usize;
+    let all = [
+        MemoryFile::Memory,
+        MemoryFile::User,
+        MemoryFile::Soul,
+        MemoryFile::Agents,
+    ];
+    for file in all {
+        if let Some(f) = only_file {
+            if file != f {
+                continue;
+            }
+        }
+        let entries = memory.list_active(workspace, file).await?;
+        total += entries.len();
+    }
+    if json {
+        let payload = serde_json::json!({
+            "count": total,
+            "file": only.unwrap_or("all"),
+        });
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+    } else {
+        println!("{total}");
+    }
     Ok(())
 }
 
