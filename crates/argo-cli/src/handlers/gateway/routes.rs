@@ -83,6 +83,8 @@ pub(super) async fn dispatch_route(
         let provider = parse_query_kv(tail, "provider");
         let model = parse_query_kv(tail, "model");
         let title_contains = parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
+        let spent_min = parse_query_kv(tail, "spent-min").and_then(|v| v.parse::<i64>().ok());
+        let spent_max = parse_query_kv(tail, "spent-max").and_then(|v| v.parse::<i64>().ok());
         let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(100);
@@ -93,6 +95,8 @@ pub(super) async fn dispatch_route(
             provider.as_deref(),
             model.as_deref(),
             title_contains.as_deref(),
+            spent_min,
+            spent_max,
             limit,
         )
         .await;

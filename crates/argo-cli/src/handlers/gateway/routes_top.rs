@@ -10,7 +10,8 @@ use std::sync::Arc;
 /// `GET /sessions` — list every session row joined with each
 /// session's spend total. Optional filters: `since-minutes`,
 /// `status=open|ended`, `provider=<id>`, `model=<id>`,
-/// `title-contains=<sub>`, `limit=<N>` (default 100).
+/// `title-contains=<sub>`, `spent-min=<usd_micros>`,
+/// `spent-max=<usd_micros>`, `limit=<N>` (default 100).
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn sessions_response(
     store: Option<&Arc<SessionStore>>,
@@ -19,6 +20,8 @@ pub(super) async fn sessions_response(
     provider: Option<&str>,
     model: Option<&str>,
     title_contains: Option<&str>,
+    spent_min: Option<i64>,
+    spent_max: Option<i64>,
     limit: u32,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -53,6 +56,31 @@ pub(super) async fn sessions_response(
                 });
             }
             let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
+            // Spend filters apply after the cheap filters above so
+            // we don't pay the lookup unless we still have rows.
+            // Treat negative `?spent-min` / `?spent-max` as 0 since
+            // usd_micros is non-negative by construction.
+            let min_u = spent_min.map(|v| u64::try_from(v).unwrap_or(0));
+            let max_u = spent_max.map(|v| u64::try_from(v).unwrap_or(0));
+            if min_u.is_some() || max_u.is_some() {
+                rows.retain(|s| {
+                    let spent = spend_by_sid
+                        .get(s.id.0.as_bytes().as_slice())
+                        .copied()
+                        .unwrap_or(0);
+                    if let Some(min) = min_u {
+                        if spent < min {
+                            return false;
+                        }
+                    }
+                    if let Some(max) = max_u {
+                        if spent > max {
+                            return false;
+                        }
+                    }
+                    true
+                });
+            }
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|s| {
