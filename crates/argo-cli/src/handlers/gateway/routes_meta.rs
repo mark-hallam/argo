@@ -150,12 +150,16 @@ pub(super) async fn search_response(
 /// — list recorded forge optimization runs. All flags AND'd
 /// together. `has-candidate=true` keeps only rows whose
 /// `candidate_version` is non-NULL (i.e. produced at least
-/// one iteration's worth of mutation).
+/// one iteration's worth of mutation). `score-min` and
+/// `score-max` define an inclusive band on `final_score`;
+/// rows with `NULL` final_score never satisfy either.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn forge_runs_response(
     limit: u32,
     since_minutes: Option<i64>,
     status: Option<&str>,
     score_min: Option<f64>,
+    score_max: Option<f64>,
     skill: Option<&str>,
     has_candidate: Option<bool>,
     store: Option<&Arc<SessionStore>>,
@@ -180,6 +184,10 @@ pub(super) async fn forge_runs_response(
                 })
                 .filter(|r| match score_min {
                     Some(threshold) => r.final_score.is_some_and(|s| s >= threshold),
+                    None => true,
+                })
+                .filter(|r| match score_max {
+                    Some(threshold) => r.final_score.is_some_and(|s| s <= threshold),
                     None => true,
                 })
                 .filter(|r| match skill {

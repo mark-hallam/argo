@@ -239,6 +239,7 @@ pub(super) async fn dispatch_route(
         let since = parse_since_minutes_from_get(req, "/forge/runs");
         let status = parse_query_kv(tail, "status");
         let score_min = parse_query_kv(tail, "score-min").and_then(|v| v.parse::<f64>().ok());
+        let score_max = parse_query_kv(tail, "score-max").and_then(|v| v.parse::<f64>().ok());
         let skill = parse_query_kv(tail, "skill");
         let has_candidate = parse_query_kv(tail, "has-candidate")
             .map(|v| v == "true" || v == "1");
@@ -247,6 +248,7 @@ pub(super) async fn dispatch_route(
             since,
             status.as_deref(),
             score_min,
+            score_max,
             skill.as_deref(),
             has_candidate,
             store,
