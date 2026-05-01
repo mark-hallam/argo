@@ -132,7 +132,8 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /memory/count ") || req.starts_with("GET /memory/count?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let file = parse_query_kv(tail, "file");
-        return memory_count_response(file, store).await;
+        let since = parse_since_minutes_from_get(req, "/memory/count");
+        return memory_count_response(file, since, store).await;
     }
     if req.starts_with("GET /memory ") || req.starts_with("GET /memory?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);

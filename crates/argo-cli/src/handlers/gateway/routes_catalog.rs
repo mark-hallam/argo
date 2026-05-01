@@ -25,7 +25,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry ({file, body})"),
         ("GET", "/memory", "memory entries (?file&since-minutes&lock&body-contains)"),
-        ("GET", "/memory/count", "count of active memory entries (?file=memory|user|soul|agents)"),
+        ("GET", "/memory/count", "count of active memory entries (?file=…&since-minutes=N)"),
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),

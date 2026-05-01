@@ -118,11 +118,12 @@ pub(super) async fn skills_count_response(
     }
 }
 
-/// `GET /memory/count[?file=memory|user|soul|agents]` — count
-/// active memory entries. Mirrors the CLI's `argo memory count`
-/// (#429).
+/// `GET /memory/count[?file=…&since-minutes=N]` — count of
+/// active memory entries after filters. Mirrors the CLI's
+/// `argo memory count`.
 pub(super) async fn memory_count_response(
     file: Option<String>,
+    since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
@@ -165,10 +166,16 @@ pub(super) async fn memory_count_response(
         }
     };
     let memory = MemoryStore::new(Arc::clone(store));
+    let cutoff = since_minutes
+        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut total = 0_usize;
     for f in files {
         if let Ok(entries) = memory.list_active(workspace, f).await {
-            total += entries.len();
+            if let Some(c) = cutoff {
+                total += entries.iter().filter(|e| e.learned_at >= c).count();
+            } else {
+                total += entries.len();
+            }
         }
     }
     let payload = serde_json::json!({
