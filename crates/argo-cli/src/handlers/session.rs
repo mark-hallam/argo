@@ -5,7 +5,6 @@ use crate::cli::SessionCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
-use std::io::{BufWriter, Write};
 
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
@@ -68,7 +67,14 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             id,
             out,
             include_audit,
-        } => export_session(&id, out.as_deref(), include_audit).await,
+            format,
+        } => super::session_export::export_session(
+            &id,
+            out.as_deref(),
+            include_audit,
+            &format,
+        )
+        .await,
         SessionCmd::Search {
             query,
             limit,
@@ -247,83 +253,6 @@ async fn search(
             role = h.role,
             snippet = h.snippet
         );
-    }
-    Ok(())
-}
-
-async fn export_session(
-    raw: &str,
-    out: Option<&str>,
-    include_audit: bool,
-) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let db = db_path(&home);
-    let store = SessionStore::open(&db).await?;
-    store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
-    let messages = store.list_messages(SessionId(id)).await?;
-    let mut writer: Box<dyn Write> = match out {
-        Some(path) => {
-            let f = std::fs::File::create(path)
-                .map_err(|e| ArgoError::Provider(format!("create {path}: {e}")))?;
-            Box::new(BufWriter::new(f))
-        }
-        None => Box::new(BufWriter::new(std::io::stdout())),
-    };
-    for row in &messages {
-        // Re-shape into a stable, self-describing JSON object so
-        // external tools don't need to know the SQLite schema.
-        let line = serde_json::json!({
-            "seq": row.seq,
-            "id": hex::encode(&row.id),
-            "session_id": hex::encode(&row.session_id),
-            "role": row.role,
-            "content": serde_json::from_str::<serde_json::Value>(&row.content_json)
-                .unwrap_or(serde_json::Value::Null),
-            "tool_calls": serde_json::from_str::<serde_json::Value>(&row.tool_calls_json)
-                .unwrap_or(serde_json::Value::Array(Vec::new())),
-            "tool_call_id": row.tool_call_id.as_ref().map(hex::encode),
-            "reasoning": row.reasoning,
-            "provider_meta": serde_json::from_str::<serde_json::Value>(&row.provider_meta)
-                .unwrap_or(serde_json::Value::Null),
-            "created_at_micros": row.created_at,
-        });
-        let serialized = serde_json::to_string(&line)
-            .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?;
-        writer
-            .write_all(serialized.as_bytes())
-            .and_then(|()| writer.write_all(b"\n"))
-            .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
-    }
-    let mut audit_count = 0_usize;
-    if include_audit {
-        let rows = argo_audit::rows_for_session(&store, SessionId(id)).await?;
-        audit_count = rows.len();
-        for r in &rows {
-            let line = serde_json::to_string(r)
-                .map_err(|e| ArgoError::Provider(format!("serialize audit: {e}")))?;
-            writer
-                .write_all(line.as_bytes())
-                .and_then(|()| writer.write_all(b"\n"))
-                .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
-        }
-    }
-    writer
-        .flush()
-        .map_err(|e| ArgoError::Provider(format!("flush: {e}")))?;
-    if out.is_some() {
-        if include_audit {
-            eprintln!(
-                "session export: wrote {} message(s) + {audit_count} audit row(s)",
-                messages.len()
-            );
-        } else {
-            eprintln!("session export: wrote {} messages", messages.len());
-        }
     }
     Ok(())
 }

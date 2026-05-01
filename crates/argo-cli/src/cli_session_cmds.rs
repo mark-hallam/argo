@@ -105,8 +105,10 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Dump a session's messages to JSONL (defaults to stdout;
-    /// pass `--out <path>` to write to a file).
+    /// Dump a session's messages (defaults to stdout; pass
+    /// `--out <path>` to write to a file). Default format is
+    /// JSONL (one self-describing object per line); pass
+    /// `--format markdown` for a human-readable transcript.
     Export {
         id: String,
         #[arg(long)]
@@ -114,9 +116,13 @@ pub enum SessionCmd {
         /// Append audit rows for the session after the messages.
         /// Each audit line has the standard `ExportedRow` shape;
         /// distinguishable from message lines by the `kind` field
-        /// (audit rows) vs `role` (message rows).
+        /// (audit rows) vs `role` (message rows). Only applies to
+        /// `--format jsonl`.
         #[arg(long)]
         include_audit: bool,
+        /// Output format: `jsonl` (default) or `markdown`.
+        #[arg(long, default_value = "jsonl")]
+        format: String,
     },
     /// Full-text search the message corpus via FTS5. Pass
     /// `--session <id>` to scope to one session.

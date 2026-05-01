@@ -27,6 +27,7 @@ pub mod session;
 mod session_aggregates;
 mod session_bisect;
 mod session_diff;
+mod session_export;
 mod session_list;
 pub mod session_replay;
 mod session_resolve;
