@@ -217,6 +217,33 @@ pub(super) async fn session_clear_skills_response(
     )
 }
 
+/// `POST /sessions/end-all` — mark every open session
+/// (ended_at IS NULL) as ended. Returns 200 +
+/// `{ended: N}`. Operator emergency stop / fresh-slate.
+pub(super) async fn session_end_all_response(
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let rows = match store.list_all_sessions(500).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"list_all_sessions: {e}\"}}"),
+            );
+        }
+    };
+    let mut ended: u64 = 0;
+    for s in rows.into_iter().filter(|s| s.ended_at.is_none()) {
+        if let Ok(n) = store.end_session(SessionId(s.id.0)).await {
+            ended += n;
+        }
+    }
+    ("200 OK", format!("{{\"ended\":{ended}}}"))
+}
+
 /// `POST /sessions/<id>/end` — mark the session ended (stamps
 /// `ended_at`). Idempotent. Returns 200 + `{ended:true,
 /// session}`; 400 on bad uuid; 404 when no row matches.

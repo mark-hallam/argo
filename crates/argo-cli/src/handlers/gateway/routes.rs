@@ -30,8 +30,8 @@ use super::routes_post_admin::{
 use super::routes_skill_refine::skill_refine_response;
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
-    session_detach_skill_response, session_end_response, session_set_title_response,
-    session_skills_list_response,
+    session_detach_skill_response, session_end_all_response, session_end_response,
+    session_set_title_response, session_skills_list_response,
 };
 use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
@@ -308,6 +308,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /forge/runs/abort-all ") {
         return forge_abort_all_response(store).await;
+    }
+    if req.starts_with("POST /sessions/end-all ") {
+        return session_end_all_response(store).await;
     }
     // POST /forge/runs/<id>/abort — flip status to "aborted".
     if let Some(rest) = req.strip_prefix("POST /forge/runs/") {
