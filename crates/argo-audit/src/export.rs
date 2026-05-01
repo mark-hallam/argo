@@ -68,40 +68,50 @@ where
     Ok(count)
 }
 
+/// Filter set for [`tail_rows_filtered`]. All fields default to
+/// `None`; the SQL builder ANDs together whatever is `Some`.
+#[derive(Debug, Default, Clone)]
+pub struct TailFilters<'a> {
+    /// Exact match on the `kind` label, e.g. `"turn_start"`.
+    pub kind: Option<&'a str>,
+    /// `created_at >= since_micros`; UTC epoch microseconds.
+    pub since_micros: Option<i64>,
+    /// Exact match on the 16-byte UUID-as-bytes session id.
+    pub session_id: Option<&'a [u8]>,
+}
+
 /// Fetch the most recent `n` rows in `seq` order (oldest first).
 /// Used by the CLI's `argo audit show --tail N`.
 ///
 /// # Errors
 /// Returns [`ArgoError::Provider`] on SQL or payload parse failure.
 pub async fn tail_rows(store: &SessionStore, n: u32) -> ArgoResult<Vec<ExportedRow>> {
-    tail_rows_filtered(store, n, None, None).await
+    tail_rows_filtered(store, n, &TailFilters::default()).await
 }
 
-/// Fetch the most recent `n` rows that match optional `kind` /
-/// `since-micros` filters, in `seq` order (oldest first). When
-/// both filters are `None`, behaves identically to [`tail_rows`];
-/// otherwise the WHERE-clause is applied before the LIMIT so the
-/// caller gets up to `n` rows that satisfy every constraint.
-/// Used by the gateway's `GET /audit/recent`.
-///
-/// `since_micros` is an absolute UTC epoch-microsecond floor
-/// (`created_at >= since_micros`); the caller is expected to
-/// translate `?since-minutes=N` into `now - N*60_000_000`.
+/// Fetch the most recent `n` rows matching `filters`, in `seq`
+/// order (oldest first). When every filter is `None`, behaves
+/// identically to [`tail_rows`]; otherwise WHERE-clauses are
+/// applied before the LIMIT so the caller gets up to `n` rows
+/// that satisfy every constraint. Used by the gateway's
+/// `GET /audit/recent`.
 ///
 /// # Errors
 /// Returns [`ArgoError::Provider`] on SQL or payload parse failure.
 pub async fn tail_rows_filtered(
     store: &SessionStore,
     n: u32,
-    kind: Option<&str>,
-    since_micros: Option<i64>,
+    filters: &TailFilters<'_>,
 ) -> ArgoResult<Vec<ExportedRow>> {
     let mut where_clauses: Vec<&str> = Vec::new();
-    if kind.is_some() {
+    if filters.kind.is_some() {
         where_clauses.push("kind = ?");
     }
-    if since_micros.is_some() {
+    if filters.since_micros.is_some() {
         where_clauses.push("created_at >= ?");
+    }
+    if filters.session_id.is_some() {
+        where_clauses.push("session_id = ?");
     }
     let where_sql = if where_clauses.is_empty() {
         String::new()
@@ -117,11 +127,14 @@ pub async fn tail_rows_filtered(
          ) ORDER BY seq ASC"
     );
     let mut q = sqlx::query_as::<_, Row>(&sql);
-    if let Some(k) = kind {
+    if let Some(k) = filters.kind {
         q = q.bind(k);
     }
-    if let Some(s) = since_micros {
+    if let Some(s) = filters.since_micros {
         q = q.bind(s);
+    }
+    if let Some(sid) = filters.session_id {
+        q = q.bind(sid.to_vec());
     }
     q = q.bind(i64::from(n));
     let rows = q
@@ -216,45 +229,104 @@ mod tests {
             }
         }
         // Unfiltered: take 2 most recent of any kind, in seq order.
-        let unfiltered = tail_rows_filtered(&store, 2, None, None).await.unwrap();
-        assert_eq!(unfiltered.len(), 2);
-        // Filtered to turn_start: take 2 most recent turn_starts.
-        let starts = tail_rows_filtered(&store, 2, Some("turn_start"), None)
+        let unfiltered = tail_rows_filtered(&store, 2, &TailFilters::default())
             .await
             .unwrap();
+        assert_eq!(unfiltered.len(), 2);
+        // Filtered to turn_start: take 2 most recent turn_starts.
+        let starts = tail_rows_filtered(
+            &store,
+            2,
+            &TailFilters {
+                kind: Some("turn_start"),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(starts.len(), 2);
         for r in &starts {
             assert_eq!(r.kind, "turn_start");
         }
         // Filtered to assistant_message: only 2 exist.
-        let msgs = tail_rows_filtered(&store, 10, Some("assistant_message"), None)
-            .await
-            .unwrap();
+        let msgs = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                kind: Some("assistant_message"),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(msgs.len(), 2);
         for r in &msgs {
             assert_eq!(r.kind, "assistant_message");
         }
         // Bogus kind: empty result.
-        let nope = tail_rows_filtered(&store, 10, Some("nope"), None)
-            .await
-            .unwrap();
+        let nope = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                kind: Some("nope"),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert!(nope.is_empty());
         // since_micros in the future: empty result.
         let future = chrono::Utc::now().timestamp_micros() + 60_000_000_000;
-        let none_after = tail_rows_filtered(&store, 10, None, Some(future))
-            .await
-            .unwrap();
+        let none_after = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                since_micros: Some(future),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert!(none_after.is_empty());
         // since_micros = 0: catches everything (5 rows).
-        let all_since_epoch = tail_rows_filtered(&store, 10, None, Some(0))
-            .await
-            .unwrap();
+        let all_since_epoch = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                since_micros: Some(0),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(all_since_epoch.len(), 5);
         // Combined kind + since: still hits.
-        let combo = tail_rows_filtered(&store, 10, Some("turn_start"), Some(0))
-            .await
-            .unwrap();
+        let combo = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                kind: Some("turn_start"),
+                since_micros: Some(0),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(combo.len(), 3);
+        // session_id filter: rows have None for session in this
+        // test, so a non-None session_id finds nothing.
+        let bogus_sid = vec![0u8; 16];
+        let by_sid = tail_rows_filtered(
+            &store,
+            10,
+            &TailFilters {
+                session_id: Some(&bogus_sid),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert!(by_sid.is_empty());
     }
 
     #[tokio::test]

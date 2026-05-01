@@ -151,7 +151,15 @@ pub(super) async fn dispatch_route(
             .unwrap_or(50);
         let kind = parse_query_kv(tail, "kind");
         let since = parse_since_minutes_from_get(req, "/audit/recent");
-        return audit_recent_response(limit, kind.as_deref(), since, store).await;
+        let session = parse_query_kv(tail, "session");
+        return audit_recent_response(
+            limit,
+            kind.as_deref(),
+            since,
+            session.as_deref(),
+            store,
+        )
+        .await;
     }
     if req.starts_with("GET /doctor ") {
         return doctor_response().await;

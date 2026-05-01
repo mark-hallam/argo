@@ -8,19 +8,20 @@ use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 
-/// `GET /audit/recent?limit=N&kind=<kind>&since-minutes=<m>` —
+/// `GET /audit/recent?limit=N&kind=<k>&since-minutes=<m>&session=<id>` —
 /// most recent N audit rows across every session, in seq order
 /// (oldest first inside the window). Mirrors `argo audit show
 /// --tail N`. Defaults to 50.
 ///
 /// All filters apply at SQL level before the LIMIT, so e.g.
-/// `?limit=10&kind=tool_call&since-minutes=60` returns up to
-/// 10 tool-call rows from the last hour — not 10-most-recent
-/// trimmed to that window.
+/// `?limit=10&kind=tool_call&since-minutes=60&session=<uuid>`
+/// returns up to 10 tool-call rows from one session in the last
+/// hour — not 10-most-recent-trimmed.
 pub(super) async fn audit_recent_response(
     limit: u32,
     kind: Option<&str>,
     since_minutes: Option<i64>,
+    session: Option<&str>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -29,7 +30,24 @@ pub(super) async fn audit_recent_response(
     let since_micros = since_minutes.map(|m| {
         (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
     });
-    match argo_audit::tail_rows_filtered(store, limit, kind, since_micros).await {
+    let session_bytes = match session {
+        Some(s) => match uuid::Uuid::parse_str(s) {
+            Ok(u) => Some(u.as_bytes().to_vec()),
+            Err(e) => {
+                return (
+                    "400 Bad Request",
+                    format!("{{\"error\":\"invalid session id: {e}\"}}"),
+                );
+            }
+        },
+        None => None,
+    };
+    let filters = argo_audit::TailFilters {
+        kind,
+        since_micros,
+        session_id: session_bytes.as_deref(),
+    };
+    match argo_audit::tail_rows_filtered(store, limit, &filters).await {
         Ok(rows) => (
             "200 OK",
             serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
