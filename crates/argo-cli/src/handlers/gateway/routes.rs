@@ -176,8 +176,18 @@ pub(super) async fn dispatch_route(
         return tools_response(name_contains.as_deref(), format.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /tools/") {
-        if let Some((name, _)) = rest.split_once(' ') {
-            return tool_show_response(name).await;
+        if let Some((name_with_query, _)) = rest.split_once(' ') {
+            // Strip the query string before passing to the show
+            // handler — it handles `?format` parsing of the full
+            // request path itself.
+            let (name, query) = match name_with_query.split_once('?') {
+                Some((n, q)) => (n, Some(q)),
+                None => (name_with_query, None),
+            };
+            let format = query
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+                .map(str::to_string);
+            return tool_show_response(name, format.as_deref()).await;
         }
     }
     if req.starts_with("GET /db/stats ") {

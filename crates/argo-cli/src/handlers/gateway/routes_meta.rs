@@ -10,10 +10,15 @@ use argo_tool::{builtin_tools, ToolRegistry};
 use argo_types::SessionId;
 use std::sync::Arc;
 
-/// `GET /tools/<name>` — single tool by name. Returns 200 +
-/// `{name, description, parameters}` or 404 when no tool by
-/// that name is registered.
-pub(super) async fn tool_show_response(raw_name: &str) -> (&'static str, String) {
+/// `GET /tools/<name>[?format=markdown]` — single tool by name.
+/// Returns 200 + `{name, description, parameters}` or 404 when
+/// no tool by that name is registered. With
+/// `?format=markdown`, returns a `# <name>` doc with the
+/// description + pretty-printed JSON-schema parameters block.
+pub(super) async fn tool_show_response(
+    raw_name: &str,
+    format: Option<&str>,
+) -> (&'static str, String) {
     let Ok(cwd) = std::env::current_dir() else {
         return (
             "500 Internal Server Error",
@@ -26,6 +31,15 @@ pub(super) async fn tool_show_response(raw_name: &str) -> (&'static str, String)
     }
     match reg.schemas().into_iter().find(|s| s.name == raw_name) {
         Some(s) => {
+            if matches!(format, Some("markdown")) {
+                let mut out = format!("# {}\n\n{}\n\n## Parameters\n\n", s.name, s.description);
+                let pretty = serde_json::to_string_pretty(&s.parameters)
+                    .unwrap_or_else(|_| "{}".to_string());
+                out.push_str("```json\n");
+                out.push_str(&pretty);
+                out.push_str("\n```\n");
+                return ("200 OK", out);
+            }
             let payload = serde_json::json!({
                 "name": s.name,
                 "description": s.description,
