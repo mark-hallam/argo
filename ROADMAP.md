@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **362+ PRs**, ~49k LOC across 27 crates, zero LOC-budget
+across **366+ PRs**, ~49k LOC across 27 crates, zero LOC-budget
 violations, 80+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
