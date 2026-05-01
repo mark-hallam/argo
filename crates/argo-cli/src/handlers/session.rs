@@ -36,6 +36,11 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             .await
         }
         SessionCmd::Show { id, json } => show_session(&id, json).await,
+        SessionCmd::Count {
+            status,
+            since_minutes,
+            json,
+        } => count_sessions(status, since_minutes, json).await,
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
         SessionCmd::AttachSkill { id, skill } => {
             super::session_skills::attach(&id, &skill).await
@@ -299,7 +304,7 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
 }
 
 use super::session_aggregates::{
-    count_tool_use_blocks, session_spend_micros, spend_per_session, tool_calls_per_session,
+    count_tool_use_blocks, session_spend_micros,
 };
 
 fn message_summary(row: &argo_store::MessageRow) -> (String, String) {
@@ -321,142 +326,4 @@ fn message_summary(row: &argo_store::MessageRow) -> (String, String) {
     (row.role.clone(), snippet)
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn list_sessions(
-    limit: u32,
-    json: bool,
-    since_minutes: Option<i64>,
-    older_than_minutes: Option<i64>,
-    spent_min: Option<u64>,
-    spent_max: Option<u64>,
-    provider: Option<String>,
-    model: Option<String>,
-    status: String,
-    title_contains: Option<String>,
-) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let db = db_path(&home);
-    let store = SessionStore::open(&db).await?;
-    store.migrate().await?;
-    let mut sessions = store.list_all_sessions(limit).await?;
-    if let Some(minutes) = since_minutes {
-        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
-        sessions.retain(|s| s.started_at >= cutoff);
-    }
-    if let Some(minutes) = older_than_minutes {
-        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
-        sessions.retain(|s| s.started_at < cutoff);
-    }
-    if let Some(want) = provider.as_deref() {
-        sessions.retain(|s| s.provider == want);
-    }
-    if let Some(want) = model.as_deref() {
-        sessions.retain(|s| s.model == want);
-    }
-    match status.as_str() {
-        "open" => sessions.retain(|s| s.ended_at.is_none()),
-        "ended" => sessions.retain(|s| s.ended_at.is_some()),
-        "all" => {}
-        other => {
-            return Err(ArgoError::Provider(format!(
-                "unknown --status '{other}' — use open|ended|all"
-            )));
-        }
-    }
-    if let Some(needle) = title_contains.as_deref() {
-        let lower = needle.to_lowercase();
-        sessions.retain(|s| {
-            s.title
-                .as_deref()
-                .map(|t| t.to_lowercase().contains(&lower))
-                .unwrap_or(false)
-        });
-    }
-    let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
-    let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
-    if spent_min.is_some() || spent_max.is_some() {
-        sessions.retain(|s| {
-            let spent = spend_by_sid
-                .get(s.id.0.as_bytes().as_slice())
-                .copied()
-                .unwrap_or(0);
-            if let Some(min) = spent_min {
-                if spent < min {
-                    return false;
-                }
-            }
-            if let Some(max) = spent_max {
-                if spent > max {
-                    return false;
-                }
-            }
-            true
-        });
-    }
-    if json {
-        for s in &sessions {
-            let spent = spend_by_sid
-                .get(s.id.0.as_bytes().as_slice())
-                .copied()
-                .unwrap_or(0);
-            let tcs = tool_calls_by_sid
-                .get(s.id.0.as_bytes().as_slice())
-                .copied()
-                .unwrap_or(0);
-            let mut value = serde_json::to_value(s)
-                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-            if let serde_json::Value::Object(ref mut m) = value {
-                m.insert("spent_usd_micros".into(), serde_json::Value::from(spent));
-                m.insert("tool_call_count".into(), serde_json::Value::from(tcs));
-            }
-            let line = serde_json::to_string(&value)
-                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-            println!("{line}");
-        }
-        return Ok(());
-    }
-    if sessions.is_empty() {
-        println!("(no sessions in {})", db.display());
-        return Ok(());
-    }
-    println!(
-        "{sid:<38} {prov:<12} {model:<24} {spend:>10} {tools:>5} title",
-        sid = "session_id",
-        prov = "provider",
-        model = "model",
-        spend = "spend",
-        tools = "tools",
-    );
-    for s in sessions {
-        let spent = spend_by_sid
-            .get(s.id.0.as_bytes().as_slice())
-            .copied()
-            .unwrap_or(0);
-        let tcs = tool_calls_by_sid
-            .get(s.id.0.as_bytes().as_slice())
-            .copied()
-            .unwrap_or(0);
-        println!(
-            "{:<38} {:<12} {:<24} {:>10.4} {:>5} {}",
-            s.id.0,
-            short(&s.provider, 12),
-            short(&s.model, 24),
-            spent as f64 / 1_000_000.0,
-            tcs,
-            s.title.as_deref().unwrap_or("")
-        );
-    }
-    Ok(())
-}
-
-
-fn short(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}…", &s[..max.saturating_sub(1)])
-    }
-}
+use super::session_list::{count_sessions, list_sessions};

@@ -47,6 +47,21 @@ pub enum SessionCmd {
         #[arg(long)]
         title_contains: Option<String>,
     },
+    /// Print just the count of sessions matching the filters
+    /// (useful for monitoring scripts). One number per line, or
+    /// a single JSON object with --json.
+    Count {
+        /// Status filter: `open` / `ended` / `all` (default).
+        #[arg(long, default_value = "all")]
+        status: String,
+        /// Filter to sessions newer than N minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object {count, status} for
+        /// scripting.
+        #[arg(long)]
+        json: bool,
+    },
     /// `tail -f`-style live watch of new messages on a session.
     /// Polls every 500ms; prints each newly-appended row as a
     /// one-liner (`[seq] role: text-summary`). Exit with Ctrl-C.
