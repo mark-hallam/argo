@@ -11,7 +11,7 @@ use super::routes_top::sessions_count_response;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// `GET /sessions/count[?status&since-minutes&older-than-minutes]`
+/// `GET /sessions/count[?status&since-minutes&older-than-minutes&provider&model]`
 /// dispatch.
 pub(super) async fn dispatch_sessions_count(
     req: &str,
@@ -22,7 +22,17 @@ pub(super) async fn dispatch_sessions_count(
     let since = parse_since_minutes_from_get(req, "/sessions/count");
     let older_than =
         parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
-    sessions_count_response(status.as_deref(), since, older_than, store).await
+    let provider = parse_query_kv(tail, "provider");
+    let model = parse_query_kv(tail, "model");
+    sessions_count_response(
+        status.as_deref(),
+        since,
+        older_than,
+        provider.as_deref(),
+        model.as_deref(),
+        store,
+    )
+    .await
 }
 
 /// `GET /skills/count[?include-superseded]` dispatch.

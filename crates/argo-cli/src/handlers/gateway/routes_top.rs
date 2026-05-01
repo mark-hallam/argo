@@ -228,12 +228,15 @@ pub(super) async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'stat
     )
 }
 
-/// `GET /sessions/count[?status=…&since-minutes=N&older-than-minutes=N]`
+/// `GET /sessions/count[?status=…&since-minutes=N&older-than-minutes=N&provider=…&model=…]`
 /// — count of session rows after filters. Caps fetch at 10k.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn sessions_count_response(
     status: Option<&str>,
     since_minutes: Option<i64>,
     older_than_minutes: Option<i64>,
+    provider: Option<&str>,
+    model: Option<&str>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -248,6 +251,12 @@ pub(super) async fn sessions_count_response(
             if let Some(m) = older_than_minutes {
                 let cutoff = chrono::Utc::now() - chrono::Duration::minutes(m);
                 rows.retain(|s| s.started_at < cutoff);
+            }
+            if let Some(want) = provider {
+                rows.retain(|s| s.provider == want);
+            }
+            if let Some(want) = model {
+                rows.retain(|s| s.model == want);
             }
             let n = match status {
                 Some("open") => rows.iter().filter(|s| s.ended_at.is_none()).count(),
@@ -265,6 +274,8 @@ pub(super) async fn sessions_count_response(
             let payload = serde_json::json!({
                 "count": n,
                 "status": status.unwrap_or("all"),
+                "provider": provider,
+                "model": model,
             });
             (
                 "200 OK",
