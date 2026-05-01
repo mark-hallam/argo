@@ -304,7 +304,7 @@ async fn list_runs(
         return Ok(());
     }
     println!(
-        "id        skill                    base       candidate  iters  spend USD  score   status"
+        "  id        skill                    base       candidate  iters  spend USD  score   status"
     );
     for r in rows {
         let cand = r.candidate_version.unwrap_or_else(|| "-".into());
@@ -314,8 +314,12 @@ async fn list_runs(
             .unwrap_or_else(|| "-".into());
         let spend = format!("${:.2}", r.spend_usd_micros as f64 / 1_000_000.0);
         let id_short: String = hex::encode(&r.id).chars().take(8).collect();
+        // Running rows get a ● prefix so the user can see at a
+        // glance which runs are still in flight (mirrors the TUI
+        // F-overlay marker).
+        let marker = if r.status == "running" { "●" } else { " " };
         println!(
-            "{id_short:<8}  {name:<24} {base:<10} {cand:<10} {iters:<6} {spend:<10} {score:<7} {status}",
+            "{marker} {id_short:<8}  {name:<24} {base:<10} {cand:<10} {iters:<6} {spend:<10} {score:<7} {status}",
             name = r.skill_name,
             base = r.base_version,
             cand = cand,
