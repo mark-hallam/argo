@@ -9,7 +9,7 @@ pub fn run(cmd: PluginCmd) -> ArgoResult<()> {
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     match cmd {
-        PluginCmd::List => list(&cfg),
+        PluginCmd::List { json } => list(&cfg, json),
         other => {
             println!("argo plugin: '{other:?}' requires the daemon's plugin host (separate PR).");
             Ok(())
@@ -17,7 +17,15 @@ pub fn run(cmd: PluginCmd) -> ArgoResult<()> {
     }
 }
 
-fn list(cfg: &ArgoConfig) -> ArgoResult<()> {
+fn list(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
+    if json {
+        let arr: Vec<&String> = cfg.plugin.auto_load.iter().collect();
+        println!(
+            "{}",
+            serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
+        );
+        return Ok(());
+    }
     if cfg.plugin.auto_load.is_empty() {
         println!("(no plugins configured under [plugin].auto_load)");
         return Ok(());

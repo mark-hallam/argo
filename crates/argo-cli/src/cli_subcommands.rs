@@ -77,7 +77,12 @@ pub enum AcpCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum PluginCmd {
-    List,
+    /// List plugins configured under `[plugin].auto_load`.
+    List {
+        /// Output as a JSON array of strings for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     Install { source: String },
     Enable { name: String },
     Disable { name: String },
