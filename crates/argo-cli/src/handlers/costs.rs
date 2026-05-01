@@ -33,6 +33,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             threshold_usd,
             json,
         }) => alert_over_threshold(&cwd, threshold_usd, json).await,
+        Some(CostsCmd::Total { json }) => total(&cwd, json).await,
         Some(CostsCmd::Cap {
             session,
             day,
@@ -181,6 +182,28 @@ struct GlobalSpend {
 
 fn micros_to_usd(m: u64) -> f64 {
     m as f64 / 1_000_000.0
+}
+
+/// `argo costs total [--json]` — print just the today / mtd /
+/// all-time spend roll-up. Mirrors the gateway's
+/// `GET /costs/total` (#405). Defaults to the formatted
+/// `$X.XX` view; `--json` emits `{today, this_month, all_time}`
+/// in usd_micros for scripting.
+async fn total(cwd: &std::path::Path, json: bool) -> ArgoResult<()> {
+    let spent = load_global_spend(cwd).await?;
+    if json {
+        let payload = serde_json::json!({
+            "today":      spent.today,
+            "this_month": spent.this_month,
+            "all_time":   spent.all_time,
+        });
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+    } else {
+        println!("today:      ${:>10.2}", micros_to_usd(spent.today));
+        println!("this month: ${:>10.2}", micros_to_usd(spent.this_month));
+        println!("all time:   ${:>10.2}", micros_to_usd(spent.all_time));
+    }
+    Ok(())
 }
 
 /// Roll the spend ledger up across all tenants for "today" (UTC),

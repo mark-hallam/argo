@@ -449,5 +449,14 @@ pub enum CostsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Print just the today / month-to-date / all-time spend
+    /// roll-up, nothing else. Mirrors the gateway's
+    /// `GET /costs/total` endpoint.
+    Total {
+        /// Output as a single JSON object (`{today, this_month,
+        /// all_time}` in usd_micros) for scripting.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
