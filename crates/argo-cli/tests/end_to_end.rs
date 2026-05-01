@@ -208,3 +208,89 @@ fn agents_create_then_list_then_delete_round_trips() {
     );
     assert!(!out.status.success(), "delete-missing must fail");
 }
+
+/// End-to-end smoke for `argo session title` (set / clear).
+/// Boots a fresh workspace, creates a session via `argo new`,
+/// renames it, confirms via `argo session show --json`, then
+/// clears the title and confirms again.
+#[cfg(unix)]
+#[test]
+fn session_title_set_then_clear_round_trips() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+
+    // Bootstrap workspace + ensure the store exists.
+    let out = run(workspace.path(), home.path(), &["workspace", "init"], &[]);
+    assert!(out.status.success());
+
+    // Create a session row. argo new just inserts a row — no
+    // provider call — so we don't need an API key.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &[
+            "new",
+            "--provider",
+            "anthropic",
+            "--model",
+            "claude-haiku-4-5",
+            "--title",
+            "initial",
+        ],
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "argo new failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let session_id = parse_uuid_after("created session", &stdout);
+
+    // Rename to "renamed via test".
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "title", &session_id, "renamed via test"],
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "session title set failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    // Confirm via JSON show.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "show", &session_id, "--json"],
+        &[],
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        body.contains("\"title\":\"renamed via test\""),
+        "title not set in show: {body}"
+    );
+
+    // Now clear it.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "title", &session_id, "--clear"],
+        &[],
+    );
+    assert!(out.status.success());
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "show", &session_id, "--json"],
+        &[],
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        body.contains("\"title\":null"),
+        "title not cleared in show: {body}"
+    );
+}
