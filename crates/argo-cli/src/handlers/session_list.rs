@@ -108,7 +108,7 @@ pub(super) async fn list_sessions(
         return Ok(());
     }
     println!(
-        "{sid:<38} {prov:<12} {model:<24} {spend:>10} {tools:>5} title",
+        "  {sid:<38} {prov:<12} {model:<24} {spend:>10} {tools:>5} title",
         sid = "session_id",
         prov = "provider",
         model = "model",
@@ -124,8 +124,12 @@ pub(super) async fn list_sessions(
             .get(s.id.0.as_bytes().as_slice())
             .copied()
             .unwrap_or(0);
+        // ● for open (no ended_at), ○ for ended — mirrors the
+        // TUI session-list marker so `argo session list` and the
+        // viewer agree at a glance.
+        let marker = if s.ended_at.is_none() { "●" } else { "○" };
         println!(
-            "{:<38} {:<12} {:<24} {:>10.4} {:>5} {}",
+            "{marker} {:<38} {:<12} {:<24} {:>10.4} {:>5} {}",
             s.id.0,
             short(&s.provider, 12),
             short(&s.model, 24),
