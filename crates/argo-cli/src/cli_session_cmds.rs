@@ -113,6 +113,10 @@ pub enum SessionCmd {
         limit: u32,
         #[arg(long)]
         session: Option<String>,
+        /// Filter hits to one role: user|assistant|tool|system.
+        /// Mirrors the gateway's `?role=` filter (#414).
+        #[arg(long)]
+        role: Option<String>,
     },
     /// Delete a session and all its dependent rows. Pass `--force`
     /// to skip the confirmation prompt.

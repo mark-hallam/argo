@@ -58,7 +58,8 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             query,
             limit,
             session,
-        } => search(&query, limit, session.as_deref()).await,
+            role,
+        } => search(&query, limit, session.as_deref(), role.as_deref()).await,
         SessionCmd::Delete { id, force } => delete_session(&id, force).await,
         SessionCmd::Diff { id1, id2, json } => diff_sessions(&id1, &id2, json).await,
         SessionCmd::Bisect { id, hypothesis } => {
@@ -108,7 +109,12 @@ async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn search(query: &str, limit: u32, session: Option<&str>) -> ArgoResult<()> {
+async fn search(
+    query: &str,
+    limit: u32,
+    session: Option<&str>,
+    role: Option<&str>,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -116,7 +122,14 @@ async fn search(query: &str, limit: u32, session: Option<&str>) -> ArgoResult<()
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
-    let hits = match session {
+    if let Some(want) = role {
+        if !matches!(want, "user" | "assistant" | "tool" | "system") {
+            return Err(ArgoError::Provider(format!(
+                "unknown --role '{want}' — use user|assistant|tool|system"
+            )));
+        }
+    }
+    let mut hits = match session {
         Some(raw) => {
             let id = uuid::Uuid::parse_str(raw)
                 .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
@@ -126,6 +139,9 @@ async fn search(query: &str, limit: u32, session: Option<&str>) -> ArgoResult<()
         }
         None => store.search_messages(query, limit).await?,
     };
+    if let Some(want) = role {
+        hits.retain(|h| h.role == want);
+    }
     if hits.is_empty() {
         println!("(no matches for '{query}')");
         return Ok(());
