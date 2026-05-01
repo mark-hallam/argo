@@ -309,6 +309,49 @@ pub(super) async fn memory_show_response(
 /// (mirrors `argo skill view <name>`). Returns 404 if no active
 /// row matches; the body includes the skill body text + lock +
 /// frontmatter for clients that want the full document.
+/// `GET /skills/<name>/versions` — list every row matching
+/// `<name>` (active + superseded) as a JSON array sorted by
+/// `created_at` ASC. Useful for visualising the supersede
+/// chain after a `forge optimize` or `skill refine` cycle.
+pub(super) async fn skill_versions_response(
+    name: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    match skills.versions_for_name(name).await {
+        Ok(rows) if rows.is_empty() => (
+            "404 Not Found",
+            format!("{{\"error\":\"no skill named '{name}'\"}}"),
+        ),
+        Ok(rows) => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "id": s.id.0.to_string(),
+                        "version": s.frontmatter.version,
+                        "hash": hex::encode(s.hash),
+                        "lock": format!("{:?}", s.frontmatter.lock),
+                        "superseded_by": s.superseded_by.map(|i| i.0.to_string()),
+                        "created_at": s.created_at.to_rfc3339(),
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"versions_for_name: {e}\"}}"),
+        ),
+    }
+}
+
 pub(super) async fn skill_show_response(
     name: &str,
     store: Option<&Arc<SessionStore>>,
@@ -400,76 +443,4 @@ pub(super) async fn forge_run_show_response(
 /// Lets a UI / docs surface enumerate the API without scraping
 /// the help banner. Static — no DB or filesystem I/O — so it's
 /// always fast and never 503.
-pub(super) fn routes_response() -> (&'static str, String) {
-    let rows = [
-        ("GET", "/health", "liveness probe"),
-        ("GET", "/version", "build version"),
-        ("GET", "/sessions", "list sessions (?since-minutes=N)"),
-        ("GET", "/sessions/<id>", "one session header + counts"),
-        ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>)"),
-        ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
-        ("GET", "/skills", "active skills"),
-        ("GET", "/skills/<name>", "one skill view (full body)"),
-        ("POST", "/skills", "install a SKILL.md document"),
-        ("POST", "/memory", "append a memory entry ({file, body})"),
-        ("GET", "/memory", "memory entries"),
-        ("GET", "/memory/<id>", "one memory entry (full body)"),
-        ("GET", "/audit", "audit chain summary"),
-        ("GET", "/audit/sessions/<id>", "per-session audit chain"),
-        ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity"),
-        ("GET", "/costs", "cost ceilings"),
-        ("GET", "/costs/by-model", "spend grouped by (provider, model)"),
-        ("GET", "/costs/by-session", "spend grouped by session_id"),
-        ("GET", "/providers", "workspace provider manifests"),
-        ("GET", "/tools", "registered in-core tools"),
-        ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
-        ("GET", "/workspace/artifacts", "recorded marketplace pushes"),
-        ("GET", "/forge/runs", "recorded forge optimization runs"),
-        ("GET", "/forge/runs/<id>", "one forge_run row"),
-        ("GET", "/cron", "scheduled cron jobs (workspace cron/jobs/*.json)"),
-        ("GET", "/cron/<name>", "one cron job by name"),
-        ("POST", "/cron", "create a new cron job ({name, schedule, prompt, platform, chat})"),
-        ("POST", "/cron/<name>/delete", "remove the on-disk job file"),
-        ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
-        ("GET", "/health/full", "deep health (chain + skill + memory)"),
-        ("GET", "/routes", "this listing"),
-        ("GET", "/metrics", "Prometheus-style text exposition"),
-        ("POST", "/sessions", "create a session row"),
-        ("POST", "/sessions/<id>/messages", "append a message"),
-        ("POST", "/sessions/<id>/runs", "run one agent turn"),
-        ("POST", "/sessions/<id>/runs/stream", "chunked-NDJSON live event stream"),
-        ("POST", "/sessions/<id>/steer", "inject a system-role steer"),
-        ("POST", "/sessions/<id>/replay", "replay user prompts in a fresh session"),
-        ("POST", "/sessions/<id>/replay/stream", "chunked-NDJSON replay event stream"),
-        ("GET", "/sessions/<id>/skills", "skills attached to the session"),
-        ("POST", "/sessions/<id>/skills/attach", "attach a skill ({skill: name})"),
-        ("POST", "/sessions/<id>/skills/detach", "detach a skill ({skill: name})"),
-        ("POST", "/skills", "install a SKILL.md document"),
-        ("POST", "/memory", "append a memory entry"),
-        ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),
-        ("POST", "/forge/optimize/stream", "chunked-NDJSON forge optimize event stream"),
-        ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
-        ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
-        ("POST", "/skills/<name>/promote", "promote a skill version to active"),
-        ("POST", "/skills/<name>/lock", "lock a skill (user-protected by default)"),
-        ("POST", "/skills/<name>/unlock", "clear a skill lock"),
-        ("POST", "/memory/<id>/lock", "lock a memory entry"),
-        ("POST", "/memory/<id>/unlock", "clear a memory-entry lock"),
-        ("POST", "/memory/<id>/forget", "revert (supersede) a memory entry"),
-        ("POST", "/memory/<id>/edit", "supersede with a new body ({body})"),
-    ];
-    let body: Vec<serde_json::Value> = rows
-        .iter()
-        .map(|(method, path, description)| {
-            serde_json::json!({
-                "method": method,
-                "path": path,
-                "description": description,
-            })
-        })
-        .collect();
-    (
-        "200 OK",
-        serde_json::to_string(&body).unwrap_or_else(|_| "[]".to_string()),
-    )
-}
+pub(super) use super::routes_catalog::routes_response;

@@ -7,6 +7,7 @@
 mod lifecycle;
 mod metrics;
 mod routes;
+mod routes_catalog;
 mod routes_cron;
 mod routes_meta;
 mod routes_msgs;
@@ -121,6 +122,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /sessions/<uuid>/replay/stream → chunked-NDJSON stream of replay events");
     eprintln!("  GET  /skills   → active skills (JSON array)");
     eprintln!("  GET  /skills/<name> → one skill view (full body + frontmatter)");
+    eprintln!("  GET  /skills/<name>/versions → supersede chain for that name");
     eprintln!("  POST /skills   → install a SKILL.md document ({{raw}})");
     eprintln!("  POST /memory   → append a memory entry ({{file: memory|user|soul|agents, body}})");
     eprintln!("  GET  /memory   → active memory entries (JSON array)");

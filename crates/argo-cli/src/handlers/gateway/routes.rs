@@ -6,7 +6,8 @@
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
     artifacts_response, forge_run_show_response, forge_runs_response, memory_show_response,
-    providers_response, routes_response, search_response, skill_show_response, tools_response,
+    providers_response, routes_response, search_response, skill_show_response,
+    skill_versions_response, tools_response,
 };
 use super::routes_post::{
     append_message_response, audit_session_response, audit_session_verify_response,
@@ -57,6 +58,13 @@ pub(super) async fn dispatch_route(
         return skills_response(store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /skills/") {
+        // /skills/<name>/versions takes priority over the bare
+        // /skills/<name> single-skill view.
+        if let Some((name, tail)) = rest.split_once('/') {
+            if tail.starts_with("versions ") {
+                return skill_versions_response(name, store).await;
+            }
+        }
         if let Some((name, _)) = rest.split_once(' ') {
             return skill_show_response(name, store).await;
         }
