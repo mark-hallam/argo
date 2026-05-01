@@ -43,7 +43,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     match cmd {
-        GatewayCmd::Status => status(&cfg),
+        GatewayCmd::Status { json } => status(&cfg, json),
         GatewayCmd::Start {
             bind,
             port,
@@ -303,12 +303,30 @@ async fn stop() -> ArgoResult<()> {
     Ok(())
 }
 
-fn status(cfg: &ArgoConfig) -> ArgoResult<()> {
+fn status(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
+    // Best-effort: read the PID file so the JSON form can report
+    // a real running state, not just the config bits.
+    let pid_alive = pid_path()
+        .ok()
+        .and_then(|p| std::fs::read_to_string(&p).ok())
+        .and_then(|s| s.trim().parse::<i32>().ok())
+        .map(pid_is_alive)
+        .unwrap_or(false);
+    if json {
+        let payload = serde_json::json!({
+            "enabled": cfg.gateway.enabled,
+            "adapters": cfg.gateway.adapters,
+            "running": pid_alive,
+        });
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+        return Ok(());
+    }
     println!("gateway:");
     println!(
         "  enabled:   {} (set [gateway].enabled in argo.toml)",
         cfg.gateway.enabled
     );
+    println!("  running:   {pid_alive}");
     if cfg.gateway.adapters.is_empty() {
         println!("  adapters:  (none configured)");
     } else {

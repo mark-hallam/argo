@@ -47,7 +47,12 @@ pub enum GatewayCmd {
         max_requests: Option<u64>,
     },
     Stop,
-    Status,
+    /// One-line status: running PID + listening address.
+    Status {
+        /// Output as a JSON object `{running, pid?, addr?}`.
+        #[arg(long)]
+        json: bool,
+    },
     /// Print the gateway's static route catalog. No daemon
     /// required — reads the in-binary catalog. `--method
     /// GET|POST` filters by verb; `--grep <sub>` filters by
