@@ -5,9 +5,9 @@
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
-    costs_response, db_stats_response, forge_run_show_response, forge_runs_response,
-    memory_show_response, routes_response, search_response, skill_show_response,
-    skill_versions_response, tool_show_response, tools_response,
+    costs_response, costs_total_response, db_stats_response, forge_run_show_response,
+    forge_runs_response, memory_show_response, routes_response, search_response,
+    skill_show_response, skill_versions_response, tool_show_response, tools_response,
 };
 use super::routes_providers::{
     provider_models_response, provider_show_response, providers_response,
@@ -307,6 +307,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /costs ") {
         return costs_response();
+    }
+    if req.starts_with("GET /costs/total ") {
+        return costs_total_response(store).await;
     }
     if req.starts_with("GET /costs/by-model ") {
         return costs_breakdown_response("by_model", store).await;

@@ -30,6 +30,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind&since-minutes)"),
         ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity"),
         ("GET", "/costs", "cost ceilings"),
+        ("GET", "/costs/total", "actual spend roll-up across all tenants (today/this_month/all_time)"),
         ("GET", "/costs/by-model", "spend grouped by (provider, model)"),
         ("GET", "/costs/by-session", "spend grouped by session_id"),
         ("GET", "/providers", "workspace provider manifests (?family=<f>)"),

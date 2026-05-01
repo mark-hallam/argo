@@ -455,6 +455,35 @@ pub(super) fn costs_response() -> (&'static str, String) {
     )
 }
 
+/// `GET /costs/total` — actual spend roll-up across every
+/// tenant: today (UTC), month-to-date, all-time. Mirrors the
+/// "spent" block of `argo costs show`. Returned as
+/// `{today, this_month, all_time}` in usd_micros.
+pub(super) async fn costs_total_response(
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    match store.load_global_spend().await {
+        Ok(snap) => {
+            let payload = serde_json::json!({
+                "today":       snap.today,
+                "this_month":  snap.this_month,
+                "all_time":    snap.all_time,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"load_global_spend: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /db/stats` — per-table row counts for the workspace
 /// store. Mirrors the `db status` block of `argo doctor`.
 pub(super) async fn db_stats_response(
