@@ -74,7 +74,10 @@ pub(super) async fn dispatch_route(
         let since = parse_since_minutes_from_get(req, "/sessions");
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let status = parse_query_kv(tail, "status");
-        return sessions_response(store, since, status.as_deref()).await;
+        let limit: u32 = parse_query_kv(tail, "limit")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(100);
+        return sessions_response(store, since, status.as_deref(), limit).await;
     }
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
@@ -384,11 +387,12 @@ async fn sessions_response(
     store: Option<&Arc<SessionStore>>,
     since_minutes: Option<i64>,
     status: Option<&str>,
+    limit: u32,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
-    match store.list_all_sessions(100).await {
+    match store.list_all_sessions(limit).await {
         Ok(mut rows) => {
             if let Some(minutes) = since_minutes {
                 let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
