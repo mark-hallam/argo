@@ -226,6 +226,29 @@ pub(crate) async fn run(
                     let rows = store.list_forge_runs(50).await.unwrap_or_default();
                     state.forge_runs = Some(rows);
                 }
+                KeyCode::Char('R') => {
+                    // Force-refresh of every pane + any open
+                    // overlay. Useful when a CLI in another
+                    // terminal just changed something and the
+                    // 1-Hz tick hasn't come round yet.
+                    state.messages_loaded = false;
+                    fetch_message_count(&store, state).await?;
+                    fetch_messages(&store, state).await?;
+                    if state.forge_runs.is_some() {
+                        let rows = store.list_forge_runs(50).await.unwrap_or_default();
+                        state.forge_runs = Some(rows);
+                    }
+                    if state.skills_overlay.is_some() {
+                        let skills = argo_skill::SkillStore::new(Arc::clone(&store));
+                        let rows = skills.list_active().await.unwrap_or_default();
+                        state.skills_overlay = Some(rows);
+                    }
+                    if state.cost_overlay.is_some() {
+                        let snap = store.load_global_spend().await.unwrap_or_default();
+                        state.cost_overlay = Some(snap);
+                    }
+                    last_refresh = std::time::Instant::now();
+                }
                 KeyCode::Char('S') => {
                     // Load the active-skill rows. Errors → empty
                     // list (overlay shows "(no active skills)").

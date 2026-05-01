@@ -35,6 +35,7 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("  Forge / Skills / Memory / Cost"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
         Line::from("    M  active memory               $  cost rollup"),
+        Line::from("    R  force-refresh all panes + open overlays"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
