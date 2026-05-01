@@ -44,6 +44,15 @@ pub enum GatewayCmd {
     },
     Stop,
     Status,
+    /// Print the gateway's static route catalog. No daemon
+    /// required — reads the in-binary catalog. Pass `--json` for
+    /// machine-readable form, `--method GET|POST` to filter.
+    Routes {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        method: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

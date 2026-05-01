@@ -50,7 +50,30 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             max_requests,
         } => start(&bind, port, max_requests).await,
         GatewayCmd::Stop => stop().await,
+        GatewayCmd::Routes { json, method } => print_routes(json, method.as_deref()),
     }
+}
+
+/// `argo gateway routes [--json] [--method GET|POST]` — pretty-
+/// print the static route catalog the gateway dispatches over.
+/// No daemon required; reads the in-binary catalog.
+fn print_routes(json: bool, method: Option<&str>) -> ArgoResult<()> {
+    let (_status, body) = routes_catalog::routes_response(method);
+    if json {
+        println!("{body}");
+        return Ok(());
+    }
+    let parsed: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse: {e}")))?;
+    let arr = parsed.as_array().cloned().unwrap_or_default();
+    println!("argo gateway routes ({} endpoints)", arr.len());
+    for row in arr {
+        let m = row["method"].as_str().unwrap_or("?");
+        let p = row["path"].as_str().unwrap_or("?");
+        let d = row["description"].as_str().unwrap_or("");
+        println!("  {m:<5} {p:<40} {d}");
+    }
+    Ok(())
 }
 
 fn pid_path() -> ArgoResult<PathBuf> {

@@ -7,7 +7,7 @@
 /// dispatched route + a one-line description, returned as a
 /// JSON array of `{method, path, description}` rows. With
 /// `method=GET|POST` the result is filtered to that verb.
-pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, String) {
+pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, String) {
     let rows = [
         ("GET", "/health", "liveness probe"),
         ("GET", "/version", "build version"),
