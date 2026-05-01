@@ -142,16 +142,16 @@ pub(super) async fn search_response(
     }
 }
 
-/// `GET /forge/runs[?limit=N&since-minutes=M]` — list recorded
-/// forge optimization runs from the local DB (the same rows
-/// `argo forge runs list` surfaces). Defaults to 50 rows.
-/// `since-minutes` (optional) filters to runs whose `started_at`
-/// is within the last M minutes — useful for tailing recent
-/// activity. Returns 503 when the store is unavailable; 200 +
-/// an empty array on a clean DB.
+/// `GET /forge/runs[?limit=N&since-minutes=M&status=<s>]` —
+/// list recorded forge optimization runs (the same rows
+/// `argo forge runs list` surfaces). Defaults to 50.
+/// `since-minutes` filters by `started_at`; `status` filters
+/// by `forge_run.status` (e.g. `running`, `succeeded`,
+/// `aborted`).
 pub(super) async fn forge_runs_response(
     limit: u32,
     since_minutes: Option<i64>,
+    status: Option<&str>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -166,6 +166,10 @@ pub(super) async fn forge_runs_response(
                 .into_iter()
                 .filter(|r| match cutoff_micros {
                     Some(c) => r.started_at >= c,
+                    None => true,
+                })
+                .filter(|r| match status {
+                    Some(want) => r.status == want,
                     None => true,
                 })
                 .map(|r| {

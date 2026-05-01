@@ -166,13 +166,13 @@ pub(super) async fn dispatch_route(
         }
     }
     if req.starts_with("GET /forge/runs ") || req.starts_with("GET /forge/runs?") {
-        let limit: u32 = req
-            .strip_prefix("GET ")
-            .and_then(|tail| parse_query_kv(tail, "limit"))
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
         let since = parse_since_minutes_from_get(req, "/forge/runs");
-        return forge_runs_response(limit, since, store).await;
+        let status = parse_query_kv(tail, "status");
+        return forge_runs_response(limit, since, status.as_deref(), store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
         if let Some((id, _)) = rest.split_once(' ') {
