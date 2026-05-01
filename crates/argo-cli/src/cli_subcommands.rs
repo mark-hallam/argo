@@ -47,8 +47,9 @@ pub enum GatewayCmd {
     /// Print the gateway's static route catalog. No daemon
     /// required — reads the in-binary catalog. `--method
     /// GET|POST` filters by verb; `--grep <sub>` filters by
-    /// path/description substring (case-insensitive); `--json`
-    /// for the machine-readable form.
+    /// path/description substring (case-insensitive); `--limit
+    /// N` truncates to the first N rows; `--json` for the
+    /// machine-readable form.
     Routes {
         #[arg(long)]
         json: bool,
@@ -58,6 +59,9 @@ pub enum GatewayCmd {
         /// description.
         #[arg(long)]
         grep: Option<String>,
+        /// Truncate the output to the first N rows after filters.
+        #[arg(long)]
+        limit: Option<usize>,
     },
 }
 

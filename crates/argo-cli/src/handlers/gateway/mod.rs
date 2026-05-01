@@ -54,15 +54,20 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             json,
             method,
             grep,
-        } => print_routes(json, method.as_deref(), grep.as_deref()),
+            limit,
+        } => print_routes(json, method.as_deref(), grep.as_deref(), limit),
     }
 }
 
-/// `argo gateway routes [--json] [--method] [--grep]` — pretty-
-/// print the static route catalog. `--grep` is case-insensitive
-/// substring match on path or description; applied after the
-/// `--method` filter.
-fn print_routes(json: bool, method: Option<&str>, grep: Option<&str>) -> ArgoResult<()> {
+/// `argo gateway routes [--json] [--method] [--grep] [--limit]`
+/// — pretty-print the static route catalog. Filters apply in
+/// order: method → grep → limit.
+fn print_routes(
+    json: bool,
+    method: Option<&str>,
+    grep: Option<&str>,
+    limit: Option<usize>,
+) -> ArgoResult<()> {
     let (_status, body) = routes_catalog::routes_response(method);
     let parsed: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse: {e}")))?;
@@ -74,6 +79,9 @@ fn print_routes(json: bool, method: Option<&str>, grep: Option<&str>) -> ArgoRes
             let desc = r["description"].as_str().unwrap_or("").to_lowercase();
             path.contains(&lower) || desc.contains(&lower)
         });
+    }
+    if let Some(n) = limit {
+        rows.truncate(n);
     }
     if json {
         println!(
