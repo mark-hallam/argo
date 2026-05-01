@@ -32,6 +32,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/providers", "workspace provider manifests"),
         ("GET", "/providers/<id>", "one provider manifest by basename"),
         ("GET", "/tools", "registered in-core tools"),
+        ("GET", "/tools/<name>", "one tool by name"),
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
         ("GET", "/workspace/info", "first workspace row (id, name, root_path, created_at)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes (?limit=N&since-minutes=M)"),

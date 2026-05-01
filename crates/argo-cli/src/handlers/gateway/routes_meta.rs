@@ -10,6 +10,39 @@ use argo_tool::{builtin_tools, ToolRegistry};
 use argo_types::SessionId;
 use std::sync::Arc;
 
+/// `GET /tools/<name>` — single tool by name. Returns 200 +
+/// `{name, description, parameters}` or 404 when no tool by
+/// that name is registered.
+pub(super) async fn tool_show_response(raw_name: &str) -> (&'static str, String) {
+    let Ok(cwd) = std::env::current_dir() else {
+        return (
+            "500 Internal Server Error",
+            "{\"error\":\"cwd unavailable\"}".to_string(),
+        );
+    };
+    let mut reg = ToolRegistry::new();
+    for t in builtin_tools(cwd) {
+        reg.register(t);
+    }
+    match reg.schemas().into_iter().find(|s| s.name == raw_name) {
+        Some(s) => {
+            let payload = serde_json::json!({
+                "name": s.name,
+                "description": s.description,
+                "parameters": s.parameters,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        None => (
+            "404 Not Found",
+            format!("{{\"error\":\"no tool named '{raw_name}'\"}}"),
+        ),
+    }
+}
+
 /// `GET /tools` — list every registered in-core tool with its
 /// JSON-schema parameter shape, exactly as the agent loop will
 /// hand it to a provider. Useful for a UI / docs surface that

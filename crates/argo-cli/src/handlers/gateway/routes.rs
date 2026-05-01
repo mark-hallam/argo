@@ -7,7 +7,7 @@
 use super::routes_meta::{
     costs_response, db_stats_response, forge_run_show_response, forge_runs_response,
     memory_show_response, routes_response, search_response, skill_show_response,
-    skill_versions_response, tools_response,
+    skill_versions_response, tool_show_response, tools_response,
 };
 use super::routes_providers::{provider_show_response, providers_response};
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
@@ -124,6 +124,11 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /tools ") {
         return tools_response().await;
+    }
+    if let Some(rest) = req.strip_prefix("GET /tools/") {
+        if let Some((name, _)) = rest.split_once(' ') {
+            return tool_show_response(name).await;
+        }
     }
     if req.starts_with("GET /db/stats ") {
         return db_stats_response(store).await;
