@@ -84,6 +84,15 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
     push_count(&mut out, pool, "argo_forge_runs_running",
         "Forge runs currently in flight (status='running')",
         "SELECT COUNT(*) FROM forge_run WHERE status = 'running'").await;
+    push_count(&mut out, pool, "argo_workspaces_total",
+        "Registered workspace rows",
+        "SELECT COUNT(*) FROM workspace").await;
+    push_count(&mut out, pool, "argo_memory_entries_total",
+        "Active memory_entry rows (not superseded)",
+        "SELECT COUNT(*) FROM memory_entry WHERE superseded_by IS NULL").await;
+    push_count(&mut out, pool, "argo_judge_records_total",
+        "Recorded judge_record rows",
+        "SELECT COUNT(*) FROM judge_record").await;
     push_sum(&mut out, pool, "argo_spend_usd_micros_total",
         "Sum of spend_ledger.amount_usd_micros across every session",
         "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger").await;
