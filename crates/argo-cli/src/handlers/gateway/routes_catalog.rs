@@ -11,7 +11,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
     let rows = [
         ("GET", "/health", "liveness probe"),
         ("GET", "/version", "build version"),
-        ("GET", "/sessions", "list sessions (?limit&since-minutes&status&provider&model&title-contains&spent-min&spent-max)"),
+        ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max)"),
         ("GET", "/sessions/<id>", "one session header + counts"),
         ("GET", "/sessions/<id>/messages", "messages (?limit&role&since-minutes&seq-min&seq-max&content-contains)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session"),

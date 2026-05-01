@@ -8,14 +8,16 @@ use argo_store::SessionStore;
 use std::sync::Arc;
 
 /// `GET /sessions` — list every session row joined with each
-/// session's spend total. Optional filters: `since-minutes`,
-/// `status=open|ended`, `provider=<id>`, `model=<id>`,
+/// session's spend total. Optional filters: `since-minutes`
+/// (newer than), `older-than-minutes` (older than), `status=
+/// open|ended`, `provider=<id>`, `model=<id>`,
 /// `title-contains=<sub>`, `spent-min=<usd_micros>`,
 /// `spent-max=<usd_micros>`, `limit=<N>` (default 100).
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn sessions_response(
     store: Option<&Arc<SessionStore>>,
     since_minutes: Option<i64>,
+    older_than_minutes: Option<i64>,
     status: Option<&str>,
     provider: Option<&str>,
     model: Option<&str>,
@@ -32,6 +34,10 @@ pub(super) async fn sessions_response(
             if let Some(minutes) = since_minutes {
                 let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
                 rows.retain(|s| s.started_at >= cutoff);
+            }
+            if let Some(minutes) = older_than_minutes {
+                let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
+                rows.retain(|s| s.started_at < cutoff);
             }
             if let Some(want) = status {
                 rows.retain(|s| match want {
