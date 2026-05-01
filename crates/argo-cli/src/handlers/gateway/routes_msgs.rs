@@ -55,13 +55,16 @@ pub(super) async fn last_message_response(
     }
 }
 
-/// `GET /sessions/<id>/messages?limit=N&role=<r>` — list every
-/// message on a session, optionally trimmed by role / limit.
+/// `GET /sessions/<id>/messages?limit=N&role=<r>&since-minutes=M`
+/// — list messages on a session. Optional filters: `role`,
+/// `limit`, and `since-minutes` (returns only rows whose
+/// `created_at` is within the last M minutes).
 pub(super) async fn list_messages_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
     limit: Option<usize>,
     role: Option<String>,
+    since_minutes: Option<i64>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -79,6 +82,11 @@ pub(super) async fn list_messages_response(
         Ok(mut rows) => {
             if let Some(want) = role.as_deref() {
                 rows.retain(|m| m.role == want);
+            }
+            if let Some(m) = since_minutes {
+                let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m))
+                    .timestamp_micros();
+                rows.retain(|row| row.created_at >= cutoff_micros);
             }
             if let Some(n) = limit {
                 if rows.len() > n {

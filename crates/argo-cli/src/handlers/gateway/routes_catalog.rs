@@ -12,7 +12,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?since-minutes=N)"),
         ("GET", "/sessions/<id>", "one session header + counts"),
-        ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>)"),
+        ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>&since-minutes=M)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
         ("GET", "/skills", "active skills"),

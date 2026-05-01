@@ -294,7 +294,9 @@ pub(super) async fn dispatch_route(
             if tail.starts_with("messages ") || tail.starts_with("messages?") {
                 let limit = parse_limit(tail);
                 let role = parse_role(tail);
-                return list_messages_response(sid, store, limit, role).await;
+                let since = super::routes_query::parse_query_kv(tail, "since-minutes")
+                    .and_then(|v| v.parse::<i64>().ok());
+                return list_messages_response(sid, store, limit, role, since).await;
             }
             if tail.starts_with("skills ") {
                 return session_skills_list_response(sid, store).await;
