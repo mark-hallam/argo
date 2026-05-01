@@ -45,6 +45,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             older_than_minutes,
             provider,
             model,
+            title_contains,
+            spent_min,
+            spent_max,
             json,
         } => {
             count_sessions(
@@ -53,6 +56,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
                 older_than_minutes,
                 provider,
                 model,
+                title_contains,
+                spent_min,
+                spent_max,
                 json,
             )
             .await

@@ -76,6 +76,16 @@ pub enum SessionCmd {
         /// Exact-match filter on session.model.
         #[arg(long)]
         model: Option<String>,
+        /// Case-insensitive substring filter on session.title.
+        /// Mirrors `argo session list --title-contains`.
+        #[arg(long)]
+        title_contains: Option<String>,
+        /// Lower bound on per-session spend in usd_micros.
+        #[arg(long)]
+        spent_min: Option<u64>,
+        /// Upper bound on per-session spend in usd_micros.
+        #[arg(long)]
+        spent_max: Option<u64>,
         /// Output as a single JSON object {count, status, ...}
         /// for scripting.
         #[arg(long)]

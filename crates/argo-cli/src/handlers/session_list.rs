@@ -202,9 +202,8 @@ pub(super) async fn list_sessions(
     Ok(())
 }
 
-/// `argo session count` with the same filter set as `list`
-/// minus spend / title-contains. Caps the fetch at 10,000 rows
-/// for safety.
+/// `argo session count` with the same filter set as `list`.
+/// Caps the fetch at 10,000 rows for safety.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn count_sessions(
     status: String,
@@ -212,8 +211,12 @@ pub(super) async fn count_sessions(
     older_than_minutes: Option<i64>,
     provider: Option<String>,
     model: Option<String>,
+    title_contains: Option<String>,
+    spent_min: Option<u64>,
+    spent_max: Option<u64>,
     json: bool,
 ) -> ArgoResult<()> {
+    use super::session_aggregates::spend_per_session;
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -235,6 +238,15 @@ pub(super) async fn count_sessions(
     if let Some(want) = model.as_deref() {
         sessions.retain(|s| s.model == want);
     }
+    if let Some(needle) = title_contains.as_deref() {
+        let lower = needle.to_lowercase();
+        sessions.retain(|s| {
+            s.title
+                .as_deref()
+                .map(|t| t.to_lowercase().contains(&lower))
+                .unwrap_or(false)
+        });
+    }
     match status.as_str() {
         "open" => sessions.retain(|s| s.ended_at.is_none()),
         "ended" => sessions.retain(|s| s.ended_at.is_some()),
@@ -245,6 +257,26 @@ pub(super) async fn count_sessions(
             )));
         }
     }
+    if spent_min.is_some() || spent_max.is_some() {
+        let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
+        sessions.retain(|s| {
+            let spent = spend_by_sid
+                .get(s.id.0.as_bytes().as_slice())
+                .copied()
+                .unwrap_or(0);
+            if let Some(min) = spent_min {
+                if spent < min {
+                    return false;
+                }
+            }
+            if let Some(max) = spent_max {
+                if spent > max {
+                    return false;
+                }
+            }
+            true
+        });
+    }
     let count = sessions.len();
     if json {
         let payload = serde_json::json!({
@@ -252,6 +284,9 @@ pub(super) async fn count_sessions(
             "status": status,
             "provider": provider,
             "model": model,
+            "title_contains": title_contains,
+            "spent_min": spent_min,
+            "spent_max": spent_max,
         });
         println!("{}", serde_json::to_string(&payload).unwrap_or_default());
     } else {
