@@ -394,6 +394,39 @@ fn providers_and_tools_return_arrays() {
 }
 
 #[test]
+fn cron_endpoints_return_empty_array_and_404_on_clean_workspace() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "2",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    // No cron/jobs/ dir → empty JSON array, not 500.
+    let resp = http_get(port, "/cron");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert_eq!(body_of(&resp), "[]");
+
+    let resp = http_get(port, "/cron/never-created");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn runs_stream_emits_chunked_ndjson_with_terminator() {
     // The gateway's streaming endpoint always returns 200 +
     // chunked-encoded NDJSON. Run against an unknown session so

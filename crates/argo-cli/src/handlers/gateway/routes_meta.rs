@@ -425,6 +425,8 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/workspace/artifacts", "recorded marketplace pushes"),
         ("GET", "/forge/runs", "recorded forge optimization runs"),
         ("GET", "/forge/runs/<id>", "one forge_run row"),
+        ("GET", "/cron", "scheduled cron jobs (workspace cron/jobs/*.json)"),
+        ("GET", "/cron/<name>", "one cron job by name"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing"),

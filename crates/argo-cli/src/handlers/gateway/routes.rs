@@ -12,6 +12,7 @@ use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
     create_session_response, replay_response, run_turn_response, steer_response,
 };
+use super::routes_cron::{cron_list_response, cron_show_response};
 use super::routes_msgs::list_messages_response;
 use super::routes_post_admin::{
     memory_lock_response, memory_unlock_response, skill_lock_response, skill_unlock_response,
@@ -89,6 +90,14 @@ pub(super) async fn dispatch_route(
             .and_then(|v| v.parse().ok())
             .unwrap_or(25);
         return artifacts_response(limit, store).await;
+    }
+    if req.starts_with("GET /cron ") || req.starts_with("GET /cron?") {
+        return cron_list_response().await;
+    }
+    if let Some(rest) = req.strip_prefix("GET /cron/") {
+        if let Some((name, _)) = rest.split_once(' ') {
+            return cron_show_response(name).await;
+        }
     }
     if req.starts_with("GET /forge/runs ") || req.starts_with("GET /forge/runs?") {
         let limit: u32 = req

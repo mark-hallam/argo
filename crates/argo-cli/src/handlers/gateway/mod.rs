@@ -7,6 +7,7 @@
 mod lifecycle;
 mod metrics;
 mod routes;
+mod routes_cron;
 mod routes_meta;
 mod routes_msgs;
 mod routes_post;
@@ -127,6 +128,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /workspace/artifacts[?limit=N] → recorded marketplace pushes (oci_ref + digest + pushed_at)");
     eprintln!("  GET  /forge/runs[?limit=N] → recorded forge optimization runs");
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
+    eprintln!("  GET  /cron                 → scheduled cron jobs (workspace cron/jobs/)");
+    eprintln!("  GET  /cron/<name>          → one cron job by name");
     eprintln!("  POST /forge/optimize → kick off `argo forge optimize` ({{skill, examples, iterations?, budget_usd?}})");
     eprintln!("  POST /forge/optimize/stream → chunked-NDJSON live forge progress");
     eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");
