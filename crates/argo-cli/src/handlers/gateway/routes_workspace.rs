@@ -9,12 +9,20 @@ use std::sync::Arc;
 /// 200 + the row, or 404 when none exists.
 pub(super) async fn workspace_info_response(
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
     match store.first_workspace_info().await {
         Ok(Some((id, name, root, created))) => {
+            if matches!(format, Some("markdown")) {
+                let mut out = format!("# Workspace `{name}`\n\n");
+                out.push_str(&format!("- **id**: `{}`\n", id.0));
+                out.push_str(&format!("- **root_path**: `{root}`\n"));
+                out.push_str(&format!("- **created_at_micros**: {created}\n"));
+                return ("200 OK", out);
+            }
             let payload = serde_json::json!({
                 "workspace_id": id.0.to_string(),
                 "name": name,

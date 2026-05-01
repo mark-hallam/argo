@@ -170,11 +170,15 @@ pub(super) async fn dispatch_route(
             .await;
         }
     }
-    if req.starts_with("GET /audit ") {
-        return audit_response(store).await;
+    if req.starts_with("GET /audit ") || req.starts_with("GET /audit?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return audit_response(store, format.as_deref()).await;
     }
-    if req.starts_with("GET /audit/breaks ") {
-        return audit_breaks_response(store).await;
+    if req.starts_with("GET /audit/breaks ") || req.starts_with("GET /audit/breaks?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return audit_breaks_response(store, format.as_deref()).await;
     }
     if req.starts_with("GET /audit/count ") || req.starts_with("GET /audit/count?") {
         return super::routes_counts::dispatch_audit_count(req, store).await;
@@ -264,8 +268,10 @@ pub(super) async fn dispatch_route(
         )
         .await;
     }
-    if req.starts_with("GET /workspace/info ") {
-        return workspace_info_response(store).await;
+    if req.starts_with("GET /workspace/info ") || req.starts_with("GET /workspace/info?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return workspace_info_response(store, format.as_deref()).await;
     }
     if req.starts_with("GET /workspace/artifacts ")
         || req.starts_with("GET /workspace/artifacts?")

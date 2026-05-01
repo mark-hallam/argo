@@ -221,10 +221,16 @@ pub(super) async fn health_full_response() -> (&'static str, String) {
     }
 }
 
-/// `GET /audit` — chain summary: rows, breaks, kind histogram.
-/// Mirrors `argo audit verify`. Sorted by descending count then
-/// ascending kind label so the response is stable across runs.
-pub(super) async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
+/// `GET /audit[?format=markdown]` — chain summary: rows,
+/// breaks, kind histogram. Mirrors `argo audit verify`.
+/// Sorted by descending count then ascending kind label so
+/// the response is stable across runs. Markdown returns
+/// `# Audit log` doc with status, rows, breaks, and kinds
+/// histogram table.
+pub(super) async fn audit_response(
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
@@ -243,6 +249,24 @@ pub(super) async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'stat
         .map(|(k, v)| (k.clone(), *v))
         .collect();
     kinds.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if matches!(format, Some("markdown")) {
+        let mut out = String::from("# Audit log\n\n");
+        out.push_str(&format!("- **Total rows**: {}\n", report.rows));
+        out.push_str(&format!(
+            "- **Status**: {}\n",
+            if report.ok { "OK ✓" } else { "**BROKEN**" }
+        ));
+        out.push_str(&format!("- **Breaks**: {}\n", report.breaks.len()));
+        if !kinds.is_empty() {
+            out.push_str("\n## Histogram\n\n");
+            out.push_str("| kind | count |\n");
+            out.push_str("| --- | ---: |\n");
+            for (k, v) in &kinds {
+                out.push_str(&format!("| `{k}` | {v} |\n"));
+            }
+        }
+        return ("200 OK", out);
+    }
     let kinds_obj: serde_json::Map<String, serde_json::Value> = kinds
         .into_iter()
         .map(|(k, v)| (k, serde_json::Value::from(v)))
@@ -327,12 +351,29 @@ pub(super) async fn sessions_count_response(
 /// equivalent.
 pub(super) async fn audit_breaks_response(
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
     match argo_audit::verify_all(store).await {
         Ok(report) => {
+            if matches!(format, Some("markdown")) {
+                let n = report.breaks.len();
+                let mut out = format!(
+                    "# Audit chain breaks ({n} break{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !report.breaks.is_empty() {
+                    out.push_str("| seq | kind | reason |\n");
+                    out.push_str("| ---: | --- | --- |\n");
+                    for b in &report.breaks {
+                        let reason = b.reason.replace('|', "\\|");
+                        out.push_str(&format!("| {} | `{}` | {reason} |\n", b.seq, b.kind));
+                    }
+                }
+                return ("200 OK", out);
+            }
             let arr: Vec<serde_json::Value> = report
                 .breaks
                 .iter()
