@@ -67,8 +67,9 @@ pub(super) async fn dispatch_session_get(
                 session_skills_list_response(sid, store, format.as_deref()).await,
             );
         }
-        if tail.starts_with("judge ") {
-            return Some(session_judge_response(sid, store).await);
+        if tail.starts_with("judge ") || tail.starts_with("judge?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(session_judge_response(sid, store, format.as_deref()).await);
         }
         if tail.starts_with("export ") || tail.starts_with("export?") {
             return Some(export_response(sid, tail, store).await);
