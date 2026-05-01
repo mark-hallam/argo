@@ -23,26 +23,40 @@ roadmap lifecycle is operational:**
   compliant OCI registry (Bearer challenge handshake #253).
 - TUI ships compose / steer / new / rename / delete / yank /
   Tab-pane-focus / `o`-message-detail-overlay / `?`-help /
-  `F`-forge-runs-overlay (#278) / `t`-drill-into-tool-result
-  view inside the message overlay (#283).
+  `F`-forge-runs-overlay (#278, auto-refresh + running marker
+  #285) / `t`-drill-into-tool-result view (#283) /
+  `S`-active-skills (#287) / `M`-active-memory (#288) /
+  `$`-cost-rollup (#289) / `A`-audit-chain (#295) /
+  `R`-force-refresh (#293) / `C`-clear-live-trail (#300).
+  Footer shows `[ws=<name>]` when a workspace row exists
+  (#296).
 - Per-session skill selection lands via the `session_skill`
   association table (#279) — `argo session attach-skill /
   detach-skill / skills` carve a curated subset for one
   session; the runner falls back to all active skills when the
   set is empty.
-- Gateway exposes 39 endpoints, all enumerable via
+- Gateway exposes 45 endpoints, all enumerable via
   `GET /routes`. Write endpoints round out CLI parity:
   `POST /skills` (#275), `POST /memory` (#276),
-  `POST /forge/optimize` + `POST /forge/bench` (#281). Operator
-  surface adds `GET /metrics` Prometheus exposition (#282) for
-  scraper integration.
+  `POST /forge/optimize` + `POST /forge/bench` (#281),
+  `POST /skills/<name>/promote` + `POST /forge/runs/<id>/abort`
+  (#286), `POST /memory/<id>/{lock,unlock}` +
+  `POST /skills/<name>/{lock,unlock}` (#290), and full cron
+  CRUD via `GET /cron[/<name>]` + `POST /cron` +
+  `POST /cron/<name>/delete` (#294/#297/#299). Operator
+  surface adds `GET /metrics` Prometheus exposition (#282)
+  for scraper integration.
 - Forge optimize streams progress as NDJSON via
   `argo forge optimize --stream` (#280) — three event shapes
   (`start`, `iter`, `done`/`budget_exceeded`) consumed by the
-  TUI / watch scripts / the gateway POST endpoint.
+  TUI / watch scripts / the gateway. The gateway's
+  `POST /forge/optimize/stream` (#291) wraps the same loop
+  behind chunked-encoded HTTP. Mid-loop progress writes
+  (#292) keep the F-overlay's auto-refresh moving while a run
+  is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **283+ PRs**, ~45k LOC across 27 crates, zero LOC-budget
+across **301+ PRs**, ~46k LOC across 27 crates, zero LOC-budget
 violations, 80+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
@@ -86,7 +100,7 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **39 endpoints** —
+shutdown via SIGTERM/SIGINT). It exposes **45 endpoints** —
 all read-side surfaces are introspectable via `GET /routes`,
 the discovery endpoint that returns the full catalogue as a
 JSON array of `{method, path, description}` rows. Highlights:
