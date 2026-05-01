@@ -111,6 +111,11 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
 
     metrics::init_boot_time();
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
+    if let Some(s) = store.as_ref() {
+        if let Ok(Some(name)) = s.first_workspace_name().await {
+            eprintln!("argo gateway: workspace = '{name}'");
+        }
+    }
     eprintln!("  GET  /health   → {{\"status\":\"ok\"}}");
     eprintln!("  GET  /version  → {{\"version\":\"<crate>\"}}");
     eprintln!("  GET  /sessions[?since-minutes=N] → recent sessions (JSON array; carries spent_usd_micros)");
