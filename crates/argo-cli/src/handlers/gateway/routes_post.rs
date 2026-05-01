@@ -366,6 +366,37 @@ pub(super) async fn costs_breakdown_response(
     }
 }
 
+/// `GET /sessions/<id>/judge` — list judge_record rows scoped
+/// to one session. Mirrors `argo judge verdict <id>`. Returns
+/// 200 + a JSON array (possibly empty); 400 on bad uuid.
+pub(super) async fn session_judge_response(
+    sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    match store.list_judge_records(id).await {
+        Ok(rows) => (
+            "200 OK",
+            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list_judge_records: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /audit/sessions/<id>/verify` — verify the audit chain
 /// for one session and return `{ok, rows, breaks}`. Mirrors
 /// `argo audit verify --session <id>`. 200 in both the

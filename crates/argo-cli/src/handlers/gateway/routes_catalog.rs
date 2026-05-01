@@ -51,6 +51,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/sessions/<id>/replay", "replay user prompts in a fresh session"),
         ("POST", "/sessions/<id>/replay/stream", "chunked-NDJSON replay event stream"),
         ("GET", "/sessions/<id>/skills", "skills attached to the session"),
+        ("GET", "/sessions/<id>/judge", "judge_record rows for the session"),
         ("POST", "/sessions/<id>/skills/attach", "attach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/skills/detach", "detach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/delete", "delete a session + dependent rows"),

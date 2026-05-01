@@ -143,6 +143,43 @@ fn audit_session_verify_returns_ok_true_for_empty_session() {
 }
 
 #[test]
+fn session_judge_returns_empty_array_for_clean_session() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "2",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    // Bad uuid → 400.
+    let resp = http_get(port, "/sessions/not-a-uuid/judge");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid uuid with no rows → empty array.
+    let resp = http_get(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/judge",
+    );
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert_eq!(body_of(&resp), "[]");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn db_stats_returns_zero_counts_for_clean_workspace() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();

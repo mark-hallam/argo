@@ -12,7 +12,7 @@ use super::routes_meta::{
 use super::routes_post::{
     append_message_response, audit_session_response, audit_session_verify_response,
     costs_breakdown_response, create_session_response, replay_response, run_turn_response,
-    steer_response,
+    session_judge_response, steer_response,
 };
 use super::routes_cron::{
     cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
@@ -269,6 +269,9 @@ pub(super) async fn dispatch_route(
             }
             if tail.starts_with("skills ") {
                 return session_skills_list_response(sid, store).await;
+            }
+            if tail.starts_with("judge ") {
+                return session_judge_response(sid, store).await;
             }
         }
         // Strip trailing " HTTP/..." → just the session id
