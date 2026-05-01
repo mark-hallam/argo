@@ -140,6 +140,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /cron/<name>          → one cron job by name");
     eprintln!("  POST /cron                 → create a job ({{name, schedule, prompt, platform, chat}})");
     eprintln!("  POST /workspace/init       → register a workspace row ({{name, root_path}})");
+    eprintln!("  POST /judge/<record_id>/override → override a judge verdict ({{to}})");
     eprintln!("  POST /cron/<name>/delete   → remove the on-disk job file");
     eprintln!("  POST /forge/optimize → kick off `argo forge optimize` ({{skill, examples, iterations?, budget_usd?}})");
     eprintln!("  POST /forge/optimize/stream → chunked-NDJSON live forge progress");

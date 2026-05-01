@@ -291,6 +291,34 @@ fn memory_forget_returns_400_on_bad_id_and_unknown_uuid() {
 }
 
 #[test]
+fn judge_override_returns_400_on_missing_to_and_404_on_unknown_record() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+
+    // Bad uuid → 400.
+    let resp = http_post(port, "/judge/not-a-uuid/override", r#"{"to":"success"}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Missing `to` → 400.
+    let resp = http_post(
+        port,
+        "/judge/00000000-0000-0000-0000-000000000000/override",
+        r#"{}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid uuid, valid body, no row → 404.
+    let resp = http_post(
+        port,
+        "/judge/00000000-0000-0000-0000-000000000000/override",
+        r#"{"to":"success"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn workspace_init_validates_name_and_creates_row() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 3);

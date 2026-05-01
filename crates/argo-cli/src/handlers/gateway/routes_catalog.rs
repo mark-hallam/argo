@@ -38,6 +38,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/cron", "create a new cron job ({name, schedule, prompt, platform, chat})"),
         ("POST", "/cron/<name>/delete", "remove the on-disk job file"),
         ("POST", "/workspace/init", "register a workspace row ({name, root_path})"),
+        ("POST", "/judge/<record_id>/override", "override a judge verdict ({to})"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing"),

@@ -65,6 +65,77 @@ pub(super) async fn memory_lock_response(
     }
 }
 
+/// `POST /judge/<record_id>/override` — flip a recorded
+/// judge verdict. Mirrors `argo judge override <record> --to
+/// <verdict>`. Body `{to: "..."}`; returns 200 +
+/// `{record_id, old_verdict, new_verdict, session_id}`. 400
+/// on bad uuid or missing field; 404 when the record_id has
+/// no row.
+pub(super) async fn judge_override_response(
+    raw_record: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let record_id = match uuid::Uuid::parse_str(raw_record) {
+        Ok(u) => argo_types::JudgeRecordId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid record id: {e}\"}}"),
+            );
+        }
+    };
+    let parsed: serde_json::Value = match serde_json::from_str(body_from_request(req)) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+            );
+        }
+    };
+    let Some(new_verdict) = parsed
+        .get("to")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `to`\"}".to_string(),
+        );
+    };
+    let reason = format!("override via gateway POST /judge/{raw_record}/override");
+    match store
+        .override_judge_verdict(record_id, new_verdict, Some(&reason))
+        .await
+    {
+        Ok(Some((session_id, old))) => {
+            let payload = serde_json::json!({
+                "record_id": raw_record,
+                "old_verdict": old,
+                "new_verdict": new_verdict,
+                "session_id": session_id.0.to_string(),
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no judge record with id {raw_record}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"override_judge_verdict: {e}\"}}"),
+        ),
+    }
+}
+
 /// `POST /memory/<id>/edit` — supersede an existing memory
 /// entry with a new body. Body shape: `{"body":"<new content>"}`.
 /// Returns 200 + `{edited, prev, new_head}` on success; 400 on

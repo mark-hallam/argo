@@ -19,8 +19,8 @@ use super::routes_cron::{
 };
 use super::routes_msgs::list_messages_response;
 use super::routes_post_admin::{
-    memory_edit_response, memory_forget_response, memory_lock_response, memory_unlock_response,
-    skill_lock_response, skill_unlock_response,
+    judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
+    memory_unlock_response, skill_lock_response, skill_unlock_response,
 };
 use super::routes_session_skills::{
     session_attach_skill_response, session_delete_response, session_detach_skill_response,
@@ -176,6 +176,13 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /workspace/init ") {
         return workspace_init_response(req, store).await;
+    }
+    if let Some(rest) = req.strip_prefix("POST /judge/") {
+        if let Some((rid, tail)) = rest.split_once('/') {
+            if tail.starts_with("override ") {
+                return judge_override_response(rid, req, store).await;
+            }
+        }
     }
     if req.starts_with("POST /forge/optimize ") {
         return forge_optimize_response(req).await;
