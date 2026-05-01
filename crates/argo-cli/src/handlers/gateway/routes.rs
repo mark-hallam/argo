@@ -286,7 +286,13 @@ pub(super) async fn dispatch_route(
     {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let status = parse_query_kv(tail, "status");
-        return super::routes_forge::forge_runs_count_response(status.as_deref(), store).await;
+        let since = parse_since_minutes_from_get(req, "/forge/runs/count");
+        return super::routes_forge::forge_runs_count_response(
+            status.as_deref(),
+            since,
+            store,
+        )
+        .await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
         if let Some((id, _)) = rest.split_once(' ') {

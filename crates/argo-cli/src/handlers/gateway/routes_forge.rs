@@ -5,20 +5,24 @@
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// `GET /forge/runs/count[?status=]` — print just the count of
-/// recorded forge runs, optionally scoped to one status.
-/// Mirrors the CLI's `argo forge runs count`. Caps the fetch
-/// at 10,000 rows (safe upper bound; this is a workspace, not
-/// a fleet).
+/// `GET /forge/runs/count[?status=&since-minutes=N]` — count of
+/// recorded forge runs after filters. Mirrors the CLI's
+/// `argo forge runs count`. Caps the fetch at 10,000 rows.
 pub(super) async fn forge_runs_count_response(
     status: Option<&str>,
+    since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
     match store.list_forge_runs(10_000).await {
-        Ok(rows) => {
+        Ok(mut rows) => {
+            if let Some(m) = since_minutes {
+                let cutoff_micros =
+                    (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+                rows.retain(|r| r.started_at >= cutoff_micros);
+            }
             let n = match status {
                 Some(want) => rows.iter().filter(|r| r.status == want).count(),
                 None => rows.len(),
