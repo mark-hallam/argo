@@ -5,6 +5,7 @@
 //!   - `lifecycle`: PidGuard + signal helpers (SIGTERM/SIGINT).
 //!   - `routes`:    HTTP route dispatch + per-endpoint handlers.
 mod lifecycle;
+mod metrics;
 mod routes;
 mod routes_meta;
 mod routes_post;
@@ -126,6 +127,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
     eprintln!("  POST /forge/optimize → kick off `argo forge optimize` ({{skill, examples, iterations?, budget_usd?}})");
     eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");
+    eprintln!("  GET  /metrics        → Prometheus-style text exposition (text/plain)");
     eprintln!("  GET  /routes  → discovery: every route + a one-line description");
     eprintln!("  GET  /doctor       → JSON snapshot of `argo doctor` (cwd, db, cron, creds, …)");
     eprintln!("  GET  /health/full  → deep health (audit chain + skill + memory provenance)");
@@ -153,6 +155,10 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
                 if streaming::is_streaming_runs_request(req) {
                     let _ = streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
+                    let _ = stream.shutdown().await;
+                } else if metrics::is_metrics_request(req) {
+                    let bytes = metrics::http_response(store.as_ref()).await;
+                    let _ = stream.write_all(&bytes).await;
                     let _ = stream.shutdown().await;
                 } else {
                     let (status_line, body) = routes::dispatch_route(req, store.as_ref()).await;

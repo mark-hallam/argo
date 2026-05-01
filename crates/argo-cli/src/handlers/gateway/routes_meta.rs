@@ -428,6 +428,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing"),
+        ("GET", "/metrics", "Prometheus-style text exposition"),
         ("POST", "/sessions", "create a session row"),
         ("POST", "/sessions/<id>/messages", "append a message"),
         ("POST", "/sessions/<id>/runs", "run one agent turn"),
