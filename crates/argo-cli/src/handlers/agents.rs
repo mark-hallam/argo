@@ -9,7 +9,8 @@ use argo_types::{ArgoError, ArgoResult};
 
 pub fn run(cmd: Option<AgentsCmd>) -> ArgoResult<()> {
     match cmd {
-        None | Some(AgentsCmd::List) => list_agents(),
+        None => list_agents(false),
+        Some(AgentsCmd::List { json }) => list_agents(json),
         Some(AgentsCmd::Create {
             name,
             model,
@@ -25,12 +26,16 @@ pub fn run(cmd: Option<AgentsCmd>) -> ArgoResult<()> {
     }
 }
 
-fn list_agents() -> ArgoResult<()> {
+fn list_agents(json: bool) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     if !toml_path.exists() {
-        println!("(no argo.toml — run `argo workspace init` first)");
+        if json {
+            println!("[]");
+        } else {
+            println!("(no argo.toml — run `argo workspace init` first)");
+        }
         return Ok(());
     }
     let body = std::fs::read_to_string(&toml_path)
@@ -38,11 +43,40 @@ fn list_agents() -> ArgoResult<()> {
     let value: toml::Value =
         toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse argo.toml: {e}")))?;
     let Some(agents_table) = value.get("agents").and_then(|v| v.as_table()) else {
-        println!("(no [agents.*] blocks in argo.toml)");
+        if json {
+            println!("[]");
+        } else {
+            println!("(no [agents.*] blocks in argo.toml)");
+        }
         return Ok(());
     };
     if agents_table.is_empty() {
-        println!("(no [agents.*] blocks in argo.toml)");
+        if json {
+            println!("[]");
+        } else {
+            println!("(no [agents.*] blocks in argo.toml)");
+        }
+        return Ok(());
+    }
+    let mut names: Vec<&String> = agents_table.keys().collect();
+    names.sort();
+    if json {
+        let arr: Vec<serde_json::Value> = names
+            .iter()
+            .map(|name| {
+                let block = &agents_table[*name];
+                serde_json::json!({
+                    "name": name,
+                    "default_model": block.get("default_model").and_then(toml::Value::as_str),
+                    "default_toolset": block.get("default_toolset").and_then(toml::Value::as_str),
+                    "memory_namespace": block.get("memory_namespace").and_then(toml::Value::as_str),
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
+        );
         return Ok(());
     }
     println!(
@@ -51,8 +85,6 @@ fn list_agents() -> ArgoResult<()> {
         model = "default_model",
         toolset = "default_toolset"
     );
-    let mut names: Vec<&String> = agents_table.keys().collect();
-    names.sort();
     for name in names {
         let block = &agents_table[name];
         let model = block

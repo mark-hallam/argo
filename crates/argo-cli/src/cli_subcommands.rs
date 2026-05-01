@@ -7,7 +7,11 @@ use clap::Subcommand;
 #[derive(Subcommand, Debug)]
 pub enum AgentsCmd {
     /// List `[agents.*]` blocks from `argo.toml`.
-    List,
+    List {
+        /// Output as a JSON array for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     /// Add a new `[agents.<name>]` block to `argo.toml`. Use the
     /// flags to populate keys; defaults are sensible enough that
     /// the agent shows up in `argo agents list` immediately.
