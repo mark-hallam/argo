@@ -28,6 +28,7 @@ pub(super) async fn run(
     examples_path: &str,
     iterations: u32,
     budget_usd: f64,
+    stream: bool,
 ) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
@@ -45,12 +46,14 @@ pub(super) async fn run(
             "no eval tasks parsed from {examples_path}"
         )));
     }
-    println!(
-        "argo forge optimize: {skill_name} v{} → {} iters × {} task(s); budget ${budget_usd:.2}",
-        baseline.frontmatter.version,
-        iterations,
-        tasks.len()
-    );
+    if !stream {
+        println!(
+            "argo forge optimize: {skill_name} v{} → {} iters × {} task(s); budget ${budget_usd:.2}",
+            baseline.frontmatter.version,
+            iterations,
+            tasks.len()
+        );
+    }
 
     let ws_name = cwd
         .file_name()
@@ -61,6 +64,17 @@ pub(super) async fn run(
     let run_id = store
         .start_forge_run(skill_name, &baseline.frontmatter.version, tasks.len() as u32)
         .await?;
+    if stream {
+        emit_event(&serde_json::json!({
+            "event": "start",
+            "run_id": run_id.to_string(),
+            "skill_name": skill_name,
+            "base_version": baseline.frontmatter.version,
+            "iterations": iterations,
+            "examples": examples_path,
+            "n_tasks": tasks.len(),
+        }));
+    }
     let _ = AuditSink::new(Arc::clone(&store))
         .write(
             None,
@@ -94,7 +108,9 @@ pub(super) async fn run(
     // mutation by feeding the meta-prompt the failed examples.
     let mut prev_records: Vec<EvalRecord> = Vec::new();
 
-    println!("\n  iter  version    mean_score  pass_rate  errors  best_so_far");
+    if !stream {
+        println!("\n  iter  version    mean_score  pass_rate  errors  best_so_far");
+    }
     for iter in 0..iterations {
         let version_for_iter = if iter == 0 {
             baseline.frontmatter.version.clone()
@@ -143,23 +159,46 @@ pub(super) async fn run(
             best_version = version_for_iter.clone();
         }
         completed += 1;
-        println!(
-            "  {iter:>3}   {ver:<9}  {mean:.3}      {pr:.3}     {errs:<6}  {best:.3}",
-            iter = iter,
-            ver = version_for_iter,
-            mean = summary.mean_score,
-            pr = summary.pass_rate,
-            errs = summary.errors,
-            best = best_score,
-        );
+        if stream {
+            emit_event(&serde_json::json!({
+                "event": "iter",
+                "run_id": run_id.to_string(),
+                "iter": iter,
+                "version": version_for_iter,
+                "mean_score": summary.mean_score,
+                "pass_rate": summary.pass_rate,
+                "errors": summary.errors,
+                "best_so_far": best_score,
+            }));
+        } else {
+            println!(
+                "  {iter:>3}   {ver:<9}  {mean:.3}      {pr:.3}     {errs:<6}  {best:.3}",
+                iter = iter,
+                ver = version_for_iter,
+                mean = summary.mean_score,
+                pr = summary.pass_rate,
+                errs = summary.errors,
+                best = best_score,
+            );
+        }
 
         if let Ok(Some(row)) = store.get_forge_run(run_id).await {
             if budget_micros > 0 && row.spend_usd_micros >= budget_micros {
                 last_status = "partial";
-                println!(
-                    "  (over budget after iter {iter}: spend=${:.2} > cap=${budget_usd:.2})",
-                    row.spend_usd_micros as f64 / 1_000_000.0
-                );
+                if stream {
+                    emit_event(&serde_json::json!({
+                        "event": "budget_exceeded",
+                        "run_id": run_id.to_string(),
+                        "iter": iter,
+                        "spend_usd_micros": row.spend_usd_micros,
+                        "cap_usd_micros": budget_micros,
+                    }));
+                } else {
+                    println!(
+                        "  (over budget after iter {iter}: spend=${:.2} > cap=${budget_usd:.2})",
+                        row.spend_usd_micros as f64 / 1_000_000.0
+                    );
+                }
                 break;
             }
         }
@@ -190,12 +229,37 @@ pub(super) async fn run(
             }),
         )
         .await;
-    println!(
-        "\nsummary: status={last_status} best_score={best_score:.3} \
-         best_version={best_version} iters_run={completed}/{iterations} (run_id={run_id})"
-    );
-    println!("  → promoted {skill_name} v{best_version} to active");
+    if stream {
+        emit_event(&serde_json::json!({
+            "event": "done",
+            "run_id": run_id.to_string(),
+            "status": last_status,
+            "best_score": final_score,
+            "best_version": best_version,
+            "iterations_run": completed,
+            "iterations_planned": iterations,
+            "promoted": true,
+        }));
+    } else {
+        println!(
+            "\nsummary: status={last_status} best_score={best_score:.3} \
+             best_version={best_version} iters_run={completed}/{iterations} (run_id={run_id})"
+        );
+        println!("  → promoted {skill_name} v{best_version} to active");
+    }
     Ok(())
+}
+
+/// Emit one NDJSON event line on stdout. Used by the `--stream`
+/// mode so the TUI / watch scripts / gateway can consume forge
+/// progress without parsing the table.
+fn emit_event(value: &serde_json::Value) {
+    use std::io::Write;
+    if let Ok(line) = serde_json::to_string(value) {
+        let mut out = std::io::stdout().lock();
+        let _ = writeln!(out, "{line}");
+        let _ = out.flush();
+    }
 }
 
 /// Fallback mutator: append a fixed `## Refinement attempt N`

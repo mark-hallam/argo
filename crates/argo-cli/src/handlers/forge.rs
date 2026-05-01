@@ -32,7 +32,8 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             examples,
             iterations,
             budget,
-        } => forge_optimize::run(&skill, &examples, iterations, budget).await,
+            stream,
+        } => forge_optimize::run(&skill, &examples, iterations, budget, stream).await,
     }
 }
 

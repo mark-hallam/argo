@@ -121,6 +121,15 @@ pub enum ForgeCmd {
         iterations: u32,
         #[arg(long, default_value_t = 5.0)]
         budget: f64,
+        /// Emit progress as newline-delimited JSON on stdout
+        /// instead of the human-readable table. Each line is
+        /// either `{"event":"start", run_id, ...}`,
+        /// `{"event":"iter", iter, version, mean_score, …}`, or
+        /// `{"event":"done", best_score, best_version, status}`.
+        /// Lets the TUI / watch scripts / gateway consume forge
+        /// progress without parsing the table.
+        #[arg(long)]
+        stream: bool,
     },
     /// Run an eval-task JSONL file through the agent loop and
     /// score each task. Records a `forge_run` row with the mean
