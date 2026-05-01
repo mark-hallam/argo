@@ -46,15 +46,18 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
 
     let pool = store.pool();
     push_count(&mut out, pool, "argo_sessions_total", "Recorded sessions",
-        "SELECT COUNT(*) FROM session_record").await;
+        "SELECT COUNT(*) FROM session").await;
+    push_count(&mut out, pool, "argo_sessions_open",
+        "Sessions with no ended_at stamp (still open)",
+        "SELECT COUNT(*) FROM session WHERE ended_at IS NULL").await;
     push_count(&mut out, pool, "argo_messages_total", "Recorded messages",
-        "SELECT COUNT(*) FROM message_record").await;
+        "SELECT COUNT(*) FROM message").await;
     push_count(&mut out, pool, "argo_audit_rows_total", "Audit-chain rows",
         "SELECT COUNT(*) FROM audit_record").await;
     push_count(&mut out, pool, "argo_skills_active_total", "Skills with no superseded_by",
         "SELECT COUNT(*) FROM skill WHERE superseded_by IS NULL").await;
     push_count(&mut out, pool, "argo_workspace_artifacts_total", "Recorded marketplace pushes",
-        "SELECT COUNT(*) FROM workspace_artifact").await;
+        "SELECT COUNT(*) FROM marketplace_artifact").await;
     push_sum(&mut out, pool, "argo_spend_usd_micros_total",
         "Sum of spend_ledger.amount_usd_micros across every session",
         "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger").await;
