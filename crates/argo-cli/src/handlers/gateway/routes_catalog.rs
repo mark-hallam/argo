@@ -75,6 +75,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/skills/<name>/promote", "promote a skill version to active"),
         ("POST", "/skills/<name>/lock", "lock a skill (user-protected by default)"),
         ("POST", "/skills/<name>/unlock", "clear a skill lock"),
+        ("POST", "/skills/<name>/refine", "supersede with hint-appended body ({hint, version?})"),
         ("POST", "/memory/<id>/lock", "lock a memory entry"),
         ("POST", "/memory/<id>/unlock", "clear a memory-entry lock"),
         ("POST", "/memory/<id>/forget", "revert (supersede) a memory entry"),

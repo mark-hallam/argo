@@ -476,6 +476,26 @@ fn http_get_v(port: u16, path: &str) -> String {
 }
 
 #[test]
+fn skill_refine_returns_400_on_missing_hint_and_404_on_unknown_skill() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    // Missing hint → 400.
+    let resp = http_post(port, "/skills/anything/refine", r#"{}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Unknown skill → 404.
+    let resp = http_post(
+        port,
+        "/skills/never-installed/refine",
+        r#"{"hint":"be terser"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn skill_lock_returns_404_on_unknown_skill() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);

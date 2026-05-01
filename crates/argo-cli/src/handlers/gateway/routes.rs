@@ -25,6 +25,7 @@ use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
     memory_unlock_response, skill_lock_response, skill_unlock_response,
 };
+use super::routes_skill_refine::skill_refine_response;
 use super::routes_session_skills::{
     session_attach_skill_response, session_delete_response, session_detach_skill_response,
     session_end_response, session_set_title_response, session_skills_list_response,
@@ -273,6 +274,9 @@ pub(super) async fn dispatch_route(
             }
             if tail.starts_with("unlock ") {
                 return skill_unlock_response(name, store).await;
+            }
+            if tail.starts_with("refine ") {
+                return skill_refine_response(name, req, store).await;
             }
         }
     }
