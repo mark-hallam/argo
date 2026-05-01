@@ -67,13 +67,14 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **450 PRs** on `main` (50 since milestone 400!),
+across **452 PRs** on `main` (52 since milestone 400),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
 The gateway exposes **86 endpoints** (46 GET + 40 POST) with
-full CLI parity for the read/count surface. Remaining items
-are architectural (real OCI push, browser stateful sessions,
+full CLI parity for the read/count surface, plus sort by
+spend / score on the list views. Remaining items are
+architectural (real OCI push, browser stateful sessions,
 voice native bindings, standalone forge daemon split).
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
