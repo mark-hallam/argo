@@ -87,8 +87,14 @@ pub enum SessionCmd {
     Messages {
         id: String,
         /// Output as JSON (one object per message) for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (one `## [seq] role` block per message). `--json`
+        /// wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         /// Truncate to the first N rows after filtering.
         #[arg(long, conflicts_with = "tail")]
         limit: Option<u32>,

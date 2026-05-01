@@ -59,6 +59,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Messages {
             id,
             json,
+            format,
             limit,
             tail,
             role,
@@ -70,6 +71,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             super::session_messages::run(
                 &id,
                 json,
+                &format,
                 limit,
                 tail,
                 role.as_deref(),

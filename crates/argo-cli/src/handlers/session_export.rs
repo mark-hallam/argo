@@ -232,7 +232,7 @@ fn export_markdown(
 /// tool-only assistant turns — so we normalise them to a single
 /// markdown body. Tool blocks are summarised so the transcript
 /// stays scannable.
-fn extract_markdown_body(content_json: &str) -> String {
+pub(super) fn extract_markdown_body(content_json: &str) -> String {
     let v: serde_json::Value = match serde_json::from_str(content_json) {
         Ok(v) => v,
         Err(_) => return content_json.to_string(),

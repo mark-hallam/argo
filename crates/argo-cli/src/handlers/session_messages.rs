@@ -6,10 +6,13 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 
+use super::session_export::extract_markdown_body;
+
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run(
     raw: &str,
     json: bool,
+    format: &str,
     limit: Option<u32>,
     tail: Option<u32>,
     role: Option<&str>,
@@ -72,21 +75,42 @@ pub(super) async fn run(
         }
     }
 
-    if json {
-        for m in &messages {
-            let row = serde_json::json!({
-                "seq": m.seq,
-                "id": hex::encode(&m.id),
-                "role": m.role,
-                "content": serde_json::from_str::<serde_json::Value>(&m.content_json)
-                    .unwrap_or(serde_json::Value::Null),
-                "created_at_micros": m.created_at,
-            });
-            let serialized = serde_json::to_string(&row)
-                .map_err(|e| ArgoError::Provider(format!("serialize message: {e}")))?;
-            println!("{serialized}");
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            for m in &messages {
+                let row = serde_json::json!({
+                    "seq": m.seq,
+                    "id": hex::encode(&m.id),
+                    "role": m.role,
+                    "content": serde_json::from_str::<serde_json::Value>(&m.content_json)
+                        .unwrap_or(serde_json::Value::Null),
+                    "created_at_micros": m.created_at,
+                });
+                let serialized = serde_json::to_string(&row)
+                    .map_err(|e| ArgoError::Provider(format!("serialize message: {e}")))?;
+                println!("{serialized}");
+            }
+            return Ok(());
         }
-        return Ok(());
+        "markdown" => {
+            for m in &messages {
+                println!("## [{}] {}", m.seq, m.role);
+                println!();
+                let body = extract_markdown_body(&m.content_json);
+                if !body.trim().is_empty() {
+                    println!("{body}");
+                    println!();
+                }
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if messages.is_empty() {
         println!("(no messages match)");
