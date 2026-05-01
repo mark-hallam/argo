@@ -23,7 +23,16 @@ pub(super) async fn dispatch_audit_recent(
     let kind = parse_query_kv(tail, "kind");
     let since = parse_since_minutes_from_get(req, "/audit/recent");
     let session = parse_query_kv(tail, "session");
-    audit_recent_response(limit, kind.as_deref(), since, session.as_deref(), store).await
+    let format = parse_query_kv(tail, "format");
+    audit_recent_response(
+        limit,
+        kind.as_deref(),
+        since,
+        session.as_deref(),
+        store,
+        format.as_deref(),
+    )
+    .await
 }
 
 /// `GET /audit/count[?kind=…&session=<uuid>&since-minutes=N]` —
@@ -87,12 +96,14 @@ pub(super) async fn audit_count_response(
 /// `?limit=10&kind=tool_call&since-minutes=60&session=<uuid>`
 /// returns up to 10 tool-call rows from one session in the last
 /// hour — not 10-most-recent-trimmed.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn audit_recent_response(
     limit: u32,
     kind: Option<&str>,
     since_minutes: Option<i64>,
     session: Option<&str>,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -118,10 +129,34 @@ pub(super) async fn audit_recent_response(
         session_id: session_bytes.as_deref(),
     };
     match argo_audit::tail_rows_filtered(store, limit, &filters).await {
-        Ok(rows) => (
-            "200 OK",
-            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
-        ),
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Audit recent ({n} row{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| seq | kind | session_id |\n");
+                    out.push_str("| ---: | --- | --- |\n");
+                    for r in &rows {
+                        let sid = r
+                            .session_id
+                            .as_deref()
+                            .unwrap_or("-");
+                        out.push_str(&format!(
+                            "| {} | `{}` | `{sid}` |\n",
+                            r.seq, r.kind
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"audit tail: {e}\"}}"),

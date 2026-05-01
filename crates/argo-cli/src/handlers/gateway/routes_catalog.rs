@@ -32,7 +32,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit", "audit chain summary"),
         ("GET", "/audit/breaks", "actual ChainBreak rows (seq, kind, reason) — empty if chain is clean"),
         ("GET", "/audit/count", "count of audit rows (?kind=…&since-minutes=N&session=<uuid>)"),
-        ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|...&since-minutes=M&session=<uuid>)"),
+        ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|...&since-minutes=M&session=<uuid>&format=markdown)"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind&since-minutes)"),
         ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity (?include-breaks=true to include break detail)"),
         ("GET", "/costs", "cost ceilings"),
