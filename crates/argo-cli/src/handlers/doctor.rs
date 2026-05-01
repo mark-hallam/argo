@@ -93,6 +93,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let audit = audit_status(&home).await;
     let cron = cron_status(&cwd);
     let creds = creds_status();
+    let gateway = gateway_status(&home);
     Ok(serde_json::json!({
         "cwd": cwd.display().to_string(),
         "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
@@ -105,7 +106,35 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "audit": audit,
         "cron": cron,
         "creds": creds,
+        "gateway": gateway,
     }))
+}
+
+/// Report whether the gateway daemon is running. Reads
+/// `<ARGO_HOME>/gateway.pid`; if the file exists and the PID
+/// is alive, returns `{running: true, pid: N}`. Otherwise
+/// `{running: false}` (the file may be present but stale —
+/// the live-PID check shells out to `kill -0` so we don't
+/// pull in libc just for this one call).
+fn gateway_status(home: &std::path::Path) -> serde_json::Value {
+    let pid_path = home.join("gateway.pid");
+    let Ok(s) = std::fs::read_to_string(&pid_path) else {
+        return serde_json::json!({"running": false});
+    };
+    let Ok(pid) = s.trim().parse::<u32>() else {
+        return serde_json::json!({"running": false});
+    };
+    // `kill -0 <pid>` exit 0 → live, !=0 → gone or not ours.
+    // Safe, side-effect-free probe; works on every Unix.
+    let alive = std::process::Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    serde_json::json!({
+        "running": alive,
+        "pid": pid,
+    })
 }
 
 /// Report `{ok, rows, breaks}` for the global audit chain so
