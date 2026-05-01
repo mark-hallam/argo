@@ -219,7 +219,16 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /search ") || req.starts_with("GET /search?") {
         let (q, limit, session) = parse_search_args(req);
-        return search_response(q.as_deref(), limit, session.as_deref(), store).await;
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let role = parse_query_kv(tail, "role");
+        return search_response(
+            q.as_deref(),
+            limit,
+            session.as_deref(),
+            role.as_deref(),
+            store,
+        )
+        .await;
     }
     if req.starts_with("GET /workspace/info ") {
         return workspace_info_response(store).await;

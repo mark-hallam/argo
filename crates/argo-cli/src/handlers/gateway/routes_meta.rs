@@ -80,18 +80,21 @@ pub(super) async fn tools_response(name_contains: Option<&str>) -> (&'static str
     )
 }
 
-/// `GET /search?q=<query>[&limit=N][&session=<uuid>]` — FTS5
-/// search across the message corpus. Mirrors `argo session search
-/// <query>` so external clients (web UI, scripts) can reuse the
-/// same query syntax.
+/// `GET /search?q=<query>[&limit=N][&session=<uuid>][&role=<r>]` —
+/// FTS5 search across the message corpus. Mirrors
+/// `argo session search <query>` so external clients (web UI,
+/// scripts) can reuse the same query syntax.
 ///
-/// Each row is `{session_id, seq, role, snippet}`. Returns 503
-/// when the store is unavailable, 400 when `q` is missing or
-/// `session` is not a valid UUID.
+/// Each row is `{session_id, seq, role, snippet}`. With
+/// `?role=user|assistant|tool|system` the result is filtered
+/// to that role. Returns 503 when the store is unavailable,
+/// 400 when `q` is missing, `session` is not a valid UUID, or
+/// `role` is not one of the four canonical labels.
 pub(super) async fn search_response(
     query: Option<&str>,
     limit: u32,
     session: Option<&str>,
+    role: Option<&str>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -109,6 +112,16 @@ pub(super) async fn search_response(
             "{\"error\":\"empty q parameter\"}".to_string(),
         );
     }
+    if let Some(want) = role {
+        if !matches!(want, "user" | "assistant" | "tool" | "system") {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
+                ),
+            );
+        }
+    }
     let result = match session {
         None => store.search_messages(q, limit).await,
         Some(s) => match uuid::Uuid::parse_str(s) {
@@ -125,6 +138,10 @@ pub(super) async fn search_response(
         Ok(hits) => {
             let rows: Vec<serde_json::Value> = hits
                 .into_iter()
+                .filter(|h| match role {
+                    Some(want) => h.role == want,
+                    None => true,
+                })
                 .map(|h| {
                     serde_json::json!({
                         "session_id": h.session_id.0.to_string(),

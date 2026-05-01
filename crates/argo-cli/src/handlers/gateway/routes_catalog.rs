@@ -39,7 +39,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/providers/<id>/models", "just the [[models]] array for one provider"),
         ("GET", "/tools", "registered in-core tools (?name-contains=<sub>)"),
         ("GET", "/tools/<name>", "one tool by name"),
-        ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
+        ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>&role=user|assistant|tool|system)"),
         ("GET", "/workspace/info", "first workspace row (id, name, root_path, created_at)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes (?limit=N&since-minutes=M)"),
         ("GET", "/forge/runs", "recorded forge runs (?limit&since-minutes&status&score-min&score-max&skill&has-candidate&iterations-min&iterations-max)"),
