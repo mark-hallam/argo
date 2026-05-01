@@ -75,10 +75,20 @@ pub(super) async fn dispatch_route(
         let since = parse_since_minutes_from_get(req, "/sessions");
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let status = parse_query_kv(tail, "status");
+        let provider = parse_query_kv(tail, "provider");
+        let model = parse_query_kv(tail, "model");
         let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(100);
-        return sessions_response(store, since, status.as_deref(), limit).await;
+        return sessions_response(
+            store,
+            since,
+            status.as_deref(),
+            provider.as_deref(),
+            model.as_deref(),
+            limit,
+        )
+        .await;
     }
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
@@ -392,6 +402,8 @@ async fn sessions_response(
     store: Option<&Arc<SessionStore>>,
     since_minutes: Option<i64>,
     status: Option<&str>,
+    provider: Option<&str>,
+    model: Option<&str>,
     limit: u32,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -409,6 +421,12 @@ async fn sessions_response(
                     "ended" => s.ended_at.is_some(),
                     _ => true,
                 });
+            }
+            if let Some(want) = provider {
+                rows.retain(|s| s.provider == want);
+            }
+            if let Some(want) = model {
+                rows.retain(|s| s.model == want);
             }
             let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
             let arr: Vec<serde_json::Value> = rows
