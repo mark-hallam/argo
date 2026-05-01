@@ -41,6 +41,31 @@ pub(super) async fn forge_abort_all_response(
     )
 }
 
+/// `POST /forge/runs/sweep[?older-than-minutes=N]` — flip
+/// stalled `running` rows to `failed` (recovery for a gateway
+/// crash mid-optimize). Default cutoff is 60m. Returns
+/// `{swept:N, older_than_minutes:M}`.
+pub(super) async fn forge_sweep_response(
+    older_than_minutes: i64,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes))
+        .timestamp_micros();
+    match store.sweep_stalled_forge_runs(cutoff_micros).await {
+        Ok(n) => (
+            "200 OK",
+            format!("{{\"swept\":{n},\"older_than_minutes\":{older_than_minutes}}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"sweep_stalled_forge_runs: {e}\"}}"),
+        ),
+    }
+}
+
 /// Convenience wrapper over `POST /skills/<name>/promote` —
 /// the gateway looks up `(skill_name, candidate_version)`
 /// from the forge_run row. 200 + `{promoted, name, version,

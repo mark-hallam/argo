@@ -73,6 +73,24 @@ impl SessionStore {
         finish_forge_run(self.pool(), id, status, final_score, iterations).await
             .map_err(|e| ArgoError::Provider(format!("finish_forge_run: {e}")))
     }
+
+    /// Sweep stalled forge runs — flip every `running` row whose
+    /// `started_at` is older than `cutoff_micros` to `'failed'`
+    /// with a `null` final_score. Used to recover from a gateway
+    /// crash mid-optimize: in-memory task state is gone, but
+    /// the row is still in `running` status until manually
+    /// aborted. Returns rows affected.
+    ///
+    /// Caller picks the cutoff (e.g. now - 1h). The gateway has
+    /// no notion of "what's still alive" once it restarts, so
+    /// this is the only safe way to clean up.
+    pub async fn sweep_stalled_forge_runs(
+        &self,
+        cutoff_micros: i64,
+    ) -> StoreResult<u64> {
+        sweep_stalled_forge_runs(self.pool(), cutoff_micros).await
+            .map_err(|e| ArgoError::Provider(format!("sweep_stalled_forge_runs: {e}")))
+    }
 }
 
 async fn get_forge_run(
@@ -159,6 +177,21 @@ async fn finish_forge_run(
     .bind(final_score)
     .bind(iterations)
     .bind(id.as_bytes().as_slice())
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+async fn sweep_stalled_forge_runs(
+    pool: &Pool<Sqlite>,
+    cutoff_micros: i64,
+) -> Result<u64, sqlx::Error> {
+    let res = sqlx::query(
+        "UPDATE forge_run SET status = 'failed', ended_at = ? \
+         WHERE status = 'running' AND started_at < ?",
+    )
+    .bind(Utc::now().timestamp_micros())
+    .bind(cutoff_micros)
     .execute(pool)
     .await?;
     Ok(res.rows_affected())

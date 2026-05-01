@@ -78,6 +78,47 @@ pub(super) async fn abort_all_runs() -> ArgoResult<()> {
     Ok(())
 }
 
+/// `argo forge runs sweep [--older-than-minutes N]` — recover
+/// from a gateway crash mid-optimize. Walks `forge_run` rows
+/// in `running` status whose `started_at` is older than the
+/// cutoff and flips them to `failed`. Writes a `ForgeRunEnd`
+/// audit row per swept run with `kind=sweep`.
+pub(super) async fn sweep_stalled(older_than_minutes: i64) -> ArgoResult<()> {
+    let store = Arc::new(open_store().await?);
+    let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(older_than_minutes))
+        .timestamp_micros();
+    // Find the rows we're about to sweep so we can write
+    // per-row audit rows. The store call below does the actual
+    // UPDATE — we just observe first for the audit trail.
+    let candidates = store
+        .list_forge_runs(10_000)
+        .await?
+        .into_iter()
+        .filter(|r| r.status == "running" && r.started_at < cutoff_micros)
+        .collect::<Vec<_>>();
+    let swept = store.sweep_stalled_forge_runs(cutoff_micros).await?;
+    for r in &candidates {
+        if let Ok(id) = uuid::Uuid::from_slice(&r.id) {
+            AuditSink::new(Arc::clone(&store))
+                .write(
+                    None,
+                    AuditKind::ForgeRunEnd,
+                    serde_json::json!({
+                        "kind": "sweep",
+                        "run_id": id.to_string(),
+                        "by": "cli",
+                        "older_than_minutes": older_than_minutes,
+                    }),
+                )
+                .await?;
+        }
+    }
+    println!(
+        "argo forge runs sweep: marked {swept} stalled run(s) as failed (older than {older_than_minutes}m)"
+    );
+    Ok(())
+}
+
 pub(super) async fn abort_run(raw: &str) -> ArgoResult<()> {
     let store = Arc::new(open_store().await?);
     let id = parse_run_id(raw)?;

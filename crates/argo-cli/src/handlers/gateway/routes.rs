@@ -36,7 +36,9 @@ use super::routes_session_skills::{
     session_reopen_response, session_set_title_response,
 };
 use super::routes_query::{parse_query_kv, parse_search_args, parse_since_minutes_from_get};
-use super::routes_forge_promote::{forge_abort_all_response, forge_promote_response};
+use super::routes_forge_promote::{
+    forge_abort_all_response, forge_promote_response, forge_sweep_response,
+};
 use super::routes_post_writes::{
     append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
     forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
@@ -343,6 +345,15 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /forge/runs/abort-all ") {
         return forge_abort_all_response(store).await;
+    }
+    if req.starts_with("POST /forge/runs/sweep ")
+        || req.starts_with("POST /forge/runs/sweep?")
+    {
+        let tail = req.strip_prefix("POST ").unwrap_or(req);
+        let older_than_minutes = parse_query_kv(tail, "older-than-minutes")
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(60);
+        return forge_sweep_response(older_than_minutes, store).await;
     }
     if req.starts_with("POST /sessions/end-all ")
         || req.starts_with("POST /sessions/end-all?")

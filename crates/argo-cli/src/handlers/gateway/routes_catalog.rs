@@ -88,6 +88,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
         ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
         ("POST", "/forge/runs/abort-all", "abort every in-flight forge run"),
+        ("POST", "/forge/runs/sweep", "flip stalled running rows older than ?older-than-minutes=60 to failed (gateway-crash recovery)"),
         ("POST", "/forge/runs/<id>/promote", "promote that run's candidate to active"),
         ("POST", "/skills/<name>/promote", "promote a skill version to active"),
         ("POST", "/skills/<name>/lock", "lock a skill (user-protected by default)"),

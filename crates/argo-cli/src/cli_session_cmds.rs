@@ -411,6 +411,18 @@ pub enum ForgeRunsCmd {
     /// emergency-stop / fresh-slate before a workspace migration.
     /// Mirrors `POST /forge/runs/abort-all`.
     AbortAll,
+    /// Sweep stalled `running` rows whose `started_at` is older
+    /// than `--older-than-minutes` ago (default 60). Used to
+    /// recover from a gateway crash mid-optimize: in-memory
+    /// state is gone, but the row stays in `running` until
+    /// manually aborted. Flips status to `failed`. Mirrors
+    /// `POST /forge/runs/sweep`.
+    Sweep {
+        /// Cutoff in minutes. Default 60 — runs older than this
+        /// that are still in `running` get flipped to `failed`.
+        #[arg(long, default_value_t = 60)]
+        older_than_minutes: i64,
+    },
 }
 
 #[derive(Subcommand, Debug)]

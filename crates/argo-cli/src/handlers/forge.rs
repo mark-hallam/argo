@@ -53,6 +53,9 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::Show { id } => super::forge_admin::show_run(&id).await,
             ForgeRunsCmd::Abort { id } => super::forge_admin::abort_run(&id).await,
             ForgeRunsCmd::AbortAll => super::forge_admin::abort_all_runs().await,
+            ForgeRunsCmd::Sweep { older_than_minutes } => {
+                super::forge_admin::sweep_stalled(older_than_minutes).await
+            }
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         ForgeCmd::Bench {
