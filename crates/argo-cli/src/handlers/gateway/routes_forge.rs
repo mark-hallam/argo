@@ -65,6 +65,7 @@ pub(super) async fn forge_runs_response(
     iterations_min: Option<i64>,
     iterations_max: Option<i64>,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -74,7 +75,7 @@ pub(super) async fn forge_runs_response(
             let cutoff_micros = since_minutes.map(|m| {
                 (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
             });
-            let arr: Vec<serde_json::Value> = rows
+            let filtered: Vec<argo_store::ForgeRunRow> = rows
                 .into_iter()
                 .filter(|r| match cutoff_micros {
                     Some(c) => r.started_at >= c,
@@ -109,6 +110,43 @@ pub(super) async fn forge_runs_response(
                     Some(max) => r.iterations <= max,
                     None => true,
                 })
+                .collect();
+            if matches!(format, Some("markdown")) {
+                let n = filtered.len();
+                let mut out = format!(
+                    "# Forge runs ({n} match{})\n\n",
+                    if n == 1 { "" } else { "es" }
+                );
+                if !filtered.is_empty() {
+                    out.push_str(
+                        "| status | id | skill | base | candidate | iters | spend (USD) | score |\n",
+                    );
+                    out.push_str(
+                        "| :---: | --- | --- | --- | --- | ---: | ---: | ---: |\n",
+                    );
+                    for r in &filtered {
+                        let id_short: String =
+                            hex::encode(&r.id).chars().take(8).collect();
+                        let cand =
+                            r.candidate_version.clone().unwrap_or_else(|| "-".into());
+                        let score = r
+                            .final_score
+                            .map(|s| format!("{s:.3}"))
+                            .unwrap_or_else(|| "-".into());
+                        let marker = if r.status == "running" { "●" } else { " " };
+                        out.push_str(&format!(
+                            "| {marker} | `{id_short}` | `{}` | `{}` | `{cand}` | {} | ${:.4} | {score} |\n",
+                            r.skill_name,
+                            r.base_version,
+                            r.iterations,
+                            r.spend_usd_micros as f64 / 1_000_000.0,
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let arr: Vec<serde_json::Value> = filtered
+                .into_iter()
                 .map(|r| {
                     // Mirror forge_run_show_response so list +
                     // single-row views agree on the elapsed math:

@@ -90,6 +90,7 @@ pub(super) async fn dispatch_route(
         let lock = parse_query_kv(tail, "lock");
         let body_contains = parse_query_kv(tail, "body-contains").map(|s| s.replace('+', " "));
         let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
+        let format = parse_query_kv(tail, "format");
         return skills_response(
             store,
             include_superseded,
@@ -97,6 +98,7 @@ pub(super) async fn dispatch_route(
             lock.as_deref(),
             body_contains.as_deref(),
             limit,
+            format.as_deref(),
         )
         .await;
     }
@@ -134,7 +136,17 @@ pub(super) async fn dispatch_route(
         let lock = parse_query_kv(tail, "lock");
         let body_contains = parse_query_kv(tail, "body-contains").map(|s| s.replace('+', " "));
         let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
-        return memory_response(store, file, since, lock, body_contains, limit).await;
+        let format = parse_query_kv(tail, "format");
+        return memory_response(
+            store,
+            file,
+            since,
+            lock,
+            body_contains,
+            limit,
+            format.as_deref(),
+        )
+        .await;
     }
     if let Some(rest) = req.strip_prefix("GET /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {
@@ -288,6 +300,7 @@ pub(super) async fn dispatch_route(
             parse_query_kv(tail, "iterations-min").and_then(|v| v.parse::<i64>().ok());
         let iterations_max =
             parse_query_kv(tail, "iterations-max").and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
         return forge_runs_response(
             limit,
             since,
@@ -299,6 +312,7 @@ pub(super) async fn dispatch_route(
             iterations_min,
             iterations_max,
             store,
+            format.as_deref(),
         )
         .await;
     }

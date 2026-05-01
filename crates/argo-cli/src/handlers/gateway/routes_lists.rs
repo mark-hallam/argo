@@ -20,6 +20,7 @@ pub(super) async fn skills_response(
     lock: Option<&str>,
     body_contains: Option<&str>,
     limit: Option<usize>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -48,7 +49,7 @@ pub(super) async fn skills_response(
     let body_needle = body_contains.map(str::to_lowercase);
     match result {
         Ok(rows) => {
-            let mut arr: Vec<serde_json::Value> = rows
+            let filtered: Vec<&argo_skill::Skill> = rows
                 .iter()
                 .filter(|s| match needle.as_deref() {
                     Some(n) => s.frontmatter.name.to_lowercase().contains(n),
@@ -62,6 +63,32 @@ pub(super) async fn skills_response(
                     Some(want) => s.frontmatter.lock == want,
                     None => true,
                 })
+                .collect();
+            let truncated: Vec<&argo_skill::Skill> = match limit {
+                Some(n) => filtered.iter().take(n).copied().collect(),
+                None => filtered,
+            };
+            if matches!(format, Some("markdown")) {
+                let n = truncated.len();
+                let mut out = format!(
+                    "# Skills ({n} match{})\n\n",
+                    if n == 1 { "" } else { "es" }
+                );
+                if !truncated.is_empty() {
+                    out.push_str("| name | version | lock | hash |\n");
+                    out.push_str("| --- | --- | --- | --- |\n");
+                    for s in &truncated {
+                        let hash_short: String = hex::encode(s.hash).chars().take(12).collect();
+                        out.push_str(&format!(
+                            "| `{}` | `{}` | {:?} | `{hash_short}…` |\n",
+                            s.frontmatter.name, s.frontmatter.version, s.frontmatter.lock,
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let arr: Vec<serde_json::Value> = truncated
+                .iter()
                 .map(|s| {
                     serde_json::json!({
                         "id": s.id.0.to_string(),
@@ -74,9 +101,6 @@ pub(super) async fn skills_response(
                     })
                 })
                 .collect();
-            if let Some(n) = limit {
-                arr.truncate(n);
-            }
             (
                 "200 OK",
                 serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
@@ -257,6 +281,7 @@ pub(super) async fn memory_response(
     lock: Option<String>,
     body_contains: Option<String>,
     limit: Option<usize>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
@@ -357,6 +382,25 @@ pub(super) async fn memory_response(
     });
     if let Some(n) = limit {
         all.truncate(n);
+    }
+    if matches!(format, Some("markdown")) {
+        let n = all.len();
+        let mut out = format!(
+            "# Memory entries ({n} match{})\n\n",
+            if n == 1 { "" } else { "es" }
+        );
+        if !all.is_empty() {
+            out.push_str("| file | id | bytes | lock |\n");
+            out.push_str("| --- | --- | ---: | --- |\n");
+            for e in &all {
+                let file = e.get("file").and_then(|s| s.as_str()).unwrap_or("?");
+                let id = e.get("id").and_then(|s| s.as_str()).unwrap_or("?");
+                let bytes = e.get("bytes").and_then(|n| n.as_u64()).unwrap_or(0);
+                let lock = e.get("lock").and_then(|s| s.as_str()).unwrap_or("?");
+                out.push_str(&format!("| {file} | `{id}` | {bytes} | {lock} |\n"));
+            }
+        }
+        return ("200 OK", out);
     }
     (
         "200 OK",
