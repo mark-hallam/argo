@@ -37,6 +37,30 @@ impl SessionStore {
             .map_err(|e| ArgoError::Provider(format!("start_forge_run: {e}")))
     }
 
+    /// Update a *running* `forge_run` row's mid-loop progress —
+    /// iter count, best-so-far score, and the candidate-version
+    /// string for the most recent iteration. Status is not
+    /// touched; the row stays `'running'` until `finish_forge_run`
+    /// flips it. The TUI's `F`-overlay auto-refresh shows these
+    /// values move while the loop is in flight.
+    pub async fn update_forge_run_progress(
+        &self,
+        id: Uuid,
+        iterations: i64,
+        best_score: Option<f64>,
+        candidate_version: Option<&str>,
+    ) -> StoreResult<u64> {
+        update_forge_run_progress(
+            self.pool(),
+            id,
+            iterations,
+            best_score,
+            candidate_version,
+        )
+        .await
+        .map_err(|e| ArgoError::Provider(format!("update_forge_run_progress: {e}")))
+    }
+
     /// Update a `forge_run` row to a terminal status (succeeded /
     /// partial / failed) with its final aggregate score.
     pub async fn finish_forge_run(
@@ -97,6 +121,26 @@ async fn start_forge_run(
     .execute(pool)
     .await?;
     Ok(id)
+}
+
+async fn update_forge_run_progress(
+    pool: &Pool<Sqlite>,
+    id: Uuid,
+    iterations: i64,
+    best_score: Option<f64>,
+    candidate_version: Option<&str>,
+) -> Result<u64, sqlx::Error> {
+    let res = sqlx::query(
+        "UPDATE forge_run SET iterations = ?, final_score = ?, candidate_version = ? \
+         WHERE id = ? AND status = 'running'",
+    )
+    .bind(iterations)
+    .bind(best_score)
+    .bind(candidate_version)
+    .bind(id.as_bytes().as_slice())
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
 }
 
 async fn finish_forge_run(

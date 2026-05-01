@@ -205,6 +205,24 @@ pub(crate) async fn run_with_events(
                 "best_so_far": best_score,
             }));
         }
+        // Push mid-run progress into the forge_run row so the
+        // TUI's F-overlay auto-refresh shows the iter count
+        // climbing + the best-so-far score moving while the
+        // loop is still in flight. The WHERE clause guards
+        // against clobbering an already-aborted row.
+        let best_so_far = if best_score.is_finite() {
+            Some(best_score)
+        } else {
+            None
+        };
+        let _ = store
+            .update_forge_run_progress(
+                run_id,
+                completed,
+                best_so_far,
+                Some(&version_for_iter),
+            )
+            .await;
 
         if let Ok(Some(row)) = store.get_forge_run(run_id).await {
             if budget_micros > 0 && row.spend_usd_micros >= budget_micros {

@@ -381,6 +381,59 @@ async fn abort_forge_run_marks_status_and_ended_at() {
 }
 
 #[tokio::test]
+async fn update_forge_run_progress_only_touches_running_rows() {
+    let store = SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+
+    // Insert one running + one aborted forge_run row.
+    let running = uuid::Uuid::now_v7();
+    let aborted = uuid::Uuid::now_v7();
+    for (id, status) in [(running, "running"), (aborted, "aborted")] {
+        sqlx::query(
+            "INSERT INTO forge_run (id, skill_name, started_at, ended_at, base_version, \
+             candidate_version, examples_count, iterations, spend_usd_micros, final_score, status) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(id.as_bytes().as_slice())
+        .bind("k")
+        .bind(0_i64)
+        .bind(Option::<i64>::None)
+        .bind("0.1")
+        .bind(Option::<&str>::None)
+        .bind(1_i64)
+        .bind(0_i64)
+        .bind(0_i64)
+        .bind(Option::<f64>::None)
+        .bind(status)
+        .execute(store.pool())
+        .await
+        .unwrap();
+    }
+
+    let affected = store
+        .update_forge_run_progress(running, 3, Some(0.7), Some("0.4"))
+        .await
+        .unwrap();
+    assert_eq!(affected, 1);
+    let row = store.get_forge_run(running).await.unwrap().unwrap();
+    assert_eq!(row.iterations, 3);
+    assert_eq!(row.final_score, Some(0.7));
+    assert_eq!(row.candidate_version.as_deref(), Some("0.4"));
+    assert_eq!(row.status, "running");
+
+    // The aborted row's WHERE clause filter rejects the update.
+    let zero = store
+        .update_forge_run_progress(aborted, 5, Some(0.9), Some("0.6"))
+        .await
+        .unwrap();
+    assert_eq!(zero, 0);
+    let row = store.get_forge_run(aborted).await.unwrap().unwrap();
+    assert_eq!(row.iterations, 0);
+    assert_eq!(row.final_score, None);
+    assert_eq!(row.status, "aborted");
+}
+
+#[tokio::test]
 async fn override_judge_verdict_returns_none_for_unknown_id() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
