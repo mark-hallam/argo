@@ -350,6 +350,10 @@ pub enum ForgeRunsCmd {
         /// Filter by status: running|succeeded|failed|aborted.
         #[arg(long)]
         status: Option<String>,
+        /// Filter to runs started within this many recent minutes.
+        /// Mirrors the gateway's `?since-minutes=N`.
+        #[arg(long)]
+        since_minutes: Option<i64>,
         /// Output as a single JSON object {count, status?}.
         #[arg(long)]
         json: bool,

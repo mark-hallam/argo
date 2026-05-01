@@ -12,6 +12,7 @@ pub mod doctor;
 mod doctor_md;
 pub mod eval;
 pub mod forge;
+mod forge_admin;
 mod forge_optimize;
 mod forge_subject;
 pub mod gateway;
