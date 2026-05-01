@@ -558,6 +558,11 @@ pub(crate) async fn run(
                         crate::clipboard::write_to_clipboard(&text);
                     }
                 }
+                KeyCode::Char('Y') => {
+                    if let Some(text) = pick_yank_at_cursor(state) {
+                        crate::clipboard::write_to_clipboard(&text);
+                    }
+                }
                 KeyCode::Char('n') => {
                     if let Err(e) = create_cloned_session(&store, &cwd, state).await {
                         state.last_agent_error = Some(format!("new session: {e}"));
@@ -652,14 +657,32 @@ pub(crate) async fn run(
 /// is empty.
 fn pick_yank_text(state: &ViewerState) -> Option<String> {
     if let Some(last) = state.selected_messages.last() {
-        let parsed: serde_json::Value =
-            serde_json::from_str(&last.content_json).unwrap_or(serde_json::Value::Null);
-        if let Some(t) = parsed
-            .as_array()
-            .and_then(|arr| arr.iter().find_map(|b| b.get("text").and_then(|v| v.as_str())))
-        {
-            return Some(t.to_string());
+        if let Some(t) = extract_first_text(&last.content_json) {
+            return Some(t);
         }
     }
     state.selected_session().map(|s| s.id.0.to_string())
+}
+
+/// Choose what `Y` copies: the message at the current
+/// `messages_scroll` cursor (i.e. the topmost visible row in
+/// the messages pane). Falls back to the most-recent yank
+/// behaviour when nothing's scrolled or the cursor is out of
+/// range.
+fn pick_yank_at_cursor(state: &ViewerState) -> Option<String> {
+    let idx = state.messages_scroll;
+    if let Some(row) = state.selected_messages.get(idx) {
+        if let Some(t) = extract_first_text(&row.content_json) {
+            return Some(t);
+        }
+    }
+    pick_yank_text(state)
+}
+
+fn extract_first_text(content_json: &str) -> Option<String> {
+    let parsed: serde_json::Value = serde_json::from_str(content_json).ok()?;
+    parsed
+        .as_array()
+        .and_then(|arr| arr.iter().find_map(|b| b.get("text").and_then(|v| v.as_str())))
+        .map(str::to_string)
 }
