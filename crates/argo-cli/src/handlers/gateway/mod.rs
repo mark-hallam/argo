@@ -164,7 +164,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /routes  → discovery: every route + a one-line description");
     eprintln!("  GET  /doctor       → JSON snapshot of `argo doctor` (cwd, db, cron, creds, …)");
     eprintln!("  GET  /health/full  → deep health (audit chain + skill + memory provenance)");
-    eprintln!("  GET  /audit/sessions/<uuid> → per-session audit chain (JSON array)");
+    eprintln!("  GET  /audit/sessions/<uuid>[?kind=<kind>] → per-session audit chain (JSON array)");
     eprintln!("  GET  /audit/sessions/<uuid>/verify → verify a session's chain integrity");
     eprintln!("  GET  /costs    → cost ceilings (per_session/day/month + notify_at_pct)");
     eprintln!("  GET  /db/stats → per-table row counts (sessions, messages, audit, …)");

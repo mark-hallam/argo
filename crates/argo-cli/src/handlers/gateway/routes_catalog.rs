@@ -25,7 +25,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),
-        ("GET", "/audit/sessions/<id>", "per-session audit chain"),
+        ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind=<kind> filter)"),
         ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity"),
         ("GET", "/costs", "cost ceilings"),
         ("GET", "/costs/by-model", "spend grouped by (provider, model)"),

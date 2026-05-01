@@ -186,9 +186,20 @@ pub(super) async fn dispatch_route(
                 return audit_session_verify_response(sid, store).await;
             }
         }
-        if let Some((sid, _)) = rest.split_once(' ') {
-            return audit_session_response(sid, store).await;
-        }
+        // Strip the (optional) ?query and trailing " HTTP/...".
+        let (sid_with_q, _) = rest.split_once(' ').unwrap_or((rest, ""));
+        let (sid, query_part) = sid_with_q
+            .split_once('?')
+            .map_or((sid_with_q, ""), |(s, q)| (s, q));
+        let kind = if query_part.is_empty() {
+            None
+        } else {
+            query_part
+                .split('&')
+                .find_map(|kv| kv.strip_prefix("kind="))
+                .map(str::to_string)
+        };
+        return audit_session_response(sid, store, kind.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /sessions/") {
         if let Some((sid, tail)) = rest.split_once('/') {

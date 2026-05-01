@@ -439,6 +439,7 @@ pub(super) async fn audit_session_verify_response(
 pub(super) async fn audit_session_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
+    kind: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -453,10 +454,15 @@ pub(super) async fn audit_session_response(
         }
     };
     match argo_audit::rows_for_session(store, id).await {
-        Ok(rows) => (
-            "200 OK",
-            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
-        ),
+        Ok(mut rows) => {
+            if let Some(want) = kind {
+                rows.retain(|r| r.kind == want);
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"audit session: {e}\"}}"),
