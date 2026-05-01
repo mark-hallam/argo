@@ -102,8 +102,13 @@ pub enum SessionCmd {
     Show {
         id: String,
         /// Output as a single JSON object for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Dump a session's messages (defaults to stdout; pass
     /// `--out <path>` to write to a file). Default format is

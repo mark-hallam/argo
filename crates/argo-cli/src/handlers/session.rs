@@ -36,7 +36,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SessionCmd::Show { id, json } => show_session(&id, json).await,
+        SessionCmd::Show { id, json, format } => show_session(&id, json, &format).await,
         SessionCmd::Count {
             status,
             since_minutes,
@@ -262,7 +262,7 @@ async fn search(
     Ok(())
 }
 
-async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
+async fn show_session(raw: &str, json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -286,30 +286,68 @@ async fn show_session(raw: &str, json: bool) -> ArgoResult<()> {
     };
     let tool_calls = count_tool_use_blocks(&messages);
     let spend_micros = session_spend_micros(&store, SessionId(id)).await.unwrap_or(0);
-    if json {
-        let row = serde_json::json!({
-            "id": session.id.0.to_string(),
-            "tenant_id": session.tenant_id.0.to_string(),
-            "workspace_id": session.workspace_id.0.to_string(),
-            "provider": session.provider,
-            "model": session.model,
-            "title": session.title,
-            "started_at": session.started_at.to_rfc3339(),
-            "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
-            "message_count": count,
-            "tool_call_count": tool_calls,
-            "spend_usd_micros": spend_micros,
-            "first_message": first.as_ref().map(|(role, snippet)|
-                serde_json::json!({"role": role, "snippet": snippet})
-            ),
-            "last_message": last.as_ref().map(|(role, snippet)|
-                serde_json::json!({"role": role, "snippet": snippet})
-            ),
-        });
-        let serialized = serde_json::to_string(&row)
-            .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-        println!("{serialized}");
-        return Ok(());
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            let row = serde_json::json!({
+                "id": session.id.0.to_string(),
+                "tenant_id": session.tenant_id.0.to_string(),
+                "workspace_id": session.workspace_id.0.to_string(),
+                "provider": session.provider,
+                "model": session.model,
+                "title": session.title,
+                "started_at": session.started_at.to_rfc3339(),
+                "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
+                "message_count": count,
+                "tool_call_count": tool_calls,
+                "spend_usd_micros": spend_micros,
+                "first_message": first.as_ref().map(|(role, snippet)|
+                    serde_json::json!({"role": role, "snippet": snippet})
+                ),
+                "last_message": last.as_ref().map(|(role, snippet)|
+                    serde_json::json!({"role": role, "snippet": snippet})
+                ),
+            });
+            let serialized = serde_json::to_string(&row)
+                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
+            println!("{serialized}");
+            return Ok(());
+        }
+        "markdown" => {
+            let title = session
+                .title
+                .as_deref()
+                .filter(|t| !t.is_empty())
+                .unwrap_or("(untitled)");
+            println!("# Session {title} (`{}`)", session.id.0);
+            println!();
+            println!("- **Provider**: `{}`", session.provider);
+            println!("- **Model**: `{}`", session.model);
+            println!("- **Started**: {}", session.started_at.to_rfc3339());
+            if let Some(ended) = session.ended_at {
+                println!("- **Ended**: {}", ended.to_rfc3339());
+            }
+            println!("- **Messages**: {count}");
+            println!("- **Tool calls**: {tool_calls}");
+            println!(
+                "- **Spend**: ${:.4}",
+                spend_micros as f64 / 1_000_000.0
+            );
+            if let Some((role, snippet)) = &first {
+                println!();
+                println!("**First** ({role}): {snippet}");
+            }
+            if let Some((role, snippet)) = &last {
+                println!("**Last** ({role}): {snippet}");
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     println!("session {}", session.id.0);
     println!("  tenant_id:    {}", session.tenant_id.0);
