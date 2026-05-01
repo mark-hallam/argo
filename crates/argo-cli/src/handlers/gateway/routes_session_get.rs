@@ -99,6 +99,9 @@ async fn export_response(
     };
     let format = parse_query_kv(tail, "format")
         .unwrap_or_else(|| "jsonl".to_string());
+    let include_audit = parse_query_kv(tail, "include-audit")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
     let id = match uuid::Uuid::parse_str(sid) {
         Ok(u) => SessionId(u),
         Err(e) => {
@@ -118,7 +121,28 @@ async fn export_response(
         }
     };
     match format.as_str() {
-        "jsonl" => ("200 OK", render_jsonl(&messages)),
+        "jsonl" => {
+            let mut body = render_jsonl(&messages);
+            if include_audit {
+                match argo_audit::rows_for_session(store, id).await {
+                    Ok(rows) => {
+                        for r in &rows {
+                            if let Ok(line) = serde_json::to_string(r) {
+                                body.push_str(&line);
+                                body.push('\n');
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        return (
+                            "500 Internal Server Error",
+                            format!("{{\"error\":\"rows_for_session: {e}\"}}"),
+                        );
+                    }
+                }
+            }
+            ("200 OK", body)
+        }
         "markdown" => ("200 OK", render_markdown_body(sid, &messages)),
         other => (
             "400 Bad Request",
