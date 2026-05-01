@@ -102,7 +102,8 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /memory ") || req.starts_with("GET /memory?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let file = parse_query_kv(tail, "file");
-        return memory_response(store, file).await;
+        let since = parse_since_minutes_from_get(req, "/memory");
+        return memory_response(store, file, since).await;
     }
     if let Some(rest) = req.strip_prefix("GET /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {

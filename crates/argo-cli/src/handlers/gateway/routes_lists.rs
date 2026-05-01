@@ -98,14 +98,15 @@ pub(super) async fn memory_versions_response(
     }
 }
 
-/// `GET /memory[?file=memory|user|soul|agents]` — active memory
-/// entries. Without `file`, returns all four canonical files
-/// concatenated. With `file`, scopes to just that one. 200 +
-/// `[]` when no workspace is registered yet; 400 on unknown
-/// `file` value.
+/// `GET /memory[?file=memory|user|soul|agents&since-minutes=M]`
+/// — active memory entries. Without `file`, returns all four
+/// canonical files concatenated. With `file`, scopes to one.
+/// `since-minutes` filters by `learned_at`. 200 + `[]` when
+/// no workspace is registered yet; 400 on unknown `file`.
 pub(super) async fn memory_response(
     store: Option<&Arc<SessionStore>>,
     file: Option<String>,
+    since_minutes: Option<i64>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
@@ -142,11 +143,18 @@ pub(super) async fn memory_response(
         }
     };
     let memory = MemoryStore::new(Arc::clone(store));
+    let cutoff = since_minutes
+        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut all: Vec<serde_json::Value> = Vec::new();
     for f in files {
         match memory.list_active(workspace, f).await {
             Ok(entries) => {
                 for e in entries {
+                    if let Some(c) = cutoff {
+                        if e.learned_at < c {
+                            continue;
+                        }
+                    }
                     all.push(serde_json::json!({
                         "id": e.id.to_string(),
                         "file": format!("{:?}", e.file),
