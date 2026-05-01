@@ -5,17 +5,19 @@ use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// `GET /skills[?include-superseded&name-contains&lock]` —
+/// `GET /skills[?include-superseded&name-contains&lock&body-contains]` —
 /// active skills by default, all versions when
-/// `include-superseded`. Optional `name-contains` substring
-/// (case-insensitive) and `lock` (`none|user-protected|
-/// content-locked`) filters. Each row: `{id, name, version,
-/// lock, hash, created_at, superseded_by?}`.
+/// `include-superseded`. Optional substring filters
+/// (case-insensitive) on `name-contains` (frontmatter.name) and
+/// `body-contains` (markdown body), plus a `lock`
+/// (`none|user-protected|content-locked`) filter. Each row:
+/// `{id, name, version, lock, hash, created_at, superseded_by?}`.
 pub(super) async fn skills_response(
     store: Option<&Arc<SessionStore>>,
     include_superseded: bool,
     name_contains: Option<&str>,
     lock: Option<&str>,
+    body_contains: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -41,12 +43,17 @@ pub(super) async fn skills_response(
         skills.list_active().await
     };
     let needle = name_contains.map(str::to_lowercase);
+    let body_needle = body_contains.map(str::to_lowercase);
     match result {
         Ok(rows) => {
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .filter(|s| match needle.as_deref() {
                     Some(n) => s.frontmatter.name.to_lowercase().contains(n),
+                    None => true,
+                })
+                .filter(|s| match body_needle.as_deref() {
+                    Some(n) => s.body.to_lowercase().contains(n),
                     None => true,
                 })
                 .filter(|s| match lock_filter {
