@@ -11,8 +11,14 @@ pub enum SessionCmd {
         #[arg(long, default_value_t = 25)]
         limit: u32,
         /// Output as JSON (one object per session) for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (renders a markdown table). `--json` wins if both are
+        /// passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         /// Filter to sessions started within this many recent
         /// minutes (e.g. `--since 60` for the last hour). Compared
         /// against `started_at`.

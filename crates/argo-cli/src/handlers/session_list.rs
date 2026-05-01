@@ -9,6 +9,7 @@ use argo_types::{ArgoError, ArgoResult};
 pub(super) async fn list_sessions(
     limit: u32,
     json: bool,
+    format: &str,
     since_minutes: Option<i64>,
     older_than_minutes: Option<i64>,
     spent_min: Option<u64>,
@@ -103,27 +104,65 @@ pub(super) async fn list_sessions(
             true
         });
     }
-    if json {
-        for s in &sessions {
-            let spent = spend_by_sid
-                .get(s.id.0.as_bytes().as_slice())
-                .copied()
-                .unwrap_or(0);
-            let tcs = tool_calls_by_sid
-                .get(s.id.0.as_bytes().as_slice())
-                .copied()
-                .unwrap_or(0);
-            let mut value = serde_json::to_value(s)
-                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-            if let serde_json::Value::Object(ref mut m) = value {
-                m.insert("spent_usd_micros".into(), serde_json::Value::from(spent));
-                m.insert("tool_call_count".into(), serde_json::Value::from(tcs));
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            for s in &sessions {
+                let spent = spend_by_sid
+                    .get(s.id.0.as_bytes().as_slice())
+                    .copied()
+                    .unwrap_or(0);
+                let tcs = tool_calls_by_sid
+                    .get(s.id.0.as_bytes().as_slice())
+                    .copied()
+                    .unwrap_or(0);
+                let mut value = serde_json::to_value(s)
+                    .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
+                if let serde_json::Value::Object(ref mut m) = value {
+                    m.insert("spent_usd_micros".into(), serde_json::Value::from(spent));
+                    m.insert("tool_call_count".into(), serde_json::Value::from(tcs));
+                }
+                let line = serde_json::to_string(&value)
+                    .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
+                println!("{line}");
             }
-            let line = serde_json::to_string(&value)
-                .map_err(|e| ArgoError::Provider(format!("serialize session: {e}")))?;
-            println!("{line}");
+            return Ok(());
         }
-        return Ok(());
+        "markdown" => {
+            println!("# Sessions ({} match{})", sessions.len(), if sessions.len() == 1 { "" } else { "es" });
+            println!();
+            if sessions.is_empty() {
+                return Ok(());
+            }
+            println!("| status | session_id | provider | model | spend (USD) | tools | title |");
+            println!("| :---: | --- | --- | --- | ---: | ---: | --- |");
+            for s in &sessions {
+                let spent = spend_by_sid
+                    .get(s.id.0.as_bytes().as_slice())
+                    .copied()
+                    .unwrap_or(0);
+                let tcs = tool_calls_by_sid
+                    .get(s.id.0.as_bytes().as_slice())
+                    .copied()
+                    .unwrap_or(0);
+                let marker = if s.ended_at.is_none() { "●" } else { "○" };
+                let title = s.title.as_deref().unwrap_or("").replace('|', "\\|");
+                println!(
+                    "| {marker} | `{}` | `{}` | `{}` | ${:.4} | {tcs} | {title} |",
+                    s.id.0,
+                    s.provider,
+                    s.model,
+                    spent as f64 / 1_000_000.0
+                );
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if sessions.is_empty() {
         println!("(no sessions in {})", db.display());

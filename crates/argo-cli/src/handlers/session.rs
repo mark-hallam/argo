@@ -11,6 +11,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::List {
             limit,
             json,
+            format,
             since_minutes,
             older_than_minutes,
             spent_min,
@@ -24,6 +25,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             list_sessions(
                 limit,
                 json,
+                &format,
                 since_minutes,
                 older_than_minutes,
                 spent_min,
