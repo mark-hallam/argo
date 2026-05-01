@@ -20,7 +20,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/skills/<name>/versions", "supersede chain for one skill name"),
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry ({file, body})"),
-        ("GET", "/memory", "memory entries"),
+        ("GET", "/memory", "memory entries (?file=memory|user|soul|agents)"),
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),

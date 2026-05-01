@@ -98,16 +98,38 @@ pub(super) async fn memory_versions_response(
     }
 }
 
-/// `GET /memory` — every active memory entry across the four
-/// canonical files (MEMORY / USER / SOUL / AGENTS) for the
-/// first registered workspace. 200 + `[]` when no workspace
-/// is registered.
+/// `GET /memory[?file=memory|user|soul|agents]` — active memory
+/// entries. Without `file`, returns all four canonical files
+/// concatenated. With `file`, scopes to just that one. 200 +
+/// `[]` when no workspace is registered yet; 400 on unknown
+/// `file` value.
 pub(super) async fn memory_response(
     store: Option<&Arc<SessionStore>>,
+    file: Option<String>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
         return store_unavailable();
+    };
+    let files: Vec<MemoryFile> = match file.as_deref() {
+        None => vec![
+            MemoryFile::Memory,
+            MemoryFile::User,
+            MemoryFile::Soul,
+            MemoryFile::Agents,
+        ],
+        Some("memory") | Some("MEMORY.md") => vec![MemoryFile::Memory],
+        Some("user") | Some("USER.md") => vec![MemoryFile::User],
+        Some("soul") | Some("SOUL.md") => vec![MemoryFile::Soul],
+        Some("agents") | Some("AGENTS.md") => vec![MemoryFile::Agents],
+        Some(other) => {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"unknown file '{other}' — use memory|user|soul|agents\"}}"
+                ),
+            );
+        }
     };
     let workspace = match store.first_workspace().await {
         Ok(Some(w)) => w,
@@ -121,12 +143,7 @@ pub(super) async fn memory_response(
     };
     let memory = MemoryStore::new(Arc::clone(store));
     let mut all: Vec<serde_json::Value> = Vec::new();
-    for f in [
-        MemoryFile::Memory,
-        MemoryFile::User,
-        MemoryFile::Soul,
-        MemoryFile::Agents,
-    ] {
+    for f in files {
         match memory.list_active(workspace, f).await {
             Ok(entries) => {
                 for e in entries {

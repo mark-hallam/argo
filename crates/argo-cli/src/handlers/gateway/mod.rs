@@ -132,7 +132,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /skills/<name>/versions → supersede chain for that name");
     eprintln!("  POST /skills   → install a SKILL.md document ({{raw}})");
     eprintln!("  POST /memory   → append a memory entry ({{file: memory|user|soul|agents, body}})");
-    eprintln!("  GET  /memory   → active memory entries (JSON array)");
+    eprintln!("  GET  /memory[?file=memory|user|soul|agents] → active memory entries");
     eprintln!("  GET  /memory/<id> → one memory entry (full body)");
     eprintln!("  GET  /memory/<id>/versions → supersede chain for that entry");
     eprintln!("  GET  /audit    → audit chain summary (ok / rows / breaks / kinds)");

@@ -89,8 +89,10 @@ pub(super) async fn dispatch_route(
             return skill_show_response(name, store).await;
         }
     }
-    if req.starts_with("GET /memory ") {
-        return memory_response(store).await;
+    if req.starts_with("GET /memory ") || req.starts_with("GET /memory?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let file = parse_query_kv(tail, "file");
+        return memory_response(store, file).await;
     }
     if let Some(rest) = req.strip_prefix("GET /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {
