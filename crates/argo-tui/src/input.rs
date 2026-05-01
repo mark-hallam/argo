@@ -237,6 +237,14 @@ pub(crate) async fn run(
                     let rows = store.list_forge_runs(50).await.unwrap_or_default();
                     state.forge_runs = Some(rows);
                 }
+                KeyCode::Char('C') => {
+                    // Drop the in-memory live-event trail
+                    // without spawning a new turn. Useful when
+                    // the trail from an earlier run is cluttering
+                    // the messages pane and the user just wants
+                    // to focus on the persisted history.
+                    state.clear_live_events();
+                }
                 KeyCode::Char('R') => {
                     // Force-refresh of every pane + any open
                     // overlay. Useful when a CLI in another

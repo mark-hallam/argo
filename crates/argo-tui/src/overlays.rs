@@ -36,6 +36,7 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
         Line::from("    M  active memory               $  cost rollup"),
         Line::from("    A  audit chain (selected ses)  R  force-refresh"),
+        Line::from("    C  clear live-event trail"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
