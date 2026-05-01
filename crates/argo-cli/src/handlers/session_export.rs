@@ -42,7 +42,12 @@ pub async fn export_session(
         }
         "markdown" => {
             let header = MarkdownHeader::load(&store, SessionId(id), &messages).await;
-            export_markdown(&mut writer, raw, &header, &messages)?
+            let n = export_markdown(&mut writer, raw, &header, &messages)?;
+            if include_audit {
+                append_markdown_audit(&mut writer, &store, SessionId(id)).await?
+            } else {
+                n
+            }
         }
         other => {
             return Err(ArgoError::Provider(format!(
@@ -54,7 +59,7 @@ pub async fn export_session(
         .flush()
         .map_err(|e| ArgoError::Provider(format!("flush: {e}")))?;
     if out.is_some() {
-        if include_audit && format == "jsonl" {
+        if include_audit && (format == "jsonl" || format == "markdown") {
             eprintln!(
                 "session export: wrote {} message(s) + {audit_count} audit row(s)",
                 messages.len()
@@ -224,6 +229,36 @@ fn export_markdown(
         }
     }
     Ok(0)
+}
+
+/// Append the per-session audit chain after the markdown
+/// transcript. Renders an `## Audit chain (N rows)` section with
+/// a `seq | kind | session_id` table — same fields the gateway's
+/// `/audit/sessions/<id>` endpoint exposes. Returns the number
+/// of audit rows written so the caller can include it in the
+/// summary line.
+async fn append_markdown_audit(
+    writer: &mut Box<dyn Write>,
+    store: &SessionStore,
+    session_id: SessionId,
+) -> ArgoResult<usize> {
+    let rows = argo_audit::rows_for_session(store, session_id).await?;
+    writeln!(writer, "## Audit chain ({} rows)", rows.len())
+        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    writeln!(writer).map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    writeln!(writer, "| seq | kind | hash |")
+        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    writeln!(writer, "| ---: | --- | --- |")
+        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    for r in &rows {
+        let hash_short: String = r.self_hash.chars().take(12).collect();
+        writeln!(writer, "| {} | `{}` | `{hash_short}…` |", r.seq, r.kind)
+            .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    }
+    Ok(rows.len())
 }
 
 /// Pull a human-readable body out of `content_json`. Argo stores
