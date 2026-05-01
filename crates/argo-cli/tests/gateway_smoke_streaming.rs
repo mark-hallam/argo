@@ -336,6 +336,58 @@ fn costs_total_returns_zero_rollup_for_empty_store() {
 }
 
 #[test]
+fn count_endpoints_return_zero_for_clean_workspace() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "4",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    // Sessions count → 0 on a fresh tempdir.
+    let resp = http_get(port, "/sessions/count");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let body = body_of(&resp);
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("json");
+    assert_eq!(parsed["count"], 0);
+    assert_eq!(parsed["status"], "all");
+
+    // Forge runs count → 0.
+    let resp = http_get(port, "/forge/runs/count");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("json");
+    assert_eq!(parsed["count"], 0);
+
+    // Skills count → 0.
+    let resp = http_get(port, "/skills/count");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("json");
+    assert_eq!(parsed["count"], 0);
+    assert_eq!(parsed["include_superseded"], false);
+
+    // Memory count → 0 (no workspace registered).
+    let resp = http_get(port, "/memory/count");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("json");
+    assert_eq!(parsed["count"], 0);
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn metrics_endpoint_serves_text_plain_with_prometheus_lines() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
