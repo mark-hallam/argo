@@ -16,6 +16,7 @@ mod actions;
 mod app;
 mod clipboard;
 mod input;
+mod input_helpers;
 mod live_event;
 mod overlay_text;
 mod overlays;
