@@ -14,6 +14,12 @@ use std::io::{stdout, Stdout};
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// Hard cap on rows the session list pulls at startup. Bumped
+/// 200 → 500 in #334 — long-running workspaces routinely have
+/// more than 200 sessions, and the `/`-filter keeps the
+/// rendered set bounded.
+pub const MAX_SESSIONS_LOAD: u32 = 500;
+
 /// Drive the TUI event loop. Quits on `q` or `Ctrl-C`. The
 /// returned result is `Ok(())` on a clean quit, `Err` if terminal
 /// setup or rendering blew up.
@@ -27,8 +33,11 @@ use std::sync::Arc;
 /// # Errors
 /// Returns [`ArgoError::Provider`] for terminal setup, draw, or
 /// store-query failures.
+///
+/// Hard cap on rows the session list pulls at startup is
+/// [`MAX_SESSIONS_LOAD`].
 pub async fn run_session_viewer(store: Arc<SessionStore>, cwd: PathBuf) -> ArgoResult<()> {
-    let sessions = store.list_all_sessions(200).await?;
+    let sessions = store.list_all_sessions(MAX_SESSIONS_LOAD).await?;
     let mut state = ViewerState::new(sessions);
     state.workspace_label = store.first_workspace_name().await.unwrap_or(None);
     fetch_message_count(&store, &mut state).await?;
