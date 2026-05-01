@@ -81,6 +81,35 @@ pub enum SessionCmd {
     Watch {
         id: String,
     },
+    /// List the messages on a session. Mirrors the gateway's
+    /// `GET /sessions/<id>/messages` query surface (limit, role,
+    /// since-minutes, seq-min/max, content-contains).
+    Messages {
+        id: String,
+        /// Output as JSON (one object per message) for scripting.
+        #[arg(long)]
+        json: bool,
+        /// Truncate to the first N rows after filtering.
+        #[arg(long)]
+        limit: Option<u32>,
+        /// Filter to one role: `user|assistant|tool|system`.
+        #[arg(long)]
+        role: Option<String>,
+        /// Keep messages created within the last N minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Lower bound on `seq` (inclusive).
+        #[arg(long)]
+        seq_min: Option<i64>,
+        /// Upper bound on `seq` (inclusive).
+        #[arg(long)]
+        seq_max: Option<i64>,
+        /// Case-insensitive substring filter on the raw
+        /// `content_json` blob (catches user prompts, assistant
+        /// text, tool args/results in one pass).
+        #[arg(long)]
+        content_contains: Option<String>,
+    },
     /// Attach an active skill to a session. While at least one
     /// skill is attached, the agent runner's system-prompt loader
     /// uses *only* the attached set instead of every active skill.

@@ -56,6 +56,28 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             .await
         }
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
+        SessionCmd::Messages {
+            id,
+            json,
+            limit,
+            role,
+            since_minutes,
+            seq_min,
+            seq_max,
+            content_contains,
+        } => {
+            super::session_messages::run(
+                &id,
+                json,
+                limit,
+                role.as_deref(),
+                since_minutes,
+                seq_min,
+                seq_max,
+                content_contains.as_deref(),
+            )
+            .await
+        }
         SessionCmd::AttachSkill { id, skill } => {
             super::session_skills::attach(&id, &skill).await
         }

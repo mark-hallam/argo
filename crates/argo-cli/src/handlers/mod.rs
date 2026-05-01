@@ -30,6 +30,7 @@ mod session_bisect;
 mod session_diff;
 mod session_export;
 mod session_list;
+mod session_messages;
 pub mod session_replay;
 mod session_resolve;
 mod session_skills;
