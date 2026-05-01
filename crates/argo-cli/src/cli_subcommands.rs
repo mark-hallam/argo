@@ -147,6 +147,22 @@ pub enum SkillCmd {
         /// Truncate to the first N rows (after sorting).
         #[arg(long)]
         limit: Option<u32>,
+        /// Include superseded versions (default keeps only the
+        /// active skill per name). Mirrors `?include-superseded`.
+        #[arg(long)]
+        include_superseded: bool,
+        /// Case-insensitive substring filter on `frontmatter.name`.
+        /// Mirrors `?name-contains=…`.
+        #[arg(long)]
+        name_contains: Option<String>,
+        /// Filter by lock status: `none` / `user-protected` /
+        /// `content-locked`. Mirrors `?lock=…`.
+        #[arg(long)]
+        lock: Option<String>,
+        /// Case-insensitive substring filter on the skill body.
+        /// Mirrors `?body-contains=…`.
+        #[arg(long)]
+        body_contains: Option<String>,
     },
     /// Print just the count of active skills. Default: one int
     /// per line; `--json` emits `{count}`.

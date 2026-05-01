@@ -20,7 +20,23 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             json,
             sort_by,
             limit,
-        } => list(&skills, json, &sort_by, limit).await,
+            include_superseded,
+            name_contains,
+            lock,
+            body_contains,
+        } => {
+            list(
+                &skills,
+                json,
+                &sort_by,
+                limit,
+                include_superseded,
+                name_contains.as_deref(),
+                lock.as_deref(),
+                body_contains.as_deref(),
+            )
+            .await
+        }
         SkillCmd::Count {
             include_superseded,
             json,
@@ -184,13 +200,50 @@ async fn count(skills: &SkillStore, include_superseded: bool, json: bool) -> Arg
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn list(
     skills: &SkillStore,
     json: bool,
     sort_by: &str,
     limit: Option<u32>,
+    include_superseded: bool,
+    name_contains: Option<&str>,
+    lock: Option<&str>,
+    body_contains: Option<&str>,
 ) -> ArgoResult<()> {
-    let mut active = skills.list_active().await?;
+    let lock_filter = match lock {
+        None => None,
+        Some("none") => Some(Lock::None),
+        Some("user-protected") => Some(Lock::UserProtected),
+        Some("content-locked") => Some(Lock::ContentLocked),
+        Some(other) => {
+            return Err(ArgoError::Provider(format!(
+                "unknown --lock '{other}' — use none|user-protected|content-locked"
+            )));
+        }
+    };
+    let mut active = if include_superseded {
+        skills.list_all().await?
+    } else {
+        skills.list_active().await?
+    };
+    let needle = name_contains.map(str::to_lowercase);
+    let body_needle = body_contains.map(str::to_lowercase);
+    active.retain(|s| {
+        match needle.as_deref() {
+            Some(n) if !s.frontmatter.name.to_lowercase().contains(n) => return false,
+            _ => {}
+        }
+        match body_needle.as_deref() {
+            Some(n) if !s.body.to_lowercase().contains(n) => return false,
+            _ => {}
+        }
+        match lock_filter {
+            Some(want) if s.frontmatter.lock != want => return false,
+            _ => {}
+        }
+        true
+    });
     match sort_by {
         "created-at" => active.sort_by_key(|s| std::cmp::Reverse(s.created_at)),
         "name" => active.sort_by(|a, b| a.frontmatter.name.cmp(&b.frontmatter.name)),
