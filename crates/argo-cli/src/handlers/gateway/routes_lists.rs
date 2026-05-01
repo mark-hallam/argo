@@ -5,18 +5,34 @@ use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// `GET /skills[?include-superseded=true&name-contains=<sub>]`
-/// — active skills by default, all versions when
-/// `include-superseded`, optionally narrowed by name substring.
-/// Each row: `{id, name, version, lock, hash, created_at,
-/// superseded_by?}`.
+/// `GET /skills[?include-superseded&name-contains&lock]` —
+/// active skills by default, all versions when
+/// `include-superseded`. Optional `name-contains` substring
+/// (case-insensitive) and `lock` (`none|user-protected|
+/// content-locked`) filters. Each row: `{id, name, version,
+/// lock, hash, created_at, superseded_by?}`.
 pub(super) async fn skills_response(
     store: Option<&Arc<SessionStore>>,
     include_superseded: bool,
     name_contains: Option<&str>,
+    lock: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
+    };
+    let lock_filter = match lock {
+        None => None,
+        Some("none") => Some(argo_types::Lock::None),
+        Some("user-protected") => Some(argo_types::Lock::UserProtected),
+        Some("content-locked") => Some(argo_types::Lock::ContentLocked),
+        Some(other) => {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"unknown lock '{other}' — use none|user-protected|content-locked\"}}"
+                ),
+            );
+        }
     };
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let result = if include_superseded {
@@ -31,6 +47,10 @@ pub(super) async fn skills_response(
                 .iter()
                 .filter(|s| match needle.as_deref() {
                     Some(n) => s.frontmatter.name.to_lowercase().contains(n),
+                    None => true,
+                })
+                .filter(|s| match lock_filter {
+                    Some(want) => s.frontmatter.lock == want,
                     None => true,
                 })
                 .map(|s| {

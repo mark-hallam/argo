@@ -101,7 +101,14 @@ pub(super) async fn dispatch_route(
             .map(|v| v == "true" || v == "1")
             .unwrap_or(false);
         let name_contains = parse_query_kv(tail, "name-contains").map(|s| s.replace('+', " "));
-        return skills_response(store, include_superseded, name_contains.as_deref()).await;
+        let lock = parse_query_kv(tail, "lock");
+        return skills_response(
+            store,
+            include_superseded,
+            name_contains.as_deref(),
+            lock.as_deref(),
+        )
+        .await;
     }
     if let Some(rest) = req.strip_prefix("GET /skills/") {
         // /skills/<name>/versions takes priority over the bare
