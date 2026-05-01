@@ -321,6 +321,12 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             state.filtered_indices().len()
         )
     };
+    // Prepend the workspace tag if we know it; lets the user
+    // tell at a glance which workspace they're viewing.
+    let body = match state.workspace_label.as_deref() {
+        Some(ws) => format!("[ws={ws}]  {body}"),
+        None => body,
+    };
     let p = Paragraph::new(body);
     frame.render_widget(p, area);
 }

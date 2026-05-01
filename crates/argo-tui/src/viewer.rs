@@ -30,6 +30,7 @@ use std::sync::Arc;
 pub async fn run_session_viewer(store: Arc<SessionStore>, cwd: PathBuf) -> ArgoResult<()> {
     let sessions = store.list_all_sessions(200).await?;
     let mut state = ViewerState::new(sessions);
+    state.workspace_label = store.first_workspace_name().await.unwrap_or(None);
     fetch_message_count(&store, &mut state).await?;
     fetch_messages(&store, &mut state).await?;
     let mut terminal = setup_terminal()?;

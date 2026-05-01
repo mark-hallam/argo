@@ -266,6 +266,21 @@ fn audit_overlay_handles_empty_chain() {
 }
 
 #[test]
+fn footer_includes_workspace_label_when_set() {
+    let mut state = ViewerState::new(vec![header("ws-target")]);
+    state.workspace_label = Some("argo".to_string());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("[ws=argo]"), "ws label missing: {frame}");
+}
+
+#[test]
+fn footer_omits_workspace_label_when_unset() {
+    let state = ViewerState::new(vec![header("ws-target")]);
+    let frame = render_to_strings(&state);
+    assert!(!frame.contains("[ws="), "unexpected ws label: {frame}");
+}
+
+#[test]
 fn cost_overlay_renders_zero_state_for_fresh_workspace() {
     let mut state = ViewerState::new(vec![header("cost-target")]);
     state.cost_overlay = Some(argo_store::GlobalSpend::default());
