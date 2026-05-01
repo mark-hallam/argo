@@ -196,8 +196,10 @@ fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
         .filter_map(|i| state.sessions.get(*i))
         .map(|s| {
             let title = s.title.as_deref().unwrap_or("(untitled)");
+            // ● = still open (ended_at IS NULL), ○ = ended.
+            let marker = if s.ended_at.is_none() { "●" } else { "○" };
             ListItem::new(Line::from(vec![
-                Span::raw(format!("{} ", short_id(&s.id.0.to_string()))),
+                Span::raw(format!("{marker} {} ", short_id(&s.id.0.to_string()))),
                 Span::styled(
                     title.to_string(),
                     Style::default().add_modifier(Modifier::BOLD),
