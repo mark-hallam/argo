@@ -79,6 +79,7 @@ pub(super) async fn dispatch_route(
         let status = parse_query_kv(tail, "status");
         let provider = parse_query_kv(tail, "provider");
         let model = parse_query_kv(tail, "model");
+        let title_contains = parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
         let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(100);
@@ -88,6 +89,7 @@ pub(super) async fn dispatch_route(
             status.as_deref(),
             provider.as_deref(),
             model.as_deref(),
+            title_contains.as_deref(),
             limit,
         )
         .await;
@@ -413,6 +415,7 @@ async fn sessions_response(
     status: Option<&str>,
     provider: Option<&str>,
     model: Option<&str>,
+    title_contains: Option<&str>,
     limit: u32,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -436,6 +439,15 @@ async fn sessions_response(
             }
             if let Some(want) = model {
                 rows.retain(|s| s.model == want);
+            }
+            if let Some(needle) = title_contains {
+                let lower = needle.to_lowercase();
+                rows.retain(|s| {
+                    s.title
+                        .as_deref()
+                        .map(|t| t.to_lowercase().contains(&lower))
+                        .unwrap_or(false)
+                });
             }
             let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
             let arr: Vec<serde_json::Value> = rows
