@@ -18,7 +18,8 @@ use super::routes_lists::{
 };
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_audit::{
-    audit_recent_response, audit_session_response, audit_session_verify_response,
+    audit_count_response, audit_recent_response, audit_session_response,
+    audit_session_verify_response,
 };
 use super::routes_post::{
     append_message_response, costs_breakdown_response, create_session_response, replay_response,
@@ -158,6 +159,19 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /audit/breaks ") {
         return audit_breaks_response(store).await;
+    }
+    if req.starts_with("GET /audit/count ") || req.starts_with("GET /audit/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let kind = parse_query_kv(tail, "kind");
+        let since = parse_since_minutes_from_get(req, "/audit/count");
+        let session = parse_query_kv(tail, "session");
+        return audit_count_response(
+            kind.as_deref(),
+            since,
+            session.as_deref(),
+            store,
+        )
+        .await;
     }
     if req.starts_with("GET /audit/recent ") || req.starts_with("GET /audit/recent?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);

@@ -8,6 +8,58 @@ use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 
+/// `GET /audit/count[?kind=…&session=<uuid>&since-minutes=N]` —
+/// count of audit rows after filters. Useful for "how many
+/// tool_calls in the last hour" monitoring queries that don't
+/// need the row bodies. Caps the underlying fetch at 10,000.
+pub(super) async fn audit_count_response(
+    kind: Option<&str>,
+    since_minutes: Option<i64>,
+    session: Option<&str>,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let since_micros = since_minutes.map(|m| {
+        (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
+    });
+    let session_bytes = match session {
+        Some(s) => match uuid::Uuid::parse_str(s) {
+            Ok(u) => Some(u.as_bytes().to_vec()),
+            Err(e) => {
+                return (
+                    "400 Bad Request",
+                    format!("{{\"error\":\"invalid session id: {e}\"}}"),
+                );
+            }
+        },
+        None => None,
+    };
+    let filters = argo_audit::TailFilters {
+        kind,
+        since_micros,
+        session_id: session_bytes.as_deref(),
+    };
+    match argo_audit::tail_rows_filtered(store, 10_000, &filters).await {
+        Ok(rows) => {
+            let payload = serde_json::json!({
+                "count": rows.len(),
+                "kind": kind,
+                "session": session,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"audit count: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /audit/recent?limit=N&kind=<k>&since-minutes=<m>&session=<id>` —
 /// most recent N audit rows across every session, in seq order
 /// (oldest first inside the window). Mirrors `argo audit show
