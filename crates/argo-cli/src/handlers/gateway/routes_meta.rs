@@ -451,6 +451,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/skills/<name>/unlock", "clear a skill lock"),
         ("POST", "/memory/<id>/lock", "lock a memory entry"),
         ("POST", "/memory/<id>/unlock", "clear a memory-entry lock"),
+        ("POST", "/memory/<id>/forget", "revert (supersede) a memory entry"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()

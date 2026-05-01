@@ -241,6 +241,28 @@ fn memory_lock_validates_id_and_unknown_lock_label() {
 }
 
 #[test]
+fn memory_forget_returns_400_on_bad_id_and_unknown_uuid() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    let resp = http_post(port, "/memory/not-a-uuid/forget", "");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid uuid that isn't in the DB → 400 from MemoryStore::get
+    // (no row matches).
+    let resp = http_post(
+        port,
+        "/memory/00000000-0000-0000-0000-000000000000/forget",
+        "",
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("forget"), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn skill_lock_returns_404_on_unknown_skill() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);

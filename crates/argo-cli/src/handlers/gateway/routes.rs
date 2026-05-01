@@ -17,7 +17,8 @@ use super::routes_cron::{
 };
 use super::routes_msgs::list_messages_response;
 use super::routes_post_admin::{
-    memory_lock_response, memory_unlock_response, skill_lock_response, skill_unlock_response,
+    memory_forget_response, memory_lock_response, memory_unlock_response, skill_lock_response,
+    skill_unlock_response,
 };
 use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
@@ -186,7 +187,7 @@ pub(super) async fn dispatch_route(
             }
         }
     }
-    // POST /memory/<id>/{lock,unlock}
+    // POST /memory/<id>/{lock,unlock,forget}
     if let Some(rest) = req.strip_prefix("POST /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {
             if tail.starts_with("lock ") {
@@ -194,6 +195,9 @@ pub(super) async fn dispatch_route(
             }
             if tail.starts_with("unlock ") {
                 return memory_unlock_response(id, store).await;
+            }
+            if tail.starts_with("forget ") {
+                return memory_forget_response(id, store).await;
             }
         }
     }

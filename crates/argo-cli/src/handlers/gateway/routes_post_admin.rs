@@ -65,6 +65,43 @@ pub(super) async fn memory_lock_response(
     }
 }
 
+/// `POST /memory/<id>/forget` — revert a memory entry to the
+/// previous head (or no-op when this is already the head).
+/// Mirrors `argo memory forget <id>` which is itself a thin
+/// alias for `revert`. Returns 200 + the new entry's id; 400
+/// on bad uuid or unknown entry.
+pub(super) async fn memory_forget_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid memory id: {e}\"}}"),
+            );
+        }
+    };
+    let memory = argo_memory::MemoryStore::new(Arc::clone(store));
+    match memory.revert(id, argo_memory::PrincipalOverride::Force).await {
+        Ok(entry) => (
+            "200 OK",
+            format!(
+                "{{\"forgotten\":true,\"id\":\"{raw_id}\",\"new_head\":\"{}\"}}",
+                entry.id
+            ),
+        ),
+        Err(e) => (
+            "400 Bad Request",
+            format!("{{\"error\":\"forget: {e}\"}}"),
+        ),
+    }
+}
+
 /// `POST /memory/<id>/unlock` — clear the lock. Returns 200 +
 /// `{unlocked, id}`. 400 on invalid id; underlying delete is
 /// idempotent (no-op when no row exists).
