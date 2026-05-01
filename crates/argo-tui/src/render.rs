@@ -59,6 +59,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(rows) = state.providers_overlay.as_ref() {
         crate::overlays::draw_providers(frame, area, rows, state.providers_overlay_scroll);
     }
+    if let Some(rows) = state.cron_overlay.as_ref() {
+        crate::overlays::draw_cron(frame, area, rows, state.cron_overlay_scroll);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {

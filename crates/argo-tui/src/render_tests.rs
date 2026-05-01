@@ -267,6 +267,25 @@ fn providers_overlay_renders_ids() {
 }
 
 #[test]
+fn cron_overlay_renders_names() {
+    let mut state = ViewerState::new(vec![header("k-target")]);
+    state.cron_overlay = Some(vec!["nightly-summary".into(), "weekly-roll".into()]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("cron jobs (2)"), "title: {frame}");
+    assert!(frame.contains("nightly-summary"));
+    assert!(frame.contains("weekly-roll"));
+}
+
+#[test]
+fn cron_overlay_handles_empty() {
+    let mut state = ViewerState::new(vec![header("k-target")]);
+    state.cron_overlay = Some(Vec::new());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("cron jobs (0)"));
+    assert!(frame.contains("(no cron"));
+}
+
+#[test]
 fn providers_overlay_handles_empty() {
     let mut state = ViewerState::new(vec![header("p-target")]);
     state.providers_overlay = Some(Vec::new());

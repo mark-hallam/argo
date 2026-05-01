@@ -284,6 +284,34 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Cron overlay: Esc/K/q close, j/k scroll.
+            if let Some(rows) = state.cron_overlay.as_ref() {
+                let n = rows.len();
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('K') | KeyCode::Char('q') => {
+                        state.cron_overlay = None;
+                        state.cron_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = n.saturating_sub(1);
+                        if state.cron_overlay_scroll < max {
+                            state.cron_overlay_scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.cron_overlay_scroll =
+                            state.cron_overlay_scroll.saturating_sub(1);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.cron_overlay_scroll = 0;
+                    }
+                    KeyCode::Char('G') | KeyCode::End => {
+                        state.cron_overlay_scroll = n.saturating_sub(1);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             // Providers overlay: Esc/P/q close, j/k scroll.
             if let Some(rows) = state.providers_overlay.as_ref() {
                 let n = rows.len();
@@ -430,6 +458,27 @@ pub(crate) async fn run(
                     // → zero-snapshot (overlay shows $0.00).
                     let snap = store.load_global_spend().await.unwrap_or_default();
                     state.cost_overlay = Some(snap);
+                }
+                KeyCode::Char('K') => {
+                    // Read cron/jobs/*.json basenames from cwd.
+                    let mut names: Vec<String> = Vec::new();
+                    if let Ok(cwd) = std::env::current_dir() {
+                        let dir = cwd.join("cron").join("jobs");
+                        if let Ok(entries) = std::fs::read_dir(&dir) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.extension().is_some_and(|x| x == "json") {
+                                    if let Some(stem) =
+                                        p.file_stem().and_then(|s| s.to_str())
+                                    {
+                                        names.push(stem.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    names.sort();
+                    state.cron_overlay = Some(names);
                 }
                 KeyCode::Char('P') => {
                     // Read manifests/providers/*.toml basenames

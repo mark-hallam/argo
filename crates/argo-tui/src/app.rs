@@ -122,6 +122,12 @@ pub struct ViewerState {
     pub providers_overlay: Option<Vec<String>>,
     /// Scroll offset (in rows) into the providers overlay.
     pub providers_overlay_scroll: usize,
+    /// Cron job basenames found in `cron/jobs/*.json` when the
+    /// cron overlay is open (entered with `K`). No JSON parse
+    /// load — just the file basenames.
+    pub cron_overlay: Option<Vec<String>>,
+    /// Scroll offset (in rows) into the cron overlay.
+    pub cron_overlay_scroll: usize,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -188,6 +194,8 @@ impl ViewerState {
             audit_overlay_scroll: 0,
             providers_overlay: None,
             providers_overlay_scroll: 0,
+            cron_overlay: None,
+            cron_overlay_scroll: 0,
             workspace_label: None,
         }
     }

@@ -32,10 +32,10 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory / Cost / Audit / Providers"),
+        Line::from("  Forge / Skills / Memory / Cost / Audit / Providers / Cron"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
         Line::from("    M  active memory               $  cost rollup"),
-        Line::from("    A  audit chain (selected ses)  P  providers"),
+        Line::from("    A  audit chain (selected ses)  P  providers   K  cron"),
         Line::from("    R  force-refresh   C  clear live-event trail"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
@@ -194,6 +194,40 @@ pub(crate) fn draw_memory(
     let para = Paragraph::new(lines).block(
         Block::default().borders(Borders::ALL).title(format!(
             " active memory ({}) — Esc/M/q closes ",
+            rows.len()
+        )),
+    );
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Cron job list overlay. Triggered by `K`. Lists every
+/// `cron/jobs/*.json` basename in cwd. Esc / K / q close.
+pub(crate) fn draw_cron(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[String],
+    scroll: usize,
+) {
+    let w = area.width.min(60);
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(" cron job"));
+    if rows.is_empty() {
+        lines.push(Line::from("  (no cron/jobs/*.json found in cwd)"));
+    } else {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for name in &rows[clamped..] {
+            lines.push(Line::from(format!("  {name}")));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default().borders(Borders::ALL).title(format!(
+            " cron jobs ({}) — Esc/K/q closes ",
             rows.len()
         )),
     );
