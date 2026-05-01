@@ -254,6 +254,11 @@ fn draw_session_detail(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
                     .map(|d| d.to_string())
                     .unwrap_or_else(|| "(open)".into())
             ));
+            // Server-side elapsed: end-or-now minus started_at.
+            let now = chrono::Utc::now();
+            let end = s.ended_at.unwrap_or(now);
+            let secs = (end - s.started_at).num_seconds().max(0);
+            lines.push(format!("elapsed:      {}", fmt_duration(secs)));
             lines.push(format!(
                 "messages:     {}",
                 state
@@ -348,6 +353,22 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
 
 fn first_line(s: &str) -> String {
     s.lines().next().unwrap_or("").chars().take(80).collect()
+}
+
+/// Humanize a duration in seconds — `42s`, `7m12s`, `1h3m`,
+/// `2d4h`. Used by the session-detail pane to render
+/// `elapsed_seconds` without wall-clock arithmetic mid-render.
+fn fmt_duration(seconds: i64) -> String {
+    if seconds < 60 {
+        return format!("{seconds}s");
+    }
+    if seconds < 3600 {
+        return format!("{m}m{s}s", m = seconds / 60, s = seconds % 60);
+    }
+    if seconds < 86400 {
+        return format!("{h}h{m}m", h = seconds / 3600, m = (seconds % 3600) / 60);
+    }
+    format!("{d}d{h}h", d = seconds / 86400, h = (seconds % 86400) / 3600)
 }
 
 fn short_id(s: &str) -> String {
