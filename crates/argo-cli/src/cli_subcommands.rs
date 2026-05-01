@@ -324,6 +324,14 @@ pub enum AuditCmd {
         #[arg(long)]
         since_minutes: Option<i64>,
     },
+    /// Print just the chain-break rows (`{seq, kind, reason}`).
+    /// Mirrors `GET /audit/breaks` (#406). One row per line in the
+    /// default view, or a single JSON array with `--json`.
+    Breaks {
+        /// Output as a single JSON array.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
