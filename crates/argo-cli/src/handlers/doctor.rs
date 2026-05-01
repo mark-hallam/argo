@@ -90,6 +90,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         .filter(|f| !cwd.join(f).exists())
         .collect();
     let db = db_status(&home).await;
+    let audit = audit_status(&home).await;
     let cron = cron_status(&cwd);
     let creds = creds_status();
     Ok(serde_json::json!({
@@ -101,9 +102,35 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "bundle_dirs_missing": bundle_missing,
         "memory_files_missing": memfiles_missing,
         "db": db,
+        "audit": audit,
         "cron": cron,
         "creds": creds,
     }))
+}
+
+/// Report `{ok, rows, breaks}` for the global audit chain so
+/// `argo doctor --json` can be wired into CI gates that should
+/// fail when the chain is broken. Errors silently degrade to
+/// `{"available": false}`.
+async fn audit_status(home: &std::path::Path) -> serde_json::Value {
+    let db = crate::home::db_path(home);
+    let store = match argo_store::SessionStore::open(&db).await {
+        Ok(s) => std::sync::Arc::new(s),
+        Err(_) => return serde_json::json!({"available": false}),
+    };
+    if store.migrate().await.is_err() {
+        return serde_json::json!({"available": false});
+    }
+    let report = match argo_audit::verify_all(&store).await {
+        Ok(r) => r,
+        Err(_) => return serde_json::json!({"available": false}),
+    };
+    serde_json::json!({
+        "available": true,
+        "ok": report.ok,
+        "rows": report.rows,
+        "breaks": report.breaks.len(),
+    })
 }
 
 fn cron_status(cwd: &std::path::Path) -> serde_json::Value {
