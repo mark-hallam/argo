@@ -3,9 +3,46 @@
 //! the streaming machinery — they're plain `(status_line, body)`
 //! responders for the largest GET endpoints.
 
+use super::routes_query::{parse_query_kv, parse_since_minutes_from_get};
 use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
+
+/// `GET /sessions` dispatcher: parse all 8 query params then
+/// hand off to [`sessions_response`]. Lives here so the
+/// signature drift on sessions_response stays local —
+/// routes.rs just calls `dispatch_sessions(req, store)`.
+pub(super) async fn dispatch_sessions(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let since = parse_since_minutes_from_get(req, "/sessions");
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let older_than =
+        parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+    let status = parse_query_kv(tail, "status");
+    let provider = parse_query_kv(tail, "provider");
+    let model = parse_query_kv(tail, "model");
+    let title_contains = parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
+    let spent_min = parse_query_kv(tail, "spent-min").and_then(|v| v.parse::<i64>().ok());
+    let spent_max = parse_query_kv(tail, "spent-max").and_then(|v| v.parse::<i64>().ok());
+    let limit: u32 = parse_query_kv(tail, "limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(100);
+    sessions_response(
+        store,
+        since,
+        older_than,
+        status.as_deref(),
+        provider.as_deref(),
+        model.as_deref(),
+        title_contains.as_deref(),
+        spent_min,
+        spent_max,
+        limit,
+    )
+    .await
+}
 
 /// `GET /sessions` — list every session row joined with each
 /// session's spend total. Optional filters: `since-minutes`

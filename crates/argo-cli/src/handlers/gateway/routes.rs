@@ -31,7 +31,8 @@ use super::routes_post_admin::{
 };
 use super::routes_skill_refine::skill_refine_response;
 use super::routes_top::{
-    audit_breaks_response, audit_response, doctor_response, health_full_response, sessions_response,
+    audit_breaks_response, audit_response, dispatch_sessions, doctor_response,
+    health_full_response,
 };
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
@@ -79,32 +80,7 @@ pub(super) async fn dispatch_route(
         );
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
-        let since = parse_since_minutes_from_get(req, "/sessions");
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let older_than =
-            parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
-        let status = parse_query_kv(tail, "status");
-        let provider = parse_query_kv(tail, "provider");
-        let model = parse_query_kv(tail, "model");
-        let title_contains = parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
-        let spent_min = parse_query_kv(tail, "spent-min").and_then(|v| v.parse::<i64>().ok());
-        let spent_max = parse_query_kv(tail, "spent-max").and_then(|v| v.parse::<i64>().ok());
-        let limit: u32 = parse_query_kv(tail, "limit")
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(100);
-        return sessions_response(
-            store,
-            since,
-            older_than,
-            status.as_deref(),
-            provider.as_deref(),
-            model.as_deref(),
-            title_contains.as_deref(),
-            spent_min,
-            spent_max,
-            limit,
-        )
-        .await;
+        return dispatch_sessions(req, store).await;
     }
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
