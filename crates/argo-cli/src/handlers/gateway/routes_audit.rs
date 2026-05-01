@@ -8,21 +8,28 @@ use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 
-/// `GET /audit/recent?limit=N&kind=<kind>` — most recent N
-/// audit rows across every session, in seq order (oldest first
-/// inside the window). Mirrors `argo audit show --tail N`.
-/// Defaults to 50. With `kind=<kind>` (e.g. `turn_start`,
-/// `assistant_message`, `tool_call`), the WHERE-clause runs
-/// before the LIMIT so the caller gets up to N rows of that kind.
+/// `GET /audit/recent?limit=N&kind=<kind>&since-minutes=<m>` —
+/// most recent N audit rows across every session, in seq order
+/// (oldest first inside the window). Mirrors `argo audit show
+/// --tail N`. Defaults to 50.
+///
+/// All filters apply at SQL level before the LIMIT, so e.g.
+/// `?limit=10&kind=tool_call&since-minutes=60` returns up to
+/// 10 tool-call rows from the last hour — not 10-most-recent
+/// trimmed to that window.
 pub(super) async fn audit_recent_response(
     limit: u32,
     kind: Option<&str>,
+    since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
-    match argo_audit::tail_rows_filtered(store, limit, kind).await {
+    let since_micros = since_minutes.map(|m| {
+        (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
+    });
+    match argo_audit::tail_rows_filtered(store, limit, kind, since_micros).await {
         Ok(rows) => (
             "200 OK",
             serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
