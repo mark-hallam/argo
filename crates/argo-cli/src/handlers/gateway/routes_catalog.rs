@@ -37,6 +37,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/cron/<name>", "one cron job by name"),
         ("POST", "/cron", "create a new cron job ({name, schedule, prompt, platform, chat})"),
         ("POST", "/cron/<name>/delete", "remove the on-disk job file"),
+        ("POST", "/workspace/init", "register a workspace row ({name, root_path})"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing"),

@@ -332,6 +332,72 @@ pub(super) async fn skill_promote_response(
     }
 }
 
+/// `POST /workspace/init` — register a workspace row in the
+/// store. Mirrors the DB-write step of `argo workspace init`
+/// (the file-system bootstrap of `argo.toml` / dir layout /
+/// memory files is local-only and stays in the CLI). Body
+/// shape: `{name, root_path}`. Returns 201 + `{workspace_id,
+/// name, root_path}`. 400 on missing fields or path traversal.
+pub(super) async fn workspace_init_response(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let parsed: serde_json::Value = match serde_json::from_str(body_from_request(req)) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+            );
+        }
+    };
+    let pull = |key: &str| -> Option<String> {
+        parsed
+            .get(key)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_string)
+    };
+    let Some(name) = pull("name") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `name`\"}".to_string(),
+        );
+    };
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"workspace name must be a single segment (no /, \\\\, ..)\"}".to_string(),
+        );
+    }
+    let Some(root_path) = pull("root_path") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `root_path`\"}".to_string(),
+        );
+    };
+    match store.ensure_workspace(&name, &root_path).await {
+        Ok((_tenant, workspace)) => {
+            let payload = serde_json::json!({
+                "workspace_id": workspace.0.to_string(),
+                "name": name,
+                "root_path": root_path,
+            });
+            (
+                "201 Created",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"ensure_workspace: {e}\"}}"),
+        ),
+    }
+}
+
 struct ForgeBody {
     skill: String,
     examples: String,

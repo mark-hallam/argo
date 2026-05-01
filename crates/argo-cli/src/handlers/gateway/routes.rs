@@ -31,7 +31,7 @@ use super::routes_query::{
 };
 use super::routes_post_writes::{
     append_memory_response, forge_abort_response, forge_bench_response, forge_optimize_response,
-    install_skill_response, skill_promote_response,
+    install_skill_response, skill_promote_response, workspace_init_response,
 };
 use super::routes_session::{session_show_response, session_spend_response};
 use super::store_unavailable;
@@ -170,6 +170,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /cron ") {
         return cron_create_response(req).await;
+    }
+    if req.starts_with("POST /workspace/init ") {
+        return workspace_init_response(req, store).await;
     }
     if req.starts_with("POST /forge/optimize ") {
         return forge_optimize_response(req).await;

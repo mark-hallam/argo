@@ -291,6 +291,37 @@ fn memory_forget_returns_400_on_bad_id_and_unknown_uuid() {
 }
 
 #[test]
+fn workspace_init_validates_name_and_creates_row() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+
+    // Missing name → 400.
+    let resp = http_post(port, "/workspace/init", r#"{"root_path":"/tmp/x"}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Path-traversal in name → 400.
+    let resp = http_post(
+        port,
+        "/workspace/init",
+        r#"{"name":"../escape","root_path":"/tmp/x"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid → 201 + workspace_id.
+    let resp = http_post(
+        port,
+        "/workspace/init",
+        r#"{"name":"smoke-ws","root_path":"/tmp/smoke-ws"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 201 Created"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("workspace_id"), "body={body}");
+    assert!(body.contains("smoke-ws"), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn session_delete_returns_400_on_bad_id_and_404_on_missing() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);
