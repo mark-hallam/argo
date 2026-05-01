@@ -16,15 +16,18 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 /// Cheap heuristic the listener uses to route streaming requests
-/// before reading their bodies. Matches the unique URL path so
-/// non-streaming `POST /sessions/<id>/runs` keeps its existing
-/// one-shot dispatch.
+/// before reading their bodies. Matches every streaming URL path
+/// so the one-shot `POST /sessions/<id>/runs` etc. keep their
+/// existing one-shot dispatch.
 pub(super) fn is_streaming_runs_request(req: &str) -> bool {
     streaming_kind(req).is_some()
 }
 
 /// Internal: which streaming endpoint matches, or None.
 fn streaming_kind(req: &str) -> Option<StreamKind> {
+    if req.starts_with("POST /forge/optimize/stream ") {
+        return Some(StreamKind::ForgeOptimize);
+    }
     let rest = req.strip_prefix("POST /sessions/")?;
     let (_, tail) = rest.split_once('/')?;
     if tail.starts_with("runs/stream ") {
@@ -40,6 +43,7 @@ fn streaming_kind(req: &str) -> Option<StreamKind> {
 enum StreamKind {
     Runs,
     Replay,
+    ForgeOptimize,
 }
 
 /// Run either the agent loop (`runs/stream`) or a session replay
@@ -55,6 +59,12 @@ pub(super) async fn serve_streamed_run(
         return write_one_shot_error(out, "503 Service Unavailable", "session store unavailable")
             .await;
     };
+    // Forge optimize stream takes a different body shape (no
+    // session id) — split it out before the session-flavoured
+    // path picks up.
+    if matches!(streaming_kind(req), Some(StreamKind::ForgeOptimize)) {
+        return serve_streamed_forge_optimize(req, out).await;
+    }
     let Some(sid_str) = parse_session_id_str(req) else {
         return write_one_shot_error(out, "400 Bad Request", "invalid session id").await;
     };
@@ -169,6 +179,9 @@ pub(super) async fn serve_streamed_run(
                 })
             }))
         }
+        // ForgeOptimize is short-circuited at the top of
+        // `serve_streamed_run` and never reaches this match.
+        StreamKind::ForgeOptimize => unreachable!(),
     };
 
     // Drain events until the task finishes. tokio::select! lets us
@@ -207,6 +220,84 @@ pub(super) async fn serve_streamed_run(
 enum TaskHandle {
     Run(tokio::task::JoinHandle<argo_types::ArgoResult<serde_json::Value>>),
     Replay(tokio::task::JoinHandle<argo_types::ArgoResult<serde_json::Value>>),
+}
+
+/// Stream a forge-optimize run as chunked NDJSON. Body shape
+/// is the same as the non-streaming `POST /forge/optimize`:
+/// `{skill, examples, iterations?=12, budget_usd?=5.0}`. Unlike
+/// the kick-off endpoint (which returns 202 immediately and the
+/// caller polls `GET /forge/runs`), this one keeps the HTTP
+/// connection open and writes one chunk per `start` / `iter` /
+/// `done` / `budget_exceeded` event.
+async fn serve_streamed_forge_optimize(req: &str, out: &mut TcpStream) -> tokio::io::Result<()> {
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return write_one_shot_error(out, "400 Bad Request", &format!("parse body: {e}"))
+                .await;
+        }
+    };
+    let skill = match parsed.get("skill").and_then(|v| v.as_str()) {
+        Some(s) if !s.trim().is_empty() => s.to_string(),
+        _ => {
+            return write_one_shot_error(out, "400 Bad Request", "missing or empty `skill`").await;
+        }
+    };
+    let examples = match parsed.get("examples").and_then(|v| v.as_str()) {
+        Some(s) if !s.trim().is_empty() => s.to_string(),
+        _ => {
+            return write_one_shot_error(
+                out,
+                "400 Bad Request",
+                "missing or empty `examples` (path to JSONL)",
+            )
+            .await;
+        }
+    };
+    let iterations = parsed
+        .get("iterations")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|n| u32::try_from(n).ok())
+        .unwrap_or(12);
+    let budget_usd = parsed
+        .get("budget_usd")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(5.0);
+
+    let head = "HTTP/1.1 200 OK\r\n\
+                Content-Type: application/x-ndjson\r\n\
+                Transfer-Encoding: chunked\r\n\
+                \r\n";
+    out.write_all(head.as_bytes()).await?;
+    out.flush().await?;
+
+    let (tx, mut rx) = mpsc::unbounded_channel::<serde_json::Value>();
+    let task: tokio::task::JoinHandle<argo_types::ArgoResult<()>> = tokio::spawn(async move {
+        crate::handlers::forge_optimize::run_with_events(
+            &skill,
+            &examples,
+            iterations,
+            budget_usd,
+            true,
+            Some(tx),
+        )
+        .await
+    });
+    while let Some(payload) = rx.recv().await {
+        let line = match serde_json::to_string(&payload) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        write_chunk(out, &format!("{line}\n")).await?;
+    }
+    let summary = match task.await {
+        Ok(Ok(())) => serde_json::json!({"event":"task_finished"}),
+        Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
+        Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
+    };
+    write_chunk(out, &format!("{summary}\n")).await?;
+    write_terminator(out).await
 }
 
 /// Write one HTTP chunk: `<hex_size>\r\n<body>\r\n`.

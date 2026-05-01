@@ -439,6 +439,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry"),
         ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),
+        ("POST", "/forge/optimize/stream", "chunked-NDJSON forge optimize event stream"),
         ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
         ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
         ("POST", "/skills/<name>/promote", "promote a skill version to active"),

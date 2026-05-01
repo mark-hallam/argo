@@ -30,6 +30,22 @@ pub(super) async fn run(
     budget_usd: f64,
     stream: bool,
 ) -> ArgoResult<()> {
+    run_with_events(skill_name, examples_path, iterations, budget_usd, stream, None).await
+}
+
+/// Like [`run`] but every progress event is forwarded to the
+/// supplied channel instead of stdout. Used by the gateway's
+/// `POST /forge/optimize/stream` so HTTP clients can tail the
+/// run live. When `events_tx` is `None` the function is
+/// equivalent to `run(...)`.
+pub(crate) async fn run_with_events(
+    skill_name: &str,
+    examples_path: &str,
+    iterations: u32,
+    budget_usd: f64,
+    stream: bool,
+    events_tx: Option<tokio::sync::mpsc::UnboundedSender<serde_json::Value>>,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let _home = resolve_home(&cwd)?;
@@ -46,7 +62,17 @@ pub(super) async fn run(
             "no eval tasks parsed from {examples_path}"
         )));
     }
-    if !stream {
+    // Channel-or-stdout sink; the channel suppresses the
+    // human-readable banners + table.
+    let dispatch = |payload: serde_json::Value| {
+        if let Some(tx) = events_tx.as_ref() {
+            let _ = tx.send(payload);
+        } else if stream {
+            emit_event(&payload);
+        }
+    };
+    let interactive_text = !stream && events_tx.is_none();
+    if interactive_text {
         println!(
             "argo forge optimize: {skill_name} v{} → {} iters × {} task(s); budget ${budget_usd:.2}",
             baseline.frontmatter.version,
@@ -64,17 +90,15 @@ pub(super) async fn run(
     let run_id = store
         .start_forge_run(skill_name, &baseline.frontmatter.version, tasks.len() as u32)
         .await?;
-    if stream {
-        emit_event(&serde_json::json!({
-            "event": "start",
-            "run_id": run_id.to_string(),
-            "skill_name": skill_name,
-            "base_version": baseline.frontmatter.version,
-            "iterations": iterations,
-            "examples": examples_path,
-            "n_tasks": tasks.len(),
-        }));
-    }
+    dispatch(serde_json::json!({
+        "event": "start",
+        "run_id": run_id.to_string(),
+        "skill_name": skill_name,
+        "base_version": baseline.frontmatter.version,
+        "iterations": iterations,
+        "examples": examples_path,
+        "n_tasks": tasks.len(),
+    }));
     let _ = AuditSink::new(Arc::clone(&store))
         .write(
             None,
@@ -108,7 +132,7 @@ pub(super) async fn run(
     // mutation by feeding the meta-prompt the failed examples.
     let mut prev_records: Vec<EvalRecord> = Vec::new();
 
-    if !stream {
+    if interactive_text {
         println!("\n  iter  version    mean_score  pass_rate  errors  best_so_far");
     }
     for iter in 0..iterations {
@@ -159,18 +183,7 @@ pub(super) async fn run(
             best_version = version_for_iter.clone();
         }
         completed += 1;
-        if stream {
-            emit_event(&serde_json::json!({
-                "event": "iter",
-                "run_id": run_id.to_string(),
-                "iter": iter,
-                "version": version_for_iter,
-                "mean_score": summary.mean_score,
-                "pass_rate": summary.pass_rate,
-                "errors": summary.errors,
-                "best_so_far": best_score,
-            }));
-        } else {
+        if interactive_text {
             println!(
                 "  {iter:>3}   {ver:<9}  {mean:.3}      {pr:.3}     {errs:<6}  {best:.3}",
                 iter = iter,
@@ -180,24 +193,35 @@ pub(super) async fn run(
                 errs = summary.errors,
                 best = best_score,
             );
+        } else {
+            dispatch(serde_json::json!({
+                "event": "iter",
+                "run_id": run_id.to_string(),
+                "iter": iter,
+                "version": version_for_iter,
+                "mean_score": summary.mean_score,
+                "pass_rate": summary.pass_rate,
+                "errors": summary.errors,
+                "best_so_far": best_score,
+            }));
         }
 
         if let Ok(Some(row)) = store.get_forge_run(run_id).await {
             if budget_micros > 0 && row.spend_usd_micros >= budget_micros {
                 last_status = "partial";
-                if stream {
-                    emit_event(&serde_json::json!({
+                if interactive_text {
+                    println!(
+                        "  (over budget after iter {iter}: spend=${:.2} > cap=${budget_usd:.2})",
+                        row.spend_usd_micros as f64 / 1_000_000.0
+                    );
+                } else {
+                    dispatch(serde_json::json!({
                         "event": "budget_exceeded",
                         "run_id": run_id.to_string(),
                         "iter": iter,
                         "spend_usd_micros": row.spend_usd_micros,
                         "cap_usd_micros": budget_micros,
                     }));
-                } else {
-                    println!(
-                        "  (over budget after iter {iter}: spend=${:.2} > cap=${budget_usd:.2})",
-                        row.spend_usd_micros as f64 / 1_000_000.0
-                    );
                 }
                 break;
             }
@@ -229,8 +253,14 @@ pub(super) async fn run(
             }),
         )
         .await;
-    if stream {
-        emit_event(&serde_json::json!({
+    if interactive_text {
+        println!(
+            "\nsummary: status={last_status} best_score={best_score:.3} \
+             best_version={best_version} iters_run={completed}/{iterations} (run_id={run_id})"
+        );
+        println!("  → promoted {skill_name} v{best_version} to active");
+    } else {
+        dispatch(serde_json::json!({
             "event": "done",
             "run_id": run_id.to_string(),
             "status": last_status,
@@ -240,12 +270,6 @@ pub(super) async fn run(
             "iterations_planned": iterations,
             "promoted": true,
         }));
-    } else {
-        println!(
-            "\nsummary: status={last_status} best_score={best_score:.3} \
-             best_version={best_version} iters_run={completed}/{iterations} (run_id={run_id})"
-        );
-        println!("  → promoted {skill_name} v{best_version} to active");
     }
     Ok(())
 }
