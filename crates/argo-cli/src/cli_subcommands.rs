@@ -121,6 +121,10 @@ pub enum SkillCmd {
         /// Output as JSON (one object per skill) for scripting.
         #[arg(long)]
         json: bool,
+        /// Sort order: `created-at` (default, descending) or
+        /// `name` (lexical, ascending).
+        #[arg(long, default_value = "created-at")]
+        sort_by: String,
     },
     /// Print just the count of active skills. Default: one int
     /// per line; `--json` emits `{count}`.
