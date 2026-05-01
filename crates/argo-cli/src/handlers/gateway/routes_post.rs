@@ -366,18 +366,21 @@ pub(super) async fn costs_breakdown_response(
     }
 }
 
-/// `GET /audit/recent?limit=N` — most recent N audit rows
-/// across every session, in seq order (oldest first inside
-/// the window). Mirrors `argo audit show --tail N`. Defaults
-/// to 50.
+/// `GET /audit/recent?limit=N&kind=<kind>` — most recent N
+/// audit rows across every session, in seq order (oldest first
+/// inside the window). Mirrors `argo audit show --tail N`.
+/// Defaults to 50. With `kind=<kind>` (e.g. `turn_start`,
+/// `assistant_message`, `tool_call`), the WHERE-clause runs
+/// before the LIMIT so the caller gets up to N rows of that kind.
 pub(super) async fn audit_recent_response(
     limit: u32,
+    kind: Option<&str>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
-    match argo_audit::tail_rows(store, limit).await {
+    match argo_audit::tail_rows_filtered(store, limit, kind).await {
         Ok(rows) => (
             "200 OK",
             serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),

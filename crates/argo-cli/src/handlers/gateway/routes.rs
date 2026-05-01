@@ -147,7 +147,8 @@ pub(super) async fn dispatch_route(
         let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
-        return audit_recent_response(limit, store).await;
+        let kind = parse_query_kv(tail, "kind");
+        return audit_recent_response(limit, kind.as_deref(), store).await;
     }
     if req.starts_with("GET /doctor ") {
         return doctor_response().await;

@@ -17,7 +17,7 @@ pub struct ExportedRow {
     pub id: String,
     /// Owning session, if any.
     pub session_id: Option<String>,
-    /// Event kind label (e.g. `"turn.start"`).
+    /// Event kind label (e.g. `"turn_start"`).
     pub kind: String,
     /// Canonical payload as serde_json::Value.
     pub payload: serde_json::Value,
@@ -74,16 +74,47 @@ where
 /// # Errors
 /// Returns [`ArgoError::Provider`] on SQL or payload parse failure.
 pub async fn tail_rows(store: &SessionStore, n: u32) -> ArgoResult<Vec<ExportedRow>> {
-    let rows = sqlx::query_as::<_, Row>(
-        "SELECT * FROM (
-             SELECT seq, id, session_id, kind, payload_json, \
-                    parent_hash, self_hash, created_at \
-             FROM audit_record ORDER BY seq DESC LIMIT ?
-         ) ORDER BY seq ASC",
-    )
-    .bind(i64::from(n))
-    .fetch_all(store.pool())
-    .await
+    tail_rows_filtered(store, n, None).await
+}
+
+/// Fetch the most recent `n` rows of an optional `kind`, in `seq`
+/// order (oldest first). When `kind` is `None`, behaves identically
+/// to [`tail_rows`]; when `Some`, the WHERE-clause is applied
+/// before the LIMIT so the caller gets up to `n` rows of the
+/// requested kind. Used by the gateway's `GET /audit/recent`.
+///
+/// # Errors
+/// Returns [`ArgoError::Provider`] on SQL or payload parse failure.
+pub async fn tail_rows_filtered(
+    store: &SessionStore,
+    n: u32,
+    kind: Option<&str>,
+) -> ArgoResult<Vec<ExportedRow>> {
+    let rows = if let Some(k) = kind {
+        sqlx::query_as::<_, Row>(
+            "SELECT * FROM (
+                 SELECT seq, id, session_id, kind, payload_json, \
+                        parent_hash, self_hash, created_at \
+                 FROM audit_record WHERE kind = ? \
+                 ORDER BY seq DESC LIMIT ?
+             ) ORDER BY seq ASC",
+        )
+        .bind(k)
+        .bind(i64::from(n))
+        .fetch_all(store.pool())
+        .await
+    } else {
+        sqlx::query_as::<_, Row>(
+            "SELECT * FROM (
+                 SELECT seq, id, session_id, kind, payload_json, \
+                        parent_hash, self_hash, created_at \
+                 FROM audit_record ORDER BY seq DESC LIMIT ?
+             ) ORDER BY seq ASC",
+        )
+        .bind(i64::from(n))
+        .fetch_all(store.pool())
+        .await
+    }
     .map_err(|e| ArgoError::Provider(format!("audit tail query: {e}")))?;
     rows.into_iter().map(row_to_exported).collect()
 }
@@ -150,6 +181,52 @@ mod tests {
         .unwrap();
         assert_eq!(n, 3);
         assert_eq!(seqs, vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn tail_rows_filtered_returns_only_matching_kind() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let sink = crate::AuditSink::new(Arc::clone(&store));
+        // 3 turn_start, 2 assistant_message — interleaved.
+        for i in 0..3 {
+            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}))
+                .await
+                .unwrap();
+            if i < 2 {
+                sink.write(
+                    None,
+                    AuditKind::AssistantMessage,
+                    serde_json::json!({"i": i}),
+                )
+                .await
+                .unwrap();
+            }
+        }
+        // Unfiltered: take 2 most recent of any kind, in seq order.
+        let unfiltered = tail_rows_filtered(&store, 2, None).await.unwrap();
+        assert_eq!(unfiltered.len(), 2);
+        // Filtered to turn_start: take 2 most recent turn_starts.
+        let starts = tail_rows_filtered(&store, 2, Some("turn_start"))
+            .await
+            .unwrap();
+        assert_eq!(starts.len(), 2);
+        for r in &starts {
+            assert_eq!(r.kind, "turn_start");
+        }
+        // Filtered to assistant_message: only 2 exist.
+        let msgs = tail_rows_filtered(&store, 10, Some("assistant_message"))
+            .await
+            .unwrap();
+        assert_eq!(msgs.len(), 2);
+        for r in &msgs {
+            assert_eq!(r.kind, "assistant_message");
+        }
+        // Bogus kind: empty result.
+        let nope = tail_rows_filtered(&store, 10, Some("nope"))
+            .await
+            .unwrap();
+        assert!(nope.is_empty());
     }
 
     #[tokio::test]

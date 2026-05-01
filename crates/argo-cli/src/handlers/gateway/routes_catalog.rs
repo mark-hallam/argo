@@ -26,7 +26,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),
-        ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50)"),
+        ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|assistant_message|tool_call|tool_result|turn_end|halt|...)"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind&since-minutes)"),
         ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity"),
         ("GET", "/costs", "cost ceilings"),
