@@ -574,6 +574,25 @@ pub(crate) async fn run(
                         state.pending_delete = Some(SessionId(s.id.0));
                     }
                 }
+                KeyCode::Char('e') => {
+                    // Mark the selected session as ended (stamps
+                    // ended_at). Idempotent — re-pressing on an
+                    // already-ended session re-stamps but causes
+                    // no other behaviour change.
+                    if let Some(s) = state.selected_session() {
+                        let sid = SessionId(s.id.0);
+                        if let Err(e) = store.end_session(sid).await {
+                            state.last_agent_error = Some(format!("end_session: {e}"));
+                        } else {
+                            // Force a refresh so the marker
+                            // (●→○) flips on the next draw.
+                            state.sessions = store
+                                .list_all_sessions(crate::viewer::MAX_SESSIONS_LOAD)
+                                .await
+                                .unwrap_or_default();
+                        }
+                    }
+                }
                 KeyCode::Down | KeyCode::Char('j') => match state.focus {
                     PaneFocus::Sessions => {
                         state.next();
