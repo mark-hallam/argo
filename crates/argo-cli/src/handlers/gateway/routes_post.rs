@@ -366,6 +366,45 @@ pub(super) async fn costs_breakdown_response(
     }
 }
 
+/// `GET /audit/sessions/<id>/verify` — verify the audit chain
+/// for one session and return `{ok, rows, breaks}`. Mirrors
+/// `argo audit verify --session <id>`. 200 in both the
+/// chain-ok and chain-broken cases — `ok` says which.
+pub(super) async fn audit_session_verify_response(
+    sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    match argo_audit::verify_session(store, id).await {
+        Ok(report) => {
+            let payload = serde_json::json!({
+                "ok": report.ok,
+                "rows": report.rows,
+                "breaks": report.breaks.len(),
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"verify_session: {e}\"}}"),
+        ),
+    }
+}
+
 pub(super) async fn audit_session_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,

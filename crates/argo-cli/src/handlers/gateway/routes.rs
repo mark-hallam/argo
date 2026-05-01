@@ -9,8 +9,9 @@ use super::routes_meta::{
     providers_response, routes_response, search_response, skill_show_response, tools_response,
 };
 use super::routes_post::{
-    append_message_response, audit_session_response, costs_breakdown_response,
-    create_session_response, replay_response, run_turn_response, steer_response,
+    append_message_response, audit_session_response, audit_session_verify_response,
+    costs_breakdown_response, create_session_response, replay_response, run_turn_response,
+    steer_response,
 };
 use super::routes_cron::{
     cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
@@ -119,6 +120,13 @@ pub(super) async fn dispatch_route(
         }
     }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
+        // GET /audit/sessions/<id>/verify takes priority over the
+        // bare GET /audit/sessions/<id> rows listing.
+        if let Some((sid, tail)) = rest.split_once('/') {
+            if tail.starts_with("verify ") {
+                return audit_session_verify_response(sid, store).await;
+            }
+        }
         if let Some((sid, _)) = rest.split_once(' ') {
             return audit_session_response(sid, store).await;
         }
