@@ -67,9 +67,12 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **440 PRs** on `main`, ~50k LOC across 27 crates,
+across **443 PRs** on `main`, ~50k LOC across 27 crates,
 **zero LOC-budget violations on ANY file** (source AND tests),
-80+ test suites green.
+80+ test suites green. Library + integration + observability
+tiers feature-complete; remaining items are architectural
+(real OCI push, browser stateful sessions, voice native
+bindings, standalone forge daemon split).
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
