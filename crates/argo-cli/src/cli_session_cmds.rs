@@ -235,6 +235,15 @@ pub enum ForgeCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum ForgeRunsCmd {
+    /// Print just the count of recorded forge runs.
+    Count {
+        /// Filter by status: running|succeeded|failed|aborted.
+        #[arg(long)]
+        status: Option<String>,
+        /// Output as a single JSON object {count, status?}.
+        #[arg(long)]
+        json: bool,
+    },
     /// List recorded forge runs. Mirrors the gateway's
     /// `/forge/runs` endpoint with the same filter set.
     List {

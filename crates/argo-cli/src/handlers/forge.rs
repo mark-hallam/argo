@@ -16,6 +16,7 @@ use std::sync::Arc;
 pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
     match cmd {
         ForgeCmd::Runs { cmd } => match cmd {
+            ForgeRunsCmd::Count { status, json } => count_runs(status, json).await,
             ForgeRunsCmd::List {
                 limit,
                 json,
@@ -205,6 +206,25 @@ async fn promote(skill_name: &str, version: &str) -> ArgoResult<()> {
         "argo forge promote: {} → version {} is now active (skill_id {})",
         skill_name, version, promoted.id.0
     );
+    Ok(())
+}
+
+/// `argo forge runs count [--status] [--json]` — print just the
+/// count of recorded forge runs. Caps the fetch at 10,000 rows
+/// for safety.
+async fn count_runs(status: Option<String>, json: bool) -> ArgoResult<()> {
+    let store = open_store().await?;
+    let mut rows = store.list_forge_runs(10_000).await?;
+    if let Some(want) = status.as_deref() {
+        rows.retain(|r| r.status == want);
+    }
+    let n = rows.len();
+    if json {
+        let payload = serde_json::json!({"count": n, "status": status});
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+    } else {
+        println!("{n}");
+    }
     Ok(())
 }
 
