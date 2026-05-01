@@ -195,7 +195,8 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /providers ") || req.starts_with("GET /providers?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let family = parse_query_kv(tail, "family");
-        return providers_response(family.as_deref()).await;
+        let format = parse_query_kv(tail, "format");
+        return providers_response(family.as_deref(), format.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /providers/") {
         // `/providers/<id>/models` takes priority over the bare

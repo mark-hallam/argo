@@ -4,11 +4,16 @@
 use argo_provider::ProviderManifest;
 use std::path::PathBuf;
 
-/// `GET /providers[?family=<f>]` — list every parseable
-/// manifest. Invalid manifests are reported with `{path, error}`
-/// rows. Optional `family` (case-insensitive) narrows to
-/// Anthropic / OpenAICompatible / OpenAIResponses / Bedrock.
-pub(super) async fn providers_response(family: Option<&str>) -> (&'static str, String) {
+/// `GET /providers[?family=<f>&format=markdown]` — list every
+/// parseable manifest. Invalid manifests are reported with
+/// `{path, error}` rows. Optional `family` (case-insensitive)
+/// narrows to Anthropic / OpenAICompatible / OpenAIResponses /
+/// Bedrock. Markdown returns a 3-column table (id / family /
+/// base_url) — paste-able into READMEs.
+pub(super) async fn providers_response(
+    family: Option<&str>,
+    format: Option<&str>,
+) -> (&'static str, String) {
     let Ok(cwd) = std::env::current_dir() else {
         return (
             "500 Internal Server Error",
@@ -17,7 +22,11 @@ pub(super) async fn providers_response(family: Option<&str>) -> (&'static str, S
     };
     let dir = cwd.join("manifests").join("providers");
     let mut rows: Vec<serde_json::Value> = Vec::new();
+    let mut manifests: Vec<ProviderManifest> = Vec::new();
     if !dir.exists() {
+        if matches!(format, Some("markdown")) {
+            return ("200 OK", "# Providers (0)\n".to_string());
+        }
         return (
             "200 OK",
             serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
@@ -50,12 +59,34 @@ pub(super) async fn providers_response(family: Option<&str>) -> (&'static str, S
                     }
                 }
                 rows.push(manifest_to_json(&m));
+                manifests.push(m);
             }
             Err(e) => rows.push(serde_json::json!({
                 "path": p.display().to_string(),
                 "error": e.to_string(),
             })),
         }
+    }
+    if matches!(format, Some("markdown")) {
+        let n = manifests.len();
+        let mut out = format!(
+            "# Providers ({n} manifest{})\n\n",
+            if n == 1 { "" } else { "s" }
+        );
+        if !manifests.is_empty() {
+            out.push_str("| id | family | base_url | models |\n");
+            out.push_str("| --- | --- | --- | ---: |\n");
+            for m in &manifests {
+                out.push_str(&format!(
+                    "| `{}` | `{:?}` | `{}` | {} |\n",
+                    m.provider.id,
+                    m.provider.family,
+                    m.provider.base_url,
+                    m.models.len(),
+                ));
+            }
+        }
+        return ("200 OK", out);
     }
     (
         "200 OK",
