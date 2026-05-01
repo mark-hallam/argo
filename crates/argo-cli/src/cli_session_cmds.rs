@@ -18,6 +18,11 @@ pub enum SessionCmd {
         /// against `started_at`.
         #[arg(long)]
         since_minutes: Option<i64>,
+        /// Inverse of --since-minutes: keep only sessions
+        /// whose `started_at` is older than N minutes ago.
+        /// Useful for prune candidates.
+        #[arg(long)]
+        older_than_minutes: Option<i64>,
         /// Lower bound on per-session spend in usd_micros.
         /// `--spent-min 1000000` keeps only sessions costing $1+.
         #[arg(long)]

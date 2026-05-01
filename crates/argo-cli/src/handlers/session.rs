@@ -13,6 +13,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             limit,
             json,
             since_minutes,
+            older_than_minutes,
             spent_min,
             spent_max,
             provider,
@@ -24,6 +25,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
                 limit,
                 json,
                 since_minutes,
+                older_than_minutes,
                 spent_min,
                 spent_max,
                 provider,
@@ -324,6 +326,7 @@ async fn list_sessions(
     limit: u32,
     json: bool,
     since_minutes: Option<i64>,
+    older_than_minutes: Option<i64>,
     spent_min: Option<u64>,
     spent_max: Option<u64>,
     provider: Option<String>,
@@ -342,6 +345,10 @@ async fn list_sessions(
     if let Some(minutes) = since_minutes {
         let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
         sessions.retain(|s| s.started_at >= cutoff);
+    }
+    if let Some(minutes) = older_than_minutes {
+        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
+        sessions.retain(|s| s.started_at < cutoff);
     }
     if let Some(want) = provider.as_deref() {
         sessions.retain(|s| s.provider == want);
