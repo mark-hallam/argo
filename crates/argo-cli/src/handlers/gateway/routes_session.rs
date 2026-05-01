@@ -7,12 +7,14 @@ use std::sync::Arc;
 
 use super::store_unavailable;
 
-/// `GET /sessions/<id>/spend/total` — single-number total
-/// spend for one session, in USD micros. Convenient for
-/// dashboards that only want the figure (no ledger rows).
+/// `GET /sessions/<id>/spend/total[?format=markdown]` —
+/// single-number total spend for one session, in USD micros.
+/// Convenient for dashboards that only want the figure
+/// (no ledger rows).
 pub(super) async fn session_spend_total_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -27,6 +29,15 @@ pub(super) async fn session_spend_total_response(
         }
     };
     let total = super::session_spend_micros(store, id).await.unwrap_or(0);
+    if matches!(format, Some("markdown")) {
+        let mut out = format!("# Session spend total `{sid}`\n\n");
+        out.push_str(&format!(
+            "- **Total**: ${:.4}\n",
+            total as f64 / 1_000_000.0
+        ));
+        out.push_str(&format!("- **Total (usd_micros)**: {total}\n"));
+        return ("200 OK", out);
+    }
     (
         "200 OK",
         format!(
@@ -38,6 +49,7 @@ pub(super) async fn session_spend_total_response(
 pub(super) async fn session_spend_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -69,6 +81,29 @@ pub(super) async fn session_spend_response(
             );
         }
     };
+    if matches!(format, Some("markdown")) {
+        let n = rows.len();
+        let mut out = format!(
+            "# Session spend ledger `{sid}` ({n} row{})\n\n",
+            if n == 1 { "" } else { "s" }
+        );
+        out.push_str(&format!(
+            "- **Total**: ${:.4} ({total} usd_micros)\n\n",
+            total as f64 / 1_000_000.0
+        ));
+        if !rows.is_empty() {
+            out.push_str("| charged_at_micros | amount (USD) | provider | model |\n");
+            out.push_str("| ---: | ---: | --- | --- |\n");
+            for (ts, micros, provider, model) in &rows {
+                let amount = u64::try_from(*micros).unwrap_or(0);
+                out.push_str(&format!(
+                    "| {ts} | ${:.4} | `{provider}` | `{model}` |\n",
+                    amount as f64 / 1_000_000.0
+                ));
+            }
+        }
+        return ("200 OK", out);
+    }
     let entries: Vec<serde_json::Value> = rows
         .into_iter()
         .map(|(ts, micros, provider, model)| {

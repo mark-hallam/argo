@@ -25,11 +25,15 @@ pub(super) async fn dispatch_session_get(
 ) -> Option<(&'static str, String)> {
     let rest = req.strip_prefix("GET /sessions/")?;
     if let Some((sid, tail)) = rest.split_once('/') {
-        if tail.starts_with("spend/total ") {
-            return Some(session_spend_total_response(sid, store).await);
+        if tail.starts_with("spend/total ") || tail.starts_with("spend/total?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                session_spend_total_response(sid, store, format.as_deref()).await,
+            );
         }
-        if tail.starts_with("spend ") {
-            return Some(session_spend_response(sid, store).await);
+        if tail.starts_with("spend ") || tail.starts_with("spend?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(session_spend_response(sid, store, format.as_deref()).await);
         }
         if tail.starts_with("messages/last ") {
             return Some(last_message_response(sid, store).await);
