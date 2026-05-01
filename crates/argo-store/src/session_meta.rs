@@ -19,6 +19,16 @@ impl SessionStore {
             .map_err(|e| ArgoError::Provider(format!("set_session_title: {e}")))
     }
 
+    /// Mark a session ended — stamps `ended_at` with the
+    /// current UTC micros. Idempotent (subsequent calls
+    /// overwrite the timestamp). Returns rows affected (0 when
+    /// the session id has no row).
+    pub async fn end_session(&self, sid: SessionId) -> StoreResult<u64> {
+        end_session(self.pool(), sid)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("end_session: {e}")))
+    }
+
     /// Update a judge_record's verdict (and optionally its
     /// reason) in place. Returns
     /// `Some((session_id, old_verdict))` for the row that was
@@ -55,6 +65,23 @@ pub(super) async fn set_session_title(
     };
     let res = sqlx::query("UPDATE session SET title = ? WHERE id = ?")
         .bind(value)
+        .bind(sid.0.as_bytes().as_slice())
+        .execute(pool)
+        .await?;
+    Ok(res.rows_affected())
+}
+
+/// Mark a session as ended — stamps `ended_at` with the
+/// current UTC micros. Idempotent w.r.t. already-ended sessions
+/// (the timestamp is overwritten, but the row is otherwise
+/// unchanged). Returns rows affected (0 when the session id
+/// has no row).
+pub(super) async fn end_session(
+    pool: &Pool<Sqlite>,
+    sid: SessionId,
+) -> Result<u64, sqlx::Error> {
+    let res = sqlx::query("UPDATE session SET ended_at = ? WHERE id = ?")
+        .bind(chrono::Utc::now().timestamp_micros())
         .bind(sid.0.as_bytes().as_slice())
         .execute(pool)
         .await?;

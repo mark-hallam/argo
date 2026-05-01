@@ -60,6 +60,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/sessions/<id>/skills/detach", "detach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/delete", "delete a session + dependent rows"),
         ("POST", "/sessions/<id>/title", "rename a session ({title}, empty clears)"),
+        ("POST", "/sessions/<id>/end", "mark a session ended (stamps ended_at)"),
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry"),
         ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),

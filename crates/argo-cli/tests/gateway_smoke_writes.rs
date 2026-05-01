@@ -372,6 +372,24 @@ fn workspace_init_validates_name_and_creates_row() {
 }
 
 #[test]
+fn session_end_returns_400_on_bad_id_and_404_on_missing() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    let resp = http_post(port, "/sessions/not-a-uuid/end", "");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    let resp = http_post(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/end",
+        "",
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn session_title_returns_400_on_bad_id_and_404_on_missing() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);

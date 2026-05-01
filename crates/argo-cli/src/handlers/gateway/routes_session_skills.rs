@@ -166,6 +166,41 @@ pub(super) async fn session_skills_list_response(
     }
 }
 
+/// `POST /sessions/<id>/end` — mark the session ended (stamps
+/// `ended_at`). Idempotent. Returns 200 + `{ended:true,
+/// session}`; 400 on bad uuid; 404 when no row matches.
+pub(super) async fn session_end_response(
+    raw_sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let sid = match uuid::Uuid::parse_str(raw_sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    match store.end_session(sid).await {
+        Ok(0) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no session with id {raw_sid}\"}}"),
+        ),
+        Ok(_) => (
+            "200 OK",
+            format!("{{\"ended\":true,\"session\":\"{raw_sid}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"end_session: {e}\"}}"),
+        ),
+    }
+}
+
 /// `POST /sessions/<id>/title` — rename a session. Body
 /// `{title}` (empty title clears it). Returns 200 +
 /// `{renamed:true, session, title}`; 400 on bad uuid;
