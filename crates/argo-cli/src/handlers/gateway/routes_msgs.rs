@@ -55,12 +55,16 @@ pub(super) async fn last_message_response(
     }
 }
 
-/// `GET /sessions/<id>/messages?limit&role&since-minutes&seq-min&seq-max`
+/// `GET /sessions/<id>/messages?limit&role&since-minutes&seq-min&seq-max&content-contains`
 /// — list messages on a session. Optional filters:
 /// - `role`: drop messages whose role doesn't match
 /// - `limit`: truncate to N rows
 /// - `since-minutes`: drop messages older than M minutes
 /// - `seq-min`/`seq-max`: keep only rows in that seq window
+/// - `content-contains`: case-insensitive substring match
+///   against the raw `content_json` blob (catches user prompts,
+///   assistant text, tool args/results all in one pass)
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn list_messages_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
@@ -69,6 +73,7 @@ pub(super) async fn list_messages_response(
     since_minutes: Option<i64>,
     seq_min: Option<i64>,
     seq_max: Option<i64>,
+    content_contains: Option<String>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -107,6 +112,10 @@ pub(super) async fn list_messages_response(
             }
             if let Some(max) = seq_max {
                 rows.retain(|row| row.seq <= max);
+            }
+            if let Some(needle) = content_contains.as_deref() {
+                let lower = needle.to_lowercase();
+                rows.retain(|row| row.content_json.to_lowercase().contains(&lower));
             }
             if let Some(n) = limit {
                 if rows.len() > n {

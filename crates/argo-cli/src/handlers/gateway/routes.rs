@@ -448,8 +448,19 @@ pub(super) async fn dispatch_route(
                     .and_then(|v| v.parse::<i64>().ok());
                 let seq_max = super::routes_query::parse_query_kv(tail, "seq-max")
                     .and_then(|v| v.parse::<i64>().ok());
-                return list_messages_response(sid, store, limit, role, since, seq_min, seq_max)
-                    .await;
+                let content_contains = super::routes_query::parse_query_kv(tail, "content-contains")
+                    .map(|s| s.replace('+', " "));
+                return list_messages_response(
+                    sid,
+                    store,
+                    limit,
+                    role,
+                    since,
+                    seq_min,
+                    seq_max,
+                    content_contains,
+                )
+                .await;
             }
             if tail.starts_with("skills ") {
                 return session_skills_list_response(sid, store).await;
