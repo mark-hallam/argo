@@ -123,9 +123,12 @@ pub enum PaneFocus {
 }
 
 /// Hard cap on the live-event ring so a long agent run can't
-/// blow up TUI memory. Showing more than a screenful of stream
-/// trail in a fixed-height TUI pane has no real value.
-pub const MAX_LIVE_EVENTS: usize = 32;
+/// blow up TUI memory. Bumped 32 → 200 in #301 — with `C` now
+/// clearing the trail on demand (#300), the previous cap was
+/// unnecessarily aggressive: a multi-tool turn would scroll
+/// `TurnStart` and the early `ToolCall` events out before the
+/// run finished.
+pub const MAX_LIVE_EVENTS: usize = 200;
 
 impl ViewerState {
     /// Build state from a freshly-loaded session list.
