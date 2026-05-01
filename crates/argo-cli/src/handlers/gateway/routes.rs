@@ -17,10 +17,10 @@ use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_audit::{audit_session_response, audit_session_verify_response};
 use super::routes_post::{
     append_message_response, costs_breakdown_response, create_session_response, replay_response,
-    run_turn_response, session_judge_response, steer_response,
+    run_turn_response, steer_response,
 };
 use super::routes_cron::{cron_create_response, cron_delete_response, cron_list_response, cron_show_response};
-use super::routes_msgs::{last_message_response, list_messages_response};
+use super::routes_session_get::dispatch_session_get;
 use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
     memory_unlock_response, skill_lock_response, skill_unlock_response,
@@ -33,16 +33,15 @@ use super::routes_top::{
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
-    session_reopen_response, session_set_title_response, session_skills_list_response,
+    session_reopen_response, session_set_title_response,
 };
-use super::routes_query::{parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get};
+use super::routes_query::{parse_query_kv, parse_search_args, parse_since_minutes_from_get};
 use super::routes_forge_promote::{forge_abort_all_response, forge_promote_response};
 use super::routes_post_writes::{
     append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
     forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
     workspace_init_response,
 };
-use super::routes_session::{session_show_response, session_spend_response, session_spend_total_response};
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -289,16 +288,6 @@ pub(super) async fn dispatch_route(
         }
         return audit_session_response(sid, store, kind.as_deref(), since).await;
     }
-    if let Some(rest) = req.strip_prefix("GET /sessions/") {
-        if let Some((sid, tail)) = rest.split_once('/') {
-            if tail.starts_with("spend/total ") {
-                return session_spend_total_response(sid, store).await;
-            }
-            if tail.starts_with("spend ") {
-                return session_spend_response(sid, store).await;
-            }
-        }
-    }
     if req.starts_with("GET /costs ") {
         return costs_response();
     }
@@ -452,47 +441,10 @@ pub(super) async fn dispatch_route(
             }
         }
     }
-    // GET /sessions/<uuid> — fetch one session header
-    // GET /sessions/<uuid>/messages — list every message on a session
-    if let Some(rest) = req.strip_prefix("GET /sessions/") {
-        if let Some((sid, tail)) = rest.split_once('/') {
-            if tail.starts_with("messages/last ") {
-                return last_message_response(sid, store).await;
-            }
-            if tail.starts_with("messages ") || tail.starts_with("messages?") {
-                let limit = parse_limit(tail);
-                let role = parse_role(tail);
-                let since = super::routes_query::parse_query_kv(tail, "since-minutes")
-                    .and_then(|v| v.parse::<i64>().ok());
-                let seq_min = super::routes_query::parse_query_kv(tail, "seq-min")
-                    .and_then(|v| v.parse::<i64>().ok());
-                let seq_max = super::routes_query::parse_query_kv(tail, "seq-max")
-                    .and_then(|v| v.parse::<i64>().ok());
-                let content_contains = super::routes_query::parse_query_kv(tail, "content-contains")
-                    .map(|s| s.replace('+', " "));
-                return list_messages_response(
-                    sid,
-                    store,
-                    limit,
-                    role,
-                    since,
-                    seq_min,
-                    seq_max,
-                    content_contains,
-                )
-                .await;
-            }
-            if tail.starts_with("skills ") {
-                return session_skills_list_response(sid, store).await;
-            }
-            if tail.starts_with("judge ") {
-                return session_judge_response(sid, store).await;
-            }
-        }
-        // Strip trailing " HTTP/..." → just the session id
-        if let Some((sid, _)) = rest.split_once(' ') {
-            return session_show_response(sid, store).await;
-        }
+    // GET /sessions/<uuid>/{spend,spend/total,messages,messages/last,skills,judge}
+    // and bare GET /sessions/<uuid> are all dispatched in one helper.
+    if let Some(resp) = dispatch_session_get(req, store).await {
+        return resp;
     }
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
 }

@@ -22,6 +22,7 @@ mod routes_post_writes;
 mod routes_providers;
 mod routes_query;
 mod routes_session;
+mod routes_session_get;
 mod routes_session_skills;
 mod routes_skill_refine;
 mod routes_top;
