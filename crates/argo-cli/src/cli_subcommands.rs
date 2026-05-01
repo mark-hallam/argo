@@ -96,7 +96,12 @@ pub enum PluginCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum ProviderCmd {
-    List,
+    /// List provider manifests under `manifests/providers/`.
+    List {
+        /// Output as a JSON array of `{id, family, base_url}` rows.
+        #[arg(long)]
+        json: bool,
+    },
     /// Render one provider manifest's full details (header, auth,
     /// transport, capabilities, models, discovery).
     Show {
