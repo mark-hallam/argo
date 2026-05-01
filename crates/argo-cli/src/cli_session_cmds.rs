@@ -377,6 +377,10 @@ pub enum ForgeRunsCmd {
     },
     Show { id: String },
     Abort { id: String },
+    /// Flip every running forge run to `aborted`. Operator
+    /// emergency-stop / fresh-slate before a workspace migration.
+    /// Mirrors `POST /forge/runs/abort-all`.
+    AbortAll,
 }
 
 #[derive(Subcommand, Debug)]

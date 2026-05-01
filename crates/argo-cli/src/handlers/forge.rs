@@ -49,6 +49,7 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             }
             ForgeRunsCmd::Show { id } => show_run(&id).await,
             ForgeRunsCmd::Abort { id } => abort_run(&id).await,
+            ForgeRunsCmd::AbortAll => abort_all_runs().await,
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         ForgeCmd::Bench {
@@ -422,6 +423,39 @@ async fn show_run(raw: &str) -> ArgoResult<()> {
     Ok(())
 }
 
+/// `argo forge runs abort-all` — flip every running forge_run to
+/// `aborted`. Mirrors the gateway's
+/// `POST /forge/runs/abort-all`. Useful as an operator
+/// emergency-stop / fresh-slate before a workspace migration.
+async fn abort_all_runs() -> ArgoResult<()> {
+    let store = Arc::new(open_store().await?);
+    let rows = store.list_forge_runs(500).await?;
+    let mut aborted: u64 = 0;
+    for r in rows.into_iter().filter(|r| r.status == "running") {
+        let id = match uuid::Uuid::from_slice(&r.id) {
+            Ok(u) => u,
+            Err(_) => continue,
+        };
+        if let Ok(n) = store.abort_forge_run(id).await {
+            aborted += n;
+            AuditSink::new(Arc::clone(&store))
+                .write(
+                    None,
+                    AuditKind::ForgeRunEnd,
+                    serde_json::json!({
+                        "kind": "abort",
+                        "run_id": id.to_string(),
+                        "by": "cli",
+                        "via": "abort-all",
+                    }),
+                )
+                .await?;
+        }
+    }
+    println!("argo forge runs abort-all: aborted {aborted} run(s)");
+    Ok(())
+}
+
 async fn abort_run(raw: &str) -> ArgoResult<()> {
     let store = Arc::new(open_store().await?);
     let id = parse_run_id(raw)?;
@@ -443,7 +477,6 @@ async fn abort_run(raw: &str) -> ArgoResult<()> {
     println!("argo forge runs abort: {raw} → status=aborted");
     Ok(())
 }
-
 
 /// Resolve a forge-run id from the user's input. Accepts either a
 /// full UUID or an 8-hex-char short prefix (matching what
