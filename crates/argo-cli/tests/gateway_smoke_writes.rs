@@ -319,6 +319,28 @@ fn judge_override_returns_400_on_missing_to_and_404_on_unknown_record() {
 }
 
 #[test]
+fn db_vacuum_and_prune_return_200() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+
+    // Prune defaults to 30 days → 0 pruned on a clean store.
+    let resp = http_post(port, "/db/prune", "");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert!(body_of(&resp).contains(r#""pruned":0"#));
+
+    // Negative older_than_days → 400.
+    let resp = http_post(port, "/db/prune", r#"{"older_than_days":-1}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Vacuum a clean store → 200.
+    let resp = http_post(port, "/db/vacuum", "");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert!(body_of(&resp).contains(r#""vacuumed":true"#));
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn workspace_init_validates_name_and_creates_row() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 3);

@@ -44,6 +44,8 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/routes", "this listing"),
         ("GET", "/metrics", "Prometheus-style text exposition"),
         ("GET", "/db/stats", "per-table row counts (sessions, messages, audit, …)"),
+        ("POST", "/db/vacuum", "run VACUUM on the SQLite store"),
+        ("POST", "/db/prune", "delete sessions older than N days ({older_than_days?})"),
         ("POST", "/sessions", "create a session row"),
         ("POST", "/sessions/<id>/messages", "append a message"),
         ("POST", "/sessions/<id>/runs", "run one agent turn"),

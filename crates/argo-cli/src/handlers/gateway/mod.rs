@@ -157,6 +157,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /audit/sessions/<uuid>/verify → verify a session's chain integrity");
     eprintln!("  GET  /costs    → cost ceilings (per_session/day/month + notify_at_pct)");
     eprintln!("  GET  /db/stats → per-table row counts (sessions, messages, audit, …)");
+    eprintln!("  POST /db/vacuum → run VACUUM on the SQLite store");
+    eprintln!("  POST /db/prune  → prune sessions older than N days ({{older_than_days?}})");
     eprintln!("  GET  /costs/by-model    → top spend buckets grouped by (provider, model)");
     eprintln!("  GET  /costs/by-session  → top spend buckets grouped by session_id");
     eprintln!("press Ctrl-C or `argo gateway stop` to terminate");

@@ -30,8 +30,9 @@ use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
 };
 use super::routes_post_writes::{
-    append_memory_response, forge_abort_response, forge_bench_response, forge_optimize_response,
-    install_skill_response, skill_promote_response, workspace_init_response,
+    append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
+    forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
+    workspace_init_response,
 };
 use super::routes_session::{session_show_response, session_spend_response};
 use super::store_unavailable;
@@ -176,6 +177,12 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /workspace/init ") {
         return workspace_init_response(req, store).await;
+    }
+    if req.starts_with("POST /db/vacuum ") {
+        return db_vacuum_response(store).await;
+    }
+    if req.starts_with("POST /db/prune ") {
+        return db_prune_response(req, store).await;
     }
     if let Some(rest) = req.strip_prefix("POST /judge/") {
         if let Some((rid, tail)) = rest.split_once('/') {
