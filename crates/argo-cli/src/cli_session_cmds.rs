@@ -322,8 +322,14 @@ pub enum ForgeRunsCmd {
         #[arg(long, default_value_t = 50)]
         limit: u32,
         /// Output as JSON (one object per row).
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (renders a markdown table). `--json` wins if both are
+        /// passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         /// Filter to runs started within this many recent minutes.
         #[arg(long)]
         since_minutes: Option<i64>,

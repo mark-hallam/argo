@@ -20,6 +20,7 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::List {
                 limit,
                 json,
+                format,
                 since_minutes,
                 status,
                 score_min,
@@ -33,6 +34,7 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
                 list_runs(
                     limit,
                     json,
+                    format,
                     since_minutes,
                     status,
                     score_min,
@@ -238,6 +240,7 @@ async fn count_runs(status: Option<String>, json: bool) -> ArgoResult<()> {
 async fn list_runs(
     limit: u32,
     json: bool,
+    format: String,
     since_minutes: Option<i64>,
     status: Option<String>,
     score_min: Option<f64>,
@@ -293,23 +296,62 @@ async fn list_runs(
             )));
         }
     }
-    if json {
-        for r in &rows {
-            let line = serde_json::json!({
-                "id": hex::encode(&r.id),
-                "skill_name": r.skill_name,
-                "started_at": r.started_at,
-                "ended_at": r.ended_at,
-                "base_version": r.base_version,
-                "candidate_version": r.candidate_version,
-                "iterations": r.iterations,
-                "spend_usd_micros": r.spend_usd_micros,
-                "final_score": r.final_score,
-                "status": r.status,
-            });
-            println!("{}", serde_json::to_string(&line).unwrap_or_default());
+    let pick = if json { "json" } else { format.as_str() };
+    match pick {
+        "json" => {
+            for r in &rows {
+                let line = serde_json::json!({
+                    "id": hex::encode(&r.id),
+                    "skill_name": r.skill_name,
+                    "started_at": r.started_at,
+                    "ended_at": r.ended_at,
+                    "base_version": r.base_version,
+                    "candidate_version": r.candidate_version,
+                    "iterations": r.iterations,
+                    "spend_usd_micros": r.spend_usd_micros,
+                    "final_score": r.final_score,
+                    "status": r.status,
+                });
+                println!("{}", serde_json::to_string(&line).unwrap_or_default());
+            }
+            return Ok(());
         }
-        return Ok(());
+        "markdown" => {
+            println!(
+                "# Forge runs ({} match{})",
+                rows.len(),
+                if rows.len() == 1 { "" } else { "es" }
+            );
+            println!();
+            if rows.is_empty() {
+                return Ok(());
+            }
+            println!(
+                "| status | id | skill | base | candidate | iters | spend (USD) | score |"
+            );
+            println!("| :---: | --- | --- | --- | --- | ---: | ---: | ---: |");
+            for r in &rows {
+                let id_short: String = hex::encode(&r.id).chars().take(8).collect();
+                let cand = r.candidate_version.clone().unwrap_or_else(|| "-".into());
+                let score = r
+                    .final_score
+                    .map(|s| format!("{s:.3}"))
+                    .unwrap_or_else(|| "-".into());
+                let spend = format!("${:.4}", r.spend_usd_micros as f64 / 1_000_000.0);
+                let marker = if r.status == "running" { "●" } else { " " };
+                println!(
+                    "| {marker} | `{id_short}` | `{}` | `{}` | `{cand}` | {} | {spend} | {score} |",
+                    r.skill_name, r.base_version, r.iterations
+                );
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if rows.is_empty() {
         println!("(no forge runs recorded yet)");
