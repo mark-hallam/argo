@@ -424,7 +424,7 @@ pub(crate) async fn run(
                     state.clear_live_events();
                 }
                 KeyCode::Char('R') => {
-                    // Force-refresh of every pane + any open
+                    // Force-refresh of every pane + every open
                     // overlay. Useful when a CLI in another
                     // terminal just changed something and the
                     // 1-Hz tick hasn't come round yet.
@@ -443,6 +443,34 @@ pub(crate) async fn run(
                     if state.cost_overlay.is_some() {
                         let snap = store.load_global_spend().await.unwrap_or_default();
                         state.cost_overlay = Some(snap);
+                    }
+                    if state.audit_overlay.is_some() {
+                        let rows = if let Some(s) = state.selected_session() {
+                            store
+                                .list_audit_for_session(s.id)
+                                .await
+                                .unwrap_or_default()
+                        } else {
+                            Vec::new()
+                        };
+                        state.audit_overlay = Some(rows);
+                    }
+                    if state.memory_overlay.is_some() {
+                        let mut all = Vec::new();
+                        if let Ok(Some(ws)) = store.first_workspace().await {
+                            let mem = argo_memory::MemoryStore::new(Arc::clone(&store));
+                            for f in [
+                                argo_memory::MemoryFile::Memory,
+                                argo_memory::MemoryFile::User,
+                                argo_memory::MemoryFile::Soul,
+                                argo_memory::MemoryFile::Agents,
+                            ] {
+                                if let Ok(rows) = mem.list_active(ws, f).await {
+                                    all.extend(rows);
+                                }
+                            }
+                        }
+                        state.memory_overlay = Some(all);
                     }
                     last_refresh = std::time::Instant::now();
                 }
