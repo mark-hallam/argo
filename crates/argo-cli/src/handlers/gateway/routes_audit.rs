@@ -3,10 +3,28 @@
 //! no chain mutation here. The dispatcher in `routes.rs` still
 //! owns URL parsing.
 
+use super::routes_query::{parse_query_kv, parse_since_minutes_from_get};
 use super::store_unavailable;
 use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
+
+/// `GET /audit/recent` dispatch — parses 4 query params then
+/// hands off to [`audit_recent_response`]. Lives here so the
+/// dispatcher in routes.rs stays under the LOC budget.
+pub(super) async fn dispatch_audit_recent(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let limit: u32 = parse_query_kv(tail, "limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(50);
+    let kind = parse_query_kv(tail, "kind");
+    let since = parse_since_minutes_from_get(req, "/audit/recent");
+    let session = parse_query_kv(tail, "session");
+    audit_recent_response(limit, kind.as_deref(), since, session.as_deref(), store).await
+}
 
 /// `GET /audit/count[?kind=…&session=<uuid>&since-minutes=N]` —
 /// count of audit rows after filters. Useful for "how many

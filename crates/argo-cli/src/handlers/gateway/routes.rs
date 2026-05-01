@@ -12,22 +12,14 @@ use super::routes_meta::{
 use super::routes_providers::{
     provider_models_response, provider_show_response, providers_response,
 };
-use super::routes_lists::{
-    memory_count_response, memory_response, memory_versions_response, skills_count_response,
-    skills_response,
-};
+use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
-use super::routes_audit::{
-    audit_count_response, audit_recent_response, audit_session_response,
-    audit_session_verify_response,
-};
+use super::routes_audit::{audit_session_response, audit_session_verify_response};
 use super::routes_post::{
     append_message_response, costs_breakdown_response, create_session_response, replay_response,
     run_turn_response, session_judge_response, steer_response,
 };
-use super::routes_cron::{
-    cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
-};
+use super::routes_cron::{cron_create_response, cron_delete_response, cron_list_response, cron_show_response};
 use super::routes_msgs::{last_message_response, list_messages_response};
 use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
@@ -36,25 +28,21 @@ use super::routes_post_admin::{
 use super::routes_skill_refine::skill_refine_response;
 use super::routes_top::{
     audit_breaks_response, audit_response, dispatch_sessions, doctor_response,
-    health_full_response, sessions_count_response,
+    health_full_response,
 };
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
     session_reopen_response, session_set_title_response, session_skills_list_response,
 };
-use super::routes_query::{
-    parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
-};
+use super::routes_query::{parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get};
 use super::routes_forge_promote::{forge_abort_all_response, forge_promote_response};
 use super::routes_post_writes::{
     append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
     forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
     workspace_init_response,
 };
-use super::routes_session::{
-    session_show_response, session_spend_response, session_spend_total_response,
-};
+use super::routes_session::{session_show_response, session_spend_response, session_spend_total_response};
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -84,22 +72,13 @@ pub(super) async fn dispatch_route(
         );
     }
     if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let status = parse_query_kv(tail, "status");
-        let since = parse_since_minutes_from_get(req, "/sessions/count");
-        let older_than =
-            parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
-        return sessions_count_response(status.as_deref(), since, older_than, store).await;
+        return super::routes_counts::dispatch_sessions_count(req, store).await;
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         return dispatch_sessions(req, store).await;
     }
     if req.starts_with("GET /skills/count ") || req.starts_with("GET /skills/count?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let include_superseded = parse_query_kv(tail, "include-superseded")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
-        return skills_count_response(include_superseded, store).await;
+        return super::routes_counts::dispatch_skills_count(req, store).await;
     }
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
@@ -131,10 +110,7 @@ pub(super) async fn dispatch_route(
         }
     }
     if req.starts_with("GET /memory/count ") || req.starts_with("GET /memory/count?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let file = parse_query_kv(tail, "file");
-        let since = parse_since_minutes_from_get(req, "/memory/count");
-        return memory_count_response(file, since, store).await;
+        return super::routes_counts::dispatch_memory_count(req, store).await;
     }
     if req.starts_with("GET /memory ") || req.starts_with("GET /memory?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
@@ -161,34 +137,10 @@ pub(super) async fn dispatch_route(
         return audit_breaks_response(store).await;
     }
     if req.starts_with("GET /audit/count ") || req.starts_with("GET /audit/count?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let kind = parse_query_kv(tail, "kind");
-        let since = parse_since_minutes_from_get(req, "/audit/count");
-        let session = parse_query_kv(tail, "session");
-        return audit_count_response(
-            kind.as_deref(),
-            since,
-            session.as_deref(),
-            store,
-        )
-        .await;
+        return super::routes_counts::dispatch_audit_count(req, store).await;
     }
     if req.starts_with("GET /audit/recent ") || req.starts_with("GET /audit/recent?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let limit: u32 = parse_query_kv(tail, "limit")
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(50);
-        let kind = parse_query_kv(tail, "kind");
-        let since = parse_since_minutes_from_get(req, "/audit/recent");
-        let session = parse_query_kv(tail, "session");
-        return audit_recent_response(
-            limit,
-            kind.as_deref(),
-            since,
-            session.as_deref(),
-            store,
-        )
-        .await;
+        return super::routes_audit::dispatch_audit_recent(req, store).await;
     }
     if req.starts_with("GET /doctor ") {
         return doctor_response().await;
@@ -299,15 +251,7 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /forge/runs/count ")
         || req.starts_with("GET /forge/runs/count?")
     {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let status = parse_query_kv(tail, "status");
-        let since = parse_since_minutes_from_get(req, "/forge/runs/count");
-        return super::routes_forge::forge_runs_count_response(
-            status.as_deref(),
-            since,
-            store,
-        )
-        .await;
+        return super::routes_counts::dispatch_forge_runs_count(req, store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
         if let Some((id, _)) = rest.split_once(' ') {

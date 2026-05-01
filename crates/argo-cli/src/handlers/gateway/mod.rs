@@ -9,6 +9,7 @@ mod metrics;
 mod routes;
 mod routes_audit;
 pub(crate) mod routes_catalog;
+mod routes_counts;
 mod routes_cron;
 mod routes_forge;
 mod routes_forge_promote;
