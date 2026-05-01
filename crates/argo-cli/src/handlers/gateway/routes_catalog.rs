@@ -75,6 +75,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/forge/optimize/stream", "chunked-NDJSON forge optimize event stream"),
         ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
         ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
+        ("POST", "/forge/runs/abort-all", "abort every in-flight forge run"),
         ("POST", "/forge/runs/<id>/promote", "promote that run's candidate to active"),
         ("POST", "/skills/<name>/promote", "promote a skill version to active"),
         ("POST", "/skills/<name>/lock", "lock a skill (user-protected by default)"),

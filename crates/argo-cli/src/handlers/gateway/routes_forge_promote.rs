@@ -1,9 +1,45 @@
-//! `POST /forge/runs/<id>/promote` — promote a forge run's
-//! candidate_version. Lifted out of `routes_post_writes.rs`
-//! so that file stays under the 500-LOC ceiling.
+//! Forge run write-side helpers — `/forge/runs/<id>/promote`
+//! and `/forge/runs/abort-all`. Lifted out of
+//! `routes_post_writes.rs` so that file stays under the
+//! 500-LOC ceiling.
 use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
+
+/// `POST /forge/runs/abort-all` — flip every forge_run row
+/// with `status='running'` to `'aborted'`. Returns 200 +
+/// `{aborted:N}`. Useful for emergency stop / fresh-slate
+/// before a workspace migration.
+pub(super) async fn forge_abort_all_response(
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let rows = match store.list_forge_runs(500).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"list_forge_runs: {e}\"}}"),
+            );
+        }
+    };
+    let mut aborted: u64 = 0;
+    for r in rows.into_iter().filter(|r| r.status == "running") {
+        let id = match uuid::Uuid::from_slice(&r.id) {
+            Ok(u) => u,
+            Err(_) => continue,
+        };
+        if let Ok(n) = store.abort_forge_run(id).await {
+            aborted += n;
+        }
+    }
+    (
+        "200 OK",
+        format!("{{\"aborted\":{aborted}}}"),
+    )
+}
 
 /// Convenience wrapper over `POST /skills/<name>/promote` —
 /// the gateway looks up `(skill_name, candidate_version)`
