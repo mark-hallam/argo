@@ -14,10 +14,12 @@ use super::routes_providers::{
 };
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
+use super::routes_audit::{
+    audit_recent_response, audit_session_response, audit_session_verify_response,
+};
 use super::routes_post::{
-    append_message_response, audit_recent_response, audit_session_response,
-    audit_session_verify_response, costs_breakdown_response, create_session_response,
-    replay_response, run_turn_response, session_judge_response, steer_response,
+    append_message_response, costs_breakdown_response, create_session_response, replay_response,
+    run_turn_response, session_judge_response, steer_response,
 };
 use super::routes_cron::{
     cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
