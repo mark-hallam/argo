@@ -13,6 +13,9 @@ use super::routes_post::{
     create_session_response, replay_response, run_turn_response, steer_response,
 };
 use super::routes_msgs::list_messages_response;
+use super::routes_post_admin::{
+    memory_lock_response, memory_unlock_response, skill_lock_response, skill_unlock_response,
+};
 use super::routes_post_writes::{
     append_memory_response, forge_abort_response, forge_bench_response, forge_optimize_response,
     install_skill_response, skill_promote_response,
@@ -144,13 +147,28 @@ pub(super) async fn dispatch_route(
             }
         }
     }
-    // POST /skills/<name>/promote — promote a specific version
-    // to active. We do the URL parse here to keep dispatch as
-    // the single entry-point.
+    // POST /skills/<name>/{promote,lock,unlock}
     if let Some(rest) = req.strip_prefix("POST /skills/") {
         if let Some((name, tail)) = rest.split_once('/') {
             if tail.starts_with("promote ") {
                 return skill_promote_response(name, req, store).await;
+            }
+            if tail.starts_with("lock ") {
+                return skill_lock_response(name, req, store).await;
+            }
+            if tail.starts_with("unlock ") {
+                return skill_unlock_response(name, store).await;
+            }
+        }
+    }
+    // POST /memory/<id>/{lock,unlock}
+    if let Some(rest) = req.strip_prefix("POST /memory/") {
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("lock ") {
+                return memory_lock_response(id, req, store).await;
+            }
+            if tail.starts_with("unlock ") {
+                return memory_unlock_response(id, store).await;
             }
         }
     }

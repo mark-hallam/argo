@@ -210,3 +210,46 @@ fn skill_promote_returns_400_on_missing_version_and_unknown_skill() {
 
     assert!(child.wait().expect("wait").success());
 }
+
+#[test]
+fn memory_lock_validates_id_and_unknown_lock_label() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+
+    let resp = http_post(port, "/memory/not-a-uuid/lock", "");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Bogus lock label → 400.
+    let resp = http_post(
+        port,
+        "/memory/00000000-0000-0000-0000-000000000000/lock",
+        r#"{"lock":"super-secret"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("unknown lock"), "body={body}");
+
+    // `lock=none` rejected on /lock — caller must use /unlock.
+    let resp = http_post(
+        port,
+        "/memory/00000000-0000-0000-0000-000000000000/lock",
+        r#"{"lock":"none"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
+fn skill_lock_returns_404_on_unknown_skill() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    let resp = http_post(port, "/skills/never-installed/lock", "");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    let resp = http_post(port, "/skills/never-installed/unlock", "");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}

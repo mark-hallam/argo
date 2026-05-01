@@ -10,6 +10,7 @@ mod routes;
 mod routes_meta;
 mod routes_msgs;
 mod routes_post;
+mod routes_post_admin;
 mod routes_post_writes;
 mod routes_session;
 mod streaming;
@@ -130,6 +131,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");
     eprintln!("  POST /forge/runs/<id>/abort → flip a run's status to 'aborted'");
     eprintln!("  POST /skills/<name>/promote → promote a version to active ({{version}})");
+    eprintln!("  POST /skills/<name>/{{lock,unlock}}  → lock / unlock the active version");
+    eprintln!("  POST /memory/<id>/{{lock,unlock}}    → lock / unlock a memory entry");
     eprintln!("  GET  /metrics        → Prometheus-style text exposition (text/plain)");
     eprintln!("  GET  /routes  → discovery: every route + a one-line description");
     eprintln!("  GET  /doctor       → JSON snapshot of `argo doctor` (cwd, db, cron, creds, …)");

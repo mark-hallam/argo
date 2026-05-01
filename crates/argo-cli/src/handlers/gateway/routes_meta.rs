@@ -442,6 +442,10 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
         ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
         ("POST", "/skills/<name>/promote", "promote a skill version to active"),
+        ("POST", "/skills/<name>/lock", "lock a skill (user-protected by default)"),
+        ("POST", "/skills/<name>/unlock", "clear a skill lock"),
+        ("POST", "/memory/<id>/lock", "lock a memory entry"),
+        ("POST", "/memory/<id>/unlock", "clear a memory-entry lock"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()
