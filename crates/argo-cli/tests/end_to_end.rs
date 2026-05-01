@@ -381,3 +381,72 @@ fn session_messages_filters_and_tail() {
     let lines: Vec<_> = body.lines().filter(|l| !l.is_empty()).collect();
     assert_eq!(lines.len(), 0, "expected 0 user lines, got {body}");
 }
+
+/// End-to-end smoke for `argo session export --format markdown`
+/// (#473) and the rich header (#474). Boots a workspace, makes
+/// a session with one steer message, exports as markdown, and
+/// asserts the header + section structure render correctly.
+#[cfg(unix)]
+#[test]
+fn session_export_markdown_renders_header_and_sections() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    assert!(run(workspace.path(), home.path(), &["workspace", "init"], &[])
+        .status
+        .success());
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &[
+            "new",
+            "--provider",
+            "anthropic",
+            "--model",
+            "claude-haiku-4-5",
+            "--title",
+            "export round-trip",
+        ],
+        &[],
+    );
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let session_id = parse_uuid_after("created session", &stdout);
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["steer", &session_id, "test message"],
+        &[],
+    );
+    assert!(out.status.success());
+
+    // Export as markdown.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "export", &session_id, "--format", "markdown"],
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "export failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+
+    // Header has title + uuid in code-tags.
+    assert!(
+        body.contains("# Session export round-trip"),
+        "missing title header: {body}"
+    );
+    assert!(body.contains(&format!("`{session_id}`")), "missing uuid: {body}");
+    // Header bullets — model/provider/messages/spend.
+    assert!(body.contains("**Model**: `claude-haiku-4-5`"));
+    assert!(body.contains("**Provider**: `anthropic`"));
+    assert!(body.contains("**Messages**: 1"));
+    assert!(body.contains("**Spend**: $0.0000"));
+    // The single message renders as `## [1] system`.
+    assert!(body.contains("## [1] system"), "missing message section: {body}");
+    assert!(body.contains("test message"), "missing message body: {body}");
+}
