@@ -209,7 +209,34 @@ pub enum ForgeCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum ForgeRunsCmd {
-    List,
+    /// List recorded forge runs. Mirrors the gateway's
+    /// `/forge/runs` endpoint with the same filter set.
+    List {
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Output as JSON (one object per row).
+        #[arg(long)]
+        json: bool,
+        /// Filter to runs started within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Status filter: running|succeeded|failed|aborted.
+        #[arg(long)]
+        status: Option<String>,
+        /// Inclusive lower bound on `final_score`.
+        #[arg(long)]
+        score_min: Option<f64>,
+        /// Inclusive upper bound on `final_score`.
+        #[arg(long)]
+        score_max: Option<f64>,
+        /// Exact-match filter on skill_name.
+        #[arg(long)]
+        skill: Option<String>,
+        /// `true` to keep only rows with a non-NULL
+        /// candidate_version.
+        #[arg(long)]
+        has_candidate: Option<bool>,
+    },
     Show { id: String },
     Abort { id: String },
 }

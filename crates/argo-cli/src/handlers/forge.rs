@@ -16,7 +16,28 @@ use std::sync::Arc;
 pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
     match cmd {
         ForgeCmd::Runs { cmd } => match cmd {
-            ForgeRunsCmd::List => list_runs().await,
+            ForgeRunsCmd::List {
+                limit,
+                json,
+                since_minutes,
+                status,
+                score_min,
+                score_max,
+                skill,
+                has_candidate,
+            } => {
+                list_runs(
+                    limit,
+                    json,
+                    since_minutes,
+                    status,
+                    score_min,
+                    score_max,
+                    skill,
+                    has_candidate,
+                )
+                .await
+            }
             ForgeRunsCmd::Show { id } => show_run(&id).await,
             ForgeRunsCmd::Abort { id } => abort_run(&id).await,
         },
@@ -187,9 +208,56 @@ async fn promote(skill_name: &str, version: &str) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn list_runs() -> ArgoResult<()> {
+#[allow(clippy::too_many_arguments)]
+async fn list_runs(
+    limit: u32,
+    json: bool,
+    since_minutes: Option<i64>,
+    status: Option<String>,
+    score_min: Option<f64>,
+    score_max: Option<f64>,
+    skill: Option<String>,
+    has_candidate: Option<bool>,
+) -> ArgoResult<()> {
     let store = open_store().await?;
-    let rows = store.list_forge_runs(50).await?;
+    let mut rows = store.list_forge_runs(limit).await?;
+    if let Some(m) = since_minutes {
+        let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+        rows.retain(|r| r.started_at >= cutoff_micros);
+    }
+    if let Some(want) = status.as_deref() {
+        rows.retain(|r| r.status == want);
+    }
+    if let Some(min) = score_min {
+        rows.retain(|r| r.final_score.is_some_and(|s| s >= min));
+    }
+    if let Some(max) = score_max {
+        rows.retain(|r| r.final_score.is_some_and(|s| s <= max));
+    }
+    if let Some(want) = skill.as_deref() {
+        rows.retain(|r| r.skill_name == want);
+    }
+    if let Some(want) = has_candidate {
+        rows.retain(|r| r.candidate_version.is_some() == want);
+    }
+    if json {
+        for r in &rows {
+            let line = serde_json::json!({
+                "id": hex::encode(&r.id),
+                "skill_name": r.skill_name,
+                "started_at": r.started_at,
+                "ended_at": r.ended_at,
+                "base_version": r.base_version,
+                "candidate_version": r.candidate_version,
+                "iterations": r.iterations,
+                "spend_usd_micros": r.spend_usd_micros,
+                "final_score": r.final_score,
+                "status": r.status,
+            });
+            println!("{}", serde_json::to_string(&line).unwrap_or_default());
+        }
+        return Ok(());
+    }
     if rows.is_empty() {
         println!("(no forge runs recorded yet)");
         return Ok(());
