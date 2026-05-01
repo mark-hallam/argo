@@ -138,8 +138,14 @@ pub enum ModelCmd {
 pub enum SkillCmd {
     List {
         /// Output as JSON (one object per skill) for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (renders a markdown table). `--json` wins if both are
+        /// passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         /// Sort order: `created-at` (default, descending) or
         /// `name` (lexical, ascending).
         #[arg(long, default_value = "created-at")]
@@ -242,8 +248,14 @@ pub enum SkillCmd {
 pub enum MemoryCmd {
     List {
         /// Output as JSON (one object per entry) for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (renders a markdown table). `--json` wins if both are
+        /// passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         /// Limit to one file: memory|user|soul|agents.
         #[arg(long)]
         file: Option<String>,

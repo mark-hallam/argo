@@ -22,6 +22,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     match cmd {
         MemoryCmd::List {
             json,
+            format,
             file,
             sort_by,
             limit,
@@ -33,6 +34,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
                 &memory,
                 workspace,
                 json,
+                &format,
                 file.as_deref(),
                 &sort_by,
                 limit,
@@ -125,6 +127,7 @@ async fn list(
     memory: &MemoryStore,
     workspace: argo_types::WorkspaceId,
     json: bool,
+    format: &str,
     only: Option<&str>,
     sort_by: &str,
     limit: Option<u32>,
@@ -201,22 +204,63 @@ async fn list(
         all_entries.truncate(n as usize);
     }
     let total = all_entries.len();
-    if json {
-        for e in &all_entries {
-            let row = serde_json::json!({
-                "id": e.id.to_string(),
-                "file": format!("{:?}", e.file),
-                "bytes": e.body.len(),
-                "lock": format!("{:?}", e.lock),
-                "hash": hex::encode(e.hash),
-                "learned_in": e.learned_in.map(|s| s.0.to_string()),
-                "learned_at": e.learned_at.to_rfc3339(),
-            });
-            let serialized = serde_json::to_string(&row)
-                .map_err(|err| ArgoError::Provider(format!("serialize memory: {err}")))?;
-            println!("{serialized}");
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            for e in &all_entries {
+                let row = serde_json::json!({
+                    "id": e.id.to_string(),
+                    "file": format!("{:?}", e.file),
+                    "bytes": e.body.len(),
+                    "lock": format!("{:?}", e.lock),
+                    "hash": hex::encode(e.hash),
+                    "learned_in": e.learned_in.map(|s| s.0.to_string()),
+                    "learned_at": e.learned_at.to_rfc3339(),
+                });
+                let serialized = serde_json::to_string(&row)
+                    .map_err(|err| ArgoError::Provider(format!("serialize memory: {err}")))?;
+                println!("{serialized}");
+            }
+            return Ok(());
         }
-        return Ok(());
+        "markdown" => {
+            println!(
+                "# Memory entries ({} match{})",
+                total,
+                if total == 1 { "" } else { "es" }
+            );
+            println!();
+            if total == 0 {
+                return Ok(());
+            }
+            println!("| file | id | bytes | lock | snippet |");
+            println!("| --- | --- | ---: | --- | --- |");
+            for e in &all_entries {
+                let head = e
+                    .body
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .chars()
+                    .take(60)
+                    .collect::<String>()
+                    .replace('|', "\\|");
+                println!(
+                    "| {:?} | `{}` | {} | {:?} | {head} |",
+                    e.file,
+                    e.id,
+                    e.body.len(),
+                    e.lock,
+                );
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if total == 0 {
         println!("(no active memory entries)");

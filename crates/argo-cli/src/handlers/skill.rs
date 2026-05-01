@@ -18,6 +18,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     match cmd {
         SkillCmd::List {
             json,
+            format,
             sort_by,
             limit,
             include_superseded,
@@ -28,6 +29,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             list(
                 &skills,
                 json,
+                &format,
                 &sort_by,
                 limit,
                 include_superseded,
@@ -204,6 +206,7 @@ async fn count(skills: &SkillStore, include_superseded: bool, json: bool) -> Arg
 async fn list(
     skills: &SkillStore,
     json: bool,
+    format: &str,
     sort_by: &str,
     limit: Option<u32>,
     include_superseded: bool,
@@ -256,21 +259,51 @@ async fn list(
     if let Some(n) = limit {
         active.truncate(n as usize);
     }
-    if json {
-        for s in &active {
-            let line = serde_json::json!({
-                "id": s.id.0.to_string(),
-                "name": s.frontmatter.name,
-                "version": s.frontmatter.version,
-                "lock": format!("{:?}", s.frontmatter.lock),
-                "hash": hex::encode(s.hash),
-                "created_at": s.created_at.to_rfc3339(),
-            });
-            let serialized = serde_json::to_string(&line)
-                .map_err(|e| ArgoError::Provider(format!("serialize skill: {e}")))?;
-            println!("{serialized}");
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            for s in &active {
+                let line = serde_json::json!({
+                    "id": s.id.0.to_string(),
+                    "name": s.frontmatter.name,
+                    "version": s.frontmatter.version,
+                    "lock": format!("{:?}", s.frontmatter.lock),
+                    "hash": hex::encode(s.hash),
+                    "created_at": s.created_at.to_rfc3339(),
+                });
+                let serialized = serde_json::to_string(&line)
+                    .map_err(|e| ArgoError::Provider(format!("serialize skill: {e}")))?;
+                println!("{serialized}");
+            }
+            return Ok(());
         }
-        return Ok(());
+        "markdown" => {
+            println!(
+                "# Skills ({} match{})",
+                active.len(),
+                if active.len() == 1 { "" } else { "es" }
+            );
+            println!();
+            if active.is_empty() {
+                return Ok(());
+            }
+            println!("| name | version | lock | hash |");
+            println!("| --- | --- | --- | --- |");
+            for s in &active {
+                let hash_short: String = hex::encode(s.hash).chars().take(12).collect();
+                println!(
+                    "| `{}` | `{}` | {:?} | `{hash_short}…` |",
+                    s.frontmatter.name, s.frontmatter.version, s.frontmatter.lock,
+                );
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if active.is_empty() {
         println!("(no active skills)");
