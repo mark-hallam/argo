@@ -13,8 +13,15 @@
 //! onto the rows already in the store.
 use argo_store::SessionStore;
 use std::fmt::Write;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
+
+/// Total /metrics scrapes since the gateway booted. Bumped at
+/// the top of `render`. Self-referencing — Prometheus' own
+/// `up` metric is the canonical scrape signal, but exposing
+/// the counter here lets ops detect runaway pollers.
+static SCRAPE_COUNT: AtomicU64 = AtomicU64::new(0);
 
 /// Gateway boot time. Initialised once at gateway startup
 /// (see `mod.rs::start`) so `argo_uptime_seconds` reports
@@ -34,6 +41,7 @@ pub(super) fn init_boot_time() {
 /// query are surfaced as `# error: …` comment lines + a `0`
 /// fallback so a partial DB never breaks the whole scrape.
 pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
+    let scrape_n = SCRAPE_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
     let mut out = String::with_capacity(1024);
     let _ = writeln!(
         out,
@@ -49,6 +57,12 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
          # TYPE argo_uptime_seconds gauge\n\
          argo_uptime_seconds {}",
         boot.elapsed().as_secs()
+    );
+    let _ = writeln!(
+        out,
+        "\n# HELP argo_metrics_scrapes_total Total scrapes since gateway boot\n\
+         # TYPE argo_metrics_scrapes_total counter\n\
+         argo_metrics_scrapes_total {scrape_n}"
     );
 
     let Some(store) = store else {
