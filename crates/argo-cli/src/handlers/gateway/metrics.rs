@@ -81,6 +81,9 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
         "SELECT COUNT(*) FROM skill WHERE superseded_by IS NULL").await;
     push_count(&mut out, pool, "argo_workspace_artifacts_total", "Recorded marketplace pushes",
         "SELECT COUNT(*) FROM marketplace_artifact").await;
+    push_count(&mut out, pool, "argo_forge_runs_running",
+        "Forge runs currently in flight (status='running')",
+        "SELECT COUNT(*) FROM forge_run WHERE status = 'running'").await;
     push_sum(&mut out, pool, "argo_spend_usd_micros_total",
         "Sum of spend_ledger.amount_usd_micros across every session",
         "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger").await;
