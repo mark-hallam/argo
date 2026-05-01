@@ -101,16 +101,41 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Forge-runs overlay: Esc/F/q close, anything else
-            // is ignored. Loop body auto-refreshes the rows
-            // every second so a CLI-side optimize ticks along
-            // in the TUI live.
-            if state.forge_runs.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('F') | KeyCode::Char('q')
-                ) {
-                    state.forge_runs = None;
+            // Forge-runs overlay: Esc/F/q close, j/k/PgUp/PgDn
+            // scroll. Loop body auto-refreshes the rows every
+            // second so a CLI-side optimize ticks along live.
+            if let Some(rows) = state.forge_runs.as_ref() {
+                let n = rows.len();
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('F') | KeyCode::Char('q') => {
+                        state.forge_runs = None;
+                        state.forge_runs_scroll = 0;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = n.saturating_sub(1);
+                        if state.forge_runs_scroll < max {
+                            state.forge_runs_scroll += 1;
+                        }
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        state.forge_runs_scroll =
+                            state.forge_runs_scroll.saturating_sub(1);
+                    }
+                    KeyCode::PageDown => {
+                        let max = n.saturating_sub(1);
+                        state.forge_runs_scroll = (state.forge_runs_scroll + 10).min(max);
+                    }
+                    KeyCode::PageUp => {
+                        state.forge_runs_scroll =
+                            state.forge_runs_scroll.saturating_sub(10);
+                    }
+                    KeyCode::Char('g') | KeyCode::Home => {
+                        state.forge_runs_scroll = 0;
+                    }
+                    KeyCode::Char('G') | KeyCode::End => {
+                        state.forge_runs_scroll = n.saturating_sub(1);
+                    }
+                    _ => {}
                 }
                 continue;
             }

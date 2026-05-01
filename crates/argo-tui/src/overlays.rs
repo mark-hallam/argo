@@ -57,6 +57,7 @@ pub(crate) fn draw_forge_runs(
     frame: &mut Frame<'_>,
     area: Rect,
     rows: &[argo_store::ForgeRunRow],
+    scroll: usize,
 ) {
     let w = area.width.saturating_mul(9) / 10;
     let h = area.height.saturating_mul(8) / 10;
@@ -72,7 +73,8 @@ pub(crate) fn draw_forge_runs(
     if rows.is_empty() {
         lines.push(Line::from("  (no forge runs recorded yet)"));
     } else {
-        for r in rows {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for r in &rows[clamped..] {
             let id_short: String = hex::encode(&r.id).chars().take(8).collect();
             let cand = r.candidate_version.clone().unwrap_or_else(|| "-".into());
             let score = r

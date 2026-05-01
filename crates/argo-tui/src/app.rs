@@ -89,6 +89,9 @@ pub struct ViewerState {
     /// Loaded forge_run rows when the user has the forge-runs
     /// overlay open (entered with `F`). `None` when closed.
     pub forge_runs: Option<Vec<argo_store::ForgeRunRow>>,
+    /// Scroll offset (in rows) into the forge-runs overlay,
+    /// honoured by `j`/`k`/`PgUp`/`PgDn` while it's open.
+    pub forge_runs_scroll: usize,
     /// Loaded active-skill rows when the user has the skills
     /// overlay open (entered with `S`). `None` when closed.
     pub skills_overlay: Option<Vec<argo_skill::Skill>>,
@@ -164,6 +167,7 @@ impl ViewerState {
             message_overlay: None,
             message_overlay_text_only: false,
             forge_runs: None,
+            forge_runs_scroll: 0,
             skills_overlay: None,
             memory_overlay: None,
             cost_overlay: None,

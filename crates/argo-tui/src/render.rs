@@ -42,7 +42,7 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
         crate::overlays::draw_message(frame, area, state, idx);
     }
     if let Some(rows) = state.forge_runs.as_ref() {
-        crate::overlays::draw_forge_runs(frame, area, rows);
+        crate::overlays::draw_forge_runs(frame, area, rows, state.forge_runs_scroll);
     }
     if let Some(rows) = state.skills_overlay.as_ref() {
         crate::overlays::draw_skills(frame, area, rows);
