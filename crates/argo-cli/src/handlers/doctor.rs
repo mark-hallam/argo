@@ -118,6 +118,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let cron = cron_status(&cwd);
     let creds = creds_status();
     let gateway = gateway_status(&home);
+    let routes = routes_count();
     Ok(serde_json::json!({
         "cwd": cwd.display().to_string(),
         "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
@@ -131,7 +132,32 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "cron": cron,
         "creds": creds,
         "gateway": gateway,
+        "routes": routes,
     }))
+}
+
+/// Reads the in-binary route catalog and reports counts by
+/// verb. Pure data — no daemon required.
+fn routes_count() -> serde_json::Value {
+    let (_status, body) =
+        crate::handlers::gateway::routes_catalog::routes_response(None);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&body).unwrap_or(serde_json::Value::Array(Vec::new()));
+    let arr = parsed.as_array().cloned().unwrap_or_default();
+    let total = arr.len();
+    let get = arr
+        .iter()
+        .filter(|r| r["method"].as_str() == Some("GET"))
+        .count();
+    let post = arr
+        .iter()
+        .filter(|r| r["method"].as_str() == Some("POST"))
+        .count();
+    serde_json::json!({
+        "total": total,
+        "get": get,
+        "post": post,
+    })
 }
 
 /// Report whether the gateway daemon is running. Reads
