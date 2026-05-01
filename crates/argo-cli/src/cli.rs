@@ -172,9 +172,14 @@ pub enum Command {
     /// Diagnose configuration / sandbox / port issues.
     Doctor {
         /// Emit a single JSON object with all the checks. Default
-        /// is the human-readable text report.
+        /// is the human-readable text report. Equivalent to
+        /// `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Run every read-only verification — workspace, provider
     /// manifests, skill hashes, memory hashes, audit chain — and

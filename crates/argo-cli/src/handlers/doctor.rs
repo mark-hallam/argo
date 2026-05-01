@@ -6,15 +6,28 @@ use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
-pub async fn run(json: bool) -> ArgoResult<()> {
+pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     let payload = collect().await?;
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string(&payload)
-                .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
-        );
-        return Ok(());
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            println!(
+                "{}",
+                serde_json::to_string(&payload)
+                    .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+            );
+            return Ok(());
+        }
+        "markdown" => {
+            super::doctor_md::print_markdown(&payload);
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     let cwd = payload["cwd"].as_str().unwrap_or("?").to_string();
     let toml_path = payload["argo_toml"]["path"].as_str().unwrap_or("?");

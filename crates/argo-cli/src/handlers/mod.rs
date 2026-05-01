@@ -8,6 +8,7 @@ pub mod costs;
 pub mod cron;
 pub mod db;
 pub mod doctor;
+mod doctor_md;
 pub mod eval;
 pub mod forge;
 mod forge_optimize;
