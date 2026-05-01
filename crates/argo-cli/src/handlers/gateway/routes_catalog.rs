@@ -52,6 +52,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing (?method=GET|POST filter)"),
         ("GET", "/metrics", "Prometheus-style text exposition"),
+        ("POST", "/metrics/reset", "zero out the scrape counter; returns {previous, current}"),
         ("GET", "/db/stats", "per-table row counts (sessions, messages, audit, …)"),
         ("POST", "/db/vacuum", "run VACUUM on the SQLite store"),
         ("POST", "/db/prune", "delete sessions older than N days ({older_than_days?})"),

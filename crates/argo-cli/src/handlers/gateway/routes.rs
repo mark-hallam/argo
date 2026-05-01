@@ -320,6 +320,9 @@ pub(super) async fn dispatch_route(
     if req.starts_with("POST /db/vacuum ") {
         return db_vacuum_response(store).await;
     }
+    if req.starts_with("POST /metrics/reset ") {
+        return super::metrics::metrics_reset_response();
+    }
     if req.starts_with("POST /db/prune ") {
         return db_prune_response(req, store).await;
     }

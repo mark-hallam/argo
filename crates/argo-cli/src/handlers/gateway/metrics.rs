@@ -37,6 +37,14 @@ pub(super) fn init_boot_time() {
     let _ = BOOT_TIME.set(Instant::now());
 }
 
+/// Reset the in-process scrape counter to zero. Returns the
+/// previous value. Used by `POST /metrics/reset` (test-harness +
+/// ops escape hatch). Boot time is left alone — `argo_uptime_seconds`
+/// still reports real time-since-start.
+pub(super) fn reset_scrape_count() -> u64 {
+    SCRAPE_COUNT.swap(0, Ordering::Relaxed)
+}
+
 /// Returns the rendered exposition body. Errors from any single
 /// query are surfaced as `# error: …` comment lines + a `0`
 /// fallback so a partial DB never breaks the whole scrape.
@@ -231,6 +239,18 @@ pub(super) async fn http_response(store: Option<&Arc<SessionStore>>) -> Vec<u8> 
 /// response builder.
 pub(super) fn is_metrics_request(req: &str) -> bool {
     req.starts_with("GET /metrics ") || req.starts_with("GET /metrics?")
+}
+
+/// `POST /metrics/reset` — zero out the in-process scrape
+/// counter and return `{previous, current}` as JSON. Useful
+/// for tests + ops escape hatch for runaway pollers. Does not
+/// touch boot time — uptime keeps climbing.
+pub(super) fn metrics_reset_response() -> (&'static str, String) {
+    let previous = reset_scrape_count();
+    (
+        "200 OK",
+        format!("{{\"previous\":{previous},\"current\":0}}"),
+    )
 }
 
 #[cfg(test)]
