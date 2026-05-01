@@ -130,12 +130,14 @@ pub(super) async fn tools_response(
 /// to that role. Returns 503 when the store is unavailable,
 /// 400 when `q` is missing, `session` is not a valid UUID, or
 /// `role` is not one of the four canonical labels.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn search_response(
     query: Option<&str>,
     limit: u32,
     session: Option<&str>,
     role: Option<&str>,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -176,12 +178,34 @@ pub(super) async fn search_response(
     };
     match result {
         Ok(hits) => {
-            let rows: Vec<serde_json::Value> = hits
+            let filtered: Vec<argo_store::MessageSearchHit> = hits
                 .into_iter()
                 .filter(|h| match role {
                     Some(want) => h.role == want,
                     None => true,
                 })
+                .collect();
+            if matches!(format, Some("markdown")) {
+                let n = filtered.len();
+                let mut out = format!(
+                    "# Search results for `{q}` ({n} match{})\n\n",
+                    if n == 1 { "" } else { "es" }
+                );
+                if !filtered.is_empty() {
+                    out.push_str("| session_id | seq | role | snippet |\n");
+                    out.push_str("| --- | ---: | --- | --- |\n");
+                    for h in &filtered {
+                        let snippet = h.snippet.replace('|', "\\|");
+                        out.push_str(&format!(
+                            "| `{}` | {} | `{}` | {snippet} |\n",
+                            h.session_id.0, h.seq, h.role
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let rows: Vec<serde_json::Value> = filtered
+                .into_iter()
                 .map(|h| {
                     serde_json::json!({
                         "session_id": h.session_id.0.to_string(),

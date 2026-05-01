@@ -253,12 +253,14 @@ pub(super) async fn dispatch_route(
         let (q, limit, session) = parse_search_args(req);
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let role = parse_query_kv(tail, "role");
+        let format = parse_query_kv(tail, "format");
         return search_response(
             q.as_deref(),
             limit,
             session.as_deref(),
             role.as_deref(),
             store,
+            format.as_deref(),
         )
         .await;
     }
