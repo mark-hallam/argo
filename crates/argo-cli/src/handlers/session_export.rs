@@ -40,7 +40,10 @@ pub async fn export_session(
         "jsonl" => {
             export_jsonl(&mut writer, &messages, &store, SessionId(id), include_audit).await?
         }
-        "markdown" => export_markdown(&mut writer, raw, &messages)?,
+        "markdown" => {
+            let header = MarkdownHeader::load(&store, SessionId(id), &messages).await;
+            export_markdown(&mut writer, raw, &header, &messages)?
+        }
         other => {
             return Err(ArgoError::Provider(format!(
                 "unknown format '{other}' (expected 'jsonl' or 'markdown')"
@@ -113,16 +116,94 @@ async fn export_jsonl(
     Ok(audit_count)
 }
 
-/// Render a session as a markdown transcript: a top-level header
-/// with the session id, then one `## [seq] role` section per
-/// message with the extracted body text. Always returns 0 (audit
-/// rows aren't included in the markdown shape).
+/// Aggregated metadata rendered into the markdown transcript
+/// header. Loaded once per export call and immutable from then on.
+struct MarkdownHeader {
+    title: Option<String>,
+    model: Option<String>,
+    provider: Option<String>,
+    started_at: Option<chrono::DateTime<chrono::Utc>>,
+    ended_at: Option<chrono::DateTime<chrono::Utc>>,
+    spend_micros: u64,
+    message_count: usize,
+}
+
+impl MarkdownHeader {
+    /// Pull session row + spend total. Errors are swallowed so a
+    /// partially-populated header never blocks the transcript —
+    /// the worst case is a missing line, never a missing export.
+    async fn load(
+        store: &SessionStore,
+        sid: SessionId,
+        messages: &[argo_store::MessageRow],
+    ) -> Self {
+        let row = store.get_session(sid).await.ok().flatten();
+        let spend_micros =
+            super::session_aggregates::session_spend_micros(store, sid)
+                .await
+                .unwrap_or(0);
+        Self {
+            title: row.as_ref().and_then(|r| r.title.clone()),
+            model: row.as_ref().map(|r| r.model.clone()),
+            provider: row.as_ref().map(|r| r.provider.clone()),
+            started_at: row.as_ref().map(|r| r.started_at),
+            ended_at: row.as_ref().and_then(|r| r.ended_at),
+            spend_micros,
+            message_count: messages.len(),
+        }
+    }
+}
+
+/// Render a session as a markdown transcript: rich `# Session …`
+/// header (title, model, provider, started/ended, spend, message
+/// count), then one `## [seq] role` section per message with
+/// extracted body text. Always returns 0 (audit rows aren't
+/// included in the markdown shape).
 fn export_markdown(
     writer: &mut Box<dyn Write>,
     session_raw: &str,
+    header: &MarkdownHeader,
     messages: &[argo_store::MessageRow],
 ) -> ArgoResult<usize> {
-    writeln!(writer, "# Session {session_raw}")
+    let title = header
+        .title
+        .as_deref()
+        .filter(|t| !t.is_empty())
+        .unwrap_or("(untitled)");
+    writeln!(writer, "# Session {title} (`{session_raw}`)")
+        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    writeln!(writer).map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    if let Some(model) = &header.model {
+        writeln!(writer, "- **Model**: `{model}`")
+            .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    }
+    if let Some(provider) = &header.provider {
+        writeln!(writer, "- **Provider**: `{provider}`")
+            .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    }
+    if let Some(started_at) = header.started_at {
+        writeln!(
+            writer,
+            "- **Started**: {}",
+            started_at.format("%Y-%m-%d %H:%M:%S UTC")
+        )
+        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    }
+    if let Some(ended_at) = header.ended_at {
+        writeln!(
+            writer,
+            "- **Ended**: {}",
+            ended_at.format("%Y-%m-%d %H:%M:%S UTC")
+        )
+        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    }
+    writeln!(
+        writer,
+        "- **Spend**: ${:.4}",
+        header.spend_micros as f64 / 1_000_000.0
+    )
+    .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
+    writeln!(writer, "- **Messages**: {}", header.message_count)
         .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
     writeln!(writer).map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
     for row in messages {
