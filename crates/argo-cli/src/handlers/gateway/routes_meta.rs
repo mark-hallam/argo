@@ -142,16 +142,16 @@ pub(super) async fn search_response(
     }
 }
 
-/// `GET /forge/runs[?limit=N&since-minutes=M&status=<s>]` —
-/// list recorded forge optimization runs (the same rows
-/// `argo forge runs list` surfaces). Defaults to 50.
-/// `since-minutes` filters by `started_at`; `status` filters
-/// by `forge_run.status` (e.g. `running`, `succeeded`,
-/// `aborted`).
+/// `GET /forge/runs[?limit=N&since-minutes=M&status=<s>&score-min=<f>]`
+/// — list recorded forge optimization runs. `since-minutes`
+/// filters by `started_at`; `status` by `forge_run.status`;
+/// `score-min` keeps only rows whose `final_score >= <f>`
+/// (rows with NULL final_score drop out).
 pub(super) async fn forge_runs_response(
     limit: u32,
     since_minutes: Option<i64>,
     status: Option<&str>,
+    score_min: Option<f64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -170,6 +170,10 @@ pub(super) async fn forge_runs_response(
                 })
                 .filter(|r| match status {
                     Some(want) => r.status == want,
+                    None => true,
+                })
+                .filter(|r| match score_min {
+                    Some(threshold) => r.final_score.is_some_and(|s| s >= threshold),
                     None => true,
                 })
                 .map(|r| {
