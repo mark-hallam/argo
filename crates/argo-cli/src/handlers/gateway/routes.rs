@@ -258,6 +258,13 @@ pub(super) async fn dispatch_route(
         )
         .await;
     }
+    if req.starts_with("GET /forge/runs/count ")
+        || req.starts_with("GET /forge/runs/count?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let status = parse_query_kv(tail, "status");
+        return super::routes_forge::forge_runs_count_response(status.as_deref(), store).await;
+    }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
         if let Some((id, _)) = rest.split_once(' ') {
             return forge_run_show_response(id, store).await;

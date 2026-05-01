@@ -5,6 +5,40 @@
 use argo_store::SessionStore;
 use std::sync::Arc;
 
+/// `GET /forge/runs/count[?status=]` — print just the count of
+/// recorded forge runs, optionally scoped to one status.
+/// Mirrors the CLI's `argo forge runs count`. Caps the fetch
+/// at 10,000 rows (safe upper bound; this is a workspace, not
+/// a fleet).
+pub(super) async fn forge_runs_count_response(
+    status: Option<&str>,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    match store.list_forge_runs(10_000).await {
+        Ok(rows) => {
+            let n = match status {
+                Some(want) => rows.iter().filter(|r| r.status == want).count(),
+                None => rows.len(),
+            };
+            let payload = serde_json::json!({
+                "count": n,
+                "status": status,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list_forge_runs: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /forge/runs[?limit&since-minutes&status&score-min&score-max
 /// &skill&has-candidate&iterations-min&iterations-max]` —
 /// list recorded forge optimization runs. All flags AND'd
