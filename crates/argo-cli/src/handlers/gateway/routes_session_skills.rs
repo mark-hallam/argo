@@ -1,6 +1,7 @@
-//! Per-session skill attach / detach / list handlers. Lives
-//! in its own module so `routes_post_admin.rs` (memory + skill
-//! lock/unlock/forget/edit) stays under the 500-LOC ceiling.
+//! Per-session skill attach / detach / list handlers + the
+//! session-delete endpoint. Lives in its own module so
+//! `routes_post_admin.rs` (memory + skill lock/unlock/forget/
+//! edit) stays under the 500-LOC ceiling.
 use super::{body_from_request, store_unavailable};
 use argo_skill::SkillStore;
 use argo_store::SessionStore;
@@ -161,6 +162,43 @@ pub(super) async fn session_skills_list_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"skills_for_session: {e}\"}}"),
+        ),
+    }
+}
+
+/// `POST /sessions/<id>/delete` — delete the session row + all
+/// dependent rows (messages, audit, spend, judge). Mirrors
+/// `argo session delete <id>`. Idempotent — 404 only when the
+/// uuid never existed; deleting a deleted id returns the 0-rows
+/// case the same way the CLI does.
+pub(super) async fn session_delete_response(
+    raw_sid: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let sid = match uuid::Uuid::parse_str(raw_sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    match store.delete_session(sid).await {
+        Ok(0) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no session with id {raw_sid}\"}}"),
+        ),
+        Ok(n) => (
+            "200 OK",
+            format!("{{\"deleted\":true,\"session\":\"{raw_sid}\",\"rows_affected\":{n}}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"delete_session: {e}\"}}"),
         ),
     }
 }

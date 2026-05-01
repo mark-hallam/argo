@@ -291,6 +291,28 @@ fn memory_forget_returns_400_on_bad_id_and_unknown_uuid() {
 }
 
 #[test]
+fn session_delete_returns_400_on_bad_id_and_404_on_missing() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    // Bad uuid → 400.
+    let resp = http_post(port, "/sessions/not-a-uuid/delete", "");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid uuid that isn't in the DB → 404.
+    let resp = http_post(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/delete",
+        "",
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains("no session"), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn session_skills_endpoints_validate_session_id_and_unknown_skill() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 4);
