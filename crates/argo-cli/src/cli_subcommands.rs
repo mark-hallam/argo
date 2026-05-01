@@ -457,7 +457,11 @@ pub enum DbCmd {
         to: u32,
     },
     /// Show current schema version + per-table row counts.
-    Status,
+    Status {
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
     /// Drop sessions whose `started_at` is older than `--older-than-days`
     /// days. Pass `--force` to actually delete; otherwise dry-runs.
     Prune {

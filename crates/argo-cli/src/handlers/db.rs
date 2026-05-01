@@ -12,22 +12,42 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = SessionStore::open(&db).await?;
     match cmd {
-        DbCmd::Status => {
+        DbCmd::Status { json } => {
             let v = store.schema_version().await?;
-            println!("schema_version: {v}");
-            println!("db_path: {}", db.display());
             let stats = store.db_stats().await?;
-            println!("rows:");
-            println!("  sessions:           {:>8}", stats.sessions);
-            println!("  messages:           {:>8}", stats.messages);
-            println!("  tool_calls:         {:>8}", stats.tool_calls);
-            println!("  audit_records:      {:>8}", stats.audit_rows);
-            println!("  routing_decisions:  {:>8}", stats.routing_decisions);
-            println!("  judge_records:      {:>8}", stats.judge_records);
-            println!("  memory_entries:     {:>8}", stats.memory_entries);
-            println!("  skills:             {:>8}", stats.skills);
-            println!("  forge_runs:         {:>8}", stats.forge_runs);
-            println!("  spend_ledger:       {:>8}", stats.spend_rows);
+            if json {
+                let payload = serde_json::json!({
+                    "schema_version": v,
+                    "db_path": db.display().to_string(),
+                    "rows": {
+                        "sessions":          stats.sessions,
+                        "messages":          stats.messages,
+                        "tool_calls":        stats.tool_calls,
+                        "audit_records":     stats.audit_rows,
+                        "routing_decisions": stats.routing_decisions,
+                        "judge_records":     stats.judge_records,
+                        "memory_entries":    stats.memory_entries,
+                        "skills":            stats.skills,
+                        "forge_runs":        stats.forge_runs,
+                        "spend_ledger":      stats.spend_rows,
+                    },
+                });
+                println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+            } else {
+                println!("schema_version: {v}");
+                println!("db_path: {}", db.display());
+                println!("rows:");
+                println!("  sessions:           {:>8}", stats.sessions);
+                println!("  messages:           {:>8}", stats.messages);
+                println!("  tool_calls:         {:>8}", stats.tool_calls);
+                println!("  audit_records:      {:>8}", stats.audit_rows);
+                println!("  routing_decisions:  {:>8}", stats.routing_decisions);
+                println!("  judge_records:      {:>8}", stats.judge_records);
+                println!("  memory_entries:     {:>8}", stats.memory_entries);
+                println!("  skills:             {:>8}", stats.skills);
+                println!("  forge_runs:         {:>8}", stats.forge_runs);
+                println!("  spend_ledger:       {:>8}", stats.spend_rows);
+            }
         }
         DbCmd::MigrateUp => {
             let before = store.schema_version().await?;
