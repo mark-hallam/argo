@@ -336,6 +336,45 @@ fn costs_total_returns_zero_rollup_for_empty_store() {
 }
 
 #[test]
+fn audit_count_returns_zero_for_clean_chain() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "3",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    let resp = http_get(port, "/audit/count");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("json");
+    assert_eq!(parsed["count"], 0);
+
+    let resp = http_get(port, "/audit/count?kind=tool_call");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let parsed: serde_json::Value = serde_json::from_str(body_of(&resp)).expect("json");
+    assert_eq!(parsed["count"], 0);
+    assert_eq!(parsed["kind"], "tool_call");
+
+    let resp = http_get(port, "/audit/count?session=not-a-uuid");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn count_endpoints_return_zero_for_clean_workspace() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
