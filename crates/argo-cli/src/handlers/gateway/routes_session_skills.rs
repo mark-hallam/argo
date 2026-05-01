@@ -166,6 +166,56 @@ pub(super) async fn session_skills_list_response(
     }
 }
 
+/// `POST /sessions/<id>/title` — rename a session. Body
+/// `{title}` (empty title clears it). Returns 200 +
+/// `{renamed:true, session, title}`; 400 on bad uuid;
+/// 404 when session id has no row.
+pub(super) async fn session_set_title_response(
+    raw_sid: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let sid = match uuid::Uuid::parse_str(raw_sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let parsed: serde_json::Value = match serde_json::from_str(body_from_request(req)) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse body: {e}\"}}"),
+            );
+        }
+    };
+    let title = parsed.get("title").and_then(|v| v.as_str()).unwrap_or("");
+    match store.set_session_title(sid, title).await {
+        Ok(0) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no session with id {raw_sid}\"}}"),
+        ),
+        Ok(_) => (
+            "200 OK",
+            format!(
+                "{{\"renamed\":true,\"session\":\"{raw_sid}\",\"title\":\"{}\"}}",
+                title.replace('"', "\\\"")
+            ),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"set_session_title: {e}\"}}"),
+        ),
+    }
+}
+
 /// `POST /sessions/<id>/delete` — delete the session row + all
 /// dependent rows (messages, audit, spend, judge). Mirrors
 /// `argo session delete <id>`. Idempotent — 404 only when the

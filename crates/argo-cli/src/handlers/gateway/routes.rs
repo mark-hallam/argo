@@ -24,7 +24,7 @@ use super::routes_post_admin::{
 };
 use super::routes_session_skills::{
     session_attach_skill_response, session_delete_response, session_detach_skill_response,
-    session_skills_list_response,
+    session_set_title_response, session_skills_list_response,
 };
 use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
@@ -269,6 +269,9 @@ pub(super) async fn dispatch_route(
             }
             if tail.starts_with("delete ") {
                 return session_delete_response(sid, store).await;
+            }
+            if tail.starts_with("title ") {
+                return session_set_title_response(sid, req, store).await;
             }
         }
     }
