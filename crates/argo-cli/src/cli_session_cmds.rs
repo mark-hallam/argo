@@ -25,6 +25,14 @@ pub enum SessionCmd {
         /// Upper bound on per-session spend in usd_micros.
         #[arg(long)]
         spent_max: Option<u64>,
+        /// Exact-match filter on session.provider, e.g.
+        /// `--provider anthropic`.
+        #[arg(long)]
+        provider: Option<String>,
+        /// Exact-match filter on session.model, e.g.
+        /// `--model claude-sonnet-4.5`.
+        #[arg(long)]
+        model: Option<String>,
     },
     /// `tail -f`-style live watch of new messages on a session.
     /// Polls every 500ms; prints each newly-appended row as a

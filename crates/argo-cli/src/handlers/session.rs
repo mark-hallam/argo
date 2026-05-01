@@ -15,7 +15,20 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             since_minutes,
             spent_min,
             spent_max,
-        } => list_sessions(limit, json, since_minutes, spent_min, spent_max).await,
+            provider,
+            model,
+        } => {
+            list_sessions(
+                limit,
+                json,
+                since_minutes,
+                spent_min,
+                spent_max,
+                provider,
+                model,
+            )
+            .await
+        }
         SessionCmd::Show { id, json } => show_session(&id, json).await,
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
         SessionCmd::AttachSkill { id, skill } => {
@@ -394,12 +407,15 @@ fn message_summary(row: &argo_store::MessageRow) -> (String, String) {
     (row.role.clone(), snippet)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn list_sessions(
     limit: u32,
     json: bool,
     since_minutes: Option<i64>,
     spent_min: Option<u64>,
     spent_max: Option<u64>,
+    provider: Option<String>,
+    model: Option<String>,
 ) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
@@ -412,6 +428,12 @@ async fn list_sessions(
     if let Some(minutes) = since_minutes {
         let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
         sessions.retain(|s| s.started_at >= cutoff);
+    }
+    if let Some(want) = provider.as_deref() {
+        sessions.retain(|s| s.provider == want);
+    }
+    if let Some(want) = model.as_deref() {
+        sessions.retain(|s| s.model == want);
     }
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
