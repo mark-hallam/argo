@@ -9,6 +9,7 @@ mod metrics;
 mod routes;
 mod routes_catalog;
 mod routes_cron;
+mod routes_forge_promote;
 mod routes_lists;
 mod routes_meta;
 mod routes_msgs;
@@ -158,6 +159,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /forge/optimize/stream → chunked-NDJSON live forge progress");
     eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");
     eprintln!("  POST /forge/runs/<id>/abort → flip a run's status to 'aborted'");
+    eprintln!("  POST /forge/runs/<id>/promote → promote that run's candidate to active");
     eprintln!("  POST /skills/<name>/promote → promote a version to active ({{version}})");
     eprintln!("  POST /skills/<name>/{{lock,unlock,refine}} → lock / unlock / append hint refine");
     eprintln!("  POST /memory/<id>/{{lock,unlock,forget,edit}} → admin ops on a memory entry");

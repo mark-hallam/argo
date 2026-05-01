@@ -33,6 +33,7 @@ use super::routes_session_skills::{
 use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
 };
+use super::routes_forge_promote::forge_promote_response;
 use super::routes_post_writes::{
     append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
     forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
@@ -275,6 +276,9 @@ pub(super) async fn dispatch_route(
         if let Some((id, tail)) = rest.split_once('/') {
             if tail.starts_with("abort ") {
                 return forge_abort_response(id, store).await;
+            }
+            if tail.starts_with("promote ") {
+                return forge_promote_response(id, store).await;
             }
         }
     }

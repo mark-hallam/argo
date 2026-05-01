@@ -166,6 +166,24 @@ fn forge_bench_post_returns_202_with_provider_defaults() {
 }
 
 #[test]
+fn forge_promote_returns_400_on_bad_uuid_and_404_on_missing_run() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    let resp = http_post(port, "/forge/runs/abcdef12/promote", "");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    let resp = http_post(
+        port,
+        "/forge/runs/00000000-0000-0000-0000-000000000000/promote",
+        "",
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
 fn forge_abort_returns_400_on_short_id_and_404_on_missing_uuid() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);
