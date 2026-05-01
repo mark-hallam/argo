@@ -56,9 +56,15 @@ pub(crate) async fn fetch_message_count(
     Ok(())
 }
 
-/// Fetch the first ~50 messages for the selected session. No-op
-/// when nothing is selected or `messages_loaded` is already
-/// `true`.
+/// Hard cap on rows the messages pane keeps in memory. Bumped
+/// from 50 → 500 in #298 — at one row per real message that's
+/// enough headroom for a multi-hour session, while still
+/// bounding TUI memory on a runaway loop.
+pub(crate) const MAX_VIEWER_MESSAGES: usize = 500;
+
+/// Fetch up to `MAX_VIEWER_MESSAGES` messages for the selected
+/// session. No-op when nothing is selected or `messages_loaded`
+/// is already `true`.
 pub(crate) async fn fetch_messages(
     store: &SessionStore,
     state: &mut ViewerState,
@@ -70,8 +76,7 @@ pub(crate) async fn fetch_messages(
         return Ok(());
     };
     let mut rows = store.list_messages(SessionId(session.id.0)).await?;
-    // Cap at 50 rows so the preview pane stays bounded.
-    rows.truncate(50);
+    rows.truncate(MAX_VIEWER_MESSAGES);
     state.selected_messages = rows;
     state.messages_loaded = true;
     Ok(())
