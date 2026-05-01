@@ -138,7 +138,8 @@ pub(super) async fn dispatch_route(
             .and_then(|tail| parse_query_kv(tail, "limit"))
             .and_then(|v| v.parse().ok())
             .unwrap_or(25);
-        return artifacts_response(limit, store).await;
+        let since = parse_since_minutes_from_get(req, "/workspace/artifacts");
+        return artifacts_response(limit, since, store).await;
     }
     if req.starts_with("GET /cron ") || req.starts_with("GET /cron?") {
         return cron_list_response().await;

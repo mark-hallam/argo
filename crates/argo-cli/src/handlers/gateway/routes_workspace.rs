@@ -37,13 +37,15 @@ pub(super) async fn workspace_info_response(
     }
 }
 
-/// `GET /workspace/artifacts[?limit=N]` — list recorded
-/// marketplace pushes from the workspace's `marketplace_artifact`
-/// table, newest first. Defaults to 25 rows. Returns 503 if the
-/// store is unavailable or 200 + an empty array if no workspace
-/// is registered yet.
+/// `GET /workspace/artifacts[?limit=N&since-minutes=M]` — list
+/// recorded marketplace pushes from the workspace's
+/// `marketplace_artifact` table, newest first. Defaults to 25
+/// rows. `since-minutes` (optional) filters to rows pushed in
+/// the last M minutes. Returns 503 if the store is unavailable
+/// or 200 + an empty array if no workspace is registered yet.
 pub(super) async fn artifacts_response(
     limit: u32,
+    since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -60,10 +62,21 @@ pub(super) async fn artifacts_response(
         }
     };
     match store.list_marketplace_artifacts(workspace, limit).await {
-        Ok(rows) => (
-            "200 OK",
-            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
-        ),
+        Ok(rows) => {
+            let cutoff_micros = since_minutes
+                .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
+            let filtered: Vec<_> = rows
+                .into_iter()
+                .filter(|r| match cutoff_micros {
+                    Some(c) => r.pushed_at >= c,
+                    None => true,
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&filtered).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"list_marketplace_artifacts: {e}\"}}"),
