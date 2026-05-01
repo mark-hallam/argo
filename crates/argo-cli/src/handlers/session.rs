@@ -13,7 +13,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             limit,
             json,
             since_minutes,
-        } => list_sessions(limit, json, since_minutes).await,
+            spent_min,
+            spent_max,
+        } => list_sessions(limit, json, since_minutes, spent_min, spent_max).await,
         SessionCmd::Show { id, json } => show_session(&id, json).await,
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
         SessionCmd::AttachSkill { id, skill } => {
@@ -396,6 +398,8 @@ async fn list_sessions(
     limit: u32,
     json: bool,
     since_minutes: Option<i64>,
+    spent_min: Option<u64>,
+    spent_max: Option<u64>,
 ) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
@@ -411,6 +415,25 @@ async fn list_sessions(
     }
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
+    if spent_min.is_some() || spent_max.is_some() {
+        sessions.retain(|s| {
+            let spent = spend_by_sid
+                .get(s.id.0.as_bytes().as_slice())
+                .copied()
+                .unwrap_or(0);
+            if let Some(min) = spent_min {
+                if spent < min {
+                    return false;
+                }
+            }
+            if let Some(max) = spent_max {
+                if spent > max {
+                    return false;
+                }
+            }
+            true
+        });
+    }
     if json {
         for s in &sessions {
             let spent = spend_by_sid

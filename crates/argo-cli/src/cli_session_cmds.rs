@@ -18,6 +18,13 @@ pub enum SessionCmd {
         /// against `started_at`.
         #[arg(long)]
         since_minutes: Option<i64>,
+        /// Lower bound on per-session spend in usd_micros.
+        /// `--spent-min 1000000` keeps only sessions costing $1+.
+        #[arg(long)]
+        spent_min: Option<u64>,
+        /// Upper bound on per-session spend in usd_micros.
+        #[arg(long)]
+        spent_max: Option<u64>,
     },
     /// `tail -f`-style live watch of new messages on a session.
     /// Polls every 500ms; prints each newly-appended row as a
