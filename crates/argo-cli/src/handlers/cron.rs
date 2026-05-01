@@ -17,7 +17,7 @@ pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
     std::fs::create_dir_all(&dir)
         .map_err(|e| ArgoError::Provider(format!("create_dir_all {}: {e}", dir.display())))?;
     match cmd {
-        CronCmd::List { json } => list_jobs(&dir, json),
+        CronCmd::List { json, format } => list_jobs(&dir, json, &format),
         CronCmd::Create {
             name,
             schedule,
@@ -200,7 +200,7 @@ impl JobRunner for LoggingRunner {
     }
 }
 
-fn list_jobs(dir: &std::path::Path, json: bool) -> ArgoResult<()> {
+fn list_jobs(dir: &std::path::Path, json: bool, format: &str) -> ArgoResult<()> {
     let mut entries: Vec<PathBuf> = Vec::new();
     for entry in std::fs::read_dir(dir)
         .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
@@ -212,26 +212,59 @@ fn list_jobs(dir: &std::path::Path, json: bool) -> ArgoResult<()> {
         }
     }
     entries.sort();
-    if !json && entries.is_empty() {
+    let pick = if json { "json" } else { format };
+    if pick == "text" && entries.is_empty() {
         println!("(no cron jobs in {})", dir.display());
         return Ok(());
     }
-    for p in entries {
-        let body = std::fs::read_to_string(&p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
-        let job: CronJob = serde_json::from_str(&body)
-            .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", p.display())))?;
-        if json {
-            // The on-disk JSON is already canonical — emit it verbatim
-            // (one object per line) so callers can pipe to `jq`.
-            let canonical = serde_json::to_string(&job)
-                .map_err(|e| ArgoError::Provider(format!("serialize job: {e}")))?;
-            println!("{canonical}");
-        } else {
-            println!(
-                "  {:<24} {:<14} platform={:<10} enabled={}",
-                job.name, job.schedule.source, job.target.platform, job.enabled
-            );
+    let jobs: Vec<CronJob> = entries
+        .iter()
+        .filter_map(|p| {
+            std::fs::read_to_string(p)
+                .ok()
+                .and_then(|b| serde_json::from_str::<CronJob>(&b).ok())
+        })
+        .collect();
+    match pick {
+        "json" => {
+            for job in &jobs {
+                let canonical = serde_json::to_string(job)
+                    .map_err(|e| ArgoError::Provider(format!("serialize job: {e}")))?;
+                println!("{canonical}");
+            }
+        }
+        "markdown" => {
+            println!("# Cron jobs ({} matches)", jobs.len());
+            println!();
+            if jobs.is_empty() {
+                println!("_(no cron jobs in {})_", dir.display());
+                return Ok(());
+            }
+            println!("| name | schedule | platform | chat | enabled |");
+            println!("| --- | --- | --- | --- | :---: |");
+            for job in &jobs {
+                println!(
+                    "| `{}` | `{}` | `{}` | `{}` | {} |",
+                    job.name,
+                    job.schedule.source,
+                    job.target.platform,
+                    job.target.chat,
+                    if job.enabled { "✓" } else { "·" }
+                );
+            }
+        }
+        "text" => {
+            for job in &jobs {
+                println!(
+                    "  {:<24} {:<14} platform={:<10} enabled={}",
+                    job.name, job.schedule.source, job.target.platform, job.enabled
+                );
+            }
+        }
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
         }
     }
     Ok(())

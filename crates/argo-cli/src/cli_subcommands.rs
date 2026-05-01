@@ -9,8 +9,13 @@ pub enum AgentsCmd {
     /// List `[agents.*]` blocks from `argo.toml`.
     List {
         /// Output as a JSON array for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Add a new `[agents.<name>]` block to `argo.toml`. Use the
     /// flags to populate keys; defaults are sensible enough that
@@ -104,8 +109,13 @@ pub enum ProviderCmd {
     /// List provider manifests under `manifests/providers/`.
     List {
         /// Output as a JSON array of `{id, family, base_url}` rows.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Render one provider manifest's full details (header, auth,
     /// transport, capabilities, models, discovery).
@@ -336,8 +346,13 @@ pub enum CronCmd {
     /// List scheduled jobs in the workspace's `cron/jobs/` directory.
     List {
         /// Output as JSON (one object per job) for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Create a new job (`<name> <schedule> <prompt> <platform> <chat>`).
     Create {

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 pub async fn run(cmd: ProviderCmd) -> ArgoResult<()> {
     match cmd {
-        ProviderCmd::List { json } => list_manifests(json),
+        ProviderCmd::List { json, format } => list_manifests(json, &format),
         ProviderCmd::Show { id, json } => show(&id, json),
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
         ProviderCmd::ValidateAll => validate_all(),
@@ -241,7 +241,7 @@ fn render(m: &ProviderManifest) -> ArgoResult<()> {
     Ok(())
 }
 
-fn list_manifests(json: bool) -> ArgoResult<()> {
+fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     // Spec layout: workspace `manifests/providers/*.toml` for tenant
@@ -264,24 +264,53 @@ fn list_manifests(json: bool) -> ArgoResult<()> {
         }
     }
     paths.sort();
-    if json {
-        let arr: Vec<serde_json::Value> = paths
-            .iter()
-            .filter_map(|p| {
-                let body = std::fs::read_to_string(p).ok()?;
-                let m = ProviderManifest::from_toml_str(&body).ok()?;
-                Some(serde_json::json!({
-                    "id": m.provider.id,
-                    "family": format!("{:?}", m.provider.family),
-                    "base_url": m.provider.base_url,
-                }))
-            })
-            .collect();
-        println!(
-            "{}",
-            serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
-        );
-        return Ok(());
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => {
+            let arr: Vec<serde_json::Value> = paths
+                .iter()
+                .filter_map(|p| {
+                    let body = std::fs::read_to_string(p).ok()?;
+                    let m = ProviderManifest::from_toml_str(&body).ok()?;
+                    Some(serde_json::json!({
+                        "id": m.provider.id,
+                        "family": format!("{:?}", m.provider.family),
+                        "base_url": m.provider.base_url,
+                    }))
+                })
+                .collect();
+            println!(
+                "{}",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
+            );
+            return Ok(());
+        }
+        "markdown" => {
+            println!("# Providers ({} matches)", paths.len());
+            println!();
+            if paths.is_empty() {
+                println!("_(no provider manifests under {}/manifests/providers/)_", cwd.display());
+                return Ok(());
+            }
+            println!("| id | family | base_url |");
+            println!("| --- | --- | --- |");
+            for p in &paths {
+                let body = std::fs::read_to_string(p).unwrap_or_default();
+                if let Ok(m) = ProviderManifest::from_toml_str(&body) {
+                    println!(
+                        "| `{}` | `{:?}` | `{}` |",
+                        m.provider.id, m.provider.family, m.provider.base_url
+                    );
+                }
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     if paths.is_empty() {
         println!(

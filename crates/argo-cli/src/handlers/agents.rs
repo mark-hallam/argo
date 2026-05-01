@@ -9,8 +9,8 @@ use argo_types::{ArgoError, ArgoResult};
 
 pub fn run(cmd: Option<AgentsCmd>) -> ArgoResult<()> {
     match cmd {
-        None => list_agents(false),
-        Some(AgentsCmd::List { json }) => list_agents(json),
+        None => list_agents(false, "text"),
+        Some(AgentsCmd::List { json, format }) => list_agents(json, &format),
         Some(AgentsCmd::Create {
             name,
             model,
@@ -26,15 +26,16 @@ pub fn run(cmd: Option<AgentsCmd>) -> ArgoResult<()> {
     }
 }
 
-fn list_agents(json: bool) -> ArgoResult<()> {
+fn list_agents(json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
+    let pick = if json { "json" } else { format };
     if !toml_path.exists() {
-        if json {
-            println!("[]");
-        } else {
-            println!("(no argo.toml — run `argo workspace init` first)");
+        match pick {
+            "json" => println!("[]"),
+            "markdown" => println!("# Agents (0 matches)\n\n_(no argo.toml — run `argo workspace init` first)_"),
+            _ => println!("(no argo.toml — run `argo workspace init` first)"),
         }
         return Ok(());
     }
@@ -43,41 +44,72 @@ fn list_agents(json: bool) -> ArgoResult<()> {
     let value: toml::Value =
         toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse argo.toml: {e}")))?;
     let Some(agents_table) = value.get("agents").and_then(|v| v.as_table()) else {
-        if json {
-            println!("[]");
-        } else {
-            println!("(no [agents.*] blocks in argo.toml)");
+        match pick {
+            "json" => println!("[]"),
+            "markdown" => println!("# Agents (0 matches)\n\n_(no [agents.*] blocks in argo.toml)_"),
+            _ => println!("(no [agents.*] blocks in argo.toml)"),
         }
         return Ok(());
     };
     if agents_table.is_empty() {
-        if json {
-            println!("[]");
-        } else {
-            println!("(no [agents.*] blocks in argo.toml)");
+        match pick {
+            "json" => println!("[]"),
+            "markdown" => println!("# Agents (0 matches)\n\n_(no [agents.*] blocks in argo.toml)_"),
+            _ => println!("(no [agents.*] blocks in argo.toml)"),
         }
         return Ok(());
     }
     let mut names: Vec<&String> = agents_table.keys().collect();
     names.sort();
-    if json {
-        let arr: Vec<serde_json::Value> = names
-            .iter()
-            .map(|name| {
-                let block = &agents_table[*name];
-                serde_json::json!({
-                    "name": name,
-                    "default_model": block.get("default_model").and_then(toml::Value::as_str),
-                    "default_toolset": block.get("default_toolset").and_then(toml::Value::as_str),
-                    "memory_namespace": block.get("memory_namespace").and_then(toml::Value::as_str),
+    match pick {
+        "json" => {
+            let arr: Vec<serde_json::Value> = names
+                .iter()
+                .map(|name| {
+                    let block = &agents_table[*name];
+                    serde_json::json!({
+                        "name": name,
+                        "default_model": block.get("default_model").and_then(toml::Value::as_str),
+                        "default_toolset": block.get("default_toolset").and_then(toml::Value::as_str),
+                        "memory_namespace": block.get("memory_namespace").and_then(toml::Value::as_str),
+                    })
                 })
-            })
-            .collect();
-        println!(
-            "{}",
-            serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
-        );
-        return Ok(());
+                .collect();
+            println!(
+                "{}",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string())
+            );
+            return Ok(());
+        }
+        "markdown" => {
+            println!("# Agents ({} matches)", names.len());
+            println!();
+            println!("| name | default_model | default_toolset | memory_namespace |");
+            println!("| --- | --- | --- | --- |");
+            for name in &names {
+                let block = &agents_table[*name];
+                let model = block
+                    .get("default_model")
+                    .and_then(toml::Value::as_str)
+                    .unwrap_or("(none)");
+                let toolset = block
+                    .get("default_toolset")
+                    .and_then(toml::Value::as_str)
+                    .unwrap_or("(none)");
+                let ns = block
+                    .get("memory_namespace")
+                    .and_then(toml::Value::as_str)
+                    .unwrap_or("(none)");
+                println!("| `{name}` | `{model}` | `{toolset}` | `{ns}` |");
+            }
+            return Ok(());
+        }
+        "text" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+            )));
+        }
     }
     println!(
         "{name:<16} {model:<28} {toolset:<14} memory_namespace",
