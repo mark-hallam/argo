@@ -283,3 +283,41 @@ fn build_registry(host: &str) -> OciDistributionRegistry {
     }
     reg
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_base_url_chooses_https_for_remote_hosts() {
+        assert_eq!(host_base_url("ghcr.io"), "https://ghcr.io");
+        assert_eq!(host_base_url("registry-1.docker.io"), "https://registry-1.docker.io");
+        assert_eq!(host_base_url("registry.gitlab.com"), "https://registry.gitlab.com");
+    }
+
+    #[test]
+    fn host_base_url_chooses_http_for_local_hosts() {
+        assert_eq!(host_base_url("localhost:5000"), "http://localhost:5000");
+        assert_eq!(host_base_url("127.0.0.1:5000"), "http://127.0.0.1:5000");
+        assert_eq!(host_base_url("localhost"), "http://localhost");
+    }
+
+    /// `ARGO_OCI_TOKEN` reads cleanly when set; absent → `None`.
+    /// (The actual flow path through `OciDistributionRegistry` is
+    /// covered by `argo-marketplace` integration tests; this just
+    /// pins the env-var contract.)
+    #[test]
+    fn oci_token_reads_from_env() {
+        // Save + restore the var so concurrent tests don't see
+        // each other's mutations.
+        let saved = std::env::var("ARGO_OCI_TOKEN").ok();
+        std::env::remove_var("ARGO_OCI_TOKEN");
+        assert!(oci_token().is_none(), "expected None when env unset");
+        std::env::set_var("ARGO_OCI_TOKEN", "ghp_test_token");
+        assert_eq!(oci_token().as_deref(), Some("ghp_test_token"));
+        match saved {
+            Some(s) => std::env::set_var("ARGO_OCI_TOKEN", s),
+            None => std::env::remove_var("ARGO_OCI_TOKEN"),
+        }
+    }
+}
