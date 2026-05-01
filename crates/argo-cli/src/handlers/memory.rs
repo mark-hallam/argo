@@ -20,7 +20,11 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         .ok_or_else(|| ArgoError::Provider("no workspace registered yet".into()))?;
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
-        MemoryCmd::List { json, file } => list(&memory, workspace, json, file.as_deref()).await,
+        MemoryCmd::List {
+            json,
+            file,
+            sort_by,
+        } => list(&memory, workspace, json, file.as_deref(), &sort_by).await,
         MemoryCmd::Count { file, json } => count(&memory, workspace, file.as_deref(), json).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
         MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
@@ -104,18 +108,20 @@ async fn list(
     workspace: argo_types::WorkspaceId,
     json: bool,
     only: Option<&str>,
+    sort_by: &str,
 ) -> ArgoResult<()> {
     let only_file = match only {
         None => None,
         Some(s) => Some(parse_memory_file(s)?),
     };
-    let mut total = 0_usize;
     let all = [
         MemoryFile::Memory,
         MemoryFile::User,
         MemoryFile::Soul,
         MemoryFile::Agents,
     ];
+    // Collect across files first so we can sort uniformly.
+    let mut all_entries: Vec<argo_memory::MemoryEntry> = Vec::new();
     for file in all {
         if let Some(f) = only_file {
             if file != f {
@@ -123,43 +129,58 @@ async fn list(
             }
         }
         let entries = memory.list_active(workspace, file).await?;
-        if json {
-            for e in &entries {
-                let row = serde_json::json!({
-                    "id": e.id.to_string(),
-                    "file": format!("{:?}", e.file),
-                    "bytes": e.body.len(),
-                    "lock": format!("{:?}", e.lock),
-                    "hash": hex::encode(e.hash),
-                    "learned_in": e.learned_in.map(|s| s.0.to_string()),
-                    "learned_at": e.learned_at.to_rfc3339(),
-                });
-                let serialized = serde_json::to_string(&row)
-                    .map_err(|err| ArgoError::Provider(format!("serialize memory: {err}")))?;
-                println!("{serialized}");
-            }
-            total += entries.len();
-            continue;
+        all_entries.extend(entries);
+    }
+    match sort_by {
+        "learned-at" => {
+            all_entries.sort_by_key(|e| std::cmp::Reverse(e.learned_at));
         }
-        if entries.is_empty() {
-            continue;
+        "size" => {
+            all_entries.sort_by_key(|e| std::cmp::Reverse(e.body.len()));
         }
-        total += entries.len();
-        println!("# {}.md", file.filename().trim_end_matches(".md"));
-        for e in entries {
-            let head = e
-                .body
-                .lines()
-                .next()
-                .unwrap_or("")
-                .chars()
-                .take(60)
-                .collect::<String>();
-            println!("  {} ({} bytes)  {head}", e.id, e.body.len());
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown --sort-by '{other}' — use learned-at|size"
+            )));
         }
     }
-    if !json && total == 0 {
+    let total = all_entries.len();
+    if json {
+        for e in &all_entries {
+            let row = serde_json::json!({
+                "id": e.id.to_string(),
+                "file": format!("{:?}", e.file),
+                "bytes": e.body.len(),
+                "lock": format!("{:?}", e.lock),
+                "hash": hex::encode(e.hash),
+                "learned_in": e.learned_in.map(|s| s.0.to_string()),
+                "learned_at": e.learned_at.to_rfc3339(),
+            });
+            let serialized = serde_json::to_string(&row)
+                .map_err(|err| ArgoError::Provider(format!("serialize memory: {err}")))?;
+            println!("{serialized}");
+        }
+        return Ok(());
+    }
+    if total == 0 {
         println!("(no active memory entries)");
+        return Ok(());
+    }
+    for e in all_entries {
+        let head = e
+            .body
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(60)
+            .collect::<String>();
+        println!(
+            "  [{:?}] {} ({} bytes)  {head}",
+            e.file,
+            e.id,
+            e.body.len()
+        );
     }
     Ok(())
 }

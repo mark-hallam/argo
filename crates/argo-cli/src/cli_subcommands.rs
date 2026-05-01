@@ -205,6 +205,10 @@ pub enum MemoryCmd {
         /// Limit to one file: memory|user|soul|agents.
         #[arg(long)]
         file: Option<String>,
+        /// Sort order: `learned-at` (default, descending) or
+        /// `size` (body byte length descending — biggest first).
+        #[arg(long, default_value = "learned-at")]
+        sort_by: String,
     },
     View {
         entry: String,
