@@ -83,6 +83,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
         AuditCmd::Show {
             tail,
             json,
+            format,
             session,
             kinds,
             since_minutes,
@@ -105,14 +106,28 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 if let Some(c) = cutoff {
                     rows.retain(|r| r.created_at_micros >= c);
                 }
-                if json {
-                    for r in &rows {
-                        let line = serde_json::to_string(r).map_err(|e| {
-                            ArgoError::Provider(format!("serialize row: {e}"))
-                        })?;
-                        println!("{line}");
+                let pick = if json { "json" } else { format.as_str() };
+                match pick {
+                    "json" => {
+                        for r in &rows {
+                            let line = serde_json::to_string(r).map_err(|e| {
+                                ArgoError::Provider(format!("serialize row: {e}"))
+                            })?;
+                            println!("{line}");
+                        }
+                        return Ok(());
                     }
-                    return Ok(());
+                    "markdown" => {
+                        let summary = summarize_session_rows(&rows);
+                        super::audit_md::render_session(&raw, &rows, &summary);
+                        return Ok(());
+                    }
+                    "text" => {}
+                    other => {
+                        return Err(ArgoError::Provider(format!(
+                            "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+                        )));
+                    }
                 }
                 println!("audit chain for session {raw} — {} rows", rows.len());
                 for r in &rows {
@@ -142,35 +157,48 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             if let Some(c) = cutoff {
                 tail_rows_data.retain(|r| r.created_at_micros >= c);
             }
-            if json {
-                let kinds_obj: serde_json::Map<String, serde_json::Value> = report
-                    .kind_counts
-                    .iter()
-                    .map(|(k, v)| (k.clone(), serde_json::json!(v)))
-                    .collect();
-                let tail_arr: Vec<_> = tail_rows_data
-                    .iter()
-                    .map(|r| {
-                        serde_json::json!({
-                            "seq": r.seq,
-                            "kind": r.kind,
-                            "session_id": r.session_id,
-                            "payload": r.payload,
-                            "created_at_micros": r.created_at_micros,
+            let pick = if json { "json" } else { format.as_str() };
+            match pick {
+                "json" => {
+                    let kinds_obj: serde_json::Map<String, serde_json::Value> = report
+                        .kind_counts
+                        .iter()
+                        .map(|(k, v)| (k.clone(), serde_json::json!(v)))
+                        .collect();
+                    let tail_arr: Vec<_> = tail_rows_data
+                        .iter()
+                        .map(|r| {
+                            serde_json::json!({
+                                "seq": r.seq,
+                                "kind": r.kind,
+                                "session_id": r.session_id,
+                                "payload": r.payload,
+                                "created_at_micros": r.created_at_micros,
+                            })
                         })
-                    })
-                    .collect();
-                let payload = serde_json::json!({
-                    "rows": report.rows,
-                    "ok": report.ok,
-                    "breaks": report.breaks.len(),
-                    "kinds": kinds_obj,
-                    "tail": tail_arr,
-                });
-                let serialized = serde_json::to_string(&payload)
-                    .map_err(|e| ArgoError::Provider(format!("serialize audit: {e}")))?;
-                println!("{serialized}");
-                return Ok(());
+                        .collect();
+                    let payload = serde_json::json!({
+                        "rows": report.rows,
+                        "ok": report.ok,
+                        "breaks": report.breaks.len(),
+                        "kinds": kinds_obj,
+                        "tail": tail_arr,
+                    });
+                    let serialized = serde_json::to_string(&payload)
+                        .map_err(|e| ArgoError::Provider(format!("serialize audit: {e}")))?;
+                    println!("{serialized}");
+                    return Ok(());
+                }
+                "markdown" => {
+                    super::audit_md::render_global(&report, &tail_rows_data);
+                    return Ok(());
+                }
+                "text" => {}
+                other => {
+                    return Err(ArgoError::Provider(format!(
+                        "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+                    )));
+                }
             }
             println!("audit log — {} rows", report.rows);
             let mut kinds: Vec<(&String, &usize)> = report.kind_counts.iter().collect();
@@ -358,12 +386,12 @@ fn parse_kinds(spec: Option<&str>) -> Option<std::collections::HashSet<String>> 
 }
 
 /// Summary counts derived from a session's audit chain.
-struct SessionSummary {
-    turns: u32,
-    tool_calls: u32,
-    tool_errors: u32,
-    tokens_in: u64,
-    tokens_out: u64,
+pub(super) struct SessionSummary {
+    pub(super) turns: u32,
+    pub(super) tool_calls: u32,
+    pub(super) tool_errors: u32,
+    pub(super) tokens_in: u64,
+    pub(super) tokens_out: u64,
 }
 
 fn summarize_session_rows(rows: &[argo_audit::ExportedRow]) -> SessionSummary {
@@ -400,7 +428,7 @@ fn summarize_session_rows(rows: &[argo_audit::ExportedRow]) -> SessionSummary {
 /// One-line "interesting field" extract from a row's payload, keyed
 /// by audit kind. Keeps `audit show --tail` readable without the
 /// reader having to dig the payload column out of sqlite.
-fn payload_detail(kind: &str, payload: &serde_json::Value) -> String {
+pub(super) fn payload_detail(kind: &str, payload: &serde_json::Value) -> String {
     let s = |k: &str| payload.get(k).and_then(|v| v.as_str()).unwrap_or("");
     let n = |k: &str| payload.get(k).and_then(serde_json::Value::as_u64);
     let b = |k: &str| payload.get(k).and_then(serde_json::Value::as_bool);

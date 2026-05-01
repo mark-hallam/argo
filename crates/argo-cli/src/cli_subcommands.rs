@@ -389,8 +389,13 @@ pub enum AuditCmd {
         #[arg(long)]
         tail: Option<u32>,
         /// Output as a single JSON object (kind histogram + tail).
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
         /// Session id to scope to. With this set, the output is the
         /// session's full audit chain (seq order, oldest first).
         #[arg(long)]
