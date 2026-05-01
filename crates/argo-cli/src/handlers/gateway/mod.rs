@@ -91,11 +91,13 @@ fn print_routes(
         return Ok(());
     }
     println!("argo gateway routes ({} endpoints)", rows.len());
-    for row in rows {
+    let width = (rows.len().max(1) as f64).log10().ceil() as usize;
+    for (i, row) in rows.iter().enumerate() {
         let m = row["method"].as_str().unwrap_or("?");
         let p = row["path"].as_str().unwrap_or("?");
         let d = row["description"].as_str().unwrap_or("");
-        println!("  {m:<5} {p:<40} {d}");
+        let n = i + 1;
+        println!("  {n:>width$}. {m:<5} {p:<40} {d}");
     }
     Ok(())
 }
