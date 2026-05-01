@@ -65,7 +65,15 @@ pub async fn run(json: bool) -> ArgoResult<()> {
     print_cron(&payload["cron"]);
     print_creds(&payload["creds"]);
     print_gateway(&payload["gateway"]);
+    print_routes(&payload["routes"]);
     Ok(())
+}
+
+fn print_routes(v: &serde_json::Value) {
+    let total = v["total"].as_u64().unwrap_or(0);
+    let get = v["get"].as_u64().unwrap_or(0);
+    let post = v["post"].as_u64().unwrap_or(0);
+    println!("  routes:     {total} endpoints ({get} GET, {post} POST)");
 }
 
 fn print_audit(v: &serde_json::Value) {
