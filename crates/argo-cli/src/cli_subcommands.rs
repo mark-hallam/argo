@@ -340,7 +340,11 @@ pub enum WorkspaceCmd {
     /// canonical bundle directories).
     Init,
     /// One-line status summary (workspace + db + costs).
-    Status,
+    Status {
+        /// Output as a single JSON object for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     /// Verify workspace integrity: argo.toml parses, memory files +
     ///   bundle dirs exist, agent persona files exist, manifests
     ///   referenced from `[provider.profiles.*]` resolve.

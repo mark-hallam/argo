@@ -46,7 +46,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     match cmd {
         WorkspaceCmd::Init => init(&cwd).await,
-        WorkspaceCmd::Status => status(&cwd).await,
+        WorkspaceCmd::Status { json } => status(&cwd, json).await,
         WorkspaceCmd::Verify => verify(&cwd),
         WorkspaceCmd::Push { oci_ref } => wm::push(&cwd, &oci_ref).await,
         WorkspaceCmd::Pull { oci_ref } => wm::pull(&cwd, &oci_ref).await,
@@ -60,7 +60,7 @@ pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
     }
 }
 
-async fn status(cwd: &std::path::Path) -> ArgoResult<()> {
+async fn status(cwd: &std::path::Path, json: bool) -> ArgoResult<()> {
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
@@ -69,6 +69,30 @@ async fn status(cwd: &std::path::Path) -> ArgoResult<()> {
     store.migrate().await?;
     let stats = store.db_stats().await?;
     let ceilings = cfg.budget.to_cost_ceilings();
+    if json {
+        let payload = serde_json::json!({
+            "cwd":         cwd.display().to_string(),
+            "argo_home":   home.display().to_string(),
+            "profile":     cfg.core.profile,
+            "tenant":      {
+                "default_id": cfg.tenant.default_id,
+                "mode":       cfg.tenant.mode,
+            },
+            "caps": {
+                "per_session_usd_micros": ceilings.per_session_usd_micros,
+                "per_day_usd_micros":     ceilings.per_day_usd_micros,
+                "per_month_usd_micros":   ceilings.per_month_usd_micros,
+            },
+            "rows": {
+                "sessions":   stats.sessions,
+                "messages":   stats.messages,
+                "audit":      stats.audit_rows,
+                "forge_runs": stats.forge_runs,
+            },
+        });
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+        return Ok(());
+    }
     println!("workspace status");
     println!("  cwd:        {}", cwd.display());
     println!("  ARGO_HOME:  {}", home.display());
