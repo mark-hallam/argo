@@ -10,7 +10,7 @@ use super::routes_meta::{
     skill_show_response, skill_versions_response, tool_show_response, tools_response,
 };
 use super::routes_providers::{
-    provider_models_response, provider_show_response, providers_response,
+    provider_models_response, providers_response,
 };
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
@@ -165,8 +165,19 @@ pub(super) async fn dispatch_route(
                 return provider_models_response(id).await;
             }
         }
-        if let Some((id, _)) = rest.split_once(' ') {
-            return provider_show_response(id).await;
+        if let Some((id_with_query, _)) = rest.split_once(' ') {
+            let (id, query) = match id_with_query.split_once('?') {
+                Some((i, q)) => (i, Some(q)),
+                None => (id_with_query, None),
+            };
+            let format = query
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+                .map(str::to_string);
+            return super::routes_providers::provider_show_response_with_format(
+                id,
+                format.as_deref(),
+            )
+            .await;
         }
     }
     if req.starts_with("GET /tools ") || req.starts_with("GET /tools?") {

@@ -96,6 +96,16 @@ pub(super) async fn provider_models_response(raw_id: &str) -> (&'static str, Str
 /// `manifests/providers/<id>.toml` exists; 400 on path-
 /// traversal `id` segments.
 pub(super) async fn provider_show_response(raw_id: &str) -> (&'static str, String) {
+    provider_show_response_with_format(raw_id, None).await
+}
+
+/// Same as `provider_show_response`, but supports
+/// `?format=markdown` rendering. Default returns the
+/// historical JSON shape unchanged.
+pub(super) async fn provider_show_response_with_format(
+    raw_id: &str,
+    format: Option<&str>,
+) -> (&'static str, String) {
     if raw_id.contains('/') || raw_id.contains('\\') || raw_id.contains("..") {
         return (
             "400 Bad Request",
@@ -136,6 +146,39 @@ pub(super) async fn provider_show_response(raw_id: &str) -> (&'static str, Strin
             );
         }
     };
+    if matches!(format, Some("markdown")) {
+        let mut out = format!("# Provider `{}` ({:?})\n\n", m.provider.id, m.provider.family);
+        out.push_str(&format!("- **base_url**: `{}`\n", m.provider.base_url));
+        out.push_str(&format!(
+            "- **auth**: env=`{}` (header=`{}`, format=`{}`)\n",
+            m.auth.api_key_env, m.auth.header_name, m.auth.header_format
+        ));
+        if !m.models.is_empty() {
+            out.push_str("\n## Models\n\n");
+            out.push_str("| id | ctx | tier | input/1k | output/1k |\n");
+            out.push_str("| --- | ---: | --- | ---: | ---: |\n");
+            for spec in &m.models {
+                let ctx = spec
+                    .context_window
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| "-".into());
+                let tier = spec.tier.as_deref().unwrap_or("-");
+                let in_p = spec
+                    .price_per_1k_in
+                    .map(|p| format!("${p:.4}"))
+                    .unwrap_or_else(|| "-".into());
+                let out_p = spec
+                    .price_per_1k_out
+                    .map(|p| format!("${p:.4}"))
+                    .unwrap_or_else(|| "-".into());
+                out.push_str(&format!(
+                    "| `{}` | {ctx} | `{tier}` | {in_p} | {out_p} |\n",
+                    spec.id
+                ));
+            }
+        }
+        return ("200 OK", out);
+    }
     (
         "200 OK",
         serde_json::to_string(&manifest_to_json(&m)).unwrap_or_else(|_| "{}".to_string()),
