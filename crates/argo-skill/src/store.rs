@@ -273,6 +273,22 @@ impl SkillStore {
         rows.into_iter().map(Skill::try_from).collect()
     }
 
+    /// Every skill row, including superseded — sorted by name
+    /// then `created_at`. Used by `GET /skills?include-superseded=true`
+    /// to surface the full version history across every name.
+    pub async fn list_all(&self) -> ArgoResult<Vec<Skill>> {
+        let rows = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             ORDER BY s.name ASC, s.created_at ASC",
+        )
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("skill list_all: {e}")))?;
+        rows.into_iter().map(Skill::try_from).collect()
+    }
+
     /// All active skills, ordered by name.
     pub async fn list_active(&self) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(

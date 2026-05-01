@@ -127,7 +127,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /sessions/<uuid>/title  → rename ({{title}}; empty clears)");
     eprintln!("  POST /sessions/<uuid>/end    → mark a session ended (stamps ended_at)");
     eprintln!("  POST /sessions/<uuid>/replay/stream → chunked-NDJSON stream of replay events");
-    eprintln!("  GET  /skills   → active skills (JSON array)");
+    eprintln!("  GET  /skills   → active skills (?include-superseded=true for full history)");
     eprintln!("  GET  /skills/<name> → one skill view (full body + frontmatter)");
     eprintln!("  GET  /skills/<name>/versions → supersede chain for that name");
     eprintln!("  POST /skills   → install a SKILL.md document ({{raw}})");

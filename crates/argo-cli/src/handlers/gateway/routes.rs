@@ -58,8 +58,12 @@ pub(super) async fn dispatch_route(
         let since = parse_since_minutes_from_get(req, "/sessions");
         return sessions_response(store, since).await;
     }
-    if req.starts_with("GET /skills ") {
-        return skills_response(store).await;
+    if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let include_superseded = parse_query_kv(tail, "include-superseded")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
+        return skills_response(store, include_superseded).await;
     }
     if let Some(rest) = req.strip_prefix("GET /skills/") {
         // /skills/<name>/versions takes priority over the bare
