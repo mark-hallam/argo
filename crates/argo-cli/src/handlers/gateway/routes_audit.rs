@@ -59,12 +59,16 @@ pub(super) async fn audit_recent_response(
     }
 }
 
-/// `GET /audit/sessions/<id>/verify` — verify the audit chain
-/// for one session and return `{ok, rows, breaks}`. Mirrors
+/// `GET /audit/sessions/<id>/verify[?include-breaks=true]` —
+/// verify the audit chain for one session. Default body shape
+/// is `{ok, rows, breaks}` where `breaks` is the count.
+/// With `?include-breaks=true` the response gains a
+/// `breaks_detail: [{seq, kind, reason}, …]` array. Mirrors
 /// `argo audit verify --session <id>`. 200 in both the
 /// chain-ok and chain-broken cases — `ok` says which.
 pub(super) async fn audit_session_verify_response(
     sid: &str,
+    include_breaks: bool,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -81,11 +85,27 @@ pub(super) async fn audit_session_verify_response(
     };
     match argo_audit::verify_session(store, id).await {
         Ok(report) => {
-            let payload = serde_json::json!({
+            let mut payload = serde_json::json!({
                 "ok": report.ok,
                 "rows": report.rows,
                 "breaks": report.breaks.len(),
             });
+            if include_breaks {
+                let detail: Vec<serde_json::Value> = report
+                    .breaks
+                    .iter()
+                    .map(|b| {
+                        serde_json::json!({
+                            "seq": b.seq,
+                            "kind": b.kind,
+                            "reason": b.reason,
+                        })
+                    })
+                    .collect();
+                if let Some(obj) = payload.as_object_mut() {
+                    obj.insert("breaks_detail".to_string(), serde_json::Value::Array(detail));
+                }
+            }
             (
                 "200 OK",
                 serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),

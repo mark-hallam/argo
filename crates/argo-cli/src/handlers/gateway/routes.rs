@@ -267,8 +267,11 @@ pub(super) async fn dispatch_route(
         // GET /audit/sessions/<id>/verify takes priority over the
         // bare GET /audit/sessions/<id> rows listing.
         if let Some((sid, tail)) = rest.split_once('/') {
-            if tail.starts_with("verify ") {
-                return audit_session_verify_response(sid, store).await;
+            if tail.starts_with("verify ") || tail.starts_with("verify?") {
+                let include_breaks = parse_query_kv(tail, "include-breaks")
+                    .map(|v| v == "true" || v == "1")
+                    .unwrap_or(false);
+                return audit_session_verify_response(sid, include_breaks, store).await;
             }
         }
         // Strip the (optional) ?query and trailing " HTTP/...".

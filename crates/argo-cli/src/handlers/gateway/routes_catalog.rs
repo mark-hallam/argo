@@ -29,7 +29,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit/breaks", "actual ChainBreak rows (seq, kind, reason) — empty if chain is clean"),
         ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|...&since-minutes=M&session=<uuid>)"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind&since-minutes)"),
-        ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity"),
+        ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity (?include-breaks=true to include break detail)"),
         ("GET", "/costs", "cost ceilings"),
         ("GET", "/costs/total", "actual spend roll-up across all tenants (today/this_month/all_time)"),
         ("GET", "/costs/by-model", "spend grouped by (provider, model)"),
