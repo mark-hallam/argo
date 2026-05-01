@@ -212,11 +212,19 @@ pub(super) async fn forge_runs_response(
                     None => true,
                 })
                 .map(|r| {
+                    // Mirror forge_run_show_response so list +
+                    // single-row views agree on the elapsed math:
+                    // running rows count from now, ended rows
+                    // count from ended_at - started_at.
+                    let now_micros = chrono::Utc::now().timestamp_micros();
+                    let end_micros = r.ended_at.unwrap_or(now_micros);
+                    let elapsed_seconds = ((end_micros - r.started_at) / 1_000_000).max(0);
                     serde_json::json!({
                         "id": hex::encode(&r.id),
                         "skill_name": r.skill_name,
                         "started_at": r.started_at,
                         "ended_at": r.ended_at,
+                        "elapsed_seconds": elapsed_seconds,
                         "base_version": r.base_version,
                         "candidate_version": r.candidate_version,
                         "iterations": r.iterations,
