@@ -27,7 +27,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/memory", "append a memory entry ({file, body})"),
         ("GET", "/memory", "memory entries (?file&since-minutes&lock&body-contains&limit)"),
         ("GET", "/memory/count", "count of active memory entries (?file=…&since-minutes=N)"),
-        ("GET", "/memory/<id>", "one memory entry (full body)"),
+        ("GET", "/memory/<id>", "one memory entry (full body; ?format=markdown for a paste-able doc)"),
         ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),
         ("GET", "/audit/breaks", "actual ChainBreak rows (seq, kind, reason) — empty if chain is clean"),

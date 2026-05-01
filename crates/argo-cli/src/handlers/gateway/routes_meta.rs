@@ -210,9 +210,14 @@ pub(super) use super::routes_forge::forge_runs_response;
 /// `GET /memory/<id>` — fetch a memory entry by id (mirrors
 /// `argo memory view <id>`). Returns 404 when no entry matches,
 /// 400 when the id isn't a valid UUID.
-pub(super) async fn memory_show_response(
+/// `GET /memory/<id>[?format=markdown]` — single memory entry
+/// with body. Default JSON shape; with `?format=markdown`,
+/// returns a header (`# Memory entry <id>`) + metadata bullets
+/// + the raw body — paste-able as standalone documentation.
+pub(super) async fn memory_show_response_with_format(
     raw_id: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -229,6 +234,25 @@ pub(super) async fn memory_show_response(
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
     match memory.get(id).await {
         Ok(e) => {
+            if matches!(format, Some("markdown")) {
+                let mut out = format!("# Memory entry `{}`\n\n", e.id);
+                out.push_str(&format!("- **File**: `{:?}`\n", e.file));
+                out.push_str(&format!("- **Lock**: `{:?}`\n", e.lock));
+                out.push_str(&format!(
+                    "- **Hash**: `sha256-{}`\n",
+                    hex::encode(e.hash)
+                ));
+                out.push_str(&format!(
+                    "- **Learned at**: {}\n",
+                    e.learned_at.to_rfc3339()
+                ));
+                out.push_str("\n---\n\n");
+                out.push_str(&e.body);
+                if !e.body.ends_with('\n') {
+                    out.push('\n');
+                }
+                return ("200 OK", out);
+            }
             let body = serde_json::json!({
                 "id": e.id.to_string(),
                 "file": format!("{:?}", e.file),
