@@ -168,8 +168,13 @@ pub enum SessionCmd {
         id1: String,
         id2: String,
         /// Output as a single JSON object for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Mark a session ended (stamps `ended_at`). Idempotent.
     End { id: String },

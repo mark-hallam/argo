@@ -82,7 +82,12 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             role,
         } => search(&query, limit, session.as_deref(), role.as_deref()).await,
         SessionCmd::Delete { id, force } => delete_session(&id, force).await,
-        SessionCmd::Diff { id1, id2, json } => diff_sessions(&id1, &id2, json).await,
+        SessionCmd::Diff {
+            id1,
+            id2,
+            json,
+            format,
+        } => diff_sessions(&id1, &id2, json, &format).await,
         SessionCmd::Bisect { id, hypothesis } => {
             super::session_bisect::run(&id, &hypothesis).await
         }

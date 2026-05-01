@@ -6,7 +6,12 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 
-pub(super) async fn diff_sessions(raw1: &str, raw2: &str, json: bool) -> ArgoResult<()> {
+pub(super) async fn diff_sessions(
+    raw1: &str,
+    raw2: &str,
+    json: bool,
+    format: &str,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -53,26 +58,65 @@ pub(super) async fn diff_sessions(raw1: &str, raw2: &str, json: bool) -> ArgoRes
         }
     }
     let trailing = m1.len().abs_diff(m2.len());
-    if json {
-        let header_diff_objects: Vec<_> = header_diffs
-            .iter()
-            .map(|(field, a, b)| serde_json::json!({"field": field, "a": a, "b": b}))
-            .collect();
-        let row = serde_json::json!({
-            "a": {"id": s1.id.0.to_string(), "messages": m1.len()},
-            "b": {"id": s2.id.0.to_string(), "messages": m2.len()},
-            "header_diffs": header_diff_objects,
-            "messages_compared": pairs,
-            "messages_diverged": diverged,
-            "trailing_only": trailing,
-            "first_divergence": first_div,
-            "byte_identical": header_diffs.is_empty() && diverged == 0 && trailing == 0,
-        });
-        let serialized = serde_json::to_string(&row)
-            .map_err(|e| ArgoError::Provider(format!("serialize diff: {e}")))?;
-        println!("{serialized}");
-        return Ok(());
+    // `--json` wins over `--format` for backwards compat.
+    let pick = if json { "json" } else { format };
+    match pick {
+        "json" => render_json(&s1, &s2, &m1, &m2, &header_diffs, pairs, diverged, trailing, first_div),
+        "markdown" => render_markdown(&s1, &s2, &m1, &m2, &header_diffs, pairs, diverged, trailing, first_div),
+        "text" => {
+            render_text(&s1, &s2, &m1, &m2, &header_diffs, pairs, diverged, trailing, first_div);
+            Ok(())
+        }
+        other => Err(ArgoError::Provider(format!(
+            "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+        ))),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_json(
+    s1: &argo_store::SessionHeader,
+    s2: &argo_store::SessionHeader,
+    m1: &[argo_store::MessageRow],
+    m2: &[argo_store::MessageRow],
+    header_diffs: &[(&str, String, String)],
+    pairs: usize,
+    diverged: usize,
+    trailing: usize,
+    first_div: Option<usize>,
+) -> ArgoResult<()> {
+    let header_diff_objects: Vec<_> = header_diffs
+        .iter()
+        .map(|(field, a, b)| serde_json::json!({"field": field, "a": a, "b": b}))
+        .collect();
+    let row = serde_json::json!({
+        "a": {"id": s1.id.0.to_string(), "messages": m1.len()},
+        "b": {"id": s2.id.0.to_string(), "messages": m2.len()},
+        "header_diffs": header_diff_objects,
+        "messages_compared": pairs,
+        "messages_diverged": diverged,
+        "trailing_only": trailing,
+        "first_divergence": first_div,
+        "byte_identical": header_diffs.is_empty() && diverged == 0 && trailing == 0,
+    });
+    let serialized = serde_json::to_string(&row)
+        .map_err(|e| ArgoError::Provider(format!("serialize diff: {e}")))?;
+    println!("{serialized}");
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_text(
+    s1: &argo_store::SessionHeader,
+    s2: &argo_store::SessionHeader,
+    m1: &[argo_store::MessageRow],
+    m2: &[argo_store::MessageRow],
+    header_diffs: &[(&str, String, String)],
+    pairs: usize,
+    diverged: usize,
+    trailing: usize,
+    first_div: Option<usize>,
+) {
     println!("session diff");
     println!("  a: {} ({} messages)", s1.id.0, m1.len());
     println!("  b: {} ({} messages)", s2.id.0, m2.len());
@@ -80,13 +124,12 @@ pub(super) async fn diff_sessions(raw1: &str, raw2: &str, json: bool) -> ArgoRes
         println!("  header: identical (model/provider/title)");
     } else {
         println!("  header diffs:");
-        for (field, a, b) in &header_diffs {
+        for (field, a, b) in header_diffs {
             println!("    {field}: a={a:?} b={b:?}");
         }
     }
     println!(
-        "  messages: {} compared, {diverged} diverged, {trailing} trailing-only on the longer side",
-        pairs
+        "  messages: {pairs} compared, {diverged} diverged, {trailing} trailing-only on the longer side"
     );
     if let Some(i) = first_div {
         println!(
@@ -97,5 +140,55 @@ pub(super) async fn diff_sessions(raw1: &str, raw2: &str, json: bool) -> ArgoRes
     if header_diffs.is_empty() && diverged == 0 && trailing == 0 {
         println!("sessions are byte-identical");
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_markdown(
+    s1: &argo_store::SessionHeader,
+    s2: &argo_store::SessionHeader,
+    m1: &[argo_store::MessageRow],
+    m2: &[argo_store::MessageRow],
+    header_diffs: &[(&str, String, String)],
+    pairs: usize,
+    diverged: usize,
+    trailing: usize,
+    first_div: Option<usize>,
+) -> ArgoResult<()> {
+    let mut out = String::new();
+    out.push_str("# Session diff\n\n");
+    out.push_str(&format!(
+        "- **a**: `{}` ({} messages)\n",
+        s1.id.0,
+        m1.len()
+    ));
+    out.push_str(&format!(
+        "- **b**: `{}` ({} messages)\n\n",
+        s2.id.0,
+        m2.len()
+    ));
+    out.push_str("## Header\n\n");
+    if header_diffs.is_empty() {
+        out.push_str("_Identical (model/provider/title)._\n\n");
+    } else {
+        out.push_str("| field | a | b |\n| --- | --- | --- |\n");
+        for (field, a, b) in header_diffs {
+            out.push_str(&format!("| `{field}` | `{a}` | `{b}` |\n"));
+        }
+        out.push('\n');
+    }
+    out.push_str("## Messages\n\n");
+    out.push_str(&format!(
+        "- **Compared**: {pairs}\n- **Diverged**: {diverged}\n- **Trailing-only**: {trailing}\n",
+    ));
+    if let Some(i) = first_div {
+        out.push_str(&format!(
+            "- **First divergence**: seq {i} (role a=`{}` b=`{}`)\n",
+            m1[i].role, m2[i].role
+        ));
+    }
+    if header_diffs.is_empty() && diverged == 0 && trailing == 0 {
+        out.push_str("\n_Sessions are byte-identical._\n");
+    }
+    print!("{out}");
     Ok(())
 }
