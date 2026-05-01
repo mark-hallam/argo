@@ -247,6 +247,10 @@ pub(super) async fn dispatch_route(
         let skill = parse_query_kv(tail, "skill");
         let has_candidate = parse_query_kv(tail, "has-candidate")
             .map(|v| v == "true" || v == "1");
+        let iterations_min =
+            parse_query_kv(tail, "iterations-min").and_then(|v| v.parse::<i64>().ok());
+        let iterations_max =
+            parse_query_kv(tail, "iterations-max").and_then(|v| v.parse::<i64>().ok());
         return forge_runs_response(
             limit,
             since,
@@ -255,6 +259,8 @@ pub(super) async fn dispatch_route(
             score_max,
             skill.as_deref(),
             has_candidate,
+            iterations_min,
+            iterations_max,
             store,
         )
         .await;

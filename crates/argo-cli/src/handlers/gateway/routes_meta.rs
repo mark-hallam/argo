@@ -153,6 +153,8 @@ pub(super) async fn search_response(
 /// one iteration's worth of mutation). `score-min` and
 /// `score-max` define an inclusive band on `final_score`;
 /// rows with `NULL` final_score never satisfy either.
+/// `iterations-min` and `iterations-max` define an inclusive
+/// band on the iteration count (a fresh run has 0).
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn forge_runs_response(
     limit: u32,
@@ -162,6 +164,8 @@ pub(super) async fn forge_runs_response(
     score_max: Option<f64>,
     skill: Option<&str>,
     has_candidate: Option<bool>,
+    iterations_min: Option<i64>,
+    iterations_max: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -197,6 +201,14 @@ pub(super) async fn forge_runs_response(
                 .filter(|r| match has_candidate {
                     Some(true) => r.candidate_version.is_some(),
                     Some(false) => r.candidate_version.is_none(),
+                    None => true,
+                })
+                .filter(|r| match iterations_min {
+                    Some(min) => r.iterations >= min,
+                    None => true,
+                })
+                .filter(|r| match iterations_max {
+                    Some(max) => r.iterations <= max,
                     None => true,
                 })
                 .map(|r| {
