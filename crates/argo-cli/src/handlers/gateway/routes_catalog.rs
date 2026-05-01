@@ -10,7 +10,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
     let rows = [
         ("GET", "/health", "liveness probe"),
         ("GET", "/version", "build version"),
-        ("GET", "/sessions", "list sessions (?since-minutes=N)"),
+        ("GET", "/sessions", "list sessions (?since-minutes=N&status=open|ended)"),
         ("GET", "/sessions/<id>", "one session header + counts"),
         ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>&since-minutes=M)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session"),

@@ -72,7 +72,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         let since = parse_since_minutes_from_get(req, "/sessions");
-        return sessions_response(store, since).await;
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let status = parse_query_kv(tail, "status");
+        return sessions_response(store, since, status.as_deref()).await;
     }
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
@@ -371,6 +373,7 @@ pub(super) async fn dispatch_route(
 async fn sessions_response(
     store: Option<&Arc<SessionStore>>,
     since_minutes: Option<i64>,
+    status: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -380,6 +383,13 @@ async fn sessions_response(
             if let Some(minutes) = since_minutes {
                 let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
                 rows.retain(|s| s.started_at >= cutoff);
+            }
+            if let Some(want) = status {
+                rows.retain(|s| match want {
+                    "open" => s.ended_at.is_none(),
+                    "ended" => s.ended_at.is_some(),
+                    _ => true,
+                });
             }
             let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
             let arr: Vec<serde_json::Value> = rows
