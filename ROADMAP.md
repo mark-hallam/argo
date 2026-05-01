@@ -22,14 +22,28 @@ roadmap lifecycle is operational:**
   `fork` (#259), `diff` (#258), `artifacts` against any v2-
   compliant OCI registry (Bearer challenge handshake #253).
 - TUI ships compose / steer / new / rename / delete / yank /
-  Tab-pane-focus / `o`-message-detail-overlay / `?`-help.
-- Gateway exposes 34 endpoints, all enumerable via
-  `GET /routes`; write endpoints `POST /skills` (#275),
-  `POST /memory` (#276) round out CLI parity.
+  Tab-pane-focus / `o`-message-detail-overlay / `?`-help /
+  `F`-forge-runs-overlay (#278) / `t`-drill-into-tool-result
+  view inside the message overlay (#283).
+- Per-session skill selection lands via the `session_skill`
+  association table (#279) — `argo session attach-skill /
+  detach-skill / skills` carve a curated subset for one
+  session; the runner falls back to all active skills when the
+  set is empty.
+- Gateway exposes 39 endpoints, all enumerable via
+  `GET /routes`. Write endpoints round out CLI parity:
+  `POST /skills` (#275), `POST /memory` (#276),
+  `POST /forge/optimize` + `POST /forge/bench` (#281). Operator
+  surface adds `GET /metrics` Prometheus exposition (#282) for
+  scraper integration.
+- Forge optimize streams progress as NDJSON via
+  `argo forge optimize --stream` (#280) — three event shapes
+  (`start`, `iter`, `done`/`budget_exceeded`) consumed by the
+  TUI / watch scripts / the gateway POST endpoint.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **276+ PRs**, ~44k LOC across 27 crates, zero LOC-budget
-violations, 75+ test suites green.
+across **283+ PRs**, ~45k LOC across 27 crates, zero LOC-budget
+violations, 80+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
@@ -72,7 +86,7 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **28 endpoints** —
+shutdown via SIGTERM/SIGINT). It exposes **39 endpoints** —
 all read-side surfaces are introspectable via `GET /routes`,
 the discovery endpoint that returns the full catalogue as a
 JSON array of `{method, path, description}` rows. Highlights:
@@ -81,10 +95,15 @@ filter), `GET /sessions/<id>/messages?limit=N&role=<r>`,
 `GET /providers`, `GET /tools`,
 `GET /search?q=…[&limit=N&session=<id>]`,
 `GET /workspace/artifacts[?limit=N]`,
+`GET /forge/runs[?limit=N]` + `GET /forge/runs/<id>`,
 `POST /sessions/<id>/runs` (accepts `max_tool_rounds`),
 `POST /sessions/<id>/runs/stream` (chunked-NDJSON live event
 stream, mpsc-driven for sub-millisecond latency),
 `POST /sessions/<id>/steer`, `POST /sessions/<id>/replay[/stream]`,
+`POST /forge/{optimize,bench}` (kick-off, returns 202 +
+`run_id`-style summary; result lands in the `forge_run` rows
+served by `GET /forge/runs`),
+`GET /metrics` (Prometheus text exposition for scrapers),
 plus `/doctor` and `/health/full` deep checks — all wired
 against the same `SessionStore` the CLI uses.
 
@@ -107,21 +126,25 @@ budget, the Windows test gating, and the deny advisory ignore-list.
 What's left (forward-looking — these are *not* on the original
 roadmap; the offline tier is fully shipped):
 
-- **Real-daemon background-execution shape** — `forge optimize`
-  with high `--iterations` blocks the user's terminal because
-  the loop runs synchronously. A daemon that owns the loop +
-  reports progress via the gateway's stream endpoint would
-  let users drive long optimizations from the TUI.
-- **TUI surface for forge runs** — list / show / abort /
-  optimize from inside the TUI. The CLI surface is complete;
-  TUI integration is purely UX.
-- **Per-session skill selection** — every turn currently sees
-  every active skill in the system prompt. A `session_skill`
-  association table would let a session opt into a curated
-  subset.
+- **Real-daemon background-execution shape** — the gateway's
+  `POST /forge/{optimize,bench}` (#281) kicks off Tokio tasks
+  inside the gateway process, but a long optimize still runs
+  inside the gateway (and dies if it restarts). A standalone
+  daemon owning the loop with progress reported back via the
+  stream endpoint would survive restarts and let multiple
+  clients tail the same run.
+- **TUI live forge-progress overlay** — `F` already opens a
+  read-only forge_run rows overlay (#278); the next step is
+  to consume the `--stream` NDJSON (#280) and surface
+  iter-by-iter progress while the run is still in flight,
+  plus a TUI key to kick off + abort runs.
 - **Voice / browser native bindings** — `local` shell-out
   (#209) and `session_*` reuse-WS (#208) cover the workflows;
   truly native (whisper-rs, chromiumoxide) is a perf upgrade.
+- **Real OCI push to a remote registry** — push to the local
+  OCI directory works end-to-end; `oci-distribution`-driven
+  push to GHCR / Docker Hub / Artifact Registry against test
+  accounts is still pending.
 
 ## Status
 
@@ -229,7 +252,11 @@ roadmap; the offline tier is fully shipped):
 | `argo steer <session_id> <text>` | ✅ | #146 |
 | `argo chat --stream` (token-by-token) | ✅ | #147 |
 | `gateway` `POST /sessions/<id>/runs` (live agent turn) | ✅ | #148 |
-| **Tool dispatch in the agent loop** | ⏳ pending | next big chunk |
+| Tool dispatch in the agent loop (capability-checked, audit-chained, cost-ledgered) | ✅ | #150–#175 |
+| `argo forge optimize --stream` (NDJSON progress) | ✅ | #280 |
+| `gateway` `POST /forge/{optimize,bench}` | ✅ | #281 |
+| `gateway` `GET /metrics` (Prometheus exposition) | ✅ | #282 |
+| TUI tool-result drill-in (`t` toggle inside `o` overlay) | ✅ | #283 |
 
 ## MCP servers shipped as standalone bins
 
@@ -257,13 +284,6 @@ roadmap; the offline tier is fully shipped):
 
 ## Pending integration tier
 
-- **Tool dispatch in the agent loop** — `argo chat` (#144/#145/#147)
-  + `POST /sessions/<id>/runs` (#148) drive a single round-trip
-  to the provider. Tool calls in the response are parsed (via
-  argo-provider extractors) but ignored; the next chunk runs them
-  via `argo-tool::ToolRegistry` and feeds results back to the
-  provider until no `tool_calls` remain. After that come cost
-  accounting + audit emission for every turn.
 - **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
   + opus (OGG/Opus). All four cloud backends already wired (OpenAI
   TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
@@ -276,12 +296,7 @@ roadmap; the offline tier is fully shipped):
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test
   accounts.
-- **TUI v2** — sticky composer, live streaming, OSC-52 clipboard.
-- **Daemon-coupled live commands** — `argo session replay <id>
-  --model X` (live), `argo forge optimize / promote`,
-  `argo provider test`, `argo judge override`. (`argo chat` /
-  `argo steer` already shipped.)
-- **HTTP streaming for `POST /sessions/<id>/runs`** — current
-  endpoint always runs non-streaming. Chunked-JSON / SSE follow-up
-  will let HTTP clients see token-by-token output the way
-  `argo chat --stream` does.
+- **Standalone daemon for long-running forge runs** — the gateway
+  hosts `POST /forge/{optimize,bench}` (#281) which spawns a Tokio
+  task in-process. A separate daemon process would survive gateway
+  restarts and let multiple clients tail the same run.
