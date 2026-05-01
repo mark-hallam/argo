@@ -444,3 +444,48 @@ pub(super) async fn forge_run_show_response(
 /// the help banner. Static — no DB or filesystem I/O — so it's
 /// always fast and never 503.
 pub(super) use super::routes_catalog::routes_response;
+
+/// `GET /costs` — cost ceilings from `argo.toml`. No DB hit.
+pub(super) fn costs_response() -> (&'static str, String) {
+    let cwd = match std::env::current_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"cwd: {e}\"}}"),
+            );
+        }
+    };
+    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let ceilings = cfg.budget.to_cost_ceilings();
+    let payload = serde_json::json!({
+        "per_session_usd_micros": ceilings.per_session_usd_micros,
+        "per_day_usd_micros":     ceilings.per_day_usd_micros,
+        "per_month_usd_micros":   ceilings.per_month_usd_micros,
+        "notify_at_pct":          ceilings.notify_at_pct,
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+/// `GET /db/stats` — per-table row counts for the workspace
+/// store. Mirrors the `db status` block of `argo doctor`.
+pub(super) async fn db_stats_response(
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    match store.db_stats().await {
+        Ok(stats) => (
+            "200 OK",
+            serde_json::to_string(&stats).unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"db_stats: {e}\"}}"),
+        ),
+    }
+}

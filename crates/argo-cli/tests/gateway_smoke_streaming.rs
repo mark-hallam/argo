@@ -143,6 +143,40 @@ fn audit_session_verify_returns_ok_true_for_empty_session() {
 }
 
 #[test]
+fn db_stats_returns_zero_counts_for_clean_workspace() {
+    let port = pick_free_port();
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "gateway",
+            "start",
+            "--port",
+            &port.to_string(),
+            "--max-requests",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
+    await_listening(&mut stderr);
+
+    let resp = http_get(port, "/db/stats");
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    let body = body_of(&resp);
+    let parsed: serde_json::Value = serde_json::from_str(body).expect("valid json");
+    assert_eq!(parsed["sessions"], 0);
+    assert_eq!(parsed["messages"], 0);
+    assert_eq!(parsed["audit_rows"], 0);
+    assert_eq!(parsed["forge_runs"], 0);
+
+    let status = child.wait().expect("wait");
+    assert!(status.success());
+}
+
+#[test]
 fn metrics_endpoint_serves_text_plain_with_prometheus_lines() {
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();

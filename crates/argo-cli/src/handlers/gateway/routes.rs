@@ -5,9 +5,9 @@
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
-    artifacts_response, forge_run_show_response, forge_runs_response, memory_show_response,
-    providers_response, routes_response, search_response, skill_show_response,
-    skill_versions_response, tools_response,
+    artifacts_response, costs_response, db_stats_response, forge_run_show_response,
+    forge_runs_response, memory_show_response, providers_response, routes_response,
+    search_response, skill_show_response, skill_versions_response, tools_response,
 };
 use super::routes_post::{
     append_message_response, audit_session_response, audit_session_verify_response,
@@ -92,6 +92,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /tools ") {
         return tools_response().await;
+    }
+    if req.starts_with("GET /db/stats ") {
+        return db_stats_response(store).await;
     }
     if req.starts_with("GET /routes ") {
         return routes_response();
@@ -470,28 +473,5 @@ async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'static str, Str
     )
 }
 
-fn costs_response() -> (&'static str, String) {
-    let cwd = match std::env::current_dir() {
-        Ok(p) => p,
-        Err(e) => {
-            return (
-                "500 Internal Server Error",
-                format!("{{\"error\":\"cwd: {e}\"}}"),
-            );
-        }
-    };
-    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
-    let ceilings = cfg.budget.to_cost_ceilings();
-    let payload = serde_json::json!({
-        "per_session_usd_micros": ceilings.per_session_usd_micros,
-        "per_day_usd_micros":     ceilings.per_day_usd_micros,
-        "per_month_usd_micros":   ceilings.per_month_usd_micros,
-        "notify_at_pct":          ceilings.notify_at_pct,
-    });
-    (
-        "200 OK",
-        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
-    )
-}
 
 
