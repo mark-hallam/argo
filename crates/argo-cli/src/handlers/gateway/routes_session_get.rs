@@ -61,8 +61,11 @@ pub(super) async fn dispatch_session_get(
                 .await,
             );
         }
-        if tail.starts_with("skills ") {
-            return Some(session_skills_list_response(sid, store).await);
+        if tail.starts_with("skills ") || tail.starts_with("skills?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                session_skills_list_response(sid, store, format.as_deref()).await,
+            );
         }
         if tail.starts_with("judge ") {
             return Some(session_judge_response(sid, store).await);

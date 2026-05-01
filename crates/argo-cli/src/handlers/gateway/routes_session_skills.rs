@@ -122,12 +122,14 @@ pub(super) async fn session_detach_skill_response(
     }
 }
 
-/// `GET /sessions/<id>/skills` — list the skills attached to
-/// the session. Empty array means the runner falls back to all
-/// active skills for this session.
+/// `GET /sessions/<id>/skills[?format=markdown]` — list the
+/// skills attached to the session. Empty array (or empty
+/// markdown table) means the runner falls back to all active
+/// skills for this session.
 pub(super) async fn session_skills_list_response(
     raw_sid: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -144,6 +146,27 @@ pub(super) async fn session_skills_list_response(
     let skills = SkillStore::new(Arc::clone(store));
     match skills.skills_for_session(sid).await {
         Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Skills attached to session `{raw_sid}` ({n} attached)\n\n",
+                );
+                if rows.is_empty() {
+                    out.push_str(
+                        "_No skills attached — runner falls back to every active skill in the workspace._\n",
+                    );
+                } else {
+                    out.push_str("| name | version |\n");
+                    out.push_str("| --- | --- |\n");
+                    for s in &rows {
+                        out.push_str(&format!(
+                            "| `{}` | `{}` |\n",
+                            s.frontmatter.name, s.frontmatter.version
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|s| {

@@ -71,7 +71,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/sessions/<id>/steer", "inject a system-role steer"),
         ("POST", "/sessions/<id>/replay", "replay user prompts in a fresh session"),
         ("POST", "/sessions/<id>/replay/stream", "chunked-NDJSON replay event stream"),
-        ("GET", "/sessions/<id>/skills", "skills attached to the session"),
+        ("GET", "/sessions/<id>/skills", "skills attached to the session (?format=markdown)"),
         ("GET", "/sessions/<id>/judge", "judge_record rows for the session"),
         ("POST", "/sessions/<id>/skills/attach", "attach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/skills/detach", "detach a skill ({skill: name})"),
