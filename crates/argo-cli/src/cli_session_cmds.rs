@@ -275,6 +275,11 @@ pub enum ForgeRunsCmd {
         /// candidate_version.
         #[arg(long)]
         has_candidate: Option<bool>,
+        /// Sort order: `started-at` (default, descending),
+        /// `score` (final_score descending; NULLs sink to the
+        /// bottom), or `spend` (spend_usd_micros descending).
+        #[arg(long, default_value = "started-at")]
+        sort_by: String,
     },
     Show { id: String },
     Abort { id: String },

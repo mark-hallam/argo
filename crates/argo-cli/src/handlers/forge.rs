@@ -26,6 +26,7 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
                 score_max,
                 skill,
                 has_candidate,
+                sort_by,
             } => {
                 list_runs(
                     limit,
@@ -36,6 +37,7 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
                     score_max,
                     skill,
                     has_candidate,
+                    sort_by,
                 )
                 .await
             }
@@ -238,6 +240,7 @@ async fn list_runs(
     score_max: Option<f64>,
     skill: Option<String>,
     has_candidate: Option<bool>,
+    sort_by: String,
 ) -> ArgoResult<()> {
     let store = open_store().await?;
     let mut rows = store.list_forge_runs(limit).await?;
@@ -259,6 +262,24 @@ async fn list_runs(
     }
     if let Some(want) = has_candidate {
         rows.retain(|r| r.candidate_version.is_some() == want);
+    }
+    match sort_by.as_str() {
+        "started-at" => {} // store returns reverse-chronological
+        "score" => {
+            // NULLs sink to the bottom; otherwise descending.
+            rows.sort_by(|a, b| match (b.final_score, a.final_score) {
+                (Some(bs), Some(as_)) => bs.partial_cmp(&as_).unwrap_or(std::cmp::Ordering::Equal),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            });
+        }
+        "spend" => rows.sort_by_key(|r| std::cmp::Reverse(r.spend_usd_micros)),
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown --sort-by '{other}' — use started-at|score|spend"
+            )));
+        }
     }
     if json {
         for r in &rows {
