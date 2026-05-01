@@ -43,12 +43,11 @@ pub(super) async fn tool_show_response(raw_name: &str) -> (&'static str, String)
     }
 }
 
-/// `GET /tools` — list every registered in-core tool with its
-/// JSON-schema parameter shape, exactly as the agent loop will
-/// hand it to a provider. Useful for a UI / docs surface that
-/// wants to introspect what an Argo agent can do without scraping
-/// `argo provider show`.
-pub(super) async fn tools_response() -> (&'static str, String) {
+/// `GET /tools[?name-contains=<sub>]` — list every registered
+/// in-core tool with its JSON-schema parameter shape. Optional
+/// `name-contains` filter (case-insensitive) lets clients find
+/// tools by pattern.
+pub(super) async fn tools_response(name_contains: Option<&str>) -> (&'static str, String) {
     let Ok(cwd) = std::env::current_dir() else {
         return (
             "500 Internal Server Error",
@@ -59,9 +58,14 @@ pub(super) async fn tools_response() -> (&'static str, String) {
     for t in builtin_tools(cwd) {
         reg.register(t);
     }
+    let needle = name_contains.map(str::to_lowercase);
     let rows: Vec<serde_json::Value> = reg
         .schemas()
         .into_iter()
+        .filter(|s| match needle.as_deref() {
+            Some(n) => s.name.to_lowercase().contains(n),
+            None => true,
+        })
         .map(|s| {
             serde_json::json!({
                 "name": s.name,

@@ -153,8 +153,10 @@ pub(super) async fn dispatch_route(
             return provider_show_response(id).await;
         }
     }
-    if req.starts_with("GET /tools ") {
-        return tools_response().await;
+    if req.starts_with("GET /tools ") || req.starts_with("GET /tools?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let name_contains = parse_query_kv(tail, "name-contains").map(|s| s.replace('+', " "));
+        return tools_response(name_contains.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /tools/") {
         if let Some((name, _)) = rest.split_once(' ') {
