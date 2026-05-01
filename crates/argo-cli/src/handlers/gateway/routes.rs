@@ -119,7 +119,8 @@ pub(super) async fn dispatch_route(
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let file = parse_query_kv(tail, "file");
         let since = parse_since_minutes_from_get(req, "/memory");
-        return memory_response(store, file, since).await;
+        let lock = parse_query_kv(tail, "lock");
+        return memory_response(store, file, since, lock).await;
     }
     if let Some(rest) = req.strip_prefix("GET /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {

@@ -22,7 +22,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/skills/<name>/versions", "supersede chain for one skill name"),
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry ({file, body})"),
-        ("GET", "/memory", "memory entries (?file=<f>&since-minutes=M)"),
+        ("GET", "/memory", "memory entries (?file&since-minutes&lock)"),
         ("GET", "/memory/<id>", "one memory entry (full body)"),
         ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
         ("GET", "/audit", "audit chain summary"),

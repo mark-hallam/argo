@@ -106,15 +106,17 @@ pub(super) async fn memory_versions_response(
     }
 }
 
-/// `GET /memory[?file=memory|user|soul|agents&since-minutes=M]`
-/// — active memory entries. Without `file`, returns all four
-/// canonical files concatenated. With `file`, scopes to one.
-/// `since-minutes` filters by `learned_at`. 200 + `[]` when
-/// no workspace is registered yet; 400 on unknown `file`.
+/// `GET /memory[?file&since-minutes&lock]` — active memory
+/// entries. `file` scopes to one of the four canonical files.
+/// `since-minutes` filters by `learned_at`. `lock` filters by
+/// the lock state (`none|user-protected|content-locked`).
+/// 200 + `[]` when no workspace is registered; 400 on
+/// unknown `file` or `lock`.
 pub(super) async fn memory_response(
     store: Option<&Arc<SessionStore>>,
     file: Option<String>,
     since_minutes: Option<i64>,
+    lock: Option<String>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
@@ -150,6 +152,20 @@ pub(super) async fn memory_response(
             );
         }
     };
+    let lock_filter = match lock.as_deref() {
+        None => None,
+        Some("none") => Some(argo_types::Lock::None),
+        Some("user-protected") => Some(argo_types::Lock::UserProtected),
+        Some("content-locked") => Some(argo_types::Lock::ContentLocked),
+        Some(other) => {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"unknown lock '{other}' — use none|user-protected|content-locked\"}}"
+                ),
+            );
+        }
+    };
     let memory = MemoryStore::new(Arc::clone(store));
     let cutoff = since_minutes
         .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
@@ -160,6 +176,11 @@ pub(super) async fn memory_response(
                 for e in entries {
                     if let Some(c) = cutoff {
                         if e.learned_at < c {
+                            continue;
+                        }
+                    }
+                    if let Some(want) = lock_filter {
+                        if e.lock != want {
                             continue;
                         }
                     }
