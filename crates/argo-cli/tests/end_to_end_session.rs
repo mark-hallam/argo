@@ -244,3 +244,52 @@ fn session_diff_markdown_renders_header_table() {
     assert!(body.contains("claude-haiku-4-5"));
     assert!(body.contains("claude-opus-4-6"));
 }
+
+/// `argo session show --format markdown` renders the
+/// six-bullet header (#476).
+#[cfg(unix)]
+#[test]
+fn session_show_markdown_renders_header_bullets() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let session_id = boot_session(workspace.path(), home.path(), "show test");
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "show", &session_id, "--format", "markdown"],
+    );
+    assert!(out.status.success());
+    let body = String::from_utf8_lossy(&out.stdout);
+
+    assert!(body.contains("# Session show test"));
+    assert!(body.contains(&format!("`{session_id}`")));
+    assert!(body.contains("**Provider**: `anthropic`"));
+    assert!(body.contains("**Model**: `claude-haiku-4-5`"));
+    assert!(body.contains("**Started**: "));
+    assert!(body.contains("**Messages**: 0"));
+    assert!(body.contains("**Spend**: $0.0000"));
+}
+
+/// `argo session list --format markdown` renders a markdown
+/// table containing the session row (#490).
+#[cfg(unix)]
+#[test]
+fn session_list_markdown_renders_table() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let session_id = boot_session(workspace.path(), home.path(), "list test");
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "list", "--format", "markdown"],
+    );
+    assert!(out.status.success());
+    let body = String::from_utf8_lossy(&out.stdout);
+
+    assert!(body.contains("# Sessions ("), "missing header: {body}");
+    assert!(body.contains(&format!("`{session_id}`")), "missing session: {body}");
+    assert!(body.contains("`anthropic`"));
+    assert!(body.contains("list test"));
+}
