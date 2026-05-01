@@ -55,16 +55,20 @@ pub(super) async fn last_message_response(
     }
 }
 
-/// `GET /sessions/<id>/messages?limit=N&role=<r>&since-minutes=M`
-/// — list messages on a session. Optional filters: `role`,
-/// `limit`, and `since-minutes` (returns only rows whose
-/// `created_at` is within the last M minutes).
+/// `GET /sessions/<id>/messages?limit&role&since-minutes&seq-min&seq-max`
+/// — list messages on a session. Optional filters:
+/// - `role`: drop messages whose role doesn't match
+/// - `limit`: truncate to N rows
+/// - `since-minutes`: drop messages older than M minutes
+/// - `seq-min`/`seq-max`: keep only rows in that seq window
 pub(super) async fn list_messages_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
     limit: Option<usize>,
     role: Option<String>,
     since_minutes: Option<i64>,
+    seq_min: Option<i64>,
+    seq_max: Option<i64>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -97,6 +101,12 @@ pub(super) async fn list_messages_response(
                 let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m))
                     .timestamp_micros();
                 rows.retain(|row| row.created_at >= cutoff_micros);
+            }
+            if let Some(min) = seq_min {
+                rows.retain(|row| row.seq >= min);
+            }
+            if let Some(max) = seq_max {
+                rows.retain(|row| row.seq <= max);
             }
             if let Some(n) = limit {
                 if rows.len() > n {

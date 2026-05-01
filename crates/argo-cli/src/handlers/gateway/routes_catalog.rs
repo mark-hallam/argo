@@ -13,7 +13,7 @@ pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&status&provider&model&title-contains)"),
         ("GET", "/sessions/<id>", "one session header + counts"),
-        ("GET", "/sessions/<id>/messages", "messages (?limit=N&role=<r>&since-minutes=M)"),
+        ("GET", "/sessions/<id>/messages", "messages (?limit&role&since-minutes&seq-min&seq-max)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
         ("GET", "/sessions/<id>/spend/total", "single-number total for one session"),

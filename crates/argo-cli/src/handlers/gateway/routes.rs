@@ -396,7 +396,12 @@ pub(super) async fn dispatch_route(
                 let role = parse_role(tail);
                 let since = super::routes_query::parse_query_kv(tail, "since-minutes")
                     .and_then(|v| v.parse::<i64>().ok());
-                return list_messages_response(sid, store, limit, role, since).await;
+                let seq_min = super::routes_query::parse_query_kv(tail, "seq-min")
+                    .and_then(|v| v.parse::<i64>().ok());
+                let seq_max = super::routes_query::parse_query_kv(tail, "seq-max")
+                    .and_then(|v| v.parse::<i64>().ok());
+                return list_messages_response(sid, store, limit, role, since, seq_min, seq_max)
+                    .await;
             }
             if tail.starts_with("skills ") {
                 return session_skills_list_response(sid, store).await;
