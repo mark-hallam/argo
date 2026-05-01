@@ -12,6 +12,7 @@ argo-agent-runner = { path = "../argo-agent-runner", version = "0.0.1" }
 argo-memory = { path = "../argo-memory", version = "0.0.1" }
 argo-skill = { path = "../argo-skill", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-tool = { path = "../argo-tool", version = "0.0.1" }
 hex = { workspace = true }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 chrono = { workspace = true }

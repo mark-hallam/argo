@@ -34,10 +34,11 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    Y  yank message at scroll cursor"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory / Cost / Audit / Providers / Cron"),
+        Line::from("  Forge / Skills / Memory / Cost / Audit / Providers / Cron / Tools"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
         Line::from("    M  active memory               $  cost rollup"),
         Line::from("    A  audit chain (selected ses)  P  providers   K  cron"),
+        Line::from("    T  tool registry"),
         Line::from("    R  force-refresh   C  clear live-event trail"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
@@ -268,6 +269,41 @@ pub(crate) fn draw_providers(
     let para = Paragraph::new(lines).block(
         Block::default().borders(Borders::ALL).title(format!(
             " providers ({}) — Esc/P/q closes ",
+            rows.len()
+        )),
+    );
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Tools overlay. Triggered by `T`. Snapshot of the in-core
+/// `ToolRegistry` (built from `argo_tool::builtin_tools(cwd)`).
+/// Names only — full schemas via the gateway's GET /tools.
+pub(crate) fn draw_tools(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[String],
+    scroll: usize,
+) {
+    let w = area.width.min(50);
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(30), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(" tool name"));
+    if rows.is_empty() {
+        lines.push(Line::from("  (no tools registered)"));
+    } else {
+        let clamped = scroll.min(rows.len().saturating_sub(1));
+        for name in &rows[clamped..] {
+            lines.push(Line::from(format!("  {name}")));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default().borders(Borders::ALL).title(format!(
+            " tools ({}) — Esc/T/q closes ",
             rows.len()
         )),
     );

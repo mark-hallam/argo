@@ -132,6 +132,12 @@ pub struct ViewerState {
     pub cron_overlay: Option<Vec<String>>,
     /// Scroll offset (in rows) into the cron overlay.
     pub cron_overlay_scroll: usize,
+    /// Registered in-core tool names when the tools overlay is
+    /// open (entered with `T`). Snapshot of the ToolRegistry
+    /// (built from `argo_tool::builtin_tools(cwd)`).
+    pub tools_overlay: Option<Vec<String>>,
+    /// Scroll offset (in rows) into the tools overlay.
+    pub tools_overlay_scroll: usize,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -201,6 +207,8 @@ impl ViewerState {
             providers_overlay_scroll: 0,
             cron_overlay: None,
             cron_overlay_scroll: 0,
+            tools_overlay: None,
+            tools_overlay_scroll: 0,
             workspace_label: None,
         }
     }

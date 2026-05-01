@@ -562,6 +562,7 @@ dependencies = [
  "argo-memory",
  "argo-skill",
  "argo-store",
+ "argo-tool",
  "argo-types",
  "chrono",
  "crossterm",

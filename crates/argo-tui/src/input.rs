@@ -182,6 +182,15 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Tools overlay: Esc/T/q close, vim-ish scroll.
+            if let Some(rows) = state.tools_overlay.as_ref() {
+                let n = rows.len();
+                if handle_scroll_overlay(key.code, &['T'], &mut state.tools_overlay_scroll, n) {
+                    state.tools_overlay = None;
+                    state.tools_overlay_scroll = 0;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -300,6 +309,19 @@ pub(crate) async fn run(
                         &cwd.join("manifests").join("providers"),
                         "toml",
                     ));
+                }
+                KeyCode::Char('T') => {
+                    // Snapshot the in-core tool registry. Names
+                    // only — full schemas are available via the
+                    // gateway's GET /tools endpoint.
+                    let mut reg = argo_tool::ToolRegistry::new();
+                    for t in argo_tool::builtin_tools(cwd.clone()) {
+                        reg.register(t);
+                    }
+                    let mut names: Vec<String> =
+                        reg.schemas().into_iter().map(|s| s.name).collect();
+                    names.sort();
+                    state.tools_overlay = Some(names);
                 }
                 KeyCode::Char('A') => {
                     // Audit chain for the selected session. No
