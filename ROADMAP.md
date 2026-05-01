@@ -35,7 +35,7 @@ roadmap lifecycle is operational:**
   detach-skill / skills` carve a curated subset for one
   session; the runner falls back to all active skills when the
   set is empty.
-- Gateway exposes 62 endpoints, all enumerable via
+- Gateway exposes 66 endpoints, all enumerable via
   `GET /routes`. Write endpoints round out CLI parity:
   `POST /skills` (#275), `POST /memory` (#276),
   `POST /forge/optimize` + `POST /forge/bench` (#281),
@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **328+ PRs**, ~47k LOC across 27 crates, zero LOC-budget
+across **334+ PRs**, ~48k LOC across 27 crates, zero LOC-budget
 violations, 80+ test suites green.
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
@@ -111,7 +111,7 @@ is a one-shot meta verifier.
 
 `argo gateway start` is a real signal-clean HTTP daemon listening
 on 127.0.0.1:7400 with PID-file lifecycle (start/stop graceful
-shutdown via SIGTERM/SIGINT). It exposes **62 endpoints** —
+shutdown via SIGTERM/SIGINT). It exposes **66 endpoints** —
 all read-side surfaces are introspectable via `GET /routes`,
 the discovery endpoint that returns the full catalogue as a
 JSON array of `{method, path, description}` rows. Highlights:
