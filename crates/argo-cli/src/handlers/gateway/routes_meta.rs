@@ -435,6 +435,10 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/sessions/<id>/steer", "inject a system-role steer"),
         ("POST", "/sessions/<id>/replay", "replay user prompts in a fresh session"),
         ("POST", "/sessions/<id>/replay/stream", "chunked-NDJSON replay event stream"),
+        ("POST", "/skills", "install a SKILL.md document"),
+        ("POST", "/memory", "append a memory entry"),
+        ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),
+        ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()

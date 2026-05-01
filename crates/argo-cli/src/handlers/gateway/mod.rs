@@ -124,6 +124,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /workspace/artifacts[?limit=N] → recorded marketplace pushes (oci_ref + digest + pushed_at)");
     eprintln!("  GET  /forge/runs[?limit=N] → recorded forge optimization runs");
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
+    eprintln!("  POST /forge/optimize → kick off `argo forge optimize` ({{skill, examples, iterations?, budget_usd?}})");
+    eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");
     eprintln!("  GET  /routes  → discovery: every route + a one-line description");
     eprintln!("  GET  /doctor       → JSON snapshot of `argo doctor` (cwd, db, cron, creds, …)");
     eprintln!("  GET  /health/full  → deep health (audit chain + skill + memory provenance)");

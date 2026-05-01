@@ -114,3 +114,53 @@ fn memory_append_returns_400_on_unknown_file_and_when_no_workspace() {
 
     assert!(child.wait().expect("wait").success());
 }
+
+#[test]
+fn forge_optimize_post_validates_body_and_returns_202_on_kick_off() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+
+    // Missing skill → 400
+    let resp = http_post(port, "/forge/optimize", r#"{"examples":"foo.jsonl"}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Missing examples → 400
+    let resp = http_post(port, "/forge/optimize", r#"{"skill":"x"}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // Valid body → 202 Accepted (background task may fail later
+    // because the skill / file don't exist, but the kick-off is
+    // synchronous and replies immediately).
+    let resp = http_post(
+        port,
+        "/forge/optimize",
+        r#"{"skill":"missing-skill","examples":"missing.jsonl","iterations":1,"budget_usd":0.5}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 202 Accepted"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains(r#""started":true"#), "body={body}");
+    assert!(body.contains(r#""kind":"optimize""#), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+#[test]
+fn forge_bench_post_returns_202_with_provider_defaults() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 2);
+
+    let resp = http_post(port, "/forge/bench", r#"{}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    let resp = http_post(
+        port,
+        "/forge/bench",
+        r#"{"skill":"missing-skill","examples":"missing.jsonl"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 202 Accepted"), "resp={resp}");
+    let body = body_of(&resp);
+    assert!(body.contains(r#""kind":"bench""#), "body={body}");
+    assert!(body.contains(r#""provider":"anthropic""#), "body={body}");
+
+    assert!(child.wait().expect("wait").success());
+}

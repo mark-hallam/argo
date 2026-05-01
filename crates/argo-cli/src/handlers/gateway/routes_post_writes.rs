@@ -1,7 +1,7 @@
 //! Write-side POST handlers for non-session resources —
-//! `POST /skills`, `POST /memory`. Lives in its own module so
-//! `routes_post.rs` (the session-flavoured POSTs) stays under
-//! the 500-LOC ceiling.
+//! `POST /skills`, `POST /memory`, `POST /forge/{optimize,bench}`.
+//! Lives in its own module so `routes_post.rs` (the session-
+//! flavoured POSTs) stays under the 500-LOC ceiling.
 use super::{body_from_request, store_unavailable};
 use argo_store::SessionStore;
 use std::sync::Arc;
@@ -146,4 +146,128 @@ pub(super) async fn install_skill_response(
             format!("{{\"error\":\"install: {e}\"}}"),
         ),
     }
+}
+
+/// `POST /forge/optimize` — kick off `argo forge optimize` in
+/// the background. Body shape:
+/// `{"skill": "...", "examples": "<path>", "iterations": 12,
+///   "budget_usd": 5.0}` (iterations + budget_usd optional).
+/// Returns 202 Accepted immediately — the caller polls
+/// `GET /forge/runs` to find the new run by skill_name +
+/// `started_at`.
+pub(super) async fn forge_optimize_response(req: &str) -> (&'static str, String) {
+    let parsed = match parse_forge_body(req) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    let skill = parsed.skill;
+    let examples = parsed.examples;
+    let iterations = parsed
+        .raw
+        .get("iterations")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(12) as u32;
+    let budget_usd = parsed
+        .raw
+        .get("budget_usd")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(5.0);
+    crate::handlers::forge_optimize::spawn_optimize(
+        skill.clone(),
+        examples.clone(),
+        iterations,
+        budget_usd,
+    );
+    let resp = serde_json::json!({
+        "started": true,
+        "kind": "optimize",
+        "skill": skill,
+        "examples": examples,
+        "iterations": iterations,
+        "budget_usd": budget_usd,
+    });
+    (
+        "202 Accepted",
+        serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+/// `POST /forge/bench` — kick off `argo forge bench` in the
+/// background. Body shape:
+/// `{"skill": "...", "examples": "<path>", "provider": "...",
+///   "model": "..."}` (provider + model optional, default to
+/// anthropic / claude-3-5-sonnet-20241022). Returns 202
+/// Accepted; caller polls `GET /forge/runs` for the result.
+pub(super) async fn forge_bench_response(req: &str) -> (&'static str, String) {
+    let parsed = match parse_forge_body(req) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    let skill = parsed.skill;
+    let examples = parsed.examples;
+    let provider = parsed
+        .raw
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("anthropic")
+        .to_string();
+    let model = parsed
+        .raw
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("claude-3-5-sonnet-20241022")
+        .to_string();
+    crate::handlers::forge::spawn_bench(
+        skill.clone(),
+        examples.clone(),
+        provider.clone(),
+        model.clone(),
+    );
+    let resp = serde_json::json!({
+        "started": true,
+        "kind": "bench",
+        "skill": skill,
+        "examples": examples,
+        "provider": provider,
+        "model": model,
+    });
+    (
+        "202 Accepted",
+        serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
+struct ForgeBody {
+    skill: String,
+    examples: String,
+    raw: serde_json::Value,
+}
+
+fn parse_forge_body(req: &str) -> Result<ForgeBody, (&'static str, String)> {
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = serde_json::from_str(body)
+        .map_err(|e| ("400 Bad Request", format!("{{\"error\":\"parse JSON body: {e}\"}}")))?;
+    let skill = parsed
+        .get("skill")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .ok_or((
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `skill`\"}".to_string(),
+        ))?;
+    let examples = parsed
+        .get("examples")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .ok_or((
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `examples` (path to JSONL)\"}".to_string(),
+        ))?;
+    Ok(ForgeBody {
+        skill,
+        examples,
+        raw: parsed,
+    })
 }

@@ -250,6 +250,20 @@ pub(super) async fn run(
     Ok(())
 }
 
+/// Async kick-off used by the gateway's `POST /forge/optimize`.
+/// Spawns a Tokio task that runs the optimize sweep with
+/// `stream=false`; the forge_run row is queryable via
+/// `GET /forge/runs` as it progresses. Errors hit the gateway
+/// log (eprintln) — the caller has already gone home with their
+/// 202 Accepted.
+pub(crate) fn spawn_optimize(skill: String, examples: String, iterations: u32, budget_usd: f64) {
+    tokio::spawn(async move {
+        if let Err(e) = run(&skill, &examples, iterations, budget_usd, false).await {
+            eprintln!("argo gateway: forge optimize ({skill}) failed: {e}");
+        }
+    });
+}
+
 /// Emit one NDJSON event line on stdout. Used by the `--stream`
 /// mode so the TUI / watch scripts / gateway can consume forge
 /// progress without parsing the table.

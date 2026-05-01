@@ -151,6 +151,18 @@ async fn bench(
 }
 
 
+/// Async kick-off used by the gateway's `POST /forge/bench`.
+/// Spawns a Tokio task that runs the bench; the resulting
+/// forge_run row shows up in `GET /forge/runs`. Errors land in
+/// the gateway log — the caller already got 202 Accepted.
+pub(crate) fn spawn_bench(skill: String, examples: String, provider: String, model: String) {
+    tokio::spawn(async move {
+        if let Err(e) = bench(&skill, &examples, &provider, &model).await {
+            eprintln!("argo gateway: forge bench ({skill}) failed: {e}");
+        }
+    });
+}
+
 async fn promote(skill_name: &str, version: &str) -> ArgoResult<()> {
     let store = Arc::new(open_store().await?);
     let skills = SkillStore::new(Arc::clone(&store));
