@@ -164,8 +164,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /db/stats ") {
         return db_stats_response(store).await;
     }
-    if req.starts_with("GET /routes ") {
-        return routes_response();
+    if req.starts_with("GET /routes ") || req.starts_with("GET /routes?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let method = parse_query_kv(tail, "method");
+        return routes_response(method.as_deref());
     }
     if req.starts_with("GET /search ") || req.starts_with("GET /search?") {
         let (q, limit, session) = parse_search_args(req);

@@ -3,10 +3,11 @@
 //! as the catalog grows. Pure data + a serde_json render — no
 //! IO, no store access.
 
-/// Build the `GET /routes` response: every dispatched route +
-/// a one-line description, returned as a JSON array of
-/// `{method, path, description}` rows.
-pub(super) fn routes_response() -> (&'static str, String) {
+/// Build the `GET /routes[?method=GET|POST]` response: every
+/// dispatched route + a one-line description, returned as a
+/// JSON array of `{method, path, description}` rows. With
+/// `method=GET|POST` the result is filtered to that verb.
+pub(super) fn routes_response(method_filter: Option<&str>) -> (&'static str, String) {
     let rows = [
         ("GET", "/health", "liveness probe"),
         ("GET", "/version", "build version"),
@@ -48,7 +49,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("POST", "/judge/<record_id>/override", "override a judge verdict ({to})"),
         ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
-        ("GET", "/routes", "this listing"),
+        ("GET", "/routes", "this listing (?method=GET|POST filter)"),
         ("GET", "/metrics", "Prometheus-style text exposition"),
         ("GET", "/db/stats", "per-table row counts (sessions, messages, audit, …)"),
         ("POST", "/db/vacuum", "run VACUUM on the SQLite store"),
@@ -85,6 +86,10 @@ pub(super) fn routes_response() -> (&'static str, String) {
     ];
     let body: Vec<serde_json::Value> = rows
         .iter()
+        .filter(|(method, _, _)| match method_filter {
+            Some(m) => m.eq_ignore_ascii_case(method),
+            None => true,
+        })
         .map(|(method, path, description)| {
             serde_json::json!({
                 "method": method,
