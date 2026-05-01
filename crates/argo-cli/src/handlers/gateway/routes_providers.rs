@@ -4,11 +4,11 @@
 use argo_provider::ProviderManifest;
 use std::path::PathBuf;
 
-/// `GET /providers` — list every parseable manifest under
-/// `<cwd>/manifests/providers/*.toml`. Invalid manifests are
-/// reported with `{path, error}` rows so a typo is visible
-/// without crashing the whole list.
-pub(super) async fn providers_response() -> (&'static str, String) {
+/// `GET /providers[?family=<f>]` — list every parseable
+/// manifest. Invalid manifests are reported with `{path, error}`
+/// rows. Optional `family` (case-insensitive) narrows to
+/// Anthropic / OpenAICompatible / OpenAIResponses / Bedrock.
+pub(super) async fn providers_response(family: Option<&str>) -> (&'static str, String) {
     let Ok(cwd) = std::env::current_dir() else {
         return (
             "500 Internal Server Error",
@@ -37,11 +37,20 @@ pub(super) async fn providers_response() -> (&'static str, String) {
         }
     };
     paths.sort();
+    let needle = family.map(str::to_lowercase);
     for p in paths {
         match std::fs::read_to_string(&p).and_then(|body| {
             ProviderManifest::from_toml_str(&body).map_err(std::io::Error::other)
         }) {
-            Ok(m) => rows.push(manifest_to_json(&m)),
+            Ok(m) => {
+                if let Some(want) = needle.as_deref() {
+                    let actual = format!("{:?}", m.provider.family).to_lowercase();
+                    if !actual.contains(want) {
+                        continue;
+                    }
+                }
+                rows.push(manifest_to_json(&m));
+            }
             Err(e) => rows.push(serde_json::json!({
                 "path": p.display().to_string(),
                 "error": e.to_string(),

@@ -139,8 +139,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /health/full ") {
         return health_full_response().await;
     }
-    if req.starts_with("GET /providers ") {
-        return providers_response().await;
+    if req.starts_with("GET /providers ") || req.starts_with("GET /providers?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let family = parse_query_kv(tail, "family");
+        return providers_response(family.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /providers/") {
         // `/providers/<id>/models` takes priority over the bare
