@@ -7,8 +7,8 @@ use crate::actions::{
 };
 use crate::app::{PaneFocus, ViewerState};
 use crate::input_helpers::{
-    force_refresh_open_overlays, handle_message_overlay, pick_yank_at_cursor, pick_yank_text,
-    scan_dir_basenames,
+    force_refresh_open_overlays, handle_message_overlay, handle_scroll_overlay, pick_yank_at_cursor,
+    pick_yank_text, scan_dir_basenames,
 };
 use crate::render::draw;
 use crate::viewer::{fetch_message_count, fetch_messages};
@@ -113,115 +113,32 @@ pub(crate) async fn run(
                 handle_message_overlay(key.code, state);
                 continue;
             }
-            // Forge-runs overlay: Esc/F/q close, j/k/PgUp/PgDn
-            // scroll. Loop body auto-refreshes the rows every
-            // second so a CLI-side optimize ticks along live.
+            // Forge-runs overlay: Esc/F/q close, vim-ish scroll.
+            // Body auto-refreshes on the 1s tick so a CLI-side
+            // optimize ticks along live.
             if let Some(rows) = state.forge_runs.as_ref() {
                 let n = rows.len();
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('F') | KeyCode::Char('q') => {
-                        state.forge_runs = None;
-                        state.forge_runs_scroll = 0;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let max = n.saturating_sub(1);
-                        if state.forge_runs_scroll < max {
-                            state.forge_runs_scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        state.forge_runs_scroll =
-                            state.forge_runs_scroll.saturating_sub(1);
-                    }
-                    KeyCode::PageDown => {
-                        let max = n.saturating_sub(1);
-                        state.forge_runs_scroll = (state.forge_runs_scroll + 10).min(max);
-                    }
-                    KeyCode::PageUp => {
-                        state.forge_runs_scroll =
-                            state.forge_runs_scroll.saturating_sub(10);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        state.forge_runs_scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        state.forge_runs_scroll = n.saturating_sub(1);
-                    }
-                    _ => {}
+                if handle_scroll_overlay(key.code, &['F'], &mut state.forge_runs_scroll, n) {
+                    state.forge_runs = None;
+                    state.forge_runs_scroll = 0;
                 }
                 continue;
             }
-            // Active-skills overlay: Esc/S/q close, j/k scroll.
+            // Active-skills overlay: Esc/S/q close, vim-ish scroll.
             if let Some(rows) = state.skills_overlay.as_ref() {
                 let n = rows.len();
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('S') | KeyCode::Char('q') => {
-                        state.skills_overlay = None;
-                        state.skills_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let max = n.saturating_sub(1);
-                        if state.skills_overlay_scroll < max {
-                            state.skills_overlay_scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        state.skills_overlay_scroll =
-                            state.skills_overlay_scroll.saturating_sub(1);
-                    }
-                    KeyCode::PageDown => {
-                        let max = n.saturating_sub(1);
-                        state.skills_overlay_scroll =
-                            (state.skills_overlay_scroll + 10).min(max);
-                    }
-                    KeyCode::PageUp => {
-                        state.skills_overlay_scroll =
-                            state.skills_overlay_scroll.saturating_sub(10);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        state.skills_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        state.skills_overlay_scroll = n.saturating_sub(1);
-                    }
-                    _ => {}
+                if handle_scroll_overlay(key.code, &['S'], &mut state.skills_overlay_scroll, n) {
+                    state.skills_overlay = None;
+                    state.skills_overlay_scroll = 0;
                 }
                 continue;
             }
-            // Active-memory overlay: Esc/M/q close, j/k scroll.
+            // Active-memory overlay: Esc/M/q close, vim-ish scroll.
             if let Some(rows) = state.memory_overlay.as_ref() {
                 let n = rows.len();
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('M') | KeyCode::Char('q') => {
-                        state.memory_overlay = None;
-                        state.memory_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let max = n.saturating_sub(1);
-                        if state.memory_overlay_scroll < max {
-                            state.memory_overlay_scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        state.memory_overlay_scroll =
-                            state.memory_overlay_scroll.saturating_sub(1);
-                    }
-                    KeyCode::PageDown => {
-                        let max = n.saturating_sub(1);
-                        state.memory_overlay_scroll =
-                            (state.memory_overlay_scroll + 10).min(max);
-                    }
-                    KeyCode::PageUp => {
-                        state.memory_overlay_scroll =
-                            state.memory_overlay_scroll.saturating_sub(10);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        state.memory_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        state.memory_overlay_scroll = n.saturating_sub(1);
-                    }
-                    _ => {}
+                if handle_scroll_overlay(key.code, &['M'], &mut state.memory_overlay_scroll, n) {
+                    state.memory_overlay = None;
+                    state.memory_overlay_scroll = 0;
                 }
                 continue;
             }
@@ -236,98 +153,32 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Audit-chain overlay: Esc/A/q close, j/k/PgUp/PgDn
-            // scroll, anything else is ignored. Snapshot at
-            // open — re-press `A` (or `R` global) to refresh.
+            // Audit-chain overlay: Esc/A/q close, vim-ish scroll.
+            // Snapshot at open — re-press `A` (or `R` global) to
+            // refresh.
             if let Some(rows) = state.audit_overlay.as_ref() {
                 let n = rows.len();
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('A') | KeyCode::Char('q') => {
-                        state.audit_overlay = None;
-                        state.audit_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let max = n.saturating_sub(1);
-                        if state.audit_overlay_scroll < max {
-                            state.audit_overlay_scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        state.audit_overlay_scroll =
-                            state.audit_overlay_scroll.saturating_sub(1);
-                    }
-                    KeyCode::PageDown => {
-                        let max = n.saturating_sub(1);
-                        state.audit_overlay_scroll =
-                            (state.audit_overlay_scroll + 10).min(max);
-                    }
-                    KeyCode::PageUp => {
-                        state.audit_overlay_scroll =
-                            state.audit_overlay_scroll.saturating_sub(10);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        state.audit_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        state.audit_overlay_scroll = n.saturating_sub(1);
-                    }
-                    _ => {}
+                if handle_scroll_overlay(key.code, &['A'], &mut state.audit_overlay_scroll, n) {
+                    state.audit_overlay = None;
+                    state.audit_overlay_scroll = 0;
                 }
                 continue;
             }
-            // Cron overlay: Esc/K/q close, j/k scroll.
+            // Cron overlay: Esc/K/q close, vim-ish scroll.
             if let Some(rows) = state.cron_overlay.as_ref() {
                 let n = rows.len();
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('K') | KeyCode::Char('q') => {
-                        state.cron_overlay = None;
-                        state.cron_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let max = n.saturating_sub(1);
-                        if state.cron_overlay_scroll < max {
-                            state.cron_overlay_scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        state.cron_overlay_scroll =
-                            state.cron_overlay_scroll.saturating_sub(1);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        state.cron_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        state.cron_overlay_scroll = n.saturating_sub(1);
-                    }
-                    _ => {}
+                if handle_scroll_overlay(key.code, &['K'], &mut state.cron_overlay_scroll, n) {
+                    state.cron_overlay = None;
+                    state.cron_overlay_scroll = 0;
                 }
                 continue;
             }
-            // Providers overlay: Esc/P/q close, j/k scroll.
+            // Providers overlay: Esc/P/q close, vim-ish scroll.
             if let Some(rows) = state.providers_overlay.as_ref() {
                 let n = rows.len();
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('P') | KeyCode::Char('q') => {
-                        state.providers_overlay = None;
-                        state.providers_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let max = n.saturating_sub(1);
-                        if state.providers_overlay_scroll < max {
-                            state.providers_overlay_scroll += 1;
-                        }
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        state.providers_overlay_scroll =
-                            state.providers_overlay_scroll.saturating_sub(1);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        state.providers_overlay_scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        state.providers_overlay_scroll = n.saturating_sub(1);
-                    }
-                    _ => {}
+                if handle_scroll_overlay(key.code, &['P'], &mut state.providers_overlay_scroll, n) {
+                    state.providers_overlay = None;
+                    state.providers_overlay_scroll = 0;
                 }
                 continue;
             }

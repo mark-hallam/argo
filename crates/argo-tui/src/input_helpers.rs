@@ -6,6 +6,45 @@ use argo_store::SessionStore;
 use crossterm::event::KeyCode;
 use std::sync::Arc;
 
+/// Generic scroll-overlay key handler. Returns `true` when the
+/// key was a close key (Esc / `q` / one of `close_chars`), so
+/// the caller can null out the overlay state. Otherwise mutates
+/// `scroll` in place via the j/k/PgUp/PgDn/g/G/Home/End vim-ish
+/// pattern shared by every list overlay (forge runs, skills,
+/// memory, audit, cron, providers).
+pub(crate) fn handle_scroll_overlay(
+    code: KeyCode,
+    close_chars: &[char],
+    scroll: &mut usize,
+    list_len: usize,
+) -> bool {
+    let max = list_len.saturating_sub(1);
+    match code {
+        KeyCode::Esc => return true,
+        KeyCode::Char(c) if c == 'q' || close_chars.contains(&c) => return true,
+        KeyCode::Char('j') | KeyCode::Down if *scroll < max => {
+            *scroll += 1;
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            *scroll = scroll.saturating_sub(1);
+        }
+        KeyCode::PageDown => {
+            *scroll = (*scroll + 10).min(max);
+        }
+        KeyCode::PageUp => {
+            *scroll = scroll.saturating_sub(10);
+        }
+        KeyCode::Char('g') | KeyCode::Home => {
+            *scroll = 0;
+        }
+        KeyCode::Char('G') | KeyCode::End => {
+            *scroll = max;
+        }
+        _ => {}
+    }
+    false
+}
+
 /// One keystroke for the message-detail overlay. Pure state.
 pub(crate) fn handle_message_overlay(code: KeyCode, state: &mut ViewerState) {
     match code {
