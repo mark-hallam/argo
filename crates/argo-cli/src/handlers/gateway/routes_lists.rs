@@ -130,13 +130,15 @@ pub(super) async fn memory_versions_response(
 /// entries. `file` scopes to one of the four canonical files.
 /// `since-minutes` filters by `learned_at`. `lock` filters by
 /// the lock state (`none|user-protected|content-locked`).
-/// 200 + `[]` when no workspace is registered; 400 on
-/// unknown `file` or `lock`.
+/// `body_contains` keeps only entries whose body contains the
+/// given substring (case-insensitive). 200 + `[]` when no
+/// workspace is registered; 400 on unknown `file` or `lock`.
 pub(super) async fn memory_response(
     store: Option<&Arc<SessionStore>>,
     file: Option<String>,
     since_minutes: Option<i64>,
     lock: Option<String>,
+    body_contains: Option<String>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
@@ -189,6 +191,7 @@ pub(super) async fn memory_response(
     let memory = MemoryStore::new(Arc::clone(store));
     let cutoff = since_minutes
         .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
+    let needle = body_contains.as_deref().map(str::to_lowercase);
     let mut all: Vec<serde_json::Value> = Vec::new();
     for f in files {
         match memory.list_active(workspace, f).await {
@@ -201,6 +204,11 @@ pub(super) async fn memory_response(
                     }
                     if let Some(want) = lock_filter {
                         if e.lock != want {
+                            continue;
+                        }
+                    }
+                    if let Some(n) = needle.as_deref() {
+                        if !e.body.to_lowercase().contains(n) {
                             continue;
                         }
                     }
