@@ -2,6 +2,8 @@
 //! `Cli` + `Command` enums live here; per-family `Subcommand` enums
 //! are extracted to `cli_subcommands.rs` (re-exported below) so
 //! both files stay under the 500-LOC ceiling.
+#[path = "cli_memory_cmd.rs"]
+mod cli_memory_cmd;
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
 #[path = "cli_session_cmds.rs"]
