@@ -28,6 +28,7 @@ use super::routes_post_admin::{
     memory_unlock_response, skill_lock_response, skill_unlock_response,
 };
 use super::routes_skill_refine::skill_refine_response;
+use super::routes_top::{audit_response, doctor_response, health_full_response, sessions_response};
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
@@ -45,7 +46,6 @@ use super::routes_post_writes::{
 use super::routes_session::{
     session_show_response, session_spend_response, session_spend_total_response,
 };
-use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -451,145 +451,4 @@ pub(super) async fn dispatch_route(
     }
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
 }
-
-async fn sessions_response(
-    store: Option<&Arc<SessionStore>>,
-    since_minutes: Option<i64>,
-    status: Option<&str>,
-    provider: Option<&str>,
-    model: Option<&str>,
-    title_contains: Option<&str>,
-    limit: u32,
-) -> (&'static str, String) {
-    let Some(store) = store else {
-        return store_unavailable();
-    };
-    match store.list_all_sessions(limit).await {
-        Ok(mut rows) => {
-            if let Some(minutes) = since_minutes {
-                let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
-                rows.retain(|s| s.started_at >= cutoff);
-            }
-            if let Some(want) = status {
-                rows.retain(|s| match want {
-                    "open" => s.ended_at.is_none(),
-                    "ended" => s.ended_at.is_some(),
-                    _ => true,
-                });
-            }
-            if let Some(want) = provider {
-                rows.retain(|s| s.provider == want);
-            }
-            if let Some(want) = model {
-                rows.retain(|s| s.model == want);
-            }
-            if let Some(needle) = title_contains {
-                let lower = needle.to_lowercase();
-                rows.retain(|s| {
-                    s.title
-                        .as_deref()
-                        .map(|t| t.to_lowercase().contains(&lower))
-                        .unwrap_or(false)
-                });
-            }
-            let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
-            let arr: Vec<serde_json::Value> = rows
-                .iter()
-                .map(|s| {
-                    let spent = spend_by_sid
-                        .get(s.id.0.as_bytes().as_slice())
-                        .copied()
-                        .unwrap_or(0);
-                    serde_json::json!({
-                        "id": s.id.0.to_string(),
-                        "model": s.model,
-                        "provider": s.provider,
-                        "title": s.title,
-                        "started_at": s.started_at.to_rfc3339(),
-                        "ended_at": s.ended_at.map(|d| d.to_rfc3339()),
-                        "spent_usd_micros": spent,
-                    })
-                })
-                .collect();
-            (
-                "200 OK",
-                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
-            )
-        }
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"list sessions: {e}\"}}"),
-        ),
-    }
-}
-
-async fn doctor_response() -> (&'static str, String) {
-    match crate::handlers::doctor::collect().await {
-        Ok(v) => (
-            "200 OK",
-            serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
-        ),
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"doctor: {e}\"}}"),
-        ),
-    }
-}
-
-async fn health_full_response() -> (&'static str, String) {
-    match crate::handlers::health::collect().await {
-        Ok(v) => {
-            let status = if v["ok"].as_bool().unwrap_or(false) {
-                "200 OK"
-            } else {
-                "500 Internal Server Error"
-            };
-            (
-                status,
-                serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
-            )
-        }
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"health: {e}\"}}"),
-        ),
-    }
-}
-
-async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
-    let Some(store) = store else {
-        return store_unavailable();
-    };
-    let report = match argo_audit::verify_all(store).await {
-        Ok(r) => r,
-        Err(e) => {
-            return (
-                "500 Internal Server Error",
-                format!("{{\"error\":\"verify_all: {e}\"}}"),
-            );
-        }
-    };
-    let mut kinds: Vec<(String, usize)> = report
-        .kind_counts
-        .iter()
-        .map(|(k, v)| (k.clone(), *v))
-        .collect();
-    kinds.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    let kinds_obj: serde_json::Map<String, serde_json::Value> = kinds
-        .into_iter()
-        .map(|(k, v)| (k, serde_json::Value::from(v)))
-        .collect();
-    let payload = serde_json::json!({
-        "ok": report.ok,
-        "rows": report.rows,
-        "breaks": report.breaks.len(),
-        "kinds": kinds_obj,
-    });
-    (
-        "200 OK",
-        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
-    )
-}
-
-
 

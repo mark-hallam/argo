@@ -21,6 +21,7 @@ mod routes_query;
 mod routes_session;
 mod routes_session_skills;
 mod routes_skill_refine;
+mod routes_top;
 mod routes_workspace;
 mod streaming;
 
