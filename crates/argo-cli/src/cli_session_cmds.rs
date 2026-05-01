@@ -46,6 +46,10 @@ pub enum SessionCmd {
         /// Case-insensitive substring filter on session.title.
         #[arg(long)]
         title_contains: Option<String>,
+        /// Sort order: `started-at` (default, descending) or
+        /// `spend` (descending — biggest spenders first).
+        #[arg(long, default_value = "started-at")]
+        sort_by: String,
     },
     /// Print just the count of sessions matching the filters
     /// (useful for monitoring scripts). One number per line, or

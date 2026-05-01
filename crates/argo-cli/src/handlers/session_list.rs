@@ -17,6 +17,7 @@ pub(super) async fn list_sessions(
     model: Option<String>,
     status: String,
     title_contains: Option<String>,
+    sort_by: String,
 ) -> ArgoResult<()> {
     use super::session_aggregates::{spend_per_session, tool_calls_per_session};
     let cwd =
@@ -62,6 +63,27 @@ pub(super) async fn list_sessions(
     }
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
+    match sort_by.as_str() {
+        "started-at" => {} // already sorted by store
+        "spend" => {
+            sessions.sort_by(|a, b| {
+                let sa = spend_by_sid
+                    .get(a.id.0.as_bytes().as_slice())
+                    .copied()
+                    .unwrap_or(0);
+                let sb = spend_by_sid
+                    .get(b.id.0.as_bytes().as_slice())
+                    .copied()
+                    .unwrap_or(0);
+                sb.cmp(&sa)
+            });
+        }
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown --sort-by '{other}' — use started-at|spend"
+            )));
+        }
+    }
     if spent_min.is_some() || spent_max.is_some() {
         sessions.retain(|s| {
             let spent = spend_by_sid
