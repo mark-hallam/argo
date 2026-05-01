@@ -5,12 +5,15 @@ use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
-/// `GET /skills[?include-superseded=true]` — active skills by
-/// default, all versions when the flag is set. Each row carries
-/// `{id, name, version, lock, hash, created_at, superseded_by?}`.
+/// `GET /skills[?include-superseded=true&name-contains=<sub>]`
+/// — active skills by default, all versions when
+/// `include-superseded`, optionally narrowed by name substring.
+/// Each row: `{id, name, version, lock, hash, created_at,
+/// superseded_by?}`.
 pub(super) async fn skills_response(
     store: Option<&Arc<SessionStore>>,
     include_superseded: bool,
+    name_contains: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -21,10 +24,15 @@ pub(super) async fn skills_response(
     } else {
         skills.list_active().await
     };
+    let needle = name_contains.map(str::to_lowercase);
     match result {
         Ok(rows) => {
             let arr: Vec<serde_json::Value> = rows
                 .iter()
+                .filter(|s| match needle.as_deref() {
+                    Some(n) => s.frontmatter.name.to_lowercase().contains(n),
+                    None => true,
+                })
                 .map(|s| {
                     serde_json::json!({
                         "id": s.id.0.to_string(),
