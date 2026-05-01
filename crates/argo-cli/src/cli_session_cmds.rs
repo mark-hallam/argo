@@ -33,6 +33,14 @@ pub enum SessionCmd {
         /// `--model claude-sonnet-4.5`.
         #[arg(long)]
         model: Option<String>,
+        /// Status filter: `open` keeps sessions with a NULL
+        /// `ended_at`, `ended` keeps the rest, `all` (default)
+        /// returns both. Mirrors the gateway's `?status=` query.
+        #[arg(long, default_value = "all")]
+        status: String,
+        /// Case-insensitive substring filter on session.title.
+        #[arg(long)]
+        title_contains: Option<String>,
     },
     /// `tail -f`-style live watch of new messages on a session.
     /// Polls every 500ms; prints each newly-appended row as a

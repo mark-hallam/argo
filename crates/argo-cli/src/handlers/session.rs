@@ -17,6 +17,8 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             spent_max,
             provider,
             model,
+            status,
+            title_contains,
         } => {
             list_sessions(
                 limit,
@@ -26,6 +28,8 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
                 spent_max,
                 provider,
                 model,
+                status,
+                title_contains,
             )
             .await
         }
@@ -324,6 +328,8 @@ async fn list_sessions(
     spent_max: Option<u64>,
     provider: Option<String>,
     model: Option<String>,
+    status: String,
+    title_contains: Option<String>,
 ) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
@@ -342,6 +348,25 @@ async fn list_sessions(
     }
     if let Some(want) = model.as_deref() {
         sessions.retain(|s| s.model == want);
+    }
+    match status.as_str() {
+        "open" => sessions.retain(|s| s.ended_at.is_none()),
+        "ended" => sessions.retain(|s| s.ended_at.is_some()),
+        "all" => {}
+        other => {
+            return Err(ArgoError::Provider(format!(
+                "unknown --status '{other}' — use open|ended|all"
+            )));
+        }
+    }
+    if let Some(needle) = title_contains.as_deref() {
+        let lower = needle.to_lowercase();
+        sessions.retain(|s| {
+            s.title
+                .as_deref()
+                .map(|t| t.to_lowercase().contains(&lower))
+                .unwrap_or(false)
+        });
     }
     let spend_by_sid = spend_per_session(&store).await.unwrap_or_default();
     let tool_calls_by_sid = tool_calls_per_session(&store).await.unwrap_or_default();
