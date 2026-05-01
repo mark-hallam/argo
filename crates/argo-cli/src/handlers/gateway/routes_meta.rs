@@ -338,7 +338,6 @@ pub(super) async fn skill_show_response(
 
 // `forge_run_show_response` lives in `super::routes_forge` to
 // keep this file under the 500-LOC budget.
-pub(super) use super::routes_forge::forge_run_show_response;
 
 /// `GET /routes` — discovery endpoint listing every route the
 /// gateway dispatches, with a one-line description per row.

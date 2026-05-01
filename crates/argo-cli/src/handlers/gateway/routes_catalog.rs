@@ -48,7 +48,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/workspace/info", "first workspace row (id, name, root_path, created_at)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes (?limit=N&since-minutes=M)"),
         ("GET", "/forge/runs", "recorded forge runs (?limit&since-minutes&status&score-min&score-max&skill&has-candidate&iterations-min&iterations-max)"),
-        ("GET", "/forge/runs/<id>", "one forge_run row"),
+        ("GET", "/forge/runs/<id>", "one forge_run row (?format=markdown for a paste-able doc)"),
         ("GET", "/forge/runs/count", "count of forge runs (?status=running|...&since-minutes=N)"),
         ("GET", "/cron", "scheduled cron jobs (workspace cron/jobs/*.json)"),
         ("GET", "/cron/<name>", "one cron job by name"),

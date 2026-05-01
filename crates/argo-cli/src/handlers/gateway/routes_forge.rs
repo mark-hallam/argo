@@ -148,9 +148,15 @@ pub(super) async fn forge_runs_response(
 /// `argo forge runs show <id>`). Returns 404 when no row matches,
 /// 503 when the store is unavailable, 400 when the id isn't a
 /// valid UUID.
-pub(super) async fn forge_run_show_response(
+/// `GET /forge/runs/<id>[?format=markdown]` — single forge run
+/// row. Default JSON shape (`{id, skill_name, started_at,
+/// ended_at, elapsed_seconds, base_version, candidate_version,
+/// iterations, spend_usd_micros, final_score, status}`).
+/// With `?format=markdown`, returns a paste-able doc.
+pub(super) async fn forge_run_show_response_with_format(
     raw_id: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -171,6 +177,29 @@ pub(super) async fn forge_run_show_response(
             let now_micros = chrono::Utc::now().timestamp_micros();
             let end_micros = r.ended_at.unwrap_or(now_micros);
             let elapsed_seconds = ((end_micros - r.started_at) / 1_000_000).max(0);
+            if matches!(format, Some("markdown")) {
+                let cand = r.candidate_version.clone().unwrap_or_else(|| "(none)".into());
+                let score = r
+                    .final_score
+                    .map(|s| format!("{s:.3}"))
+                    .unwrap_or_else(|| "-".into());
+                let mut out = format!(
+                    "# Forge run `{}`\n\n",
+                    hex::encode(&r.id).chars().take(12).collect::<String>()
+                );
+                out.push_str(&format!("- **Skill**: `{}`\n", r.skill_name));
+                out.push_str(&format!("- **Status**: `{}`\n", r.status));
+                out.push_str(&format!("- **Base**: `{}`\n", r.base_version));
+                out.push_str(&format!("- **Candidate**: `{cand}`\n"));
+                out.push_str(&format!("- **Iterations**: {}\n", r.iterations));
+                out.push_str(&format!(
+                    "- **Spend**: ${:.4}\n",
+                    r.spend_usd_micros as f64 / 1_000_000.0
+                ));
+                out.push_str(&format!("- **Score**: {score}\n"));
+                out.push_str(&format!("- **Elapsed**: {elapsed_seconds}s\n"));
+                return ("200 OK", out);
+            }
             let body = serde_json::json!({
                 "id": hex::encode(&r.id),
                 "skill_name": r.skill_name,

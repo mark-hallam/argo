@@ -5,7 +5,7 @@
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
-    costs_response, costs_total_response, db_stats_response, forge_run_show_response,
+    costs_response, costs_total_response, db_stats_response,
     forge_runs_response, memory_show_response, routes_response, search_response,
     skill_show_response, skill_versions_response, tool_show_response, tools_response,
 };
@@ -273,8 +273,20 @@ pub(super) async fn dispatch_route(
         return super::routes_counts::dispatch_forge_runs_count(req, store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
-        if let Some((id, _)) = rest.split_once(' ') {
-            return forge_run_show_response(id, store).await;
+        if let Some((id_with_query, _)) = rest.split_once(' ') {
+            let (id, query) = match id_with_query.split_once('?') {
+                Some((i, q)) => (i, Some(q)),
+                None => (id_with_query, None),
+            };
+            let format = query
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+                .map(str::to_string);
+            return super::routes_forge::forge_run_show_response_with_format(
+                id,
+                store,
+                format.as_deref(),
+            )
+            .await;
         }
     }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
