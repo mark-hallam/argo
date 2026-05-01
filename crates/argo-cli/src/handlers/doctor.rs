@@ -167,6 +167,8 @@ async fn db_status(home: &std::path::Path) -> serde_json::Value {
             "audit": s.audit_rows,
             "memory": s.memory_entries,
             "skills": s.skills,
+            "forge_runs": s.forge_runs,
+            "spend_rows": s.spend_rows,
         })),
     })
 }
