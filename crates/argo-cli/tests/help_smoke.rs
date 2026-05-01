@@ -84,6 +84,68 @@ fn family_help_pages_render_without_crashing() {
 }
 
 #[test]
+fn new_session_subcommands_render_help() {
+    // Pins the recently-shipped session subcommands so a clap
+    // wiring regression (missing variant, mis-extracted enum)
+    // surfaces immediately.
+    for sub in [
+        "messages",
+        "title",
+        "clear-skills",
+        "show",
+        "list",
+        "diff",
+        "search",
+        "export",
+        "replay",
+    ] {
+        let h = help(&["session", sub]);
+        assert!(
+            h.contains("Usage:"),
+            "`argo session {sub} --help` lacks 'Usage:' header:\n{h}"
+        );
+    }
+}
+
+#[test]
+fn format_markdown_flag_pins() {
+    // Pins the markdown-format family across the read-side
+    // surfaces. Catches regressions where a `--format` flag
+    // gets dropped from a clap variant.
+    for args in [
+        &["session", "list"][..],
+        &["session", "show"][..],
+        &["session", "diff"][..],
+        &["session", "messages"][..],
+        &["session", "search"][..],
+        &["session", "export"][..],
+        &["skill", "list"][..],
+        &["memory", "list"][..],
+        &["forge", "runs", "list"][..],
+        &["audit", "show"][..],
+        &["costs", "show"][..],
+        &["doctor"][..],
+        &["health"][..],
+    ] {
+        let h = help(args);
+        assert!(
+            h.contains("--format"),
+            "`argo {} --help` is missing --format:\n{h}",
+            args.join(" ")
+        );
+    }
+}
+
+#[test]
+fn forge_runs_abort_all_renders_help() {
+    let h = help(&["forge", "runs", "abort-all"]);
+    assert!(
+        h.contains("Usage:"),
+        "`argo forge runs abort-all --help` lacks 'Usage:' header:\n{h}"
+    );
+}
+
+#[test]
 fn version_flag_round_trips_through_main() {
     let out = Command::new(argo_bin())
         .arg("--version")
