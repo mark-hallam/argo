@@ -33,7 +33,7 @@ pub(super) fn routes_response() -> (&'static str, String) {
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>)"),
         ("GET", "/workspace/info", "first workspace row (id, name, root_path, created_at)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes"),
-        ("GET", "/forge/runs", "recorded forge optimization runs"),
+        ("GET", "/forge/runs", "recorded forge optimization runs (?limit=N&since-minutes=M)"),
         ("GET", "/forge/runs/<id>", "one forge_run row"),
         ("GET", "/cron", "scheduled cron jobs (workspace cron/jobs/*.json)"),
         ("GET", "/cron/<name>", "one cron job by name"),

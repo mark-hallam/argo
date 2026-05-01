@@ -183,12 +183,16 @@ pub(super) async fn search_response(
     }
 }
 
-/// `GET /forge/runs[?limit=N]` — list recorded forge optimization
-/// runs from the local DB (the same rows `argo forge runs list`
-/// surfaces). Defaults to 50 rows. Returns 503 when the store is
-/// unavailable; 200 + an empty array on a clean DB.
+/// `GET /forge/runs[?limit=N&since-minutes=M]` — list recorded
+/// forge optimization runs from the local DB (the same rows
+/// `argo forge runs list` surfaces). Defaults to 50 rows.
+/// `since-minutes` (optional) filters to runs whose `started_at`
+/// is within the last M minutes — useful for tailing recent
+/// activity. Returns 503 when the store is unavailable; 200 +
+/// an empty array on a clean DB.
 pub(super) async fn forge_runs_response(
     limit: u32,
+    since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -196,8 +200,15 @@ pub(super) async fn forge_runs_response(
     };
     match store.list_forge_runs(limit).await {
         Ok(rows) => {
+            let cutoff_micros = since_minutes.map(|m| {
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros()
+            });
             let arr: Vec<serde_json::Value> = rows
                 .into_iter()
+                .filter(|r| match cutoff_micros {
+                    Some(c) => r.started_at >= c,
+                    None => true,
+                })
                 .map(|r| {
                     serde_json::json!({
                         "id": hex::encode(&r.id),

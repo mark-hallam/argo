@@ -133,7 +133,8 @@ pub(super) async fn dispatch_route(
             .and_then(|tail| parse_query_kv(tail, "limit"))
             .and_then(|v| v.parse().ok())
             .unwrap_or(50);
-        return forge_runs_response(limit, store).await;
+        let since = parse_since_minutes_from_get(req, "/forge/runs");
+        return forge_runs_response(limit, since, store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
         if let Some((id, _)) = rest.split_once(' ') {

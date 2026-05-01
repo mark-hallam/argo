@@ -140,7 +140,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /search?q=…[&limit=N&session=<id>] → FTS5 hits across the message corpus");
     eprintln!("  GET  /workspace/info → first workspace row (id, name, root_path, created_at)");
     eprintln!("  GET  /workspace/artifacts[?limit=N] → recorded marketplace pushes (oci_ref + digest + pushed_at)");
-    eprintln!("  GET  /forge/runs[?limit=N] → recorded forge optimization runs");
+    eprintln!("  GET  /forge/runs[?limit=N&since-minutes=M] → recorded forge runs");
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
     eprintln!("  GET  /cron                 → scheduled cron jobs (workspace cron/jobs/)");
     eprintln!("  GET  /cron/<name>          → one cron job by name");
