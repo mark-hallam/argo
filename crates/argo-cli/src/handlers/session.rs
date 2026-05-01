@@ -100,7 +100,11 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             provider,
             tools: _,
             workspace: _,
-        } => super::session_replay::run(&id, model.as_deref(), provider.as_deref()).await,
+            stream,
+        } => {
+            super::session_replay::run(&id, model.as_deref(), provider.as_deref(), stream)
+                .await
+        }
     }
 }
 

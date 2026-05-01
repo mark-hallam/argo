@@ -104,13 +104,19 @@ pub(crate) async fn replay_core_with_events(
     })
 }
 
-/// Top-level handler for `argo session replay`. Calls
+/// Top-level handler for `argo session replay`. With `stream`,
+/// pipes per-turn `RunEvent`s to stdout as NDJSON (mirroring the
+/// gateway's `replay/stream` chunked response). Otherwise calls
 /// `replay_core` and prints a human-readable summary.
 pub(crate) async fn run(
     raw: &str,
     model: Option<&str>,
     provider: Option<&str>,
+    stream: bool,
 ) -> ArgoResult<()> {
+    if stream {
+        return run_streaming(raw, model, provider).await;
+    }
     let result = replay_core(raw, model, provider).await?;
     println!(
         "session replay: {} → new session {} (provider={}, model={})",
@@ -125,6 +131,57 @@ pub(crate) async fn run(
         "\ninspect with `argo session show {}`.",
         result.new_id.0
     );
+    Ok(())
+}
+
+/// Stream a replay's per-turn `RunEvent`s to stdout as NDJSON.
+/// Each event lands as one JSON object on its own line; the
+/// final line is `{"event":"done", source_id, new_id,
+/// user_message_count}` (or `{"event":"error", "message": …}`
+/// if the replay fails). Mirrors the gateway's
+/// `POST /sessions/<id>/replay/stream` chunked response.
+async fn run_streaming(
+    raw: &str,
+    model: Option<&str>,
+    provider: Option<&str>,
+) -> ArgoResult<()> {
+    use std::io::Write;
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<serde_json::Value>();
+    let raw_owned = raw.to_string();
+    let model_owned = model.map(String::from);
+    let provider_owned = provider.map(String::from);
+    let task = tokio::spawn(async move {
+        replay_core_with_events(
+            &raw_owned,
+            model_owned.as_deref(),
+            provider_owned.as_deref(),
+            Some(&tx),
+        )
+        .await
+    });
+    let mut stdout = std::io::stdout().lock();
+    while let Some(payload) = rx.recv().await {
+        let line = match serde_json::to_string(&payload) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let _ = writeln!(stdout, "{line}");
+        let _ = stdout.flush();
+    }
+    let summary = match task.await {
+        Ok(Ok(r)) => serde_json::json!({
+            "event": "done",
+            "source_id": r.source_id.0.to_string(),
+            "new_id": r.new_id.0.to_string(),
+            "user_message_count": r.user_message_count,
+        }),
+        Ok(Err(e)) => serde_json::json!({"event":"error", "message": e.to_string()}),
+        Err(e) => serde_json::json!({"event":"error", "message": format!("task: {e}")}),
+    };
+    if let Ok(s) = serde_json::to_string(&summary) {
+        let _ = writeln!(stdout, "{s}");
+        let _ = stdout.flush();
+    }
     Ok(())
 }
 

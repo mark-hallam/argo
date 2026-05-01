@@ -167,6 +167,12 @@ pub enum SessionCmd {
         tools: Option<String>,
         #[arg(long)]
         workspace: Option<String>,
+        /// Stream per-turn `RunEvent`s as newline-delimited JSON
+        /// on stdout (one event per line) and finish with a
+        /// `{"event":"done", ...}` line. Mirrors the gateway's
+        /// `POST /sessions/<id>/replay/stream` chunked response.
+        #[arg(long)]
+        stream: bool,
     },
     /// Structural diff of two recorded sessions.
     Diff {
