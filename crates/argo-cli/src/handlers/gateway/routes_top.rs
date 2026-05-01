@@ -184,3 +184,39 @@ pub(super) async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'stat
         serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
     )
 }
+
+/// `GET /audit/breaks` — actual ChainBreak rows (not just the
+/// count). Each break is `{seq, kind, reason}`. Useful for
+/// debugging a broken chain — `argo audit verify --json`
+/// already exposes this on the CLI side; this is the gateway
+/// equivalent.
+pub(super) async fn audit_breaks_response(
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    match argo_audit::verify_all(store).await {
+        Ok(report) => {
+            let arr: Vec<serde_json::Value> = report
+                .breaks
+                .iter()
+                .map(|b| {
+                    serde_json::json!({
+                        "seq": b.seq,
+                        "kind": b.kind,
+                        "reason": b.reason,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"verify_all: {e}\"}}"),
+        ),
+    }
+}

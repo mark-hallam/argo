@@ -30,7 +30,9 @@ use super::routes_post_admin::{
     memory_unlock_response, skill_lock_response, skill_unlock_response,
 };
 use super::routes_skill_refine::skill_refine_response;
-use super::routes_top::{audit_response, doctor_response, health_full_response, sessions_response};
+use super::routes_top::{
+    audit_breaks_response, audit_response, doctor_response, health_full_response, sessions_response,
+};
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
@@ -150,6 +152,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /audit ") {
         return audit_response(store).await;
+    }
+    if req.starts_with("GET /audit/breaks ") {
+        return audit_breaks_response(store).await;
     }
     if req.starts_with("GET /audit/recent ") || req.starts_with("GET /audit/recent?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
