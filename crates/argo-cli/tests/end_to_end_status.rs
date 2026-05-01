@@ -115,6 +115,74 @@ fn costs_show_markdown_renders_ceilings_and_spent() {
     assert!(body.contains("**Today**:"));
 }
 
+/// `argo tools list` (#525) returns all 8 in-core tools.
+/// Pure offline — no daemon required.
+#[cfg(unix)]
+#[test]
+fn tools_list_returns_eight_in_core_tools() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+
+    let out = run(workspace.path(), home.path(), &["tools", "list", "--json"]);
+    assert!(out.status.success(), "tools list failed");
+    let body = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<_> = body.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(lines.len(), 8, "expected 8 tools, got {body}");
+
+    // Check the canonical 8 are present.
+    for expected in [
+        "delegate_task",
+        "file_patch",
+        "file_read",
+        "file_write",
+        "memory",
+        "terminal",
+        "web_extract",
+        "web_search",
+    ] {
+        assert!(
+            body.contains(&format!("\"name\":\"{expected}\"")),
+            "missing tool {expected}: {body}"
+        );
+    }
+}
+
+/// `argo tools show <name>` returns the schema for one tool;
+/// markdown by default, JSON with `--json`.
+#[cfg(unix)]
+#[test]
+fn tools_show_renders_markdown_default_and_json_flag() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["tools", "show", "file_read"],
+    );
+    assert!(out.status.success());
+    let body = String::from_utf8_lossy(&out.stdout);
+    assert!(body.contains("# file_read"), "default should be md: {body}");
+    assert!(body.contains("## Parameters"));
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["tools", "show", "file_read", "--json"],
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(body.trim()).expect("valid JSON");
+    assert_eq!(v["name"], "file_read");
+
+    // Unknown tool errors cleanly.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["tools", "show", "nonexistent"],
+    );
+    assert!(!out.status.success(), "missing tool must fail");
+}
+
 /// `argo db status --format markdown` (#500) renders the
 /// schema header + per-table row counts table.
 #[cfg(unix)]
