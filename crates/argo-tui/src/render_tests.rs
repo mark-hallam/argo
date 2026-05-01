@@ -257,6 +257,25 @@ fn audit_overlay_renders_chain_rows() {
 }
 
 #[test]
+fn providers_overlay_renders_ids() {
+    let mut state = ViewerState::new(vec![header("p-target")]);
+    state.providers_overlay = Some(vec!["anthropic".into(), "openai".into()]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("providers (2)"), "title: {frame}");
+    assert!(frame.contains("anthropic"));
+    assert!(frame.contains("openai"));
+}
+
+#[test]
+fn providers_overlay_handles_empty() {
+    let mut state = ViewerState::new(vec![header("p-target")]);
+    state.providers_overlay = Some(Vec::new());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("providers (0)"));
+    assert!(frame.contains("(no manifests"));
+}
+
+#[test]
 fn audit_overlay_handles_empty_chain() {
     let mut state = ViewerState::new(vec![header("audit-target")]);
     state.audit_overlay = Some(Vec::new());

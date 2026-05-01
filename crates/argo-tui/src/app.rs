@@ -102,6 +102,10 @@ pub struct ViewerState {
     /// the user has the audit overlay open (entered with `A`).
     /// `None` when closed.
     pub audit_overlay: Option<Vec<argo_store::AuditRow>>,
+    /// Provider ids found in `manifests/providers/*.toml` when
+    /// the providers overlay is open (entered with `P`). Just
+    /// the basenames — no manifest-parse load on render.
+    pub providers_overlay: Option<Vec<String>>,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -161,6 +165,7 @@ impl ViewerState {
             memory_overlay: None,
             cost_overlay: None,
             audit_overlay: None,
+            providers_overlay: None,
             workspace_label: None,
         }
     }

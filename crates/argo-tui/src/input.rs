@@ -162,6 +162,16 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Providers overlay: Esc/P/q close. Snapshot at open.
+            if state.providers_overlay.is_some() {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('P') | KeyCode::Char('q')
+                ) {
+                    state.providers_overlay = None;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -280,6 +290,29 @@ pub(crate) async fn run(
                     // → zero-snapshot (overlay shows $0.00).
                     let snap = store.load_global_spend().await.unwrap_or_default();
                     state.cost_overlay = Some(snap);
+                }
+                KeyCode::Char('P') => {
+                    // Read manifests/providers/*.toml basenames
+                    // from cwd. Errors / missing dir → empty
+                    // list (overlay says "no manifests found").
+                    let mut ids: Vec<String> = Vec::new();
+                    if let Ok(cwd) = std::env::current_dir() {
+                        let dir = cwd.join("manifests").join("providers");
+                        if let Ok(entries) = std::fs::read_dir(&dir) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.extension().is_some_and(|x| x == "toml") {
+                                    if let Some(stem) =
+                                        p.file_stem().and_then(|s| s.to_str())
+                                    {
+                                        ids.push(stem.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ids.sort();
+                    state.providers_overlay = Some(ids);
                 }
                 KeyCode::Char('A') => {
                     // Audit chain for the selected session. No

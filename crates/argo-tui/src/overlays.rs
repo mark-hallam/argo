@@ -32,11 +32,11 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory / Cost / Audit"),
+        Line::from("  Forge / Skills / Memory / Cost / Audit / Providers"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
         Line::from("    M  active memory               $  cost rollup"),
-        Line::from("    A  audit chain (selected ses)  R  force-refresh"),
-        Line::from("    C  clear live-event trail"),
+        Line::from("    A  audit chain (selected ses)  P  providers"),
+        Line::from("    R  force-refresh   C  clear live-event trail"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
@@ -188,6 +188,38 @@ pub(crate) fn draw_memory(
     let para = Paragraph::new(lines).block(
         Block::default().borders(Borders::ALL).title(format!(
             " active memory ({}) — Esc/M/q closes ",
+            rows.len()
+        )),
+    );
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Provider list overlay. Triggered by `P`. Lists every
+/// `manifests/providers/*.toml` basename (no manifest parse —
+/// the basename IS the provider id by convention). Esc / P /
+/// q close.
+pub(crate) fn draw_providers(frame: &mut Frame<'_>, area: Rect, rows: &[String]) {
+    let w = area.width.min(60);
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(" provider id"));
+    if rows.is_empty() {
+        lines.push(Line::from(
+            "  (no manifests/providers/*.toml found in cwd)",
+        ));
+    } else {
+        for id in rows {
+            lines.push(Line::from(format!("  {id}")));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default().borders(Borders::ALL).title(format!(
+            " providers ({}) — Esc/P/q closes ",
             rows.len()
         )),
     );
