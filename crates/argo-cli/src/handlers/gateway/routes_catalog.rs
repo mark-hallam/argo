@@ -18,7 +18,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/<id>/messages/last", "the last message on the session"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger"),
         ("GET", "/sessions/<id>/spend/total", "single-number total for one session"),
-        ("GET", "/skills", "active skills (?include-superseded&name-contains&lock&body-contains)"),
+        ("GET", "/skills", "active skills (?include-superseded&name-contains&lock&body-contains&limit)"),
         ("GET", "/skills/count", "count of active skills (?include-superseded=true)"),
         ("GET", "/skills/<name>", "one skill view (full body)"),
         ("GET", "/skills/<name>/versions", "supersede chain for one skill name"),

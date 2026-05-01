@@ -16,7 +16,11 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     store.migrate().await?;
     let skills = SkillStore::new(store);
     match cmd {
-        SkillCmd::List { json, sort_by } => list(&skills, json, &sort_by).await,
+        SkillCmd::List {
+            json,
+            sort_by,
+            limit,
+        } => list(&skills, json, &sort_by, limit).await,
         SkillCmd::Count {
             include_superseded,
             json,
@@ -180,7 +184,12 @@ async fn count(skills: &SkillStore, include_superseded: bool, json: bool) -> Arg
     Ok(())
 }
 
-async fn list(skills: &SkillStore, json: bool, sort_by: &str) -> ArgoResult<()> {
+async fn list(
+    skills: &SkillStore,
+    json: bool,
+    sort_by: &str,
+    limit: Option<u32>,
+) -> ArgoResult<()> {
     let mut active = skills.list_active().await?;
     match sort_by {
         "created-at" => active.sort_by_key(|s| std::cmp::Reverse(s.created_at)),
@@ -190,6 +199,9 @@ async fn list(skills: &SkillStore, json: bool, sort_by: &str) -> ArgoResult<()> 
                 "unknown --sort-by '{other}' — use created-at|name"
             )));
         }
+    }
+    if let Some(n) = limit {
+        active.truncate(n as usize);
     }
     if json {
         for s in &active {

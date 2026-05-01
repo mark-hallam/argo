@@ -12,12 +12,14 @@ use std::sync::Arc;
 /// `body-contains` (markdown body), plus a `lock`
 /// (`none|user-protected|content-locked`) filter. Each row:
 /// `{id, name, version, lock, hash, created_at, superseded_by?}`.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn skills_response(
     store: Option<&Arc<SessionStore>>,
     include_superseded: bool,
     name_contains: Option<&str>,
     lock: Option<&str>,
     body_contains: Option<&str>,
+    limit: Option<usize>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -46,7 +48,7 @@ pub(super) async fn skills_response(
     let body_needle = body_contains.map(str::to_lowercase);
     match result {
         Ok(rows) => {
-            let arr: Vec<serde_json::Value> = rows
+            let mut arr: Vec<serde_json::Value> = rows
                 .iter()
                 .filter(|s| match needle.as_deref() {
                     Some(n) => s.frontmatter.name.to_lowercase().contains(n),
@@ -72,6 +74,9 @@ pub(super) async fn skills_response(
                     })
                 })
                 .collect();
+            if let Some(n) = limit {
+                arr.truncate(n);
+            }
             (
                 "200 OK",
                 serde_json::to_string(&arr).unwrap_or_else(|_| "[]".to_string()),

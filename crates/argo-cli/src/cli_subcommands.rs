@@ -144,6 +144,9 @@ pub enum SkillCmd {
         /// `name` (lexical, ascending).
         #[arg(long, default_value = "created-at")]
         sort_by: String,
+        /// Truncate to the first N rows (after sorting).
+        #[arg(long)]
+        limit: Option<u32>,
     },
     /// Print just the count of active skills. Default: one int
     /// per line; `--json` emits `{count}`.

@@ -88,12 +88,14 @@ pub(super) async fn dispatch_route(
         let name_contains = parse_query_kv(tail, "name-contains").map(|s| s.replace('+', " "));
         let lock = parse_query_kv(tail, "lock");
         let body_contains = parse_query_kv(tail, "body-contains").map(|s| s.replace('+', " "));
+        let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
         return skills_response(
             store,
             include_superseded,
             name_contains.as_deref(),
             lock.as_deref(),
             body_contains.as_deref(),
+            limit,
         )
         .await;
     }
