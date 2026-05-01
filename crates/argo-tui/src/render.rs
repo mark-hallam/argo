@@ -44,6 +44,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(rows) = state.forge_runs.as_ref() {
         crate::overlays::draw_forge_runs(frame, area, rows);
     }
+    if let Some(rows) = state.skills_overlay.as_ref() {
+        crate::overlays::draw_skills(frame, area, rows);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {

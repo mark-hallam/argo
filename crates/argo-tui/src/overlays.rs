@@ -32,8 +32,9 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge"),
-        Line::from("    F  open recent forge_run rows (any key closes)"),
+        Line::from("  Forge / Skills"),
+        Line::from("    F  open recent forge_run rows (auto-refresh)"),
+        Line::from("    S  open active-skill list"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
@@ -96,6 +97,50 @@ pub(crate) fn draw_forge_runs(
         )
     };
     let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title));
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Active-skill list overlay. Triggered by `S` (capital S to
+/// avoid the `s`=steer clash). Read-only; auto-refresh isn't
+/// useful here since active skills change rarely. Esc / S / q
+/// close.
+pub(crate) fn draw_skills(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[argo_skill::Skill],
+) {
+    let w = area.width.saturating_mul(9) / 10;
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(format!(
+        " {:<20} {:<10} {:<8} {}",
+        "name", "version", "lock", "hash (sha256, 12 chars)",
+    )));
+    if rows.is_empty() {
+        lines.push(Line::from("  (no active skills installed)"));
+    } else {
+        for s in rows {
+            let lock = format!("{:?}", s.frontmatter.lock).to_lowercase();
+            let hash_short: String = hex::encode(s.hash).chars().take(12).collect();
+            lines.push(Line::from(format!(
+                " {:<20} {:<10} {:<8} {}",
+                s.frontmatter.name, s.frontmatter.version, lock, hash_short,
+            )));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(
+                " active skills ({}) — Esc/S/q closes ",
+                rows.len()
+            )),
+    );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
 }

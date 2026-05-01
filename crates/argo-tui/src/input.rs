@@ -114,6 +114,19 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Active-skills overlay: Esc/S/q close, anything
+            // else is ignored. The list doesn't auto-refresh —
+            // skills change rarely + always via explicit CLI
+            // ops, so a stale view costs little.
+            if state.skills_overlay.is_some() {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('S') | KeyCode::Char('q')
+                ) {
+                    state.skills_overlay = None;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -188,6 +201,13 @@ pub(crate) async fn run(
                     // "(no forge runs recorded yet)").
                     let rows = store.list_forge_runs(50).await.unwrap_or_default();
                     state.forge_runs = Some(rows);
+                }
+                KeyCode::Char('S') => {
+                    // Load the active-skill rows. Errors → empty
+                    // list (overlay shows "(no active skills)").
+                    let skills = argo_skill::SkillStore::new(Arc::clone(&store));
+                    let rows = skills.list_active().await.unwrap_or_default();
+                    state.skills_overlay = Some(rows);
                 }
                 KeyCode::Char('o')
                     if matches!(state.focus, PaneFocus::Messages)

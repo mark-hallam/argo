@@ -154,6 +154,46 @@ fn forge_runs_overlay_marks_running_row_with_dot_prefix() {
 }
 
 #[test]
+fn skills_overlay_renders_active_skills() {
+    use argo_skill::{Provenance, Skill, SkillFrontmatter};
+    use argo_types::{CapabilitySet, Lock, SkillId};
+    let mut state = ViewerState::new(vec![header("skills-target")]);
+    state.skills_overlay = Some(vec![Skill {
+        id: SkillId::new(),
+        frontmatter: SkillFrontmatter {
+            name: "summariser".into(),
+            version: "0.4".into(),
+            description: "summarise threads".into(),
+            capabilities: CapabilitySet::default(),
+            provenance: Provenance {
+                source: "user".into(),
+                hash: "sha256-abc".into(),
+            },
+            lock: Lock::None,
+        },
+        body: String::new(),
+        hash: [0xab; 32],
+        learned_in: None,
+        superseded_by: None,
+        created_at: Utc::now(),
+    }]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("active skills (1)"));
+    assert!(frame.contains("summariser"));
+    assert!(frame.contains("0.4"));
+    assert!(frame.contains("none"));
+}
+
+#[test]
+fn skills_overlay_handles_empty_list() {
+    let mut state = ViewerState::new(vec![header("skills-target")]);
+    state.skills_overlay = Some(Vec::new());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("active skills (0)"));
+    assert!(frame.contains("(no active skills"));
+}
+
+#[test]
 fn forge_runs_overlay_handles_empty_list() {
     let mut state = ViewerState::new(vec![header("forge-runs")]);
     state.forge_runs = Some(Vec::new());

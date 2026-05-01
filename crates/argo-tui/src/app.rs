@@ -89,6 +89,9 @@ pub struct ViewerState {
     /// Loaded forge_run rows when the user has the forge-runs
     /// overlay open (entered with `F`). `None` when closed.
     pub forge_runs: Option<Vec<argo_store::ForgeRunRow>>,
+    /// Loaded active-skill rows when the user has the skills
+    /// overlay open (entered with `S`). `None` when closed.
+    pub skills_overlay: Option<Vec<argo_skill::Skill>>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -136,6 +139,7 @@ impl ViewerState {
             message_overlay: None,
             message_overlay_text_only: false,
             forge_runs: None,
+            skills_overlay: None,
         }
     }
 
