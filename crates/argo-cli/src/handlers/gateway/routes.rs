@@ -172,7 +172,8 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /tools ") || req.starts_with("GET /tools?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let name_contains = parse_query_kv(tail, "name-contains").map(|s| s.replace('+', " "));
-        return tools_response(name_contains.as_deref()).await;
+        let format = parse_query_kv(tail, "format");
+        return tools_response(name_contains.as_deref(), format.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /tools/") {
         if let Some((name, _)) = rest.split_once(' ') {

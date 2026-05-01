@@ -43,11 +43,16 @@ pub(super) async fn tool_show_response(raw_name: &str) -> (&'static str, String)
     }
 }
 
-/// `GET /tools[?name-contains=<sub>]` — list every registered
-/// in-core tool with its JSON-schema parameter shape. Optional
-/// `name-contains` filter (case-insensitive) lets clients find
-/// tools by pattern.
-pub(super) async fn tools_response(name_contains: Option<&str>) -> (&'static str, String) {
+/// `GET /tools[?name-contains=<sub>&format=markdown]` — list
+/// every registered in-core tool with its JSON-schema parameter
+/// shape. Optional `name-contains` filter (case-insensitive)
+/// lets clients find tools by pattern. With `format=markdown`,
+/// the response is a markdown table — paste-able into
+/// READMEs / runbooks.
+pub(super) async fn tools_response(
+    name_contains: Option<&str>,
+    format: Option<&str>,
+) -> (&'static str, String) {
     let Ok(cwd) = std::env::current_dir() else {
         return (
             "500 Internal Server Error",
@@ -59,13 +64,34 @@ pub(super) async fn tools_response(name_contains: Option<&str>) -> (&'static str
         reg.register(t);
     }
     let needle = name_contains.map(str::to_lowercase);
-    let rows: Vec<serde_json::Value> = reg
+    let mut schemas: Vec<argo_tool::ToolSchema> = reg
         .schemas()
         .into_iter()
         .filter(|s| match needle.as_deref() {
             Some(n) => s.name.to_lowercase().contains(n),
             None => true,
         })
+        .collect();
+    schemas.sort_by(|a, b| a.name.cmp(&b.name));
+    if matches!(format, Some("markdown")) {
+        let mut out = format!("# Tools ({})\n\n", schemas.len());
+        if !schemas.is_empty() {
+            out.push_str("| name | description |\n");
+            out.push_str("| --- | --- |\n");
+            for s in &schemas {
+                let desc = s
+                    .description
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .replace('|', "\\|");
+                out.push_str(&format!("| `{}` | {desc} |\n", s.name));
+            }
+        }
+        return ("200 OK", out);
+    }
+    let rows: Vec<serde_json::Value> = schemas
+        .iter()
         .map(|s| {
             serde_json::json!({
                 "name": s.name,
