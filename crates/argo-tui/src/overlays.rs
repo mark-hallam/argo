@@ -45,8 +45,11 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
 }
 
 /// Recent forge_run rows. Triggered by `F` from anywhere
-/// outside compose / rename / delete. Read-only — any keypress
-/// closes the overlay.
+/// outside compose / rename / delete. The overlay auto-
+/// refreshes every second, so an in-flight run kicked off
+/// from the CLI (or `POST /forge/optimize`) ticks along here
+/// live. Esc / F / q close. Running rows get a `●` prefix so
+/// the user can see at a glance which runs are still ticking.
 pub(crate) fn draw_forge_runs(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -60,7 +63,7 @@ pub(crate) fn draw_forge_runs(
 
     let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
     lines.push(Line::from(format!(
-        " {:<8} {:<18} {:<8} {:<8} {:<6} {}",
+        "   {:<8} {:<18} {:<8} {:<8} {:<6} {}",
         "id", "skill", "base", "candidate", "score", "status",
     )));
     if rows.is_empty() {
@@ -73,17 +76,26 @@ pub(crate) fn draw_forge_runs(
                 .final_score
                 .map(|s| format!("{s:.3}"))
                 .unwrap_or_else(|| "-".into());
+            let prefix = if r.status == "running" { "● " } else { "  " };
             lines.push(Line::from(format!(
-                " {:<8} {:<18} {:<8} {:<8} {:<6} {}",
+                " {prefix}{:<8} {:<18} {:<8} {:<8} {:<6} {}",
                 id_short, r.skill_name, r.base_version, cand, score, r.status,
             )));
         }
     }
-    let para = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(format!(" forge runs ({}) — any key closes ", rows.len())),
-    );
+    let running = rows.iter().filter(|r| r.status == "running").count();
+    let title = if running > 0 {
+        format!(
+            " forge runs ({} · {running} ●) — auto-refresh · Esc/F/q closes ",
+            rows.len()
+        )
+    } else {
+        format!(
+            " forge runs ({}) — auto-refresh · Esc/F/q closes ",
+            rows.len()
+        )
+    };
+    let para = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(title));
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
 }

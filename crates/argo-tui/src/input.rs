@@ -42,6 +42,14 @@ pub(crate) async fn run(
         if last_refresh.elapsed() >= Duration::from_secs(1) {
             state.messages_loaded = false;
             fetch_messages(&store, state).await?;
+            // While the forge-runs overlay is open, re-fetch the
+            // 50-row window so an in-flight run's status flips
+            // from "running" → "succeeded" without the user
+            // having to close + re-open with `F`.
+            if state.forge_runs.is_some() {
+                let rows = store.list_forge_runs(50).await.unwrap_or_default();
+                state.forge_runs = Some(rows);
+            }
             last_refresh = std::time::Instant::now();
         }
         if !event::poll(Duration::from_millis(200))
@@ -93,9 +101,17 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Forge-runs overlay: any key closes.
+            // Forge-runs overlay: Esc/F/q close, anything else
+            // is ignored. Loop body auto-refreshes the rows
+            // every second so a CLI-side optimize ticks along
+            // in the TUI live.
             if state.forge_runs.is_some() {
-                state.forge_runs = None;
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('F') | KeyCode::Char('q')
+                ) {
+                    state.forge_runs = None;
+                }
                 continue;
             }
             // Pending-delete confirm: 'y' fires the delete, any

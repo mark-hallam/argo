@@ -127,6 +127,30 @@ fn forge_runs_overlay_renders_rows_and_header() {
     assert!(frame.contains("alpha"));
     assert!(frame.contains("succeeded"));
     assert!(frame.contains("0.842"));
+    assert!(frame.contains("auto-refresh"));
+}
+
+#[test]
+fn forge_runs_overlay_marks_running_row_with_dot_prefix() {
+    let mut state = ViewerState::new(vec![header("forge-runs")]);
+    state.forge_runs = Some(vec![argo_store::ForgeRunRow {
+        id: vec![0xfe, 0xed, 0xfa, 0xce, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        skill_name: "beta".into(),
+        started_at: 0,
+        ended_at: None,
+        base_version: "0.3".into(),
+        candidate_version: None,
+        iterations: 0,
+        spend_usd_micros: 0,
+        final_score: None,
+        status: "running".into(),
+    }]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("●"), "missing running marker: {frame}");
+    assert!(frame.contains("beta"));
+    assert!(frame.contains("running"));
+    // Title shows the running count.
+    assert!(frame.contains("1 ●"), "title missing running count: {frame}");
 }
 
 #[test]
