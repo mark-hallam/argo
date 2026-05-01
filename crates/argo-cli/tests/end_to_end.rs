@@ -294,3 +294,90 @@ fn session_title_set_then_clear_round_trips() {
         "title not cleared in show: {body}"
     );
 }
+
+/// End-to-end smoke for `argo session messages` (#484) with
+/// `--tail` (#487) and `--role` filters. Boots a fresh
+/// workspace, creates a session, injects two system-role
+/// messages via `argo steer`, then asserts the message-list
+/// filters match expected counts.
+#[cfg(unix)]
+#[test]
+fn session_messages_filters_and_tail() {
+    let workspace = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    assert!(run(workspace.path(), home.path(), &["workspace", "init"], &[])
+        .status
+        .success());
+
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &[
+            "new",
+            "--provider",
+            "anthropic",
+            "--model",
+            "claude-haiku-4-5",
+            "--title",
+            "messages test",
+        ],
+        &[],
+    );
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let session_id = parse_uuid_after("created session", &stdout);
+
+    // Inject 2 system-role messages via `argo steer`.
+    for text in ["first steer", "second steer"] {
+        let out = run(
+            workspace.path(),
+            home.path(),
+            &["steer", &session_id, text],
+            &[],
+        );
+        assert!(
+            out.status.success(),
+            "argo steer failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    // Default --json should return 2 lines (one per message).
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "messages", &session_id, "--json"],
+        &[],
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<_> = body.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(lines.len(), 2, "expected 2 message lines, got {body}");
+
+    // --tail 1 should return only the second message.
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &["session", "messages", &session_id, "--tail", "1", "--json"],
+        &[],
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<_> = body.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(lines.len(), 1, "expected 1 line for --tail 1, got {body}");
+    assert!(
+        lines[0].contains("second steer"),
+        "tail=1 should be second steer, got {body}"
+    );
+
+    // --role user should return 0 lines (no user messages).
+    let out = run(
+        workspace.path(),
+        home.path(),
+        &[
+            "session", "messages", &session_id, "--role", "user", "--json",
+        ],
+        &[],
+    );
+    let body = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<_> = body.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(lines.len(), 0, "expected 0 user lines, got {body}");
+}
