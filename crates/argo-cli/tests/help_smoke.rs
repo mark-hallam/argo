@@ -146,6 +146,22 @@ fn forge_runs_abort_all_renders_help() {
 }
 
 #[test]
+fn forge_runs_sweep_renders_help_and_advertises_older_than_minutes() {
+    // Pins #520 — the sweep subcommand + its --older-than-minutes
+    // flag (default 60). Catches a clap regression where the
+    // variant gets dropped or the flag is removed.
+    let h = help(&["forge", "runs", "sweep"]);
+    assert!(
+        h.contains("Usage:"),
+        "`argo forge runs sweep --help` lacks 'Usage:' header:\n{h}"
+    );
+    assert!(
+        h.contains("--older-than-minutes"),
+        "`argo forge runs sweep --help` is missing --older-than-minutes:\n{h}"
+    );
+}
+
+#[test]
 fn version_flag_round_trips_through_main() {
     let out = Command::new(argo_bin())
         .arg("--version")
