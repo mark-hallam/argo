@@ -70,8 +70,8 @@ pub(crate) fn draw_forge_runs(
 
     let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
     lines.push(Line::from(format!(
-        "   {:<8} {:<18} {:<8} {:<8} {:<6} {}",
-        "id", "skill", "base", "candidate", "score", "status",
+        "   {:<8} {:<14} {:<6} {:<8} {:<5} {:<6} {}",
+        "id", "skill", "base", "candidate", "iters", "score", "status",
     )));
     if rows.is_empty() {
         lines.push(Line::from("  (no forge runs recorded yet)"));
@@ -85,9 +85,14 @@ pub(crate) fn draw_forge_runs(
                 .map(|s| format!("{s:.3}"))
                 .unwrap_or_else(|| "-".into());
             let prefix = if r.status == "running" { "● " } else { "  " };
+            // Truncate-and-pad: keep columns aligned even when
+            // a value overflows its slot.
+            let skill = clip(&r.skill_name, 14);
+            let base = clip(&r.base_version, 6);
+            let cand = clip(&cand, 8);
             lines.push(Line::from(format!(
-                " {prefix}{:<8} {:<18} {:<8} {:<8} {:<6} {}",
-                id_short, r.skill_name, r.base_version, cand, score, r.status,
+                " {prefix}{:<8} {:<14} {:<6} {:<8} {:<5} {:<6} {}",
+                id_short, skill, base, cand, r.iterations, score, r.status,
             )));
         }
     }
@@ -458,3 +463,15 @@ pub(crate) fn draw_message(
 // `extract_block_text` (and its tests) live in
 // `super::overlay_text` to keep this file under the 500-LOC
 // budget. The single caller in draw_message imports it directly.
+
+/// Truncate `s` to at most `n` characters; trailing char is `…`
+/// when clipped. Used by `draw_forge_runs` to keep table
+/// columns aligned even when a skill name / version overflows.
+fn clip(s: &str, n: usize) -> String {
+    if s.chars().count() <= n {
+        return s.to_string();
+    }
+    let mut out: String = s.chars().take(n.saturating_sub(1)).collect();
+    out.push('…');
+    out
+}
