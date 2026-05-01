@@ -21,6 +21,9 @@ use super::routes_post_admin::{
     memory_edit_response, memory_forget_response, memory_lock_response, memory_unlock_response,
     skill_lock_response, skill_unlock_response,
 };
+use super::routes_session_skills::{
+    session_attach_skill_response, session_detach_skill_response, session_skills_list_response,
+};
 use super::routes_query::{
     parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
 };
@@ -229,6 +232,12 @@ pub(super) async fn dispatch_route(
             if tail.starts_with("replay ") {
                 return replay_response(sid, req, store).await;
             }
+            if tail.starts_with("skills/attach ") {
+                return session_attach_skill_response(sid, req, store).await;
+            }
+            if tail.starts_with("skills/detach ") {
+                return session_detach_skill_response(sid, req, store).await;
+            }
         }
     }
     // GET /sessions/<uuid> — fetch one session header
@@ -239,6 +248,9 @@ pub(super) async fn dispatch_route(
                 let limit = parse_limit(tail);
                 let role = parse_role(tail);
                 return list_messages_response(sid, store, limit, role).await;
+            }
+            if tail.starts_with("skills ") {
+                return session_skills_list_response(sid, store).await;
             }
         }
         // Strip trailing " HTTP/..." → just the session id

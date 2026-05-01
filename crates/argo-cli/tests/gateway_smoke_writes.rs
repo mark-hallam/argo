@@ -291,6 +291,52 @@ fn memory_forget_returns_400_on_bad_id_and_unknown_uuid() {
 }
 
 #[test]
+fn session_skills_endpoints_validate_session_id_and_unknown_skill() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 4);
+
+    // GET on bad uuid → 400.
+    let resp = http_get_v(port, "/sessions/not-a-uuid/skills");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+
+    // GET on valid uuid with no rows → empty array.
+    let resp = http_get_v(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/skills",
+    );
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
+    assert_eq!(body_of(&resp), "[]");
+
+    // POST attach with unknown skill → 404.
+    let resp = http_post(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/skills/attach",
+        r#"{"skill":"never-installed"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    // POST detach with unknown skill → 404.
+    let resp = http_post(
+        port,
+        "/sessions/00000000-0000-0000-0000-000000000000/skills/detach",
+        r#"{"skill":"never-installed"}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    assert!(child.wait().expect("wait").success());
+}
+
+fn http_get_v(port: u16, path: &str) -> String {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect");
+    let req = format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+    stream.write_all(req.as_bytes()).expect("write");
+    let mut resp = String::new();
+    stream.read_to_string(&mut resp).expect("read");
+    resp
+}
+
+#[test]
 fn skill_lock_returns_404_on_unknown_skill() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);

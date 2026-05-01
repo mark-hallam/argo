@@ -15,6 +15,7 @@ mod routes_post_admin;
 mod routes_post_writes;
 mod routes_query;
 mod routes_session;
+mod routes_session_skills;
 mod streaming;
 
 use crate::cli::GatewayCmd;
@@ -115,6 +116,8 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /sessions/<uuid>/runs/stream → chunked-NDJSON stream of audit events as the run progresses");
     eprintln!("  POST /sessions/<uuid>/steer → inject a system-role steer ({{text}})");
     eprintln!("  POST /sessions/<uuid>/replay → replay user prompts in a fresh session ({{model?, provider?}})");
+    eprintln!("  GET  /sessions/<uuid>/skills → skills attached to the session");
+    eprintln!("  POST /sessions/<uuid>/skills/{{attach,detach}} → manage per-session skill set");
     eprintln!("  POST /sessions/<uuid>/replay/stream → chunked-NDJSON stream of replay events");
     eprintln!("  GET  /skills   → active skills (JSON array)");
     eprintln!("  GET  /skills/<name> → one skill view (full body + frontmatter)");
