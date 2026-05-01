@@ -48,6 +48,10 @@ pub struct ViewerState {
     /// already been persisted into the store and the auto-refresh
     /// path will pick them up.
     pub agent_handle: Option<JoinHandle<ArgoResult<()>>>,
+    /// `Some(t)` while `agent_handle` is set, where `t` is the
+    /// `Instant` at which it was spawned. Drives the elapsed-
+    /// time indicator in the footer.
+    pub agent_started_at: Option<std::time::Instant>,
     /// Last error string from a finished agent task, if any. The
     /// footer renders this so e.g. missing provider keys aren't
     /// silently swallowed.
@@ -172,6 +176,7 @@ impl ViewerState {
             composer_mode: false,
             last_sent: None,
             agent_handle: None,
+            agent_started_at: None,
             last_agent_error: None,
             live_events: Vec::new(),
             rename_buffer: None,

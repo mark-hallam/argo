@@ -56,6 +56,7 @@ pub(crate) async fn spawn_agent_turn(
     state.last_agent_error = None;
     state.clear_live_events();
     state.agent_handle = Some(handle);
+    state.agent_started_at = Some(std::time::Instant::now());
     state.composer_send();
     Some(rx)
 }
@@ -72,6 +73,7 @@ pub(crate) async fn reap_agent(state: &mut ViewerState) -> bool {
     let Some(handle) = state.agent_handle.take() else {
         return false;
     };
+    state.agent_started_at = None;
     match handle.await {
         Ok(Ok(())) => state.last_agent_error = None,
         Ok(Err(e)) => state.last_agent_error = Some(e.to_string()),

@@ -280,10 +280,14 @@ fn draw_footer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
     // sees an in-flight turn even when filter/composer are idle.
     if state.agent_running() {
         let n = state.live_events.len();
+        let elapsed = state
+            .agent_started_at
+            .map(|t| fmt_duration(t.elapsed().as_secs() as i64))
+            .unwrap_or_else(|| "?".into());
         let body = if n == 0 {
-            "● agent running… (assistant reply will appear above)".to_string()
+            format!("● agent running [{elapsed}]… (assistant reply will appear above)")
         } else {
-            format!("● agent running… ({n} live event{plural} so far)",
+            format!("● agent running [{elapsed}]… ({n} live event{plural} so far)",
                 plural = if n == 1 { "" } else { "s" })
         };
         let p = Paragraph::new(body);
