@@ -194,6 +194,15 @@ pub enum SessionCmd {
         /// Mirrors the gateway's `?role=` filter (#414).
         #[arg(long)]
         role: Option<String>,
+        /// Output as JSON (one object per hit).
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`
+        /// (renders a markdown table). `--json` wins if both are
+        /// passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Delete a session and all its dependent rows. Pass `--force`
     /// to skip the confirmation prompt.

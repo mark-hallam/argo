@@ -34,6 +34,7 @@ mod session_list;
 mod session_messages;
 pub mod session_replay;
 mod session_resolve;
+mod session_search;
 mod session_skills;
 mod session_watch;
 pub mod skill;
