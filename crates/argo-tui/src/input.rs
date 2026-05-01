@@ -127,6 +127,19 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Active-memory overlay: Esc/M/q close. Same no-
+            // refresh story as the skills list — memory writes
+            // come from explicit CLI ops, so the snapshot is
+            // good enough for one open.
+            if state.memory_overlay.is_some() {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('M') | KeyCode::Char('q')
+                ) {
+                    state.memory_overlay = None;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -208,6 +221,26 @@ pub(crate) async fn run(
                     let skills = argo_skill::SkillStore::new(Arc::clone(&store));
                     let rows = skills.list_active().await.unwrap_or_default();
                     state.skills_overlay = Some(rows);
+                }
+                KeyCode::Char('M') => {
+                    // Load the active-memory rows across all 4
+                    // canonical files. No workspace → empty
+                    // list (overlay shows "(no active memory)").
+                    let mut all = Vec::new();
+                    if let Ok(Some(ws)) = store.first_workspace().await {
+                        let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
+                        for f in [
+                            argo_memory::MemoryFile::Memory,
+                            argo_memory::MemoryFile::User,
+                            argo_memory::MemoryFile::Soul,
+                            argo_memory::MemoryFile::Agents,
+                        ] {
+                            if let Ok(rows) = memory.list_active(ws, f).await {
+                                all.extend(rows);
+                            }
+                        }
+                    }
+                    state.memory_overlay = Some(all);
                 }
                 KeyCode::Char('o')
                     if matches!(state.focus, PaneFocus::Messages)

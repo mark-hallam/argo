@@ -47,6 +47,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(rows) = state.skills_overlay.as_ref() {
         crate::overlays::draw_skills(frame, area, rows);
     }
+    if let Some(rows) = state.memory_overlay.as_ref() {
+        crate::overlays::draw_memory(frame, area, rows);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {

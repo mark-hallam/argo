@@ -92,6 +92,9 @@ pub struct ViewerState {
     /// Loaded active-skill rows when the user has the skills
     /// overlay open (entered with `S`). `None` when closed.
     pub skills_overlay: Option<Vec<argo_skill::Skill>>,
+    /// Loaded active memory entries when the user has the memory
+    /// overlay open (entered with `M`). `None` when closed.
+    pub memory_overlay: Option<Vec<argo_memory::MemoryEntry>>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -140,6 +143,7 @@ impl ViewerState {
             message_overlay_text_only: false,
             forge_runs: None,
             skills_overlay: None,
+            memory_overlay: None,
         }
     }
 

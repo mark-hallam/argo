@@ -32,9 +32,9 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills"),
+        Line::from("  Forge / Skills / Memory"),
         Line::from("    F  open recent forge_run rows (auto-refresh)"),
-        Line::from("    S  open active-skill list"),
+        Line::from("    S  open active-skill list      M  open active-memory list"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
@@ -140,6 +140,54 @@ pub(crate) fn draw_skills(
                 " active skills ({}) — Esc/S/q closes ",
                 rows.len()
             )),
+    );
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Active-memory list overlay. Triggered by `M`. One row per
+/// active entry across all four canonical files
+/// (Memory / User / Soul / Agents). Esc / M / q close.
+pub(crate) fn draw_memory(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[argo_memory::MemoryEntry],
+) {
+    let w = area.width.saturating_mul(9) / 10;
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(format!(
+        " {:<10} {:<8} {:<6} {:<8} {}",
+        "file", "id", "bytes", "lock", "hash (12)",
+    )));
+    if rows.is_empty() {
+        lines.push(Line::from(
+            "  (no active memory entries — this workspace hasn't recorded any)",
+        ));
+    } else {
+        for e in rows {
+            let id_short: String = e.id.to_string().chars().take(8).collect();
+            let lock = format!("{:?}", e.lock).to_lowercase();
+            let hash_short: String = hex::encode(e.hash).chars().take(12).collect();
+            lines.push(Line::from(format!(
+                " {:<10} {:<8} {:<6} {:<8} {}",
+                format!("{:?}", e.file).to_lowercase(),
+                id_short,
+                e.body.len(),
+                lock,
+                hash_short,
+            )));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default().borders(Borders::ALL).title(format!(
+            " active memory ({}) — Esc/M/q closes ",
+            rows.len()
+        )),
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);

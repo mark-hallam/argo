@@ -194,6 +194,38 @@ fn skills_overlay_handles_empty_list() {
 }
 
 #[test]
+fn memory_overlay_renders_active_entries() {
+    use argo_memory::{MemoryEntry, MemoryFile};
+    use argo_types::{Lock, WorkspaceId};
+    let mut state = ViewerState::new(vec![header("memory-target")]);
+    let ws = WorkspaceId::new();
+    state.memory_overlay = Some(vec![MemoryEntry {
+        id: WorkspaceId::new().0,
+        workspace_id: ws,
+        file: MemoryFile::User,
+        body: "Mark prefers Vim".into(),
+        learned_in: None,
+        learned_at: Utc::now(),
+        superseded_by: None,
+        hash: [0xcd; 32],
+        lock: Lock::None,
+    }]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("active memory (1)"));
+    assert!(frame.contains("user"));
+    assert!(frame.contains("none"));
+}
+
+#[test]
+fn memory_overlay_handles_empty_list() {
+    let mut state = ViewerState::new(vec![header("memory-target")]);
+    state.memory_overlay = Some(Vec::new());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("active memory (0)"));
+    assert!(frame.contains("(no active memory"));
+}
+
+#[test]
 fn forge_runs_overlay_handles_empty_list() {
     let mut state = ViewerState::new(vec![header("forge-runs")]);
     state.forge_runs = Some(Vec::new());
