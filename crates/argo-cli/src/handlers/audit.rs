@@ -21,7 +21,9 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             to: _,
             session,
             json,
+            format,
         } => {
+            let scope = session.clone();
             let report = match session {
                 Some(raw) => {
                     let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
@@ -31,50 +33,84 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 }
                 None => verify_all(&store).await?,
             };
-            if json {
-                let breaks_arr: Vec<_> = report
-                    .breaks
-                    .iter()
-                    .map(|b| {
-                        serde_json::json!({
-                            "seq": b.seq,
-                            "kind": b.kind,
-                            "reason": b.reason,
+            let pick = if json { "json" } else { format.as_str() };
+            match pick {
+                "json" => {
+                    let breaks_arr: Vec<_> = report
+                        .breaks
+                        .iter()
+                        .map(|b| {
+                            serde_json::json!({
+                                "seq": b.seq,
+                                "kind": b.kind,
+                                "reason": b.reason,
+                            })
                         })
-                    })
-                    .collect();
-                let payload = serde_json::json!({
-                    "ok": report.ok,
-                    "rows": report.rows,
-                    "kinds": report.kind_counts.len(),
-                    "breaks": breaks_arr,
-                });
-                let serialized = serde_json::to_string(&payload)
-                    .map_err(|e| ArgoError::Provider(format!("serialize verify: {e}")))?;
-                println!("{serialized}");
-                if !report.ok {
-                    return Err(ArgoError::Provider(
-                        "audit chain verification failed".into(),
-                    ));
+                        .collect();
+                    let payload = serde_json::json!({
+                        "ok": report.ok,
+                        "rows": report.rows,
+                        "kinds": report.kind_counts.len(),
+                        "breaks": breaks_arr,
+                    });
+                    let serialized = serde_json::to_string(&payload)
+                        .map_err(|e| ArgoError::Provider(format!("serialize verify: {e}")))?;
+                    println!("{serialized}");
                 }
-                return Ok(());
+                "markdown" => {
+                    println!("# Audit verify");
+                    println!();
+                    if let Some(s) = &scope {
+                        println!("- **Scope**: session `{s}`");
+                    } else {
+                        println!("- **Scope**: all sessions");
+                    }
+                    println!(
+                        "- **Status**: {}",
+                        if report.ok { "OK ✓" } else { "**BROKEN**" }
+                    );
+                    println!("- **Rows**: {}", report.rows);
+                    println!("- **Kinds**: {}", report.kind_counts.len());
+                    println!("- **Breaks**: {}", report.breaks.len());
+                    if !report.breaks.is_empty() {
+                        println!();
+                        println!("## Break detail");
+                        println!();
+                        println!("| seq | kind | reason |");
+                        println!("| ---: | --- | --- |");
+                        for b in &report.breaks {
+                            let reason = b.reason.replace('|', "\\|");
+                            println!("| {} | `{}` | {reason} |", b.seq, b.kind);
+                        }
+                    }
+                }
+                "text" => {
+                    if report.ok {
+                        println!(
+                            "audit chain ok: {} rows verified across {} kinds",
+                            report.rows,
+                            report.kind_counts.len()
+                        );
+                    } else {
+                        println!(
+                            "audit chain broken: {} break(s) detected across {} rows",
+                            report.breaks.len(),
+                            report.rows
+                        );
+                        for b in &report.breaks {
+                            println!("  seq {} kind={} ({})", b.seq, b.kind, b.reason);
+                        }
+                    }
+                }
+                other => {
+                    return Err(ArgoError::Provider(format!(
+                        "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+                    )));
+                }
             }
             if report.ok {
-                println!(
-                    "audit chain ok: {} rows verified across {} kinds",
-                    report.rows,
-                    report.kind_counts.len()
-                );
                 Ok(())
             } else {
-                println!(
-                    "audit chain broken: {} break(s) detected across {} rows",
-                    report.breaks.len(),
-                    report.rows
-                );
-                for b in &report.breaks {
-                    println!("  seq {} kind={} ({})", b.seq, b.kind, b.reason);
-                }
                 Err(ArgoError::Provider(
                     "audit chain verification failed".into(),
                 ))

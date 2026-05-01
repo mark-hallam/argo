@@ -459,8 +459,13 @@ pub enum AuditCmd {
         #[arg(long)]
         session: Option<String>,
         /// Output as a single JSON object (ok / rows / breaks).
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Stream the audit log to ndjson. Defaults to stdout; pass
     /// `--out <path>` to write to a file. Pass `--session <id>` to
