@@ -228,19 +228,27 @@ pub(super) async fn audit_response(store: Option<&Arc<SessionStore>>) -> (&'stat
     )
 }
 
-/// `GET /sessions/count[?status=open|ended|all]` — print just
-/// the count of session rows. Mirrors the CLI's
-/// `argo session count`. Caps the underlying fetch at 10,000
-/// rows.
+/// `GET /sessions/count[?status=…&since-minutes=N&older-than-minutes=N]`
+/// — count of session rows after filters. Caps fetch at 10k.
 pub(super) async fn sessions_count_response(
     status: Option<&str>,
+    since_minutes: Option<i64>,
+    older_than_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
     };
     match store.list_all_sessions(10_000).await {
-        Ok(rows) => {
+        Ok(mut rows) => {
+            if let Some(m) = since_minutes {
+                let cutoff = chrono::Utc::now() - chrono::Duration::minutes(m);
+                rows.retain(|s| s.started_at >= cutoff);
+            }
+            if let Some(m) = older_than_minutes {
+                let cutoff = chrono::Utc::now() - chrono::Duration::minutes(m);
+                rows.retain(|s| s.started_at < cutoff);
+            }
             let n = match status {
                 Some("open") => rows.iter().filter(|s| s.ended_at.is_none()).count(),
                 Some("ended") => rows.iter().filter(|s| s.ended_at.is_some()).count(),

@@ -85,7 +85,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let status = parse_query_kv(tail, "status");
-        return sessions_count_response(status.as_deref(), store).await;
+        let since = parse_since_minutes_from_get(req, "/sessions/count");
+        let older_than =
+            parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+        return sessions_count_response(status.as_deref(), since, older_than, store).await;
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         return dispatch_sessions(req, store).await;
