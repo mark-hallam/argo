@@ -50,6 +50,26 @@ pub(crate) async fn run(
                 let rows = store.list_forge_runs(50).await.unwrap_or_default();
                 state.forge_runs = Some(rows);
             }
+            // While the cron overlay is open, re-scan
+            // cron/jobs/*.json so jobs added/removed externally
+            // (e.g. via `argo cron add`) appear without the
+            // user having to close + re-open with `K`.
+            if state.cron_overlay.is_some() {
+                let mut names: Vec<String> = Vec::new();
+                let dir = cwd.join("cron").join("jobs");
+                if let Ok(entries) = std::fs::read_dir(&dir) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.extension().is_some_and(|x| x == "json") {
+                            if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+                                names.push(stem.to_string());
+                            }
+                        }
+                    }
+                }
+                names.sort();
+                state.cron_overlay = Some(names);
+            }
             last_refresh = std::time::Instant::now();
         }
         if !event::poll(Duration::from_millis(200))
