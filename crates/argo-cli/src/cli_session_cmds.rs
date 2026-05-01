@@ -326,6 +326,14 @@ pub enum ForgeRunsCmd {
         /// candidate_version.
         #[arg(long)]
         has_candidate: Option<bool>,
+        /// Inclusive lower bound on `iterations`. Mirrors
+        /// the gateway's `?iterations-min=N`.
+        #[arg(long)]
+        iterations_min: Option<i64>,
+        /// Inclusive upper bound on `iterations`. Mirrors
+        /// the gateway's `?iterations-max=N`.
+        #[arg(long)]
+        iterations_max: Option<i64>,
         /// Sort order: `started-at` (default, descending),
         /// `score` (final_score descending; NULLs sink to the
         /// bottom), or `spend` (spend_usd_micros descending).

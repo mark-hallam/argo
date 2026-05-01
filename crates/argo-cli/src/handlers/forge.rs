@@ -26,6 +26,8 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
                 score_max,
                 skill,
                 has_candidate,
+                iterations_min,
+                iterations_max,
                 sort_by,
             } => {
                 list_runs(
@@ -37,6 +39,8 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
                     score_max,
                     skill,
                     has_candidate,
+                    iterations_min,
+                    iterations_max,
                     sort_by,
                 )
                 .await
@@ -240,6 +244,8 @@ async fn list_runs(
     score_max: Option<f64>,
     skill: Option<String>,
     has_candidate: Option<bool>,
+    iterations_min: Option<i64>,
+    iterations_max: Option<i64>,
     sort_by: String,
 ) -> ArgoResult<()> {
     let store = open_store().await?;
@@ -262,6 +268,12 @@ async fn list_runs(
     }
     if let Some(want) = has_candidate {
         rows.retain(|r| r.candidate_version.is_some() == want);
+    }
+    if let Some(lo) = iterations_min {
+        rows.retain(|r| r.iterations >= lo);
+    }
+    if let Some(hi) = iterations_max {
+        rows.retain(|r| r.iterations <= hi);
     }
     match sort_by.as_str() {
         "started-at" => {} // store returns reverse-chronological
