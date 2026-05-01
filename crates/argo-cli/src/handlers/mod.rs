@@ -41,6 +41,7 @@ mod session_watch;
 pub mod skill;
 pub mod steer;
 pub mod trace;
+pub mod tools;
 pub mod tui;
 pub mod workspace;
 mod workspace_marketplace;

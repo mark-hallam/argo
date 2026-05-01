@@ -171,6 +171,12 @@ pub enum Command {
     },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
+    /// List the in-core tools the agent can call. Mirrors
+    /// `GET /tools`.
+    Tools {
+        #[command(subcommand)]
+        cmd: Option<ToolsCmd>,
+    },
     /// Diagnose configuration / sandbox / port issues.
     Doctor {
         /// Emit a single JSON object with all the checks. Default
@@ -202,4 +208,32 @@ pub enum Command {
         cmd: ImportCmd,
     },
     Update,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ToolsCmd {
+    /// List in-core tools. Default text view; `--json` emits
+    /// one object per tool; `--format markdown` renders a
+    /// markdown table.
+    List {
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Case-insensitive substring filter on tool name.
+        /// Mirrors `?name-contains=…` on `/tools`.
+        #[arg(long)]
+        name_contains: Option<String>,
+    },
+    /// Show one tool's full JSON-schema parameter shape by
+    /// name. Mirrors `GET /tools/<name>`.
+    Show {
+        name: String,
+        /// Output as a single JSON object for scripting.
+        #[arg(long)]
+        json: bool,
+    },
 }
