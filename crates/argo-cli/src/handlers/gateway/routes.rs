@@ -353,8 +353,13 @@ pub(super) async fn dispatch_route(
     if req.starts_with("POST /forge/runs/abort-all ") {
         return forge_abort_all_response(store).await;
     }
-    if req.starts_with("POST /sessions/end-all ") {
-        return session_end_all_response(store).await;
+    if req.starts_with("POST /sessions/end-all ")
+        || req.starts_with("POST /sessions/end-all?")
+    {
+        let tail = req.strip_prefix("POST ").unwrap_or(req);
+        let older_than =
+            parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+        return session_end_all_response(older_than, store).await;
     }
     // POST /forge/runs/<id>/abort — flip status to "aborted".
     if let Some(rest) = req.strip_prefix("POST /forge/runs/") {

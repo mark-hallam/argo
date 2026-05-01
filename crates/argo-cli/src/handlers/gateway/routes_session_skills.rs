@@ -217,10 +217,15 @@ pub(super) async fn session_clear_skills_response(
     )
 }
 
-/// `POST /sessions/end-all` — mark every open session
-/// (ended_at IS NULL) as ended. Returns 200 +
-/// `{ended: N}`. Operator emergency stop / fresh-slate.
+/// `POST /sessions/end-all[?older-than-minutes=N]` — mark
+/// open sessions (ended_at IS NULL) as ended. Without filter,
+/// all open sessions get ended (operator emergency stop).
+/// With `?older-than-minutes=N`, only sessions whose
+/// started_at is older than N minutes ago are ended — useful
+/// for periodic cleanup of stale sessions left behind by
+/// crashed clients. Returns 200 + `{ended: N}`.
 pub(super) async fn session_end_all_response(
+    older_than_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
@@ -235,8 +240,17 @@ pub(super) async fn session_end_all_response(
             );
         }
     };
+    let cutoff = older_than_minutes
+        .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
     let mut ended: u64 = 0;
-    for s in rows.into_iter().filter(|s| s.ended_at.is_none()) {
+    for s in rows
+        .into_iter()
+        .filter(|s| s.ended_at.is_none())
+        .filter(|s| match cutoff {
+            Some(c) => s.started_at < c,
+            None => true,
+        })
+    {
         if let Ok(n) = store.end_session(SessionId(s.id.0)).await {
             ended += n;
         }
