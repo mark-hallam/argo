@@ -12,8 +12,13 @@ pub enum WorkspaceCmd {
     /// One-line status summary (workspace + db + costs).
     Status {
         /// Output as a single JSON object for scripting.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Verify workspace integrity: argo.toml parses, memory files +
     ///   bundle dirs exist, agent persona files exist, manifests
