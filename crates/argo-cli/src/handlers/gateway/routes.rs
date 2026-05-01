@@ -12,7 +12,9 @@ use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
     create_session_response, replay_response, run_turn_response, steer_response,
 };
-use super::routes_cron::{cron_delete_response, cron_list_response, cron_show_response};
+use super::routes_cron::{
+    cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
+};
 use super::routes_msgs::list_messages_response;
 use super::routes_post_admin::{
     memory_lock_response, memory_unlock_response, skill_lock_response, skill_unlock_response,
@@ -144,6 +146,9 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("POST /memory ") {
         return append_memory_response(req, store).await;
+    }
+    if req.starts_with("POST /cron ") {
+        return cron_create_response(req).await;
     }
     if req.starts_with("POST /forge/optimize ") {
         return forge_optimize_response(req).await;

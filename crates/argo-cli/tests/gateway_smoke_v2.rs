@@ -405,7 +405,7 @@ fn cron_endpoints_return_empty_array_and_404_on_clean_workspace() {
             "--port",
             &port.to_string(),
             "--max-requests",
-            "3",
+            "4",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -425,6 +425,12 @@ fn cron_endpoints_return_empty_array_and_404_on_clean_workspace() {
     // Delete a job that doesn't exist → 404.
     let resp = http_post(port, "/cron/never-created/delete", "");
     assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    // Create with missing fields → 400 (no need to spin up
+    // another gateway just for this — boot took 3 max-requests
+    // for a reason).
+    let resp = http_post(port, "/cron", r#"{"name":"only-name"}"#);
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
     let status = child.wait().expect("wait");
     assert!(status.success());

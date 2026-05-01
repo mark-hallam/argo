@@ -5,7 +5,8 @@
 //! filesystem directory rather than the SQLite store and (b)
 //! `routes.rs` + `routes_meta.rs` are both already close to
 //! the 500-LOC ceiling.
-use argo_cron::CronJob;
+use argo_cron::{CronExpr, CronJob, CronTarget};
+use argo_types::TenantId;
 use std::path::PathBuf;
 
 /// `GET /cron` — list every job in `<cwd>/cron/jobs/`. Returns
@@ -84,6 +85,129 @@ pub(super) async fn cron_show_response(raw_name: &str) -> (&'static str, String)
             serde_json::to_string(&line).unwrap_or_else(|_| "{}".to_string()),
         ),
     }
+}
+
+/// `POST /cron` — create a new cron job. Body shape:
+/// `{name, schedule, prompt, platform, chat}`. Returns 201 +
+/// `{name, schedule, path}` on success; 400 on parse failures
+/// (bad schedule, missing field) or path-traversal attempts;
+/// 409 when `<name>.json` already exists (mirrors the CLI's
+/// "delete it first" behaviour).
+pub(super) async fn cron_create_response(req: &str) -> (&'static str, String) {
+    let dir = match cron_dir() {
+        Ok(d) => d,
+        Err((status, body)) => return (status, body),
+    };
+    let body = req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("");
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse JSON body: {e}\"}}"),
+            );
+        }
+    };
+    let pull = |key: &str| -> Option<String> {
+        parsed
+            .get(key)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_string)
+    };
+    let Some(name) = pull("name") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `name`\"}".to_string(),
+        );
+    };
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"job name must be a single path segment\"}".to_string(),
+        );
+    }
+    let Some(schedule) = pull("schedule") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `schedule`\"}".to_string(),
+        );
+    };
+    let Some(prompt) = pull("prompt") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `prompt`\"}".to_string(),
+        );
+    };
+    let Some(platform) = pull("platform") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `platform`\"}".to_string(),
+        );
+    };
+    let Some(chat) = pull("chat") else {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"missing or empty `chat`\"}".to_string(),
+        );
+    };
+    let cron = match CronExpr::parse(&schedule) {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"schedule '{schedule}': {e}\"}}"),
+            );
+        }
+    };
+    let path = dir.join(format!("{name}.json"));
+    if path.exists() {
+        return (
+            "409 Conflict",
+            format!(
+                "{{\"error\":\"job '{name}' already exists; \
+                 DELETE it first via /cron/{name}/delete\"}}"
+            ),
+        );
+    }
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        return (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"create_dir_all {}: {e}\"}}", dir.display()),
+        );
+    }
+    let job = CronJob::new(
+        TenantId::new(),
+        name.clone(),
+        cron,
+        prompt,
+        CronTarget { platform, chat },
+    );
+    let job_body = match serde_json::to_string_pretty(&job) {
+        Ok(s) => s,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"serialize: {e}\"}}"),
+            );
+        }
+    };
+    if let Err(e) = std::fs::write(&path, job_body) {
+        return (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"write {}: {e}\"}}", path.display()),
+        );
+    }
+    let resp = serde_json::json!({
+        "created": true,
+        "name": name,
+        "schedule": schedule,
+        "path": path.display().to_string(),
+    });
+    (
+        "201 Created",
+        serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
+    )
 }
 
 /// `POST /cron/<name>/delete` — remove the on-disk job file
