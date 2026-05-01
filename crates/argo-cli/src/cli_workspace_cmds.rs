@@ -102,6 +102,7 @@ pub enum CostsCmd {
     /// Show the configured caps + actual-spend roll-up.
     Show {
         /// Output as a single JSON object.
+        /// Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
         /// Group spend by `(provider, model)` and print the
@@ -112,6 +113,10 @@ pub enum CostsCmd {
         /// spenders instead of the default ceilings view.
         #[arg(long)]
         by_session: bool,
+        /// Output format: `text` (default), `json`, or `markdown`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
     },
     /// Dump every row in `spend_ledger` as NDJSON (one JSON object
     /// per line). Pass `--out <path>` to write to a file; otherwise
