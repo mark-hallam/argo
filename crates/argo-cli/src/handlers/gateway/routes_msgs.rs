@@ -78,6 +78,16 @@ pub(super) async fn list_messages_response(
             );
         }
     };
+    if let Some(want) = role.as_deref() {
+        if !matches!(want, "user" | "assistant" | "tool" | "system") {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
+                ),
+            );
+        }
+    }
     match store.list_messages(id).await {
         Ok(mut rows) => {
             if let Some(want) = role.as_deref() {
