@@ -13,6 +13,7 @@ mod routes_msgs;
 mod routes_post;
 mod routes_post_admin;
 mod routes_post_writes;
+mod routes_query;
 mod routes_session;
 mod streaming;
 
@@ -130,6 +131,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
     eprintln!("  GET  /cron                 → scheduled cron jobs (workspace cron/jobs/)");
     eprintln!("  GET  /cron/<name>          → one cron job by name");
+    eprintln!("  POST /cron/<name>/delete   → remove the on-disk job file");
     eprintln!("  POST /forge/optimize → kick off `argo forge optimize` ({{skill, examples, iterations?, budget_usd?}})");
     eprintln!("  POST /forge/optimize/stream → chunked-NDJSON live forge progress");
     eprintln!("  POST /forge/bench    → kick off `argo forge bench` ({{skill, examples, provider?, model?}})");

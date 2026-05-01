@@ -12,10 +12,13 @@ use super::routes_post::{
     append_message_response, audit_session_response, costs_breakdown_response,
     create_session_response, replay_response, run_turn_response, steer_response,
 };
-use super::routes_cron::{cron_list_response, cron_show_response};
+use super::routes_cron::{cron_delete_response, cron_list_response, cron_show_response};
 use super::routes_msgs::list_messages_response;
 use super::routes_post_admin::{
     memory_lock_response, memory_unlock_response, skill_lock_response, skill_unlock_response,
+};
+use super::routes_query::{
+    parse_limit, parse_query_kv, parse_role, parse_search_args, parse_since_minutes_from_get,
 };
 use super::routes_post_writes::{
     append_memory_response, forge_abort_response, forge_bench_response, forge_optimize_response,
@@ -170,6 +173,14 @@ pub(super) async fn dispatch_route(
             }
         }
     }
+    // POST /cron/<name>/delete — remove the on-disk job file.
+    if let Some(rest) = req.strip_prefix("POST /cron/") {
+        if let Some((name, tail)) = rest.split_once('/') {
+            if tail.starts_with("delete ") {
+                return cron_delete_response(name).await;
+            }
+        }
+    }
     // POST /memory/<id>/{lock,unlock}
     if let Some(rest) = req.strip_prefix("POST /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {
@@ -216,20 +227,6 @@ pub(super) async fn dispatch_route(
         }
     }
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
-}
-
-/// Pull `since-minutes=<N>` out of `GET <path>?since-minutes=N HTTP/1.1`.
-fn parse_since_minutes_from_get(req: &str, path: &str) -> Option<i64> {
-    let prefix = format!("GET {path}?");
-    let rest = req.strip_prefix(&prefix)?;
-    let q = rest.split_once(' ').map(|(q, _)| q).unwrap_or(rest);
-    for kv in q.split('&') {
-        let (k, v) = kv.split_once('=')?;
-        if k == "since-minutes" {
-            return v.parse().ok();
-        }
-    }
-    None
 }
 
 async fn sessions_response(
@@ -450,41 +447,4 @@ fn costs_response() -> (&'static str, String) {
     )
 }
 
-/// Pull `limit=<N>` out of a path tail like `messages?limit=10 HTTP/1.1`.
-/// Returns `None` if absent or unparseable; caller treats `None` as
-/// "all rows".
-fn parse_limit(tail: &str) -> Option<usize> {
-    parse_query_kv(tail, "limit").and_then(|v| v.parse().ok())
-}
-
-/// Pull `role=<s>` out of the path tail (e.g. `?role=user`).
-fn parse_role(tail: &str) -> Option<String> {
-    parse_query_kv(tail, "role")
-}
-
-/// Pull `(q, limit, session)` out of a `/search?…` request.
-/// `limit` defaults to 20 when missing or unparseable. `q` is
-/// URL-decoded for `+` only — full % decoding is left to the
-/// CLI client (the smoke test sends pre-decoded queries).
-fn parse_search_args(req: &str) -> (Option<String>, u32, Option<String>) {
-    let tail = req.strip_prefix("GET ").unwrap_or(req);
-    let q = parse_query_kv(tail, "q").map(|s| s.replace('+', " "));
-    let limit = parse_query_kv(tail, "limit")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(20);
-    let session = parse_query_kv(tail, "session");
-    (q, limit, session)
-}
-
-fn parse_query_kv(tail: &str, key: &str) -> Option<String> {
-    let q = tail.split_once('?')?.1;
-    let q = q.split_once(' ').map(|(q, _)| q).unwrap_or(q);
-    for kv in q.split('&') {
-        let (k, v) = kv.split_once('=')?;
-        if k == key {
-            return Some(v.to_string());
-        }
-    }
-    None
-}
 

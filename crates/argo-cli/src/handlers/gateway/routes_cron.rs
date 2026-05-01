@@ -86,6 +86,43 @@ pub(super) async fn cron_show_response(raw_name: &str) -> (&'static str, String)
     }
 }
 
+/// `POST /cron/<name>/delete` — remove the on-disk job file
+/// for `<name>`. Mirrors `argo cron delete <name>`. Returns
+/// 200 + `{deleted, name}` on success, 404 when no
+/// `<name>.json` exists, 400 on path-traversal segments.
+pub(super) async fn cron_delete_response(raw_name: &str) -> (&'static str, String) {
+    let dir = match cron_dir() {
+        Ok(d) => d,
+        Err((status, body)) => return (status, body),
+    };
+    if raw_name.contains('/') || raw_name.contains('\\') || raw_name.contains("..") {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"job name must be a single path segment\"}".to_string(),
+        );
+    }
+    let path = dir.join(format!("{raw_name}.json"));
+    if !path.exists() {
+        return (
+            "404 Not Found",
+            format!("{{\"error\":\"no cron job named '{raw_name}'\"}}"),
+        );
+    }
+    match std::fs::remove_file(&path) {
+        Ok(()) => (
+            "200 OK",
+            format!("{{\"deleted\":true,\"name\":\"{raw_name}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!(
+                "{{\"error\":\"remove {}: {e}\"}}",
+                path.display()
+            ),
+        ),
+    }
+}
+
 fn cron_dir() -> Result<PathBuf, (&'static str, String)> {
     let cwd = std::env::current_dir()
         .map_err(|e| ("500 Internal Server Error", format!("{{\"error\":\"cwd: {e}\"}}")))?;

@@ -405,7 +405,7 @@ fn cron_endpoints_return_empty_array_and_404_on_clean_workspace() {
             "--port",
             &port.to_string(),
             "--max-requests",
-            "2",
+            "3",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -420,6 +420,10 @@ fn cron_endpoints_return_empty_array_and_404_on_clean_workspace() {
     assert_eq!(body_of(&resp), "[]");
 
     let resp = http_get(port, "/cron/never-created");
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+
+    // Delete a job that doesn't exist → 404.
+    let resp = http_post(port, "/cron/never-created/delete", "");
     assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
 
     let status = child.wait().expect("wait");
