@@ -15,10 +15,12 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
         DbCmd::Status { json } => {
             let v = store.schema_version().await?;
             let stats = store.db_stats().await?;
+            let file_bytes = std::fs::metadata(&db).map(|m| m.len()).unwrap_or(0);
             if json {
                 let payload = serde_json::json!({
                     "schema_version": v,
                     "db_path": db.display().to_string(),
+                    "file_bytes": file_bytes,
                     "rows": {
                         "sessions":          stats.sessions,
                         "messages":          stats.messages,
@@ -35,7 +37,8 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
                 println!("{}", serde_json::to_string(&payload).unwrap_or_default());
             } else {
                 println!("schema_version: {v}");
-                println!("db_path: {}", db.display());
+                println!("db_path:        {}", db.display());
+                println!("file size:      {file_bytes} bytes");
                 println!("rows:");
                 println!("  sessions:           {:>8}", stats.sessions);
                 println!("  messages:           {:>8}", stats.messages);
