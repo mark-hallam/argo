@@ -84,6 +84,103 @@ pub(super) async fn skills_response(
     }
 }
 
+/// `GET /skills/count[?include-superseded=true]` — count active
+/// skills (or all versions). Mirrors the CLI's `argo skill
+/// count` (#430).
+pub(super) async fn skills_count_response(
+    include_superseded: bool,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let skills = argo_skill::SkillStore::new(Arc::clone(store));
+    let result = if include_superseded {
+        skills.list_all().await
+    } else {
+        skills.list_active().await
+    };
+    match result {
+        Ok(rows) => {
+            let payload = serde_json::json!({
+                "count": rows.len(),
+                "include_superseded": include_superseded,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"list skills: {e}\"}}"),
+        ),
+    }
+}
+
+/// `GET /memory/count[?file=memory|user|soul|agents]` — count
+/// active memory entries. Mirrors the CLI's `argo memory count`
+/// (#429).
+pub(super) async fn memory_count_response(
+    file: Option<String>,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    use argo_memory::{MemoryFile, MemoryStore};
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let files: Vec<MemoryFile> = match file.as_deref() {
+        None => vec![
+            MemoryFile::Memory,
+            MemoryFile::User,
+            MemoryFile::Soul,
+            MemoryFile::Agents,
+        ],
+        Some("memory") | Some("MEMORY.md") => vec![MemoryFile::Memory],
+        Some("user") | Some("USER.md") => vec![MemoryFile::User],
+        Some("soul") | Some("SOUL.md") => vec![MemoryFile::Soul],
+        Some("agents") | Some("AGENTS.md") => vec![MemoryFile::Agents],
+        Some(other) => {
+            return (
+                "400 Bad Request",
+                format!(
+                    "{{\"error\":\"unknown file '{other}' — use memory|user|soul|agents\"}}"
+                ),
+            );
+        }
+    };
+    let workspace = match store.first_workspace().await {
+        Ok(Some(w)) => w,
+        Ok(None) => {
+            return (
+                "200 OK",
+                format!("{{\"count\":0,\"file\":\"{}\"}}", file.as_deref().unwrap_or("all")),
+            );
+        }
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+            );
+        }
+    };
+    let memory = MemoryStore::new(Arc::clone(store));
+    let mut total = 0_usize;
+    for f in files {
+        if let Ok(entries) = memory.list_active(workspace, f).await {
+            total += entries.len();
+        }
+    }
+    let payload = serde_json::json!({
+        "count": total,
+        "file": file.as_deref().unwrap_or("all"),
+    });
+    (
+        "200 OK",
+        serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
+    )
+}
+
 /// `GET /memory/<id>/versions` — supersede chain for a memory
 /// entry. Returns every entry in the same `(workspace, file)`
 /// scope, oldest first. 200 + JSON array, 400 on bad uuid,

@@ -12,7 +12,10 @@ use super::routes_meta::{
 use super::routes_providers::{
     provider_models_response, provider_show_response, providers_response,
 };
-use super::routes_lists::{memory_response, memory_versions_response, skills_response};
+use super::routes_lists::{
+    memory_count_response, memory_response, memory_versions_response, skills_count_response,
+    skills_response,
+};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_audit::{
     audit_recent_response, audit_session_response, audit_session_verify_response,
@@ -87,6 +90,13 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         return dispatch_sessions(req, store).await;
     }
+    if req.starts_with("GET /skills/count ") || req.starts_with("GET /skills/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let include_superseded = parse_query_kv(tail, "include-superseded")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
+        return skills_count_response(include_superseded, store).await;
+    }
     if req.starts_with("GET /skills ") || req.starts_with("GET /skills?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let include_superseded = parse_query_kv(tail, "include-superseded")
@@ -115,6 +125,11 @@ pub(super) async fn dispatch_route(
         if let Some((name, _)) = rest.split_once(' ') {
             return skill_show_response(name, store).await;
         }
+    }
+    if req.starts_with("GET /memory/count ") || req.starts_with("GET /memory/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let file = parse_query_kv(tail, "file");
+        return memory_count_response(file, store).await;
     }
     if req.starts_with("GET /memory ") || req.starts_with("GET /memory?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
