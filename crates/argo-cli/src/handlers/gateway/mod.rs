@@ -109,6 +109,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
         .map_err(|e| ArgoError::Provider(format!("write {}: {e}", pidfile.display())))?;
     let _guard = PidGuard(pidfile.clone());
 
+    metrics::init_boot_time();
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
     eprintln!("  GET  /health   → {{\"status\":\"ok\"}}");
     eprintln!("  GET  /version  → {{\"version\":\"<crate>\"}}");

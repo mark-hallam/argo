@@ -16,12 +16,19 @@ use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
-/// Gateway boot time. Initialised on first /metrics scrape so
-/// `argo_uptime_seconds` reports time-since-first-scrape rather
-/// than time-since-startup. Close enough for a Prometheus
-/// uptime gauge — Prometheus' own scrape resets capture the
-/// same signal.
+/// Gateway boot time. Initialised once at gateway startup
+/// (see `mod.rs::start`) so `argo_uptime_seconds` reports
+/// real time-since-process-start. Falls back to lazy
+/// init-on-first-scrape if startup forgot to call
+/// `init_boot_time`.
 static BOOT_TIME: OnceLock<Instant> = OnceLock::new();
+
+/// Stamp the gateway's boot time. Idempotent — only the first
+/// caller wins. Called from `gateway::start` once the listener
+/// is bound.
+pub(super) fn init_boot_time() {
+    let _ = BOOT_TIME.set(Instant::now());
+}
 
 /// Returns the rendered exposition body. Errors from any single
 /// query are surfaced as `# error: …` comment lines + a `0`
