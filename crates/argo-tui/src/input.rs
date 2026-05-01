@@ -77,14 +77,19 @@ pub(crate) async fn run(
                 state.help_overlay = false;
                 continue;
             }
-            // Message-detail overlay: Esc/o/q close, anything
-            // else is ignored.
+            // Message-detail overlay: Esc/o/q close; `t` toggles
+            // the drill-into-text-content view; other keys are
+            // ignored.
             if state.message_overlay.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('o') | KeyCode::Char('q')
-                ) {
-                    state.message_overlay = None;
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('o') | KeyCode::Char('q') => {
+                        state.message_overlay = None;
+                        state.message_overlay_text_only = false;
+                    }
+                    KeyCode::Char('t') => {
+                        state.message_overlay_text_only = !state.message_overlay_text_only;
+                    }
+                    _ => {}
                 }
                 continue;
             }

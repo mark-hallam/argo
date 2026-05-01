@@ -80,6 +80,12 @@ pub struct ViewerState {
     /// with `o` while focused on the messages pane); the index
     /// points into `selected_messages`. Esc / o / q closes.
     pub message_overlay: Option<usize>,
+    /// When `true`, the message overlay renders the extracted
+    /// content-block text values instead of the full pretty-
+    /// printed JSON. Toggled with `t` while the overlay is open
+    /// — useful for drilling into a tool_result without the
+    /// JSON noise.
+    pub message_overlay_text_only: bool,
     /// Loaded forge_run rows when the user has the forge-runs
     /// overlay open (entered with `F`). `None` when closed.
     pub forge_runs: Option<Vec<argo_store::ForgeRunRow>>,
@@ -128,6 +134,7 @@ impl ViewerState {
             messages_scroll: 0,
             help_overlay: false,
             message_overlay: None,
+            message_overlay_text_only: false,
             forge_runs: None,
         }
     }

@@ -160,6 +160,34 @@ fn message_overlay_renders_pretty_json_body() {
     assert!(frame.contains("seq=5"));
     assert!(frame.contains("role=tool"));
     assert!(frame.contains("hello world"));
+    assert!(frame.contains("json"));
+}
+
+#[test]
+fn message_overlay_drill_view_strips_json_noise() {
+    let mut state = ViewerState::new(vec![header("drill-target")]);
+    state.selected_messages = vec![argo_store::MessageRow {
+        id: vec![0u8; 16],
+        session_id: vec![0u8; 16],
+        role: "tool".into(),
+        content_json:
+            r#"[{"type":"tool_result","id":"xyz","is_error":false,"content":[{"type":"text","text":"DRILLED"}]}]"#
+                .into(),
+        tool_calls_json: String::new(),
+        tool_call_id: None,
+        reasoning: None,
+        provider_meta: "null".into(),
+        created_at: 0,
+        seq: 7,
+    }];
+    state.message_overlay = Some(0);
+    state.message_overlay_text_only = true;
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("drill"), "title mode tag missing: {frame}");
+    assert!(frame.contains("← xyz"));
+    assert!(frame.contains("DRILLED"));
+    // The pretty-JSON braces shouldn't appear when drilling.
+    assert!(!frame.contains("\"is_error\""), "json leaked: {frame}");
 }
 
 #[test]
