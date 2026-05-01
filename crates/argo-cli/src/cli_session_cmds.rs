@@ -57,8 +57,17 @@ pub enum SessionCmd {
         /// Filter to sessions newer than N minutes.
         #[arg(long)]
         since_minutes: Option<i64>,
-        /// Output as a single JSON object {count, status} for
-        /// scripting.
+        /// Inverse of --since-minutes.
+        #[arg(long)]
+        older_than_minutes: Option<i64>,
+        /// Exact-match filter on session.provider.
+        #[arg(long)]
+        provider: Option<String>,
+        /// Exact-match filter on session.model.
+        #[arg(long)]
+        model: Option<String>,
+        /// Output as a single JSON object {count, status, ...}
+        /// for scripting.
         #[arg(long)]
         json: bool,
     },

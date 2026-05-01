@@ -39,8 +39,21 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Count {
             status,
             since_minutes,
+            older_than_minutes,
+            provider,
+            model,
             json,
-        } => count_sessions(status, since_minutes, json).await,
+        } => {
+            count_sessions(
+                status,
+                since_minutes,
+                older_than_minutes,
+                provider,
+                model,
+                json,
+            )
+            .await
+        }
         SessionCmd::Watch { id } => super::session_watch::run(&id).await,
         SessionCmd::AttachSkill { id, skill } => {
             super::session_skills::attach(&id, &skill).await

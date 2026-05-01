@@ -141,14 +141,16 @@ pub(super) async fn list_sessions(
     Ok(())
 }
 
-/// `argo session count [--status] [--since-minutes] [--json]` —
-/// print just the count of sessions matching the filters.
-/// Useful for monitoring scripts and shell one-liners. Caps the
-/// fetch at 10,000 rows for safety; that's far above any
-/// expected workspace size.
+/// `argo session count` with the same filter set as `list`
+/// minus spend / title-contains. Caps the fetch at 10,000 rows
+/// for safety.
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn count_sessions(
     status: String,
     since_minutes: Option<i64>,
+    older_than_minutes: Option<i64>,
+    provider: Option<String>,
+    model: Option<String>,
     json: bool,
 ) -> ArgoResult<()> {
     let cwd =
@@ -162,6 +164,16 @@ pub(super) async fn count_sessions(
         let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
         sessions.retain(|s| s.started_at >= cutoff);
     }
+    if let Some(minutes) = older_than_minutes {
+        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
+        sessions.retain(|s| s.started_at < cutoff);
+    }
+    if let Some(want) = provider.as_deref() {
+        sessions.retain(|s| s.provider == want);
+    }
+    if let Some(want) = model.as_deref() {
+        sessions.retain(|s| s.model == want);
+    }
     match status.as_str() {
         "open" => sessions.retain(|s| s.ended_at.is_none()),
         "ended" => sessions.retain(|s| s.ended_at.is_some()),
@@ -174,7 +186,12 @@ pub(super) async fn count_sessions(
     }
     let count = sessions.len();
     if json {
-        let payload = serde_json::json!({"count": count, "status": status});
+        let payload = serde_json::json!({
+            "count": count,
+            "status": status,
+            "provider": provider,
+            "model": model,
+        });
         println!("{}", serde_json::to_string(&payload).unwrap_or_default());
     } else {
         println!("{count}");
