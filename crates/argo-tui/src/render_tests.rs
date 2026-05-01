@@ -233,6 +233,39 @@ fn cost_overlay_renders_today_mtd_and_all_time_totals() {
 }
 
 #[test]
+fn audit_overlay_renders_chain_rows() {
+    let mut state = ViewerState::new(vec![header("audit-target")]);
+    state.audit_overlay = Some(vec![
+        argo_store::AuditRow {
+            seq: 7,
+            kind: "TurnStart".into(),
+            payload_json: r#"{"provider":"anthropic","model":"claude-x"}"#.into(),
+            created_at: 0,
+        },
+        argo_store::AuditRow {
+            seq: 8,
+            kind: "ToolCall".into(),
+            payload_json: r#"{"tool":"file_read"}"#.into(),
+            created_at: 0,
+        },
+    ]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("audit chain (2)"));
+    assert!(frame.contains("TurnStart"));
+    assert!(frame.contains("file_read"));
+    assert!(frame.contains("anthropic"));
+}
+
+#[test]
+fn audit_overlay_handles_empty_chain() {
+    let mut state = ViewerState::new(vec![header("audit-target")]);
+    state.audit_overlay = Some(Vec::new());
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("audit chain (0)"));
+    assert!(frame.contains("(no audit rows"));
+}
+
+#[test]
 fn cost_overlay_renders_zero_state_for_fresh_workspace() {
     let mut state = ViewerState::new(vec![header("cost-target")]);
     state.cost_overlay = Some(argo_store::GlobalSpend::default());

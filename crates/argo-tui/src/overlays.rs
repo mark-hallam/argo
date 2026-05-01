@@ -32,10 +32,10 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    o  open msg detail (focused)   y  yank (OSC-52 copy)"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory / Cost"),
+        Line::from("  Forge / Skills / Memory / Cost / Audit"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
         Line::from("    M  active memory               $  cost rollup"),
-        Line::from("    R  force-refresh all panes + open overlays"),
+        Line::from("    A  audit chain (selected ses)  R  force-refresh"),
         Line::from(""),
         Line::from("  q / Esc  quit       ?  this help (any key closes)"),
     ];
@@ -187,6 +187,55 @@ pub(crate) fn draw_memory(
     let para = Paragraph::new(lines).block(
         Block::default().borders(Borders::ALL).title(format!(
             " active memory ({}) — Esc/M/q closes ",
+            rows.len()
+        )),
+    );
+    frame.render_widget(Clear, panel);
+    frame.render_widget(para, panel);
+}
+
+/// Per-session audit chain overlay. Triggered by `A`. Shows
+/// every audit row scoped to the currently-selected session
+/// (TurnStart / AssistantMessage / ToolCall / ToolResult /
+/// TurnEnd / etc.) with seq + kind + a 60-char payload preview.
+/// Esc / A / q close.
+pub(crate) fn draw_audit(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    rows: &[argo_store::AuditRow],
+) {
+    let w = area.width.saturating_mul(9) / 10;
+    let h = area.height.saturating_mul(8) / 10;
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    let panel = Rect::new(x, y, w.max(40), h.max(8));
+
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from(format!(
+        " {:>6}  {:<22} {}",
+        "seq", "kind", "payload (truncated)"
+    )));
+    if rows.is_empty() {
+        lines.push(Line::from(
+            "  (no audit rows for this session — start a turn first)",
+        ));
+    } else {
+        for r in rows {
+            let preview: String = r
+                .payload_json
+                .chars()
+                .filter(|c| !matches!(c, '\n' | '\r'))
+                .take(60)
+                .collect();
+            lines.push(Line::from(format!(
+                " {:>6}  {:<22} {}",
+                r.seq, r.kind, preview,
+            )));
+        }
+    }
+    let para = Paragraph::new(lines).block(
+        Block::default().borders(Borders::ALL).title(format!(
+            " audit chain ({}) — Esc/A/q closes ",
             rows.len()
         )),
     );

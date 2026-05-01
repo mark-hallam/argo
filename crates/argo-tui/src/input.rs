@@ -151,6 +151,17 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Audit-chain overlay: Esc/A/q close. Snapshot at
+            // open — re-press `A` to refresh after a new turn.
+            if state.audit_overlay.is_some() {
+                if matches!(
+                    key.code,
+                    KeyCode::Esc | KeyCode::Char('A') | KeyCode::Char('q')
+                ) {
+                    state.audit_overlay = None;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -261,6 +272,20 @@ pub(crate) async fn run(
                     // → zero-snapshot (overlay shows $0.00).
                     let snap = store.load_global_spend().await.unwrap_or_default();
                     state.cost_overlay = Some(snap);
+                }
+                KeyCode::Char('A') => {
+                    // Audit chain for the selected session. No
+                    // selection → empty overlay so the user can
+                    // tell why nothing rendered.
+                    let rows = if let Some(s) = state.selected_session() {
+                        store
+                            .list_audit_for_session(s.id)
+                            .await
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    state.audit_overlay = Some(rows);
                 }
                 KeyCode::Char('M') => {
                     // Load the active-memory rows across all 4

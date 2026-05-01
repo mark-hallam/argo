@@ -98,6 +98,10 @@ pub struct ViewerState {
     /// Loaded cross-tenant spend rollup when the user has the
     /// cost overlay open (entered with `$`). `None` when closed.
     pub cost_overlay: Option<argo_store::GlobalSpend>,
+    /// Loaded audit-chain rows for the selected session when
+    /// the user has the audit overlay open (entered with `A`).
+    /// `None` when closed.
+    pub audit_overlay: Option<Vec<argo_store::AuditRow>>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -148,6 +152,7 @@ impl ViewerState {
             skills_overlay: None,
             memory_overlay: None,
             cost_overlay: None,
+            audit_overlay: None,
         }
     }
 

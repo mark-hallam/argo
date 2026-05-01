@@ -53,6 +53,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(snap) = state.cost_overlay.as_ref() {
         crate::overlays::draw_cost(frame, area, snap);
     }
+    if let Some(rows) = state.audit_overlay.as_ref() {
+        crate::overlays::draw_audit(frame, area, rows);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
