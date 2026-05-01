@@ -366,6 +366,29 @@ pub(super) async fn costs_breakdown_response(
     }
 }
 
+/// `GET /audit/recent?limit=N` — most recent N audit rows
+/// across every session, in seq order (oldest first inside
+/// the window). Mirrors `argo audit show --tail N`. Defaults
+/// to 50.
+pub(super) async fn audit_recent_response(
+    limit: u32,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    match argo_audit::tail_rows(store, limit).await {
+        Ok(rows) => (
+            "200 OK",
+            serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"audit tail: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /sessions/<id>/judge` — list judge_record rows scoped
 /// to one session. Mirrors `argo judge verdict <id>`. Returns
 /// 200 + a JSON array (possibly empty); 400 on bad uuid.

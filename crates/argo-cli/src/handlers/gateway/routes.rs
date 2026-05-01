@@ -15,9 +15,9 @@ use super::routes_providers::{
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_post::{
-    append_message_response, audit_session_response, audit_session_verify_response,
-    costs_breakdown_response, create_session_response, replay_response, run_turn_response,
-    session_judge_response, steer_response,
+    append_message_response, audit_recent_response, audit_session_response,
+    audit_session_verify_response, costs_breakdown_response, create_session_response,
+    replay_response, run_turn_response, session_judge_response, steer_response,
 };
 use super::routes_cron::{
     cron_create_response, cron_delete_response, cron_list_response, cron_show_response,
@@ -141,6 +141,13 @@ pub(super) async fn dispatch_route(
     }
     if req.starts_with("GET /audit ") {
         return audit_response(store).await;
+    }
+    if req.starts_with("GET /audit/recent ") || req.starts_with("GET /audit/recent?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let limit: u32 = parse_query_kv(tail, "limit")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(50);
+        return audit_recent_response(limit, store).await;
     }
     if req.starts_with("GET /doctor ") {
         return doctor_response().await;
