@@ -149,49 +149,12 @@ pub(super) async fn install_skill_response(
     }
 }
 
-/// `POST /forge/optimize` — kick off `argo forge optimize` in
-/// the background. Body shape:
-/// `{"skill": "...", "examples": "<path>", "iterations": 12,
-///   "budget_usd": 5.0}` (iterations + budget_usd optional).
-/// Returns 202 Accepted immediately — the caller polls
-/// `GET /forge/runs` to find the new run by skill_name +
-/// `started_at`.
-pub(super) async fn forge_optimize_response(req: &str) -> (&'static str, String) {
-    let parsed = match parse_forge_body(req) {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    let skill = parsed.skill;
-    let examples = parsed.examples;
-    let iterations = parsed
-        .raw
-        .get("iterations")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(12) as u32;
-    let budget_usd = parsed
-        .raw
-        .get("budget_usd")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(5.0);
-    crate::handlers::forge_optimize::spawn_optimize(
-        skill.clone(),
-        examples.clone(),
-        iterations,
-        budget_usd,
-    );
-    let resp = serde_json::json!({
-        "started": true,
-        "kind": "optimize",
-        "skill": skill,
-        "examples": examples,
-        "iterations": iterations,
-        "budget_usd": budget_usd,
-    });
-    (
-        "202 Accepted",
-        serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
-    )
-}
+// `forge_optimize_response` lives in the sibling
+// `routes_post_forge` module since v1.1 (#581) — the
+// new enqueue-by-default path needs a SessionStore handle
+// plus a skill-store lookup, which made it large enough to
+// push this file over the 500-LOC ceiling.
+pub(super) use super::routes_post_forge::forge_optimize_response;
 
 /// `POST /forge/bench` — kick off `argo forge bench` in the
 /// background. Body shape:
@@ -464,13 +427,13 @@ pub(super) async fn workspace_init_response(
     }
 }
 
-struct ForgeBody {
-    skill: String,
-    examples: String,
-    raw: serde_json::Value,
+pub(super) struct ForgeBody {
+    pub(super) skill: String,
+    pub(super) examples: String,
+    pub(super) raw: serde_json::Value,
 }
 
-fn parse_forge_body(req: &str) -> Result<ForgeBody, (&'static str, String)> {
+pub(super) fn parse_forge_body(req: &str) -> Result<ForgeBody, (&'static str, String)> {
     let body = body_from_request(req);
     let parsed: serde_json::Value = serde_json::from_str(body)
         .map_err(|e| ("400 Bad Request", format!("{{\"error\":\"parse JSON body: {e}\"}}")))?;

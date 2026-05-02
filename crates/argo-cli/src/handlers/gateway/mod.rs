@@ -22,6 +22,7 @@ mod routes_meta;
 mod routes_msgs;
 mod routes_post;
 mod routes_post_admin;
+mod routes_post_forge;
 mod routes_post_writes;
 mod routes_providers;
 mod routes_query;

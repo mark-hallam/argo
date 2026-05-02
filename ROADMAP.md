@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **580 PRs** on `main` (180 since milestone 400 —
-**v1.0 production-ready**, gateway markdown family complete; **v1.1 daemon split end-to-end**),
+across **581 PRs** on `main` (181 since milestone 400 —
+**v1.0 production-ready**, gateway markdown family complete; **v1.1 forge-daemon split complete — gateway no longer hosts forge tasks**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -359,7 +359,7 @@ as v1.1 perf wins:
   / pull against GHCR / Docker Hub / Artifact Registry test
   accounts.
 - **Standalone daemon for long-running forge runs** — **v1.1
-  daemon split end-to-end as of #579**:
+  forge-daemon split COMPLETE as of #581**:
   - #575: `argo forge daemon [--interval-secs N
     --older-than-minutes M --max-ticks N]` — long-running worker
     that periodically sweeps stalled `running` rows to `failed`.
@@ -374,6 +374,9 @@ as v1.1 perf wins:
     `argo forge enqueue <skill> --examples <path>` → daemon picks
     it up on next tick → finishes the run, persisting candidate
     + final_score.
-  - Pending: make the gateway's `POST /forge/optimize`
-    enqueue-only by default so the gateway no longer hosts
-    in-process forge tasks at all.
+  - #581: gateway's `POST /forge/optimize` flips to enqueue-by-
+    default — drops a row in `forge_queue` for the daemon to
+    pick up. Backward-compat escape hatch: `?in_process=true`
+    keeps the old in-gateway Tokio-task behaviour for CI /
+    single-process setups. The gateway no longer hosts the
+    forge loop in-process by default.

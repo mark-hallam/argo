@@ -69,8 +69,8 @@ pub(super) async fn dispatch_post(
             }
         }
     }
-    if req.starts_with("POST /forge/optimize ") {
-        return Some(forge_optimize_response(req).await);
+    if req.starts_with("POST /forge/optimize ") || req.starts_with("POST /forge/optimize?") {
+        return Some(forge_optimize_response(req, store).await);
     }
     if req.starts_with("POST /forge/bench ") {
         return Some(forge_bench_response(req).await);

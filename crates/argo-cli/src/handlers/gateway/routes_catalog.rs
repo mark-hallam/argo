@@ -102,7 +102,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/sessions/<id>/clone", "duplicate a session into a fresh row, copying every message; returns {cloned_from, session_id, title, messages_copied}"),
         ("POST", "/sessions/<id>/branch", "fork a session at a specific message (?through-seq=N copies seq 1..=N; defaults to all); returns {branched_from, session_id, title, through_seq, messages_copied}"),
         ("POST", "/sessions/end-all", "mark open sessions ended (?older-than-minutes=N for stale-only)"),
-        ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),
+        ("POST", "/forge/optimize", "enqueue `argo forge optimize` for the daemon to run (returns 202; `?in_process=true` keeps the old in-gateway behaviour)"),
         ("POST", "/forge/optimize/stream", "chunked-NDJSON forge optimize event stream"),
         ("POST", "/forge/bench", "kick off `argo forge bench` (returns 202)"),
         ("POST", "/forge/runs/<id>/abort", "abort an in-flight forge run"),
