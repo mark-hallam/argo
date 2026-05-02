@@ -309,3 +309,77 @@ pub(super) async fn audit_session_response(
         ),
     }
 }
+
+/// `GET /audit/by-kind[?since-minutes=N&format=markdown]` —
+/// histogram of audit rows by `kind`. Useful for at-a-glance
+/// "what's happening" — heavy ToolCall counts vs. sparse
+/// TurnEnd, etc. Optionally filtered to the last N minutes.
+/// Returns `{by_kind: {kind: count}}`; markdown returns a
+/// 2-column table sorted by count descending.
+pub(super) async fn audit_by_kind_response(
+    since_minutes: Option<i64>,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT kind, COUNT(*) FROM audit_record WHERE created_at >= ? \
+                 GROUP BY kind ORDER BY kind",
+            )
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT kind, COUNT(*) FROM audit_record GROUP BY kind ORDER BY kind",
+            )
+            .fetch_all(pool)
+            .await
+        }
+    };
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let mut sorted = rows.clone();
+                sorted.sort_by_key(|r| std::cmp::Reverse(r.1));
+                let total: i64 = sorted.iter().map(|(_, n)| *n).sum();
+                let mut out = format!(
+                    "# Audit by kind ({} rows across {} kinds)\n\n",
+                    total,
+                    sorted.len()
+                );
+                if !sorted.is_empty() {
+                    out.push_str("| kind | count |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (k, n) in &sorted {
+                        out.push_str(&format!("| `{k}` | {n} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let mut by_kind = serde_json::Map::new();
+            for (k, n) in rows {
+                by_kind.insert(k, serde_json::json!(n));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "by_kind": serde_json::Value::Object(by_kind),
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"audit_by_kind: {e}\"}}"),
+        ),
+    }
+}

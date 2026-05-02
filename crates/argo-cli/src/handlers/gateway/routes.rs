@@ -5,8 +5,7 @@
 //! `(status_line, body)` pair the listener loop formats into a
 //! single-line HTTP/1.1 response.
 use super::routes_meta::{
-    costs_response, costs_total_response, db_stats_response,
-    forge_runs_response, routes_response, search_response,
+    db_stats_response, forge_runs_response, routes_response, search_response,
     skill_versions_response, tool_show_response, tools_response,
 };
 use super::routes_providers::{
@@ -15,7 +14,6 @@ use super::routes_providers::{
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_audit::{audit_session_response, audit_session_verify_response};
-use super::routes_post::costs_breakdown_response;
 use super::routes_cron::{cron_list_response, cron_show_response};
 use super::routes_session_get::dispatch_session_get;
 use super::routes_top::{
@@ -174,6 +172,18 @@ pub(super) async fn dispatch_route(
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let format = parse_query_kv(tail, "format");
         return audit_breaks_response(store, format.as_deref()).await;
+    }
+    if req.starts_with("GET /audit/by-kind ") || req.starts_with("GET /audit/by-kind?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return super::routes_audit::audit_by_kind_response(
+            since,
+            store,
+            format.as_deref(),
+        )
+        .await;
     }
     if req.starts_with("GET /audit/count ") || req.starts_with("GET /audit/count?") {
         return super::routes_counts::dispatch_audit_count(req, store).await;
@@ -446,38 +456,11 @@ pub(super) async fn dispatch_route(
         )
         .await;
     }
-    if req.starts_with("GET /costs ") || req.starts_with("GET /costs?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let format = parse_query_kv(tail, "format");
-        return costs_response(format.as_deref());
-    }
-    if req.starts_with("GET /costs/total ") || req.starts_with("GET /costs/total?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let format = parse_query_kv(tail, "format");
-        return costs_total_response(store, format.as_deref()).await;
-    }
-    if req.starts_with("GET /costs/by-model ") || req.starts_with("GET /costs/by-model?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let format = parse_query_kv(tail, "format");
-        return costs_breakdown_response("by_model", store, format.as_deref()).await;
-    }
-    if req.starts_with("GET /costs/by-session ") || req.starts_with("GET /costs/by-session?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let format = parse_query_kv(tail, "format");
-        return costs_breakdown_response("by_session", store, format.as_deref()).await;
-    }
-    if req.starts_with("GET /costs/by-day ") || req.starts_with("GET /costs/by-day?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let days = parse_query_kv(tail, "days")
-            .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(30);
-        let format = parse_query_kv(tail, "format");
-        return super::routes_costs_by_day::costs_by_day_response(
-            days,
-            store,
-            format.as_deref(),
-        )
-        .await;
+    // /costs/* dispatch lives in the sibling
+    // `routes_dispatch_costs` module — keeps this file under the
+    // 500-LOC ceiling.
+    if let Some(resp) = super::routes_dispatch_costs::dispatch_costs(req, store).await {
+        return resp;
     }
     // All POST verbs live in the sibling `routes_dispatch_post`
     // module so this file stays under the 500-LOC budget.
