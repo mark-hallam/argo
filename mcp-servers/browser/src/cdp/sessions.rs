@@ -269,6 +269,107 @@ pub async fn session_click(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// `session_fill {session_id, selector, value}` — set a form
+/// field's value via the session's persistent WS. Same wire
+/// shape as the single-shot `fill` tool.
+pub async fn session_fill(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    let Some(selector) = args.get("selector").and_then(|v| v.as_str()) else {
+        return error("missing required field 'selector'".into());
+    };
+    let Some(value) = args.get("value").and_then(|v| v.as_str()) else {
+        return error("missing required field 'value'".into());
+    };
+    let esc_sel = selector.replace('\\', "\\\\").replace('"', "\\\"");
+    let esc_val = value.replace('\\', "\\\\").replace('"', "\\\"");
+    let js = format!(
+        "(function(){{ \
+            var el = document.querySelector(\"{esc_sel}\"); \
+            if (!el) return 'no match for selector'; \
+            el.value = \"{esc_val}\"; \
+            el.dispatchEvent(new Event('input', {{ bubbles: true }})); \
+            el.dispatchEvent(new Event('change', {{ bubbles: true }})); \
+            return 'filled'; \
+        }})()"
+    );
+    match runtime_evaluate(sid, &js).await {
+        Ok(parsed) => {
+            let result = parsed["result"]["result"]["value"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_else(|| "(no value)".into());
+            if result == "filled" {
+                ok(result)
+            } else {
+                error(result)
+            }
+        }
+        Err(e) => error(e),
+    }
+}
+
+/// `session_submit {session_id, selector}` — submit the form
+/// nearest to the matched element via the session's persistent
+/// WS. Same wire shape as the single-shot `submit` tool.
+pub async fn session_submit(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    let Some(selector) = args.get("selector").and_then(|v| v.as_str()) else {
+        return error("missing required field 'selector'".into());
+    };
+    let escaped = selector.replace('\\', "\\\\").replace('"', "\\\"");
+    let js = format!(
+        "(function(){{ \
+            var el = document.querySelector(\"{escaped}\"); \
+            if (!el) return 'no match for selector'; \
+            var form = el.tagName === 'FORM' ? el : el.form; \
+            if (!form) return 'matched element has no enclosing <form>'; \
+            form.submit(); \
+            return 'submitted'; \
+        }})()"
+    );
+    match runtime_evaluate(sid, &js).await {
+        Ok(parsed) => {
+            let result = parsed["result"]["result"]["value"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_else(|| "(no value)".into());
+            if result == "submitted" {
+                ok(result)
+            } else {
+                error(result)
+            }
+        }
+        Err(e) => error(e),
+    }
+}
+
+/// `session_extract_links {session_id}` — return all
+/// `<a href>` links on the session's pinned tab as a
+/// pretty-printed JSON array of `{href, text}`.
+pub async fn session_extract_links(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    let js = "JSON.stringify(Array.from(document.querySelectorAll('a[href]')).map(a => ({ href: a.href, text: (a.innerText || '').trim() })))";
+    match runtime_evaluate(sid, js).await {
+        Ok(parsed) => {
+            let raw = parsed["result"]["result"]["value"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_else(|| "[]".to_string());
+            let parsed_arr: serde_json::Value =
+                serde_json::from_str(&raw).unwrap_or(serde_json::Value::Array(Vec::new()));
+            let pretty = serde_json::to_string_pretty(&parsed_arr).unwrap_or(raw);
+            ok(pretty)
+        }
+        Err(e) => error(e),
+    }
+}
+
 /// Internal helper: send a `Runtime.evaluate` over the
 /// session's persistent WS and return the parsed JSON-RPC
 /// envelope. All session-aware tools that drive

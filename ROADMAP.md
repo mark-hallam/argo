@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **586 PRs** on `main` (186 since milestone 400 —
-**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions in flight (7 stateful tools)**),
+across **587 PRs** on `main` (187 since milestone 400 —
+**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions in flight (10 stateful tools)**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -353,14 +353,15 @@ as v1.1 perf wins:
   hand-rolled CDP session manager landed in earlier work
   (`session_open` / `session_close` / `session_eval` for a
   persistent per-tab WebSocket). #583 added `session_navigate`
-  (Page.navigate over the persistent WS) and `session_list`
-  (enumerate active sessions). #585 added `session_read_page`
-  + `session_click` (Runtime.evaluate variants reusing the
-  pinned WS), refactored on a shared `runtime_evaluate`
-  helper. **7 stateful-session tools total** out of 21 in the
-  browser MCP. Future PRs add `session_fill` /
-  `session_screenshot` / `session_extract_links` /
-  `session_submit` and a session timeout reaper. Cloud
+  + `session_list`. #585 added `session_read_page` +
+  `session_click` and refactored on a shared
+  `runtime_evaluate` helper. #587 piled on `session_fill` +
+  `session_submit` + `session_extract_links` (one-liners on
+  the helper). **10 stateful-session tools total** out of 24
+  in the browser MCP. Remaining: `session_screenshot` (needs
+  Page.captureScreenshot, not Runtime.evaluate),
+  `session_scroll`, `session_wait_for`, `session_pdf`,
+  `session_cookies`, plus a session timeout reaper. Cloud
   opt-ins (Browserbase / BrowserUse) remain pending.
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test

@@ -389,3 +389,58 @@ pub(crate) fn session_click_schema() -> McpToolSchema {
     }
 }
 
+pub(crate) fn session_fill_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_fill".into(),
+        description: "Like `fill`, but runs against the \
+            session's pinned tab via the persistent WS. Sets \
+            an input/textarea/select value and dispatches \
+            input + change events."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id", "selector", "value"],
+            "properties": {
+                "session_id": { "type": "string" },
+                "selector": { "type": "string" },
+                "value": { "type": "string" }
+            }
+        }),
+    }
+}
+
+pub(crate) fn session_submit_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_submit".into(),
+        description: "Like `submit`, but runs against the \
+            session's pinned tab via the persistent WS. \
+            Submits the form nearest to the matched element."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id", "selector"],
+            "properties": {
+                "session_id": { "type": "string" },
+                "selector": { "type": "string" }
+            }
+        }),
+    }
+}
+
+pub(crate) fn session_extract_links_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_extract_links".into(),
+        description: "Like `extract_links`, but runs against \
+            the session's pinned tab via the persistent WS. \
+            Returns a pretty-printed JSON array of \
+            `{href, text}` objects for every `<a href>` on \
+            the page."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id"],
+            "properties": { "session_id": { "type": "string" } }
+        }),
+    }
+}
+
