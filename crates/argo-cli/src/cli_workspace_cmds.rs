@@ -88,6 +88,22 @@ pub enum DbCmd {
     },
     /// Run SQLite `VACUUM` to reclaim file-space after a prune.
     Vacuum,
+    /// Print the current SQLite schema migration version. Same
+    /// number `db status` reports under "schema_version", but
+    /// scripts often just want the bare integer.
+    Version {
+        /// Output as a single JSON object `{version}`.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run SQLite `PRAGMA integrity_check` against the workspace
+    /// store. Prints "ok" when healthy, otherwise the diagnostic
+    /// rows. Mirrors the gateway's `GET /db/integrity`.
+    Integrity {
+        /// Output as `{ok, check}` JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

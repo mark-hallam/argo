@@ -135,6 +135,43 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
                 before, after, saved
             );
         }
+        DbCmd::Version { json } => {
+            let v = store.schema_version().await?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string(&serde_json::json!({"version": v}))
+                        .unwrap_or_default()
+                );
+            } else {
+                println!("{v}");
+            }
+        }
+        DbCmd::Integrity { json } => {
+            let pool = store.pool();
+            let rows: Vec<(String,)> = sqlx::query_as("PRAGMA integrity_check")
+                .fetch_all(pool)
+                .await
+                .map_err(|e| {
+                    argo_types::ArgoError::Provider(format!("integrity_check: {e}"))
+                })?;
+            let lines: Vec<String> = rows.into_iter().map(|(s,)| s).collect();
+            let ok = lines.len() == 1 && lines.first().is_some_and(|s| s == "ok");
+            if json {
+                let payload = serde_json::json!({
+                    "ok": ok,
+                    "check": lines,
+                });
+                println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+            } else if ok {
+                println!("ok");
+            } else {
+                println!("FAIL");
+                for l in &lines {
+                    println!("  {l}");
+                }
+            }
+        }
     }
     Ok(())
 }
