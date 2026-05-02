@@ -62,6 +62,9 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::ByStatus { since_minutes, json } => {
                 super::forge_by_status::run(since_minutes, json).await
             }
+            ForgeRunsCmd::BySkill { since_minutes, json } => {
+                super::forge_by_skill::run(since_minutes, json).await
+            }
             ForgeRunsCmd::Requeue { id, json } => {
                 super::forge_admin::requeue_run(&id, json).await
             }

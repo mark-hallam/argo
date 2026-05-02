@@ -218,4 +218,15 @@ pub enum ForgeRunsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of forge_run rows grouped by `skill_name`.
+    /// Mirrors the gateway's `GET /forge/runs/by-skill` (#598).
+    BySkill {
+        /// Filter to runs started within this many recent
+        /// minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_skill}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
