@@ -78,7 +78,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/cron/<name>/delete", "remove the on-disk job file"),
         ("POST", "/workspace/init", "register a workspace row ({name, root_path})"),
         ("POST", "/judge/<record_id>/override", "override a judge verdict ({to})"),
-        ("GET", "/doctor", "JSON snapshot of `argo doctor`"),
+        ("GET", "/doctor", "JSON snapshot of `argo doctor` (?format=markdown for a paste-able status doc)"),
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing (?method=GET|POST&format=markdown)"),
         ("GET", "/metrics", "Prometheus-style text exposition"),

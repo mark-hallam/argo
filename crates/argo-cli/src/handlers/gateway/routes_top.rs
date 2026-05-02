@@ -185,18 +185,84 @@ pub(super) async fn sessions_response(
     }
 }
 
-/// `GET /doctor` — JSON snapshot of `argo doctor`.
-pub(super) async fn doctor_response() -> (&'static str, String) {
+/// `GET /doctor[?format=markdown]` — JSON snapshot of
+/// `argo doctor` by default; markdown returns a paste-able
+/// status doc (workspace + DB + audit + creds sections).
+pub(super) async fn doctor_response(
+    format: Option<&str>,
+) -> (&'static str, String) {
     match crate::handlers::doctor::collect().await {
-        Ok(v) => (
-            "200 OK",
-            serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
-        ),
+        Ok(v) => {
+            if matches!(format, Some("markdown")) {
+                return ("200 OK", render_doctor_markdown(&v));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"doctor: {e}\"}}"),
         ),
     }
+}
+
+/// Render the doctor JSON payload as a paste-able markdown
+/// status doc. Subset of the CLI's `--format markdown` view —
+/// hits the workspace + db + audit fields most ops want at
+/// a glance.
+fn render_doctor_markdown(payload: &serde_json::Value) -> String {
+    use std::fmt::Write;
+    let cwd = payload["cwd"].as_str().unwrap_or("?");
+    let profile = payload["profile"].as_str().unwrap_or("?");
+    let toml_path = payload["argo_toml"]["path"].as_str().unwrap_or("?");
+    let toml_ok = payload["argo_toml"]["ok"].as_bool().unwrap_or(false);
+    let home_path = payload["argo_home"]["path"].as_str().unwrap_or("?");
+    let home_ok = payload["argo_home"]["ok"].as_bool().unwrap_or(false);
+    let mut out = String::new();
+    let _ = writeln!(out, "# argo doctor\n");
+    let _ = writeln!(out, "## Workspace\n");
+    let _ = writeln!(out, "- **cwd**: `{cwd}`");
+    let _ = writeln!(
+        out,
+        "- **argo.toml**: `{toml_path}` {}",
+        if toml_ok { "✓" } else { "_(missing)_" }
+    );
+    let _ = writeln!(
+        out,
+        "- **ARGO_HOME**: `{home_path}` {}",
+        if home_ok { "✓" } else { "_(missing)_" }
+    );
+    let _ = writeln!(out, "- **profile**: `{profile}`");
+    if let Some(db) = payload.get("db") {
+        let _ = writeln!(out, "\n## DB\n");
+        if let Some(v) = db.get("schema_version").and_then(|v| v.as_u64()) {
+            let _ = writeln!(out, "- **schema_version**: {v}");
+        }
+        if let Some(rows) = db.get("rows").and_then(|v| v.as_object()) {
+            let _ = writeln!(out, "- **rows**:");
+            for (k, v) in rows {
+                let _ = writeln!(out, "  - {k}: {v}");
+            }
+        }
+    }
+    if let Some(audit) = payload.get("audit") {
+        let _ = writeln!(out, "\n## Audit\n");
+        let ok = audit.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+        let _ = writeln!(
+            out,
+            "- **chain ok**: {}",
+            if ok { "✓" } else { "**broken**" }
+        );
+        if let Some(rows) = audit.get("rows").and_then(|v| v.as_u64()) {
+            let _ = writeln!(out, "- **rows**: {rows}");
+        }
+        if let Some(breaks) = audit.get("breaks").and_then(|v| v.as_u64()) {
+            let _ = writeln!(out, "- **breaks**: {breaks}");
+        }
+    }
+    out
 }
 
 /// `GET /health/full` — deep health (chain + skill + memory).

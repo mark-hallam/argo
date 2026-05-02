@@ -171,8 +171,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /audit/recent ") || req.starts_with("GET /audit/recent?") {
         return super::routes_audit::dispatch_audit_recent(req, store).await;
     }
-    if req.starts_with("GET /doctor ") {
-        return doctor_response().await;
+    if req.starts_with("GET /doctor ") || req.starts_with("GET /doctor?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return doctor_response(format.as_deref()).await;
     }
     if req.starts_with("GET /health/full ") {
         return health_full_response().await;
