@@ -67,12 +67,12 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **639 PRs** on `main` (239 since milestone 400 —
+across **640 PRs** on `main` (240 since milestone 400 —
 **v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)**; **v1.1 voice native: whisper-rs wired #636** — opt-in `--features whisper-native`; piper-rs blocked on upstream),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
-The gateway exposes **105 endpoints** (64 GET + 41 POST) with
+The gateway exposes **106 endpoints** (65 GET + 41 POST) with
 full CLI parity for the read/count surface, plus the full
 `--sort-by` family across the four list views and time
 filters on the count endpoints. **Count endpoint family

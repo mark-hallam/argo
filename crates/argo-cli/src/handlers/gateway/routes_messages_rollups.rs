@@ -1,8 +1,9 @@
 //! Messages-table rollup handlers — workspace-wide
-//! (`/messages/by-role`, `/messages/by-session`, `/messages/recent`)
-//! and per-session (`/sessions/<id>/messages/by-role`) — lifted
-//! into a sibling file so `routes_msgs.rs` stays under the 500-LOC
-//! ceiling once the rollup family started growing past by-day.
+//! (`/messages/by-role`, `/messages/by-session`, `/messages/recent`,
+//! `/messages/by-day-by-role`) and per-session
+//! (`/sessions/<id>/messages/by-role`) — lifted into a sibling file
+//! so `routes_msgs.rs` stays under the 500-LOC ceiling once the
+//! rollup family started growing past by-day.
 use super::store_unavailable;
 use argo_store::SessionStore;
 use std::sync::Arc;
@@ -360,6 +361,69 @@ pub(super) async fn session_messages_by_role_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"session_messages_by_role: {e}\"}}"),
+        ),
+    }
+}
+
+/// `GET /messages/by-day-by-role[?days=N&format=markdown]` —
+/// 2D rollup: messages bucketed by `(day, role)`. Pairs with
+/// `/audit/by-day-by-kind` (#638) — answers "did user-message
+/// volume jump Tuesday?" (e.g. spotting bot/scraper bursts) or
+/// "did the assistant get unusually chatty last week?".
+/// Default 30 days, cap 365.
+pub(super) async fn messages_by_day_by_role_response(
+    days: u32,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let days = days.clamp(1, 365);
+    let cutoff_micros =
+        (chrono::Utc::now() - chrono::Duration::days(i64::from(days))).timestamp_micros();
+    let sql = "SELECT \
+                 strftime('%Y-%m-%d', created_at / 1000000, 'unixepoch') AS bucket, \
+                 role, \
+                 COUNT(*) AS n \
+               FROM message WHERE created_at >= ? \
+               GROUP BY bucket, role \
+               ORDER BY bucket ASC, n DESC";
+    match sqlx::query_as::<_, (String, String, i64)>(sql)
+        .bind(cutoff_micros)
+        .fetch_all(store.pool())
+        .await
+    {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Messages by day × role ({n} cell{}, last {days} days)\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| day | role | count |\n| --- | --- | ---: |\n");
+                    for (b, r, c) in &rows {
+                        out.push_str(&format!("| `{b}` | `{r}` | {c} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let arr: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(b, r, c)| {
+                    serde_json::json!({"bucket": b, "role": r, "count": c})
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({"by_day_by_role": arr}))
+                    .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"messages_by_day_by_role: {e}\"}}"),
         ),
     }
 }
