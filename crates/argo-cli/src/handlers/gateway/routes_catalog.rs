@@ -9,6 +9,7 @@
 /// `method=GET|POST` the result is filtered to that verb.
 pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, String) {
     let rows = [
+        ("GET", "/", "landing JSON: name + version + entry-point hints (replaces the bare 404)"),
         ("GET", "/health", "liveness probe"),
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),

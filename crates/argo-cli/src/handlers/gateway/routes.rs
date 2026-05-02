@@ -29,6 +29,31 @@ pub(super) async fn dispatch_route(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> (&'static str, String) {
+    if req.starts_with("GET / ") {
+        // Root landing — closes the discoverability papercut where
+        // pointing a browser at the gateway returned a bare 404 with
+        // no hint of what to try next. Sends users straight to /routes
+        // for the full catalog and names a few high-frequency
+        // entry-points so a curl at `/` is immediately useful.
+        let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+        return (
+            "200 OK",
+            format!(
+                "{{\"name\":\"argo\",\"version\":\"{}\",\"profile\":\"{profile}\",\
+                  \"docs\":\"https://github.com/mark-hallam/Argo-Agent\",\
+                  \"hint\":\"this is a JSON API; no landing page. Try the entry points below.\",\
+                  \"entry_points\":{{\
+                    \"catalog\":\"/routes\",\
+                    \"health\":\"/health\",\
+                    \"version\":\"/version\",\
+                    \"workspace_health\":\"/doctor\",\
+                    \"recent\":[\"/sessions\",\"/audit/recent\",\"/messages/recent\",\"/costs/recent\"]\
+                  }},\
+                  \"tip\":\"append ?format=markdown to most GET endpoints for a paste-able human-readable view\"}}",
+                env!("CARGO_PKG_VERSION")
+            ),
+        );
+    }
     if req.starts_with("GET /version ") {
         let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
         return (
