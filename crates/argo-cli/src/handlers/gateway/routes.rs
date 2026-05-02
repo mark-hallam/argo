@@ -73,6 +73,23 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /health ") {
         return super::routes_health::health_response();
     }
+    if req.starts_with("GET /verticals ") || req.starts_with("GET /verticals?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return super::routes_verticals::list_response(format.as_deref()).await;
+    }
+    if let Some(rest) = req.strip_prefix("GET /verticals/") {
+        if let Some((id_with_query, _)) = rest.split_once(' ') {
+            let (id, query) = match id_with_query.split_once('?') {
+                Some((i, q)) => (i, Some(q)),
+                None => (id_with_query, None),
+            };
+            let format = query
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+                .map(str::to_string);
+            return super::routes_verticals::show_response(id, format.as_deref()).await;
+        }
+    }
     if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
         return super::routes_counts::dispatch_sessions_count(req, store).await;
     }

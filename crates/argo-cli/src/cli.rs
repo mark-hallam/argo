@@ -12,6 +12,8 @@ mod cli_forge_cmds;
 mod cli_gateway_cmds;
 #[path = "cli_messages_cmds.rs"]
 mod cli_messages_cmds;
+#[path = "cli_vertical_cmds.rs"]
+mod cli_vertical_cmds;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
 #[path = "cli_workspace_cmds.rs"]
@@ -110,6 +112,13 @@ pub enum Command {
     /// install (#646). Idempotent: re-runnable to verify
     /// configuration or pick a different provider.
     Setup,
+    /// Vertical-template discovery surface (#650). Read-only —
+    /// `list`, `show`, `validate`. Install / eval / run land in
+    /// later PRs.
+    Vertical {
+        #[command(subcommand)]
+        cmd: VerticalCmd,
+    },
     /// Workspace-wide message rollups. Mirrors the gateway's
     /// `/messages/*` family.
     Messages {

@@ -29,6 +29,7 @@ argo-telemetry = { path = "../argo-telemetry", version = "0.0.1" }
 argo-tool = { path = "../argo-tool", version = "0.0.1" }
 argo-tui = { path = "../argo-tui", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-vertical = { path = "../argo-vertical", version = "0.0.1" }
 async-trait = { workspace = true }
 aws-config = { workspace = true }
 futures = { workspace = true }

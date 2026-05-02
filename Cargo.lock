@@ -166,6 +166,7 @@ dependencies = [
  "argo-tool",
  "argo-tui",
  "argo-types",
+ "argo-vertical",
  "async-trait",
  "aws-config",
  "chrono",

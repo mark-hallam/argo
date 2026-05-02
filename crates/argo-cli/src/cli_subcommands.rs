@@ -41,6 +41,8 @@ pub enum AgentsCmd {
 // the wildcard glob in cli.rs so callers don't need to know
 // the new path.
 pub use super::cli_gateway_cmds::GatewayCmd;
+// Same pattern for VerticalCmd (#650).
+pub use super::cli_vertical_cmds::VerticalCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum McpCmd {

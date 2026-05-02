@@ -66,6 +66,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,
         Some(Command::Audit { cmd }) => handlers::audit::run(cmd).await,
         Some(Command::Setup) => handlers::setup::run().await,
+        Some(Command::Vertical { cmd }) => handlers::vertical::run(cmd).await,
         Some(Command::Messages { cmd }) => handlers::messages::run(cmd).await,
         Some(Command::Cron { cmd }) => handlers::cron::run(cmd).await,
         Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,
