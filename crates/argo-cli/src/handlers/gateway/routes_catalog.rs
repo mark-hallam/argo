@@ -89,6 +89,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/sessions/<id>/title", "rename a session ({title}, empty clears)"),
         ("POST", "/sessions/<id>/end", "mark a session ended (stamps ended_at)"),
         ("POST", "/sessions/<id>/reopen", "clear ended_at — inverse of /end"),
+        ("POST", "/sessions/<id>/clone", "duplicate a session into a fresh row, copying every message; returns {cloned_from, session_id, title, messages_copied}"),
         ("POST", "/sessions/end-all", "mark open sessions ended (?older-than-minutes=N for stale-only)"),
         ("POST", "/forge/optimize", "kick off `argo forge optimize` (returns 202)"),
         ("POST", "/forge/optimize/stream", "chunked-NDJSON forge optimize event stream"),

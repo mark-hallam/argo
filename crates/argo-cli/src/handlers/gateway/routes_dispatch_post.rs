@@ -11,6 +11,7 @@ use super::routes_post::{
     append_message_response, create_session_response, replay_response, run_turn_response,
     steer_response,
 };
+use super::routes_session_clone::session_clone_response;
 use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
     memory_unlock_response, skill_lock_response, skill_unlock_response,
@@ -182,6 +183,9 @@ pub(super) async fn dispatch_post(
             }
             if tail.starts_with("reopen ") {
                 return Some(session_reopen_response(sid, store).await);
+            }
+            if tail.starts_with("clone ") {
+                return Some(session_clone_response(sid, store).await);
             }
         }
     }
