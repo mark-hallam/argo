@@ -171,6 +171,16 @@ pub enum ForgeRunsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Show the queued payload (skill / examples / iterations
+    /// / budget_usd) for a forge run. Mirrors the gateway's
+    /// `GET /forge/runs/<id>/payload`. 404 when the row has
+    /// no forge_queue entry (e.g. ran via `?in_process=true`).
+    Payload {
+        id: String,
+        /// Output as a single JSON object {run_id, payload}.
+        #[arg(long)]
+        json: bool,
+    },
     /// Flip every running forge run to `aborted`. Operator
     /// emergency-stop / fresh-slate before a workspace migration.
     /// Mirrors `POST /forge/runs/abort-all`.

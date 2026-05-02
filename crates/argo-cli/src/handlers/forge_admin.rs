@@ -141,6 +141,38 @@ pub(super) async fn abort_run(raw: &str) -> ArgoResult<()> {
     Ok(())
 }
 
+/// `argo forge runs payload <id>` — mirror of the gateway's
+/// `GET /forge/runs/<id>/payload`. Prints the queued payload
+/// (skill / examples / iterations / budget_usd) for a run.
+pub(super) async fn show_payload(raw: &str, json: bool) -> ArgoResult<()> {
+    let store = open_store().await?;
+    let id = parse_run_id(raw)?;
+    let payload_str = store
+        .get_forge_queue_payload(id)
+        .await?
+        .ok_or_else(|| {
+            ArgoError::Provider(format!(
+                "no forge_queue payload for run {raw} (was it created with ?in_process=true?)"
+            ))
+        })?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&payload_str).unwrap_or(serde_json::Value::Null);
+    if json {
+        let payload = serde_json::json!({
+            "run_id": id.to_string(),
+            "payload": parsed,
+        });
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+    } else {
+        println!("argo forge runs payload: {raw}");
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&parsed).unwrap_or(payload_str)
+        );
+    }
+    Ok(())
+}
+
 /// `argo forge runs requeue <id>` — mirror of the gateway's
 /// `POST /forge/runs/<id>/requeue`. Copies the source row's
 /// queued payload into a fresh queued run; daemon picks it

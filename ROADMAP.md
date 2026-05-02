@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **591 PRs** on `main` (191 since milestone 400 —
+across **592 PRs** on `main` (192 since milestone 400 —
 **v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions feature-complete (15 stateful tools, all 12 single-shot variants mirrored)**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
