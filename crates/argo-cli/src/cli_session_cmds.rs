@@ -366,6 +366,33 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Per-session audit-kind histogram. Drills down into
+    /// `argo audit by-kind` (#570) for one session. Mirrors
+    /// the gateway's `GET /sessions/<id>/audit/by-kind` (#621).
+    AuditByKind {
+        /// Session id (uuid).
+        id: String,
+        /// Filter to rows created within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_kind}`).
+        #[arg(long)]
+        json: bool,
+    },
+    /// Per-session tool histogram (`tool_call`+`tool_result`).
+    /// Drills down into `argo audit by-tool` (#614) for one
+    /// session. Mirrors the gateway's
+    /// `GET /sessions/<id>/audit/by-tool` (#621).
+    AuditByTool {
+        /// Session id (uuid).
+        id: String,
+        /// Filter to rows created within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_tool}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —

@@ -178,6 +178,16 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::ByModel { since_minutes, json } => {
             super::session_by_model::run(since_minutes, json).await
         }
+        SessionCmd::AuditByKind {
+            id,
+            since_minutes,
+            json,
+        } => super::session_audit_rollups::run_by_kind(id, since_minutes, json).await,
+        SessionCmd::AuditByTool {
+            id,
+            since_minutes,
+            json,
+        } => super::session_audit_rollups::run_by_tool(id, since_minutes, json).await,
     }
 }
 
