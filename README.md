@@ -4,7 +4,7 @@
 
 Argo is the agent framework that **a single engineer can fully audit on a weekend** and that **a 200-person company can deploy to production** without writing the multi-tenant layer themselves.
 
-> **Status: production-ready as of PR #522 (April 2026).** Phases 0–7 + 4.5 + 6.5 + 7.5 all shipped across **636+ PRs** on `main`. The gateway exposes **104 endpoints** (63 GET + 41 POST) with universal `--json` + `?format=markdown`. Library + integration + observability tiers are feature-complete. v1.1 architectural cleanup also done: forge daemon split (#581), browser MCP stateful sessions (17 stateful tools + lifecycle + idle-reaper, #591/#593), voice MCP native STT via whisper-rs (opt-in via `--features whisper-native`, #636).
+> **Status: production-ready as of PR #522 (April 2026).** Phases 0–7 + 4.5 + 6.5 + 7.5 all shipped across **636+ PRs** on `main`. The gateway exposes **133 endpoints** (91 GET + 42 POST) with universal `--json` + `?format=markdown`. Library + integration + observability tiers are feature-complete. v1.1 architectural cleanup also done: forge daemon split (#581), browser MCP stateful sessions (17 stateful tools + lifecycle + idle-reaper, #591/#593), voice MCP native STT via whisper-rs (opt-in via `--features whisper-native`, #636).
 >
 > **What's left** is decision-gated, not blocked: native TTS (waiting on `piper-rs` upstream to fix its `ort` 2.x build), OCI registry CI smoke (needs test creds), and optional cloud browser backends (Browserbase / BrowserUse — user-pays). See `ROADMAP.md` for the per-PR map.
 
@@ -39,7 +39,7 @@ Then drive it offline (no API key required):
 ```bash
 ./target/debug/argo gateway start &        # bind 127.0.0.1:7400
 curl http://127.0.0.1:7400/                # landing JSON + entry-point hints
-curl http://127.0.0.1:7400/routes          # the full 104-endpoint catalog
+curl http://127.0.0.1:7400/routes          # the full 133-endpoint catalog
 ./target/debug/argo doctor                 # workspace health probe
 ./target/debug/argo gateway probe          # K8s-style readiness probe
 ./target/debug/argo tui                    # full Ratatui app w/ 10 overlays
