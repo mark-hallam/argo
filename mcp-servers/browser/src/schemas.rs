@@ -356,3 +356,36 @@ pub(crate) fn session_list_schema() -> McpToolSchema {
     }
 }
 
+pub(crate) fn session_read_page_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_read_page".into(),
+        description: "Like `read_page`, but runs against the \
+            session's pinned tab via the persistent WS — no \
+            /json + WS-handshake round-trip per call."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id"],
+            "properties": { "session_id": { "type": "string" } }
+        }),
+    }
+}
+
+pub(crate) fn session_click_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_click".into(),
+        description: "Like `click`, but runs against the \
+            session's pinned tab via the persistent WS. Same \
+            CSS-selector contract."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id", "selector"],
+            "properties": {
+                "session_id": { "type": "string" },
+                "selector": { "type": "string" }
+            }
+        }),
+    }
+}
+

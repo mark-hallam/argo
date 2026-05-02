@@ -189,10 +189,97 @@ pub async fn session_eval(args: &serde_json::Value) -> CallToolResult {
     let Some(expression) = args.get("expression").and_then(|v| v.as_str()) else {
         return error("missing required field 'expression'".into());
     };
-    let reg = registry().lock().await;
-    let Some(session_mu) = reg.get(sid) else {
-        return error(format!("no session '{sid}'"));
+    match runtime_evaluate(sid, expression).await {
+        Ok(parsed) => {
+            let result = &parsed["result"]["result"];
+            let summary = result
+                .get("value")
+                .map(|v| serde_json::to_string(v).unwrap_or_else(|_| v.to_string()))
+                .or_else(|| {
+                    result
+                        .get("description")
+                        .and_then(|v| v.as_str())
+                        .map(String::from)
+                })
+                .unwrap_or_else(|| result.to_string());
+            ok(summary)
+        }
+        Err(e) => error(e),
+    }
+}
+
+/// `session_read_page {session_id}` — return
+/// `document.body.innerText` against the session's pinned tab.
+/// Same shape as the single-shot `read_page` tool, but reuses
+/// the persistent WS.
+pub async fn session_read_page(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
     };
+    match runtime_evaluate(
+        sid,
+        "document.body ? document.body.innerText : ''",
+    )
+    .await
+    {
+        Ok(parsed) => {
+            let value = parsed["result"]["result"]["value"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_default();
+            ok(value)
+        }
+        Err(e) => error(e),
+    }
+}
+
+/// `session_click {session_id, selector}` — click the element
+/// matched by a CSS selector against the session's pinned tab
+/// via `el.click()`. Returns 'clicked' on match, error
+/// otherwise. Same wire shape as the single-shot `click` tool.
+pub async fn session_click(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    let Some(selector) = args.get("selector").and_then(|v| v.as_str()) else {
+        return error("missing required field 'selector'".into());
+    };
+    let escaped = selector.replace('\\', "\\\\").replace('"', "\\\"");
+    let js = format!(
+        "(function(){{ \
+            var el = document.querySelector(\"{escaped}\"); \
+            if (!el) return 'no match for selector'; \
+            el.click(); \
+            return 'clicked'; \
+        }})()"
+    );
+    match runtime_evaluate(sid, &js).await {
+        Ok(parsed) => {
+            let value = parsed["result"]["result"]["value"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_else(|| "(no value)".into());
+            if value == "clicked" {
+                ok(value)
+            } else {
+                error(value)
+            }
+        }
+        Err(e) => error(e),
+    }
+}
+
+/// Internal helper: send a `Runtime.evaluate` over the
+/// session's persistent WS and return the parsed JSON-RPC
+/// envelope. All session-aware tools that drive
+/// `Runtime.evaluate` go through here so the per-session
+/// message-id counter + read loop stay in one place.
+async fn runtime_evaluate(
+    sid: &str,
+    expression: &str,
+) -> Result<serde_json::Value, String> {
+    let reg = registry().lock().await;
+    let session_mu = reg.get(sid).ok_or_else(|| format!("no session '{sid}'"))?;
     let mut session = session_mu.lock().await;
     let id = session.next_id;
     session.next_id += 1;
@@ -201,35 +288,20 @@ pub async fn session_eval(args: &serde_json::Value) -> CallToolResult {
         "method": "Runtime.evaluate",
         "params": {"expression": expression, "returnByValue": true}
     });
-    let serialized = match serde_json::to_string(&req) {
-        Ok(s) => s,
-        Err(e) => return error(format!("serialize: {e}")),
-    };
-    if let Err(e) = session.ws.send(Message::Text(serialized)).await {
-        return error(format!("send: {e}"));
-    }
+    let serialized =
+        serde_json::to_string(&req).map_err(|e| format!("serialize: {e}"))?;
+    session
+        .ws
+        .send(Message::Text(serialized))
+        .await
+        .map_err(|e| format!("send: {e}"))?;
     let response_text = loop {
         match session.ws.next().await {
             Some(Ok(Message::Text(t))) => break t.to_string(),
-            Some(Ok(Message::Close(_))) | None => return error("ws closed".into()),
+            Some(Ok(Message::Close(_))) | None => return Err("ws closed".into()),
             Some(Ok(_)) => continue,
-            Some(Err(e)) => return error(format!("read: {e}")),
+            Some(Err(e)) => return Err(format!("read: {e}")),
         }
     };
-    let parsed: serde_json::Value = match serde_json::from_str(&response_text) {
-        Ok(v) => v,
-        Err(e) => return error(format!("parse: {e}")),
-    };
-    let result = &parsed["result"]["result"];
-    let summary = result
-        .get("value")
-        .map(|v| serde_json::to_string(v).unwrap_or_else(|_| v.to_string()))
-        .or_else(|| {
-            result
-                .get("description")
-                .and_then(|v| v.as_str())
-                .map(String::from)
-        })
-        .unwrap_or_else(|| result.to_string());
-    ok(summary)
+    serde_json::from_str(&response_text).map_err(|e| format!("parse: {e}"))
 }
