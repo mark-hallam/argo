@@ -1,11 +1,10 @@
 ---
 name: post_review_summary
-version: 0.1.0
-purpose: |
-  Consolidate the outputs of `identify_invariant_violations` plus
-  any risks/nits the agent surfaced into the JSON summary block
-  the system prompt requires. Emits exactly the shape the eval
-  harness reads.
+version: "0.1.0"
+description: "Emits the closing JSON summary block the eval harness scores against — intent + blockers + risks + nits."
+provenance:
+  source: vertical/pr-checker
+  hash: sha256-pending
 ---
 
 # When to use

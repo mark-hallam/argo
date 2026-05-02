@@ -1,12 +1,10 @@
 ---
 name: identify_invariant_violations
-version: 0.1.0
-purpose: |
-  Walk a diff and flag violations of the project's hard
-  invariants. Returns a list of {file, line, invariant, evidence}
-  citations. Pairs with the PR-Checker system prompt's "blockers"
-  category — every entry here becomes a blocker in the JSON
-  summary.
+version: "0.1.0"
+description: "Walks a PR diff and flags hard-invariant violations (the source of truth for the PR-Checker's blockers list)."
+provenance:
+  source: vertical/pr-checker
+  hash: sha256-pending
 ---
 
 # When to use

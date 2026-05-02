@@ -44,9 +44,10 @@ pub(super) async fn create_session_response(
 /// Shared session-creation helper. Validates vertical_id (when
 /// present) against the `argo-vertical` registry — fast-fail if
 /// the slug isn't a loaded vertical, so the row never points at
-/// nothing. Used by both `POST /sessions` (where vertical_id is
-/// in the body) and `POST /verticals/<id>/sessions` (where it's
-/// in the path).
+/// nothing. Auto-installs + attaches the vertical's skill bundle
+/// after row insert (#653). Used by both `POST /sessions` (where
+/// vertical_id is in the body) and
+/// `POST /verticals/<id>/sessions` (where it's in the path).
 pub(super) async fn create_session_inner(
     store: &Arc<SessionStore>,
     model: &str,
@@ -54,11 +55,12 @@ pub(super) async fn create_session_inner(
     title: Option<&str>,
     vertical_id: Option<&str>,
 ) -> (&'static str, String) {
-    if let Some(vid) = vertical_id {
+    let loaded_vertical = if let Some(vid) = vertical_id {
         let dir = crate::handlers::vertical::resolve_verticals_dir();
         match argo_vertical::load_dir(&dir) {
-            Ok((registry, _errs)) => {
-                if registry.get(vid).is_none() {
+            Ok((registry, _errs)) => match registry.get(vid) {
+                Some(v) => Some(v.clone()),
+                None => {
                     return (
                         "404 Not Found",
                         format!(
@@ -67,7 +69,7 @@ pub(super) async fn create_session_inner(
                         ),
                     );
                 }
-            }
+            },
             Err(e) => {
                 return (
                     "500 Internal Server Error",
@@ -75,7 +77,9 @@ pub(super) async fn create_session_inner(
                 );
             }
         }
-    }
+    } else {
+        None
+    };
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
         Err(e) => {
@@ -99,26 +103,48 @@ pub(super) async fn create_session_inner(
             );
         }
     };
-    match store
+    let id = match store
         .create_session(tenant, workspace, model, provider, title, vertical_id)
         .await
     {
-        Ok(id) => (
-            "201 Created",
-            serde_json::to_string(&serde_json::json!({
-                "id": id.0.to_string(),
-                "model": model,
-                "provider": provider,
-                "title": title,
-                "vertical_id": vertical_id,
-            }))
-            .unwrap_or_else(|_| "{}".to_string()),
-        ),
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"create_session: {e}\"}}"),
-        ),
+        Ok(id) => id,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"create_session: {e}\"}}"),
+            );
+        }
+    };
+
+    // Auto-attach skill bundle for vertical-bound sessions
+    // (#653). Per-skill errors are surfaced in the response but
+    // do not roll back the session.
+    let mut skills_attached: usize = 0;
+    if let Some(v) = loaded_vertical.as_ref() {
+        match crate::handlers::vertical_attach::install_and_attach_bundle(store, v, id).await
+        {
+            Ok(n) => skills_attached = n,
+            Err(_) => {
+                // The helper already logs per-skill failures via
+                // eprintln!; an outer error here only happens if
+                // the bundle dir itself is unreadable. Reflect
+                // that in the response shape with attached=0.
+            }
+        }
     }
+
+    (
+        "201 Created",
+        serde_json::to_string(&serde_json::json!({
+            "id": id.0.to_string(),
+            "model": model,
+            "provider": provider,
+            "title": title,
+            "vertical_id": vertical_id,
+            "skills_attached": skills_attached,
+        }))
+        .unwrap_or_else(|_| "{}".to_string()),
+    )
 }
 
 /// `POST /verticals/<id>/sessions` — create a session bound to

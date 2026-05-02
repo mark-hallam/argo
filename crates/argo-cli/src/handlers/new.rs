@@ -36,20 +36,42 @@ pub async fn run(
     // Validate the vertical exists in the discovery dir before
     // we write the row — fast-fail with a friendly error rather
     // than orphaning the session pointing at nothing (#651).
-    if let Some(vid) = vertical_id {
+    // Hold on to the loaded vertical for the auto-attach below
+    // (#653).
+    let loaded_vertical = if let Some(vid) = vertical_id {
         let dir = crate::handlers::vertical::resolve_verticals_dir();
         let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-        if registry.get(vid).is_none() {
-            return Err(ArgoError::Provider(format!(
-                "vertical '{vid}' not found in {} — run `argo vertical list` to see what's loaded",
-                dir.display()
-            )));
+        match registry.get(vid) {
+            Some(v) => Some(v.clone()),
+            None => {
+                return Err(ArgoError::Provider(format!(
+                    "vertical '{vid}' not found in {} — run `argo vertical list` to see what's loaded",
+                    dir.display()
+                )));
+            }
         }
-    }
+    } else {
+        None
+    };
 
     let id = store
         .create_session(tenant, workspace, model, provider, title, vertical_id)
         .await?;
+
+    // Vertical-bound session → auto-install + attach the
+    // declared skill bundle (#653). Per-skill errors are logged
+    // by the helper but don't block session creation; the
+    // session is already recorded and useful even if one skill
+    // failed to attach.
+    let attached = if let Some(v) = loaded_vertical.as_ref() {
+        let store_arc = std::sync::Arc::new(store);
+        super::vertical_attach::install_and_attach_bundle(&store_arc, v, id)
+            .await
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
     println!("created session {id}");
     println!("  provider:  {provider}");
     println!("  model:     {model}");
@@ -58,6 +80,9 @@ pub async fn run(
     }
     if let Some(v) = vertical_id {
         println!("  vertical:  {v}");
+        if attached > 0 {
+            println!("  skills:    {attached} attached from vertical bundle");
+        }
     }
     println!();
     println!("next: `argo session show {id}` or POST messages via the gateway:");
