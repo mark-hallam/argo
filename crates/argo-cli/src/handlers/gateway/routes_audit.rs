@@ -175,6 +175,7 @@ pub(super) async fn audit_session_verify_response(
     sid: &str,
     include_breaks: bool,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -190,6 +191,25 @@ pub(super) async fn audit_session_verify_response(
     };
     match argo_audit::verify_session(store, id).await {
         Ok(report) => {
+            if matches!(format, Some("markdown")) {
+                let mut out = format!("# Audit verify — session `{sid}`\n\n");
+                out.push_str(&format!(
+                    "- **Status**: {}\n",
+                    if report.ok { "OK ✓" } else { "**BROKEN**" }
+                ));
+                out.push_str(&format!("- **Rows**: {}\n", report.rows));
+                out.push_str(&format!("- **Breaks**: {}\n", report.breaks.len()));
+                if include_breaks && !report.breaks.is_empty() {
+                    out.push_str("\n## Break detail\n\n");
+                    out.push_str("| seq | kind | reason |\n");
+                    out.push_str("| ---: | --- | --- |\n");
+                    for b in &report.breaks {
+                        let reason = b.reason.replace('|', "\\|");
+                        out.push_str(&format!("| {} | `{}` | {reason} |\n", b.seq, b.kind));
+                    }
+                }
+                return ("200 OK", out);
+            }
             let mut payload = serde_json::json!({
                 "ok": report.ok,
                 "rows": report.rows,

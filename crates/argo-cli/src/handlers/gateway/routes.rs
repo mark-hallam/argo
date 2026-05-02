@@ -355,7 +355,14 @@ pub(super) async fn dispatch_route(
                 let include_breaks = parse_query_kv(tail, "include-breaks")
                     .map(|v| v == "true" || v == "1")
                     .unwrap_or(false);
-                return audit_session_verify_response(sid, include_breaks, store).await;
+                let format = parse_query_kv(tail, "format");
+                return audit_session_verify_response(
+                    sid,
+                    include_breaks,
+                    store,
+                    format.as_deref(),
+                )
+                .await;
             }
         }
         // Strip the (optional) ?query and trailing " HTTP/...".

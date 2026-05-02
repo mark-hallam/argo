@@ -34,7 +34,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit/count", "count of audit rows (?kind=…&since-minutes=N&session=<uuid>)"),
         ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|...&since-minutes=M&session=<uuid>&format=markdown)"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind&since-minutes&format=markdown)"),
-        ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity (?include-breaks=true to include break detail)"),
+        ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity (?include-breaks=true&format=markdown)"),
         ("GET", "/costs", "cost ceilings (?format=markdown)"),
         ("GET", "/costs/total", "actual spend roll-up across all tenants today/this_month/all_time (?format=markdown)"),
         ("GET", "/costs/by-model", "spend grouped by (provider, model) (?format=markdown)"),
