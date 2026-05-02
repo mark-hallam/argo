@@ -48,6 +48,24 @@ pub(super) async fn dispatch_costs(
             .await,
         );
     }
+    if req.starts_with("GET /costs/recent ") || req.starts_with("GET /costs/recent?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let limit: u32 = parse_query_kv(tail, "limit")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(50);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_costs_by_day::costs_recent_response(
+                limit,
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     if req.starts_with("GET /costs ") || req.starts_with("GET /costs?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let format = parse_query_kv(tail, "format");
