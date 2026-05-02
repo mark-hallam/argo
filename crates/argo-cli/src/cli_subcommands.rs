@@ -457,6 +457,16 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of `tool_call`+`tool_result` audit rows grouped by
+    /// tool name. Mirrors the gateway's `GET /audit/by-tool` (#613).
+    ByTool {
+        /// Filter to rows created within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_tool}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // WorkspaceCmd / DbCmd / CostsCmd live in

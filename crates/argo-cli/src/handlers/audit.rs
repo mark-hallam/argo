@@ -355,6 +355,10 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             since_minutes,
             json,
         } => super::audit_by_session::run(limit, since_minutes, json).await,
+        AuditCmd::ByTool {
+            since_minutes,
+            json,
+        } => super::audit_by_tool::run(since_minutes, json).await,
     }
 }
 
