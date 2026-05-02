@@ -55,13 +55,19 @@ pub(super) async fn artifacts_response(
     limit: u32,
     since_minutes: Option<i64>,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
     let workspace = match store.first_workspace().await {
         Ok(Some(w)) => w,
-        Ok(None) => return ("200 OK", "[]".to_string()),
+        Ok(None) => {
+            if matches!(format, Some("markdown")) {
+                return ("200 OK", "# Marketplace artifacts (0)\n".to_string());
+            }
+            return ("200 OK", "[]".to_string());
+        }
         Err(e) => {
             return (
                 "500 Internal Server Error",
@@ -80,6 +86,26 @@ pub(super) async fn artifacts_response(
                     None => true,
                 })
                 .collect();
+            if matches!(format, Some("markdown")) {
+                let n = filtered.len();
+                let mut out = format!(
+                    "# Marketplace artifacts ({n} push{})\n\n",
+                    if n == 1 { "" } else { "es" }
+                );
+                if !filtered.is_empty() {
+                    out.push_str("| oci_ref | digest | pushed_by | pushed_at_micros |\n");
+                    out.push_str("| --- | --- | --- | ---: |\n");
+                    for r in &filtered {
+                        let digest_short: String =
+                            r.digest.chars().take(20).collect();
+                        out.push_str(&format!(
+                            "| `{}` | `{digest_short}…` | `{}` | {} |\n",
+                            r.oci_ref, r.pushed_by, r.pushed_at,
+                        ));
+                    }
+                }
+                return ("200 OK", out);
+            }
             (
                 "200 OK",
                 serde_json::to_string(&filtered).unwrap_or_else(|_| "[]".to_string()),

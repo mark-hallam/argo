@@ -280,13 +280,13 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /workspace/artifacts ")
         || req.starts_with("GET /workspace/artifacts?")
     {
-        let limit: u32 = req
-            .strip_prefix("GET ")
-            .and_then(|tail| parse_query_kv(tail, "limit"))
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let limit: u32 = parse_query_kv(tail, "limit")
             .and_then(|v| v.parse().ok())
             .unwrap_or(25);
         let since = parse_since_minutes_from_get(req, "/workspace/artifacts");
-        return artifacts_response(limit, since, store).await;
+        let format = parse_query_kv(tail, "format");
+        return artifacts_response(limit, since, store, format.as_deref()).await;
     }
     if req.starts_with("GET /cron ") || req.starts_with("GET /cron?") {
         return cron_list_response().await;
