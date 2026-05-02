@@ -35,8 +35,9 @@ pub(super) async fn dispatch_session_get(
             let format = parse_query_kv(tail, "format");
             return Some(session_spend_response(sid, store, format.as_deref()).await);
         }
-        if tail.starts_with("messages/last ") {
-            return Some(last_message_response(sid, store).await);
+        if tail.starts_with("messages/last ") || tail.starts_with("messages/last?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(last_message_response(sid, store, format.as_deref()).await);
         }
         if tail.starts_with("messages ") || tail.starts_with("messages?") {
             let limit = parse_limit(tail);

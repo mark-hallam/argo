@@ -6,14 +6,16 @@ use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
 
-/// `GET /sessions/<id>/messages/last` — fetch just the last
-/// message on a session. Useful for chat-UI clients that
-/// only need the latest assistant reply. Returns the same row
-/// shape as the messages-list response, or 404 when the
-/// session is empty.
+/// `GET /sessions/<id>/messages/last[?format=markdown]` — fetch
+/// just the last message on a session. Useful for chat-UI
+/// clients that only need the latest assistant reply. Returns
+/// the same row shape as the messages-list response (JSON
+/// default), a paste-able markdown block when `format=markdown`,
+/// or 404 when the session is empty.
 pub(super) async fn last_message_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -30,6 +32,25 @@ pub(super) async fn last_message_response(
     match store.list_messages(id).await {
         Ok(rows) => match rows.last() {
             Some(m) => {
+                if matches!(format, Some("markdown")) {
+                    let mut out = format!("# Last message on session `{sid}`\n\n");
+                    out.push_str(&format!("- **seq**: {}\n", m.seq));
+                    out.push_str(&format!("- **role**: `{}`\n", m.role));
+                    out.push_str(&format!(
+                        "- **created_at_micros**: {}\n",
+                        m.created_at
+                    ));
+                    out.push_str(&format!("- **id**: `{}`\n\n", hex::encode(&m.id)));
+                    out.push_str("## content\n\n");
+                    out.push_str("```json\n");
+                    let pretty = serde_json::from_str::<serde_json::Value>(&m.content_json)
+                        .ok()
+                        .and_then(|v| serde_json::to_string_pretty(&v).ok())
+                        .unwrap_or_else(|| m.content_json.clone());
+                    out.push_str(&pretty);
+                    out.push_str("\n```\n");
+                    return ("200 OK", out);
+                }
                 let payload = serde_json::json!({
                     "seq": m.seq,
                     "id": hex::encode(&m.id),

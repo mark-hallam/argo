@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **551 PRs** on `main` (151 since milestone 400 —
+across **552 PRs** on `main` (152 since milestone 400 —
 **v1.0 production-ready**, gateway markdown family complete),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
@@ -91,8 +91,9 @@ audit/recent, audit/sessions/<id>, audit/sessions/<id>/verify,
 costs, costs/total, costs/by-model, costs/by-session,
 sessions/<id>/spend, sessions/<id>/spend/total,
 sessions/<id>/skills, sessions/<id>/judge,
-sessions/<id>/export, search, tools, tools/<name>, routes,
-workspace/info, workspace/artifacts). Remaining items are purely architectural
+sessions/<id>/export, sessions/<id>/messages/last, search,
+tools, tools/<name>, routes, workspace/info,
+workspace/artifacts). Remaining items are purely architectural
 (real OCI push, browser stateful sessions, voice native
 bindings, standalone forge daemon split).
 

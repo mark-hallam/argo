@@ -16,7 +16,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/count", "count of sessions (?status=open|ended|all&since-minutes=N&older-than-minutes=N&provider=…&model=…)"),
         ("GET", "/sessions/<id>/messages", "messages (?limit&tail&role&since-minutes&seq-min&seq-max&content-contains)"),
         ("GET", "/sessions/<id>/export", "session messages as JSONL or markdown (?format=jsonl|markdown&include-audit=true)"),
-        ("GET", "/sessions/<id>/messages/last", "the last message on the session"),
+        ("GET", "/sessions/<id>/messages/last", "the last message on the session (?format=markdown for a paste-able block)"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger (?format=markdown)"),
         ("GET", "/sessions/<id>/spend/total", "single-number total for one session (?format=markdown)"),
         ("GET", "/skills", "active skills (?include-superseded&name-contains&lock&body-contains&limit&format=markdown)"),
