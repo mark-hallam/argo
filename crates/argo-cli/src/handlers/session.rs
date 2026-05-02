@@ -117,6 +117,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             role,
             json,
             format,
+            count,
         } => {
             super::session_search::run(
                 &query,
@@ -125,6 +126,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
                 role.as_deref(),
                 json,
                 &format,
+                count,
             )
             .await
         }

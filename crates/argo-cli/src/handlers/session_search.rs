@@ -14,6 +14,7 @@ pub(super) async fn run(
     role: Option<&str>,
     json: bool,
     format: &str,
+    count_only: bool,
 ) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
@@ -28,6 +29,44 @@ pub(super) async fn run(
                 "unknown --role '{want}' — use user|assistant|tool|system"
             )));
         }
+    }
+    // --count mode: short-circuit. Mirrors the gateway's
+    // GET /search/count: hard cap at 10000.
+    if count_only {
+        const HARD_CAP: u32 = 10_000;
+        let raw = match session {
+            Some(raw) => {
+                let id = uuid::Uuid::parse_str(raw).map_err(|e| {
+                    ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+                })?;
+                store
+                    .search_messages_in_session(SessionId(id), query, HARD_CAP)
+                    .await?
+            }
+            None => store.search_messages(query, HARD_CAP).await?,
+        };
+        let count = raw
+            .into_iter()
+            .filter(|h| match role {
+                Some(want) => h.role == want,
+                None => true,
+            })
+            .count();
+        let truncated = count as u32 >= HARD_CAP;
+        if json {
+            let payload = serde_json::json!({
+                "count": count,
+                "truncated": truncated,
+            });
+            println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+            return Ok(());
+        }
+        if truncated {
+            println!("{count}+");
+        } else {
+            println!("{count}");
+        }
+        return Ok(());
     }
     let mut hits = match session {
         Some(raw) => {

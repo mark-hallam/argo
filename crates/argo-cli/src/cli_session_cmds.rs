@@ -213,6 +213,13 @@ pub enum SessionCmd {
         /// passed.
         #[arg(long, default_value = "text")]
         format: String,
+        /// Print just the match count instead of the row bodies.
+        /// Mirrors the gateway's `GET /search/count` (#559).
+        /// Caps the underlying fetch at 10000; when the cap is
+        /// hit the count is reported as `N+` (text) or
+        /// `truncated: true` (json).
+        #[arg(long, conflicts_with_all = ["limit", "format"])]
+        count: bool,
     },
     /// Delete a session and all its dependent rows. Pass `--force`
     /// to skip the confirmation prompt.
