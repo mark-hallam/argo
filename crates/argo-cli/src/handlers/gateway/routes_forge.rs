@@ -330,3 +330,76 @@ pub(super) async fn forge_runs_by_day_response(
         ),
     }
 }
+
+/// `GET /forge/runs/by-status[?since-minutes=N&format=markdown]`
+/// — histogram of forge_run rows grouped by `status`.
+/// Returns `{by_status: {status: count}}` JSON or a 2-column
+/// markdown table sorted by count descending. Mirrors the
+/// `argo_forge_runs_total{status=…}` series in /metrics, but
+/// exposed as a dedicated read endpoint.
+pub(super) async fn forge_runs_by_status_response(
+    since_minutes: Option<i64>,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT status, COUNT(*) FROM forge_run WHERE started_at >= ? \
+                 GROUP BY status ORDER BY status",
+            )
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT status, COUNT(*) FROM forge_run GROUP BY status ORDER BY status",
+            )
+            .fetch_all(pool)
+            .await
+        }
+    };
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let mut sorted = rows.clone();
+                sorted.sort_by_key(|r| std::cmp::Reverse(r.1));
+                let total: i64 = sorted.iter().map(|(_, n)| *n).sum();
+                let mut out = format!(
+                    "# Forge runs by status ({total} rows across {} status values)\n\n",
+                    sorted.len()
+                );
+                if !sorted.is_empty() {
+                    out.push_str("| status | count |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (s, n) in &sorted {
+                        out.push_str(&format!("| `{s}` | {n} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let mut by_status = serde_json::Map::new();
+            for (s, n) in rows {
+                by_status.insert(s, serde_json::json!(n));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "by_status": serde_json::Value::Object(by_status),
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"forge_runs_by_status: {e}\"}}"),
+        ),
+    }
+}
