@@ -9,16 +9,24 @@ use argo_cron::{CronExpr, CronJob, CronTarget};
 use argo_types::TenantId;
 use std::path::PathBuf;
 
-/// `GET /cron` — list every job in `<cwd>/cron/jobs/`. Returns
-/// a JSON array of canonical `CronJob` rows. Returns 200 + an
-/// empty array when the directory doesn't exist (mirrors the
-/// CLI's "no cron jobs" message rather than 404'ing).
-pub(super) async fn cron_list_response() -> (&'static str, String) {
+/// `GET /cron[?format=markdown]` — list every job in
+/// `<cwd>/cron/jobs/`. Returns a JSON array of canonical
+/// `CronJob` rows by default, or a 6-column markdown table
+/// (name / schedule / platform / chat / enabled /
+/// last_fired_at) when `format=markdown`. Returns 200 + an
+/// empty body when the directory doesn't exist.
+pub(super) async fn cron_list_response(
+    format: Option<&str>,
+) -> (&'static str, String) {
     let dir = match cron_dir() {
         Ok(d) => d,
         Err((status, body)) => return (status, body),
     };
+    let want_md = matches!(format, Some("markdown"));
     if !dir.exists() {
+        if want_md {
+            return ("200 OK", "# Cron jobs (0)\n".to_string());
+        }
         return ("200 OK", "[]".to_string());
     }
     let mut paths: Vec<PathBuf> = Vec::new();
@@ -39,12 +47,44 @@ pub(super) async fn cron_list_response() -> (&'static str, String) {
         }
     }
     paths.sort();
+    let mut jobs: Vec<CronJob> = Vec::with_capacity(paths.len());
     let mut out: Vec<serde_json::Value> = Vec::with_capacity(paths.len());
     for p in &paths {
         match read_job(p) {
-            Ok(job) => out.push(serialize_job(&job)),
+            Ok(job) => {
+                out.push(serialize_job(&job));
+                jobs.push(job);
+            }
             Err(line) => out.push(line),
         }
+    }
+    if want_md {
+        let n = jobs.len();
+        let mut md = format!(
+            "# Cron jobs ({n} job{})\n\n",
+            if n == 1 { "" } else { "s" }
+        );
+        if !jobs.is_empty() {
+            md.push_str(
+                "| name | schedule | platform | chat | enabled | last_fired_at |\n",
+            );
+            md.push_str("| --- | --- | --- | --- | :---: | --- |\n");
+            for job in &jobs {
+                let last = job
+                    .last_fired_at
+                    .map(|d| d.to_rfc3339())
+                    .unwrap_or_else(|| "-".into());
+                md.push_str(&format!(
+                    "| `{}` | `{}` | `{}` | `{}` | {} | {last} |\n",
+                    job.name,
+                    job.schedule.source,
+                    job.target.platform,
+                    job.target.chat,
+                    if job.enabled { "✓" } else { "·" },
+                ));
+            }
+        }
+        return ("200 OK", md);
     }
     (
         "200 OK",
@@ -52,12 +92,14 @@ pub(super) async fn cron_list_response() -> (&'static str, String) {
     )
 }
 
-/// `GET /cron/<name>` — fetch one job by `name` (the file's
-/// basename, NOT the uuid). Returns 404 when no `<name>.json`
-/// exists. The CLI uses `argo cron list` + `argo cron delete
-/// <name>` against names too, so this matches the semantics
-/// users already know.
-pub(super) async fn cron_show_response(raw_name: &str) -> (&'static str, String) {
+/// `GET /cron/<name>[?format=markdown]` — fetch one job by
+/// `name` (the file's basename, NOT the uuid). Returns 404
+/// when no `<name>.json` exists. Mirrors the CLI's `argo cron
+/// list` + `argo cron delete <name>` semantics.
+pub(super) async fn cron_show_response(
+    raw_name: &str,
+    format: Option<&str>,
+) -> (&'static str, String) {
     let dir = match cron_dir() {
         Ok(d) => d,
         Err((status, body)) => return (status, body),
@@ -76,10 +118,38 @@ pub(super) async fn cron_show_response(raw_name: &str) -> (&'static str, String)
         );
     }
     match read_job(&path) {
-        Ok(job) => (
-            "200 OK",
-            serde_json::to_string(&serialize_job(&job)).unwrap_or_else(|_| "{}".to_string()),
-        ),
+        Ok(job) => {
+            if matches!(format, Some("markdown")) {
+                let mut md = format!("# Cron job `{}`\n\n", job.name);
+                md.push_str(&format!("- **id**: `{}`\n", job.id));
+                md.push_str(&format!("- **schedule**: `{}`\n", job.schedule.source));
+                md.push_str(&format!("- **platform**: `{}`\n", job.target.platform));
+                md.push_str(&format!("- **chat**: `{}`\n", job.target.chat));
+                md.push_str(&format!(
+                    "- **enabled**: {}\n",
+                    if job.enabled { "true" } else { "false" }
+                ));
+                md.push_str(&format!(
+                    "- **last_fired_at**: {}\n",
+                    job.last_fired_at
+                        .map(|d| d.to_rfc3339())
+                        .unwrap_or_else(|| "-".into()),
+                ));
+                md.push_str("\n## prompt\n\n");
+                md.push_str("```\n");
+                md.push_str(&job.prompt);
+                if !job.prompt.ends_with('\n') {
+                    md.push('\n');
+                }
+                md.push_str("```\n");
+                return ("200 OK", md);
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serialize_job(&job))
+                    .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
         Err(line) => (
             "500 Internal Server Error",
             serde_json::to_string(&line).unwrap_or_else(|_| "{}".to_string()),

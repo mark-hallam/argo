@@ -269,11 +269,20 @@ pub(super) async fn dispatch_route(
         return artifacts_response(limit, since, store, format.as_deref()).await;
     }
     if req.starts_with("GET /cron ") || req.starts_with("GET /cron?") {
-        return cron_list_response().await;
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return cron_list_response(format.as_deref()).await;
     }
     if let Some(rest) = req.strip_prefix("GET /cron/") {
-        if let Some((name, _)) = rest.split_once(' ') {
-            return cron_show_response(name).await;
+        if let Some((name_with_query, _)) = rest.split_once(' ') {
+            let (name, query) = match name_with_query.split_once('?') {
+                Some((n, q)) => (n, Some(q)),
+                None => (name_with_query, None),
+            };
+            let format = query
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
+                .map(str::to_string);
+            return cron_show_response(name, format.as_deref()).await;
         }
     }
     if req.starts_with("GET /forge/runs ") || req.starts_with("GET /forge/runs?") {
