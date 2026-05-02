@@ -36,54 +36,11 @@ pub enum AgentsCmd {
     Delete { name: String },
 }
 
-#[derive(Subcommand, Debug)]
-pub enum GatewayCmd {
-    /// Bind a TCP listener and serve the JSON HTTP gateway. The
-    /// first cut answers `GET /health` + `GET /version`; the
-    /// `Adapter` routing surface from `argo-gateway` lands later.
-    Start {
-        #[arg(long, default_value = "127.0.0.1")]
-        bind: String,
-        #[arg(long, default_value_t = 7400)]
-        port: u16,
-        /// Stop after N requests (mainly for tests; omit to run
-        /// until SIGINT / SIGTERM).
-        #[arg(long)]
-        max_requests: Option<u64>,
-    },
-    Stop,
-    /// One-line status: running PID + listening address.
-    Status {
-        /// Output as a JSON object `{running, pid?, addr?}`.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Print the gateway's static route catalog. No daemon
-    /// required — reads the in-binary catalog. `--method
-    /// GET|POST` filters by verb; `--grep <sub>` filters by
-    /// path/description substring (case-insensitive); `--limit
-    /// N` truncates to the first N rows; `--json` for the
-    /// machine-readable form.
-    Routes {
-        /// Output as JSON. Equivalent to `--format json`.
-        #[arg(long)]
-        json: bool,
-        /// Output format: `text` (default), `json`, or `markdown`
-        /// (renders the catalog as a markdown table — paste-able
-        /// into READMEs). `--json` wins if both are passed.
-        #[arg(long, default_value = "text")]
-        format: String,
-        #[arg(long)]
-        method: Option<String>,
-        /// Case-insensitive substring filter on both path and
-        /// description.
-        #[arg(long)]
-        grep: Option<String>,
-        /// Truncate the output to the first N rows after filters.
-        #[arg(long)]
-        limit: Option<usize>,
-    },
-}
+// `GatewayCmd` was extracted to cli_gateway_cmds.rs (#631)
+// when this file went over the 500-LOC budget. Re-exported by
+// the wildcard glob in cli.rs so callers don't need to know
+// the new path.
+pub use super::cli_gateway_cmds::GatewayCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum McpCmd {

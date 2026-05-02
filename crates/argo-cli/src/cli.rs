@@ -8,6 +8,8 @@ mod cli_memory_cmd;
 mod cli_subcommands;
 #[path = "cli_forge_cmds.rs"]
 mod cli_forge_cmds;
+#[path = "cli_gateway_cmds.rs"]
+mod cli_gateway_cmds;
 #[path = "cli_messages_cmds.rs"]
 mod cli_messages_cmds;
 #[path = "cli_session_cmds.rs"]
