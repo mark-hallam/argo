@@ -172,6 +172,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::ByProvider { since_minutes, json } => {
             super::session_by_provider::run(since_minutes, json).await
         }
+        SessionCmd::ByModel { since_minutes, json } => {
+            super::session_by_model::run(since_minutes, json).await
+        }
     }
 }
 

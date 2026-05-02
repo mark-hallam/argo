@@ -345,6 +345,17 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of sessions grouped by model. Mirrors the
+    /// gateway's `GET /sessions/by-model` (#600).
+    ByModel {
+        /// Filter to sessions started within this many recent
+        /// minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_model}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —

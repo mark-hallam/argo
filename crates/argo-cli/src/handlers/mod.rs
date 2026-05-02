@@ -39,6 +39,7 @@ pub mod session;
 mod session_aggregates;
 mod session_bisect;
 mod session_by_day;
+mod session_by_model;
 mod session_by_provider;
 mod session_clone_branch;
 mod session_diff;
