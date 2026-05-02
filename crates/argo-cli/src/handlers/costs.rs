@@ -36,6 +36,9 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             json,
         }) => alert_over_threshold(&cwd, threshold_usd, json).await,
         Some(CostsCmd::Total { json }) => total(&cwd, json).await,
+        Some(CostsCmd::ByDay { days, json }) => {
+            super::costs_by_day::run(days, json).await
+        }
         Some(CostsCmd::Cap {
             session,
             day,

@@ -175,4 +175,15 @@ pub enum CostsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Daily spend rollup — chronological list of
+    /// `{day, spent_usd_micros}` for the last `--days` days.
+    /// Mirrors the gateway's `GET /costs/by-day` endpoint.
+    ByDay {
+        /// Lookback window in days (default 30, cap 365).
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Output as a single JSON object (`{by_day}`).
+        #[arg(long)]
+        json: bool,
+    },
 }

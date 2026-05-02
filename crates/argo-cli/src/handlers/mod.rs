@@ -6,6 +6,7 @@ mod audit_md;
 mod audit_count;
 pub mod chat;
 pub mod costs;
+pub mod costs_by_day;
 pub mod cron;
 pub mod db;
 pub mod doctor;
