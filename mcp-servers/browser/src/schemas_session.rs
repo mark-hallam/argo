@@ -304,3 +304,42 @@ pub(crate) fn session_reap_schema() -> McpToolSchema {
     }
 }
 
+
+/// `cloud_browserbase_open_session` schema (#642). Spawns a hosted
+/// Chromium session via Browserbase's REST API and returns the
+/// CDP WebSocket connect URL plus the Browserbase session id.
+/// Requires the `browserbase` feature at build time + the
+/// `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` env vars at
+/// runtime.
+pub(crate) fn cloud_browserbase_open_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "cloud_browserbase_open_session".into(),
+        description: "Spawn a hosted Chromium session on Browserbase and \
+            return its CDP connect_url + session_id. Requires the \
+            `browserbase` feature at build time and BROWSERBASE_API_KEY \
+            + BROWSERBASE_PROJECT_ID env vars at runtime. Free tier \
+            covers ~60 min/month — sign up at https://browserbase.com."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {}
+        }),
+    }
+}
+
+/// `cloud_browserbase_close_session` schema (#642). Tears down a
+/// hosted session by id. Idempotent at the Browserbase end.
+pub(crate) fn cloud_browserbase_close_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "cloud_browserbase_close_session".into(),
+        description: "Tear down a Browserbase hosted session by id. \
+            Idempotent — safe to call multiple times. Requires the \
+            `browserbase` feature."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id"],
+            "properties": { "session_id": { "type": "string" } }
+        }),
+    }
+}

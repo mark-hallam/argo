@@ -62,7 +62,7 @@ fn tools_list_advertises_twelve_spec_tools_plus_two_http_probes() {
     // tools (lifecycle: open/close/list/reap; per-tool variants:
     // eval/navigate/read_page/click/fill/submit/extract_links/
     // screenshot/scroll/wait_for/pdf/cookies/get_url).
-    assert_eq!(tools.len(), 31);
+    assert_eq!(tools.len(), 33);
     let names: Vec<String> = tools
         .iter()
         .map(|t| t["name"].as_str().unwrap().to_string())

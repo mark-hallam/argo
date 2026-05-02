@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — browser MCP server (§28.AA, schema + dispatcher; chromiumoxide bindings land in a follow-up)"
+description = "Argo — browser MCP server (§28.AA); local CDP feature-complete (17 stateful tools), opt-in cloud backends behind feature flags"
 
 [[bin]]
 name = "argo-mcp-browser"
@@ -21,3 +21,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+
+[features]
+default = []
+# Opt-in: Browserbase cloud-browser integration. Uses the existing
+# reqwest dep — no new C++/CMake build cost. The cloud session
+# lifecycle (POST /v1/sessions, DELETE) returns a CDP WebSocket URL
+# the existing session manager can target. End-users supply
+# BROWSERBASE_API_KEY + BROWSERBASE_PROJECT_ID at runtime; nothing
+# is sent anywhere by default. See `cloud_browserbase.rs`.
+browserbase = []
+# Convenience: enable every wired cloud backend at once.
+# (Currently just `browserbase`. BrowserUse may follow.)
+cloud-browser = ["browserbase"]

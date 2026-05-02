@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **641 PRs** on `main` (241 since milestone 400 —
-**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)**; **v1.1 voice native: whisper-rs wired #636** — opt-in `--features whisper-native`; piper-rs blocked on upstream),
+across **642 PRs** on `main` (242 since milestone 400 —
+**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)** — plus opt-in **Browserbase cloud backend (#642)** behind `--features browserbase`; **v1.1 voice native: whisper-rs wired #636** — opt-in `--features whisper-native`; piper-rs blocked on upstream),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.

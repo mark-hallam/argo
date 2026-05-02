@@ -13,6 +13,7 @@
 
 mod cdp;
 mod chrome_probe;
+mod cloud_browserbase;
 mod schemas;
 mod schemas_session;
 mod service;
