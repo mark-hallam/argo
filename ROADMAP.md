@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **642 PRs** on `main` (242 since milestone 400 —
+across **643 PRs** on `main` (243 since milestone 400 —
 **v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)** — plus opt-in **Browserbase cloud backend (#642)** behind `--features browserbase`; **v1.1 voice native: whisper-rs wired #636** — opt-in `--features whisper-native`; piper-rs blocked on upstream),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
@@ -380,9 +380,14 @@ as v1.1 perf wins:
   total** out of **30 in the browser MCP**. Optional cloud
   opt-ins (Browserbase / BrowserUse) remain pending — but
   the in-process arc is closed.
-- **§23.3 marketplace integration test** — `oci-distribution` push
-  / pull against GHCR / Docker Hub / Artifact Registry test
-  accounts.
+- **§23.3 marketplace integration test** — **wired #643**:
+  `.github/workflows/oci-smoke.yml` runs a real `argo workspace
+  push` + `argo workspace pull` round-trip against GHCR (free
+  for public packages). Triggers on changes to the marketplace
+  / workspace handlers + nightly cron + `workflow_dispatch`.
+  Mark adds a `GHCR_PAT` secret with `write:packages` scope to
+  enable; without the secret the job emits a warning and skips
+  (so forks / dependabot don't error).
 - **Standalone daemon for long-running forge runs** — **v1.1
   forge-daemon split COMPLETE as of #581**:
   - #575: `argo forge daemon [--interval-secs N

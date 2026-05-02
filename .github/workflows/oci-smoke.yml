@@ -1,0 +1,130 @@
+name: OCI Marketplace Smoke
+# Round-trips a tiny test workspace against GHCR (GitHub Container
+# Registry) — pushes a synthetic skill artifact, pulls it back,
+# verifies the digest matches.
+#
+# Wires up the v1.1 §23.3 deferred item (#636-discussion). GHCR is
+# free for public packages; you just need a Personal Access Token
+# with the `write:packages` scope. The token goes into the repo's
+# Actions secrets as `GHCR_PAT`.
+#
+# Skipped automatically when GHCR_PAT is unset (forks, dependabot
+# runs, etc.) — the smoke test is best-effort, not a hard gate.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/argo-marketplace/**'
+      - 'crates/argo-cli/src/handlers/workspace*'
+      - '.github/workflows/oci-smoke.yml'
+  schedule:
+    # Run nightly so a slow upstream regression in oci-distribution
+    # gets caught within 24h.
+    - cron: '17 6 * * *'
+
+jobs:
+  oci-roundtrip:
+    name: workspace push + pull against GHCR
+    runs-on: ubuntu-latest
+    # Only run when the token secret exists. PRs from forks won't
+    # have it; that's expected — the gate isn't required for merge.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.repository == 'mark-hallam/Argo-Agent' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: oci-smoke
+
+      - name: Build argo
+        run: cargo build -p argo-cli --release
+
+      - name: Verify GHCR PAT is configured
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        run: |
+          if [ -z "${GHCR_PAT}" ]; then
+            echo "::warning::GHCR_PAT secret not configured — skipping live round-trip."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        id: gate
+
+      - name: Initialize a temp workspace + skill
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          ARGO_HOME: ${{ runner.temp }}/argo-oci-smoke
+        run: |
+          mkdir -p "$ARGO_HOME"
+          ./target/release/argo workspace init || true
+          # `workspace init` is idempotent + creates the bundle dirs.
+          # Stamp a deterministic skill so the artifact digest is
+          # reproducible across runs.
+          mkdir -p "$ARGO_HOME/skills/ci-smoke"
+          cat > "$ARGO_HOME/skills/ci-smoke/skill.toml" <<'TOML'
+          name = "ci-smoke"
+          version = "0.0.0"
+          description = "Round-trip smoke test artifact for OCI CI."
+          TOML
+          cat > "$ARGO_HOME/skills/ci-smoke/SKILL.md" <<'MD'
+          # ci-smoke
+          Synthetic skill used by the OCI marketplace round-trip workflow.
+          Do not edit by hand — regenerated each CI run.
+          MD
+
+      - name: Push to GHCR
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          ARGO_HOME: ${{ runner.temp }}/argo-oci-smoke
+          ARGO_OCI_USER: ${{ github.actor }}
+          ARGO_OCI_PASSWORD: ${{ secrets.GHCR_PAT }}
+          OCI_REF: ghcr.io/${{ github.repository_owner }}/argo-ci-smoke:run-${{ github.run_id }}
+        run: |
+          ./target/release/argo workspace push "$OCI_REF" 2>&1 | tee push.log
+          echo "${OCI_REF}" > /tmp/oci-ref.txt
+
+      - name: Pull from GHCR into a fresh workspace
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          ARGO_HOME: ${{ runner.temp }}/argo-oci-pull
+          ARGO_OCI_USER: ${{ github.actor }}
+          ARGO_OCI_PASSWORD: ${{ secrets.GHCR_PAT }}
+        run: |
+          mkdir -p "$ARGO_HOME"
+          ./target/release/argo workspace init || true
+          OCI_REF="$(cat /tmp/oci-ref.txt)"
+          ./target/release/argo workspace pull "$OCI_REF" 2>&1 | tee pull.log
+
+      - name: Verify the round-trip
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          ARGO_PUSH_HOME: ${{ runner.temp }}/argo-oci-smoke
+          ARGO_PULL_HOME: ${{ runner.temp }}/argo-oci-pull
+        run: |
+          # The pulled workspace should expose ci-smoke under skills/.
+          if [ -f "$ARGO_PULL_HOME/skills/ci-smoke/skill.toml" ]; then
+            echo "ok: ci-smoke skill round-tripped successfully"
+            diff -q "$ARGO_PUSH_HOME/skills/ci-smoke/skill.toml" \
+                   "$ARGO_PULL_HOME/skills/ci-smoke/skill.toml" \
+              || (echo "::error::skill.toml drifted across push/pull" && exit 1)
+          else
+            echo "::error::pulled workspace is missing skills/ci-smoke/skill.toml"
+            ls -la "$ARGO_PULL_HOME/skills/" || true
+            exit 1
+          fi
+
+      - name: Upload logs on failure
+        if: failure() && steps.gate.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oci-smoke-logs
+          path: |
+            push.log
+            pull.log
