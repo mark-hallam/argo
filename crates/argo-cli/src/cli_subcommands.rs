@@ -436,6 +436,18 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// 2D rollup: audit rows bucketed by `(day, kind)`. Mirrors
+    /// the gateway's `GET /audit/by-day-by-kind` (#638). Useful
+    /// for "did tool_call volume spike Tuesday?" without joining
+    /// by-day + by-kind client-side.
+    ByDayByKind {
+        /// Lookback window in days (default 30, cap 365).
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Output as a single JSON object (`{by_day_by_kind}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // WorkspaceCmd / DbCmd / CostsCmd live in

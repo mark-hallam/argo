@@ -6,6 +6,7 @@ mod audit_md;
 mod audit_count;
 pub mod chat;
 pub mod audit_by_day;
+pub mod audit_by_day_by_kind;
 pub mod audit_by_kind;
 pub mod audit_by_session;
 pub mod audit_by_tool;
