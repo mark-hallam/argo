@@ -91,6 +91,43 @@ impl SessionStore {
         sweep_stalled_forge_runs(self.pool(), cutoff_micros).await
             .map_err(|e| ArgoError::Provider(format!("sweep_stalled_forge_runs: {e}")))
     }
+
+    /// Enqueue a forge run for the v1.1 daemon to pick up
+    /// later. Inserts a `forge_run` row in `'queued'` status
+    /// (no `started_at` activity yet) plus a parallel
+    /// `forge_queue` row carrying the JSON payload the daemon
+    /// needs to actually run the work. Returns the new run id.
+    pub async fn enqueue_forge_run(
+        &self,
+        skill_name: &str,
+        base_version: &str,
+        examples_count: u32,
+        payload_json: &str,
+    ) -> StoreResult<Uuid> {
+        enqueue_forge_run(
+            self.pool(),
+            skill_name,
+            base_version,
+            examples_count,
+            payload_json,
+        )
+        .await
+        .map_err(|e| ArgoError::Provider(format!("enqueue_forge_run: {e}")))
+    }
+
+    /// Atomically claim the oldest `'queued'` forge_run row,
+    /// flip its status to `'running'`, stamp `started_at`, and
+    /// return `(run_id, payload_json)`. Returns `None` when no
+    /// queued row exists. Race-safe by checking
+    /// `rows_affected()` on the UPDATE: if another claimer won,
+    /// the SELECT-then-UPDATE retries on the next call.
+    pub async fn claim_queued_forge_run(
+        &self,
+    ) -> StoreResult<Option<(Uuid, String)>> {
+        claim_queued_forge_run(self.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("claim_queued_forge_run: {e}")))
+    }
 }
 
 async fn get_forge_run(
@@ -195,4 +232,77 @@ async fn sweep_stalled_forge_runs(
     .execute(pool)
     .await?;
     Ok(res.rows_affected())
+}
+
+async fn enqueue_forge_run(
+    pool: &Pool<Sqlite>,
+    skill_name: &str,
+    base_version: &str,
+    examples_count: u32,
+    payload_json: &str,
+) -> Result<Uuid, sqlx::Error> {
+    let id = Uuid::now_v7();
+    let now = Utc::now().timestamp_micros();
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        "INSERT INTO forge_run (id, skill_name, started_at, ended_at, base_version, \
+         candidate_version, examples_count, iterations, spend_usd_micros, final_score, status) \
+         VALUES (?, ?, ?, NULL, ?, NULL, ?, 0, 0, NULL, 'queued')",
+    )
+    .bind(id.as_bytes().as_slice())
+    .bind(skill_name)
+    .bind(now)
+    .bind(base_version)
+    .bind(i64::from(examples_count))
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO forge_queue (forge_run_id, payload_json, enqueued_at) VALUES (?, ?, ?)",
+    )
+    .bind(id.as_bytes().as_slice())
+    .bind(payload_json)
+    .bind(now)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(id)
+}
+
+async fn claim_queued_forge_run(
+    pool: &Pool<Sqlite>,
+) -> Result<Option<(Uuid, String)>, sqlx::Error> {
+    // Pick the oldest queued row. The forge_queue.enqueued_at
+    // is the FIFO key; we don't trust forge_run.started_at for
+    // this since enqueue stamps it for "row created", not
+    // "execution started".
+    let row: Option<(Vec<u8>, String)> = sqlx::query_as(
+        "SELECT forge_queue.forge_run_id, forge_queue.payload_json \
+         FROM forge_queue \
+         JOIN forge_run ON forge_run.id = forge_queue.forge_run_id \
+         WHERE forge_run.status = 'queued' \
+         ORDER BY forge_queue.enqueued_at ASC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await?;
+    let Some((id_bytes, payload)) = row else {
+        return Ok(None);
+    };
+    let id = match Uuid::from_slice(&id_bytes) {
+        Ok(u) => u,
+        Err(_) => return Ok(None),
+    };
+    let res = sqlx::query(
+        "UPDATE forge_run SET status = 'running', started_at = ? \
+         WHERE id = ? AND status = 'queued'",
+    )
+    .bind(Utc::now().timestamp_micros())
+    .bind(id.as_bytes().as_slice())
+    .execute(pool)
+    .await?;
+    if res.rows_affected() == 0 {
+        // Another worker claimed this row first. Caller can
+        // retry on the next tick.
+        return Ok(None);
+    }
+    Ok(Some((id, payload)))
 }

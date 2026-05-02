@@ -54,6 +54,24 @@ pub enum ForgeCmd {
         #[command(subcommand)]
         cmd: ForgeRunsCmd,
     },
+    /// Enqueue a forge optimize run for the v1.1 daemon to
+    /// pick up later. Creates a `forge_run` row with
+    /// status='queued' and a parallel `forge_queue` payload.
+    /// Returns the new run id; the daemon claims + runs it on
+    /// its next tick. Use `argo forge runs list --status queued`
+    /// to see what's waiting.
+    Enqueue {
+        skill: String,
+        #[arg(long)]
+        examples: String,
+        #[arg(long, default_value_t = 12)]
+        iterations: u32,
+        #[arg(long, default_value_t = 5.0)]
+        budget: f64,
+        /// Output the new run id as JSON instead of plain text.
+        #[arg(long)]
+        json: bool,
+    },
     /// Long-running standalone daemon — periodically sweeps
     /// stalled `running` forge_run rows to `failed`. First step
     /// in the v1.1 forge-daemon split: replaces the manual

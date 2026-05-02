@@ -9,6 +9,7 @@ pub mod audit_by_kind;
 pub mod costs;
 pub mod costs_by_day;
 pub mod forge_daemon;
+pub mod forge_enqueue;
 pub mod cron;
 pub mod db;
 pub mod doctor;

@@ -76,6 +76,15 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             older_than_minutes,
             max_ticks,
         } => super::forge_daemon::run(interval_secs, older_than_minutes, max_ticks).await,
+        ForgeCmd::Enqueue {
+            skill,
+            examples,
+            iterations,
+            budget,
+            json,
+        } => {
+            super::forge_enqueue::run(&skill, &examples, iterations, budget, json).await
+        }
     }
 }
 
