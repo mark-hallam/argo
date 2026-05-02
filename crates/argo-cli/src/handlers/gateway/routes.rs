@@ -363,17 +363,27 @@ pub(super) async fn dispatch_route(
         let (sid, query_part) = sid_with_q
             .split_once('?')
             .map_or((sid_with_q, ""), |(s, q)| (s, q));
-        let (mut kind, mut since): (Option<String>, Option<i64>) = (None, None);
+        let (mut kind, mut since, mut format): (Option<String>, Option<i64>, Option<String>) =
+            (None, None, None);
         if !query_part.is_empty() {
             for kv in query_part.split('&') {
                 if let Some(v) = kv.strip_prefix("kind=") {
                     kind = Some(v.to_string());
                 } else if let Some(v) = kv.strip_prefix("since-minutes=") {
                     since = v.parse().ok();
+                } else if let Some(v) = kv.strip_prefix("format=") {
+                    format = Some(v.to_string());
                 }
             }
         }
-        return audit_session_response(sid, store, kind.as_deref(), since).await;
+        return audit_session_response(
+            sid,
+            store,
+            kind.as_deref(),
+            since,
+            format.as_deref(),
+        )
+        .await;
     }
     if req.starts_with("GET /costs ") || req.starts_with("GET /costs?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);

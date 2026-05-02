@@ -228,11 +228,13 @@ pub(super) async fn audit_session_verify_response(
 /// Mirrors `argo audit show --session <id>`. Filters apply
 /// after fetching the full session window (sessions are
 /// typically small, so this keeps the SQL trivial).
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn audit_session_response(
     sid: &str,
     store: Option<&Arc<SessionStore>>,
     kind: Option<&str>,
     since_minutes: Option<i64>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -255,6 +257,26 @@ pub(super) async fn audit_session_response(
                 let cutoff_micros = (chrono::Utc::now() - chrono::Duration::minutes(m))
                     .timestamp_micros();
                 rows.retain(|r| r.created_at_micros >= cutoff_micros);
+            }
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Audit chain for session `{sid}` ({n} row{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| seq | kind | hash |\n");
+                    out.push_str("| ---: | --- | --- |\n");
+                    for r in &rows {
+                        let hash_short: String =
+                            r.self_hash.chars().take(12).collect();
+                        out.push_str(&format!(
+                            "| {} | `{}` | `{hash_short}…` |\n",
+                            r.seq, r.kind
+                        ));
+                    }
+                }
+                return ("200 OK", out);
             }
             (
                 "200 OK",
