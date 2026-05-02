@@ -1,35 +1,26 @@
-//! `backend="piper"` TTS via the piper-rs Rust bindings —
-//! v1.1 architectural item. **Scaffolding only**: this PR
-//! commits the dispatch path + feature flag without pulling
-//! piper-rs as a dep (heavy native build). With
-//! `--features piper-native`, the actual binding will be
-//! wired in a follow-up; without it, the path returns a clear
-//! "feature-gated, recompile" error.
+//! `backend="piper"` TTS — placeholder. The intent was to wire
+//! `piper-rs` behind the `piper-native` feature flag, mirroring
+//! whisper-rs (#636). As of #636, `piper-rs` 0.1.9 (latest on
+//! crates.io) fails to compile against the current `ort` (ONNX
+//! runtime) — `Shape::view()` was removed, breaking 21 sites in
+//! piper-rs. Until upstream stabilises, the `backend="piper"`
+//! path returns the helpful error below pointing callers at the
+//! `backend="local"` shell-out, which works with the standard
+//! `piper` CLI binary today.
 //!
-//! See `local.rs` for a no-deps escape hatch (shell out to
-//! `piper`).
+//! When piper-rs catches up, this file gains the same shape as
+//! `whisper_native.rs`: a `cfg(feature = "piper-native")`
+//! synthesize path that loads the voice model + emits WAV bytes.
 use argo_mcp::{CallToolResult, McpContent};
 
-#[cfg(feature = "piper-native")]
 pub async fn synthesize(_text: &str, _voice: Option<&str>, _format: &str) -> CallToolResult {
     CallToolResult {
         content: vec![McpContent::Text {
-            text: "backend=piper: piper-native feature enabled but piper-rs dep not yet listed; \
-                   complete the binding in a follow-up PR"
-                .into(),
-        }],
-        is_error: true,
-    }
-}
-
-#[cfg(not(feature = "piper-native"))]
-pub async fn synthesize(_text: &str, _voice: Option<&str>, _format: &str) -> CallToolResult {
-    CallToolResult {
-        content: vec![McpContent::Text {
-            text: "backend=piper requires the `piper-native` feature. Rebuild with \
-                   `cargo build -p argo-mcp-voice --features piper-native` (heavy native \
-                   build). For a no-deps alternative, set ARGO_SYNTHESIZE_CMD and use \
-                   `backend=local`."
+            text: "backend=piper: piper-rs upstream is currently broken against ort 2.x \
+                   (Shape::view() was removed). Use `backend=local` instead — set \
+                   ARGO_SYNTHESIZE_CMD to your `piper` binary, e.g. \
+                   `piper --model en_US-lessac-medium.onnx --output_file -`. \
+                   Native Rust binding will land once piper-rs upstream is fixed."
                 .into(),
         }],
         is_error: true,

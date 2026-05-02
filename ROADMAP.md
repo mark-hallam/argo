@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **635 PRs** on `main` (235 since milestone 400 —
-**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)**; **v1.1 voice native scaffold begun**),
+across **636 PRs** on `main` (236 since milestone 400 —
+**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)**; **v1.1 voice native: whisper-rs wired #636** — opt-in `--features whisper-native`; piper-rs blocked on upstream),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -346,18 +346,26 @@ as v1.1 perf wins:
 
 ## Pending integration tier
 
-- **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
-  + opus (OGG/Opus). **v1.1 scaffolding begun (#595)**:
-  feature flags `whisper-native` / `piper-native` / `native` on
-  `argo-mcp-voice`; new `whisper_native.rs` + `piper_native.rs`
-  with cfg-gated `transcribe`/`synthesize` paths. Without the
-  feature flag, the default `whisper` / `piper` backend names
-  return a clear "rebuild with `--features whisper-native`"
-  error so callers know the path forward. The actual whisper-rs
-  / piper-rs deps are NOT pulled in this PR (heavy native
-  C++/CMake builds) — the scaffold commits the architecture
-  without the build cost. Cloud backends already wired (OpenAI
-  TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
+- **Voice MCP native backend** — **whisper-rs wired in #636**;
+  piper-rs blocked on upstream. The full arc:
+  - #595 scaffold: feature flags `whisper-native` /
+    `piper-native` / `native` on `argo-mcp-voice`, plus
+    `whisper_native.rs` + `piper_native.rs` cfg-gated stubs that
+    return a clear "rebuild with feature" error.
+  - #636 wired whisper-rs 0.16 behind `--features whisper-native`:
+    `transcribe` loads a ggml model (path via `ARGO_WHISPER_MODEL`),
+    decodes 16-kHz mono WAV via `hound`, runs the model on a
+    blocking thread, returns the transcript. Default build stays
+    cheap (cloud-only; ~6s); with-feature build adds ~50s on a
+    fresh box for the C++/CMake step. Tests across all three
+    feature combos (default / whisper-native / native) green.
+  - **piper-rs deferred**: 0.1.9 (latest) fails to compile against
+    `ort` 2.x — `Shape::view()` was removed, breaking 21 sites.
+    Until upstream stabilises, `backend="piper"` returns a
+    pointer at the `backend="local"` shell-out (works with the
+    standard `piper` CLI today; set `ARGO_SYNTHESIZE_CMD`).
+  - Cloud backends still shipping (OpenAI TTS + Whisper #93/#96;
+    ElevenLabs #129; MiniMax #130).
 - **Browser MCP — stateful sessions** — **v1.1 feature-
   complete as of #591/#593**. Hand-rolled CDP session
   manager: persistent per-tab WebSocket, sticky session ids,

@@ -226,13 +226,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn call_tool_transcribe_default_backend_is_feature_gated() {
+    async fn call_tool_transcribe_default_backend_signals_setup_path() {
         // Default backend is `whisper`, which routes to
-        // whisper_native — feature-gated. Without
-        // `--features whisper-native` it returns a clear
-        // "rebuild with…" error so callers know the build
-        // incantation. (PR #595 introduced this scaffold.)
+        // whisper_native. Without `--features whisper-native`
+        // the path returns a "rebuild with feature" error.
+        // With the feature enabled, it returns an
+        // ARGO_WHISPER_MODEL setup error (or a real
+        // transcript if both flag and env are wired). Either
+        // shape is a useful signal — the test asserts the
+        // tool surface still answers the call rather than
+        // pinning a specific message.
         let s = VoiceService;
+        std::env::remove_var("ARGO_WHISPER_MODEL");
         let result = s
             .call_tool(CallToolParams {
                 name: "transcribe".into(),
@@ -244,8 +249,9 @@ mod tests {
         match &result.content[0] {
             McpContent::Text { text } => assert!(
                 text.contains("whisper-native")
+                    || text.contains("ARGO_WHISPER_MODEL")
                     || text.contains("not yet wired"),
-                "expected feature-gated or not-wired message, got: {text}"
+                "expected feature-gated, model-missing, or not-wired message, got: {text}"
             ),
             _ => panic!("expected text"),
         }

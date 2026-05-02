@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — voice MCP server (§28.Z, schema + dispatcher; native bindings land in a follow-up)"
+description = "Argo — voice MCP server (§28.Z); cloud backends shipped, opt-in native bindings via `whisper-native` / `piper-native` features"
 
 [[bin]]
 name = "argo-mcp-voice"
@@ -21,15 +21,31 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 
+# Optional native voice deps. Gated behind feature flags so the
+# default build stays cheap (cloud-only). Pulling these in adds
+# ~50–90 sec to a fresh build (C++/CMake compile step) plus
+# ~20 MB to the resulting binary — that's why they're opt-in
+# rather than default-on.
+whisper-rs = { version = "0.16", optional = true }
+# `hound` decodes 16-kHz mono WAV files into f32 samples for
+# whisper. Tiny pure-Rust crate — only pulled when whisper-native
+# is enabled.
+hound = { version = "3", optional = true }
+
 [features]
 default = []
 # Opt-in: pull in whisper-rs (whisper.cpp Rust bindings) for the
 # `backend="whisper"` STT path. Heavy native build (C++ +
-# CMake), so default-off — users who want native STT compile
-# with `--features whisper-native` once the dep is wired.
-whisper-native = []
-# Opt-in: pull in piper-rs for the `backend="piper"` TTS path.
-# Same caveat as whisper-native — heavy native build, opt-in.
+# CMake) — users who want native STT compile with
+# `--features whisper-native`. Also pulls `hound` for WAV
+# decoding.
+whisper-native = ["dep:whisper-rs", "dep:hound"]
+# Opt-in placeholder: piper-native is reserved for when piper-rs
+# upstream stabilises against current `ort`. As of #636, piper-rs
+# 0.1.9 fails to compile against ort 2.x (`Shape::view()` was
+# removed). The `backend="piper"` path stays cfg-gated and the
+# `backend="local"` shell-out (set ARGO_SYNTHESIZE_CMD to your
+# `piper` binary) is the recommended native TTS path today.
 piper-native = []
-# Convenience: enable both native bindings at once.
-native = ["whisper-native", "piper-native"]
+# Convenience: enable every native binding that currently works.
+native = ["whisper-native"]
