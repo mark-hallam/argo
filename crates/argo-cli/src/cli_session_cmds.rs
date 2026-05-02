@@ -288,6 +288,34 @@ pub enum SessionCmd {
         id: String,
         hypothesis: String,
     },
+    /// Duplicate a session into a fresh row, copying every
+    /// message verbatim. Mirrors the gateway's
+    /// `POST /sessions/<id>/clone`.
+    Clone {
+        /// Source session id to clone from.
+        id: String,
+    },
+    /// Fork a session at a specific message — copies messages
+    /// 1..=through-seq into a fresh row. Without
+    /// `--through-seq`, copies every message (equivalent to
+    /// `clone` but with a "(branch)" title suffix).
+    Branch {
+        /// Source session id to branch from.
+        id: String,
+        /// Inclusive seq to copy through.
+        #[arg(long)]
+        through_seq: Option<i64>,
+    },
+    /// Per-session summary view: role histogram + timing
+    /// envelope + inter-message gap stats. Mirrors the
+    /// gateway's `GET /sessions/<id>/stats`.
+    Stats {
+        /// Session id to summarise.
+        id: String,
+        /// Output as JSON (mirrors the gateway endpoint shape).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

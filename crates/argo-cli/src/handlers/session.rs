@@ -155,6 +155,15 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             super::session_replay::run(&id, model.as_deref(), provider.as_deref(), stream)
                 .await
         }
+        SessionCmd::Clone { id } => {
+            super::session_clone_branch::clone_session(&id).await
+        }
+        SessionCmd::Branch { id, through_seq } => {
+            super::session_clone_branch::branch_session(&id, through_seq).await
+        }
+        SessionCmd::Stats { id, json } => {
+            super::session_clone_branch::stats_session(&id, json).await
+        }
     }
 }
 
