@@ -424,6 +424,16 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of audit rows grouped by `kind`. Mirrors the
+    /// gateway's `GET /audit/by-kind` (#570).
+    ByKind {
+        /// Filter to rows created within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_kind}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // WorkspaceCmd / DbCmd / CostsCmd live in
