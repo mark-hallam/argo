@@ -32,6 +32,7 @@ mod routes_session_clone;
 mod routes_session_get;
 mod routes_session_skills;
 mod routes_session_stats;
+mod routes_sessions_rollups;
 mod routes_skill_refine;
 mod routes_skills_show;
 mod routes_top;

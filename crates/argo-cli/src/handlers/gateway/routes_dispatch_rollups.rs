@@ -22,8 +22,28 @@ pub(super) async fn dispatch_rollups(
             .unwrap_or(30);
         let format = parse_query_kv(tail, "format");
         return Some(
-            super::routes_top::sessions_by_day_response(days, store, format.as_deref())
-                .await,
+            super::routes_sessions_rollups::sessions_by_day_response(
+                days,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
+    if req.starts_with("GET /sessions/by-provider ")
+        || req.starts_with("GET /sessions/by-provider?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_sessions_rollups::sessions_by_provider_response(
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
         );
     }
     if req.starts_with("GET /messages/by-day ") || req.starts_with("GET /messages/by-day?") {
