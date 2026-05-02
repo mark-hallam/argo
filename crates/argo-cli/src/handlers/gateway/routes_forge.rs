@@ -403,3 +403,51 @@ pub(super) async fn forge_runs_by_status_response(
         ),
     }
 }
+
+/// `GET /forge/runs/<id>/payload` — return the queued payload
+/// JSON the daemon needs to (re)run a forge_run row. 404
+/// when no row matches OR the run has no `forge_queue`
+/// payload (typically because it was created via
+/// `?in_process=true` and never had a queue entry).
+pub(super) async fn forge_run_payload_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid forge run id '{raw_id}'\"}}"),
+            );
+        }
+    };
+    match store.get_forge_queue_payload(id).await {
+        Ok(Some(payload)) => {
+            // Re-emit as a wrapped JSON object so the response
+            // is always parseable as JSON regardless of what's
+            // inside the payload string.
+            let parsed: serde_json::Value =
+                serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
+            let resp = serde_json::json!({
+                "run_id": id.to_string(),
+                "payload": parsed,
+            });
+            (
+                "200 OK",
+                serde_json::to_string(&resp).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Ok(None) => (
+            "404 Not Found",
+            format!("{{\"error\":\"no forge_queue payload for run {raw_id}\"}}"),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"get_forge_queue_payload: {e}\"}}"),
+        ),
+    }
+}

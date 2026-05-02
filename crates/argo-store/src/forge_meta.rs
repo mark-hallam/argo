@@ -145,6 +145,33 @@ impl SessionStore {
             .await
             .map_err(|e| ArgoError::Provider(format!("requeue_forge_run: {e}")))
     }
+
+    /// Read the queued payload (the JSON the daemon needs to
+    /// run a forge_run row) for a given run id. Returns
+    /// `Ok(None)` when no `forge_queue` row exists — typical
+    /// for runs created via `?in_process=true` or pre-v1.1
+    /// rows that never had a queue entry.
+    pub async fn get_forge_queue_payload(
+        &self,
+        run_id: Uuid,
+    ) -> StoreResult<Option<String>> {
+        get_forge_queue_payload(self.pool(), run_id)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("get_forge_queue_payload: {e}")))
+    }
+}
+
+async fn get_forge_queue_payload(
+    pool: &Pool<Sqlite>,
+    run_id: Uuid,
+) -> Result<Option<String>, sqlx::Error> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT payload_json FROM forge_queue WHERE forge_run_id = ?",
+    )
+    .bind(run_id.as_bytes().as_slice())
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(p,)| p))
 }
 
 async fn get_forge_run(

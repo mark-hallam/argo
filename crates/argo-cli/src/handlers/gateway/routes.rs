@@ -375,6 +375,13 @@ pub(super) async fn dispatch_route(
         return super::routes_counts::dispatch_forge_runs_count(req, store).await;
     }
     if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
+        // /forge/runs/<id>/payload — sub-path takes priority
+        // over the bare /forge/runs/<id> show below.
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("payload ") || tail.starts_with("payload?") {
+                return super::routes_forge::forge_run_payload_response(id, store).await;
+            }
+        }
         if let Some((id_with_query, _)) = rest.split_once(' ') {
             let (id, query) = match id_with_query.split_once('?') {
                 Some((i, q)) => (i, Some(q)),
