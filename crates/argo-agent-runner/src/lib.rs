@@ -41,6 +41,7 @@ mod dispatch;
 mod helpers;
 mod transport;
 mod turn;
+mod turn_vertical;
 
 pub use helpers::{
     build_assistant_content, emit_event, lift_tool_blocks, message_from_row, price_for,

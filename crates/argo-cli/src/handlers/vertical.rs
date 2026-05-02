@@ -13,19 +13,11 @@ use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{load_dir, LoadedVertical};
 use std::path::PathBuf;
 
-/// Env var that overrides the verticals directory. Set by tests +
-/// by users who keep their verticals outside the repo.
-pub const ENV_VERTICALS_DIR: &str = "ARGO_VERTICALS_DIR";
-
-/// Resolve where the loader walks. `$ARGO_VERTICALS_DIR` wins;
-/// default is `./verticals` (cwd-relative).
+/// Resolve where the loader walks. Delegates to
+/// `argo_vertical::default_dir()` so CLI + gateway + agent
+/// runner all agree on where to look (#654).
 pub(crate) fn resolve_verticals_dir() -> PathBuf {
-    if let Ok(p) = std::env::var(ENV_VERTICALS_DIR) {
-        if !p.trim().is_empty() {
-            return PathBuf::from(p);
-        }
-    }
-    PathBuf::from("verticals")
+    argo_vertical::default_dir()
 }
 
 pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {

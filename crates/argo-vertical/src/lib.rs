@@ -54,6 +54,26 @@ mod manifest;
 mod registry;
 mod validator;
 
+use std::path::PathBuf;
+
+/// Env var that overrides the default verticals discovery
+/// directory. Set by tests + by users who keep their verticals
+/// outside the repo.
+pub const ENV_VERTICALS_DIR: &str = "ARGO_VERTICALS_DIR";
+
+/// Resolve the default verticals discovery directory.
+/// `$ARGO_VERTICALS_DIR` wins; default is `./verticals`
+/// (cwd-relative). Pure policy — does no I/O.
+#[must_use]
+pub fn default_dir() -> PathBuf {
+    if let Ok(p) = std::env::var(ENV_VERTICALS_DIR) {
+        if !p.trim().is_empty() {
+            return PathBuf::from(p);
+        }
+    }
+    PathBuf::from("verticals")
+}
+
 pub use loader::{load_dir, LoadError};
 pub use manifest::{
     parse, EscalationSection, EvaluationSection, GatewaySection, MemorySection, ProviderSection,

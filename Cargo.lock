@@ -108,11 +108,13 @@ dependencies = [
  "argo-store",
  "argo-tool",
  "argo-types",
+ "argo-vertical",
  "async-trait",
  "aws-config",
  "chrono",
  "futures",
  "serde_json",
+ "tempfile",
  "tokio",
  "uuid",
 ]

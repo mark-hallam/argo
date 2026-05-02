@@ -15,6 +15,7 @@ use crate::helpers::{
     stream_one_round, RoundResp, RunEventSink, SpendCtx,
 };
 use crate::transport::{build_transport, load_manifest};
+use crate::turn_vertical::{build_turn_start_payload, resolve_vertical_for_session};
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_store::SessionStore;
@@ -95,8 +96,19 @@ pub async fn run_turn_with_events(
     let provider_id = manifest.provider.id.clone();
     let transport: Box<dyn Transport> = build_transport(manifest).await?;
 
+    // Vertical lookup: when the session is bound, load the
+    // declared role/system_prompt + carry the slug into the audit
+    // payload so /audit/by-vertical rollups become possible (#654).
+    // Per-vertical load errors degrade gracefully — the turn
+    // still runs; the prompt just falls back to skill-derived.
+    let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
+
     let audit = AuditSink::new(store.clone());
-    let turn_start = serde_json::json!({"provider": session.provider, "model": session.model});
+    let turn_start = build_turn_start_payload(
+        &session.provider,
+        &session.model,
+        session.vertical_id.as_deref(),
+    );
     audit
         .write(Some(session_id), AuditKind::TurnStart, turn_start.clone())
         .await?;
@@ -118,6 +130,7 @@ pub async fn run_turn_with_events(
         max_rounds,
         stream,
         events,
+        vertical_ctx.as_deref(),
     )
     .await;
     let kind = if result.is_ok() {
@@ -145,10 +158,22 @@ async fn run_turn_with_tools(
     max_rounds: usize,
     stream: bool,
     events: Option<&RunEventSink>,
+    vertical_prompt: Option<&str>,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
-    let system_prompt = build_system_prompt(store, session_id).await?;
+    let mut system_prompt = build_system_prompt(store, session_id).await?;
+    // Vertical-bound session: prepend the vertical's
+    // [role].system_prompt content so it lands ahead of skill-
+    // derived guidance (#654). Falls through cleanly when the
+    // session isn't bound or the file couldn't be read.
+    if let Some(vp) = vertical_prompt {
+        let merged = match system_prompt.take() {
+            Some(skill_prompt) => format!("{vp}\n\n---\n\n{skill_prompt}"),
+            None => vp.to_string(),
+        };
+        system_prompt = Some(merged);
+    }
 
     let mut last_text = String::new();
     let mut last_tokens_in: Option<u32> = None;
@@ -372,4 +397,8 @@ mod tests {
         assert!(prompt_after.contains("body-A"));
         assert!(prompt_after.contains("body-B"));
     }
+
+    // Vertical-related unit tests live in `turn_vertical.rs`
+    // since the helpers were extracted there to keep this file
+    // under the 500-LOC budget (#654).
 }
