@@ -1,6 +1,7 @@
-//! Messages-table rollup handlers (`/messages/by-role`,
-//! `/messages/by-session`, `/messages/recent`) — lifted into a
-//! sibling file so `routes_msgs.rs` stays under the 500-LOC
+//! Messages-table rollup handlers — workspace-wide
+//! (`/messages/by-role`, `/messages/by-session`, `/messages/recent`)
+//! and per-session (`/sessions/<id>/messages/by-role`) — lifted
+//! into a sibling file so `routes_msgs.rs` stays under the 500-LOC
 //! ceiling once the rollup family started growing past by-day.
 use super::store_unavailable;
 use argo_store::SessionStore;
@@ -272,6 +273,93 @@ pub(super) async fn messages_recent_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"messages_recent: {e}\"}}"),
+        ),
+    }
+}
+
+/// `GET /sessions/<id>/messages/by-role[?since-minutes=M&format=markdown]`
+/// — per-session drill-down of `/messages/by-role` (#611). For
+/// one session, returns the histogram of message rows grouped by
+/// role. Useful for "what's the user/assistant/tool ratio in
+/// this session?". Pairs with /sessions/<id>/audit/by-kind (#621).
+pub(super) async fn session_messages_by_role_response(
+    sid: &str,
+    since_minutes: Option<i64>,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => u,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            );
+        }
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT role, COUNT(*) FROM message \
+                 WHERE session_id = ? AND created_at >= ? \
+                 GROUP BY role ORDER BY role",
+            )
+            .bind(id.as_bytes().to_vec())
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT role, COUNT(*) FROM message \
+                 WHERE session_id = ? \
+                 GROUP BY role ORDER BY role",
+            )
+            .bind(id.as_bytes().to_vec())
+            .fetch_all(pool)
+            .await
+        }
+    };
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let mut sorted = rows.clone();
+                sorted.sort_by_key(|r| std::cmp::Reverse(r.1));
+                let total: i64 = sorted.iter().map(|(_, n)| *n).sum();
+                let mut out = format!(
+                    "# Messages by role for session `{sid}` ({total} rows across {} role{})\n\n",
+                    sorted.len(),
+                    if sorted.len() == 1 { "" } else { "s" }
+                );
+                if !sorted.is_empty() {
+                    out.push_str("| role | count |\n| --- | ---: |\n");
+                    for (r, n) in &sorted {
+                        out.push_str(&format!("| `{r}` | {n} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let mut by_role = serde_json::Map::new();
+            for (r, n) in rows {
+                by_role.insert(r, serde_json::json!(n));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "by_role": serde_json::Value::Object(by_role),
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"session_messages_by_role: {e}\"}}"),
         ),
     }
 }

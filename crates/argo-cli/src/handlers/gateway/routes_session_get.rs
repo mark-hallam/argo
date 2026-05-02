@@ -50,6 +50,20 @@ pub(super) async fn dispatch_session_get(
             let format = parse_query_kv(tail, "format");
             return Some(first_message_response(sid, store, format.as_deref()).await);
         }
+        if tail.starts_with("messages/by-role ") || tail.starts_with("messages/by-role?") {
+            let since = parse_query_kv(tail, "since-minutes")
+                .and_then(|v| v.parse::<i64>().ok());
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                super::routes_messages_rollups::session_messages_by_role_response(
+                    sid,
+                    since,
+                    store,
+                    format.as_deref(),
+                )
+                .await,
+            );
+        }
         if tail.starts_with("messages/count ") || tail.starts_with("messages/count?") {
             let role = parse_role(tail);
             let since = parse_query_kv(tail, "since-minutes")

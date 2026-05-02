@@ -30,6 +30,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/<id>/audit/verify", "verify a session's chain integrity (alias for /audit/sessions/<id>/verify; ?include-breaks=true&format=markdown)"),
         ("GET", "/sessions/<id>/audit/by-kind", "per-session audit kind histogram (?since-minutes=N&format=markdown)"),
         ("GET", "/sessions/<id>/audit/by-tool", "per-session tool_call+tool_result histogram by tool name (?since-minutes=N&format=markdown)"),
+        ("GET", "/sessions/<id>/messages/by-role", "per-session message-role histogram (?since-minutes=N&format=markdown)"),
         ("GET", "/sessions/<id>/stats", "per-session stats: role histogram + timing envelope + inter-message gap stats (?format=markdown)"),
         ("GET", "/sessions/<id>/turns", "flatten messages into user→assistant→tools turn tuples (?format=markdown)"),
         ("GET", "/skills", "active skills (?include-superseded&name-contains&lock&body-contains&limit&format=markdown)"),
