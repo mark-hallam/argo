@@ -20,6 +20,7 @@ mod input_helpers;
 mod live_event;
 mod overlay_text;
 mod overlays;
+mod overlays_tool_errors;
 mod render;
 mod text_input;
 mod viewer;

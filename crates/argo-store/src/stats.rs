@@ -50,3 +50,24 @@ pub(super) async fn db_stats(pool: &Pool<Sqlite>) -> Result<DbStats, ArgoError> 
     }
     Ok(stats)
 }
+
+/// Tool-error histogram across the workspace's audit chain —
+/// `tool_result` rows where `is_error=true`, grouped by tool
+/// name (extracted from `payload_json`'s `$.tool` field).
+/// Backs the `E` overlay in the TUI (#645) and mirrors the
+/// gateway's `/audit/tool-errors` (#617).
+pub async fn tool_errors_histogram(
+    pool: &Pool<Sqlite>,
+) -> Result<Vec<(String, i64)>, ArgoError> {
+    sqlx::query_as::<_, (String, i64)>(
+        "SELECT json_extract(payload_json, '$.tool') AS tool, COUNT(*) \
+         FROM audit_record \
+         WHERE kind = 'tool_result' \
+           AND json_extract(payload_json, '$.is_error') = 1 \
+           AND json_extract(payload_json, '$.tool') IS NOT NULL \
+         GROUP BY tool ORDER BY COUNT(*) DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("tool_errors_histogram: {e}")))
+}

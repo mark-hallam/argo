@@ -138,6 +138,13 @@ pub struct ViewerState {
     pub tools_overlay: Option<Vec<String>>,
     /// Scroll offset (in rows) into the tools overlay.
     pub tools_overlay_scroll: usize,
+    /// Tool-error histogram from the audit chain when the
+    /// tool-errors overlay is open (entered with `E`). Each entry
+    /// is `(tool_name, count)` ordered desc by count. Mirrors the
+    /// gateway's `/audit/tool-errors` (#617).
+    pub tool_errors_overlay: Option<Vec<(String, i64)>>,
+    /// Scroll offset (in rows) into the tool-errors overlay.
+    pub tool_errors_overlay_scroll: usize,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -209,6 +216,8 @@ impl ViewerState {
             cron_overlay_scroll: 0,
             tools_overlay: None,
             tools_overlay_scroll: 0,
+            tool_errors_overlay: None,
+            tool_errors_overlay_scroll: 0,
             workspace_label: None,
         }
     }

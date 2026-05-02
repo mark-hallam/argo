@@ -24,7 +24,7 @@ mod workspace;
 pub use marketplace_meta::MarketplaceArtifactRow;
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
 pub use spend::GlobalSpend;
-pub use stats::DbStats;
+pub use stats::{tool_errors_histogram, DbStats};
 
 use argo_types::{ArgoError, MessageRole, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;

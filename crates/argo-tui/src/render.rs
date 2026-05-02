@@ -65,6 +65,14 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(rows) = state.tools_overlay.as_ref() {
         crate::overlays::draw_tools(frame, area, rows, state.tools_overlay_scroll);
     }
+    if let Some(rows) = state.tool_errors_overlay.as_ref() {
+        crate::overlays_tool_errors::draw_tool_errors(
+            frame,
+            area,
+            rows,
+            state.tool_errors_overlay_scroll,
+        );
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {

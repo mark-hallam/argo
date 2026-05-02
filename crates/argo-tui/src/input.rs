@@ -191,6 +191,20 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Tool-errors overlay: Esc/E/q close, vim-ish scroll.
+            if let Some(rows) = state.tool_errors_overlay.as_ref() {
+                let n = rows.len();
+                if handle_scroll_overlay(
+                    key.code,
+                    &['E'],
+                    &mut state.tool_errors_overlay_scroll,
+                    n,
+                ) {
+                    state.tool_errors_overlay = None;
+                    state.tool_errors_overlay_scroll = 0;
+                }
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -336,6 +350,13 @@ pub(crate) async fn run(
                         Vec::new()
                     };
                     state.audit_overlay = Some(rows);
+                }
+                KeyCode::Char('E') => {
+                    // Tool-error histogram (#617).
+                    let rows = argo_store::tool_errors_histogram(store.pool())
+                        .await
+                        .unwrap_or_default();
+                    state.tool_errors_overlay = Some(rows);
                 }
                 KeyCode::Char('M') => {
                     // Load the active-memory rows across all 4

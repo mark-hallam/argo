@@ -475,3 +475,4 @@ fn clip(s: &str, n: usize) -> String {
     out.push('…');
     out
 }
+
