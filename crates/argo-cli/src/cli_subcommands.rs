@@ -467,6 +467,18 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of `tool_result` audit rows where `is_error=true`,
+    /// grouped by tool. Mirrors the gateway's
+    /// `GET /audit/tool-errors` (#617). Operational signal for
+    /// spotting broken tool integrations.
+    ToolErrors {
+        /// Filter to rows created within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{tool_errors}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // WorkspaceCmd / DbCmd / CostsCmd live in

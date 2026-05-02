@@ -10,6 +10,7 @@ pub mod audit_by_kind;
 pub mod audit_by_session;
 pub mod audit_by_tool;
 mod audit_helpers;
+pub mod audit_tool_errors;
 pub mod messages;
 pub mod messages_by_day;
 pub mod messages_by_role;
