@@ -70,6 +70,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/health/full", "deep health (chain + skill + memory)"),
         ("GET", "/routes", "this listing (?method=GET|POST&format=markdown)"),
         ("GET", "/metrics", "Prometheus-style text exposition"),
+        ("GET", "/metrics/json", "JSON variant of /metrics for clients that don't speak Prometheus text"),
         ("POST", "/metrics/reset", "zero out the scrape counter; returns {previous, current}"),
         ("GET", "/db/stats", "per-table row counts (sessions, messages, audit, …)"),
         ("POST", "/db/vacuum", "run VACUUM on the SQLite store"),

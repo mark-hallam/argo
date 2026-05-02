@@ -248,6 +248,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /db/stats ") {
         return db_stats_response(store).await;
     }
+    if req.starts_with("GET /metrics/json ") || req.starts_with("GET /metrics/json?") {
+        let body = super::metrics::render_json(store).await;
+        return ("200 OK", body);
+    }
     if req.starts_with("GET /routes ") || req.starts_with("GET /routes?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let method = parse_query_kv(tail, "method");
