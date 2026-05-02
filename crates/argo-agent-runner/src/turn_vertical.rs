@@ -36,6 +36,36 @@ pub(crate) fn build_turn_start_payload(
     payload
 }
 
+/// Build the deny-set of tool names the vertical refuses to
+/// dispatch (#655). Returns an empty set for unbound sessions
+/// or when the manifest declares no `[tools]` block — the
+/// caller can `is_empty()` to short-circuit the per-tool check.
+///
+/// Deny-wins semantics: if a tool name appears in the manifest's
+/// `denied` list, dispatch must be blocked even if the engine's
+/// role grants would otherwise permit it.
+pub(crate) fn build_vertical_deny_set(
+    vertical_id: Option<&str>,
+) -> std::collections::HashSet<String> {
+    let mut out = std::collections::HashSet::new();
+    let Some(vid) = vertical_id else {
+        return out;
+    };
+    let dir = argo_vertical::default_dir();
+    let Ok((registry, _errors)) = argo_vertical::load_dir(&dir) else {
+        return out;
+    };
+    let Some(loaded) = registry.get(vid) else {
+        return out;
+    };
+    if let Some(tools) = &loaded.manifest.tools {
+        for name in &tools.denied {
+            out.insert(name.clone());
+        }
+    }
+    out
+}
+
 /// Resolve the vertical's `[role].system_prompt` markdown for a
 /// vertical-bound session. Returns `None` (silently) when:
 /// - the session isn't vertical-bound,
@@ -135,5 +165,75 @@ mod tests {
         let got = resolve_vertical_for_session(Some("noprompt"));
         std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(got.is_none());
+    }
+
+    // ---- vertical deny-set (#655) ----------------------------
+
+    fn write_vertical_with_tools(
+        dir: &std::path::Path,
+        id: &str,
+        allowed: &[&str],
+        denied: &[&str],
+    ) {
+        let v = dir.join(id);
+        std::fs::create_dir_all(&v).unwrap();
+        let allowed_toml = allowed
+            .iter()
+            .map(|s| format!("\"{s}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let denied_toml = denied
+            .iter()
+            .map(|s| format!("\"{s}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        std::fs::write(
+            v.join("vertical.toml"),
+            format!(
+                "schema_version = \"1\"\n\
+                 [vertical]\nid = \"{id}\"\nname = \"X\"\nversion = \"0.1.0\"\n\
+                 [tools]\nallowed = [{allowed_toml}]\ndenied = [{denied_toml}]\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn deny_set_empty_for_unbound_session() {
+        let s = build_vertical_deny_set(None);
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn deny_set_carries_manifest_denies() {
+        let dir = tempfile::tempdir().unwrap();
+        write_vertical_with_tools(dir.path(), "ro", &["file_read"], &["file_write", "terminal"]);
+        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let s = build_vertical_deny_set(Some("ro"));
+        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        assert!(s.contains("file_write"));
+        assert!(s.contains("terminal"));
+        assert!(!s.contains("file_read"));
+        assert_eq!(s.len(), 2);
+    }
+
+    #[test]
+    fn deny_set_empty_for_unknown_id() {
+        let dir = tempfile::tempdir().unwrap();
+        write_vertical_with_tools(dir.path(), "ro", &[], &["x"]);
+        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let s = build_vertical_deny_set(Some("ghost"));
+        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn deny_set_empty_when_no_tools_section() {
+        let dir = tempfile::tempdir().unwrap();
+        write_vertical_no_role(dir.path()); // no [tools] either
+        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let s = build_vertical_deny_set(Some("noprompt"));
+        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        assert!(s.is_empty());
     }
 }

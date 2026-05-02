@@ -15,7 +15,9 @@ use crate::helpers::{
     stream_one_round, RoundResp, RunEventSink, SpendCtx,
 };
 use crate::transport::{build_transport, load_manifest};
-use crate::turn_vertical::{build_turn_start_payload, resolve_vertical_for_session};
+use crate::turn_vertical::{
+    build_turn_start_payload, build_vertical_deny_set, resolve_vertical_for_session,
+};
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_store::SessionStore;
@@ -99,9 +101,11 @@ pub async fn run_turn_with_events(
     // Vertical lookup: when the session is bound, load the
     // declared role/system_prompt + carry the slug into the audit
     // payload so /audit/by-vertical rollups become possible (#654).
-    // Per-vertical load errors degrade gracefully — the turn
-    // still runs; the prompt just falls back to skill-derived.
+    // Also build the deny-set the dispatcher will consult per-call
+    // (#655). Per-vertical load errors degrade gracefully — the
+    // turn still runs; the prompt just falls back to skill-derived.
     let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
+    let vertical_deny = build_vertical_deny_set(session.vertical_id.as_deref());
 
     let audit = AuditSink::new(store.clone());
     let turn_start = build_turn_start_payload(
@@ -131,6 +135,7 @@ pub async fn run_turn_with_events(
         stream,
         events,
         vertical_ctx.as_deref(),
+        &vertical_deny,
     )
     .await;
     let kind = if result.is_ok() {
@@ -159,6 +164,7 @@ async fn run_turn_with_tools(
     stream: bool,
     events: Option<&RunEventSink>,
     vertical_prompt: Option<&str>,
+    vertical_deny: &std::collections::HashSet<String>,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -249,8 +255,34 @@ async fn run_turn_with_tools(
                 .write(Some(session_id), AuditKind::ToolCall, call_payload.clone())
                 .await?;
             emit_event(events, "ToolCall", call_payload);
-            let result: ToolCallResult =
-                dispatch_one(&registry, &engine, &principal, cwd, call).await;
+
+            // Vertical-level deny check (#655). Deny-wins: if the
+            // bound vertical's [tools].denied list mentions this
+            // tool, block the call before it even reaches the
+            // capability engine. Emits an RbacDeny audit row + a
+            // synthetic error ToolCallResult so the agent learns
+            // the boundary instead of seeing a silent no-op.
+            let result: ToolCallResult = if vertical_deny.contains(&call.name) {
+                let deny_payload = serde_json::json!({
+                    "tool": call.name,
+                    "call_id": call.id,
+                    "denied_by": "vertical_manifest",
+                });
+                audit
+                    .write(Some(session_id), AuditKind::RbacDeny, deny_payload.clone())
+                    .await?;
+                emit_event(events, "RbacDeny", deny_payload);
+                argo_tool::error_text(
+                    call.id,
+                    format!(
+                        "tool '{}' denied by the bound vertical's manifest [tools].denied list",
+                        call.name
+                    ),
+                    0,
+                )
+            } else {
+                dispatch_one(&registry, &engine, &principal, cwd, call).await
+            };
             let result_payload = serde_json::json!({
                 "tool": call.name,
                 "call_id": call.id,
