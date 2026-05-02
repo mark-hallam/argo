@@ -49,6 +49,7 @@ pub mod route;
 pub mod session;
 mod session_aggregates;
 mod session_audit_rollups;
+mod session_messages_rollups;
 mod session_bisect;
 mod session_by_day;
 mod session_by_model;

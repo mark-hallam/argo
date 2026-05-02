@@ -188,6 +188,11 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             since_minutes,
             json,
         } => super::session_audit_rollups::run_by_tool(id, since_minutes, json).await,
+        SessionCmd::MessagesByRole {
+            id,
+            since_minutes,
+            json,
+        } => super::session_messages_rollups::run_by_role(id, since_minutes, json).await,
     }
 }
 

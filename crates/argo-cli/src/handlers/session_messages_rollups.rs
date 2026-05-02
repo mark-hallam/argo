@@ -1,0 +1,78 @@
+//! `argo session messages-by-role <id>` — per-session drill-down
+//! of `argo messages by-role` (#612). Mirrors the gateway's
+//! `GET /sessions/<id>/messages/by-role` (#623). Same SQL the
+//! gateway runs.
+use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_store::SessionStore;
+use argo_types::{ArgoError, ArgoResult};
+
+pub async fn run_by_role(
+    session: String,
+    since_minutes: Option<i64>,
+    json: bool,
+) -> ArgoResult<()> {
+    let id = uuid::Uuid::parse_str(&session)
+        .map_err(|e| ArgoError::Provider(format!("invalid session id '{session}': {e}")))?;
+    let cwd = std::env::current_dir()
+        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let pool = store.pool();
+    let rows: Vec<(String, i64)> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT role, COUNT(*) FROM message \
+                 WHERE session_id = ? AND created_at >= ? \
+                 GROUP BY role ORDER BY role",
+            )
+            .bind(id.as_bytes().to_vec())
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT role, COUNT(*) FROM message \
+                 WHERE session_id = ? \
+                 GROUP BY role ORDER BY role",
+            )
+            .bind(id.as_bytes().to_vec())
+            .fetch_all(pool)
+            .await
+        }
+    }
+    .map_err(|e| ArgoError::Provider(format!("session_messages_by_role: {e}")))?;
+    if json {
+        let mut by_role = serde_json::Map::new();
+        for (r, n) in &rows {
+            by_role.insert(r.clone(), serde_json::json!(n));
+        }
+        println!(
+            "{}",
+            serde_json::to_string(&serde_json::json!({
+                "by_role": serde_json::Value::Object(by_role),
+            }))
+            .unwrap_or_default()
+        );
+        return Ok(());
+    }
+    if rows.is_empty() {
+        println!("(no messages for session {session})");
+        return Ok(());
+    }
+    let mut sorted = rows.clone();
+    sorted.sort_by_key(|r| std::cmp::Reverse(r.1));
+    let total: i64 = sorted.iter().map(|(_, n)| *n).sum();
+    println!(
+        "messages by role for session {session} ({total} rows across {} roles):",
+        sorted.len()
+    );
+    for (r, n) in &sorted {
+        println!("  {n:>8}  {r}");
+    }
+    Ok(())
+}
