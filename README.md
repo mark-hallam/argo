@@ -4,8 +4,9 @@
 
 Argo is the agent framework that **a single engineer can fully audit on a weekend** and that **a 200-person company can deploy to production** without writing the multi-tenant layer themselves.
 
-> **Status:** Phases 0–7 + 4.5 + 6.5 + 7.5 are all shipped as a stack of 28 PRs. All 13 v0.2 amendments + capability items have library-tier implementations with tests: cost-tier router, external judge, user-locked skills/memory, gateway RBAC, multi-agent, ACP server, voice/browser MCP servers (deferred — heavy native bindings), Forge, time-travel replay, workspace OCI marketplace, hard cost ceilings, mid-run `/steer`, resume-on-restart, plus the §22 cron scheduler core and the eval harness runtime. **Next up: the integration tier — the daemon binary (`argo-cli`), the TUI, and the heavy MCP servers.**
-> See `docs/plan/argo-build-plan.md` for the full master spec and `ROADMAP.md` for the per-PR map.
+> **Status: production-ready as of PR #522 (April 2026).** Phases 0–7 + 4.5 + 6.5 + 7.5 all shipped across **636+ PRs** on `main`. The gateway exposes **104 endpoints** (63 GET + 41 POST) with universal `--json` + `?format=markdown`. Library + integration + observability tiers are feature-complete. v1.1 architectural cleanup also done: forge daemon split (#581), browser MCP stateful sessions (17 stateful tools + lifecycle + idle-reaper, #591/#593), voice MCP native STT via whisper-rs (opt-in via `--features whisper-native`, #636).
+>
+> **What's left** is decision-gated, not blocked: native TTS (waiting on `piper-rs` upstream to fix its `ort` 2.x build), OCI registry CI smoke (needs test creds), and optional cloud browser backends (Browserbase / BrowserUse — user-pays). See `ROADMAP.md` for the per-PR map.
 
 ## The five non-negotiable invariants
 
@@ -21,14 +22,9 @@ These five are the spec. Anything that violates them is a bug.
 
 Argo is a structurally different shape: Rust core, JSON-RPC plugin ABI, multi-tenant by construction, capability-based security, provider manifests instead of adapters, an MCP-first integration model — plus an external-judge adjudicator for skill creation, automated skill optimization (Argo Forge), time-travel session replay, and a workspace OCI marketplace. Roughly 5× smaller for ~95% of Hermes capability and addressing the 14 most-cited Hermes user pain points by design (token overhead, RBAC, multi-agent, adaptive timeouts, …). See `docs/plan/argo-vs-hermes-gap-analysis.md`.
 
-## Quick start (once v1.0 ships)
+## Quick start
 
-```bash
-curl -fsSL https://argo-agent.sh/install | bash
-argo
-```
-
-Today, you build from source:
+Build from source (the public installer ships post-stabilisation):
 
 ```bash
 git clone https://github.com/mark-hallam/Argo-Agent argo
@@ -38,12 +34,39 @@ cargo test --workspace
 ./target/debug/argo --version
 ```
 
+Then drive it offline (no API key required):
+
+```bash
+./target/debug/argo gateway start &        # bind 127.0.0.1:7400
+curl http://127.0.0.1:7400/                # landing JSON + entry-point hints
+curl http://127.0.0.1:7400/routes          # the full 104-endpoint catalog
+./target/debug/argo doctor                 # workspace health probe
+./target/debug/argo gateway probe          # K8s-style readiness probe
+./target/debug/argo tui                    # full Ratatui app w/ 10 overlays
+```
+
+For live LLM runs, export an API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) and use `argo chat` or `argo session new`.
+
+## Optional features
+
+Native voice STT (offline transcription via whisper.cpp):
+
+```bash
+cargo install --path mcp-servers/voice --features whisper-native
+# adds ~50s to a fresh build (one-time C++/CMake compile of whisper.cpp)
+# adds ~20 MB to the resulting binary
+# download a ggml model — e.g. ggml-base.en.bin — from
+# https://huggingface.co/ggerganov/whisper.cpp
+export ARGO_WHISPER_MODEL=~/.argo/ggml-base.en.bin
+```
+
 ## Documentation
 
 - `docs/plan/argo-build-plan.md` — the master spec (v0.2)
 - `docs/plan/argo-day-0-kickoff.md` — coding-agent kickoff pack
 - `docs/plan/argo-vs-hermes-gap-analysis.md` — user-research-grounded design rationale
 - `ARCHITECTURE.md` — condensed architecture overview
+- `ROADMAP.md` — phase plan + per-PR map
 - `CONTRIBUTING.md` — how to contribute (read this BEFORE opening a PR)
 
 ## License
