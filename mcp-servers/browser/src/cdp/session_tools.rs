@@ -103,6 +103,27 @@ pub async fn session_read_page(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// `session_get_url {session_id}` — return the current
+/// `window.location.href` of the session's pinned tab.
+/// Useful after `session_navigate` (or any in-page nav like
+/// `el.click()` on a `<a>`) to confirm where the tab actually
+/// ended up. No CDP equivalent — just Runtime.evaluate.
+pub async fn session_get_url(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    match runtime_evaluate(sid, "window.location.href").await {
+        Ok(parsed) => {
+            let value = parsed["result"]["result"]["value"]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_default();
+            ok(value)
+        }
+        Err(e) => error(e),
+    }
+}
+
 pub async fn session_click(args: &serde_json::Value) -> CallToolResult {
     let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
         return error("missing required field 'session_id'".into());

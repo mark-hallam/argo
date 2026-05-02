@@ -14,8 +14,8 @@ pub use dom::{eval, extract_links, read_page};
 pub use forms::{click, cookies, fill, submit, wait_for};
 pub use session_tools::{
     session_click, session_cookies, session_eval, session_extract_links, session_fill,
-    session_navigate, session_pdf, session_read_page, session_screenshot,
-    session_scroll, session_submit, session_wait_for,
+    session_get_url, session_navigate, session_pdf, session_read_page,
+    session_screenshot, session_scroll, session_submit, session_wait_for,
 };
 pub use sessions::{session_close, session_list, session_open, session_reap};
 

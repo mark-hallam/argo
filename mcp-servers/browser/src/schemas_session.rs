@@ -267,6 +267,24 @@ pub(crate) fn session_cookies_schema() -> McpToolSchema {
     }
 }
 
+pub(crate) fn session_get_url_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_get_url".into(),
+        description: "Return `window.location.href` for the \
+            session's pinned tab. Useful after `session_navigate` \
+            (or any in-page nav) to confirm where the tab \
+            actually ended up — Page.navigate's response only \
+            tells you what was *requested*, not what was \
+            committed after redirects."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id"],
+            "properties": { "session_id": { "type": "string" } }
+        }),
+    }
+}
+
 pub(crate) fn session_reap_schema() -> McpToolSchema {
     McpToolSchema {
         name: "session_reap".into(),

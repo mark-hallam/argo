@@ -58,11 +58,11 @@ fn tools_list_advertises_twelve_spec_tools_plus_two_http_probes() {
     let resps = drive(&[r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#.into()]);
     assert_eq!(resps.len(), 1);
     let tools = resps[0]["result"]["tools"].as_array().expect("tools array");
-    // 12 spec + list_tabs + chrome_version + 16 stateful-session
+    // 12 spec + list_tabs + chrome_version + 17 stateful-session
     // tools (lifecycle: open/close/list/reap; per-tool variants:
     // eval/navigate/read_page/click/fill/submit/extract_links/
-    // screenshot/scroll/wait_for/pdf/cookies).
-    assert_eq!(tools.len(), 30);
+    // screenshot/scroll/wait_for/pdf/cookies/get_url).
+    assert_eq!(tools.len(), 31);
     let names: Vec<String> = tools
         .iter()
         .map(|t| t["name"].as_str().unwrap().to_string())
