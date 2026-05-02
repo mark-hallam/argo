@@ -67,11 +67,12 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **549 PRs** on `main` (149 since milestone 400 — **v1.0 production-ready**),
+across **550 PRs** on `main` (150 since milestone 400 —
+**v1.0 production-ready**, gateway markdown family complete),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
-The gateway exposes **88 endpoints** (47 GET + 41 POST) with
+The gateway exposes **89 endpoints** (48 GET + 41 POST) with
 full CLI parity for the read/count surface, plus the full
 `--sort-by` family across the four list views and time
 filters on the count endpoints. **Count endpoint family
@@ -80,9 +81,20 @@ complete** across the 5 read-list surfaces (sessions / skills
 CLI subcommands. **--json output is universal** across every
 list/show/status surface (sessions, skills, memory, forge,
 audit, costs, doctor, db status, gateway status, plugin,
-agents, providers, etc). Remaining items are purely
-architectural (real OCI push, browser stateful sessions,
-voice native bindings, standalone forge daemon split).
+agents, providers, etc). **`?format=markdown` is universal**
+across every read-side gateway endpoint — list, show, and
+versions surfaces alike (sessions, sessions/<id>, skills,
+skills/<name>, skills/<name>/versions, memory, memory/<id>,
+memory/<id>/versions, forge runs, forge runs/<id>, providers,
+providers/<id>, providers/<id>/models, audit, audit/breaks,
+audit/recent, audit/sessions/<id>, audit/sessions/<id>/verify,
+costs, costs/total, costs/by-model, costs/by-session,
+sessions/<id>/spend, sessions/<id>/spend/total,
+sessions/<id>/skills, sessions/<id>/judge,
+sessions/<id>/export, search, tools, tools/<name>, routes,
+workspace/info). Remaining items are purely architectural
+(real OCI push, browser stateful sessions, voice native
+bindings, standalone forge daemon split).
 
 `argo chat <id> [--user "..."] [--stream] [-i]` drives a real
 multi-turn agent loop against a recorded session. Each round
