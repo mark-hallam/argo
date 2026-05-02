@@ -248,8 +248,10 @@ pub(super) async fn dispatch_route(
             return tool_show_response(name, format.as_deref()).await;
         }
     }
-    if req.starts_with("GET /db/stats ") {
-        return db_stats_response(store).await;
+    if req.starts_with("GET /db/stats ") || req.starts_with("GET /db/stats?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return db_stats_response(store, format.as_deref()).await;
     }
     if req.starts_with("GET /db/version ") || req.starts_with("GET /db/version?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);

@@ -314,19 +314,47 @@ pub(super) async fn costs_total_response(
     }
 }
 
-/// `GET /db/stats` — per-table row counts for the workspace
-/// store. Mirrors the `db status` block of `argo doctor`.
+/// `GET /db/stats[?format=markdown]` — per-table row counts
+/// for the workspace store. Mirrors the `db status` block of
+/// `argo doctor`. JSON default; `?format=markdown` returns a
+/// 2-column paste-able table sorted by row count desc.
 pub(super) async fn db_stats_response(
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
     };
     match store.db_stats().await {
-        Ok(stats) => (
-            "200 OK",
-            serde_json::to_string(&stats).unwrap_or_else(|_| "{}".to_string()),
-        ),
+        Ok(stats) => {
+            if matches!(format, Some("markdown")) {
+                let mut rows: Vec<(&str, i64)> = vec![
+                    ("session", stats.sessions),
+                    ("message", stats.messages),
+                    ("tool_call", stats.tool_calls),
+                    ("audit_record", stats.audit_rows),
+                    ("routing_decision", stats.routing_decisions),
+                    ("judge_record", stats.judge_records),
+                    ("memory_entry", stats.memory_entries),
+                    ("skill", stats.skills),
+                    ("forge_run", stats.forge_runs),
+                    ("spend_ledger", stats.spend_rows),
+                ];
+                rows.sort_by_key(|r| std::cmp::Reverse(r.1));
+                let total: i64 = rows.iter().map(|(_, n)| *n).sum();
+                let mut out = format!("# DB stats ({total} rows across 10 tables)\n\n");
+                out.push_str("| table | rows |\n");
+                out.push_str("| --- | ---: |\n");
+                for (t, n) in &rows {
+                    out.push_str(&format!("| `{t}` | {n} |\n"));
+                }
+                return ("200 OK", out);
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&stats).unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"db_stats: {e}\"}}"),
