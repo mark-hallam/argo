@@ -18,7 +18,7 @@ async fn fresh() -> (Arc<SessionStore>, SessionId) {
     .await
     .unwrap();
     let session = store
-        .create_session(tenant, ws, "model", "provider", Some("t"))
+        .create_session(tenant, ws, "model", "provider", Some("t"), None)
         .await
         .unwrap();
     (store, session)
@@ -163,7 +163,7 @@ async fn verify_all_walks_every_session() {
     .await
     .unwrap();
     let session_b = store
-        .create_session(tenant, ws, "m", "p", Some("b"))
+        .create_session(tenant, ws, "m", "p", Some("b"), None)
         .await
         .unwrap();
     let sink = AuditSink::new(store.clone());

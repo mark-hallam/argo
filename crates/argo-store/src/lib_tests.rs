@@ -7,7 +7,7 @@ use super::*;
 async fn open_and_migrate() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 5);
+    assert_eq!(store.schema_version().await.unwrap(), 6);
 }
 
 #[tokio::test]
@@ -17,7 +17,7 @@ async fn migrate_round_trip() {
     store.migrate_down_to(0).await.unwrap();
     assert_eq!(store.schema_version().await.unwrap(), 0);
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 5);
+    assert_eq!(store.schema_version().await.unwrap(), 6);
 }
 
 #[tokio::test]
@@ -53,7 +53,7 @@ async fn fresh_store_with_workspace() -> (SessionStore, TenantId, WorkspaceId) {
 async fn spend_ledger_records_and_aggregates_session_total() {
     let (store, tenant, ws) = fresh_store_with_workspace().await;
     let session = store
-        .create_session(tenant, ws, "m", "p", None)
+        .create_session(tenant, ws, "m", "p", None, None)
         .await
         .unwrap();
     let now = chrono::Utc::now();
@@ -92,7 +92,7 @@ async fn spend_ledger_records_and_aggregates_session_total() {
 async fn spend_ledger_isolates_by_tenant() {
     let (store, tenant_a, ws_a) = fresh_store_with_workspace().await;
     let session_a = store
-        .create_session(tenant_a, ws_a, "m", "p", None)
+        .create_session(tenant_a, ws_a, "m", "p", None, None)
         .await
         .unwrap();
     let tenant_b = TenantId::new();
@@ -107,7 +107,7 @@ async fn spend_ledger_isolates_by_tenant() {
     .await
     .unwrap();
     let session_b = store
-        .create_session(tenant_b, ws_b, "m", "p", None)
+        .create_session(tenant_b, ws_b, "m", "p", None, None)
         .await
         .unwrap();
     let now = chrono::Utc::now();
@@ -135,7 +135,7 @@ async fn spend_ledger_isolates_by_tenant() {
 async fn spend_ledger_day_window_excludes_yesterday() {
     let (store, tenant, ws) = fresh_store_with_workspace().await;
     let session = store
-        .create_session(tenant, ws, "m", "p", None)
+        .create_session(tenant, ws, "m", "p", None, None)
         .await
         .unwrap();
     let now = chrono::Utc::now();
@@ -168,7 +168,7 @@ async fn create_session_and_append_messages() {
     .await
     .unwrap();
     let session = store
-        .create_session(tenant, ws, "claude-haiku", "anthropic", Some("test"))
+        .create_session(tenant, ws, "claude-haiku", "anthropic", Some("test"), None)
         .await
         .unwrap();
     store
@@ -207,7 +207,7 @@ async fn list_sessions_recency_order() {
     .unwrap();
     for i in 0..3 {
         store
-            .create_session(tenant, ws, "model", "provider", Some(&format!("s{i}")))
+            .create_session(tenant, ws, "model", "provider", Some(&format!("s{i}")), None)
             .await
             .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
@@ -237,7 +237,7 @@ async fn override_judge_verdict_updates_in_place() {
     store.migrate().await.unwrap();
     let (tenant, ws) = store.ensure_workspace("ws", "/tmp/jo").await.unwrap();
     let sid = store
-        .create_session(tenant, ws, "m", "p", Some("t"))
+        .create_session(tenant, ws, "m", "p", Some("t"), None)
         .await
         .unwrap();
     // Insert a judge_record row directly so we don't have to spin

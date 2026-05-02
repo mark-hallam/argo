@@ -80,6 +80,8 @@ impl SessionStore {
     }
 
     /// Create a new session under a tenant + workspace.
+    /// `vertical_id` binds the session to a vertical template
+    /// (#651); pass `None` for ad-hoc / legacy sessions.
     pub async fn create_session(
         &self,
         tenant_id: TenantId,
@@ -87,12 +89,13 @@ impl SessionStore {
         model: &str,
         provider: &str,
         title: Option<&str>,
+        vertical_id: Option<&str>,
     ) -> StoreResult<SessionId> {
         let id = SessionId::new();
         let started_at = Utc::now().timestamp_micros();
         sqlx::query(
-            "INSERT INTO session (id, tenant_id, workspace_id, model, provider, title, started_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO session (id, tenant_id, workspace_id, model, provider, title, started_at, vertical_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.0.as_bytes().as_slice())
         .bind(tenant_id.0.as_bytes().as_slice())
@@ -101,6 +104,7 @@ impl SessionStore {
         .bind(provider)
         .bind(title)
         .bind(started_at)
+        .bind(vertical_id)
         .execute(&self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;
@@ -160,7 +164,7 @@ impl SessionStore {
     /// Fetch a session header.
     pub async fn get_session(&self, session_id: SessionId) -> StoreResult<Option<SessionHeader>> {
         let row = sqlx::query_as::<_, SessionHeaderRow>(
-            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id
              FROM session WHERE id = ?",
         )
         .bind(session_id.0.as_bytes().as_slice())
@@ -176,7 +180,7 @@ impl SessionStore {
     /// provided.
     pub async fn list_all_sessions(&self, limit: u32) -> StoreResult<Vec<SessionHeader>> {
         let rows = sqlx::query_as::<_, SessionHeaderRow>(
-            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id
              FROM session ORDER BY started_at DESC LIMIT ?",
         )
         .bind(i64::from(limit))
@@ -193,7 +197,7 @@ impl SessionStore {
         limit: u32,
     ) -> StoreResult<Vec<SessionHeader>> {
         let rows = sqlx::query_as::<_, SessionHeaderRow>(
-            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id
              FROM session WHERE tenant_id = ?
              ORDER BY started_at DESC LIMIT ?",
         )

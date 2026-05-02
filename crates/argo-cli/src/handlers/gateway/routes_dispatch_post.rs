@@ -9,7 +9,8 @@ use super::routes_forge_promote::{
     forge_sweep_response,
 };
 use super::routes_post::{
-    append_message_response, create_session_response, replay_response, run_turn_response,
+    append_message_response, create_session_for_vertical_response, create_session_response,
+    replay_response, run_turn_response,
     steer_response,
 };
 use super::routes_post_admin::{
@@ -41,6 +42,18 @@ pub(super) async fn dispatch_post(
 ) -> Option<(&'static str, String)> {
     if req.starts_with("POST /sessions ") {
         return Some(create_session_response(req, store).await);
+    }
+    // POST /verticals/<id>/sessions — path-bound session create
+    // (#651). The id is the [vertical].id slug; the body is
+    // {model, provider, title?} — same shape as POST /sessions.
+    if let Some(rest) = req.strip_prefix("POST /verticals/") {
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("sessions ") || tail.starts_with("sessions?") {
+                return Some(
+                    create_session_for_vertical_response(id, req, store).await,
+                );
+            }
+        }
     }
     if req.starts_with("POST /skills ") {
         return Some(install_skill_response(req, store).await);

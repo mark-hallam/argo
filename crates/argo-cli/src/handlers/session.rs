@@ -21,6 +21,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             status,
             title_contains,
             sort_by,
+            vertical,
         } => {
             list_sessions(
                 limit,
@@ -35,6 +36,7 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
                 status,
                 title_contains,
                 sort_by,
+                vertical,
             )
             .await
         }

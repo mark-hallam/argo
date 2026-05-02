@@ -104,7 +104,7 @@ async fn fresh_deps(transport: Arc<dyn Transport>) -> (AgentDeps, SessionId, std
     .await
     .unwrap();
     let session_id = store
-        .create_session(tenant, ws, "model", "provider", Some("t"))
+        .create_session(tenant, ws, "model", "provider", Some("t"), None)
         .await
         .unwrap();
     let mut registry = ToolRegistry::new();
@@ -261,7 +261,7 @@ async fn capability_denied_propagates_through_loop() {
     .await
     .unwrap();
     let session_id = store
-        .create_session(tenant, ws, "model", "provider", Some("t"))
+        .create_session(tenant, ws, "model", "provider", Some("t"), None)
         .await
         .unwrap();
     let mut registry = ToolRegistry::new();
@@ -392,7 +392,7 @@ async fn fresh_store_with_session() -> (Arc<SessionStore>, SessionId) {
     .await
     .unwrap();
     let session = store
-        .create_session(tenant, ws, "model", "provider", Some("t"))
+        .create_session(tenant, ws, "model", "provider", Some("t"), None)
         .await
         .unwrap();
     (store, session)

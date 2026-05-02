@@ -25,6 +25,11 @@ pub struct SessionHeader {
     pub started_at: DateTime<Utc>,
     /// Optional end time.
     pub ended_at: Option<DateTime<Utc>>,
+    /// Optional vertical-template id this session is bound to
+    /// (#651). `None` for legacy sessions and for ad-hoc chat
+    /// sessions that don't go through a vertical.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vertical_id: Option<String>,
 }
 
 /// Raw row shape used internally by sqlx.
@@ -38,6 +43,7 @@ pub(crate) struct SessionHeaderRow {
     pub title: Option<String>,
     pub started_at: i64,
     pub ended_at: Option<i64>,
+    pub vertical_id: Option<String>,
 }
 
 pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
@@ -215,6 +221,7 @@ impl From<SessionHeaderRow> for SessionHeader {
             started_at: DateTime::<Utc>::from_timestamp_micros(r.started_at)
                 .unwrap_or_else(Utc::now),
             ended_at: r.ended_at.and_then(DateTime::<Utc>::from_timestamp_micros),
+            vertical_id: r.vertical_id,
         }
     }
 }

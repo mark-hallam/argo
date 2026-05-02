@@ -48,6 +48,7 @@ impl EvalSubject for BenchSubject {
                 &self.model,
                 &self.provider,
                 Some(&title),
+                None, // forge subject sessions aren't vertical-bound (#651)
             )
             .await?;
         let result = argo_agent_runner::run_turn(

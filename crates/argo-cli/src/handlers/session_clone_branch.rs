@@ -180,6 +180,7 @@ async fn clone_or_branch(
             &header.model,
             &header.provider,
             Some(new_title.as_str()),
+            header.vertical_id.as_deref(),
         )
         .await
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;

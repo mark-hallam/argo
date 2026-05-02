@@ -19,6 +19,7 @@ pub(super) async fn list_sessions(
     status: String,
     title_contains: Option<String>,
     sort_by: String,
+    vertical: Option<String>,
 ) -> ArgoResult<()> {
     use super::session_aggregates::{spend_per_session, tool_calls_per_session};
     let cwd =
@@ -42,6 +43,9 @@ pub(super) async fn list_sessions(
     }
     if let Some(want) = model.as_deref() {
         sessions.retain(|s| s.model == want);
+    }
+    if let Some(want) = vertical.as_deref() {
+        sessions.retain(|s| s.vertical_id.as_deref() == Some(want));
     }
     match status.as_str() {
         "open" => sessions.retain(|s| s.ended_at.is_none()),

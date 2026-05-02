@@ -201,7 +201,7 @@ async fn persist_judge_record_writes_to_table() {
     .await
     .unwrap();
     let session_id = store
-        .create_session(tenant, ws, "model", "provider", Some("t"))
+        .create_session(tenant, ws, "model", "provider", Some("t"), None)
         .await
         .unwrap();
 

@@ -198,7 +198,7 @@ pub(crate) async fn create_cloned_session(
     let root = cwd.to_string_lossy();
     let (tenant, ws) = store.ensure_workspace(name, &root).await?;
     let new_id = store
-        .create_session(tenant, ws, &model, &provider, Some("untitled"))
+        .create_session(tenant, ws, &model, &provider, Some("untitled"), None)
         .await?;
     let sessions = store.list_all_sessions(200).await?;
     state.sessions = sessions;
@@ -224,7 +224,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/x").await.unwrap();
         let original = store
-            .create_session(tenant, ws, "claude-x", "anthropic", Some("first"))
+            .create_session(tenant, ws, "claude-x", "anthropic", Some("first"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();
@@ -260,7 +260,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/r").await.unwrap();
         store
-            .create_session(tenant, ws, "m", "p", Some("old name"))
+            .create_session(tenant, ws, "m", "p", Some("old name"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();
@@ -282,7 +282,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/r2").await.unwrap();
         store
-            .create_session(tenant, ws, "m", "p", Some("named"))
+            .create_session(tenant, ws, "m", "p", Some("named"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();
@@ -299,11 +299,11 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/d").await.unwrap();
         let a = store
-            .create_session(tenant, ws, "m", "p", Some("a"))
+            .create_session(tenant, ws, "m", "p", Some("a"), None)
             .await
             .unwrap();
         let b = store
-            .create_session(tenant, ws, "m", "p", Some("b"))
+            .create_session(tenant, ws, "m", "p", Some("b"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();
@@ -323,7 +323,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/s").await.unwrap();
         store
-            .create_session(tenant, ws, "m", "p", Some("name"))
+            .create_session(tenant, ws, "m", "p", Some("name"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();
@@ -345,7 +345,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/s2").await.unwrap();
         store
-            .create_session(tenant, ws, "m", "p", Some("n"))
+            .create_session(tenant, ws, "m", "p", Some("n"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();
@@ -363,7 +363,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/d2").await.unwrap();
         let a = store
-            .create_session(tenant, ws, "m", "p", Some("only"))
+            .create_session(tenant, ws, "m", "p", Some("only"), None)
             .await
             .unwrap();
         let sessions = store.list_all_sessions(200).await.unwrap();

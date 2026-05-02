@@ -342,7 +342,7 @@ mod tests {
         store.migrate().await.unwrap();
         let (tenant, ws) = store.ensure_workspace("ws", "/tmp/sa").await.unwrap();
         let sid = store
-            .create_session(tenant, ws, "m", "p", Some("t"))
+            .create_session(tenant, ws, "m", "p", Some("t"), None)
             .await
             .unwrap();
 

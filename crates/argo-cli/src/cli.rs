@@ -54,6 +54,11 @@ pub enum Command {
         /// Optional human-readable title.
         #[arg(long)]
         title: Option<String>,
+        /// Bind the new session to a vertical-template id (#651).
+        /// The vertical must be discoverable via
+        /// `argo vertical list`.
+        #[arg(long)]
+        vertical: Option<String>,
     },
     /// Re-render a recorded session: prints its header and every
     /// message in order. Read-only — for the live "continue this

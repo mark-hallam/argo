@@ -50,7 +50,7 @@ async fn seed_session(store: &SessionStore) -> SessionId {
     .await
     .unwrap();
     store
-        .create_session(tenant, ws, "model", "provider", Some("test"))
+        .create_session(tenant, ws, "model", "provider", Some("test"), None)
         .await
         .unwrap()
 }

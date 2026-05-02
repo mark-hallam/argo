@@ -14,7 +14,12 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
-pub async fn run(provider: &str, model: &str, title: Option<&str>) -> ArgoResult<()> {
+pub async fn run(
+    provider: &str,
+    model: &str,
+    title: Option<&str>,
+    vertical_id: Option<&str>,
+) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -27,14 +32,32 @@ pub async fn run(provider: &str, model: &str, title: Option<&str>) -> ArgoResult
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, workspace) = store.ensure_workspace(name, &root).await?;
+
+    // Validate the vertical exists in the discovery dir before
+    // we write the row — fast-fail with a friendly error rather
+    // than orphaning the session pointing at nothing (#651).
+    if let Some(vid) = vertical_id {
+        let dir = crate::handlers::vertical::resolve_verticals_dir();
+        let (registry, _errors) = argo_vertical::load_dir(&dir)?;
+        if registry.get(vid).is_none() {
+            return Err(ArgoError::Provider(format!(
+                "vertical '{vid}' not found in {} — run `argo vertical list` to see what's loaded",
+                dir.display()
+            )));
+        }
+    }
+
     let id = store
-        .create_session(tenant, workspace, model, provider, title)
+        .create_session(tenant, workspace, model, provider, title, vertical_id)
         .await?;
     println!("created session {id}");
     println!("  provider:  {provider}");
     println!("  model:     {model}");
     if let Some(t) = title {
         println!("  title:     {t}");
+    }
+    if let Some(v) = vertical_id {
+        println!("  vertical:  {v}");
     }
     println!();
     println!("next: `argo session show {id}` or POST messages via the gateway:");

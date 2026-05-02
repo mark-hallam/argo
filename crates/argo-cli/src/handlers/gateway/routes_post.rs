@@ -34,6 +34,48 @@ pub(super) async fn create_session_response(
         );
     }
     let title = parsed["title"].as_str();
+    // Optional vertical_id in the body — same column the new
+    // POST /verticals/<id>/sessions path-bound endpoint sets.
+    // Existing clients that don't send it remain unchanged.
+    let vertical_id = parsed["vertical_id"].as_str();
+    create_session_inner(store, model, provider, title, vertical_id).await
+}
+
+/// Shared session-creation helper. Validates vertical_id (when
+/// present) against the `argo-vertical` registry — fast-fail if
+/// the slug isn't a loaded vertical, so the row never points at
+/// nothing. Used by both `POST /sessions` (where vertical_id is
+/// in the body) and `POST /verticals/<id>/sessions` (where it's
+/// in the path).
+pub(super) async fn create_session_inner(
+    store: &Arc<SessionStore>,
+    model: &str,
+    provider: &str,
+    title: Option<&str>,
+    vertical_id: Option<&str>,
+) -> (&'static str, String) {
+    if let Some(vid) = vertical_id {
+        let dir = crate::handlers::vertical::resolve_verticals_dir();
+        match argo_vertical::load_dir(&dir) {
+            Ok((registry, _errs)) => {
+                if registry.get(vid).is_none() {
+                    return (
+                        "404 Not Found",
+                        format!(
+                            "{{\"error\":\"vertical '{vid}' not found in {}\"}}",
+                            dir.display()
+                        ),
+                    );
+                }
+            }
+            Err(e) => {
+                return (
+                    "500 Internal Server Error",
+                    format!("{{\"error\":\"verticals load_dir: {e}\"}}"),
+                );
+            }
+        }
+    }
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
         Err(e) => {
@@ -58,7 +100,7 @@ pub(super) async fn create_session_response(
         }
     };
     match store
-        .create_session(tenant, workspace, model, provider, title)
+        .create_session(tenant, workspace, model, provider, title, vertical_id)
         .await
     {
         Ok(id) => (
@@ -68,6 +110,7 @@ pub(super) async fn create_session_response(
                 "model": model,
                 "provider": provider,
                 "title": title,
+                "vertical_id": vertical_id,
             }))
             .unwrap_or_else(|_| "{}".to_string()),
         ),
@@ -76,6 +119,40 @@ pub(super) async fn create_session_response(
             format!("{{\"error\":\"create_session: {e}\"}}"),
         ),
     }
+}
+
+/// `POST /verticals/<id>/sessions` — create a session bound to
+/// the path's vertical id. The body is the same shape as
+/// `POST /sessions` (model + provider + optional title); any
+/// `vertical_id` in the body is ignored — the path wins.
+pub(super) async fn create_session_for_vertical_response(
+    vertical_id: &str,
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let body = body_from_request(req);
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse body: {e}\"}}"),
+            );
+        }
+    };
+    let model = parsed["model"].as_str().unwrap_or("");
+    let provider = parsed["provider"].as_str().unwrap_or("");
+    if model.is_empty() || provider.is_empty() {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"required fields: model, provider\"}".to_string(),
+        );
+    }
+    let title = parsed["title"].as_str();
+    create_session_inner(store, model, provider, title, Some(vertical_id)).await
 }
 
 pub(super) async fn append_message_response(

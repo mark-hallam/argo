@@ -43,7 +43,10 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             provider,
             model,
             title,
-        }) => handlers::new::run(&provider, &model, title.as_deref()).await,
+            vertical,
+        }) => {
+            handlers::new::run(&provider, &model, title.as_deref(), vertical.as_deref()).await
+        }
         Some(Command::Resume { id }) => handlers::resume::run(&id).await,
         Some(Command::Chat {
             id,

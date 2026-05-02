@@ -77,7 +77,7 @@ pub(crate) async fn replay_core_with_events(
         .map(|t| format!("replay of {t}"))
         .unwrap_or_else(|| format!("replay of {}", source.id.0));
     let new_id = store
-        .create_session(tenant, ws, &target_model, &target_provider, Some(&title))
+        .create_session(tenant, ws, &target_model, &target_provider, Some(&title), None)
         .await?;
 
     let mut final_text = String::new();

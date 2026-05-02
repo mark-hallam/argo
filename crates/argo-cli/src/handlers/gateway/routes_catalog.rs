@@ -15,6 +15,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/health/ready", "K8s-style readiness probe — 200 when SQLite store responds, 503 otherwise"),
         ("GET", "/verticals", "list loaded vertical templates + load errors (?format=markdown; #650)"),
         ("GET", "/verticals/<id>", "show one vertical's manifest summary (?format=markdown; #650; 404 if not loaded)"),
+        ("POST", "/verticals/<id>/sessions", "create a session bound to this vertical; body {model, provider, title?} (#651)"),
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),
         ("GET", "/sessions/<id>", "one session header + counts (?format=markdown for a paste-able header doc)"),

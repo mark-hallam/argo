@@ -56,6 +56,9 @@ pub enum SessionCmd {
         /// `spend` (descending — biggest spenders first).
         #[arg(long, default_value = "started-at")]
         sort_by: String,
+        /// Filter to sessions bound to this vertical-template id (#651).
+        #[arg(long)]
+        vertical: Option<String>,
     },
     /// Print just the count of sessions matching the filters
     /// (useful for monitoring scripts). One number per line, or

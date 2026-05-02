@@ -108,6 +108,7 @@ async fn clone_or_branch_response(
             &header.model,
             &header.provider,
             Some(new_title.as_str()),
+            header.vertical_id.as_deref(),
         )
         .await
     {
