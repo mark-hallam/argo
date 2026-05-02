@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **594 PRs** on `main` (194 since milestone 400 —
-**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions feature-complete + reaper (16 stateful tools)**),
+across **595 PRs** on `main` (195 since milestone 400 —
+**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete**; **v1.1 voice native scaffold begun**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -347,7 +347,16 @@ as v1.1 perf wins:
 ## Pending integration tier
 
 - **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
-  + opus (OGG/Opus). All four cloud backends already wired (OpenAI
+  + opus (OGG/Opus). **v1.1 scaffolding begun (#595)**:
+  feature flags `whisper-native` / `piper-native` / `native` on
+  `argo-mcp-voice`; new `whisper_native.rs` + `piper_native.rs`
+  with cfg-gated `transcribe`/`synthesize` paths. Without the
+  feature flag, the default `whisper` / `piper` backend names
+  return a clear "rebuild with `--features whisper-native`"
+  error so callers know the path forward. The actual whisper-rs
+  / piper-rs deps are NOT pulled in this PR (heavy native
+  C++/CMake builds) — the scaffold commits the architecture
+  without the build cost. Cloud backends already wired (OpenAI
   TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
 - **Browser MCP — stateful sessions** — **v1.1 feature-
   complete as of #591/#593**. Hand-rolled CDP session

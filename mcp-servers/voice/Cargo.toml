@@ -20,3 +20,16 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+
+[features]
+default = []
+# Opt-in: pull in whisper-rs (whisper.cpp Rust bindings) for the
+# `backend="whisper"` STT path. Heavy native build (C++ +
+# CMake), so default-off — users who want native STT compile
+# with `--features whisper-native` once the dep is wired.
+whisper-native = []
+# Opt-in: pull in piper-rs for the `backend="piper"` TTS path.
+# Same caveat as whisper-native — heavy native build, opt-in.
+piper-native = []
+# Convenience: enable both native bindings at once.
+native = ["whisper-native", "piper-native"]

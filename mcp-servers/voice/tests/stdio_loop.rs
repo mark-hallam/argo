@@ -99,7 +99,11 @@ fn transcribe_openai_with_no_key_returns_clean_error() {
 }
 
 #[test]
-fn synthesize_default_backend_returns_not_wired() {
+fn synthesize_default_backend_is_feature_gated() {
+    // Default backend is `piper`, which routes to piper_native
+    // — feature-gated. Without `--features piper-native` it
+    // returns a clear "rebuild with…" error so callers know
+    // the build incantation. (PR #595 introduced this scaffold.)
     let resps = drive(&[
         r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"synthesize","arguments":{"text":"hi"}}}"#,
     ]);
@@ -107,5 +111,8 @@ fn synthesize_default_backend_returns_not_wired() {
     let r = &resps[0]["result"];
     assert_eq!(r["isError"], true);
     let text = r["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("not yet wired"));
+    assert!(
+        text.contains("piper-native") || text.contains("not yet wired"),
+        "expected feature-gated or not-wired message, got: {text}"
+    );
 }

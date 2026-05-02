@@ -15,7 +15,9 @@ mod elevenlabs;
 mod local;
 mod minimax;
 mod openai;
+mod piper_native;
 mod service;
+mod whisper_native;
 
 use argo_mcp::run_loop;
 use argo_types::ArgoResult;

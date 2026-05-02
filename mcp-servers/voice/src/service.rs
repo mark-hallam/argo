@@ -80,6 +80,10 @@ async fn transcribe_dispatch(args: &serde_json::Value) -> CallToolResult {
             crate::openai::transcribe(audio, language).await
         }
         "local" => crate::local::transcribe(audio).await,
+        "whisper" => {
+            let language = args.get("language").and_then(|v| v.as_str());
+            crate::whisper_native::transcribe(audio, language).await
+        }
         _ => CallToolResult {
             content: vec![McpContent::Text {
                 text: NOT_WIRED.into(),
@@ -113,6 +117,7 @@ async fn synthesize_dispatch(args: &serde_json::Value) -> CallToolResult {
         "elevenlabs" => crate::elevenlabs::synthesize(text, voice).await,
         "minimax" => crate::minimax::synthesize(text, voice).await,
         "local" => crate::local::synthesize(text, format).await,
+        "piper" => crate::piper_native::synthesize(text, voice, format).await,
         _ => CallToolResult {
             content: vec![McpContent::Text {
                 text: NOT_WIRED.into(),
@@ -221,7 +226,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn call_tool_transcribe_returns_not_wired_error() {
+    async fn call_tool_transcribe_default_backend_is_feature_gated() {
+        // Default backend is `whisper`, which routes to
+        // whisper_native — feature-gated. Without
+        // `--features whisper-native` it returns a clear
+        // "rebuild with…" error so callers know the build
+        // incantation. (PR #595 introduced this scaffold.)
         let s = VoiceService;
         let result = s
             .call_tool(CallToolParams {
@@ -232,7 +242,11 @@ mod tests {
             .unwrap();
         assert!(result.is_error);
         match &result.content[0] {
-            McpContent::Text { text } => assert!(text.contains("not yet wired")),
+            McpContent::Text { text } => assert!(
+                text.contains("whisper-native")
+                    || text.contains("not yet wired"),
+                "expected feature-gated or not-wired message, got: {text}"
+            ),
             _ => panic!("expected text"),
         }
     }
