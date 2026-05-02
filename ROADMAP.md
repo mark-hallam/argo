@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **561 PRs** on `main` (161 since milestone 400 —
+across **562 PRs** on `main` (162 since milestone 400 —
 **v1.0 production-ready**, gateway markdown family complete),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.

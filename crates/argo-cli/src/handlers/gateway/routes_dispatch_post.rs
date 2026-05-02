@@ -11,7 +11,6 @@ use super::routes_post::{
     append_message_response, create_session_response, replay_response, run_turn_response,
     steer_response,
 };
-use super::routes_session_clone::session_clone_response;
 use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
     memory_unlock_response, skill_lock_response, skill_unlock_response,
@@ -22,6 +21,7 @@ use super::routes_post_writes::{
     workspace_init_response,
 };
 use super::routes_query::parse_query_kv;
+use super::routes_session_clone::{session_branch_response, session_clone_response};
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
@@ -186,6 +186,13 @@ pub(super) async fn dispatch_post(
             }
             if tail.starts_with("clone ") {
                 return Some(session_clone_response(sid, store).await);
+            }
+            if tail.starts_with("branch ") || tail.starts_with("branch?") {
+                let through_seq = parse_query_kv(tail, "through-seq")
+                    .and_then(|v| v.parse::<i64>().ok());
+                return Some(
+                    session_branch_response(sid, through_seq, store).await,
+                );
             }
         }
     }
