@@ -193,6 +193,13 @@ pub enum CostsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Top-50 spend buckets grouped by provider only (no model
+    /// split). Mirrors the gateway's `GET /costs/by-provider` (#632).
+    ByProvider {
+        /// Output as a single JSON object (`{by_provider}`).
+        #[arg(long)]
+        json: bool,
+    },
     /// Top-50 spend buckets grouped by `session_id`.
     /// Mirrors the gateway's `GET /costs/by-session`.
     BySession {

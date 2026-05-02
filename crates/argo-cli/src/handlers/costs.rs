@@ -40,6 +40,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             super::costs_by_day::run(days, json).await
         }
         Some(CostsCmd::ByModel { json }) => super::costs_by_model::run(json).await,
+        Some(CostsCmd::ByProvider { json }) => super::costs_by_provider::run(json).await,
         Some(CostsCmd::BySession { json }) => super::costs_by_session::run(json).await,
         Some(CostsCmd::Recent {
             limit,
