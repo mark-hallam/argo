@@ -45,6 +45,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit/count", "count of audit rows (?kind=…&since-minutes=N&session=<uuid>)"),
         ("GET", "/audit/by-kind", "histogram of audit rows by kind (?since-minutes=N&format=markdown)"),
         ("GET", "/audit/by-session", "top-N sessions by audit row count (?limit=N&since-minutes=M&format=markdown; default limit 50, cap 500)"),
+        ("GET", "/audit/by-tool", "histogram of tool_call+tool_result rows grouped by tool name (?since-minutes=N&format=markdown)"),
         ("GET", "/audit/by-day", "audit rows per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/messages/by-day", "messages created per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/messages/by-role", "histogram of messages by role (?since-minutes=N&format=markdown)"),
