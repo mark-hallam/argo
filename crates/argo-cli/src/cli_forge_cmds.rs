@@ -174,4 +174,14 @@ pub enum ForgeRunsCmd {
         #[arg(long, default_value_t = 60)]
         older_than_minutes: i64,
     },
+    /// Daily forge-run start rollup. Mirrors the gateway's
+    /// `GET /forge/runs/by-day` (#572).
+    ByDay {
+        /// Lookback window in days (default 30, cap 365).
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Output as a single JSON object (`{by_day}`).
+        #[arg(long)]
+        json: bool,
+    },
 }

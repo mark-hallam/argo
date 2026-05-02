@@ -56,6 +56,9 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::Sweep { older_than_minutes } => {
                 super::forge_admin::sweep_stalled(older_than_minutes).await
             }
+            ForgeRunsCmd::ByDay { days, json } => {
+                super::forge_by_day::run(days, json).await
+            }
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         ForgeCmd::Bench {
