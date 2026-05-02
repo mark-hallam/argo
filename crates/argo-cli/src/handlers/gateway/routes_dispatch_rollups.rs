@@ -109,6 +109,26 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
+    if req.starts_with("GET /messages/recent ") || req.starts_with("GET /messages/recent?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let limit: u32 = parse_query_kv(tail, "limit")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(50);
+        let role = parse_query_kv(tail, "role");
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_messages_rollups::messages_recent_response(
+                limit,
+                role.as_deref(),
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     if req.starts_with("GET /audit/by-day ") || req.starts_with("GET /audit/by-day?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let days = parse_query_kv(tail, "days")

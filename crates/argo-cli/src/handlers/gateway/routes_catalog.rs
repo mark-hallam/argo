@@ -51,6 +51,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/messages/by-day", "messages created per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/messages/by-role", "histogram of messages by role (?since-minutes=N&format=markdown)"),
         ("GET", "/messages/by-session", "top-N sessions by message row count (?limit=N&since-minutes=M&format=markdown; default limit 50, cap 500)"),
+        ("GET", "/messages/recent", "workspace-wide recent message tail (?limit=50&role=user&since-minutes=M&format=markdown; default limit 50, cap 500)"),
         ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|...&since-minutes=M&session=<uuid>&format=markdown)"),
         ("GET", "/audit/sessions/<id>", "per-session audit chain (?kind&since-minutes&format=markdown)"),
         ("GET", "/audit/sessions/<id>/verify", "verify a session's chain integrity (?include-breaks=true&format=markdown)"),
