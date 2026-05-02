@@ -200,6 +200,23 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
+    if req.starts_with("GET /audit/by-day-by-kind ")
+        || req.starts_with("GET /audit/by-day-by-kind?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let days = parse_query_kv(tail, "days")
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(30);
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_audit_rollups::audit_by_day_by_kind_response(
+                days,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     if req.starts_with("GET /forge/runs/by-day ")
         || req.starts_with("GET /forge/runs/by-day?")
     {

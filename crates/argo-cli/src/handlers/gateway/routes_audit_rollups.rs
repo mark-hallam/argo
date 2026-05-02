@@ -1,7 +1,8 @@
 //! Workspace-wide audit rollup handlers (`audit/by-session`,
-//! `audit/by-tool`, `audit/tool-errors`). Per-session drill-downs
-//! live in `routes_session_audit_rollups.rs` since #628 — split out
-//! once the per-session family hit the third member.
+//! `audit/by-tool`, `audit/tool-errors`, `audit/by-day-by-kind`).
+//! Per-session drill-downs live in `routes_session_audit_rollups.rs`
+//! since #628 — split out once the per-session family hit the third
+//! member.
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -251,6 +252,76 @@ pub(super) async fn audit_tool_errors_response(
         Err(e) => (
             "500 Internal Server Error",
             format!("{{\"error\":\"audit_tool_errors: {e}\"}}"),
+        ),
+    }
+}
+
+/// `GET /audit/by-day-by-kind[?days=N&format=markdown]` — 2D
+/// rollup: audit rows bucketed by `(day, kind)`. Useful for
+/// spotting volume spikes per kind ("did tool_call volume
+/// jump on Tuesday?") without doing two queries client-side.
+/// Default 30 days, cap 365.
+///
+/// Returns `{by_day_by_kind: [{bucket, kind, count}]}` ordered
+/// `bucket ASC, count DESC`. Markdown returns a paste-able 3-
+/// column table.
+pub(super) async fn audit_by_day_by_kind_response(
+    days: u32,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let days = days.clamp(1, 365);
+    let cutoff_micros =
+        (chrono::Utc::now() - chrono::Duration::days(i64::from(days))).timestamp_micros();
+    let sql = "SELECT \
+                 strftime('%Y-%m-%d', created_at / 1000000, 'unixepoch') AS bucket, \
+                 kind, \
+                 COUNT(*) AS n \
+               FROM audit_record WHERE created_at >= ? \
+               GROUP BY bucket, kind \
+               ORDER BY bucket ASC, n DESC";
+    match sqlx::query_as::<_, (String, String, i64)>(sql)
+        .bind(cutoff_micros)
+        .fetch_all(store.pool())
+        .await
+    {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Audit by day × kind ({n} cell{}, last {days} days)\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| day | kind | count |\n| --- | --- | ---: |\n");
+                    for (b, k, c) in &rows {
+                        out.push_str(&format!("| `{b}` | `{k}` | {c} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let arr: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(b, k, c)| {
+                    serde_json::json!({
+                        "bucket": b,
+                        "kind": k,
+                        "count": c,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({"by_day_by_kind": arr}))
+                    .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"audit_by_day_by_kind: {e}\"}}"),
         ),
     }
 }
