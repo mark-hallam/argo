@@ -6,6 +6,8 @@
 mod cli_memory_cmd;
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
+#[path = "cli_forge_cmds.rs"]
+mod cli_forge_cmds;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
 #[path = "cli_workspace_cmds.rs"]

@@ -71,6 +71,11 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             budget,
             stream,
         } => forge_optimize::run(&skill, &examples, iterations, budget, stream).await,
+        ForgeCmd::Daemon {
+            interval_secs,
+            older_than_minutes,
+            max_ticks,
+        } => super::forge_daemon::run(interval_secs, older_than_minutes, max_ticks).await,
     }
 }
 

@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **574 PRs** on `main` (174 since milestone 400 —
-**v1.0 production-ready**, gateway markdown family complete),
+across **575 PRs** on `main` (175 since milestone 400 —
+**v1.0 production-ready**, gateway markdown family complete; **v1.1 daemon split begun**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -360,5 +360,10 @@ as v1.1 perf wins:
   accounts.
 - **Standalone daemon for long-running forge runs** — the gateway
   hosts `POST /forge/{optimize,bench}` (#281) which spawns a Tokio
-  task in-process. A separate daemon process would survive gateway
-  restarts and let multiple clients tail the same run.
+  task in-process. **v1.1 daemon split begun (#575)**: `argo forge
+  daemon [--interval-secs N --older-than-minutes M --max-ticks N]`
+  is a long-running worker that periodically sweeps stalled
+  `running` rows to `failed`. Future PRs will: (a) add a `queued`
+  status to the forge_run lifecycle, (b) make the gateway's
+  `POST /forge/optimize` enqueue-only, and (c) have the daemon
+  claim queued rows + run them.
