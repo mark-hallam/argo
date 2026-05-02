@@ -14,6 +14,7 @@ mod routes_costs_by_day;
 mod routes_cron;
 mod routes_dispatch_costs;
 mod routes_dispatch_post;
+mod routes_dispatch_rollups;
 mod routes_forge;
 mod routes_forge_promote;
 mod routes_lists;

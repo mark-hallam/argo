@@ -386,3 +386,68 @@ pub(super) async fn count_messages_response(
         ),
     }
 }
+
+/// `GET /messages/by-day[?days=N&format=markdown]` — daily
+/// message-creation rollup against the `message` table for
+/// the last N days (default 30; cap 365). Returns
+/// `{by_day: [{bucket, count}]}` ordered chronologically;
+/// days with no activity omitted. Markdown returns a
+/// 2-column table.
+pub(super) async fn messages_by_day_response(
+    days: u32,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let days = days.clamp(1, 365);
+    let cutoff_micros =
+        (chrono::Utc::now() - chrono::Duration::days(i64::from(days))).timestamp_micros();
+    let sql = "SELECT \
+                 strftime('%Y-%m-%d', created_at / 1000000, 'unixepoch') AS bucket, \
+                 COUNT(*) AS n \
+               FROM message WHERE created_at >= ? \
+               GROUP BY bucket ORDER BY bucket ASC";
+    match sqlx::query_as::<_, (String, i64)>(sql)
+        .bind(cutoff_micros)
+        .fetch_all(store.pool())
+        .await
+    {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Messages by day ({n} day{} with activity, last {days} days)\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| day | count |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (b, c) in &rows {
+                        out.push_str(&format!("| `{b}` | {c} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let arr: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(b, c)| {
+                    serde_json::json!({
+                        "bucket": b,
+                        "count": c,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({"by_day": arr}))
+                    .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"messages_by_day: {e}\"}}"),
+        ),
+    }
+}

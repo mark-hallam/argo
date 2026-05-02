@@ -53,18 +53,10 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
         return super::routes_counts::dispatch_sessions_count(req, store).await;
     }
-    if req.starts_with("GET /sessions/by-day ") || req.starts_with("GET /sessions/by-day?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let days = parse_query_kv(tail, "days")
-            .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(30);
-        let format = parse_query_kv(tail, "format");
-        return super::routes_top::sessions_by_day_response(
-            days,
-            store,
-            format.as_deref(),
-        )
-        .await;
+    if let Some(resp) =
+        super::routes_dispatch_rollups::dispatch_rollups(req, store).await
+    {
+        return resp;
     }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         return dispatch_sessions(req, store).await;
@@ -172,18 +164,6 @@ pub(super) async fn dispatch_route(
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let format = parse_query_kv(tail, "format");
         return audit_breaks_response(store, format.as_deref()).await;
-    }
-    if req.starts_with("GET /audit/by-kind ") || req.starts_with("GET /audit/by-kind?") {
-        let tail = req.strip_prefix("GET ").unwrap_or(req);
-        let since = parse_query_kv(tail, "since-minutes")
-            .and_then(|v| v.parse::<i64>().ok());
-        let format = parse_query_kv(tail, "format");
-        return super::routes_audit::audit_by_kind_response(
-            since,
-            store,
-            format.as_deref(),
-        )
-        .await;
     }
     if req.starts_with("GET /audit/count ") || req.starts_with("GET /audit/count?") {
         return super::routes_counts::dispatch_audit_count(req, store).await;
