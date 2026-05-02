@@ -588,6 +588,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-vertical"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "serde",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"

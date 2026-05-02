@@ -1,0 +1,64 @@
+//! `argo-vertical` — foundation for the vertical-template system
+//! (#649). Argo's core platform stays vertical-agnostic; this crate
+//! is the layer that lets the same binary be cloned into multiple
+//! vertical-agent products (PR Checker, AI Receptionist, Sales
+//! Follow-up, Ticket Triage, Tech Support, …) by manifest +
+//! configuration only.
+//!
+//! ## Scope of this crate
+//!
+//! This crate is **purely declarative + read-only**. It owns:
+//!
+//! - the [`VerticalManifest`] schema (parsed from `vertical.toml`)
+//! - the [`parse`] entry point + structural validation
+//! - the [`validate`] entry point + cross-reference checks against
+//!   on-disk files
+//! - the [`Registry`] holding loaded verticals in memory
+//! - the [`load_dir`] walker that populates a registry from a
+//!   `verticals/` directory
+//!
+//! It does NOT own:
+//!
+//! - any vertical-specific behaviour (the strict invariant of the
+//!   architecture — receptionist / support / triage / PR-checker /
+//!   sales logic must live in the templates themselves, not here);
+//! - CLI subcommands (Phase 2 — #650);
+//! - gateway routes (Phase 2 — #650);
+//! - SQLite migrations or session integration (Phase 3 — #651);
+//! - workflow runtime (Phase 5 — #653);
+//! - escalation enforcement (Phase 6 — #655).
+//!
+//! Those layers ship in subsequent PRs and depend on this crate's
+//! public API. Keeping the dependency arrow one-way (this crate
+//! depends on `argo-types` only) lets every higher layer evolve
+//! independently.
+//!
+//! ## Quick example
+//!
+//! ```no_run
+//! use argo_vertical::load_dir;
+//!
+//! let (registry, errors) = load_dir(std::path::Path::new("verticals"))
+//!     .expect("verticals dir is a directory");
+//! for err in &errors {
+//!     eprintln!("vertical at {} failed to load: {}", err.dir.display(), err.error);
+//! }
+//! for (id, loaded) in registry.list() {
+//!     println!("loaded vertical: {id} (v{})", loaded.manifest.vertical.version);
+//! }
+//! ```
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
+mod loader;
+mod manifest;
+mod registry;
+mod validator;
+
+pub use loader::{load_dir, LoadError};
+pub use manifest::{
+    parse, EscalationSection, EvaluationSection, GatewaySection, MemorySection, ProviderSection,
+    RoleSection, SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection,
+    VerticalIdentity, VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
+};
+pub use registry::{LoadedVertical, Registry};
+pub use validator::validate;
