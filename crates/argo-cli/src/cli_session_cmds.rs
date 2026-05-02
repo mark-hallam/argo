@@ -323,6 +323,16 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Flatten the session's message stream into user→
+    /// assistant→tools turn tuples. Mirrors the gateway's
+    /// `GET /sessions/<id>/turns` (#602).
+    Turns {
+        /// Session id.
+        id: String,
+        /// Output as JSON (`{turns: [...]}`).
+        #[arg(long)]
+        json: bool,
+    },
     /// Daily session-creation rollup — chronological list of
     /// `{day, count}` for the last `--days` days. Mirrors the
     /// gateway's `GET /sessions/by-day` endpoint.

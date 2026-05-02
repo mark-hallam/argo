@@ -42,6 +42,7 @@ mod session_by_day;
 mod session_by_model;
 mod session_by_provider;
 mod session_clone_branch;
+mod session_turns;
 mod session_diff;
 mod session_export;
 mod session_list;

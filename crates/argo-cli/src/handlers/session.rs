@@ -166,6 +166,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Stats { id, json } => {
             super::session_clone_branch::stats_session(&id, json).await
         }
+        SessionCmd::Turns { id, json } => {
+            super::session_turns::run(&id, json).await
+        }
         SessionCmd::ByDay { days, json } => {
             super::session_by_day::run(days, json).await
         }
