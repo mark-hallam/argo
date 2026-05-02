@@ -7,6 +7,9 @@
 //! one of the known per-session GETs, `None` otherwise — letting
 //! `routes.rs` fall through to the 404 path or other dispatchers.
 
+use super::routes_audit::{
+    audit_count_response, audit_session_response, audit_session_verify_response,
+};
 use super::routes_msgs::{
     count_messages_response, first_message_response, last_message_response,
     list_messages_response,
@@ -110,6 +113,49 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("export ") || tail.starts_with("export?") {
             return Some(export_response(sid, tail, store).await);
+        }
+        // /sessions/<id>/audit/{verify,count} are aliases for the
+        // /audit/sessions/<id>/{verify,count} surface so callers
+        // that already know the session id don't have to swap
+        // path prefixes.
+        if tail.starts_with("audit/verify ") || tail.starts_with("audit/verify?") {
+            let include_breaks = parse_query_kv(tail, "include-breaks")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false);
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                audit_session_verify_response(
+                    sid,
+                    include_breaks,
+                    store,
+                    format.as_deref(),
+                )
+                .await,
+            );
+        }
+        if tail.starts_with("audit/count ") || tail.starts_with("audit/count?") {
+            let kind = parse_query_kv(tail, "kind");
+            let since = parse_query_kv(tail, "since-minutes")
+                .and_then(|v| v.parse::<i64>().ok());
+            return Some(
+                audit_count_response(kind.as_deref(), since, Some(sid), store).await,
+            );
+        }
+        if tail.starts_with("audit ") || tail.starts_with("audit?") {
+            let kind = parse_query_kv(tail, "kind");
+            let since = parse_query_kv(tail, "since-minutes")
+                .and_then(|v| v.parse::<i64>().ok());
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                audit_session_response(
+                    sid,
+                    store,
+                    kind.as_deref(),
+                    since,
+                    format.as_deref(),
+                )
+                .await,
+            );
         }
     }
     // Bare `GET /sessions/<uuid>[?format=markdown]` — strip
