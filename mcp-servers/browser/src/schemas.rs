@@ -444,3 +444,23 @@ pub(crate) fn session_extract_links_schema() -> McpToolSchema {
     }
 }
 
+pub(crate) fn session_screenshot_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_screenshot".into(),
+        description: "Like `screenshot`, but runs against the \
+            session's pinned tab via the persistent WS. \
+            Returns an MCP Image content block with a base64 \
+            PNG data URI. `full_page=true` captures beyond \
+            the viewport."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id"],
+            "properties": {
+                "session_id": { "type": "string" },
+                "full_page": { "type": "boolean", "default": false }
+            }
+        }),
+    }
+}
+

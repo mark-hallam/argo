@@ -75,6 +75,7 @@ impl McpServerService for BrowserService {
             session_fill_schema(),
             session_submit_schema(),
             session_extract_links_schema(),
+            session_screenshot_schema(),
         ]
     }
 
@@ -151,6 +152,9 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "session_extract_links" {
             return Ok(crate::cdp::session_extract_links(&params.arguments).await);
         }
+        if params.name.as_str() == "session_screenshot" {
+            return Ok(crate::cdp::session_screenshot(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -175,8 +179,8 @@ mod tests {
         let tools = s.list_tools();
         assert_eq!(
             tools.len(),
-            24,
-            "12 spec tools + list_tabs + chrome_version + 10 session-* tools"
+            25,
+            "12 spec tools + list_tabs + chrome_version + 11 session-* tools"
         );
     }
 

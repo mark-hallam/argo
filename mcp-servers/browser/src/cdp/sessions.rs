@@ -370,14 +370,67 @@ pub async fn session_extract_links(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// `session_screenshot {session_id, full_page?}` — capture a
+/// viewport (or full-page) PNG via Page.captureScreenshot
+/// against the session's pinned tab. Returns an MCP Image
+/// content block (data URI). Same wire shape as the
+/// single-shot `screenshot` tool.
+pub async fn session_screenshot(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    let full_page = args
+        .get("full_page")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let params = serde_json::json!({
+        "format": "png",
+        "captureBeyondViewport": full_page,
+    });
+    match send_cdp_method(sid, "Page.captureScreenshot", params).await {
+        Ok(parsed) => {
+            let data = parsed["result"]["data"].as_str().map(String::from);
+            let Some(data) = data else {
+                return error(format!("no `data` in screenshot response: {parsed}"));
+            };
+            CallToolResult {
+                content: vec![McpContent::Image {
+                    data: Some(format!("data:image/png;base64,{data}")),
+                    mime_type: Some("image/png".into()),
+                }],
+                is_error: false,
+            }
+        }
+        Err(e) => error(e),
+    }
+}
+
 /// Internal helper: send a `Runtime.evaluate` over the
 /// session's persistent WS and return the parsed JSON-RPC
-/// envelope. All session-aware tools that drive
-/// `Runtime.evaluate` go through here so the per-session
-/// message-id counter + read loop stay in one place.
+/// envelope. Thin wrapper around `send_cdp_method` for the
+/// common Runtime.evaluate case.
 async fn runtime_evaluate(
     sid: &str,
     expression: &str,
+) -> Result<serde_json::Value, String> {
+    send_cdp_method(
+        sid,
+        "Runtime.evaluate",
+        serde_json::json!({"expression": expression, "returnByValue": true}),
+    )
+    .await
+}
+
+/// Internal helper: send any CDP method against the session's
+/// persistent WS and return the parsed JSON-RPC envelope. All
+/// session-aware tools (Runtime.evaluate variants AND
+/// Page.* / Network.* / DOM.* methods) go through here so the
+/// per-session message-id counter + read loop stay in one
+/// place.
+async fn send_cdp_method(
+    sid: &str,
+    method: &str,
+    params: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let reg = registry().lock().await;
     let session_mu = reg.get(sid).ok_or_else(|| format!("no session '{sid}'"))?;
@@ -386,8 +439,8 @@ async fn runtime_evaluate(
     session.next_id += 1;
     let req = serde_json::json!({
         "id": id,
-        "method": "Runtime.evaluate",
-        "params": {"expression": expression, "returnByValue": true}
+        "method": method,
+        "params": params,
     });
     let serialized =
         serde_json::to_string(&req).map_err(|e| format!("serialize: {e}"))?;

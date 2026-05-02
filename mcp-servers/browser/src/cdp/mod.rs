@@ -25,7 +25,8 @@ pub use dom::{eval, extract_links, read_page};
 pub use forms::{click, cookies, fill, submit, wait_for};
 pub use sessions::{
     session_click, session_close, session_eval, session_extract_links, session_fill,
-    session_list, session_navigate, session_open, session_read_page, session_submit,
+    session_list, session_navigate, session_open, session_read_page,
+    session_screenshot, session_submit,
 };
 
 use argo_mcp::{CallToolResult, McpContent};
