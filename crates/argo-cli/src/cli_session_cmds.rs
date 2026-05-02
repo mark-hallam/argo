@@ -442,4 +442,20 @@ pub enum MessagesCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Workspace-wide recent message tail. Mirrors the gateway's
+    /// `GET /messages/recent` (#619).
+    Recent {
+        /// Tail size (default 50, cap 500).
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Filter to one role (user/assistant/tool/system).
+        #[arg(long)]
+        role: Option<String>,
+        /// Filter to messages within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a JSON array.
+        #[arg(long)]
+        json: bool,
+    },
 }

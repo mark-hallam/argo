@@ -21,5 +21,11 @@ pub async fn run(cmd: MessagesCmd) -> ArgoResult<()> {
             since_minutes,
             json,
         } => super::messages_by_session::run(limit, since_minutes, json).await,
+        MessagesCmd::Recent {
+            limit,
+            role,
+            since_minutes,
+            json,
+        } => super::messages_recent::run(limit, role, since_minutes, json).await,
     }
 }
