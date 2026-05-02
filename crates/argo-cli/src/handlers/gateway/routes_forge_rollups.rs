@@ -76,3 +76,78 @@ pub(super) async fn forge_runs_by_skill_response(
         ),
     }
 }
+
+/// `GET /forge/runs/<id>/audit[?format=markdown]` — audit rows
+/// linked to one forge run via the payload's `$.run_id` field.
+/// Forge runs emit `forge.run.start` + `forge.run.end` rows
+/// (plus per-iter rows for the LLM-driven optimizer); this
+/// endpoint returns all of them ordered by seq ASC. Useful for
+/// "what actually happened on this forge run?" without grepping
+/// the full audit chain.
+pub(super) async fn forge_run_audit_response(
+    run_id: &str,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    if uuid::Uuid::parse_str(run_id).is_err() {
+        return (
+            "400 Bad Request",
+            format!("{{\"error\":\"invalid forge run id: {run_id}\"}}"),
+        );
+    }
+    let pool = store.pool();
+    let rows: Result<Vec<(i64, String, String, i64)>, _> = sqlx::query_as(
+        "SELECT seq, kind, payload_json, created_at FROM audit_record \
+         WHERE json_extract(payload_json, '$.run_id') = ? \
+         ORDER BY seq ASC",
+    )
+    .bind(run_id)
+    .fetch_all(pool)
+    .await;
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Audit rows for forge run `{run_id}` ({n} row{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| seq | kind | created_at_micros |\n");
+                    out.push_str("| ---: | --- | ---: |\n");
+                    for (seq, kind, _payload, ts) in &rows {
+                        out.push_str(&format!("| {seq} | `{kind}` | {ts} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let arr: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|(seq, kind, payload_json, ts)| {
+                    serde_json::json!({
+                        "seq": seq,
+                        "kind": kind,
+                        "payload": serde_json::from_str::<serde_json::Value>(&payload_json)
+                            .unwrap_or(serde_json::Value::Null),
+                        "created_at_micros": ts,
+                    })
+                })
+                .collect();
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "run_id": run_id,
+                    "rows": arr,
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"forge_run_audit: {e}\"}}"),
+        ),
+    }
+}

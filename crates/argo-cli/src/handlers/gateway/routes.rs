@@ -401,35 +401,8 @@ pub(super) async fn dispatch_route(
     {
         return super::routes_counts::dispatch_forge_runs_count(req, store).await;
     }
-    if let Some(rest) = req.strip_prefix("GET /forge/runs/") {
-        // /forge/runs/<id>/payload — sub-path takes priority
-        // over the bare /forge/runs/<id> show below.
-        if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("payload ") || tail.starts_with("payload?") {
-                let format = parse_query_kv(tail, "format");
-                return super::routes_forge::forge_run_payload_response(
-                    id,
-                    store,
-                    format.as_deref(),
-                )
-                .await;
-            }
-        }
-        if let Some((id_with_query, _)) = rest.split_once(' ') {
-            let (id, query) = match id_with_query.split_once('?') {
-                Some((i, q)) => (i, Some(q)),
-                None => (id_with_query, None),
-            };
-            let format = query
-                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("format=")))
-                .map(str::to_string);
-            return super::routes_forge::forge_run_show_response_with_format(
-                id,
-                store,
-                format.as_deref(),
-            )
-            .await;
-        }
+    if let Some(resp) = super::routes_dispatch_forge::dispatch_forge_run_get(req, store).await {
+        return resp;
     }
     if let Some(rest) = req.strip_prefix("GET /audit/sessions/") {
         // GET /audit/sessions/<id>/verify takes priority over the
