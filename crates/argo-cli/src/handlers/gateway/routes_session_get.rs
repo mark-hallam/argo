@@ -7,7 +7,10 @@
 //! one of the known per-session GETs, `None` otherwise — letting
 //! `routes.rs` fall through to the 404 path or other dispatchers.
 
-use super::routes_msgs::{count_messages_response, last_message_response, list_messages_response};
+use super::routes_msgs::{
+    count_messages_response, first_message_response, last_message_response,
+    list_messages_response,
+};
 use super::routes_post::session_judge_response;
 use super::routes_query::{parse_limit, parse_query_kv, parse_role};
 use super::routes_session::{session_spend_response, session_spend_total_response};
@@ -38,6 +41,10 @@ pub(super) async fn dispatch_session_get(
         if tail.starts_with("messages/last ") || tail.starts_with("messages/last?") {
             let format = parse_query_kv(tail, "format");
             return Some(last_message_response(sid, store, format.as_deref()).await);
+        }
+        if tail.starts_with("messages/first ") || tail.starts_with("messages/first?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(first_message_response(sid, store, format.as_deref()).await);
         }
         if tail.starts_with("messages/count ") || tail.starts_with("messages/count?") {
             let role = parse_role(tail);
