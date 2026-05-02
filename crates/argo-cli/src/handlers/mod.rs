@@ -11,6 +11,8 @@ pub mod audit_by_session;
 mod audit_helpers;
 pub mod costs;
 pub mod costs_by_day;
+pub mod costs_by_model;
+pub mod costs_by_session;
 pub mod forge_by_day;
 pub mod forge_by_skill;
 pub mod forge_by_status;
