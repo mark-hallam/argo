@@ -248,6 +248,16 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /db/stats ") {
         return db_stats_response(store).await;
     }
+    if req.starts_with("GET /db/version ") || req.starts_with("GET /db/version?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return super::routes_meta::db_version_response(store, format.as_deref()).await;
+    }
+    if req.starts_with("GET /db/integrity ") || req.starts_with("GET /db/integrity?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return super::routes_meta::db_integrity_response(store, format.as_deref()).await;
+    }
     if req.starts_with("GET /metrics/json ") || req.starts_with("GET /metrics/json?") {
         let body = super::metrics::render_json(store).await;
         return ("200 OK", body);

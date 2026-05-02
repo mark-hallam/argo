@@ -73,6 +73,8 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/metrics/json", "JSON variant of /metrics for clients that don't speak Prometheus text"),
         ("POST", "/metrics/reset", "zero out the scrape counter; returns {previous, current}"),
         ("GET", "/db/stats", "per-table row counts (sessions, messages, audit, …)"),
+        ("GET", "/db/version", "current SQLite schema migration version (?format=markdown)"),
+        ("GET", "/db/integrity", "PRAGMA integrity_check; returns {ok, check} (?format=markdown)"),
         ("POST", "/db/vacuum", "run VACUUM on the SQLite store"),
         ("POST", "/db/prune", "delete sessions older than N days ({older_than_days?})"),
         ("POST", "/sessions", "create a session row"),

@@ -376,3 +376,87 @@ pub(super) async fn tools_count_response(
     )
 }
 
+
+/// `GET /db/version[?format=markdown]` — current SQLite
+/// schema version (the migration counter). Returns `{version}`
+/// JSON or a single-line markdown header. Useful for ops
+/// dashboards verifying that a deployment has the latest
+/// schema applied.
+pub(super) async fn db_version_response(
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    match store.schema_version().await {
+        Ok(v) => {
+            if matches!(format, Some("markdown")) {
+                return (
+                    "200 OK",
+                    format!("# DB schema version `{v}`\n"),
+                );
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({ "version": v }))
+                    .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"schema_version: {e}\"}}"),
+        ),
+    }
+}
+
+/// `GET /db/integrity[?format=markdown]` — runs
+/// `PRAGMA integrity_check` against the workspace store. SQLite
+/// reports a single `"ok"` row when the database is healthy
+/// and one or more diagnostic rows otherwise. Returns
+/// `{ok: bool, check: [<row>, ...]}` so callers can branch on
+/// the boolean and surface the raw rows when something is off.
+pub(super) async fn db_integrity_response(
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(String,)>, _> = sqlx::query_as("PRAGMA integrity_check")
+        .fetch_all(pool)
+        .await;
+    match rows {
+        Ok(rows) => {
+            let lines: Vec<String> = rows.into_iter().map(|(s,)| s).collect();
+            let ok = lines.len() == 1 && lines.first().is_some_and(|s| s == "ok");
+            if matches!(format, Some("markdown")) {
+                let mut out = format!(
+                    "# DB integrity ({})\n\n",
+                    if ok { "ok" } else { "FAIL" }
+                );
+                if !ok {
+                    out.push_str("## diagnostics\n\n");
+                    for l in &lines {
+                        let safe = l.replace('|', "\\|");
+                        out.push_str(&format!("- `{safe}`\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "ok": ok,
+                    "check": lines,
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"integrity_check: {e}\"}}"),
+        ),
+    }
+}
