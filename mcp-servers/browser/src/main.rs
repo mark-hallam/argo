@@ -14,6 +14,7 @@
 mod cdp;
 mod chrome_probe;
 mod schemas;
+mod schemas_session;
 mod service;
 
 use argo_mcp::run_loop;

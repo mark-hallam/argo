@@ -58,6 +58,14 @@ fn ok(text: String) -> CallToolResult {
     }
 }
 
+/// `pub(super)` shim so the sibling `session_tools` module can
+/// build `ok` content blocks without needing visibility into
+/// `McpContent`. Returns an `is_error=false` Text content
+/// block — same shape as the private `ok()` above.
+pub(super) fn ok_result(text: String) -> CallToolResult {
+    ok(text)
+}
+
 /// Open a persistent WebSocket to the first page-type tab and
 /// register it in the session registry.
 pub async fn session_open(args: &serde_json::Value) -> CallToolResult {
@@ -124,292 +132,12 @@ pub async fn session_list(_args: &serde_json::Value) -> CallToolResult {
     ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
 }
 
-/// `session_navigate` — drive `Page.navigate` against the
-/// session's persistent WS. Same wire shape as the single-shot
-/// `navigate` tool, but reuses the open connection.
-pub async fn session_navigate(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let Some(url) = args.get("url").and_then(|v| v.as_str()) else {
-        return error("missing required field 'url'".into());
-    };
-    let reg = registry().lock().await;
-    let Some(session_mu) = reg.get(sid) else {
-        return error(format!("no session '{sid}'"));
-    };
-    let mut session = session_mu.lock().await;
-    let id = session.next_id;
-    session.next_id += 1;
-    let req = serde_json::json!({
-        "id": id,
-        "method": "Page.navigate",
-        "params": {"url": url}
-    });
-    let serialized = match serde_json::to_string(&req) {
-        Ok(s) => s,
-        Err(e) => return error(format!("serialize: {e}")),
-    };
-    if let Err(e) = session.ws.send(Message::Text(serialized)).await {
-        return error(format!("send: {e}"));
-    }
-    let response_text = loop {
-        match session.ws.next().await {
-            Some(Ok(Message::Text(t))) => break t.to_string(),
-            Some(Ok(Message::Close(_))) | None => return error("ws closed".into()),
-            Some(Ok(_)) => continue,
-            Some(Err(e)) => return error(format!("read: {e}")),
-        }
-    };
-    let parsed: serde_json::Value = match serde_json::from_str(&response_text) {
-        Ok(v) => v,
-        Err(e) => return error(format!("parse: {e}")),
-    };
-    if let Some(err_msg) = parsed.get("error").and_then(|e| e.get("message")).and_then(|v| v.as_str()) {
-        return error(format!("Page.navigate: {err_msg}"));
-    }
-    let frame_id = parsed["result"]["frameId"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-    let payload = serde_json::json!({
-        "session_id": sid,
-        "navigated_to": url,
-        "frame_id": frame_id,
-    });
-    ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
-}
-
-/// Run `Runtime.evaluate` against the session's persistent WS.
-/// Reuses the open connection — no `/json` round-trip per call.
-pub async fn session_eval(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let Some(expression) = args.get("expression").and_then(|v| v.as_str()) else {
-        return error("missing required field 'expression'".into());
-    };
-    match runtime_evaluate(sid, expression).await {
-        Ok(parsed) => {
-            let result = &parsed["result"]["result"];
-            let summary = result
-                .get("value")
-                .map(|v| serde_json::to_string(v).unwrap_or_else(|_| v.to_string()))
-                .or_else(|| {
-                    result
-                        .get("description")
-                        .and_then(|v| v.as_str())
-                        .map(String::from)
-                })
-                .unwrap_or_else(|| result.to_string());
-            ok(summary)
-        }
-        Err(e) => error(e),
-    }
-}
-
-/// `session_read_page {session_id}` — return
-/// `document.body.innerText` against the session's pinned tab.
-/// Same shape as the single-shot `read_page` tool, but reuses
-/// the persistent WS.
-pub async fn session_read_page(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    match runtime_evaluate(
-        sid,
-        "document.body ? document.body.innerText : ''",
-    )
-    .await
-    {
-        Ok(parsed) => {
-            let value = parsed["result"]["result"]["value"]
-                .as_str()
-                .map(String::from)
-                .unwrap_or_default();
-            ok(value)
-        }
-        Err(e) => error(e),
-    }
-}
-
-/// `session_click {session_id, selector}` — click the element
-/// matched by a CSS selector against the session's pinned tab
-/// via `el.click()`. Returns 'clicked' on match, error
-/// otherwise. Same wire shape as the single-shot `click` tool.
-pub async fn session_click(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let Some(selector) = args.get("selector").and_then(|v| v.as_str()) else {
-        return error("missing required field 'selector'".into());
-    };
-    let escaped = selector.replace('\\', "\\\\").replace('"', "\\\"");
-    let js = format!(
-        "(function(){{ \
-            var el = document.querySelector(\"{escaped}\"); \
-            if (!el) return 'no match for selector'; \
-            el.click(); \
-            return 'clicked'; \
-        }})()"
-    );
-    match runtime_evaluate(sid, &js).await {
-        Ok(parsed) => {
-            let value = parsed["result"]["result"]["value"]
-                .as_str()
-                .map(String::from)
-                .unwrap_or_else(|| "(no value)".into());
-            if value == "clicked" {
-                ok(value)
-            } else {
-                error(value)
-            }
-        }
-        Err(e) => error(e),
-    }
-}
-
-/// `session_fill {session_id, selector, value}` — set a form
-/// field's value via the session's persistent WS. Same wire
-/// shape as the single-shot `fill` tool.
-pub async fn session_fill(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let Some(selector) = args.get("selector").and_then(|v| v.as_str()) else {
-        return error("missing required field 'selector'".into());
-    };
-    let Some(value) = args.get("value").and_then(|v| v.as_str()) else {
-        return error("missing required field 'value'".into());
-    };
-    let esc_sel = selector.replace('\\', "\\\\").replace('"', "\\\"");
-    let esc_val = value.replace('\\', "\\\\").replace('"', "\\\"");
-    let js = format!(
-        "(function(){{ \
-            var el = document.querySelector(\"{esc_sel}\"); \
-            if (!el) return 'no match for selector'; \
-            el.value = \"{esc_val}\"; \
-            el.dispatchEvent(new Event('input', {{ bubbles: true }})); \
-            el.dispatchEvent(new Event('change', {{ bubbles: true }})); \
-            return 'filled'; \
-        }})()"
-    );
-    match runtime_evaluate(sid, &js).await {
-        Ok(parsed) => {
-            let result = parsed["result"]["result"]["value"]
-                .as_str()
-                .map(String::from)
-                .unwrap_or_else(|| "(no value)".into());
-            if result == "filled" {
-                ok(result)
-            } else {
-                error(result)
-            }
-        }
-        Err(e) => error(e),
-    }
-}
-
-/// `session_submit {session_id, selector}` — submit the form
-/// nearest to the matched element via the session's persistent
-/// WS. Same wire shape as the single-shot `submit` tool.
-pub async fn session_submit(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let Some(selector) = args.get("selector").and_then(|v| v.as_str()) else {
-        return error("missing required field 'selector'".into());
-    };
-    let escaped = selector.replace('\\', "\\\\").replace('"', "\\\"");
-    let js = format!(
-        "(function(){{ \
-            var el = document.querySelector(\"{escaped}\"); \
-            if (!el) return 'no match for selector'; \
-            var form = el.tagName === 'FORM' ? el : el.form; \
-            if (!form) return 'matched element has no enclosing <form>'; \
-            form.submit(); \
-            return 'submitted'; \
-        }})()"
-    );
-    match runtime_evaluate(sid, &js).await {
-        Ok(parsed) => {
-            let result = parsed["result"]["result"]["value"]
-                .as_str()
-                .map(String::from)
-                .unwrap_or_else(|| "(no value)".into());
-            if result == "submitted" {
-                ok(result)
-            } else {
-                error(result)
-            }
-        }
-        Err(e) => error(e),
-    }
-}
-
-/// `session_extract_links {session_id}` — return all
-/// `<a href>` links on the session's pinned tab as a
-/// pretty-printed JSON array of `{href, text}`.
-pub async fn session_extract_links(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let js = "JSON.stringify(Array.from(document.querySelectorAll('a[href]')).map(a => ({ href: a.href, text: (a.innerText || '').trim() })))";
-    match runtime_evaluate(sid, js).await {
-        Ok(parsed) => {
-            let raw = parsed["result"]["result"]["value"]
-                .as_str()
-                .map(String::from)
-                .unwrap_or_else(|| "[]".to_string());
-            let parsed_arr: serde_json::Value =
-                serde_json::from_str(&raw).unwrap_or(serde_json::Value::Array(Vec::new()));
-            let pretty = serde_json::to_string_pretty(&parsed_arr).unwrap_or(raw);
-            ok(pretty)
-        }
-        Err(e) => error(e),
-    }
-}
-
-/// `session_screenshot {session_id, full_page?}` — capture a
-/// viewport (or full-page) PNG via Page.captureScreenshot
-/// against the session's pinned tab. Returns an MCP Image
-/// content block (data URI). Same wire shape as the
-/// single-shot `screenshot` tool.
-pub async fn session_screenshot(args: &serde_json::Value) -> CallToolResult {
-    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
-        return error("missing required field 'session_id'".into());
-    };
-    let full_page = args
-        .get("full_page")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let params = serde_json::json!({
-        "format": "png",
-        "captureBeyondViewport": full_page,
-    });
-    match send_cdp_method(sid, "Page.captureScreenshot", params).await {
-        Ok(parsed) => {
-            let data = parsed["result"]["data"].as_str().map(String::from);
-            let Some(data) = data else {
-                return error(format!("no `data` in screenshot response: {parsed}"));
-            };
-            CallToolResult {
-                content: vec![McpContent::Image {
-                    data: Some(format!("data:image/png;base64,{data}")),
-                    mime_type: Some("image/png".into()),
-                }],
-                is_error: false,
-            }
-        }
-        Err(e) => error(e),
-    }
-}
 
 /// Internal helper: send a `Runtime.evaluate` over the
 /// session's persistent WS and return the parsed JSON-RPC
 /// envelope. Thin wrapper around `send_cdp_method` for the
 /// common Runtime.evaluate case.
-async fn runtime_evaluate(
+pub(super) async fn runtime_evaluate(
     sid: &str,
     expression: &str,
 ) -> Result<serde_json::Value, String> {
@@ -427,7 +155,7 @@ async fn runtime_evaluate(
 /// Page.* / Network.* / DOM.* methods) go through here so the
 /// per-session message-id counter + read loop stay in one
 /// place.
-async fn send_cdp_method(
+pub(super) async fn send_cdp_method(
     sid: &str,
     method: &str,
     params: serde_json::Value,

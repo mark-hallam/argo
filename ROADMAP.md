@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **590 PRs** on `main` (190 since milestone 400 —
-**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions in flight (11 stateful tools)**),
+across **591 PRs** on `main` (191 since milestone 400 —
+**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions feature-complete (15 stateful tools, all 12 single-shot variants mirrored)**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -349,19 +349,21 @@ as v1.1 perf wins:
 - **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
   + opus (OGG/Opus). All four cloud backends already wired (OpenAI
   TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
-- **Browser MCP — stateful sessions** — **v1.1 in flight**:
-  hand-rolled CDP session manager. #583/#585/#587 added
-  navigate/list/read_page/click/fill/submit/extract_links on
-  top of the original open/close/eval trio. #589 added
-  `session_screenshot` and generalised the per-session
-  message-id + read-loop helper to `send_cdp_method` so any
-  CDP method (Page.* / Network.* / DOM.*) can be issued over
-  the persistent WS — Runtime.evaluate is now just one
-  case-of. **11 stateful-session tools total** out of 25 in
-  the browser MCP. Remaining: `session_scroll`,
-  `session_wait_for`, `session_pdf`, `session_cookies`, plus
-  a session timeout reaper. Cloud opt-ins (Browserbase /
-  BrowserUse) remain pending.
+- **Browser MCP — stateful sessions** — **v1.1 feature-
+  complete as of #591** at the tool-mirror level. Hand-rolled
+  CDP session manager: persistent per-tab WebSocket, sticky
+  session ids, generalized `send_cdp_method` helper. Every
+  one of the 12 spec single-shot tools now has a session-aware
+  variant: navigate / eval / read_page / click / fill /
+  submit / extract_links / screenshot / scroll / wait_for /
+  pdf / cookies. Plus the lifecycle (open / close / list).
+  **15 stateful-session tools total** out of **29 in the
+  browser MCP**. Remaining: a session timeout reaper for
+  idle sessions, plus the optional cloud opt-ins
+  (Browserbase / BrowserUse). PR #591 also extracted the
+  per-tool handlers to a sibling `session_tools.rs` and the
+  schemas to `schemas_session.rs` to honour the 500-LOC
+  budget.
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test
   accounts.

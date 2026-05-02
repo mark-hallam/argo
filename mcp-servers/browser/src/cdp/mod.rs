@@ -1,33 +1,23 @@
-//! Chrome DevTools Protocol — minimal client.
-//!
-//! Three paths:
-//!   - HTTP probes (`list_tabs`, `chrome_version`) hit `/json` +
-//!     `/json/version`; useful to verify the user's Chrome attach
-//!     config before driving anything.
-//!   - Single-shot WebSocket calls (`eval`, `screenshot`, `read_page`,
-//!     `extract_links`, `navigate`, `scroll`, `pdf`, `submit`,
-//!     `click`, `fill`, `cookies`) — each opens a fresh WS to the
-//!     first page-type tab, sends one CDP request, and closes.
-//!     Goes through the shared `cdp_round_trip()` helper.
-//!   - Polling loop (`wait_for`) — repeats a single-shot probe
-//!     every 200ms until truthy or timeout.
-//!
-//! All 14 spec tools are wired without chromiumoxide. The DOM-read
-//! tools (`eval`, `read_page`, `extract_links`) live in `dom.rs`;
-//! interaction tools (`click`, `fill`, `submit`, `cookies`,
-//! `wait_for`) live in `forms.rs`. Page actions (navigate / scroll /
-//! pdf / screenshot) + helpers + HTTP probes stay here.
+//! Chrome DevTools Protocol — minimal client. Three paths:
+//! HTTP probes (list_tabs / chrome_version) hit /json + /json/version;
+//! single-shot WS calls go through the shared `cdp_round_trip()`
+//! helper; polling loops (wait_for) repeat the single-shot probe
+//! until truthy or timeout. Stateful sessions live in
+//! sessions.rs + session_tools.rs (persistent WS, no /json round-
+//! trip per call).
 mod dom;
 mod forms;
+mod session_tools;
 mod sessions;
 
 pub use dom::{eval, extract_links, read_page};
 pub use forms::{click, cookies, fill, submit, wait_for};
-pub use sessions::{
-    session_click, session_close, session_eval, session_extract_links, session_fill,
-    session_list, session_navigate, session_open, session_read_page,
-    session_screenshot, session_submit,
+pub use session_tools::{
+    session_click, session_cookies, session_eval, session_extract_links, session_fill,
+    session_navigate, session_pdf, session_read_page, session_screenshot,
+    session_scroll, session_submit, session_wait_for,
 };
+pub use sessions::{session_close, session_list, session_open};
 
 use argo_mcp::{CallToolResult, McpContent};
 use std::time::Duration;

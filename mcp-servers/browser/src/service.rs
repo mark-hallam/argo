@@ -50,6 +50,7 @@ impl McpServerService for BrowserService {
 
     fn list_tools(&self) -> Vec<McpToolSchema> {
         use crate::schemas::*;
+        use crate::schemas_session::*;
         vec![
             navigate_schema(),
             click_schema(),
@@ -76,6 +77,10 @@ impl McpServerService for BrowserService {
             session_submit_schema(),
             session_extract_links_schema(),
             session_screenshot_schema(),
+            session_scroll_schema(),
+            session_wait_for_schema(),
+            session_pdf_schema(),
+            session_cookies_schema(),
         ]
     }
 
@@ -155,6 +160,18 @@ impl McpServerService for BrowserService {
         if params.name.as_str() == "session_screenshot" {
             return Ok(crate::cdp::session_screenshot(&params.arguments).await);
         }
+        if params.name.as_str() == "session_scroll" {
+            return Ok(crate::cdp::session_scroll(&params.arguments).await);
+        }
+        if params.name.as_str() == "session_wait_for" {
+            return Ok(crate::cdp::session_wait_for(&params.arguments).await);
+        }
+        if params.name.as_str() == "session_pdf" {
+            return Ok(crate::cdp::session_pdf(&params.arguments).await);
+        }
+        if params.name.as_str() == "session_cookies" {
+            return Ok(crate::cdp::session_cookies(&params.arguments).await);
+        }
         let known = TOOL_NAMES.contains(&params.name.as_str())
             || HTTP_ONLY_TOOLS.contains(&params.name.as_str());
         let text = if known {
@@ -179,8 +196,8 @@ mod tests {
         let tools = s.list_tools();
         assert_eq!(
             tools.len(),
-            25,
-            "12 spec tools + list_tabs + chrome_version + 11 session-* tools"
+            29,
+            "12 spec tools + list_tabs + chrome_version + 15 session-* tools"
         );
     }
 
