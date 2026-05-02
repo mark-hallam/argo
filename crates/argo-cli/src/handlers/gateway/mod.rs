@@ -8,6 +8,7 @@ mod lifecycle;
 mod metrics;
 mod routes;
 mod routes_audit;
+mod routes_audit_rollups;
 pub(crate) mod routes_catalog;
 mod routes_counts;
 mod routes_costs_by_day;

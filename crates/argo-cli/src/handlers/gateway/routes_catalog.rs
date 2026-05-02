@@ -44,6 +44,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit/breaks", "actual ChainBreak rows (seq, kind, reason) — empty if chain is clean (?format=markdown)"),
         ("GET", "/audit/count", "count of audit rows (?kind=…&since-minutes=N&session=<uuid>)"),
         ("GET", "/audit/by-kind", "histogram of audit rows by kind (?since-minutes=N&format=markdown)"),
+        ("GET", "/audit/by-session", "top-N sessions by audit row count (?limit=N&since-minutes=M&format=markdown; default limit 50, cap 500)"),
         ("GET", "/audit/by-day", "audit rows per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/messages/by-day", "messages created per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/audit/recent", "most recent N audit rows across all sessions (?limit=50&kind=turn_start|...&since-minutes=M&session=<uuid>&format=markdown)"),

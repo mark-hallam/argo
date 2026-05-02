@@ -94,6 +94,26 @@ pub(super) async fn dispatch_rollups(
                 .await,
         );
     }
+    if req.starts_with("GET /audit/by-session ")
+        || req.starts_with("GET /audit/by-session?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let limit: u32 = parse_query_kv(tail, "limit")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(50);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_audit_rollups::audit_by_session_response(
+                limit,
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     if req.starts_with("GET /forge/runs/by-day ")
         || req.starts_with("GET /forge/runs/by-day?")
     {
