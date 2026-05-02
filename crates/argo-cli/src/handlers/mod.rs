@@ -7,6 +7,8 @@ mod audit_count;
 pub mod chat;
 pub mod audit_by_day;
 pub mod audit_by_kind;
+pub mod audit_by_session;
+mod audit_helpers;
 pub mod costs;
 pub mod costs_by_day;
 pub mod forge_by_day;
