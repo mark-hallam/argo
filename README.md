@@ -22,30 +22,44 @@ These five are the spec. Anything that violates them is a bug.
 
 Argo is a structurally different shape: Rust core, JSON-RPC plugin ABI, multi-tenant by construction, capability-based security, provider manifests instead of adapters, an MCP-first integration model — plus an external-judge adjudicator for skill creation, automated skill optimization (Argo Forge), time-travel session replay, and a workspace OCI marketplace. Roughly 5× smaller for ~95% of Hermes capability and addressing the 14 most-cited Hermes user pain points by design (token overhead, RBAC, multi-agent, adaptive timeouts, …). See `docs/plan/argo-vs-hermes-gap-analysis.md`.
 
-## Quick start
+## Install
 
-Build from source (the public installer ships post-stabilisation):
+One-liner install for macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mark-hallam/Argo-Agent/main/install.sh | bash
+argo setup
+```
+
+The installer fetches a pre-built binary from the latest GitHub release (~12 MB) and drops it in `~/.local/bin/argo`. `argo setup` walks you through workspace init + provider key configuration.
+
+Pin a specific version with `ARGO_VERSION=v0.1.0 ./install.sh` or change the destination with `ARGO_INSTALL_DIR=/opt/argo/bin`.
+
+Windows users: download `argo-x86_64-pc-windows-msvc.zip` from the [Releases page](https://github.com/mark-hallam/Argo-Agent/releases) directly.
+
+### Drive it offline (no API key required)
+
+```bash
+argo gateway start &           # bind 127.0.0.1:7400
+curl http://127.0.0.1:7400/    # landing JSON + entry-point hints
+curl http://127.0.0.1:7400/routes  # the full 133-endpoint catalog
+argo doctor                    # workspace health probe
+argo gateway probe             # K8s-style readiness probe
+argo tui                       # full Ratatui app w/ 11 overlays
+```
+
+For live LLM runs, export an API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) and use `argo chat` or `argo session new`.
+
+### Build from source
+
+If you'd rather build instead of installing a binary:
 
 ```bash
 git clone https://github.com/mark-hallam/Argo-Agent argo
 cd argo
-cargo build --workspace
-cargo test --workspace
-./target/debug/argo --version
+cargo build --workspace --release
+./target/release/argo --version
 ```
-
-Then drive it offline (no API key required):
-
-```bash
-./target/debug/argo gateway start &        # bind 127.0.0.1:7400
-curl http://127.0.0.1:7400/                # landing JSON + entry-point hints
-curl http://127.0.0.1:7400/routes          # the full 133-endpoint catalog
-./target/debug/argo doctor                 # workspace health probe
-./target/debug/argo gateway probe          # K8s-style readiness probe
-./target/debug/argo tui                    # full Ratatui app w/ 10 overlays
-```
-
-For live LLM runs, export an API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) and use `argo chat` or `argo session new`.
 
 ## Optional features
 

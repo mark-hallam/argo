@@ -19,6 +19,7 @@ pub mod messages_by_role;
 pub mod messages_by_session;
 pub mod messages_recent;
 pub mod gateway_probe;
+pub mod setup;
 pub mod costs;
 pub mod costs_by_day;
 pub mod costs_by_model;

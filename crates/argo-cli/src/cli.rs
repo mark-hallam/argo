@@ -105,6 +105,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: AuditCmd,
     },
+    /// First-time interactive setup. Mirrors the
+    /// `curl … | bash && argo setup` Hermes-style two-step
+    /// install (#646). Idempotent: re-runnable to verify
+    /// configuration or pick a different provider.
+    Setup,
     /// Workspace-wide message rollups. Mirrors the gateway's
     /// `/messages/*` family.
     Messages {

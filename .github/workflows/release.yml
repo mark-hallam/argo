@@ -1,8 +1,22 @@
 name: Release
+# Build optimized `argo` binaries for 5 targets and publish them as
+# GitHub Release assets so end-users can `curl … | bash` the
+# install.sh at the repo root.
+#
+# Triggers:
+#   - push of a `v*` tag (canonical release path)
+#   - workflow_dispatch with a tag input (smoke / re-cut a release)
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write   # softprops/action-gh-release needs write to create releases
 
 jobs:
   build:
@@ -19,11 +33,64 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
-        with: { targets: ${{ matrix.target }} }
+        with:
+          targets: ${{ matrix.target }}
+
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --target ${{ matrix.target }} --bin argo
-      - uses: actions/upload-artifact@v4
+        with:
+          key: release-${{ matrix.target }}
+
+      # Cross-compile linux-aarch64 from x86_64 ubuntu runners.
+      - name: Install cross-compile toolchain (aarch64-linux)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p .cargo
+          cat >> .cargo/config.toml <<'EOF'
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} --bin argo
+
+      - name: Package (unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          tar czf "argo-${{ matrix.target }}.tar.gz" \
+            -C "target/${{ matrix.target }}/release" argo
+
+      - name: Package (windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "target/${{ matrix.target }}/release/argo.exe" `
+            -DestinationPath "argo-${{ matrix.target }}.zip"
+
+      - name: Upload to workflow run (always)
+        uses: actions/upload-artifact@v4
         with:
           name: argo-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/argo*
+          path: |
+            argo-${{ matrix.target }}.tar.gz
+            argo-${{ matrix.target }}.zip
+          if-no-files-found: ignore
+
+      # Only publish to GitHub Releases when triggered by a tag
+      # (or manual dispatch). Asset name in the URL becomes
+      # https://github.com/<repo>/releases/download/<tag>/argo-<target>.tar.gz
+      # which install.sh hard-codes.
+      - name: Publish Release asset
+        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: |
+            argo-${{ matrix.target }}.tar.gz
+            argo-${{ matrix.target }}.zip
