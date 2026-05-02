@@ -24,18 +24,30 @@ Argo is a structurally different shape: Rust core, JSON-RPC plugin ABI, multi-te
 
 ## Install
 
-One-liner install for macOS / Linux:
+**macOS / Linux:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mark-hallam/Argo-Agent/main/install.sh | bash
 argo setup
 ```
 
-The installer fetches a pre-built binary from the latest GitHub release (~12 MB) and drops it in `~/.local/bin/argo`. `argo setup` walks you through workspace init + provider key configuration.
+**Windows** (PowerShell — built into Windows 10/11):
 
-Pin a specific version with `ARGO_VERSION=v0.1.0 ./install.sh` or change the destination with `ARGO_INSTALL_DIR=/opt/argo/bin`.
+```powershell
+irm https://raw.githubusercontent.com/mark-hallam/Argo-Agent/main/install.ps1 | iex
+argo setup
+```
 
-Windows users: download `argo-x86_64-pc-windows-msvc.zip` from the [Releases page](https://github.com/mark-hallam/Argo-Agent/releases) directly.
+Both installers:
+- Detect your OS + architecture
+- Fetch a pre-built binary from the latest GitHub release (~12 MB)
+- Drop it in a user-scope dir (no sudo / admin required) — `~/.local/bin/argo` on unix, `%LOCALAPPDATA%\argo\bin\argo.exe` on Windows
+- Add that dir to your PATH if it's missing
+- Tell you to run `argo setup` to continue
+
+`argo setup` walks you through workspace init + provider key configuration.
+
+Pin a specific version with `ARGO_VERSION=v0.1.0` or change the destination with `ARGO_INSTALL_DIR=...`. Both env vars work on both installers.
 
 ### Drive it offline (no API key required)
 
