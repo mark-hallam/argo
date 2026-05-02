@@ -406,6 +406,20 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Per-session histogram of failed tool calls (tool_result rows
+    /// with is_error=true). Drills down into
+    /// `argo audit tool-errors` (#618) for one session. Mirrors
+    /// the gateway's `GET /sessions/<id>/audit/tool-errors` (#628).
+    ToolErrors {
+        /// Session id (uuid).
+        id: String,
+        /// Filter to rows within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{tool_errors}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —
