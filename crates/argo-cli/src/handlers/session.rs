@@ -169,6 +169,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::ByDay { days, json } => {
             super::session_by_day::run(days, json).await
         }
+        SessionCmd::ByProvider { since_minutes, json } => {
+            super::session_by_provider::run(since_minutes, json).await
+        }
     }
 }
 

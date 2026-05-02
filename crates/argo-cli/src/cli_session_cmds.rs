@@ -334,6 +334,17 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of sessions grouped by provider id. Mirrors
+    /// the gateway's `GET /sessions/by-provider` (#594).
+    ByProvider {
+        /// Filter to sessions started within this many recent
+        /// minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_provider}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —
