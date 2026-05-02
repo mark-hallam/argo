@@ -15,35 +15,15 @@ use super::routes_providers::{
 use super::routes_lists::{memory_response, memory_versions_response, skills_response};
 use super::routes_workspace::{artifacts_response, workspace_info_response};
 use super::routes_audit::{audit_session_response, audit_session_verify_response};
-use super::routes_post::{
-    append_message_response, costs_breakdown_response, create_session_response, replay_response,
-    run_turn_response, steer_response,
-};
-use super::routes_cron::{cron_create_response, cron_delete_response, cron_list_response, cron_show_response};
+use super::routes_post::costs_breakdown_response;
+use super::routes_cron::{cron_list_response, cron_show_response};
 use super::routes_session_get::dispatch_session_get;
-use super::routes_post_admin::{
-    judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
-    memory_unlock_response, skill_lock_response, skill_unlock_response,
-};
-use super::routes_skill_refine::skill_refine_response;
 use super::routes_top::{
     audit_breaks_response, audit_response, dispatch_sessions, doctor_response,
     health_full_response,
 };
-use super::routes_session_skills::{
-    session_attach_skill_response, session_clear_skills_response, session_delete_response,
-    session_detach_skill_response, session_end_all_response, session_end_response,
-    session_reopen_response, session_set_title_response,
-};
 use super::routes_query::{parse_query_kv, parse_search_args, parse_since_minutes_from_get};
-use super::routes_forge_promote::{
-    forge_abort_all_response, forge_promote_response, forge_sweep_response,
-};
-use super::routes_post_writes::{
-    append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
-    forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
-    workspace_init_response,
-};
+use super::routes_dispatch_post::dispatch_post;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -415,155 +395,10 @@ pub(super) async fn dispatch_route(
         let format = parse_query_kv(tail, "format");
         return costs_breakdown_response("by_session", store, format.as_deref()).await;
     }
-    if req.starts_with("POST /sessions ") {
-        return create_session_response(req, store).await;
-    }
-    if req.starts_with("POST /skills ") {
-        return install_skill_response(req, store).await;
-    }
-    if req.starts_with("POST /memory ") {
-        return append_memory_response(req, store).await;
-    }
-    if req.starts_with("POST /cron ") {
-        return cron_create_response(req).await;
-    }
-    if req.starts_with("POST /workspace/init ") {
-        return workspace_init_response(req, store).await;
-    }
-    if req.starts_with("POST /db/vacuum ") {
-        return db_vacuum_response(store).await;
-    }
-    if req.starts_with("POST /metrics/reset ") {
-        return super::metrics::metrics_reset_response();
-    }
-    if req.starts_with("POST /db/prune ") {
-        return db_prune_response(req, store).await;
-    }
-    if let Some(rest) = req.strip_prefix("POST /judge/") {
-        if let Some((rid, tail)) = rest.split_once('/') {
-            if tail.starts_with("override ") {
-                return judge_override_response(rid, req, store).await;
-            }
-        }
-    }
-    if req.starts_with("POST /forge/optimize ") {
-        return forge_optimize_response(req).await;
-    }
-    if req.starts_with("POST /forge/bench ") {
-        return forge_bench_response(req).await;
-    }
-    if req.starts_with("POST /forge/runs/abort-all ") {
-        return forge_abort_all_response(store).await;
-    }
-    if req.starts_with("POST /forge/runs/sweep ")
-        || req.starts_with("POST /forge/runs/sweep?")
-    {
-        let tail = req.strip_prefix("POST ").unwrap_or(req);
-        let older_than_minutes = parse_query_kv(tail, "older-than-minutes")
-            .and_then(|v| v.parse::<i64>().ok())
-            .unwrap_or(60);
-        return forge_sweep_response(older_than_minutes, store).await;
-    }
-    if req.starts_with("POST /sessions/end-all ")
-        || req.starts_with("POST /sessions/end-all?")
-    {
-        let tail = req.strip_prefix("POST ").unwrap_or(req);
-        let older_than =
-            parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
-        return session_end_all_response(older_than, store).await;
-    }
-    // POST /forge/runs/<id>/abort — flip status to "aborted".
-    if let Some(rest) = req.strip_prefix("POST /forge/runs/") {
-        if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("abort ") {
-                return forge_abort_response(id, store).await;
-            }
-            if tail.starts_with("promote ") {
-                return forge_promote_response(id, store).await;
-            }
-        }
-    }
-    // POST /skills/<name>/{promote,lock,unlock}
-    if let Some(rest) = req.strip_prefix("POST /skills/") {
-        if let Some((name, tail)) = rest.split_once('/') {
-            if tail.starts_with("promote ") {
-                return skill_promote_response(name, req, store).await;
-            }
-            if tail.starts_with("lock ") {
-                return skill_lock_response(name, req, store).await;
-            }
-            if tail.starts_with("unlock ") {
-                return skill_unlock_response(name, store).await;
-            }
-            if tail.starts_with("refine ") {
-                return skill_refine_response(name, req, store).await;
-            }
-        }
-    }
-    // POST /cron/<name>/delete — remove the on-disk job file.
-    if let Some(rest) = req.strip_prefix("POST /cron/") {
-        if let Some((name, tail)) = rest.split_once('/') {
-            if tail.starts_with("delete ") {
-                return cron_delete_response(name).await;
-            }
-        }
-    }
-    // POST /memory/<id>/{lock,unlock,forget,edit}
-    if let Some(rest) = req.strip_prefix("POST /memory/") {
-        if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("lock ") {
-                return memory_lock_response(id, req, store).await;
-            }
-            if tail.starts_with("unlock ") {
-                return memory_unlock_response(id, store).await;
-            }
-            if tail.starts_with("forget ") {
-                return memory_forget_response(id, store).await;
-            }
-            if tail.starts_with("edit ") {
-                return memory_edit_response(id, req, store).await;
-            }
-        }
-    }
-    // POST /sessions/<uuid>/messages — append a message to a
-    // recorded session. We do the URL parse here to keep
-    // dispatch_route as the single entry-point.
-    if let Some(rest) = req.strip_prefix("POST /sessions/") {
-        if let Some((sid, tail)) = rest.split_once('/') {
-            if tail.starts_with("messages ") {
-                return append_message_response(sid, req, store).await;
-            }
-            if tail.starts_with("runs ") {
-                return run_turn_response(sid, req, store).await;
-            }
-            if tail.starts_with("steer ") {
-                return steer_response(sid, req, store).await;
-            }
-            if tail.starts_with("replay ") {
-                return replay_response(sid, req, store).await;
-            }
-            if tail.starts_with("skills/attach ") {
-                return session_attach_skill_response(sid, req, store).await;
-            }
-            if tail.starts_with("skills/detach ") {
-                return session_detach_skill_response(sid, req, store).await;
-            }
-            if tail.starts_with("skills/clear ") {
-                return session_clear_skills_response(sid, store).await;
-            }
-            if tail.starts_with("delete ") {
-                return session_delete_response(sid, store).await;
-            }
-            if tail.starts_with("title ") {
-                return session_set_title_response(sid, req, store).await;
-            }
-            if tail.starts_with("end ") {
-                return session_end_response(sid, store).await;
-            }
-            if tail.starts_with("reopen ") {
-                return session_reopen_response(sid, store).await;
-            }
-        }
+    // All POST verbs live in the sibling `routes_dispatch_post`
+    // module so this file stays under the 500-LOC budget.
+    if let Some(resp) = dispatch_post(req, store).await {
+        return resp;
     }
     // GET /sessions/<uuid>/{spend,spend/total,messages,messages/last,skills,judge}
     // and bare GET /sessions/<uuid> are all dispatched in one helper.
