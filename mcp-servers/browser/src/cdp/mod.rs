@@ -17,7 +17,7 @@ pub use session_tools::{
     session_navigate, session_pdf, session_read_page, session_screenshot,
     session_scroll, session_submit, session_wait_for,
 };
-pub use sessions::{session_close, session_list, session_open};
+pub use sessions::{session_close, session_list, session_open, session_reap};
 
 use argo_mcp::{CallToolResult, McpContent};
 use std::time::Duration;

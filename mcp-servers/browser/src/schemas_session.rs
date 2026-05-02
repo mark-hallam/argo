@@ -267,3 +267,22 @@ pub(crate) fn session_cookies_schema() -> McpToolSchema {
     }
 }
 
+pub(crate) fn session_reap_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_reap".into(),
+        description: "Drop every browser session whose \
+            `last_used` timestamp is older than \
+            `max_idle_secs` (default 600 = 10 minutes). \
+            Pass `max_idle_secs=0` to reap all sessions \
+            (useful for shutdown). Returns \
+            `{reaped_ids, remaining, max_idle_secs}`."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "max_idle_secs": { "type": "integer", "default": 600 }
+            }
+        }),
+    }
+}
+

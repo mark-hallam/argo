@@ -28,6 +28,10 @@ type Ws = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 struct BrowserSession {
     ws: Ws,
     next_id: u64,
+    /// Monotonic stamp of the last CDP exchange on this WS,
+    /// updated by `send_cdp_method`. Used by `session_reap` to
+    /// drop idle sessions.
+    last_used: std::time::Instant,
 }
 
 fn registry() -> &'static Mutex<HashMap<String, Mutex<BrowserSession>>> {
@@ -100,7 +104,11 @@ pub async fn session_open(args: &serde_json::Value) -> CallToolResult {
             .map(|d| d.as_nanos())
             .unwrap_or(0)
     );
-    let session = BrowserSession { ws, next_id: 1 };
+    let session = BrowserSession {
+        ws,
+        next_id: 1,
+        last_used: std::time::Instant::now(),
+    };
     registry().lock().await.insert(id.clone(), Mutex::new(session));
     ok(format!("{{\"session_id\":\"{id}\"}}"))
 }
@@ -165,6 +173,7 @@ pub(super) async fn send_cdp_method(
     let mut session = session_mu.lock().await;
     let id = session.next_id;
     session.next_id += 1;
+    session.last_used = std::time::Instant::now();
     let req = serde_json::json!({
         "id": id,
         "method": method,
@@ -186,4 +195,44 @@ pub(super) async fn send_cdp_method(
         }
     };
     serde_json::from_str(&response_text).map_err(|e| format!("parse: {e}"))
+}
+
+/// `session_reap {max_idle_secs?}` — drop every browser
+/// session whose `last_used` is older than the cutoff
+/// (default 600s = 10 minutes). Returns
+/// `{reaped_ids: [...], remaining: N}` so a host can audit
+/// the impact. `max_idle_secs=0` reaps everything (useful
+/// for shutdown).
+pub async fn session_reap(args: &serde_json::Value) -> CallToolResult {
+    let max_idle_secs = args
+        .get("max_idle_secs")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(600);
+    let cutoff = std::time::Instant::now()
+        .checked_sub(std::time::Duration::from_secs(max_idle_secs))
+        .unwrap_or_else(std::time::Instant::now);
+    let mut reaped: Vec<String> = Vec::new();
+    let mut reg = registry().lock().await;
+    // Snapshot the (id, last_used) pairs before mutating —
+    // can't hold an iterator across a remove call.
+    let mut to_drop: Vec<String> = Vec::new();
+    for (id, session_mu) in reg.iter() {
+        let session = session_mu.lock().await;
+        if session.last_used <= cutoff {
+            to_drop.push(id.clone());
+        }
+    }
+    for id in to_drop {
+        if reg.remove(&id).is_some() {
+            reaped.push(id);
+        }
+    }
+    reaped.sort();
+    let remaining = reg.len();
+    let payload = serde_json::json!({
+        "reaped_ids": reaped,
+        "remaining": remaining,
+        "max_idle_secs": max_idle_secs,
+    });
+    ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
 }
