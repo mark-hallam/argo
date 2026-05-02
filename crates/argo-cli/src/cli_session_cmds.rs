@@ -429,4 +429,17 @@ pub enum MessagesCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Top-N sessions by message row count. Mirrors the gateway's
+    /// `GET /messages/by-session` (#615).
+    BySession {
+        /// Top-N session limit (default 50, cap 500).
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Filter to messages within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_session}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
