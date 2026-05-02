@@ -111,5 +111,21 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
+    if req.starts_with("GET /forge/runs/by-skill ")
+        || req.starts_with("GET /forge/runs/by-skill?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_forge_rollups::forge_runs_by_skill_response(
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     None
 }

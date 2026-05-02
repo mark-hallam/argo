@@ -16,6 +16,7 @@ mod routes_dispatch_costs;
 mod routes_dispatch_post;
 mod routes_dispatch_rollups;
 mod routes_forge;
+mod routes_forge_rollups;
 mod routes_forge_promote;
 mod routes_lists;
 mod routes_meta;

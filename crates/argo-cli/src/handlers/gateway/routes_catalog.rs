@@ -69,6 +69,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/forge/runs/count", "count of forge runs (?status=running|...&since-minutes=N)"),
         ("GET", "/forge/runs/by-day", "forge runs started per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/forge/runs/by-status", "histogram of forge_run rows by status (?since-minutes=N&format=markdown)"),
+        ("GET", "/forge/runs/by-skill", "histogram of forge_run rows by skill_name (?since-minutes=N&format=markdown)"),
         ("GET", "/cron", "scheduled cron jobs (workspace cron/jobs/*.json; ?format=markdown for a 6-column table)"),
         ("GET", "/cron/<name>", "one cron job by name (?format=markdown for a paste-able doc)"),
         ("POST", "/cron", "create a new cron job ({name, schedule, prompt, platform, chat})"),
