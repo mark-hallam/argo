@@ -30,6 +30,7 @@ pub mod route;
 pub mod session;
 mod session_aggregates;
 mod session_bisect;
+mod session_by_day;
 mod session_clone_branch;
 mod session_diff;
 mod session_export;
