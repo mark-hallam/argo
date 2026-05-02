@@ -1,0 +1,21 @@
+schema_version = "1"
+
+# Shape of memory rows that PR-Checker writes. Today the loader
+# only carries this for declarative completeness; Phase 9 will
+# wire actual write-time validation. Until then, this file
+# documents the contract the agent agrees to.
+
+[[entry]]
+key  = "known_invariants"
+type = "list-of-strings"
+purpose = "Project-specific invariants the agent should check on every PR. Seeded from memory/seed/known_invariants.md."
+
+[[entry]]
+key  = "known_pitfalls"
+type = "list-of-strings"
+purpose = "Recurring problem patterns we've seen accepted into past PRs and want flagged in future ones. Append-only as the agent learns."
+
+[[entry]]
+key  = "false_positive_patterns"
+type = "list-of-strings"
+purpose = "Patterns that LOOK like invariant violations but aren't (e.g., a 510-LOC test file that's actually fine because tests have a different budget). Reduces the agent's noise rate over time."

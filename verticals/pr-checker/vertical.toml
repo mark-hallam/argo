@@ -1,0 +1,67 @@
+schema_version = "1"
+
+[vertical]
+id          = "pr-checker"
+name        = "Pull Request Checker"
+description = "Reviews diffs against project invariants, surfaces likely problems, and posts an advisory summary. Read-only by manifest declaration."
+version     = "0.1.0"
+authors     = ["Argo contributors"]
+tags        = ["dev-tools", "code-review", "read-only"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-5"
+fallback  = "openai/gpt-5"
+cost_tier = "balanced"
+
+# READ-ONLY by manifest. Deny-wins precedence will block any
+# state-mutating tool even if downstream policy adds them. The
+# explicit deny list is the security boundary; the allow list is
+# the discoverability hint to the agent.
+[tools]
+allowed = ["file_read", "web_extract", "web_search", "memory"]
+denied  = ["file_write", "file_patch", "terminal", "delegate_task"]
+
+[memory]
+schema = "memory.schema.toml"
+seed   = "memory/seed/"
+
+[skills]
+bundle = "skills/"
+
+# Workflows are scaffold-only at v0.1.0 — Phase 5 will wire the
+# actual state-machine runner. Carrying the file list lets the
+# manifest validate today and lets the runner pick it up later
+# without a schema change.
+[workflows]
+files = []
+
+[escalation]
+# When two consecutive turns fail (provider error, tool denial,
+# parse error), pause and notify. Phase 6 wires the gate; today
+# the field is parsed but not yet enforced.
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "logs"
+
+[success_metrics]
+# An eval suite passes if at least 80% of fixture PRs receive a
+# review whose top-level intent matches the expected label.
+deflection_target_pct       = 80
+median_response_seconds     = 60
+required_audit_chain_intact = true
+
+[evaluation]
+suites = ["eval/invariant_detection.jsonl"]
+
+[gateway]
+# Reserved for the future — Phase 4+ will mount this. Today the
+# field is parsed but no HTTP surface is created.
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "PR Checker"
