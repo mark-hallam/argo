@@ -312,6 +312,7 @@ pub(super) async fn memory_show_response_with_format(
 pub(super) async fn skill_versions_response(
     name: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -323,6 +324,34 @@ pub(super) async fn skill_versions_response(
             format!("{{\"error\":\"no skill named '{name}'\"}}"),
         ),
         Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let active = rows
+                    .iter()
+                    .find(|s| s.superseded_by.is_none())
+                    .map(|s| s.frontmatter.version.as_str())
+                    .unwrap_or("(none)");
+                let mut out = format!(
+                    "# Skill `{name}` — {n} version{} (active: `{active}`)\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                out.push_str("| version | status | hash | created_at |\n");
+                out.push_str("| --- | :---: | --- | --- |\n");
+                for s in &rows {
+                    let status = if s.superseded_by.is_some() {
+                        "superseded"
+                    } else {
+                        "**active**"
+                    };
+                    let hash_short: String = hex::encode(s.hash).chars().take(12).collect();
+                    out.push_str(&format!(
+                        "| `{}` | {status} | `{hash_short}…` | {} |\n",
+                        s.frontmatter.version,
+                        s.created_at.to_rfc3339(),
+                    ));
+                }
+                return ("200 OK", out);
+            }
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|s| {

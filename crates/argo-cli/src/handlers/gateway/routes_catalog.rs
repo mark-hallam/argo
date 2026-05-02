@@ -22,7 +22,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/skills", "active skills (?include-superseded&name-contains&lock&body-contains&limit&format=markdown)"),
         ("GET", "/skills/count", "count of active skills (?include-superseded=true)"),
         ("GET", "/skills/<name>", "one skill view (full body; ?format=markdown reconstructs the SKILL.md doc)"),
-        ("GET", "/skills/<name>/versions", "supersede chain for one skill name"),
+        ("GET", "/skills/<name>/versions", "supersede chain for one skill name (?format=markdown)"),
         ("POST", "/skills", "install a SKILL.md document"),
         ("POST", "/memory", "append a memory entry ({file, body})"),
         ("GET", "/memory", "memory entries (?file&since-minutes&lock&body-contains&limit&format=markdown)"),

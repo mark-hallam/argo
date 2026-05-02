@@ -106,8 +106,9 @@ pub(super) async fn dispatch_route(
         // /skills/<name>/versions takes priority over the bare
         // /skills/<name> single-skill view.
         if let Some((name, tail)) = rest.split_once('/') {
-            if tail.starts_with("versions ") {
-                return skill_versions_response(name, store).await;
+            if tail.starts_with("versions ") || tail.starts_with("versions?") {
+                let format = parse_query_kv(tail, "format");
+                return skill_versions_response(name, store, format.as_deref()).await;
             }
         }
         if let Some((name_with_query, _)) = rest.split_once(' ') {
