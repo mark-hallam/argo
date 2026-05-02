@@ -22,6 +22,7 @@ pub mod gateway_probe;
 pub mod setup;
 pub mod vertical;
 pub mod vertical_attach;
+pub mod vertical_eval;
 pub mod costs;
 pub mod costs_by_day;
 pub mod costs_by_model;

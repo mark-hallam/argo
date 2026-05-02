@@ -42,4 +42,18 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Walk every `[evaluation].suites` JSONL file declared in
+    /// the manifest, validate each fixture row is well-formed,
+    /// and tabulate fixture counts per suite. Useful as a CI
+    /// gate that the suite hasn't drifted into bad shape (#656).
+    /// Live LLM-driven scoring is deferred — that's its own
+    /// PR scoped to scoring rubrics + API key handling.
+    Eval {
+        /// The vertical's id.
+        id: String,
+        /// Output as a single JSON object
+        /// `{id, suites:[{path, fixture_count, errors:[…]}]}`.
+        #[arg(long)]
+        json: bool,
+    },
 }
