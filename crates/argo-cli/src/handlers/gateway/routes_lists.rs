@@ -224,6 +224,7 @@ pub(super) async fn memory_count_response(
 pub(super) async fn memory_versions_response(
     raw_id: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -240,6 +241,35 @@ pub(super) async fn memory_versions_response(
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
     match memory.versions_for_entry(id).await {
         Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let active = rows
+                    .iter()
+                    .find(|e| e.superseded_by.is_none())
+                    .map(|e| e.id.to_string())
+                    .unwrap_or_else(|| "(none)".into());
+                let mut out = format!(
+                    "# Memory entry `{raw_id}` — {n} version{} (active: `{active}`)\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                out.push_str("| id | status | file | bytes | learned_at |\n");
+                out.push_str("| --- | :---: | --- | ---: | --- |\n");
+                for e in &rows {
+                    let status = if e.superseded_by.is_some() {
+                        "superseded"
+                    } else {
+                        "**active**"
+                    };
+                    out.push_str(&format!(
+                        "| `{}` | {status} | `{:?}` | {} | {} |\n",
+                        e.id,
+                        e.file,
+                        e.body.len(),
+                        e.learned_at.to_rfc3339(),
+                    ));
+                }
+                return ("200 OK", out);
+            }
             let arr: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|e| {

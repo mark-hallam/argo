@@ -151,8 +151,9 @@ pub(super) async fn dispatch_route(
     }
     if let Some(rest) = req.strip_prefix("GET /memory/") {
         if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("versions ") {
-                return memory_versions_response(id, store).await;
+            if tail.starts_with("versions ") || tail.starts_with("versions?") {
+                let format = parse_query_kv(tail, "format");
+                return memory_versions_response(id, store, format.as_deref()).await;
             }
         }
         if let Some((id_with_query, _)) = rest.split_once(' ') {

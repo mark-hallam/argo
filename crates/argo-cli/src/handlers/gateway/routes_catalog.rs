@@ -28,7 +28,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/memory", "memory entries (?file&since-minutes&lock&body-contains&limit&format=markdown)"),
         ("GET", "/memory/count", "count of active memory entries (?file=…&since-minutes=N)"),
         ("GET", "/memory/<id>", "one memory entry (full body; ?format=markdown for a paste-able doc)"),
-        ("GET", "/memory/<id>/versions", "supersede chain for a memory entry"),
+        ("GET", "/memory/<id>/versions", "supersede chain for a memory entry (?format=markdown)"),
         ("GET", "/audit", "audit chain summary (?format=markdown)"),
         ("GET", "/audit/breaks", "actual ChainBreak rows (seq, kind, reason) — empty if chain is clean (?format=markdown)"),
         ("GET", "/audit/count", "count of audit rows (?kind=…&since-minutes=N&session=<uuid>)"),
