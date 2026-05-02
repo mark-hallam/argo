@@ -10,6 +10,7 @@ mod routes;
 mod routes_audit;
 pub(crate) mod routes_catalog;
 mod routes_counts;
+mod routes_costs_by_day;
 mod routes_cron;
 mod routes_dispatch_post;
 mod routes_forge;

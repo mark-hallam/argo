@@ -453,6 +453,19 @@ pub(super) async fn dispatch_route(
         let format = parse_query_kv(tail, "format");
         return costs_breakdown_response("by_session", store, format.as_deref()).await;
     }
+    if req.starts_with("GET /costs/by-day ") || req.starts_with("GET /costs/by-day?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let days = parse_query_kv(tail, "days")
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(30);
+        let format = parse_query_kv(tail, "format");
+        return super::routes_costs_by_day::costs_by_day_response(
+            days,
+            store,
+            format.as_deref(),
+        )
+        .await;
+    }
     // All POST verbs live in the sibling `routes_dispatch_post`
     // module so this file stays under the 500-LOC budget.
     if let Some(resp) = dispatch_post(req, store).await {
