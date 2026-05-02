@@ -55,6 +55,19 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
         return super::routes_counts::dispatch_sessions_count(req, store).await;
     }
+    if req.starts_with("GET /sessions/by-day ") || req.starts_with("GET /sessions/by-day?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let days = parse_query_kv(tail, "days")
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(30);
+        let format = parse_query_kv(tail, "format");
+        return super::routes_top::sessions_by_day_response(
+            days,
+            store,
+            format.as_deref(),
+        )
+        .await;
+    }
     if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
         return dispatch_sessions(req, store).await;
     }
