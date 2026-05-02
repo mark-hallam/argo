@@ -181,6 +181,17 @@ pub enum ForgeRunsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Audit rows linked to one forge run via the payload's
+    /// `$.run_id` field. Mirrors the gateway's
+    /// `GET /forge/runs/<id>/audit` (#634). Returns the
+    /// forge.run.start + forge.run.end + per-iter rows ordered
+    /// by seq ASC.
+    Audit {
+        id: String,
+        /// Output as a single JSON object {run_id, rows:[…]}.
+        #[arg(long)]
+        json: bool,
+    },
     /// Flip every running forge run to `aborted`. Operator
     /// emergency-stop / fresh-slate before a workspace migration.
     /// Mirrors `POST /forge/runs/abort-all`.

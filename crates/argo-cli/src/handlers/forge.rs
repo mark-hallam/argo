@@ -71,6 +71,9 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::Payload { id, json } => {
                 super::forge_admin::show_payload(&id, json).await
             }
+            ForgeRunsCmd::Audit { id, json } => {
+                super::forge_admin::show_audit(&id, json).await
+            }
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         ForgeCmd::Bench {

@@ -218,3 +218,53 @@ fn ts(micros: i64) -> String {
         .map(|d| d.format("%Y-%m-%dT%H:%M:%SZ").to_string())
         .unwrap_or_else(|| "(?)".to_string())
 }
+
+/// `argo forge runs audit <id>` — mirror of the gateway's
+/// `GET /forge/runs/<id>/audit` (#634). Audit rows linked to a
+/// forge run via the payload's `$.run_id` field, ordered seq ASC.
+pub(super) async fn show_audit(raw: &str, json: bool) -> ArgoResult<()> {
+    let store = open_store().await?;
+    let id = parse_run_id(raw)?;
+    let id_str = id.to_string();
+    let rows: Vec<(i64, String, String, i64)> = sqlx::query_as(
+        "SELECT seq, kind, payload_json, created_at FROM audit_record \
+         WHERE json_extract(payload_json, '$.run_id') = ? \
+         ORDER BY seq ASC",
+    )
+    .bind(&id_str)
+    .fetch_all(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("forge_run_audit: {e}")))?;
+    if json {
+        let arr: Vec<serde_json::Value> = rows
+            .iter()
+            .map(|(seq, kind, payload_json, ts)| {
+                serde_json::json!({
+                    "seq": seq,
+                    "kind": kind,
+                    "payload": serde_json::from_str::<serde_json::Value>(payload_json)
+                        .unwrap_or(serde_json::Value::Null),
+                    "created_at_micros": ts,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string(&serde_json::json!({
+                "run_id": id_str,
+                "rows": arr,
+            }))
+            .unwrap_or_default()
+        );
+        return Ok(());
+    }
+    if rows.is_empty() {
+        println!("(no audit rows for forge run {raw})");
+        return Ok(());
+    }
+    println!("audit rows for forge run {raw} ({} rows):", rows.len());
+    for (seq, kind, _payload, ts) in &rows {
+        println!("  [{seq:>4}] {kind:<24} ts={ts}");
+    }
+    Ok(())
+}
