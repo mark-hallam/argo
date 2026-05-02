@@ -21,6 +21,7 @@ mod routes_forge_rollups;
 mod routes_forge_promote;
 mod routes_lists;
 mod routes_meta;
+mod routes_messages_rollups;
 mod routes_msgs;
 mod routes_post;
 mod routes_post_admin;

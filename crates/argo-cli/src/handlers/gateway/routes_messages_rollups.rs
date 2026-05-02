@@ -1,0 +1,83 @@
+//! Messages-table rollup handlers (`/messages/by-role`) — lifted
+//! into a sibling file so `routes_msgs.rs` stays under the
+//! 500-LOC ceiling once the rollup family started growing past
+//! by-day.
+use super::store_unavailable;
+use argo_store::SessionStore;
+use std::sync::Arc;
+
+/// `GET /messages/by-role[?since-minutes=M&format=markdown]`
+/// — histogram of messages grouped by `role` (user / assistant /
+/// tool / system). Useful for quickly understanding workspace
+/// activity shape — "what's the user/assistant/tool ratio?" —
+/// without paginating through any individual session.
+/// Pairs with `/audit/by-kind` (#570) and `/messages/by-day`.
+/// Returns `{by_role: {<role>: <count>}}` ordered by role for JSON;
+/// markdown table is sorted desc by count.
+pub(super) async fn messages_by_role_response(
+    since_minutes: Option<i64>,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT role, COUNT(*) FROM message WHERE created_at >= ? \
+                 GROUP BY role ORDER BY role",
+            )
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT role, COUNT(*) FROM message GROUP BY role ORDER BY role",
+            )
+            .fetch_all(pool)
+            .await
+        }
+    };
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let mut sorted = rows.clone();
+                sorted.sort_by_key(|r| std::cmp::Reverse(r.1));
+                let total: i64 = sorted.iter().map(|(_, n)| *n).sum();
+                let mut out = format!(
+                    "# Messages by role ({total} rows across {} role{})\n\n",
+                    sorted.len(),
+                    if sorted.len() == 1 { "" } else { "s" }
+                );
+                if !sorted.is_empty() {
+                    out.push_str("| role | count |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (r, n) in &sorted {
+                        out.push_str(&format!("| `{r}` | {n} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let mut by_role = serde_json::Map::new();
+            for (r, n) in rows {
+                by_role.insert(r, serde_json::json!(n));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "by_role": serde_json::Value::Object(by_role),
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"messages_by_role: {e}\"}}"),
+        ),
+    }
+}
