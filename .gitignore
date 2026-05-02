@@ -11,3 +11,4 @@ node_modules/
 *.db-shm
 *.db-wal
 .argo-test/
+BURST_PLAN.md

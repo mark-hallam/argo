@@ -66,6 +66,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/costs/total", "actual spend roll-up across all tenants today/this_month/all_time (?format=markdown)"),
         ("GET", "/costs/by-model", "spend grouped by (provider, model) (?format=markdown)"),
         ("GET", "/costs/by-session", "spend grouped by session_id (?format=markdown)"),
+        ("GET", "/costs/by-provider", "spend grouped by provider only (no model split; ?format=markdown)"),
         ("GET", "/costs/by-day", "spend rolled up per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/costs/recent", "workspace-wide recent spend ledger entries (?limit=50&since-minutes=M&format=markdown; default 50, cap 500)"),
         ("GET", "/providers", "workspace provider manifests (?family=<f>&format=markdown)"),

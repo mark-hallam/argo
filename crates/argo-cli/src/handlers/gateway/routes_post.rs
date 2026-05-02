@@ -338,6 +338,11 @@ pub(super) async fn costs_breakdown_response(
              COALESCE(SUM(amount_usd_micros), 0) AS total \
              FROM spend_ledger GROUP BY session_id ORDER BY total DESC LIMIT 50"
         }
+        "by_provider" => {
+            "SELECT provider AS bucket, \
+             COALESCE(SUM(amount_usd_micros), 0) AS total \
+             FROM spend_ledger GROUP BY provider ORDER BY total DESC LIMIT 50"
+        }
         _ => unreachable!(),
     };
     match sqlx::query_as::<_, (String, i64)>(sql)
@@ -346,10 +351,11 @@ pub(super) async fn costs_breakdown_response(
     {
         Ok(rows) => {
             if matches!(format, Some("markdown")) {
-                let title = if mode == "by_model" {
-                    "Spend by model"
-                } else {
-                    "Spend by session"
+                let title = match mode {
+                    "by_model" => "Spend by model",
+                    "by_session" => "Spend by session",
+                    "by_provider" => "Spend by provider",
+                    _ => "Spend",
                 };
                 let n = rows.len();
                 let mut out = format!("# {title} ({n} bucket{})\n\n", if n == 1 { "" } else { "s" });

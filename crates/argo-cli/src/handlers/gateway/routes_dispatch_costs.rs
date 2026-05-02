@@ -26,6 +26,15 @@ pub(super) async fn dispatch_costs(
         let format = parse_query_kv(tail, "format");
         return Some(costs_breakdown_response("by_model", store, format.as_deref()).await);
     }
+    if req.starts_with("GET /costs/by-provider ")
+        || req.starts_with("GET /costs/by-provider?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            costs_breakdown_response("by_provider", store, format.as_deref()).await,
+        );
+    }
     if req.starts_with("GET /costs/by-session ") || req.starts_with("GET /costs/by-session?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let format = parse_query_kv(tail, "format");
