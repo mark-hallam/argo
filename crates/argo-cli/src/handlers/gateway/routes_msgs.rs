@@ -210,6 +210,7 @@ pub(super) async fn list_messages_response(
     seq_min: Option<i64>,
     seq_max: Option<i64>,
     content_contains: Option<String>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return store_unavailable();
@@ -262,6 +263,27 @@ pub(super) async fn list_messages_response(
                     let drop = rows.len() - n;
                     rows.drain(..drop);
                 }
+            }
+            if matches!(format, Some("markdown")) {
+                let n = rows.len();
+                let mut out = format!(
+                    "# Messages on session `{sid}` ({n} message{})\n\n",
+                    if n == 1 { "" } else { "s" }
+                );
+                for m in &rows {
+                    out.push_str(&format!(
+                        "## seq {} — `{}` (created_at_micros: {})\n\n",
+                        m.seq, m.role, m.created_at
+                    ));
+                    out.push_str("```json\n");
+                    let pretty = serde_json::from_str::<serde_json::Value>(&m.content_json)
+                        .ok()
+                        .and_then(|v| serde_json::to_string_pretty(&v).ok())
+                        .unwrap_or_else(|| m.content_json.clone());
+                    out.push_str(&pretty);
+                    out.push_str("\n```\n\n");
+                }
+                return ("200 OK", out);
             }
             let arr: Vec<serde_json::Value> = rows
                 .iter()

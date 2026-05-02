@@ -17,7 +17,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/by-day", "sessions created per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/sessions/by-provider", "histogram of sessions by provider (?since-minutes=N&format=markdown)"),
         ("GET", "/sessions/by-model", "histogram of sessions by model (?since-minutes=N&format=markdown)"),
-        ("GET", "/sessions/<id>/messages", "messages (?limit&tail&role&since-minutes&seq-min&seq-max&content-contains)"),
+        ("GET", "/sessions/<id>/messages", "messages (?limit&tail&role&since-minutes&seq-min&seq-max&content-contains&format=markdown)"),
         ("GET", "/sessions/<id>/messages/count", "count of messages on the session (?role=…&since-minutes=N&seq-min=N&seq-max=N&content-contains=…&format=markdown)"),
         ("GET", "/sessions/<id>/export", "session messages as JSONL or markdown (?format=jsonl|markdown&include-audit=true)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session (?format=markdown for a paste-able block)"),

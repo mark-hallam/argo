@@ -106,6 +106,7 @@ pub(super) async fn dispatch_session_get(
                 .and_then(|v| v.parse::<i64>().ok());
             let content_contains =
                 parse_query_kv(tail, "content-contains").map(|s| s.replace('+', " "));
+            let format = parse_query_kv(tail, "format");
             return Some(
                 list_messages_response(
                     sid,
@@ -117,6 +118,7 @@ pub(super) async fn dispatch_session_get(
                     seq_min,
                     seq_max,
                     content_contains,
+                    format.as_deref(),
                 )
                 .await,
             );
