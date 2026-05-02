@@ -52,6 +52,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/tools/count", "count of registered in-core tools (?name-contains=<sub>&format=markdown)"),
         ("GET", "/tools/<name>", "one tool by name (?format=markdown for a paste-able doc)"),
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>&role=user|assistant|tool|system&format=markdown)"),
+        ("GET", "/search/count", "count of FTS5 matches (?q=…&session=<id>&role=…&format=markdown; capped at 10000)"),
         ("GET", "/workspace/info", "first workspace row (id, name, root_path, created_at; ?format=markdown)"),
         ("GET", "/workspace/artifacts", "recorded marketplace pushes (?limit=N&since-minutes=M&format=markdown)"),
         ("GET", "/forge/runs", "recorded forge runs (?limit&since-minutes&status&score-min&score-max&skill&has-candidate&iterations-min&iterations-max&format=markdown)"),

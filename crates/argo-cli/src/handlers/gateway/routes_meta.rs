@@ -7,7 +7,6 @@
 //! registry build for tools) away from the dispatch shape.
 use argo_store::SessionStore;
 use argo_tool::{builtin_tools, ToolRegistry};
-use argo_types::SessionId;
 use std::sync::Arc;
 
 /// `GET /tools/<name>[?format=markdown]` — single tool by name.
@@ -120,112 +119,11 @@ pub(super) async fn tools_response(
     )
 }
 
-/// `GET /search?q=<query>[&limit=N][&session=<uuid>][&role=<r>]` —
-/// FTS5 search across the message corpus. Mirrors
-/// `argo session search <query>` so external clients (web UI,
-/// scripts) can reuse the same query syntax.
-///
-/// Each row is `{session_id, seq, role, snippet}`. With
-/// `?role=user|assistant|tool|system` the result is filtered
-/// to that role. Returns 503 when the store is unavailable,
-/// 400 when `q` is missing, `session` is not a valid UUID, or
-/// `role` is not one of the four canonical labels.
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn search_response(
-    query: Option<&str>,
-    limit: u32,
-    session: Option<&str>,
-    role: Option<&str>,
-    store: Option<&Arc<SessionStore>>,
-    format: Option<&str>,
-) -> (&'static str, String) {
-    let Some(store) = store else {
-        return super::store_unavailable();
-    };
-    let Some(q) = query else {
-        return (
-            "400 Bad Request",
-            "{\"error\":\"missing q parameter\"}".to_string(),
-        );
-    };
-    if q.is_empty() {
-        return (
-            "400 Bad Request",
-            "{\"error\":\"empty q parameter\"}".to_string(),
-        );
-    }
-    if let Some(want) = role {
-        if !matches!(want, "user" | "assistant" | "tool" | "system") {
-            return (
-                "400 Bad Request",
-                format!(
-                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
-                ),
-            );
-        }
-    }
-    let result = match session {
-        None => store.search_messages(q, limit).await,
-        Some(s) => match uuid::Uuid::parse_str(s) {
-            Ok(u) => store.search_messages_in_session(SessionId(u), q, limit).await,
-            Err(e) => {
-                return (
-                    "400 Bad Request",
-                    format!("{{\"error\":\"invalid session id: {e}\"}}"),
-                );
-            }
-        },
-    };
-    match result {
-        Ok(hits) => {
-            let filtered: Vec<argo_store::MessageSearchHit> = hits
-                .into_iter()
-                .filter(|h| match role {
-                    Some(want) => h.role == want,
-                    None => true,
-                })
-                .collect();
-            if matches!(format, Some("markdown")) {
-                let n = filtered.len();
-                let mut out = format!(
-                    "# Search results for `{q}` ({n} match{})\n\n",
-                    if n == 1 { "" } else { "es" }
-                );
-                if !filtered.is_empty() {
-                    out.push_str("| session_id | seq | role | snippet |\n");
-                    out.push_str("| --- | ---: | --- | --- |\n");
-                    for h in &filtered {
-                        let snippet = h.snippet.replace('|', "\\|");
-                        out.push_str(&format!(
-                            "| `{}` | {} | `{}` | {snippet} |\n",
-                            h.session_id.0, h.seq, h.role
-                        ));
-                    }
-                }
-                return ("200 OK", out);
-            }
-            let rows: Vec<serde_json::Value> = filtered
-                .into_iter()
-                .map(|h| {
-                    serde_json::json!({
-                        "session_id": h.session_id.0.to_string(),
-                        "seq": h.seq,
-                        "role": h.role,
-                        "snippet": h.snippet,
-                    })
-                })
-                .collect();
-            (
-                "200 OK",
-                serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
-            )
-        }
-        Err(e) => (
-            "500 Internal Server Error",
-            format!("{{\"error\":\"search: {e}\"}}"),
-        ),
-    }
-}
+/// `GET /search` + `GET /search/count` live in the sibling
+/// `routes_search` module; this re-export keeps the call sites
+/// in `routes.rs` unchanged. Lifted out so this file stays
+/// under the 500-LOC budget as the catalog grows.
+pub(super) use super::routes_search::search_response;
 
 // `forge_runs_response` lives in `super::routes_forge` to keep
 // this file under the 500-LOC budget.
@@ -477,3 +375,4 @@ pub(super) async fn tools_count_response(
             .unwrap_or_else(|_| "{}".to_string()),
     )
 }
+

@@ -257,6 +257,21 @@ pub(super) async fn dispatch_route(
         }
         return routes_response(method.as_deref());
     }
+    if req.starts_with("GET /search/count ") || req.starts_with("GET /search/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let q = parse_query_kv(tail, "q").map(|s| s.replace('+', " "));
+        let session = parse_query_kv(tail, "session");
+        let role = parse_query_kv(tail, "role");
+        let format = parse_query_kv(tail, "format");
+        return super::routes_search::search_count_response(
+            q.as_deref(),
+            session.as_deref(),
+            role.as_deref(),
+            store,
+            format.as_deref(),
+        )
+        .await;
+    }
     if req.starts_with("GET /search ") || req.starts_with("GET /search?") {
         let (q, limit, session) = parse_search_args(req);
         let tail = req.strip_prefix("GET ").unwrap_or(req);
