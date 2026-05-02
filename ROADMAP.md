@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **582 PRs** on `main` (182 since milestone 400 —
-**v1.0 production-ready**, gateway markdown family complete; **v1.1 forge-daemon split complete — gateway no longer hosts forge tasks**),
+across **583 PRs** on `main` (183 since milestone 400 —
+**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser MCP stateful sessions in flight**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -349,12 +349,16 @@ as v1.1 perf wins:
 - **Voice MCP native backend** — whisper-rs (STT) + piper-rs (TTS)
   + opus (OGG/Opus). All four cloud backends already wired (OpenAI
   TTS + Whisper #93/#96; ElevenLabs #129; MiniMax #130).
-- **Browser MCP — stateful sessions** — all 14 spec tools are wired
-  against raw CDP via tokio-tungstenite (#113–#120). What's still
-  pending is the *stateful-session* upgrade: chromiumoxide (or a
-  hand-rolled CDP session manager) for sticky tab ids, persistent
-  WebSocket connections, and batch commands. Cloud opt-ins
-  (Browserbase / BrowserUse) are also still pending.
+- **Browser MCP — stateful sessions** — **v1.1 in flight**:
+  hand-rolled CDP session manager landed in earlier work
+  (`session_open` / `session_close` / `session_eval` for a
+  persistent per-tab WebSocket). #583 broadens the surface
+  with `session_navigate` (Page.navigate over the persistent
+  WS) and `session_list` (enumerate active sessions for
+  audit/reap). 5 stateful-session tools total. Future PRs
+  add session-aware `click` / `read_page` / `screenshot` /
+  `eval`-batched variants. Cloud opt-ins (Browserbase /
+  BrowserUse) remain pending.
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test
   accounts.

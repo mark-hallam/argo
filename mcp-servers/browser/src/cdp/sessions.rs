@@ -110,6 +110,76 @@ pub async fn session_close(args: &serde_json::Value) -> CallToolResult {
     }
 }
 
+/// `session_list` — return every active session id. Lets a
+/// host audit + reap stale sessions when the agent loop has
+/// gone home but the WS connections are still pinned.
+pub async fn session_list(_args: &serde_json::Value) -> CallToolResult {
+    let reg = registry().lock().await;
+    let mut ids: Vec<String> = reg.keys().cloned().collect();
+    ids.sort();
+    let payload = serde_json::json!({
+        "session_ids": ids,
+        "count": reg.len(),
+    });
+    ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
+}
+
+/// `session_navigate` — drive `Page.navigate` against the
+/// session's persistent WS. Same wire shape as the single-shot
+/// `navigate` tool, but reuses the open connection.
+pub async fn session_navigate(args: &serde_json::Value) -> CallToolResult {
+    let Some(sid) = args.get("session_id").and_then(|v| v.as_str()) else {
+        return error("missing required field 'session_id'".into());
+    };
+    let Some(url) = args.get("url").and_then(|v| v.as_str()) else {
+        return error("missing required field 'url'".into());
+    };
+    let reg = registry().lock().await;
+    let Some(session_mu) = reg.get(sid) else {
+        return error(format!("no session '{sid}'"));
+    };
+    let mut session = session_mu.lock().await;
+    let id = session.next_id;
+    session.next_id += 1;
+    let req = serde_json::json!({
+        "id": id,
+        "method": "Page.navigate",
+        "params": {"url": url}
+    });
+    let serialized = match serde_json::to_string(&req) {
+        Ok(s) => s,
+        Err(e) => return error(format!("serialize: {e}")),
+    };
+    if let Err(e) = session.ws.send(Message::Text(serialized)).await {
+        return error(format!("send: {e}"));
+    }
+    let response_text = loop {
+        match session.ws.next().await {
+            Some(Ok(Message::Text(t))) => break t.to_string(),
+            Some(Ok(Message::Close(_))) | None => return error("ws closed".into()),
+            Some(Ok(_)) => continue,
+            Some(Err(e)) => return error(format!("read: {e}")),
+        }
+    };
+    let parsed: serde_json::Value = match serde_json::from_str(&response_text) {
+        Ok(v) => v,
+        Err(e) => return error(format!("parse: {e}")),
+    };
+    if let Some(err_msg) = parsed.get("error").and_then(|e| e.get("message")).and_then(|v| v.as_str()) {
+        return error(format!("Page.navigate: {err_msg}"));
+    }
+    let frame_id = parsed["result"]["frameId"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let payload = serde_json::json!({
+        "session_id": sid,
+        "navigated_to": url,
+        "frame_id": frame_id,
+    });
+    ok(serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()))
+}
+
 /// Run `Runtime.evaluate` against the session's persistent WS.
 /// Reuses the open connection — no `/json` round-trip per call.
 pub async fn session_eval(args: &serde_json::Value) -> CallToolResult {

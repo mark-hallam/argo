@@ -23,7 +23,9 @@ mod sessions;
 
 pub use dom::{eval, extract_links, read_page};
 pub use forms::{click, cookies, fill, submit, wait_for};
-pub use sessions::{session_close, session_eval, session_open};
+pub use sessions::{
+    session_close, session_eval, session_list, session_navigate, session_open,
+};
 
 use argo_mcp::{CallToolResult, McpContent};
 use std::time::Duration;

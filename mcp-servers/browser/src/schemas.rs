@@ -322,3 +322,37 @@ pub(crate) fn session_eval_schema() -> McpToolSchema {
     }
 }
 
+pub(crate) fn session_navigate_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_navigate".into(),
+        description: "Navigate the tab pinned by `session_open` to \
+            a new URL via the persistent WS. Same shape as the \
+            single-shot `navigate` tool but reuses the session's \
+            connection — no /json round-trip."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["session_id", "url"],
+            "properties": {
+                "session_id": { "type": "string" },
+                "url": { "type": "string" }
+            }
+        }),
+    }
+}
+
+pub(crate) fn session_list_schema() -> McpToolSchema {
+    McpToolSchema {
+        name: "session_list".into(),
+        description: "List every active browser session id \
+            (sessions opened with `session_open` and not yet \
+            closed). Returns `{session_ids: [...], count: N}` \
+            so a host can audit / reap stale sessions."
+            .into(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {}
+        }),
+    }
+}
+
