@@ -11,6 +11,7 @@ pub mod costs;
 pub mod costs_by_day;
 pub mod forge_daemon;
 pub mod forge_enqueue;
+mod forge_mutator;
 pub mod cron;
 pub mod db;
 pub mod doctor;

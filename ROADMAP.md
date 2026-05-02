@@ -67,8 +67,8 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **578 PRs** on `main` (178 since milestone 400 —
-**v1.0 production-ready**, gateway markdown family complete; **v1.1 daemon split in flight**),
+across **579 PRs** on `main` (179 since milestone 400 —
+**v1.0 production-ready**, gateway markdown family complete; **v1.1 daemon split end-to-end**),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
 Library + integration + observability tiers feature-complete.
@@ -358,16 +358,22 @@ as v1.1 perf wins:
 - **§23.3 marketplace integration test** — `oci-distribution` push
   / pull against GHCR / Docker Hub / Artifact Registry test
   accounts.
-- **Standalone daemon for long-running forge runs** — the gateway
-  hosts `POST /forge/{optimize,bench}` (#281) which spawns a Tokio
-  task in-process. **v1.1 daemon split in flight**:
+- **Standalone daemon for long-running forge runs** — **v1.1
+  daemon split end-to-end as of #579**:
   - #575: `argo forge daemon [--interval-secs N
     --older-than-minutes M --max-ticks N]` — long-running worker
     that periodically sweeps stalled `running` rows to `failed`.
   - #577: schema v5 adds `forge_queue` table; `argo forge enqueue
-    <skill> --examples <path> [--iterations N --budget X]` lands
-    a row in `forge_run` with status='queued' + a parallel
-    `forge_queue` payload row. New `enqueue_forge_run` +
-    `claim_queued_forge_run` SessionStore methods.
-  - Pending: (a) wire the daemon's claim+run loop, (b) make the
-    gateway's `POST /forge/optimize` enqueue-only by default.
+    <skill> --examples <path>` lands a row in `forge_run` with
+    status='queued' + a parallel `forge_queue` payload row. New
+    `enqueue_forge_run` + `claim_queued_forge_run` SessionStore
+    methods.
+  - #579: daemon now claims queued rows and runs them via
+    `forge_optimize::run_claimed`, surfacing errors back to the
+    `forge_run` row as status='failed'. End-to-end loop:
+    `argo forge enqueue <skill> --examples <path>` → daemon picks
+    it up on next tick → finishes the run, persisting candidate
+    + final_score.
+  - Pending: make the gateway's `POST /forge/optimize`
+    enqueue-only by default so the gateway no longer hosts
+    in-process forge tasks at all.
