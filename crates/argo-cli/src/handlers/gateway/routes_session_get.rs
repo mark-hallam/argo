@@ -18,6 +18,7 @@ use super::routes_post::session_judge_response;
 use super::routes_query::{parse_limit, parse_query_kv, parse_role};
 use super::routes_session::{session_spend_response, session_spend_total_response};
 use super::routes_session_skills::session_skills_list_response;
+use super::routes_session_stats::session_stats_response;
 use argo_store::{MessageRow, SessionStore};
 use argo_types::SessionId;
 use std::sync::Arc;
@@ -113,6 +114,10 @@ pub(super) async fn dispatch_session_get(
         }
         if tail.starts_with("export ") || tail.starts_with("export?") {
             return Some(export_response(sid, tail, store).await);
+        }
+        if tail.starts_with("stats ") || tail.starts_with("stats?") {
+            let format = parse_query_kv(tail, "format");
+            return Some(session_stats_response(sid, store, format.as_deref()).await);
         }
         // /sessions/<id>/audit/{verify,count} are aliases for the
         // /audit/sessions/<id>/{verify,count} surface so callers
