@@ -41,7 +41,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/costs/by-session", "spend grouped by session_id (?format=markdown)"),
         ("GET", "/providers", "workspace provider manifests (?family=<f>&format=markdown)"),
         ("GET", "/providers/<id>", "one provider manifest by basename (?format=markdown for a paste-able doc)"),
-        ("GET", "/providers/<id>/models", "just the [[models]] array for one provider"),
+        ("GET", "/providers/<id>/models", "just the [[models]] array for one provider (?format=markdown)"),
         ("GET", "/tools", "registered in-core tools (?name-contains=<sub>&format=markdown)"),
         ("GET", "/tools/<name>", "one tool by name (?format=markdown for a paste-able doc)"),
         ("GET", "/search", "FTS5 search (?q=…&limit=N&session=<id>&role=user|assistant|tool|system&format=markdown)"),

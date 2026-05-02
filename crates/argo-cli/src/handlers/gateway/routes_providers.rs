@@ -94,32 +94,111 @@ pub(super) async fn providers_response(
     )
 }
 
-/// `GET /providers/<id>/models` — just the `[[models]]` array
-/// from one provider's manifest. 200 + JSON array of
-/// `{id, context_window, price_per_1k_in, price_per_1k_out,
-/// tier}`. 404 when manifest missing; 400 on path-traversal.
-pub(super) async fn provider_models_response(raw_id: &str) -> (&'static str, String) {
-    let (status, body) = provider_show_response(raw_id).await;
-    if !status.starts_with("200") {
-        return (status, body);
+/// `GET /providers/<id>/models[?format=markdown]` — just the
+/// `[[models]]` array from one provider's manifest. Default
+/// JSON shape is an array of `{id, context_window,
+/// price_per_1k_in, price_per_1k_out, tier}`. Markdown returns
+/// a 5-column table. 404 when manifest missing; 400 on
+/// path-traversal.
+pub(super) async fn provider_models_response(
+    raw_id: &str,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    if !matches!(format, Some("markdown")) {
+        let (status, body) = provider_show_response(raw_id).await;
+        if !status.starts_with("200") {
+            return (status, body);
+        }
+        let parsed: serde_json::Value = match serde_json::from_str(&body) {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    "500 Internal Server Error",
+                    format!("{{\"error\":\"reparse manifest JSON: {e}\"}}"),
+                );
+            }
+        };
+        let models = parsed
+            .get("models")
+            .cloned()
+            .unwrap_or_else(|| serde_json::Value::Array(Vec::new()));
+        return (
+            "200 OK",
+            serde_json::to_string(&models).unwrap_or_else(|_| "[]".to_string()),
+        );
     }
-    let parsed: serde_json::Value = match serde_json::from_str(&body) {
-        Ok(v) => v,
+    // Markdown branch: load the manifest and render the models
+    // as a 5-column table. Same path-traversal + read errors
+    // as `provider_show_response`.
+    if raw_id.contains('/') || raw_id.contains('\\') || raw_id.contains("..") {
+        return (
+            "400 Bad Request",
+            "{\"error\":\"provider id must be a single segment\"}".to_string(),
+        );
+    }
+    let Ok(cwd) = std::env::current_dir() else {
+        return (
+            "500 Internal Server Error",
+            "{\"error\":\"cwd unavailable\"}".to_string(),
+        );
+    };
+    let path = cwd
+        .join("manifests")
+        .join("providers")
+        .join(format!("{raw_id}.toml"));
+    if !path.exists() {
+        return (
+            "404 Not Found",
+            format!("{{\"error\":\"no provider manifest '{raw_id}'\"}}"),
+        );
+    }
+    let body = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"reparse manifest JSON: {e}\"}}"),
+                format!("{{\"error\":\"read {}: {e}\"}}", path.display()),
             );
         }
     };
-    let models = parsed
-        .get("models")
-        .cloned()
-        .unwrap_or_else(|| serde_json::Value::Array(Vec::new()));
-    (
-        "200 OK",
-        serde_json::to_string(&models).unwrap_or_else(|_| "[]".to_string()),
-    )
+    let m = match ProviderManifest::from_toml_str(&body) {
+        Ok(m) => m,
+        Err(e) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"parse {}: {e}\"}}", path.display()),
+            );
+        }
+    };
+    let n = m.models.len();
+    let mut out = format!(
+        "# Models for `{raw_id}` ({n} model{})\n\n",
+        if n == 1 { "" } else { "s" }
+    );
+    if !m.models.is_empty() {
+        out.push_str("| id | ctx | tier | input/1k | output/1k |\n");
+        out.push_str("| --- | ---: | --- | ---: | ---: |\n");
+        for spec in &m.models {
+            let ctx = spec
+                .context_window
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "-".into());
+            let tier = spec.tier.as_deref().unwrap_or("-");
+            let in_p = spec
+                .price_per_1k_in
+                .map(|p| format!("${p:.4}"))
+                .unwrap_or_else(|| "-".into());
+            let out_p = spec
+                .price_per_1k_out
+                .map(|p| format!("${p:.4}"))
+                .unwrap_or_else(|| "-".into());
+            out.push_str(&format!(
+                "| `{}` | {ctx} | `{tier}` | {in_p} | {out_p} |\n",
+                spec.id
+            ));
+        }
+    }
+    ("200 OK", out)
 }
 
 /// `GET /providers/<id>` — fetch one provider manifest by

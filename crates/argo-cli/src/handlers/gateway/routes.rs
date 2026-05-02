@@ -204,8 +204,9 @@ pub(super) async fn dispatch_route(
         // `/providers/<id>/models` takes priority over the bare
         // `/providers/<id>` manifest view.
         if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("models ") {
-                return provider_models_response(id).await;
+            if tail.starts_with("models ") || tail.starts_with("models?") {
+                let format = parse_query_kv(tail, "format");
+                return provider_models_response(id, format.as_deref()).await;
             }
         }
         if let Some((id_with_query, _)) = rest.split_once(' ') {
