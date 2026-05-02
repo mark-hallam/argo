@@ -434,6 +434,16 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Daily audit-row rollup. Mirrors the gateway's
+    /// `GET /audit/by-day` (#571).
+    ByDay {
+        /// Lookback window in days (default 30, cap 365).
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Output as a single JSON object (`{by_day}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // WorkspaceCmd / DbCmd / CostsCmd live in
