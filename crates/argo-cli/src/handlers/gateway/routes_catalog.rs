@@ -19,6 +19,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/sessions/<id>/export", "session messages as JSONL or markdown (?format=jsonl|markdown&include-audit=true)"),
         ("GET", "/sessions/<id>/messages/last", "the last message on the session (?format=markdown for a paste-able block)"),
         ("GET", "/sessions/<id>/messages/first", "the first message on the session (typically the kickoff prompt; ?format=markdown for a paste-able block)"),
+        ("GET", "/sessions/<id>/messages/<seq>", "one message by its sequence number (?format=markdown for a paste-able block)"),
         ("GET", "/sessions/<id>/spend", "per-session spend ledger (?format=markdown)"),
         ("GET", "/sessions/<id>/spend/total", "single-number total for one session (?format=markdown)"),
         ("GET", "/sessions/<id>/audit", "per-session audit chain (alias for /audit/sessions/<id>; ?kind&since-minutes&format=markdown)"),

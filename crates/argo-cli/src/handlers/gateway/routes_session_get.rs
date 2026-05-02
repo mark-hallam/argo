@@ -12,7 +12,7 @@ use super::routes_audit::{
 };
 use super::routes_msgs::{
     count_messages_response, first_message_response, last_message_response,
-    list_messages_response,
+    list_messages_response, message_at_seq_response,
 };
 use super::routes_post::session_judge_response;
 use super::routes_query::{parse_limit, parse_query_kv, parse_role};
@@ -74,6 +74,25 @@ pub(super) async fn dispatch_session_get(
                 )
                 .await,
             );
+        }
+        // /messages/<numeric_seq> — fetch one row by seq. Has to
+        // come after the word-keyed branches (last / first /
+        // count) and before the bare /messages list so the
+        // numeric path segment is correctly disambiguated.
+        if let Some(after) = tail.strip_prefix("messages/") {
+            let seg = after
+                .split([' ', '?'])
+                .next()
+                .unwrap_or("");
+            if !seg.is_empty() && seg.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(seq) = seg.parse::<i64>() {
+                    let format = parse_query_kv(tail, "format");
+                    return Some(
+                        message_at_seq_response(sid, seq, store, format.as_deref())
+                            .await,
+                    );
+                }
+            }
         }
         if tail.starts_with("messages ") || tail.starts_with("messages?") {
             let limit = parse_limit(tail);
