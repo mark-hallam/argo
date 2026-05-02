@@ -174,6 +174,16 @@ pub(super) async fn dispatch_route(
     if req.starts_with("GET /health/full ") {
         return health_full_response().await;
     }
+    if req.starts_with("GET /providers/count ") || req.starts_with("GET /providers/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let family = parse_query_kv(tail, "family");
+        let format = parse_query_kv(tail, "format");
+        return super::routes_providers::providers_count_response(
+            family.as_deref(),
+            format.as_deref(),
+        )
+        .await;
+    }
     if req.starts_with("GET /providers ") || req.starts_with("GET /providers?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let family = parse_query_kv(tail, "family");
@@ -203,6 +213,16 @@ pub(super) async fn dispatch_route(
             )
             .await;
         }
+    }
+    if req.starts_with("GET /tools/count ") || req.starts_with("GET /tools/count?") {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let name_contains = parse_query_kv(tail, "name-contains").map(|s| s.replace('+', " "));
+        let format = parse_query_kv(tail, "format");
+        return super::routes_meta::tools_count_response(
+            name_contains.as_deref(),
+            format.as_deref(),
+        )
+        .await;
     }
     if req.starts_with("GET /tools ") || req.starts_with("GET /tools?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);

@@ -435,3 +435,45 @@ pub(super) async fn db_stats_response(
         ),
     }
 }
+
+/// `GET /tools/count[?name-contains=…&format=markdown]` —
+/// count of registered in-core tools, optionally narrowed by
+/// the same `name-contains` substring filter `tools_response`
+/// uses. Returns `{count}` JSON; markdown returns a single
+/// header line with optional filter bullet.
+pub(super) async fn tools_count_response(
+    name_contains: Option<&str>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Ok(cwd) = std::env::current_dir() else {
+        return (
+            "500 Internal Server Error",
+            "{\"error\":\"cwd unavailable\"}".to_string(),
+        );
+    };
+    let mut reg = ToolRegistry::new();
+    for t in builtin_tools(cwd) {
+        reg.register(t);
+    }
+    let needle = name_contains.map(str::to_lowercase);
+    let count = reg
+        .schemas()
+        .into_iter()
+        .filter(|s| match needle.as_deref() {
+            Some(n) => s.name.to_lowercase().contains(n),
+            None => true,
+        })
+        .count();
+    if matches!(format, Some("markdown")) {
+        let mut out = format!("# Tools ({count})\n\n");
+        if let Some(n) = name_contains {
+            out.push_str(&format!("- **name-contains**: `{n}`\n"));
+        }
+        return ("200 OK", out);
+    }
+    (
+        "200 OK",
+        serde_json::to_string(&serde_json::json!({ "count": count }))
+            .unwrap_or_else(|_| "{}".to_string()),
+    )
+}

@@ -316,3 +316,71 @@ fn manifest_to_json(m: &ProviderManifest) -> serde_json::Value {
         "models": models,
     })
 }
+
+/// `GET /providers/count[?family=<f>&format=markdown]` — count
+/// of parseable provider manifests in `manifests/providers/`,
+/// optionally narrowed by family (case-insensitive substring,
+/// matches Anthropic / OpenAICompatible / OpenAIResponses /
+/// Bedrock). Returns `{count}` JSON or a single-line markdown
+/// header.
+pub(super) async fn providers_count_response(
+    family: Option<&str>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Ok(cwd) = std::env::current_dir() else {
+        return (
+            "500 Internal Server Error",
+            "{\"error\":\"cwd unavailable\"}".to_string(),
+        );
+    };
+    let dir = cwd.join("manifests").join("providers");
+    if !dir.exists() {
+        if matches!(format, Some("markdown")) {
+            return ("200 OK", "# Providers (0)\n".to_string());
+        }
+        return (
+            "200 OK",
+            "{\"count\":0}".to_string(),
+        );
+    }
+    let paths: Vec<PathBuf> = match std::fs::read_dir(&dir) {
+        Ok(rd) => rd
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+            .collect(),
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"read_dir: {e}\"}}"),
+            );
+        }
+    };
+    let needle = family.map(str::to_lowercase);
+    let mut count: usize = 0;
+    for p in paths {
+        if let Ok(body) = std::fs::read_to_string(&p) {
+            if let Ok(m) = ProviderManifest::from_toml_str(&body) {
+                if let Some(want) = needle.as_deref() {
+                    let actual = format!("{:?}", m.provider.family).to_lowercase();
+                    if !actual.contains(want) {
+                        continue;
+                    }
+                }
+                count += 1;
+            }
+        }
+    }
+    if matches!(format, Some("markdown")) {
+        let mut out = format!("# Providers ({count})\n\n");
+        if let Some(f) = family {
+            out.push_str(&format!("- **family**: `{f}`\n"));
+        }
+        return ("200 OK", out);
+    }
+    (
+        "200 OK",
+        serde_json::to_string(&serde_json::json!({ "count": count }))
+            .unwrap_or_else(|_| "{}".to_string()),
+    )
+}
