@@ -67,7 +67,7 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **554 PRs** on `main` (154 since milestone 400 —
+across **555 PRs** on `main` (155 since milestone 400 —
 **v1.0 production-ready**, gateway markdown family complete),
 ~50k LOC across 27 crates, **zero LOC-budget violations on
 ANY file** (source AND tests), 80+ test suites green.
@@ -77,8 +77,10 @@ full CLI parity for the read/count surface, plus the full
 `--sort-by` family across the four list views and time
 filters on the count endpoints. **Count endpoint family
 complete** across the 5 read-list surfaces (sessions / skills
-/ memory / forge runs / audit) — both gateway endpoints and
-CLI subcommands. **--json output is universal** across every
+/ memory / forge runs / audit), plus the per-session
+`/sessions/<id>/messages/count` view (filterable by role +
+since-minutes + seq-min/max + content-contains; ?format=markdown
+for a paste-able doc). **--json output is universal** across every
 list/show/status surface (sessions, skills, memory, forge,
 audit, costs, doctor, db status, gateway status, plugin,
 agents, providers, etc). **`?format=markdown` is universal**
