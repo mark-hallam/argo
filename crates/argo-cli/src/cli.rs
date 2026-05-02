@@ -101,6 +101,12 @@ pub enum Command {
         #[command(subcommand)]
         cmd: AuditCmd,
     },
+    /// Workspace-wide message rollups. Mirrors the gateway's
+    /// `/messages/*` family.
+    Messages {
+        #[command(subcommand)]
+        cmd: MessagesCmd,
+    },
     Workspace {
         #[command(subcommand)]
         cmd: WorkspaceCmd,

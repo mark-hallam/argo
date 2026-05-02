@@ -402,3 +402,31 @@ pub enum EvalCmd {
     /// per-line errors and the metric histogram.
     Validate { path: String },
 }
+
+/// `argo messages …` — workspace-wide message rollups. Parallel to
+/// `argo audit` but scoped to the messages table. Currently exposes
+/// by-day (mirrors /messages/by-day) and by-role (mirrors #611
+/// /messages/by-role).
+#[derive(Subcommand, Debug)]
+pub enum MessagesCmd {
+    /// Daily message rollup. Mirrors the gateway's
+    /// `GET /messages/by-day`.
+    ByDay {
+        /// Lookback window in days (default 30, cap 365).
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Output as a single JSON object (`{by_day}`).
+        #[arg(long)]
+        json: bool,
+    },
+    /// Histogram of messages grouped by role. Mirrors the gateway's
+    /// `GET /messages/by-role` (#611).
+    ByRole {
+        /// Filter to messages within this many recent minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_role}`).
+        #[arg(long)]
+        json: bool,
+    },
+}
