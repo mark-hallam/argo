@@ -383,7 +383,13 @@ pub(super) async fn dispatch_route(
         // over the bare /forge/runs/<id> show below.
         if let Some((id, tail)) = rest.split_once('/') {
             if tail.starts_with("payload ") || tail.starts_with("payload?") {
-                return super::routes_forge::forge_run_payload_response(id, store).await;
+                let format = parse_query_kv(tail, "format");
+                return super::routes_forge::forge_run_payload_response(
+                    id,
+                    store,
+                    format.as_deref(),
+                )
+                .await;
             }
         }
         if let Some((id_with_query, _)) = rest.split_once(' ') {

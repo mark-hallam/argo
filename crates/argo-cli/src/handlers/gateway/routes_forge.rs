@@ -404,14 +404,17 @@ pub(super) async fn forge_runs_by_status_response(
     }
 }
 
-/// `GET /forge/runs/<id>/payload` — return the queued payload
-/// JSON the daemon needs to (re)run a forge_run row. 404
-/// when no row matches OR the run has no `forge_queue`
-/// payload (typically because it was created via
-/// `?in_process=true` and never had a queue entry).
+/// `GET /forge/runs/<id>/payload[?format=markdown]` — return
+/// the queued payload JSON the daemon needs to (re)run a
+/// forge_run row. JSON default; `?format=markdown` returns a
+/// paste-able doc with run_id header + a fenced JSON block
+/// for the payload. 404 when no row matches OR the run has
+/// no `forge_queue` payload (typically because it was created
+/// via `?in_process=true` and never had a queue entry).
 pub(super) async fn forge_run_payload_response(
     raw_id: &str,
     store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
 ) -> (&'static str, String) {
     let Some(store) = store else {
         return super::store_unavailable();
@@ -427,11 +430,17 @@ pub(super) async fn forge_run_payload_response(
     };
     match store.get_forge_queue_payload(id).await {
         Ok(Some(payload)) => {
-            // Re-emit as a wrapped JSON object so the response
-            // is always parseable as JSON regardless of what's
-            // inside the payload string.
             let parsed: serde_json::Value =
                 serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
+            if matches!(format, Some("markdown")) {
+                let mut out = format!("# Payload for forge run `{id}`\n\n");
+                out.push_str("```json\n");
+                let pretty =
+                    serde_json::to_string_pretty(&parsed).unwrap_or_else(|_| payload.clone());
+                out.push_str(&pretty);
+                out.push_str("\n```\n");
+                return ("200 OK", out);
+            }
             let resp = serde_json::json!({
                 "run_id": id.to_string(),
                 "payload": parsed,

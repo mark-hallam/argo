@@ -67,7 +67,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/workspace/artifacts", "recorded marketplace pushes (?limit=N&since-minutes=M&format=markdown)"),
         ("GET", "/forge/runs", "recorded forge runs (?limit&since-minutes&status&score-min&score-max&skill&has-candidate&iterations-min&iterations-max&format=markdown)"),
         ("GET", "/forge/runs/<id>", "one forge_run row (?format=markdown for a paste-able doc)"),
-        ("GET", "/forge/runs/<id>/payload", "queued payload JSON for the run; 404 when the row has no forge_queue entry (e.g. ran via ?in_process=true)"),
+        ("GET", "/forge/runs/<id>/payload", "queued payload JSON for the run; ?format=markdown wraps it in a paste-able fenced block; 404 when the row has no forge_queue entry (e.g. ran via ?in_process=true)"),
         ("GET", "/forge/runs/count", "count of forge runs (?status=running|...&since-minutes=N)"),
         ("GET", "/forge/runs/by-day", "forge runs started per calendar day (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/forge/runs/by-status", "histogram of forge_run rows by status (?since-minutes=N&format=markdown)"),
