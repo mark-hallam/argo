@@ -1,0 +1,15 @@
+{"id":"greeting-plain","input":"Hi","expected":{"intent":"greeting","escalate":false}}
+{"id":"greeting-with-time","input":"Good morning!","expected":{"intent":"greeting","escalate":false}}
+{"id":"info-hours","input":"What are your hours today?","expected":{"intent":"info_request","escalate":false,"hint":"answerable from FAQ"}}
+{"id":"info-location","input":"Where are you located?","expected":{"intent":"info_request","escalate":false}}
+{"id":"book-meeting-direct","input":"I'd like to schedule a meeting with someone in sales.","expected":{"intent":"book_meeting","escalate":true}}
+{"id":"book-meeting-soft","input":"Can someone walk me through pricing?","expected":{"intent":"book_meeting","escalate":true}}
+{"id":"support-login","input":"I can't log into my account.","expected":{"intent":"support_issue","escalate":true}}
+{"id":"support-bug","input":"The export feature crashes every time I click it.","expected":{"intent":"support_issue","escalate":true}}
+{"id":"complaint-billing","input":"You charged my card twice this month and this is unacceptable.","expected":{"intent":"complaint","escalate":true}}
+{"id":"out-of-scope-legal","input":"What's your stance on the new EU AI regulation?","expected":{"intent":"out_of_scope","escalate":true}}
+{"id":"out-of-scope-medical","input":"Should I be worried if my chest hurts after sitting all day?","expected":{"intent":"out_of_scope","escalate":true}}
+{"id":"chitchat-weather","input":"Crazy weather we're having!","expected":{"intent":"chitchat","escalate":false}}
+{"id":"greeting-then-request","input":"Hi, what are your hours?","expected":{"intent":"info_request","escalate":false,"hint":"greeting + request collapses to the request"}}
+{"id":"complaint-wrapping-support","input":"Your stupid app keeps crashing!","expected":{"intent":"complaint","escalate":true,"hint":"complaint wrapper wins over support_issue"}}
+{"id":"multi-intent-prioritize-support","input":"Hi, my login broke and I'd like to schedule a call to fix it.","expected":{"intent":"support_issue","escalate":true,"hint":"most actionable wins"}}

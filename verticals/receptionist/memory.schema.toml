@@ -1,0 +1,25 @@
+schema_version = "1"
+
+# Shape of memory rows the AI Receptionist writes. Loader carries
+# this declaratively today; Phase 9 wires actual write-time
+# validation. Until then, this file documents the contract.
+
+[[entry]]
+key  = "recurring_visitors"
+type = "list-of-objects"
+purpose = "People we've talked to before, plus what we know about them. Lets the receptionist greet by name + skip re-asking onboarding questions on repeat visits. Append-only as new visitors arrive."
+
+[[entry]]
+key  = "pending_followups"
+type = "list-of-objects"
+purpose = "Conversations that escalated to a human and are waiting on action. Receptionist references these so a returning visitor doesn't get re-routed for the same thing twice."
+
+[[entry]]
+key  = "learned_faqs"
+type = "list-of-objects"
+purpose = "FAQ answers the receptionist couldn't find at first but learned from later human escalations. Reduces escalation volume over time."
+
+[[entry]]
+key  = "out_of_scope_patterns"
+type = "list-of-strings"
+purpose = "Topics that should always escalate. Updated when humans push back on the receptionist's classification. Reduces false negatives on escalation."

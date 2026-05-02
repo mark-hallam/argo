@@ -48,3 +48,10 @@ directory is the canonical reference — copy + edit.
 | Slug | Purpose | Status |
 |---|---|---|
 | `pr-checker` | Advisory PR review against project invariants | v0.1.0 (#652) |
+| `receptionist` | Front-desk visitor triage with intent classification + escalation | v0.1.0 (#657) |
+
+The two ship as a deliberate pair: pr-checker is technical +
+structured + read-only-against-files, receptionist is
+conversational + soft-skilled + no-external-integrations. If
+both load + behave per their manifests through the same runtime,
+the abstraction generalizes.

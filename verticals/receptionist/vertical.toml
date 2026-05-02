@@ -1,0 +1,71 @@
+schema_version = "1"
+
+[vertical]
+id          = "receptionist"
+name        = "AI Receptionist"
+description = "Greets visitors, identifies intent, answers FAQs, and escalates to a human when out of scope. Conversation-only by manifest — no calendar/CRM/SMS integrations wired in this version."
+version     = "0.1.0"
+authors     = ["Argo contributors"]
+tags        = ["customer-facing", "front-desk", "conversation"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+# Sonnet for the conversation — speed matters more than reasoning
+# depth at the front desk.
+default   = "anthropic/claude-sonnet-4-5"
+fallback  = "openai/gpt-5"
+cost_tier = "balanced"
+
+# Conversation-only by manifest. The receptionist reads memory
+# (recurring visitor recognition, FAQ answers) and reads files
+# (the workspace's FAQ doc set). It does NOT execute, mutate
+# code, or hand off work to other agents — escalation to a
+# human is the only "delegation" path, and that's plumbed
+# through prompts + escalation rules, not the delegate_task
+# tool.
+[tools]
+allowed = ["memory", "file_read", "web_search"]
+denied  = ["file_write", "file_patch", "terminal", "delegate_task"]
+
+[memory]
+schema = "memory.schema.toml"
+seed   = "memory/seed/"
+
+[skills]
+bundle = "skills/"
+
+[workflows]
+# Phase 5 territory; carried in the manifest for declarative
+# completeness. The greet → identify → answer/escalate loop
+# will be wired as a workflow once the runner ships.
+files = []
+
+[escalation]
+# Two failed attempts to handle a request → escalate to human.
+# Today the field is parsed; Phase 6 wires the gate.
+human_approval_required = []
+escalate_after_failures = 2
+escalate_to             = "logs"
+
+[success_metrics]
+# 80% of inbound conversations should resolve without human
+# intervention. Median response time matters at the front desk.
+deflection_target_pct       = 80
+median_response_seconds     = 5
+required_audit_chain_intact = true
+
+[evaluation]
+suites = ["eval/intent_classification.jsonl"]
+
+[gateway]
+# Reserved — Phase 4+ will mount this. A real receptionist would
+# expose POST /v1/receptionist/inbound for an SMS or chat webhook;
+# scaffold the slot today, wire it later.
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Receptionist"
