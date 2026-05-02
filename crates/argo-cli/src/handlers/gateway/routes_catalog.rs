@@ -10,7 +10,9 @@
 pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, String) {
     let rows = [
         ("GET", "/", "landing JSON: name + version + entry-point hints (replaces the bare 404)"),
-        ("GET", "/health", "liveness probe"),
+        ("GET", "/health", "combined health probe (liveness + timestamp)"),
+        ("GET", "/health/live", "K8s-style liveness probe — always 200 if the process responds"),
+        ("GET", "/health/ready", "K8s-style readiness probe — 200 when SQLite store responds, 503 otherwise"),
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),
         ("GET", "/sessions/<id>", "one session header + counts (?format=markdown for a paste-able header doc)"),

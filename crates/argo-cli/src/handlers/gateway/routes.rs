@@ -64,16 +64,14 @@ pub(super) async fn dispatch_route(
             ),
         );
     }
+    if req.starts_with("GET /health/live ") {
+        return super::routes_health::live_response();
+    }
+    if req.starts_with("GET /health/ready ") {
+        return super::routes_health::ready_response(store).await;
+    }
     if req.starts_with("GET /health ") {
-        let now = chrono::Utc::now();
-        return (
-            "200 OK",
-            format!(
-                "{{\"status\":\"ok\",\"time\":\"{}\",\"epoch_micros\":{}}}",
-                now.to_rfc3339(),
-                now.timestamp_micros()
-            ),
-        );
+        return super::routes_health::health_response();
     }
     if req.starts_with("GET /sessions/count ") || req.starts_with("GET /sessions/count?") {
         return super::routes_counts::dispatch_sessions_count(req, store).await;
