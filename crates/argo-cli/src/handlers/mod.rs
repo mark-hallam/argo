@@ -14,6 +14,7 @@ mod audit_helpers;
 pub mod audit_tool_errors;
 pub mod messages;
 pub mod messages_by_day;
+pub mod messages_by_day_by_role;
 pub mod messages_by_role;
 pub mod messages_by_session;
 pub mod messages_recent;

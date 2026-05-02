@@ -40,6 +40,16 @@ pub enum MessagesCmd {
         #[arg(long)]
         json: bool,
     },
+    /// 2D rollup: messages bucketed by `(day, role)`. Mirrors
+    /// the gateway's `GET /messages/by-day-by-role` (#640).
+    ByDayByRole {
+        /// Lookback window in days (default 30, cap 365).
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Output as a single JSON object (`{by_day_by_role}`).
+        #[arg(long)]
+        json: bool,
+    },
     /// Workspace-wide recent message tail. Mirrors the gateway's
     /// `GET /messages/recent` (#619).
     Recent {
