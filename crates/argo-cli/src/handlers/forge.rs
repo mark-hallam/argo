@@ -59,6 +59,9 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
             ForgeRunsCmd::ByDay { days, json } => {
                 super::forge_by_day::run(days, json).await
             }
+            ForgeRunsCmd::ByStatus { since_minutes, json } => {
+                super::forge_by_status::run(since_minutes, json).await
+            }
         },
         ForgeCmd::Promote { skill, version } => promote(&skill, &version).await,
         ForgeCmd::Bench {

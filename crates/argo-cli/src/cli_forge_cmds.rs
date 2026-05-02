@@ -184,4 +184,15 @@ pub enum ForgeRunsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Histogram of forge_run rows grouped by `status`.
+    /// Mirrors the gateway's `GET /forge/runs/by-status` (#584).
+    ByStatus {
+        /// Filter to runs started within this many recent
+        /// minutes.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Output as a single JSON object (`{by_status}`).
+        #[arg(long)]
+        json: bool,
+    },
 }
