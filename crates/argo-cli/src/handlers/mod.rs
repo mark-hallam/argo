@@ -20,6 +20,7 @@ pub mod costs;
 pub mod costs_by_day;
 pub mod costs_by_model;
 pub mod costs_by_session;
+pub mod costs_recent;
 pub mod forge_by_day;
 pub mod forge_by_skill;
 pub mod forge_by_status;
