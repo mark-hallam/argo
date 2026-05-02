@@ -171,6 +171,34 @@ pub(super) async fn dispatch_session_get(
                 audit_count_response(kind.as_deref(), since, Some(sid), store).await,
             );
         }
+        if tail.starts_with("audit/by-kind ") || tail.starts_with("audit/by-kind?") {
+            let since = parse_query_kv(tail, "since-minutes")
+                .and_then(|v| v.parse::<i64>().ok());
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                super::routes_audit_rollups::session_audit_by_kind_response(
+                    sid,
+                    since,
+                    store,
+                    format.as_deref(),
+                )
+                .await,
+            );
+        }
+        if tail.starts_with("audit/by-tool ") || tail.starts_with("audit/by-tool?") {
+            let since = parse_query_kv(tail, "since-minutes")
+                .and_then(|v| v.parse::<i64>().ok());
+            let format = parse_query_kv(tail, "format");
+            return Some(
+                super::routes_audit_rollups::session_audit_by_tool_response(
+                    sid,
+                    since,
+                    store,
+                    format.as_deref(),
+                )
+                .await,
+            );
+        }
         if tail.starts_with("audit ") || tail.starts_with("audit?") {
             let kind = parse_query_kv(tail, "kind");
             let since = parse_query_kv(tail, "since-minutes")
