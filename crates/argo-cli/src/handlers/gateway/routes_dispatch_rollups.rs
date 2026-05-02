@@ -46,6 +46,22 @@ pub(super) async fn dispatch_rollups(
             .await,
         );
     }
+    if req.starts_with("GET /sessions/by-model ")
+        || req.starts_with("GET /sessions/by-model?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_sessions_rollups::sessions_by_model_response(
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     if req.starts_with("GET /messages/by-day ") || req.starts_with("GET /messages/by-day?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let days = parse_query_kv(tail, "days")

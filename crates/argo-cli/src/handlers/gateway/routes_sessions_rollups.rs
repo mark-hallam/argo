@@ -140,3 +140,76 @@ pub(super) async fn sessions_by_provider_response(
         ),
     }
 }
+
+/// `GET /sessions/by-model[?since-minutes=N&format=markdown]`
+/// — histogram of session rows grouped by `model`. Symmetric
+/// to `/sessions/by-provider` (#594) — rounds out the by-*
+/// family for sessions. Returns
+/// `{by_model: {model: count}}` JSON or a 2-column markdown
+/// table sorted desc.
+pub(super) async fn sessions_by_model_response(
+    since_minutes: Option<i64>,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(String, i64)>, _> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT model, COUNT(*) FROM session WHERE started_at >= ? \
+                 GROUP BY model ORDER BY model",
+            )
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT model, COUNT(*) FROM session GROUP BY model ORDER BY model",
+            )
+            .fetch_all(pool)
+            .await
+        }
+    };
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let mut sorted = rows.clone();
+                sorted.sort_by_key(|r| std::cmp::Reverse(r.1));
+                let total: i64 = sorted.iter().map(|(_, n)| *n).sum();
+                let mut out = format!(
+                    "# Sessions by model ({total} sessions across {} models)\n\n",
+                    sorted.len()
+                );
+                if !sorted.is_empty() {
+                    out.push_str("| model | count |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (m, n) in &sorted {
+                        out.push_str(&format!("| `{m}` | {n} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let mut by_model = serde_json::Map::new();
+            for (m, n) in rows {
+                by_model.insert(m, serde_json::json!(n));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "by_model": serde_json::Value::Object(by_model),
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"sessions_by_model: {e}\"}}"),
+        ),
+    }
+}
