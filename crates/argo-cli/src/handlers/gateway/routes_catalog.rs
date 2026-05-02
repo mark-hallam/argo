@@ -110,6 +110,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/forge/runs/abort-all", "abort every in-flight forge run"),
         ("POST", "/forge/runs/sweep", "flip stalled running rows older than ?older-than-minutes=60 to failed (gateway-crash recovery)"),
         ("POST", "/forge/runs/<id>/promote", "promote that run's candidate to active"),
+        ("POST", "/forge/runs/<id>/requeue", "copy a terminal run's queued payload into a fresh queued run; returns 201 + {requeued, source_id, run_id}"),
         ("POST", "/skills/<name>/promote", "promote a skill version to active"),
         ("POST", "/skills/<name>/lock", "lock a skill (user-protected by default)"),
         ("POST", "/skills/<name>/unlock", "clear a skill lock"),

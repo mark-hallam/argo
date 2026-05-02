@@ -133,3 +133,50 @@ pub(super) async fn forge_promote_response(
         ),
     }
 }
+
+/// `POST /forge/runs/<id>/requeue` — copy a finished/failed/
+/// aborted run's queued payload into a fresh forge_run row
+/// with status='queued'. The daemon picks it up on its next
+/// tick. The source row keeps its terminal status as a
+/// historical record. Returns 201 + `{requeued, source_id,
+/// run_id}`. 404 when no row matches OR the source has no
+/// forge_queue payload (e.g. ran via ?in_process=true).
+/// 400 on a malformed id.
+pub(super) async fn forge_requeue_response(
+    raw_id: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let id = match uuid::Uuid::parse_str(raw_id) {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                "400 Bad Request",
+                format!("{{\"error\":\"invalid forge run id '{raw_id}'\"}}"),
+            );
+        }
+    };
+    match store.requeue_forge_run(id).await {
+        Ok(Some(new_id)) => (
+            "201 Created",
+            serde_json::to_string(&serde_json::json!({
+                "requeued": true,
+                "source_id": id.to_string(),
+                "run_id": new_id.to_string(),
+            }))
+            .unwrap_or_else(|_| "{}".to_string()),
+        ),
+        Ok(None) => (
+            "404 Not Found",
+            format!(
+                "{{\"error\":\"no forge_queue payload for run {raw_id} (was it created with ?in_process=true?)\"}}"
+            ),
+        ),
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"requeue_forge_run: {e}\"}}"),
+        ),
+    }
+}

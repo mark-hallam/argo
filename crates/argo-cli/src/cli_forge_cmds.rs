@@ -158,6 +158,19 @@ pub enum ForgeRunsCmd {
     },
     Show { id: String },
     Abort { id: String },
+    /// Requeue a terminal forge run (failed / aborted /
+    /// succeeded) by copying its queued payload into a fresh
+    /// row with status='queued'. The daemon picks it up on
+    /// its next tick. The source row stays as a historical
+    /// record. 404 when the source has no payload (was run
+    /// via `?in_process=true`). Mirrors the gateway's
+    /// `POST /forge/runs/<id>/requeue`.
+    Requeue {
+        id: String,
+        /// Output as a single JSON object {requeued, source_id, run_id}.
+        #[arg(long)]
+        json: bool,
+    },
     /// Flip every running forge run to `aborted`. Operator
     /// emergency-stop / fresh-slate before a workspace migration.
     /// Mirrors `POST /forge/runs/abort-all`.

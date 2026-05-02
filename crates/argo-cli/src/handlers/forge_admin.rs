@@ -141,6 +141,31 @@ pub(super) async fn abort_run(raw: &str) -> ArgoResult<()> {
     Ok(())
 }
 
+/// `argo forge runs requeue <id>` — mirror of the gateway's
+/// `POST /forge/runs/<id>/requeue`. Copies the source row's
+/// queued payload into a fresh queued run; daemon picks it
+/// up on its next tick.
+pub(super) async fn requeue_run(raw: &str, json: bool) -> ArgoResult<()> {
+    let store = open_store().await?;
+    let id = parse_run_id(raw)?;
+    let new_id = store.requeue_forge_run(id).await?.ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "no forge_queue payload for run {raw} (was it created with ?in_process=true?)"
+        ))
+    })?;
+    if json {
+        let payload = serde_json::json!({
+            "requeued": true,
+            "source_id": id.to_string(),
+            "run_id": new_id.to_string(),
+        });
+        println!("{}", serde_json::to_string(&payload).unwrap_or_default());
+    } else {
+        println!("argo forge runs requeue: {raw} → new run {new_id} (status=queued)");
+    }
+    Ok(())
+}
+
 /// Resolve a forge-run id from the user's input. Accepts either a
 /// full UUID or an 8-hex-char short prefix (matching what
 /// `argo forge runs list` prints).

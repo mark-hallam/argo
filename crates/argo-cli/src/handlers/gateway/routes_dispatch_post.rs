@@ -5,7 +5,8 @@
 //! `routes.rs` can fall through to its 404 default.
 use super::routes_cron::{cron_create_response, cron_delete_response};
 use super::routes_forge_promote::{
-    forge_abort_all_response, forge_promote_response, forge_sweep_response,
+    forge_abort_all_response, forge_promote_response, forge_requeue_response,
+    forge_sweep_response,
 };
 use super::routes_post::{
     append_message_response, create_session_response, replay_response, run_turn_response,
@@ -103,6 +104,9 @@ pub(super) async fn dispatch_post(
             }
             if tail.starts_with("promote ") {
                 return Some(forge_promote_response(id, store).await);
+            }
+            if tail.starts_with("requeue ") {
+                return Some(forge_requeue_response(id, store).await);
             }
         }
     }

@@ -128,6 +128,23 @@ impl SessionStore {
             .await
             .map_err(|e| ArgoError::Provider(format!("claim_queued_forge_run: {e}")))
     }
+
+    /// Requeue a finished/failed/aborted forge run as a fresh
+    /// queued row, copying its `forge_queue` payload. The
+    /// source row keeps its terminal status as a historical
+    /// record. Returns `Ok(Some(new_run_id))` on success;
+    /// `Ok(None)` when the source row has no payload (e.g.
+    /// it was created via `?in_process=true` and never had a
+    /// queue entry) or doesn't exist. Caller can present 404
+    /// to the user when None.
+    pub async fn requeue_forge_run(
+        &self,
+        source_id: Uuid,
+    ) -> StoreResult<Option<Uuid>> {
+        requeue_forge_run(self.pool(), source_id)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("requeue_forge_run: {e}")))
+    }
 }
 
 async fn get_forge_run(
@@ -266,6 +283,60 @@ async fn enqueue_forge_run(
     .await?;
     tx.commit().await?;
     Ok(id)
+}
+
+async fn requeue_forge_run(
+    pool: &Pool<Sqlite>,
+    source_id: Uuid,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let payload_row: Option<(String,)> = sqlx::query_as(
+        "SELECT forge_queue.payload_json FROM forge_queue \
+         JOIN forge_run ON forge_run.id = forge_queue.forge_run_id \
+         WHERE forge_run.id = ?",
+    )
+    .bind(source_id.as_bytes().as_slice())
+    .fetch_optional(pool)
+    .await?;
+    let Some((payload_json,)) = payload_row else {
+        return Ok(None);
+    };
+    // Pull the source row's identifying fields to seed the new
+    // forge_run shell (skill_name, base_version, examples_count).
+    let header: Option<(String, String, i64)> = sqlx::query_as(
+        "SELECT skill_name, base_version, examples_count FROM forge_run WHERE id = ?",
+    )
+    .bind(source_id.as_bytes().as_slice())
+    .fetch_optional(pool)
+    .await?;
+    let Some((skill_name, base_version, examples_count)) = header else {
+        return Ok(None);
+    };
+    let new_id = Uuid::now_v7();
+    let now = chrono::Utc::now().timestamp_micros();
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        "INSERT INTO forge_run (id, skill_name, started_at, ended_at, base_version, \
+         candidate_version, examples_count, iterations, spend_usd_micros, final_score, status) \
+         VALUES (?, ?, ?, NULL, ?, NULL, ?, 0, 0, NULL, 'queued')",
+    )
+    .bind(new_id.as_bytes().as_slice())
+    .bind(&skill_name)
+    .bind(now)
+    .bind(&base_version)
+    .bind(examples_count)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO forge_queue (forge_run_id, payload_json, enqueued_at) \
+         VALUES (?, ?, ?)",
+    )
+    .bind(new_id.as_bytes().as_slice())
+    .bind(&payload_json)
+    .bind(now)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(Some(new_id))
 }
 
 async fn claim_queued_forge_run(
