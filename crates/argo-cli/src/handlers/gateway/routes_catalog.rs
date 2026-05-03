@@ -128,6 +128,8 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/sessions/<id>/reopen", "clear ended_at — inverse of /end"),
         ("POST", "/sessions/<id>/clone", "duplicate a session into a fresh row, copying every message; returns {cloned_from, session_id, title, messages_copied}"),
         ("POST", "/sessions/<id>/branch", "fork a session at a specific message (?through-seq=N copies seq 1..=N; defaults to all); returns {branched_from, session_id, title, through_seq, messages_copied}"),
+        ("POST", "/sessions/<id>/approve", "grant the session permission to dispatch a tool the bound vertical's [escalation].human_approval_required would block; body {tool, note?} (#665)"),
+        ("POST", "/sessions/<id>/revoke-approval", "revoke every grant for a (session, tool) pair; body {tool}; returns {removed} (#665)"),
         ("POST", "/sessions/end-all", "mark open sessions ended (?older-than-minutes=N for stale-only)"),
         ("POST", "/forge/optimize", "enqueue `argo forge optimize` for the daemon to run (returns 202; `?in_process=true` keeps the old in-gateway behaviour)"),
         ("POST", "/forge/optimize/stream", "chunked-NDJSON forge optimize event stream"),

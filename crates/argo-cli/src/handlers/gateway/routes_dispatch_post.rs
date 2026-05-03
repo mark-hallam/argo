@@ -23,6 +23,9 @@ use super::routes_post_writes::{
     workspace_init_response,
 };
 use super::routes_query::parse_query_kv;
+use super::routes_session_approval::{
+    session_approve_response, session_revoke_approval_response,
+};
 use super::routes_session_clone::{session_branch_response, session_clone_response};
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
@@ -209,6 +212,18 @@ pub(super) async fn dispatch_post(
                     .and_then(|v| v.parse::<i64>().ok());
                 return Some(
                     session_branch_response(sid, through_seq, store).await,
+                );
+            }
+            // #665 — escalation grant flow mirror of `argo
+            // session approve` / `revoke-approval`. Same body
+            // shape (`{tool, note?}`), same audit kinds, same
+            // SQLite write path.
+            if tail.starts_with("approve ") {
+                return Some(session_approve_response(sid, req, store).await);
+            }
+            if tail.starts_with("revoke-approval ") {
+                return Some(
+                    session_revoke_approval_response(sid, req, store).await,
                 );
             }
         }

@@ -35,6 +35,7 @@ mod routes_providers;
 mod routes_query;
 mod routes_search;
 mod routes_session;
+mod routes_session_approval;
 mod routes_session_clone;
 mod routes_session_get;
 mod routes_session_skills;
