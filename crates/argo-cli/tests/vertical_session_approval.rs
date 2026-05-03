@@ -286,6 +286,67 @@ fn cli_list_grants_unknown_session_fails_loudly() {
 }
 
 #[test]
+fn cli_approve_once_marks_grant_as_one_shot() {
+    let home = tempfile::tempdir().unwrap();
+    let sid = create_session(home.path());
+
+    let out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "session",
+            "approve",
+            &sid,
+            "--tool",
+            "delegate_task",
+            "--once",
+            "--json",
+        ])
+        .output()
+        .expect("spawn approve --once");
+    assert!(
+        out.status.success(),
+        "approve --once stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(v["one_shot"], true);
+
+    // list-grants surfaces the one_shot flag.
+    let listed = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args(["session", "list-grants", &sid, "--json"])
+        .output()
+        .expect("spawn list-grants");
+    assert!(listed.status.success());
+    let lv: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(listed.stdout).unwrap()).unwrap();
+    assert_eq!(lv["count"].as_u64().unwrap(), 1);
+    assert_eq!(lv["grants"][0]["one_shot"], true);
+}
+
+#[test]
+fn cli_approve_default_is_persistent_not_one_shot() {
+    let home = tempfile::tempdir().unwrap();
+    let sid = create_session(home.path());
+
+    Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args(["session", "approve", &sid, "--tool", "terminal"])
+        .status()
+        .unwrap();
+
+    let listed = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args(["session", "list-grants", &sid, "--json"])
+        .output()
+        .expect("spawn");
+    let lv: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(listed.stdout).unwrap()).unwrap();
+    assert_eq!(lv["grants"][0]["one_shot"], false);
+}
+
+#[test]
 fn cli_revoke_with_no_grants_returns_zero_and_succeeds() {
     let home = tempfile::tempdir().unwrap();
     let sid = create_session(home.path());

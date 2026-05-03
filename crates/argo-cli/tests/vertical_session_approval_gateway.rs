@@ -206,6 +206,50 @@ fn gateway_get_grants_unknown_session_returns_404() {
 }
 
 #[test]
+fn gateway_post_approve_one_shot_marks_grant_as_one_shot() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 4);
+    let sid = create_session_via_gateway(port);
+
+    let resp = http_post(
+        port,
+        &format!("/sessions/{sid}/approve"),
+        r#"{"tool":"delegate_task","one_shot":true}"#,
+    );
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
+    let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
+    assert_eq!(v["one_shot"], true);
+
+    // Grants list confirms it.
+    let listed = http_get(port, &format!("/sessions/{sid}/grants"));
+    assert!(listed.contains("HTTP/1.1 200 OK"));
+    let lv: serde_json::Value = serde_json::from_str(body_of(&listed)).unwrap();
+    assert_eq!(lv["count"].as_u64().unwrap(), 1);
+    assert_eq!(lv["grants"][0]["one_shot"], true);
+
+    let _ = child.kill();
+}
+
+#[test]
+fn gateway_post_approve_default_is_persistent() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 3);
+    let sid = create_session_via_gateway(port);
+
+    http_post(
+        port,
+        &format!("/sessions/{sid}/approve"),
+        r#"{"tool":"delegate_task"}"#,
+    );
+
+    let listed = http_get(port, &format!("/sessions/{sid}/grants"));
+    let lv: serde_json::Value = serde_json::from_str(body_of(&listed)).unwrap();
+    assert_eq!(lv["grants"][0]["one_shot"], false);
+
+    let _ = child.kill();
+}
+
+#[test]
 fn gateway_get_grants_invalid_uuid_returns_400() {
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 1);

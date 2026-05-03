@@ -59,6 +59,12 @@ pub enum AuditKind {
     ApprovalGranted,
     /// An operator revoked a previously-granted approval (#664).
     ApprovalRevoked,
+    /// A one-shot approval grant was consumed by a successful
+    /// gate-passing dispatch (#667). The corresponding grant
+    /// row's `consumed_at` column is now populated; subsequent
+    /// dispatches of the same tool re-block unless another grant
+    /// is in place.
+    ApprovalConsumed,
 }
 
 impl AuditKind {
@@ -86,6 +92,7 @@ impl AuditKind {
             Self::EscalationRequired => "escalation.required",
             Self::ApprovalGranted => "approval.granted",
             Self::ApprovalRevoked => "approval.revoked",
+            Self::ApprovalConsumed => "approval.consumed",
         }
     }
 
@@ -115,6 +122,7 @@ impl AuditKind {
             "escalation.required" => Self::EscalationRequired,
             "approval.granted" => Self::ApprovalGranted,
             "approval.revoked" => Self::ApprovalRevoked,
+            "approval.consumed" => Self::ApprovalConsumed,
             _ => return None,
         })
     }
@@ -139,15 +147,19 @@ impl AuditKind {
     }
 
     /// `true` for kinds added by the vertical-template surface
-    /// (Phase 6+). Today three: `EscalationRequired` (#660 gate),
+    /// (Phase 6+). Today four: `EscalationRequired` (#660 gate),
     /// `ApprovalGranted` (#664 grant), `ApprovalRevoked` (#664
-    /// revoke). The gateway / CLI rollups treat these the same as
-    /// any other audit kind.
+    /// revoke), `ApprovalConsumed` (#667 one-shot dispatch).
+    /// The gateway / CLI rollups treat these the same as any
+    /// other audit kind.
     #[must_use]
     pub fn is_vertical(self) -> bool {
         matches!(
             self,
-            Self::EscalationRequired | Self::ApprovalGranted | Self::ApprovalRevoked
+            Self::EscalationRequired
+                | Self::ApprovalGranted
+                | Self::ApprovalRevoked
+                | Self::ApprovalConsumed
         )
     }
 
@@ -176,6 +188,7 @@ impl AuditKind {
             Self::EscalationRequired,
             Self::ApprovalGranted,
             Self::ApprovalRevoked,
+            Self::ApprovalConsumed,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -241,15 +254,17 @@ mod tests {
         for (label, kind) in [
             ("approval.granted", AuditKind::ApprovalGranted),
             ("approval.revoked", AuditKind::ApprovalRevoked),
+            ("approval.consumed", AuditKind::ApprovalConsumed),
         ] {
             assert_eq!(AuditKind::from_label(label), Some(kind));
             assert_eq!(kind.label(), label);
             assert!(kind.is_vertical(), "{kind:?} should be vertical");
             assert!(!kind.is_v02(), "{kind:?} must not be v02");
         }
-        // both must appear in all()
+        // all three must appear in all()
         let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
         assert!(labels.contains(&"approval.granted"));
         assert!(labels.contains(&"approval.revoked"));
+        assert!(labels.contains(&"approval.consumed"));
     }
 }

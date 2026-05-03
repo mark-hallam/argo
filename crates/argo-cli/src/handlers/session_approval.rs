@@ -34,11 +34,13 @@ fn parse_session_id(s: &str) -> ArgoResult<SessionId> {
     Ok(SessionId(u))
 }
 
-/// `argo session approve <session-id> --tool <name> [--note "<text>"]`.
+/// `argo session approve <session-id> --tool <name> [--note
+/// "<text>"] [--once]`.
 pub async fn approve(
     session_id_str: &str,
     tool: &str,
     note: Option<&str>,
+    once: bool,
     json: bool,
 ) -> ArgoResult<()> {
     let sid = parse_session_id(session_id_str)?;
@@ -52,7 +54,7 @@ pub async fn approve(
         )));
     }
     let grant_id = store
-        .add_session_grant(sid, tool, "cli", note)
+        .add_session_grant(sid, tool, "cli", note, once)
         .await?;
 
     // Audit row so the chain shows the operator's intent. The
@@ -65,6 +67,7 @@ pub async fn approve(
         "grant_id": grant_id.to_string(),
         "source": "cli",
         "note": note,
+        "one_shot": once,
     });
     audit
         .write(Some(sid), AuditKind::ApprovalGranted, payload)
@@ -78,14 +81,24 @@ pub async fn approve(
                 "grant_id": grant_id.to_string(),
                 "session_id": session_id_str,
                 "tool": tool,
+                "one_shot": once,
             }))
             .unwrap_or_default()
         );
     } else {
+        let suffix = if once { " (one-shot)" } else { "" };
         println!(
-            "approved tool '{tool}' for session '{session_id_str}' (grant {grant_id})"
+            "approved tool '{tool}' for session '{session_id_str}'{suffix} (grant {grant_id})"
         );
-        println!("  → next turn against this session will let '{tool}' dispatch");
+        if once {
+            println!(
+                "  → next dispatch of '{tool}' goes through; subsequent calls re-block"
+            );
+        } else {
+            println!(
+                "  → next turn against this session will let '{tool}' dispatch"
+            );
+        }
     }
     Ok(())
 }
@@ -112,6 +125,7 @@ pub async fn list_grants(session_id_str: &str, json: bool) -> ArgoResult<()> {
                     "granted_at_secs": g.granted_at_secs,
                     "source": g.source,
                     "note": g.notes,
+                    "one_shot": g.is_one_shot,
                 })
             })
             .collect();
@@ -138,8 +152,9 @@ pub async fn list_grants(session_id_str: &str, json: bool) -> ArgoResult<()> {
                 .filter(|n| !n.is_empty())
                 .map(|n| format!(" — {n}"))
                 .unwrap_or_default();
+            let kind = if g.is_one_shot { "one-shot" } else { "persistent" };
             println!(
-                "  [{}] tool={} (source={}, granted_at_secs={}){note}",
+                "  [{}] tool={} ({kind}, source={}, granted_at_secs={}){note}",
                 g.id, g.tool_name, g.source, g.granted_at_secs
             );
         }

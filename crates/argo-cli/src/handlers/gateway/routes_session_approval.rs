@@ -42,6 +42,12 @@ pub(super) async fn session_approve_response(
         return bad_request("missing `tool`");
     };
     let note = parsed.get("note").and_then(|v| v.as_str());
+    // `one_shot` (#667) — boolean field; absent or false means
+    // persistent grant, same as #664 default.
+    let one_shot = parsed
+        .get("one_shot")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     // Fail loud on ghost sessions — same UX as the CLI.
     let exists = match store.get_session(sid).await {
@@ -55,7 +61,10 @@ pub(super) async fn session_approve_response(
         );
     }
 
-    let grant_id = match store.add_session_grant(sid, tool, "gateway", note).await {
+    let grant_id = match store
+        .add_session_grant(sid, tool, "gateway", note, one_shot)
+        .await
+    {
         Ok(id) => id,
         Err(e) => return server_error(&format!("add_session_grant: {e}")),
     };
@@ -65,6 +74,7 @@ pub(super) async fn session_approve_response(
         "grant_id": grant_id.to_string(),
         "source": "gateway",
         "note": note,
+        "one_shot": one_shot,
     });
     if let Err(e) = audit
         .write(Some(sid), AuditKind::ApprovalGranted, payload)
@@ -80,6 +90,7 @@ pub(super) async fn session_approve_response(
             "grant_id": grant_id.to_string(),
             "session_id": sid_str,
             "tool": tool,
+            "one_shot": one_shot,
         }))
         .unwrap_or_default(),
     )
@@ -173,6 +184,7 @@ pub(super) async fn session_grants_get_response(
                 "granted_at_secs": g.granted_at_secs,
                 "source": g.source,
                 "note": g.notes,
+                "one_shot": g.is_one_shot,
             })
         })
         .collect();

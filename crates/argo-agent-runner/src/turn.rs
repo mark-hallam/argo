@@ -16,8 +16,9 @@ use crate::helpers::{
 };
 use crate::transport::{build_transport, load_manifest};
 use crate::turn_vertical::{
-    build_session_grant_set, build_turn_start_payload, build_vertical_approval_set,
-    build_vertical_deny_set, resolve_vertical_for_session,
+    build_session_grant_state, build_turn_start_payload, build_vertical_approval_set,
+    build_vertical_deny_set, consume_one_shot_if_present, resolve_vertical_for_session,
+    SessionGrantState,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
@@ -108,10 +109,12 @@ pub async fn run_turn_with_events(
     let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
     let vertical_deny = build_vertical_deny_set(session.vertical_id.as_deref());
     let vertical_approval = build_vertical_approval_set(session.vertical_id.as_deref());
-    // Operator-issued approvals from `argo session approve` (#664).
-    // The approval gate lets these through even when the
-    // vertical's manifest would have blocked them.
-    let session_grants = build_session_grant_set(store, session_id).await;
+    // Operator-issued approvals from `argo session approve`
+    // (#664) + one-shot grant tracking (#667). The approval gate
+    // lets these through even when the vertical's manifest would
+    // have blocked them; one-shot grants are consumed on first
+    // matching dispatch so subsequent calls re-block.
+    let session_grants = build_session_grant_state(store, session_id).await;
 
     let audit = AuditSink::new(store.clone());
     let turn_start = build_turn_start_payload(
@@ -143,7 +146,7 @@ pub async fn run_turn_with_events(
         vertical_ctx.as_deref(),
         &vertical_deny,
         &vertical_approval,
-        &session_grants,
+        session_grants,
     )
     .await;
     let kind = if result.is_ok() {
@@ -174,8 +177,9 @@ async fn run_turn_with_tools(
     vertical_prompt: Option<&str>,
     vertical_deny: &std::collections::HashSet<String>,
     vertical_approval: &std::collections::HashSet<String>,
-    session_grants: &std::collections::HashSet<String>,
+    session_grants: SessionGrantState,
 ) -> ArgoResult<TurnResult> {
+    let mut session_grants = session_grants;
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
     let mut system_prompt = build_system_prompt(store, session_id).await?;
@@ -266,26 +270,11 @@ async fn run_turn_with_tools(
                 .await?;
             emit_event(events, "ToolCall", call_payload);
 
-            // Vertical-level deny check (#655). Deny-wins: if the
-            // bound vertical's [tools].denied list mentions this
-            // tool, block the call before it even reaches the
-            // capability engine. Emits an RbacDeny audit row + a
-            // synthetic error ToolCallResult so the agent learns
-            // the boundary instead of seeing a silent no-op.
-            //
-            // Then the escalation check (#660): tools in
-            // [escalation].human_approval_required are NOT
-            // dispatched until a human approves. We emit an
-            // EscalationRequired audit row and return an error
-            // result so the agent surfaces "this needs approval"
-            // to the operator. Approval grants are out of scope
-            // for this PR — a follow-up wires `argo session
-            // approve` to call `engine.grant_dynamic`.
-            //
-            // Ordering: deny is more restrictive than approval —
-            // a tool listed in BOTH stays denied even if the
-            // operator would have approved it. That keeps the
-            // deny list as the platform's hard "never" boundary.
+            // Deny-wins (#655) → escalation gate (#660) →
+            // operator grants (#664/#667) → dispatch. Deny is
+            // the platform's hard "never"; the gate pauses for
+            // human approval; grants override the gate (one-shot
+            // grants consume after dispatch in the else branch).
             let result: ToolCallResult = if vertical_deny.contains(&call.name) {
                 let deny_payload = serde_json::json!({
                     "tool": call.name,
@@ -305,13 +294,13 @@ async fn run_turn_with_tools(
                     0,
                 )
             } else if vertical_approval.contains(&call.name)
-                && !session_grants.contains(&call.name)
+                && !session_grants.allows(&call.name)
             {
                 // Approval gate (#660) — but if the operator has
                 // explicitly approved this tool for this session
-                // via `argo session approve` (#664), the grant
-                // overrides the gate and we fall through to
-                // dispatch.
+                // via `argo session approve` (#664/#667), the
+                // grant overrides the gate and we fall through
+                // to dispatch.
                 let escalation_payload = serde_json::json!({
                     "tool": call.name,
                     "call_id": call.id,
@@ -329,13 +318,24 @@ async fn run_turn_with_tools(
                 argo_tool::error_text(
                     call.id,
                     format!(
-                        "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); run `argo session approve <session-id> --tool {}` and re-issue the turn",
+                        "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); run `argo session approve <session-id> --tool {}` (add --once for a single-dispatch grant) and re-issue the turn",
                         call.name, call.name
                     ),
                     0,
                 )
             } else {
-                dispatch_one(&registry, &engine, &principal, cwd, call).await
+                // #667: track grant-gate permission so we can
+                // consume the one-shot after the dispatch.
+                let approved_via_grant = vertical_approval.contains(&call.name)
+                    && session_grants.allows(&call.name);
+                let res = dispatch_one(&registry, &engine, &principal, cwd, call).await;
+                if approved_via_grant {
+                    consume_one_shot_if_present(
+                        store, session_id, &call.name, &mut session_grants, audit, events,
+                    )
+                    .await?;
+                }
+                res
             };
             let result_payload = serde_json::json!({
                 "tool": call.name,

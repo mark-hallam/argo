@@ -204,8 +204,18 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             session_id,
             tool,
             note,
+            once,
             json,
-        } => super::session_approval::approve(&session_id, &tool, note.as_deref(), json).await,
+        } => {
+            super::session_approval::approve(
+                &session_id,
+                &tool,
+                note.as_deref(),
+                once,
+                json,
+            )
+            .await
+        }
         SessionCmd::RevokeApproval {
             session_id,
             tool,

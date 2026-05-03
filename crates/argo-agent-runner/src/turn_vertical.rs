@@ -104,29 +104,121 @@ pub(crate) fn build_vertical_approval_set(
     out
 }
 
-/// Build the set of tool names the operator has explicitly
-/// approved for this session via `argo session approve` (#664).
-/// The approval gate (#660) lets these through even when the
-/// vertical's `[escalation].human_approval_required` would have
-/// blocked them.
+/// Per-turn snapshot of operator-issued approval grants for a
+/// session (#664 + #667). The agent runner consults this on
+/// every approval-gated tool dispatch:
 ///
-/// Returns an empty set when:
+/// - Persistent grants (#664) live in `persistent` — they let
+///   the tool through every dispatch, never consumed.
+/// - One-shot grants (#667) live in `one_shot_remaining` as a
+///   per-tool count — each successful gate-passing dispatch
+///   decrements one. When the count hits zero AND the tool has
+///   no persistent grant, subsequent calls in the same turn
+///   re-block.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct SessionGrantState {
+    pub(crate) persistent: std::collections::HashSet<String>,
+    pub(crate) one_shot_remaining: std::collections::HashMap<String, usize>,
+}
+
+impl SessionGrantState {
+    /// `true` if `tool` has at least one active grant — either
+    /// persistent or unconsumed one-shot.
+    pub(crate) fn allows(&self, tool: &str) -> bool {
+        self.persistent.contains(tool)
+            || self
+                .one_shot_remaining
+                .get(tool)
+                .copied()
+                .unwrap_or(0)
+                > 0
+    }
+
+    /// Called after a successful gate-passing dispatch. If the
+    /// tool has only one-shot grants, decrements the in-memory
+    /// count so subsequent calls in the same turn re-block once
+    /// the count hits zero. Persistent grants are unaffected.
+    pub(crate) fn record_one_shot_consumption(&mut self, tool: &str) {
+        if self.persistent.contains(tool) {
+            return;
+        }
+        if let Some(count) = self.one_shot_remaining.get_mut(tool) {
+            if *count > 0 {
+                *count -= 1;
+            }
+        }
+    }
+}
+
+/// Build the [`SessionGrantState`] for a session at TurnStart.
+/// Returns the empty default when:
 /// - the session has no grants (the common case),
-/// - the store query errors (we degrade closed — better the
-///   gate stays in effect than spurious "approval found"),
+/// - the store query errors (degrade closed — better the gate
+///   stays in effect than to spuriously "approve"),
 /// - the session id is unknown.
-pub(crate) async fn build_session_grant_set(
+pub(crate) async fn build_session_grant_state(
     store: &argo_store::SessionStore,
     session_id: argo_types::SessionId,
-) -> std::collections::HashSet<String> {
-    let mut out = std::collections::HashSet::new();
+) -> SessionGrantState {
+    let mut state = SessionGrantState::default();
     let Ok(grants) = store.list_session_grants(session_id).await else {
-        return out;
+        return state;
     };
     for g in grants {
-        out.insert(g.tool_name);
+        if g.is_one_shot {
+            *state.one_shot_remaining.entry(g.tool_name).or_insert(0) += 1;
+        } else {
+            state.persistent.insert(g.tool_name);
+        }
     }
-    out
+    state
+}
+
+/// Consume one one-shot grant for `(session, tool)` after a
+/// gate-passing dispatch (#667). No-op when the tool only has
+/// persistent grants — the helper detects that by checking the
+/// in-memory state. Emits an `ApprovalConsumed` audit row when a
+/// grant actually consumes so the operator can correlate
+/// "approval given → approval used" in the chain.
+pub(crate) async fn consume_one_shot_if_present(
+    store: &argo_store::SessionStore,
+    session_id: argo_types::SessionId,
+    tool: &str,
+    state: &mut SessionGrantState,
+    audit: &argo_audit::AuditSink,
+    events: Option<&crate::helpers::RunEventSink>,
+) -> argo_types::ArgoResult<()> {
+    // Persistent grants never consume; skip the store query.
+    if state.persistent.contains(tool) {
+        return Ok(());
+    }
+    let consumed = match store.consume_one_shot_grant(session_id, tool).await {
+        Ok(opt) => opt,
+        Err(_) => {
+            // Degrade closed: leave the in-memory state alone.
+            // Worst case the next dispatch in this turn also
+            // goes through, but the next turn's TurnStart
+            // re-reads the store and corrects.
+            return Ok(());
+        }
+    };
+    if let Some(grant_id) = consumed {
+        state.record_one_shot_consumption(tool);
+        let payload = serde_json::json!({
+            "tool": tool,
+            "grant_id": grant_id.to_string(),
+            "reason": "one_shot_dispatched",
+        });
+        audit
+            .write(
+                Some(session_id),
+                argo_audit::AuditKind::ApprovalConsumed,
+                payload.clone(),
+            )
+            .await?;
+        crate::helpers::emit_event(events, "ApprovalConsumed", payload);
+    }
+    Ok(())
 }
 
 /// Resolve the vertical's `[role].system_prompt` markdown for a

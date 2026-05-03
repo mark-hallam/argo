@@ -423,16 +423,17 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Grant the session permission to dispatch a tool that the
-    /// bound vertical's `[escalation].human_approval_required`
-    /// list would otherwise block (#664). Persists the grant;
-    /// the next turn will let the tool through. Idempotent.
+    /// Grant approval for a tool the vertical's
+    /// `[escalation].human_approval_required` blocks (#664).
+    /// `--once` (#667) consumes on first matching dispatch.
     Approve {
         session_id: String,
         #[arg(long)]
         tool: String,
         #[arg(long)]
         note: Option<String>,
+        #[arg(long)]
+        once: bool,
         #[arg(long)]
         json: bool,
     },
