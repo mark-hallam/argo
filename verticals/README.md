@@ -39,9 +39,15 @@ verticals/<id>/
 
 ## Authoring
 
-See [`AUTHORING.md`](./AUTHORING.md) (Phase 10) for a step-by-step
-walkthrough. Until that lands, the [`pr-checker/`](./pr-checker/)
-directory is the canonical reference — copy + edit.
+See [`AUTHORING.md`](./AUTHORING.md) for the canonical step-by-
+step walkthrough — manifest schema, the seven sections,
+invariants you must respect, the recommended workflow when
+starting a new vertical, and a 30-minute Day-1 walkthrough that
+takes you from empty tempdir to a working install + uninstall.
+
+The [`pr-checker/`](./pr-checker/) and
+[`receptionist/`](./receptionist/) directories are the live
+references — copy whichever is closer to your shape and edit.
 
 ## Verticals shipped today
 
