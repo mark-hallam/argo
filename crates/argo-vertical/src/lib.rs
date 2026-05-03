@@ -49,6 +49,7 @@
 //! ```
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod isolation;
 mod loader;
 mod manifest;
 mod memory_schema;
@@ -76,6 +77,7 @@ pub fn default_dir() -> PathBuf {
     PathBuf::from("verticals")
 }
 
+pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};
 pub use manifest::{
     parse, EscalationSection, EvaluationSection, GatewaySection, MemorySection, ProviderSection,

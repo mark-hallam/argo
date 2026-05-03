@@ -21,8 +21,13 @@ use std::path::Path;
 ///
 /// `root` is the directory containing `vertical.toml`; relative
 /// paths in the manifest resolve against it.
+///
+/// Runs isolation checks (#676) FIRST so any path-traversal
+/// attempt fails before we touch the filesystem — keeps the
+/// security boundary as tight as the deny-list.
 pub fn validate(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
     validate_id(&manifest.vertical.id)?;
+    crate::isolation::check_isolation(manifest, root)?;
     validate_role(manifest, root)?;
     validate_memory(manifest, root)?;
     validate_skills(manifest, root)?;
