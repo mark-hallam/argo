@@ -25,21 +25,21 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Finding {
-    severity: Severity,
-    code: &'static str,
-    message: String,
+pub(crate) struct Finding {
+    pub(crate) severity: Severity,
+    pub(crate) code: &'static str,
+    pub(crate) message: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Severity {
+pub(crate) enum Severity {
     Error,
     Warn,
     Info,
 }
 
 impl Severity {
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Error => "error",
             Self::Warn => "warn",
@@ -97,7 +97,7 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     Ok(())
 }
 
-fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding> {
+pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding> {
     let mut out = Vec::new();
     let m = &loaded.manifest;
 

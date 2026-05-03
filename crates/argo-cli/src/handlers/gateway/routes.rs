@@ -80,6 +80,13 @@ pub(super) async fn dispatch_route(
     }
     if let Some(rest) = req.strip_prefix("GET /verticals/") {
         if let Some((id_with_query, _)) = rest.split_once(' ') {
+            // /verticals/<id>/lint (#672) — gateway mirror of
+            // `argo vertical lint`. Strip the trailing `/lint`
+            // before falling through to the bare-id branch so
+            // both routes share the prefix parsing.
+            if let Some(id) = id_with_query.strip_suffix("/lint") {
+                return super::routes_verticals_lint::vertical_lint_response(id).await;
+            }
             let (id, query) = match id_with_query.split_once('?') {
                 Some((i, q)) => (i, Some(q)),
                 None => (id_with_query, None),
