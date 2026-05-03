@@ -1,0 +1,13 @@
+{
+  "schema_key": "campaign_results",
+  "campaign_id": "demo-c2-2026-04-19",
+  "audience": "technical founders, Series A-C B2B startups, agent-platform GTM hypothesis",
+  "messaging_variant": "agent-learning loop + audit-chain visibility (refined: tighter CTA)",
+  "control_variant": "generic automation copy (\"Save 20 hours a week\")",
+  "sends": 60,
+  "open_rate": 0.45,
+  "reply_rate": 0.10,
+  "positive_reply_rate": 0.07,
+  "control_positive_reply_rate": 0.017,
+  "observation": "Reinforces campaign 1: technical founders consistently respond to learning-loop framing. Sub-cohort note: did NOT generalise to non-technical founders within the same employer segment — those replied at the control rate."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_key": "patterns",
+  "pattern_name": "technical_founder_learning_moat_signal",
+  "observations_count": 3,
+  "tag": "propose_skill",
+  "summary": "Across 3 campaigns to technical founders at Series A-C B2B startups with an agent-platform GTM hypothesis, leading with the agent-learning loop and audit-chain visibility outperformed generic automation copy on positive-reply rate by 3-4x. The lift is consistent across 3 distinct send cohorts (165 sends total) and the variant continued to refine upward as one verified company signal was added. Pattern qualifies for skill proposal under the detect_gtm_pattern threshold (>=3 reinforcing observations across distinct campaigns).",
+  "evidence": [
+    "demo-c1-2026-04-12: 6.0% positive reply (variant) vs 1.5% (control), n=50",
+    "demo-c2-2026-04-19: 7.0% positive reply (variant) vs 1.7% (control), n=60",
+    "demo-c3-2026-04-26: 8.0% positive reply (variant) vs 1.8% (control), n=55"
+  ],
+  "counterexamples": [
+    "Did not generalise to non-technical founders in the same employer segment (campaign 2 sub-cohort): they replied at the control rate, suggesting the lift is specific to the technical-founder persona, not the company type."
+  ]
+}

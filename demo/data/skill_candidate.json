@@ -1,0 +1,9 @@
+{
+  "schema_key": "learned_skill_candidates",
+  "skill_name": "technical_founder_learning_moat_outreach",
+  "problem": "Generic automation copy underperforms on outreach to technical founders building agent platforms. Across 3 demo campaigns (n=165 sends), generic copy landed at 1.5-1.8% positive reply rate while a learning-loop framing landed at 6-8%. Without a reusable skill, every campaign re-derives this from scratch and risks regressing back to generic copy under deadline pressure.",
+  "reusable_pattern": "When the recipient is a technical founder at a Series A-C B2B startup AND the GTM hypothesis includes an agent-platform message, lead with the agent learning loop and audit-chain visibility. Anchor the message in one verified company signal (recent launch, hire, raise). Keep the body <=120 words. Single CTA. Do NOT use this skill for non-technical founders in the same segment — the lift did not generalise there.",
+  "evidence": "demo-c1 (50 sends): 6.0% positive reply vs 1.5% control. demo-c2 (60 sends): 7.0% vs 1.7%. demo-c3 (55 sends): 8.0% vs 1.8%. Three distinct cohorts, ~3-4x lift, stable upward refinement as one verified signal was added. Counterexample logged: did not generalise to non-technical founders in the same employer segment.",
+  "expected_reuse": "Per outreach send to a matching prospect (technical founder + agent-platform GTM hypothesis). At current pipeline this is ~30-50 prospects per quarter. Each reuse saves the operator the time of re-deriving the framing from raw campaign data.",
+  "risk": "Pattern may be specific to current market timing (early agent-platform category) and could decay as the messaging becomes table stakes. Re-validate quarterly against fresh control variants. Cap reuse at one send per account per quarter to avoid burnout. Operator MUST review before activation — propose_gtm_skill never auto-activates."
+}

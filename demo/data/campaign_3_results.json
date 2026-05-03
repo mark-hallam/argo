@@ -1,0 +1,13 @@
+{
+  "schema_key": "campaign_results",
+  "campaign_id": "demo-c3-2026-04-26",
+  "audience": "technical founders, Series A-C B2B startups, agent-platform GTM hypothesis",
+  "messaging_variant": "agent-learning loop + audit-chain visibility + one verified company signal (recent product launch)",
+  "control_variant": "generic automation copy (\"Save 20 hours a week\")",
+  "sends": 55,
+  "open_rate": 0.49,
+  "reply_rate": 0.11,
+  "positive_reply_rate": 0.08,
+  "control_positive_reply_rate": 0.018,
+  "observation": "Third confirmation across 3 distinct send cohorts. Anchoring in one verified company signal lifted positive-reply rate further (8% vs 7% in c2). Pattern is stable across the technical-founder segment; remains specific to agent-platform messaging context."
+}
