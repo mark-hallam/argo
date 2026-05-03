@@ -31,10 +31,14 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod entry;
+mod skill_candidate;
 mod store;
 
 #[cfg(test)]
 mod tests;
 
 pub use entry::{MemoryEntry, MemoryFile, PrincipalOverride};
+pub use skill_candidate::{
+    parse_skill_candidate, SkillCandidate, SCHEMA_KEY_LEARNED_SKILL_CANDIDATE,
+};
 pub use store::MemoryStore;

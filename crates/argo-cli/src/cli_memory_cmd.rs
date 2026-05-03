@@ -57,11 +57,17 @@ pub enum MemoryCmd {
     /// Pass `--vertical <id>` (#680, Rule 7) to tag the entry
     /// with a vertical namespace; vertical-aware reads via
     /// `--vertical` will then surface it.
+    /// Pass `--session <uuid>` (#697) to attribute the entry to
+    /// a specific session — required when the entry will later
+    /// be promoted via `argo skill review promote`, since the
+    /// promote audit row attributes to that session id.
     Append {
         file: String,
         body: String,
         #[arg(long)]
         vertical: Option<String>,
+        #[arg(long)]
+        session: Option<String>,
     },
     /// Print just the count of active memory entries. Mirrors
     /// `argo session count`. Default: one int per line; `--json`

@@ -369,6 +369,30 @@ impl MemoryStore {
         .ok_or_else(|| ArgoError::Schema(format!("memory entry {entry_id} not found")))?;
         MemoryEntry::try_from(row)
     }
+
+    /// List vertical-scoped MEMORY.md entries whose body parses
+    /// as a learned skill candidate (#697). Pure read — joins
+    /// `list_for_vertical(MemoryFile::Memory)` with the
+    /// JSON-in-body convention parser. Returns each matching
+    /// entry paired with its parsed candidate so callers don't
+    /// re-parse downstream.
+    ///
+    /// Strict isolation: only entries with `vertical_id = ?`
+    /// AND not superseded are returned (Rule 7 default-deny).
+    /// Verticals never see candidates from other verticals.
+    pub async fn list_skill_candidates_for_vertical(
+        &self,
+        workspace_id: argo_types::WorkspaceId,
+        vertical_id: &str,
+    ) -> argo_types::ArgoResult<Vec<(MemoryEntry, crate::SkillCandidate)>> {
+        let rows = self
+            .list_for_vertical(workspace_id, MemoryFile::Memory, vertical_id)
+            .await?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|e| crate::parse_skill_candidate(&e.body).map(|c| (e, c)))
+            .collect())
+    }
 }
 
 fn sha256(body: &str) -> [u8; 32] {

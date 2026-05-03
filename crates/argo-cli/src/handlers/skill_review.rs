@@ -26,13 +26,55 @@ pub async fn run(skills: &SkillStore, cmd: SkillReviewCmd) -> ArgoResult<()> {
         SkillReviewCmd::Reject { skill_id, json } => {
             transition(skills, &skill_id, LifecycleState::Rejected, json).await
         }
+        SkillReviewCmd::Promote { memory_id, json } => promote(skills, &memory_id, json).await,
     }
+}
+
+/// Materialise a memory-backed candidate into a `pending_review`
+/// skill row (#697). The new skill is NOT auto-active — operator
+/// must run `argo skill review approve <new-skill-id>` next.
+async fn promote(skills: &SkillStore, memory_id: &str, json: bool) -> ArgoResult<()> {
+    let new_skill =
+        super::skill_review_candidates::promote_candidate(skills, memory_id).await?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&serde_json::json!({
+                "ok": true,
+                "skill_id": new_skill.id.0.to_string(),
+                "name": new_skill.frontmatter.name,
+                "vertical_id": new_skill.vertical_id,
+                "lifecycle_state": "pending_review",
+                "memory_entry_id": memory_id,
+            }))
+            .unwrap_or_default()
+        );
+    } else {
+        println!(
+            "promoted memory candidate `{memory_id}` → skill `{}` (id={}) in pending_review",
+            new_skill.frontmatter.name,
+            new_skill.id.0,
+        );
+        println!(
+            "approve next: argo skill review approve {}",
+            new_skill.id.0
+        );
+    }
+    Ok(())
 }
 
 async fn list_pending(skills: &SkillStore, json: bool) -> ArgoResult<()> {
     let pending = skills.list_pending_review().await?;
+    // #697: also surface memory-backed candidates from every
+    // loaded vertical's `learned_skill_candidates` rows.
+    // Vertical-namespaced (#680), so isolation is preserved by
+    // the underlying query — this code path just aggregates
+    // for display.
+    let memory_candidates =
+        super::skill_review_candidates::collect_memory_candidates(skills).await?;
+
     if json {
-        let arr: Vec<serde_json::Value> = pending
+        let pending_arr: Vec<serde_json::Value> = pending
             .iter()
             .map(|s| {
                 serde_json::json!({
@@ -45,18 +87,42 @@ async fn list_pending(skills: &SkillStore, json: bool) -> ArgoResult<()> {
                 })
             })
             .collect();
+        let candidate_arr: Vec<serde_json::Value> = memory_candidates
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "memory_entry_id": c.entry.id.to_string(),
+                    "vertical_id": c.vertical_id,
+                    "skill_name": c.candidate.skill_name,
+                    "problem": c.candidate.problem,
+                    "reusable_pattern": c.candidate.reusable_pattern,
+                    "evidence": c.candidate.evidence,
+                    "expected_reuse": c.candidate.expected_reuse,
+                    "risk": c.candidate.risk,
+                    "learned_in": c.entry.learned_in.map(|sid| sid.0.to_string()),
+                    "learned_at": c.entry.learned_at.to_rfc3339(),
+                })
+            })
+            .collect();
         println!(
             "{}",
             serde_json::to_string(&serde_json::json!({
                 "ok": true,
-                "count": arr.len(),
-                "pending": arr,
+                "count": pending_arr.len(),
+                "pending": pending_arr,
+                "memory_candidates_count": candidate_arr.len(),
+                "memory_candidates": candidate_arr,
             }))
             .unwrap_or_default()
         );
-    } else if pending.is_empty() {
+        return Ok(());
+    }
+
+    if pending.is_empty() && memory_candidates.is_empty() {
         println!("(no skills awaiting review)");
-    } else {
+        return Ok(());
+    }
+    if !pending.is_empty() {
         println!("pending review queue — {} skill(s):", pending.len());
         for s in &pending {
             let vert = s.vertical_id.as_deref().unwrap_or("(none)");
@@ -75,6 +141,24 @@ async fn list_pending(skills: &SkillStore, json: bool) -> ArgoResult<()> {
         println!();
         println!("approve: argo skill review approve <id>");
         println!("reject:  argo skill review reject <id>");
+    }
+    if !memory_candidates.is_empty() {
+        println!();
+        println!(
+            "memory-backed candidates — {} entry/entries (#697):",
+            memory_candidates.len()
+        );
+        for c in &memory_candidates {
+            println!(
+                "  [{}] {} — vertical={}, learned_at={}",
+                c.entry.id, c.candidate.skill_name, c.vertical_id, c.entry.learned_at.to_rfc3339()
+            );
+            if let Some(p) = &c.candidate.problem {
+                println!("        problem: {p}");
+            }
+        }
+        println!();
+        println!("promote: argo skill review promote <memory_entry_id>");
     }
     Ok(())
 }

@@ -56,7 +56,18 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             file,
             body,
             vertical,
-        } => append(&memory, workspace, &file, &body, vertical.as_deref()).await,
+            session,
+        } => {
+            append(
+                &memory,
+                workspace,
+                &file,
+                &body,
+                vertical.as_deref(),
+                session.as_deref(),
+            )
+            .await
+        }
         MemoryCmd::Verify { entry, all } => {
             if all {
                 verify_all(&memory, workspace).await
@@ -79,26 +90,45 @@ async fn append(
     file: &str,
     body: &str,
     vertical: Option<&str>,
+    session: Option<&str>,
 ) -> ArgoResult<()> {
     let mf = parse_memory_file(file)?;
+    // #697: --session attribution. Required when the row will
+    // later be promoted to a learned skill (the audit row needs
+    // a session to attribute to). Operators can still omit it
+    // for workspace-global writes.
+    let learned_in = match session {
+        None => None,
+        Some(s) => Some(argo_types::SessionId(uuid::Uuid::parse_str(s).map_err(
+            |e| {
+                argo_types::ArgoError::Provider(format!(
+                    "invalid --session uuid '{s}': {e}"
+                ))
+            },
+        )?)),
+    };
     let entry = match vertical {
         Some(vid) => {
             // #686 — Rule 7: vertical-aware write. Tags the row
             // with `vertical_id` so vertical-scoped reads can
             // filter to it.
             memory
-                .append_for_vertical(workspace, mf, body.to_string(), None, vid)
+                .append_for_vertical(workspace, mf, body.to_string(), learned_in, vid)
                 .await?
         }
-        None => memory.append(workspace, mf, body.to_string(), None).await?,
+        None => memory.append(workspace, mf, body.to_string(), learned_in).await?,
     };
     let scope = entry
         .vertical_id
         .as_deref()
         .map(|v| format!(" [vertical={v}]"))
         .unwrap_or_default();
+    let learned = entry
+        .learned_in
+        .map(|sid| format!(" [session={}]", sid.0))
+        .unwrap_or_default();
     println!(
-        "appended {} to {}.md ({} bytes){scope}",
+        "appended {} to {}.md ({} bytes){scope}{learned}",
         entry.id,
         file,
         body.len()

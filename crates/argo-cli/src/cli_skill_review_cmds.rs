@@ -33,4 +33,20 @@ pub enum SkillReviewCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Promote a memory-backed skill candidate into a real
+    /// `pending_review` skill row (#697). Reads the candidate
+    /// from `MEMORY.md` (vertical-namespaced; isolation
+    /// preserved), constructs a SKILL.md from its fields, and
+    /// installs it via `propose_for_review`. The skill remains
+    /// `pending_review` until the operator runs
+    /// `argo skill review approve <new-skill-id>` — promote
+    /// never auto-activates. Emits a `skill.candidate.promoted`
+    /// audit row.
+    Promote {
+        /// The memory entry's UUID. Use `argo skill review
+        /// list --json` to discover candidate ids.
+        memory_id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
