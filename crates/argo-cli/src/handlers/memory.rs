@@ -29,6 +29,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             since_minutes,
             lock,
             body_contains,
+            vertical,
         } => {
             list(
                 &memory,
@@ -41,6 +42,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
                 since_minutes,
                 lock.as_deref(),
                 body_contains.as_deref(),
+                vertical.as_deref(),
             )
             .await
         }
@@ -50,7 +52,11 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
             json,
         } => count(&memory, workspace, file.as_deref(), since_minutes, json).await,
         MemoryCmd::View { entry, json } => view(&memory, &entry, json).await,
-        MemoryCmd::Append { file, body } => append(&memory, workspace, &file, &body).await,
+        MemoryCmd::Append {
+            file,
+            body,
+            vertical,
+        } => append(&memory, workspace, &file, &body, vertical.as_deref()).await,
         MemoryCmd::Verify { entry, all } => {
             if all {
                 verify_all(&memory, workspace).await
@@ -72,11 +78,27 @@ async fn append(
     workspace: argo_types::WorkspaceId,
     file: &str,
     body: &str,
+    vertical: Option<&str>,
 ) -> ArgoResult<()> {
     let mf = parse_memory_file(file)?;
-    let entry = memory.append(workspace, mf, body.to_string(), None).await?;
+    let entry = match vertical {
+        Some(vid) => {
+            // #686 — Rule 7: vertical-aware write. Tags the row
+            // with `vertical_id` so vertical-scoped reads can
+            // filter to it.
+            memory
+                .append_for_vertical(workspace, mf, body.to_string(), None, vid)
+                .await?
+        }
+        None => memory.append(workspace, mf, body.to_string(), None).await?,
+    };
+    let scope = entry
+        .vertical_id
+        .as_deref()
+        .map(|v| format!(" [vertical={v}]"))
+        .unwrap_or_default();
     println!(
-        "appended {} to {}.md ({} bytes)",
+        "appended {} to {}.md ({} bytes){scope}",
         entry.id,
         file,
         body.len()
@@ -145,6 +167,7 @@ async fn list(
     since_minutes: Option<i64>,
     lock: Option<&str>,
     body_contains: Option<&str>,
+    vertical: Option<&str>,
 ) -> ArgoResult<()> {
     let only_file = match only {
         None => None,
@@ -171,6 +194,10 @@ async fn list(
         MemoryFile::Agents,
     ];
     // Collect across files first so we can sort uniformly.
+    // #686 — Rule 7: when --vertical is set, use the
+    // vertical-namespaced lookup which excludes legacy
+    // workspace-global rows + other verticals' rows. Without
+    // --vertical, the legacy list-all behaviour is preserved.
     let mut all_entries: Vec<argo_memory::MemoryEntry> = Vec::new();
     for file in all {
         if let Some(f) = only_file {
@@ -178,7 +205,10 @@ async fn list(
                 continue;
             }
         }
-        let entries = memory.list_active(workspace, file).await?;
+        let entries = match vertical {
+            Some(vid) => memory.list_for_vertical(workspace, file, vid).await?,
+            None => memory.list_active(workspace, file).await?,
+        };
         for e in entries {
             if let Some(c) = cutoff {
                 if e.learned_at < c {
@@ -227,6 +257,7 @@ async fn list(
                     "hash": hex::encode(e.hash),
                     "learned_in": e.learned_in.map(|s| s.0.to_string()),
                     "learned_at": e.learned_at.to_rfc3339(),
+                    "vertical_id": e.vertical_id,
                 });
                 let serialized = serde_json::to_string(&row)
                     .map_err(|err| ArgoError::Provider(format!("serialize memory: {err}")))?;

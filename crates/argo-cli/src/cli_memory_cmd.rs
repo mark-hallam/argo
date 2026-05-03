@@ -40,6 +40,12 @@ pub enum MemoryCmd {
         /// Mirrors the gateway's `?body-contains=…`.
         #[arg(long)]
         body_contains: Option<String>,
+        /// Scope to a vertical's namespace (#680, Rule 7).
+        /// Returns ONLY entries with `vertical_id = <id>` —
+        /// excludes legacy workspace-global rows. Without this
+        /// flag the legacy list-all behaviour is preserved.
+        #[arg(long)]
+        vertical: Option<String>,
     },
     View {
         entry: String,
@@ -48,9 +54,14 @@ pub enum MemoryCmd {
         json: bool,
     },
     /// Append a fresh memory entry. `<file>` is one of memory|user|soul|agents.
+    /// Pass `--vertical <id>` (#680, Rule 7) to tag the entry
+    /// with a vertical namespace; vertical-aware reads via
+    /// `--vertical` will then surface it.
     Append {
         file: String,
         body: String,
+        #[arg(long)]
+        vertical: Option<String>,
     },
     /// Print just the count of active memory entries. Mirrors
     /// `argo session count`. Default: one int per line; `--json`
