@@ -15,9 +15,9 @@
 //!   Default skill set the agent runner uses for vertical-bound
 //!   sessions (#679 — Rule 6).
 use crate::parse::parse_skill_md;
-use crate::skill::Skill;
+use crate::skill::{LifecycleState, Skill};
 use crate::store::SkillStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult, SessionId, SkillId};
 
 impl SkillStore {
     /// Install a skill, tagging it with the vertical that
@@ -52,9 +52,10 @@ impl SkillStore {
         let rows: Vec<crate::store::RawSkill> = sqlx::query_as::<_, crate::store::RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
                     s.learned_in, s.superseded_by, s.created_at, l.lock, \
-                    s.vertical_id \
+                    s.vertical_id, s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.vertical_id = ? AND s.superseded_by IS NULL \
+               AND s.lifecycle_state = 'active' \
              ORDER BY s.created_at ASC",
         )
         .bind(vertical_id)
@@ -86,11 +87,13 @@ impl SkillStore {
     ) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, crate::store::RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-                    s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+                    s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+                    s.lifecycle_state \
              FROM skill s \
              LEFT JOIN skill_lock l ON l.skill_id = s.id \
              LEFT JOIN session sess ON sess.id = s.learned_in \
              WHERE s.superseded_by IS NULL \
+               AND s.lifecycle_state = 'active' \
                AND ( \
                  s.vertical_id = ? \
                  OR sess.vertical_id = ? \
@@ -106,4 +109,92 @@ impl SkillStore {
         })?;
         rows.into_iter().map(Skill::try_from).collect()
     }
+
+    /// Propose a new learned skill for human review (#681 —
+    /// work order #3). The skill is installed in the
+    /// `pending_review` state — the agent's runtime lookup
+    /// (`list_skills_for_vertical`) excludes non-active rows
+    /// so the proposal can't influence agent decisions until
+    /// a human approves via `transition_lifecycle`.
+    ///
+    /// `learned_in` is required (the agent that proposed it);
+    /// `vertical_id` is required (default-deny: a learned
+    /// skill must belong to a vertical).
+    pub async fn propose_for_review(
+        &self,
+        raw: &str,
+        learned_in: SessionId,
+        vertical_id: &str,
+    ) -> ArgoResult<Skill> {
+        let (frontmatter, body) = parse_skill_md(raw)?;
+        let existing = self.find_active_by_name(&frontmatter.name).await?;
+        if existing.is_some() {
+            return Err(ArgoError::Schema(format!(
+                "skill '{}' already installed; use supersede() to bump",
+                frontmatter.name
+            )));
+        }
+        self.insert_row_with_state(
+            frontmatter,
+            body,
+            Some(learned_in),
+            Some(vertical_id),
+            LifecycleState::PendingReview,
+        )
+        .await
+    }
+
+    /// Transition a skill's lifecycle state. Caller is the
+    /// human reviewer (CLI / gateway approve flow). Enforces
+    /// the legal transition graph:
+    ///
+    /// - `Draft` → `PendingReview`
+    /// - `PendingReview` → `Active` | `Rejected`
+    /// - `Active` → `Archived`
+    ///
+    /// Rejects every other transition with `ArgoError::Schema`.
+    pub async fn transition_lifecycle(
+        &self,
+        skill_id: SkillId,
+        next: LifecycleState,
+    ) -> ArgoResult<LifecycleState> {
+        let row: Option<String> = sqlx::query_scalar(
+            "SELECT lifecycle_state FROM skill WHERE id = ?",
+        )
+        .bind(skill_id.0.as_bytes().as_slice())
+        .fetch_optional(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("transition lookup: {e}")))?;
+        let current = row
+            .as_deref()
+            .and_then(LifecycleState::from_label)
+            .ok_or_else(|| {
+                ArgoError::Schema(format!("skill '{skill_id}' not found"))
+            })?;
+        if !is_legal_transition(current, next) {
+            return Err(ArgoError::Schema(format!(
+                "illegal lifecycle transition: {} → {}",
+                current.label(),
+                next.label()
+            )));
+        }
+        sqlx::query("UPDATE skill SET lifecycle_state = ? WHERE id = ?")
+            .bind(next.label())
+            .bind(skill_id.0.as_bytes().as_slice())
+            .execute(self.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("transition update: {e}")))?;
+        Ok(next)
+    }
+}
+
+fn is_legal_transition(from: LifecycleState, to: LifecycleState) -> bool {
+    use LifecycleState::*;
+    matches!(
+        (from, to),
+        (Draft, PendingReview)
+            | (PendingReview, Active)
+            | (PendingReview, Rejected)
+            | (Active, Archived)
+    )
 }

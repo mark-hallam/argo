@@ -7,7 +7,7 @@ use super::*;
 async fn open_and_migrate() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 10);
+    assert_eq!(store.schema_version().await.unwrap(), 11);
 }
 
 #[tokio::test]
@@ -17,7 +17,7 @@ async fn migrate_round_trip() {
     store.migrate_down_to(0).await.unwrap();
     assert_eq!(store.schema_version().await.unwrap(), 0);
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 10);
+    assert_eq!(store.schema_version().await.unwrap(), 11);
 }
 
 #[tokio::test]

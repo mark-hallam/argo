@@ -29,5 +29,5 @@ mod store_vertical;
 mod tests;
 
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
-pub use skill::{PrincipalOverride, Provenance, Skill, SkillFrontmatter};
+pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
 pub use store::SkillStore;

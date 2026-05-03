@@ -5,6 +5,7 @@ mod v3;
 mod v4;
 mod v5;
 mod v10;
+mod v11;
 mod v6;
 mod v7;
 mod v8;
@@ -160,6 +161,11 @@ fn all_migrations() -> Vec<Migration> {
             version: 10,
             up: |tx| Box::pin(v10::up(tx)),
             down: |tx| Box::pin(v10::down(tx)),
+        },
+        Migration {
+            version: 11,
+            up: |tx| Box::pin(v11::up(tx)),
+            down: |tx| Box::pin(v11::down(tx)),
         },
     ]
 }

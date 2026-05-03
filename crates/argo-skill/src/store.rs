@@ -91,7 +91,8 @@ impl SkillStore {
     pub async fn promote(&self, name: &str, version: &str) -> ArgoResult<Skill> {
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.name = ? AND s.version = ?",
         )
@@ -218,7 +219,8 @@ impl SkillStore {
     ) -> ArgoResult<Vec<Skill>> {
         let rows: Vec<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
              FROM session_skill ss \
              JOIN skill s ON s.id = ss.skill_id \
              LEFT JOIN skill_lock l ON l.skill_id = s.id \
@@ -236,7 +238,8 @@ impl SkillStore {
     pub async fn find_active_by_name(&self, name: &str) -> ArgoResult<Option<Skill>> {
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.name = ? AND s.superseded_by IS NULL",
         )
@@ -254,7 +257,8 @@ impl SkillStore {
     pub async fn versions_for_name(&self, name: &str) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.name = ? ORDER BY s.created_at ASC",
         )
@@ -271,7 +275,8 @@ impl SkillStore {
     pub async fn list_all(&self) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              ORDER BY s.name ASC, s.created_at ASC",
         )
@@ -285,7 +290,8 @@ impl SkillStore {
     pub async fn list_active(&self) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+             s.lifecycle_state \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.superseded_by IS NULL ORDER BY s.name ASC",
         )
@@ -304,23 +310,42 @@ impl SkillStore {
 
     pub(crate) async fn insert_row(
         &self,
-        mut frontmatter: SkillFrontmatter,
+        frontmatter: SkillFrontmatter,
         body: String,
         learned_in: Option<SessionId>,
         vertical_id: Option<&str>,
     ) -> ArgoResult<Skill> {
+        // Bare install path → Active for backward compat.
+        // The agent-proposed lifecycle path uses
+        // `insert_row_with_state` directly via `propose_for_review`.
+        self.insert_row_with_state(
+            frontmatter,
+            body,
+            learned_in,
+            vertical_id,
+            crate::skill::LifecycleState::Active,
+        )
+        .await
+    }
+
+    pub(crate) async fn insert_row_with_state(
+        &self,
+        mut frontmatter: SkillFrontmatter,
+        body: String,
+        learned_in: Option<SessionId>,
+        vertical_id: Option<&str>,
+        state: crate::skill::LifecycleState,
+    ) -> ArgoResult<Skill> {
         let id = SkillId::new();
         let created_at = Utc::now();
         let hash = sha256(&body);
-        // The frontmatter's `lock` field is informational; the live state
-        // is the `skill_lock` table. Clear it so the returned struct
-        // matches what `find_active_by_name` would yield.
         frontmatter.lock = Lock::None;
         let frontmatter_json = serde_json::to_string(&frontmatter)
             .map_err(|e| ArgoError::Schema(format!("frontmatter serialize: {e}")))?;
         sqlx::query(
             "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, \
-             learned_in, created_at, vertical_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             learned_in, created_at, vertical_id, lifecycle_state) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.0.as_bytes().as_slice())
         .bind(&frontmatter.name)
@@ -332,6 +357,7 @@ impl SkillStore {
         .bind(learned_in.map(|s| s.0.as_bytes().to_vec()))
         .bind(created_at.timestamp_micros())
         .bind(vertical_id)
+        .bind(state.label())
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("skill install: {e}")))?;
@@ -344,9 +370,9 @@ impl SkillStore {
             superseded_by: None,
             created_at,
             vertical_id: vertical_id.map(str::to_string),
+            lifecycle_state: state,
         })
     }
-
 }
 
 fn sha256(body: &str) -> [u8; 32] {
@@ -374,6 +400,7 @@ pub(crate) struct RawSkill {
     pub(crate) created_at: i64,
     pub(crate) lock: Option<String>,
     pub(crate) vertical_id: Option<String>,
+    pub(crate) lifecycle_state: Option<String>,
 }
 
 impl TryFrom<RawSkill> for Skill {
@@ -417,6 +444,11 @@ impl TryFrom<RawSkill> for Skill {
             return Err(ArgoError::Schema("skill.hash must be 32 bytes".into()));
         }
         hash.copy_from_slice(&r.hash);
+        let lifecycle_state = r
+            .lifecycle_state
+            .as_deref()
+            .and_then(crate::skill::LifecycleState::from_label)
+            .unwrap_or(crate::skill::LifecycleState::Active);
         Ok(Skill {
             id,
             frontmatter,
@@ -426,6 +458,7 @@ impl TryFrom<RawSkill> for Skill {
             superseded_by,
             created_at,
             vertical_id: r.vertical_id,
+            lifecycle_state,
         })
     }
 }

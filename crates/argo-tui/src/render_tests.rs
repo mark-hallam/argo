@@ -178,6 +178,7 @@ fn skills_overlay_renders_active_skills() {
         superseded_by: None,
         created_at: Utc::now(),
         vertical_id: None,
+        lifecycle_state: argo_skill::LifecycleState::Active,
     }]);
     let frame = render_to_strings(&state);
     assert!(frame.contains("active skills (1)"));
