@@ -1,0 +1,78 @@
+schema_version = "1"
+
+[vertical]
+id          = "gtm-engineer"
+name        = "GTM Engineer"
+description = "Designs, executes, analyzes, and improves go-to-market strategies through ICP definition, account/persona research, personalized outreach drafts, campaign analysis, and learned-skill proposals. Drafts only — no sending."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["gtm", "sales", "growth", "outbound", "strategy", "ai-agent", "draft-only"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-5.5"
+cost_tier = "balanced"
+
+# Safety boundary — DRAFT-ONLY. The deny list is the real lock
+# (deny-wins precedence in #655); the allow list is the
+# discoverability hint to the agent. Every state-mutating + every
+# external-sending tool stays denied until a future approval-gated
+# integration ships behind explicit operator opt-in.
+[tools]
+allowed = ["web_search", "web_extract", "file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+seed   = "memory/seed/"
+
+[skills]
+bundle = "skills/"
+
+# Simple smoke workflow — reads README + system.md as a sanity
+# check that the runner is wired against this vertical end-to-end.
+# Per the spec: "keep workflows simple". The richer GTM loop
+# (hypothesis → research → draft → analyze → pattern → propose)
+# is exercised by the eval suite + the agent's prompt, not a
+# pre-baked workflow file (workflow steps are deferred without
+# the LLM-driven runner today).
+[workflows]
+files = ["workflows/read_charter.workflow.toml"]
+
+[escalation]
+# Defence-in-depth: even though delegate_task is in the deny
+# list, also gate it here so a future edit that accidentally
+# removes it from `denied` still fails closed (#660). Same
+# pattern as pr-checker.
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "logs"
+
+[success_metrics]
+# Schema-supported fields only (#665 SuccessMetricsSection uses
+# deny_unknown_fields). The richer GTM-quality targets live in
+# README.md as documentation:
+# - hallucination_rate_max ≤ 0.05
+# - abstain when context is insufficient
+# - personalization_quality_target ≥ 0.85
+# - pattern_detection_target ≥ 0.80
+# - learned_skill_proposal_quality_target ≥ 0.80
+# A future SuccessMetricsSection extension can promote these to
+# typed first-class fields.
+deflection_target_pct       = 60
+median_response_seconds     = 120
+required_audit_chain_intact = true
+
+[evaluation]
+suites = ["eval/gtm_engineer_core.jsonl"]
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "GTM Engineer"

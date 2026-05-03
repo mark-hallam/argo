@@ -1,0 +1,25 @@
+schema_version = "1"
+
+# Smoke workflow per the spec ("keep workflows simple"): proves
+# the runner is wired against this vertical end-to-end by reading
+# the charter + system prompt files. Both steps are tool_call so
+# they run today (#659); the deeper GTM loop (hypothesis → research
+# → draft → analyze → pattern → propose) is exercised through the
+# eval suite + the agent's prompt, not a pre-baked workflow file.
+
+[workflow]
+name        = "read_charter"
+description = "Smoke: read the GTM Engineer charter + system prompt to confirm the runner is wired against this vertical."
+
+[[step]]
+name = "read_charter"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/gtm-engineer/memory/seed/charter.md" }
+
+[[step]]
+name = "read_system_prompt"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "verticals/gtm-engineer/prompts/system.md" }
+depends_on = ["read_charter"]

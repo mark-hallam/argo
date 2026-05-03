@@ -1,0 +1,67 @@
+schema_version = "1"
+
+# Role-scoped memory shape for the GTM Engineer (#680
+# vertical-namespaced storage — the agent only sees rows tagged
+# `vertical_id = "gtm-engineer"` when bound to this vertical).
+#
+# Each entry is `list-of-objects` so the agent can append rows
+# without overwriting prior learnings. Per-entry sub-schemas
+# land in v2 of the memory schema (#663 ships the typed parser
+# but not field-level validation yet) — until then the field
+# expectations live in `purpose` so the operator + agent agree
+# on what each row should carry.
+
+[[entry]]
+key  = "icp"
+type = "list-of-objects"
+purpose = "Ideal Customer Profile definitions. Each row carries: industry, company_size, buyer_roles, pain_points, trigger_signals, exclusions, confidence, evidence."
+
+[[entry]]
+key  = "target_segments"
+type = "list-of-objects"
+purpose = "Refined target segments derived from the ICP. Each row carries: segment_name, definition, why_now, priority, confidence, evidence."
+
+[[entry]]
+key  = "account_research"
+type = "list-of-objects"
+purpose = "Per-account research notes. Each row carries: company, industry, signals, pain_hypothesis, fit_score, evidence. Append-only as accounts are researched."
+
+[[entry]]
+key  = "persona_research"
+type = "list-of-objects"
+purpose = "Per-role buying-persona notes. Each row carries: role_title, responsibilities, likely_pains, buying_influence, message_angle."
+
+[[entry]]
+key  = "winning_messages"
+type = "list-of-objects"
+purpose = "Outreach drafts that produced positive replies (verified by the operator). Each row carries: segment, persona, message, personalization_basis, cta, confidence."
+
+[[entry]]
+key  = "failed_messages"
+type = "list-of-objects"
+purpose = "Outreach drafts that under-performed. Each row carries: segment, persona, message, personalization_basis, failure_mode, evidence. Used by analyze_campaign + detect_gtm_pattern."
+
+[[entry]]
+key  = "objections"
+type = "list-of-objects"
+purpose = "Objections seen across replies. Each row carries: objection, frequency, segment, recommended_response, evidence. Drives detect_gtm_pattern."
+
+[[entry]]
+key  = "campaign_results"
+type = "list-of-objects"
+purpose = "Outcomes from operator-reported campaigns. Each row carries: campaign, segment, messages_sent, replies, positive_replies, objections, conversion_rate, notes."
+
+[[entry]]
+key  = "patterns"
+type = "list-of-objects"
+purpose = "Detected reusable GTM patterns. Each row carries: pattern, context, confidence, evidence, recommended_action. Source of truth for propose_gtm_skill."
+
+[[entry]]
+key  = "winning_plays"
+type = "list-of-objects"
+purpose = "Reusable end-to-end GTM plays. Each row carries: play_name, segment, message_angle, workflow, result, confidence, evidence."
+
+[[entry]]
+key  = "learned_skill_candidates"
+type = "list-of-objects"
+purpose = "Skill proposals queued for operator review. Each row carries: skill_name, problem, reusable_pattern, evidence, expected_reuse, risk. NEVER auto-promoted — the lifecycle gate (#681) requires explicit operator approval."
