@@ -28,8 +28,13 @@ use std::sync::Arc;
 /// Useful for CI / single-process setups, but doesn't survive
 /// gateway restarts.
 ///
-/// Response shape always carries both `enqueued` and `started`
-/// so existing callers that check `started` keep working.
+/// Response shape always carries both `enqueued` and `started`.
+/// In the default queued path `started:false` + `mode:queued` —
+/// the daemon flips a run to running on its next claim. With
+/// `?in_process=true` the gateway spawns immediately and the
+/// response is `started:true` + `mode:in_process`. Callers that
+/// want "is this actually running yet?" should check `started`,
+/// not `enqueued`.
 pub(super) async fn forge_optimize_response(
     req: &str,
     store: Option<&Arc<SessionStore>>,

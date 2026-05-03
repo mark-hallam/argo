@@ -51,9 +51,11 @@ fn forge_optimize_post_validates_body_and_returns_202_on_kick_off() {
     let resp = http_post(port, "/forge/optimize", r#"{"skill":"x"}"#);
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
-    // Valid body → 202 Accepted (background task may fail later
-    // because the skill / file don't exist, but the kick-off is
-    // synchronous and replies immediately).
+    // Valid body → 202 Accepted. Default path enqueues against
+    // forge_queue (since #581); the daemon claims it later, so
+    // the response carries `enqueued:true` + `started:false` +
+    // `mode:queued`. The synchronous reply only acknowledges
+    // the enqueue, not a running task.
     let resp = http_post(
         port,
         "/forge/optimize",
@@ -61,7 +63,9 @@ fn forge_optimize_post_validates_body_and_returns_202_on_kick_off() {
     );
     assert!(resp.contains("HTTP/1.1 202 Accepted"), "resp={resp}");
     let body = body_of(&resp);
-    assert!(body.contains(r#""started":true"#), "body={body}");
+    assert!(body.contains(r#""enqueued":true"#), "body={body}");
+    assert!(body.contains(r#""started":false"#), "body={body}");
+    assert!(body.contains(r#""mode":"queued""#), "body={body}");
     assert!(body.contains(r#""kind":"optimize""#), "body={body}");
 
     assert!(child.wait().expect("wait").success());
