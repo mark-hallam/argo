@@ -52,7 +52,14 @@ pub async fn install_and_attach_bundle(
 
     let mut attached = 0_usize;
     for entry in entries {
-        match attach_one(&skill_store, &entry, session_id).await {
+        match attach_one(
+            &skill_store,
+            &entry,
+            session_id,
+            &vertical.manifest.vertical.id,
+        )
+        .await
+        {
             Ok(()) => attached += 1,
             Err(e) => {
                 // Per-skill errors don't abort the whole bundle —
@@ -93,6 +100,7 @@ async fn attach_one(
     skill_store: &SkillStore,
     skill_path: &Path,
     session_id: SessionId,
+    vertical_id: &str,
 ) -> ArgoResult<()> {
     let raw = std::fs::read_to_string(skill_path)
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", skill_path.display())))?;
@@ -102,7 +110,14 @@ async fn attach_one(
     let existing = skill_store.find_active_by_name(&name).await?;
     let skill_id = match existing {
         Some(s) => s.id,
-        None => skill_store.install(&raw, None).await?.id,
+        None => {
+            // #678 — tag the new install with the bundling
+            // vertical so per-vertical lookups can scope.
+            skill_store
+                .install_for_vertical(&raw, None, Some(vertical_id))
+                .await?
+                .id
+        }
     };
     skill_store.attach_to_session(session_id, skill_id).await?;
     Ok(())

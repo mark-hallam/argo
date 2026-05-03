@@ -7,6 +7,7 @@ mod v5;
 mod v6;
 mod v7;
 mod v8;
+mod v9;
 
 use argo_types::ArgoError;
 use sqlx::{Pool, Sqlite};
@@ -148,6 +149,11 @@ fn all_migrations() -> Vec<Migration> {
             version: 8,
             up: |tx| Box::pin(v8::up(tx)),
             down: |tx| Box::pin(v8::down(tx)),
+        },
+        Migration {
+            version: 9,
+            up: |tx| Box::pin(v9::up(tx)),
+            down: |tx| Box::pin(v9::down(tx)),
         },
     ]
 }

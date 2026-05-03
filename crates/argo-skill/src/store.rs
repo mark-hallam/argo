@@ -32,6 +32,19 @@ impl SkillStore {
     /// If a skill with the same `name` already exists at any version, the
     /// install is rejected — use [`Self::supersede`] to bump versions.
     pub async fn install(&self, raw: &str, learned_in: Option<SessionId>) -> ArgoResult<Skill> {
+        self.install_for_vertical(raw, learned_in, None).await
+    }
+
+    /// Install a skill, tagging it with the vertical that
+    /// bundled it (#678). Used by
+    /// `vertical_attach::install_and_attach_bundle` so per-
+    /// vertical skill lookups can scope correctly.
+    pub async fn install_for_vertical(
+        &self,
+        raw: &str,
+        learned_in: Option<SessionId>,
+        vertical_id: Option<&str>,
+    ) -> ArgoResult<Skill> {
         let (frontmatter, body) = parse_skill_md(raw)?;
         let existing = self.find_active_by_name(&frontmatter.name).await?;
         if existing.is_some() {
@@ -40,7 +53,7 @@ impl SkillStore {
                 frontmatter.name
             )));
         }
-        self.insert_row(frontmatter, body, learned_in).await
+        self.insert_row(frontmatter, body, learned_in, vertical_id).await
     }
 
     /// Replace the active version of `name` with a new `SKILL.md`. The new
@@ -73,7 +86,7 @@ impl SkillStore {
                 entity: format!("skill:{}", frontmatter.name),
             });
         }
-        let new_skill = self.insert_row(frontmatter, body, learned_in).await?;
+        let new_skill = self.insert_row(frontmatter, body, learned_in, None).await?;
         sqlx::query("UPDATE skill SET superseded_by = ? WHERE id = ?")
             .bind(new_skill.id.0.as_bytes().as_slice())
             .bind(prev.id.0.as_bytes().as_slice())
@@ -99,7 +112,7 @@ impl SkillStore {
     pub async fn promote(&self, name: &str, version: &str) -> ArgoResult<Skill> {
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.name = ? AND s.version = ?",
         )
@@ -226,7 +239,7 @@ impl SkillStore {
     ) -> ArgoResult<Vec<Skill>> {
         let rows: Vec<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
              FROM session_skill ss \
              JOIN skill s ON s.id = ss.skill_id \
              LEFT JOIN skill_lock l ON l.skill_id = s.id \
@@ -244,7 +257,7 @@ impl SkillStore {
     pub async fn find_active_by_name(&self, name: &str) -> ArgoResult<Option<Skill>> {
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.name = ? AND s.superseded_by IS NULL",
         )
@@ -262,7 +275,7 @@ impl SkillStore {
     pub async fn versions_for_name(&self, name: &str) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.name = ? ORDER BY s.created_at ASC",
         )
@@ -279,7 +292,7 @@ impl SkillStore {
     pub async fn list_all(&self) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              ORDER BY s.name ASC, s.created_at ASC",
         )
@@ -293,7 +306,7 @@ impl SkillStore {
     pub async fn list_active(&self) -> ArgoResult<Vec<Skill>> {
         let rows = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-             s.learned_in, s.superseded_by, s.created_at, l.lock \
+             s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id \
              FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
              WHERE s.superseded_by IS NULL ORDER BY s.name ASC",
         )
@@ -308,6 +321,7 @@ impl SkillStore {
         mut frontmatter: SkillFrontmatter,
         body: String,
         learned_in: Option<SessionId>,
+        vertical_id: Option<&str>,
     ) -> ArgoResult<Skill> {
         let id = SkillId::new();
         let created_at = Utc::now();
@@ -320,7 +334,7 @@ impl SkillStore {
             .map_err(|e| ArgoError::Schema(format!("frontmatter serialize: {e}")))?;
         sqlx::query(
             "INSERT INTO skill (id, name, version, body, frontmatter, source, hash, \
-             learned_in, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             learned_in, created_at, vertical_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.0.as_bytes().as_slice())
         .bind(&frontmatter.name)
@@ -331,6 +345,7 @@ impl SkillStore {
         .bind(hash.as_slice())
         .bind(learned_in.map(|s| s.0.as_bytes().to_vec()))
         .bind(created_at.timestamp_micros())
+        .bind(vertical_id)
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("skill install: {e}")))?;
@@ -342,7 +357,31 @@ impl SkillStore {
             learned_in,
             superseded_by: None,
             created_at,
+            vertical_id: vertical_id.map(str::to_string),
         })
+    }
+
+    /// List skills bundled by a specific vertical (#678). Returns
+    /// only rows where `skill.vertical_id = ?` AND not superseded.
+    /// Used by per-vertical skill discovery + by lint to confirm
+    /// the bundled skill set.
+    pub async fn list_skills_bundled_by_vertical(
+        &self,
+        vertical_id: &str,
+    ) -> ArgoResult<Vec<Skill>> {
+        let rows: Vec<RawSkill> = sqlx::query_as::<_, RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+                    s.learned_in, s.superseded_by, s.created_at, l.lock, \
+                    s.vertical_id \
+             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE s.vertical_id = ? AND s.superseded_by IS NULL \
+             ORDER BY s.created_at ASC",
+        )
+        .bind(vertical_id)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_skills_bundled_by_vertical: {e}")))?;
+        rows.into_iter().map(Skill::try_from).collect()
     }
 }
 
@@ -370,6 +409,7 @@ struct RawSkill {
     superseded_by: Option<Vec<u8>>,
     created_at: i64,
     lock: Option<String>,
+    vertical_id: Option<String>,
 }
 
 impl TryFrom<RawSkill> for Skill {
@@ -421,6 +461,7 @@ impl TryFrom<RawSkill> for Skill {
             learned_in,
             superseded_by,
             created_at,
+            vertical_id: r.vertical_id,
         })
     }
 }

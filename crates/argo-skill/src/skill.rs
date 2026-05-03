@@ -52,6 +52,11 @@ pub struct Skill {
     pub superseded_by: Option<SkillId>,
     /// When the skill was first installed.
     pub created_at: DateTime<Utc>,
+    /// Vertical that bundled this skill, if any (#678). NULL
+    /// for legacy skills installed before migration v9 + for
+    /// skills installed via the bare `install()` (no vertical
+    /// context).
+    pub vertical_id: Option<String>,
 }
 
 /// Caller-supplied override flag for agent-driven writes against a

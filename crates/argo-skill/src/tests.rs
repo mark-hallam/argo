@@ -219,3 +219,93 @@ async fn promote_unknown_version_is_schema_error() {
     let err = store.promote("alpha", "99.0").await.unwrap_err();
     assert!(matches!(err, argo_types::ArgoError::Schema(_)));
 }
+
+// ---- vertical scoping (#678) --------------------------------
+
+#[tokio::test]
+async fn install_for_vertical_persists_vertical_id_on_skill_row() {
+    let store = fresh_store().await;
+    let s = store
+        .install_for_vertical(
+            &skill_doc("greet", "0.1", "none", "hello"),
+            None,
+            Some("receptionist"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(s.vertical_id.as_deref(), Some("receptionist"));
+
+    // The lookup re-reads from the DB and must return the
+    // same vertical_id.
+    let active = store.find_active_by_name("greet").await.unwrap().unwrap();
+    assert_eq!(active.vertical_id.as_deref(), Some("receptionist"));
+}
+
+#[tokio::test]
+async fn bare_install_keeps_vertical_id_null() {
+    // Backward-compat: existing callers (Forge etc.) using
+    // `install()` get NULL vertical_id, same as before.
+    let store = fresh_store().await;
+    let s = store
+        .install(&skill_doc("legacy", "0.1", "none", "x"), None)
+        .await
+        .unwrap();
+    assert!(s.vertical_id.is_none());
+}
+
+#[tokio::test]
+async fn list_skills_bundled_by_vertical_filters_by_vertical_id() {
+    let store = fresh_store().await;
+    // Two verticals install distinct skills.
+    store
+        .install_for_vertical(
+            &skill_doc("intent", "0.1", "none", "x"),
+            None,
+            Some("receptionist"),
+        )
+        .await
+        .unwrap();
+    store
+        .install_for_vertical(
+            &skill_doc("invariants", "0.1", "none", "y"),
+            None,
+            Some("pr-checker"),
+        )
+        .await
+        .unwrap();
+    // Plus a legacy skill with no vertical.
+    store
+        .install(&skill_doc("legacy", "0.1", "none", "z"), None)
+        .await
+        .unwrap();
+
+    let recept = store
+        .list_skills_bundled_by_vertical("receptionist")
+        .await
+        .unwrap();
+    assert_eq!(recept.len(), 1);
+    assert_eq!(recept[0].frontmatter.name, "intent");
+
+    let prc = store
+        .list_skills_bundled_by_vertical("pr-checker")
+        .await
+        .unwrap();
+    assert_eq!(prc.len(), 1);
+    assert_eq!(prc[0].frontmatter.name, "invariants");
+
+    // No cross-contamination — pr-checker can't see receptionist's,
+    // and vice versa.
+    assert!(recept.iter().all(|s| s.frontmatter.name != "invariants"));
+    assert!(prc.iter().all(|s| s.frontmatter.name != "intent"));
+
+    // Legacy skill with NULL vertical_id is in NEITHER list.
+    assert!(recept.iter().all(|s| s.frontmatter.name != "legacy"));
+    assert!(prc.iter().all(|s| s.frontmatter.name != "legacy"));
+
+    // Asking for an unknown vertical returns an empty list.
+    let ghost = store
+        .list_skills_bundled_by_vertical("ghost")
+        .await
+        .unwrap();
+    assert!(ghost.is_empty());
+}
