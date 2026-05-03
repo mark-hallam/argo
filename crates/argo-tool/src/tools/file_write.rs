@@ -67,7 +67,20 @@ impl Tool for FileWrite {
                 tool: "file_write".into(),
                 msg: format!("invalid arguments: {e}"),
             })?;
-        let resolved = ctx.workspace_root.join(&parsed.path);
+        // #677 — runtime path confinement.
+        let resolved = match crate::path_guard::confine_path(
+            &ctx.workspace_root,
+            std::path::Path::new(&parsed.path),
+        ) {
+            Ok(p) => p,
+            Err(msg) => {
+                return Ok(error_text(
+                    ctx.call_id,
+                    msg,
+                    started.elapsed().as_millis() as u64,
+                ));
+            }
+        };
         if parsed.create_dirs {
             if let Some(parent) = resolved.parent() {
                 if let Err(e) = tokio::fs::create_dir_all(parent).await {
@@ -168,6 +181,54 @@ mod tests {
                     "path": "nope/file.txt",
                     "content": "x"
                 }),
+                &ctx,
+            )
+            .await
+            .unwrap();
+        assert!(result.is_error);
+    }
+
+    // #677 — runtime path confinement.
+
+    #[tokio::test]
+    async fn refuses_parent_traversal_path_for_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let tool = FileWrite;
+        let ctx = ToolContext::new(
+            Principal::Local {
+                os_user: "u".into(),
+            },
+            dir.path().to_path_buf(),
+        );
+        let result = tool
+            .dispatch(
+                serde_json::json!({"path": "../escape.txt", "content": "x"}),
+                &ctx,
+            )
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        // The escape file MUST NOT have been created.
+        let escape = dir.path().parent().unwrap().join("escape.txt");
+        assert!(
+            !escape.exists(),
+            "guard must reject before any fs::write call"
+        );
+    }
+
+    #[tokio::test]
+    async fn refuses_absolute_path_outside_workspace_for_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let tool = FileWrite;
+        let ctx = ToolContext::new(
+            Principal::Local {
+                os_user: "u".into(),
+            },
+            dir.path().to_path_buf(),
+        );
+        let result = tool
+            .dispatch(
+                serde_json::json!({"path": "/tmp/argo-escape-test.txt", "content": "x"}),
                 &ctx,
             )
             .await

@@ -22,10 +22,12 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod path_guard;
 mod registry;
 mod tool;
 mod tools;
 
+pub use path_guard::confine_path;
 pub use registry::ToolRegistry;
 pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
 pub use tools::{

@@ -77,7 +77,20 @@ impl Tool for FilePatch {
                 tool: "file_patch".into(),
                 msg: format!("invalid arguments: {e}"),
             })?;
-        let resolved = ctx.workspace_root.join(&parsed.path);
+        // #677 — runtime path confinement.
+        let resolved = match crate::path_guard::confine_path(
+            &ctx.workspace_root,
+            std::path::Path::new(&parsed.path),
+        ) {
+            Ok(p) => p,
+            Err(msg) => {
+                return Ok(error_text(
+                    ctx.call_id,
+                    msg,
+                    started.elapsed().as_millis() as u64,
+                ));
+            }
+        };
         let original = match tokio::fs::read_to_string(&resolved).await {
             Ok(t) => t,
             Err(e) => {

@@ -70,7 +70,21 @@ impl Tool for FileRead {
                 tool: "file_read".into(),
                 msg: format!("invalid arguments: {e}"),
             })?;
-        let resolved = ctx.workspace_root.join(&parsed.path);
+        // #677 — runtime path confinement. Refuses paths that
+        // would escape the workspace root.
+        let resolved = match crate::path_guard::confine_path(
+            &ctx.workspace_root,
+            std::path::Path::new(&parsed.path),
+        ) {
+            Ok(p) => p,
+            Err(msg) => {
+                return Ok(error_text(
+                    ctx.call_id,
+                    msg,
+                    started.elapsed().as_millis() as u64,
+                ));
+            }
+        };
         match tokio::fs::read_to_string(&resolved).await {
             Ok(text) => {
                 let body = slice_lines(&text, parsed.start_line, parsed.end_line);
@@ -186,5 +200,54 @@ mod tests {
             .required_capabilities(&serde_json::json!({"missing": "path"}))
             .unwrap_err();
         assert!(matches!(err, argo_types::ArgoError::Tool { .. }));
+    }
+
+    // #677 — runtime path confinement.
+
+    #[tokio::test]
+    async fn refuses_parent_traversal_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let tool: Arc<dyn Tool> = Arc::new(FileRead);
+        let ctx = ToolContext::new(
+            Principal::Local {
+                os_user: "u".into(),
+            },
+            dir.path().to_path_buf(),
+        );
+        let result = tool
+            .dispatch(serde_json::json!({"path": "../escape.txt"}), &ctx)
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        let body = match &result.content[0] {
+            argo_types::ContentBlock::Text { text } => text,
+            _ => panic!("expected text"),
+        };
+        assert!(body.contains("`..`"), "got: {body}");
+    }
+
+    #[tokio::test]
+    async fn refuses_absolute_path_outside_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let tool: Arc<dyn Tool> = Arc::new(FileRead);
+        let ctx = ToolContext::new(
+            Principal::Local {
+                os_user: "u".into(),
+            },
+            dir.path().to_path_buf(),
+        );
+        let result = tool
+            .dispatch(serde_json::json!({"path": "/etc/passwd"}), &ctx)
+            .await
+            .unwrap();
+        assert!(result.is_error);
+        let body = match &result.content[0] {
+            argo_types::ContentBlock::Text { text } => text,
+            _ => panic!("expected text"),
+        };
+        assert!(
+            body.contains("outside the workspace root"),
+            "got: {body}"
+        );
     }
 }
