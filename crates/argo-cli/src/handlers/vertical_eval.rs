@@ -21,7 +21,12 @@
 use argo_types::{ArgoError, ArgoResult};
 use std::path::Path;
 
-pub async fn run(id: &str, json: bool, score: bool) -> ArgoResult<()> {
+pub async fn run(
+    id: &str,
+    json: bool,
+    score: bool,
+    actuals: Option<&str>,
+) -> ArgoResult<()> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
     let loaded = registry.get(id).ok_or_else(|| {
@@ -34,7 +39,12 @@ pub async fn run(id: &str, json: bool, score: bool) -> ArgoResult<()> {
     if score {
         // Scored mode lives in a sibling file so this one stays
         // under the 500-LOC budget as more rule logic lands.
-        return super::vertical_eval_score::run_scored(id, loaded, json).await;
+        return super::vertical_eval_score::run_scored(id, loaded, json, actuals).await;
+    }
+    if actuals.is_some() {
+        return Err(ArgoError::Provider(
+            "--actuals requires --score (it has no effect on the structural validator)".into(),
+        ));
     }
 
     let report = collect_eval_report(loaded);

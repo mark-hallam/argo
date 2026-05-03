@@ -50,6 +50,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod eval_score;
+mod eval_score_actuals;
 mod isolation;
 mod loader;
 mod manifest;
@@ -80,6 +81,9 @@ pub fn default_dir() -> PathBuf {
 
 pub use eval_score::{
     score_fixture, score_suite_jsonl, FixtureScore, FixtureStatus, ScoreCheck, SuiteScore,
+};
+pub use eval_score_actuals::{
+    parse_actuals_jsonl, score_suite_jsonl_with_actuals, ActualsMap, ActualsParseError,
 };
 pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};

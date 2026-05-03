@@ -65,7 +65,7 @@ pub enum VerticalCmd {
         /// Scored-mode shape:
         /// `{id, mode:"scored", suites:[{path, fixture_count,
         /// scored_count, no_actual, malformed, passed, failed,
-        /// pass_rate, fixtures:[…]}]}`.
+        /// pass_rate, unknown_actual_ids, fixtures:[…]}]}`.
         #[arg(long)]
         json: bool,
         /// Switch to scored mode (#693). Off by default so CI
@@ -73,6 +73,16 @@ pub enum VerticalCmd {
         /// stable.
         #[arg(long)]
         score: bool,
+        /// Path to an actuals JSONL file (#694). Each row is
+        /// `{"id": "<fixture_id>", "actual"|"response": "..."}`.
+        /// The scorer joins by `id`; external actuals override
+        /// any `actual` embedded in the canonical fixture row,
+        /// so the canonical eval suite stays untouched. Ignored
+        /// without `--score`. Errors loudly on duplicate ids,
+        /// missing fields, or invalid JSON; warns on unknown
+        /// ids that don't match any fixture.
+        #[arg(long)]
+        actuals: Option<String>,
     },
     /// Run a named workflow declared by a vertical (#659). Walks
     /// the workflow's steps in declaration order. Today only

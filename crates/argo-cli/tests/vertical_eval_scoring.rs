@@ -259,11 +259,12 @@ fn structural_mode_unchanged_without_score_flag() {
 }
 
 #[test]
-fn gtm_engineer_scored_eval_currently_reports_all_no_actual() {
-    // The shipped GTM Engineer suite (#692) doesn't carry
-    // `actual` rows yet — this test locks the documented
-    // current behaviour so a future addition of `actual` rows
-    // is an intentional change tracked in PR diff.
+fn gtm_engineer_scored_eval_without_actuals_is_all_no_actual() {
+    // Regression lock: `--score` without `--actuals` against the
+    // shipped GTM Engineer suite still reports no_actual=10
+    // (the canonical fixtures don't carry `actual` rows). #694
+    // adds the `--actuals` path; this test guards the no-flag
+    // behaviour stays unchanged.
     let repo_verticals = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
@@ -286,3 +287,4 @@ fn gtm_engineer_scored_eval_currently_reports_all_no_actual() {
     assert_eq!(suite["no_actual"], 10);
     assert_eq!(suite["scored_count"], 0);
 }
+
