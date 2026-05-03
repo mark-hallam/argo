@@ -53,6 +53,7 @@ mod loader;
 mod manifest;
 mod registry;
 mod validator;
+mod workflow;
 
 use std::path::PathBuf;
 
@@ -82,3 +83,7 @@ pub use manifest::{
 };
 pub use registry::{LoadedVertical, Registry};
 pub use validator::validate;
+pub use workflow::{
+    parse_workflow, validate_workflow, Workflow, WorkflowHeader, WorkflowStep,
+    WORKFLOW_SCHEMA_VERSION,
+};

@@ -10,6 +10,7 @@ description = "Argo — vertical-template foundation: manifest types, parser, va
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
 serde = { workspace = true }
+serde_json = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]

@@ -118,8 +118,26 @@ fn validate_skills(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
 
 fn validate_workflows(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
     if let Some(wf) = &manifest.workflows {
+        let mut seen_names: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for f in &wf.files {
             check_file(root, f, "[workflows].files")?;
+            // Parse + validate the workflow file (#658). Catches
+            // schema drift at vertical-load time rather than at
+            // run-time. Per-workflow names must be unique within
+            // the vertical so the runner can resolve by name.
+            let path = root.join(f);
+            let src = std::fs::read_to_string(&path)
+                .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
+            let workflow = crate::workflow::parse_workflow(&src).map_err(|e| {
+                ArgoError::Schema(format!("[workflows].files: {f}: {e}"))
+            })?;
+            if !seen_names.insert(workflow.workflow.name.clone()) {
+                return Err(ArgoError::Schema(format!(
+                    "[workflows]: workflow name '{}' is declared by more than one file",
+                    workflow.workflow.name
+                )));
+            }
         }
     }
     Ok(())
