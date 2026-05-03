@@ -16,6 +16,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/verticals", "list loaded vertical templates + load errors (?format=markdown; #650)"),
         ("GET", "/verticals/<id>", "show one vertical's manifest summary (?format=markdown; #650; 404 if not loaded)"),
         ("POST", "/verticals/<id>/sessions", "create a session bound to this vertical; body {model, provider, title?} (#651)"),
+        ("POST", "/verticals/<id>/run", "one-shot composite (#670): create session + attach skills + run the named workflow against the new session; body {workflow, title?, provider?, model?}; returns {session_id, vertical_id, skills_attached, workflow:{…}}"),
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),
         ("GET", "/sessions/<id>", "one session header + counts (?format=markdown for a paste-able header doc)"),

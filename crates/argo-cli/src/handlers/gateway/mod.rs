@@ -11,6 +11,7 @@ mod routes_audit;
 mod routes_audit_rollups;
 mod routes_dispatch_forge;
 mod routes_verticals;
+mod routes_verticals_run;
 mod routes_health;
 mod routes_session_audit_rollups;
 pub(crate) mod routes_catalog;

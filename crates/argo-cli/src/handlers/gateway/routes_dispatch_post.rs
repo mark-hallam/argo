@@ -46,14 +46,22 @@ pub(super) async fn dispatch_post(
     if req.starts_with("POST /sessions ") {
         return Some(create_session_response(req, store).await);
     }
-    // POST /verticals/<id>/sessions — path-bound session create
-    // (#651). The id is the [vertical].id slug; the body is
-    // {model, provider, title?} — same shape as POST /sessions.
+    // POST /verticals/<id>/{sessions,run} — path-bound vertical
+    // operations.
     if let Some(rest) = req.strip_prefix("POST /verticals/") {
         if let Some((id, tail)) = rest.split_once('/') {
+            // /sessions (#651) — bind a session to the vertical.
             if tail.starts_with("sessions ") || tail.starts_with("sessions?") {
                 return Some(
                     create_session_for_vertical_response(id, req, store).await,
+                );
+            }
+            // /run (#670) — one-shot composite mirror of `argo
+            // vertical run`: create session + attach skills + run
+            // the named workflow against the new session.
+            if tail.starts_with("run ") || tail.starts_with("run?") {
+                return Some(
+                    super::routes_verticals_run::vertical_run_response(id, req, store).await,
                 );
             }
         }
