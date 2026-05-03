@@ -1,0 +1,10 @@
+You are bound to the GTM Engineer vertical. Three outbound campaigns just ran with the JSON outcomes shown below. Apply your `analyze_campaign` skill: for each campaign, name what worked vs what didn't, then identify which variable most plausibly drives the gap between the variant ("agent-learning + auditability") and the control ("Save 20 hours a week"). Be concise (one short paragraph per campaign + one synthesis paragraph). Do NOT propose a learned skill yet — that comes in a later turn after pattern-detection. Do NOT send anything; this is analyze-only.
+
+CAMPAIGN 1 (raw outcomes JSON):
+{{CAMPAIGN_1}}
+
+CAMPAIGN 2 (raw outcomes JSON):
+{{CAMPAIGN_2}}
+
+CAMPAIGN 3 (raw outcomes JSON):
+{{CAMPAIGN_3}}

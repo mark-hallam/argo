@@ -9,15 +9,104 @@ role  →  work  →  gap/pattern  →  learned-skill candidate
 ```
 
 Every step is exercised by an existing argo CLI surface against
-the shipped GTM Engineer vertical. Run it with:
+the shipped GTM Engineer vertical.
+
+## Two run modes
+
+| Mode | Provider | Steps 2-4 are driven by | Requires |
+|---|---|---|---|
+| **Deterministic** *(default)* | mock | Direct memory writes that match the JSON shapes the GTM skills emit | Just `argo` + `jq` |
+| **Live** *(`--live` or `LIVE_LLM=1`)* | anthropic/claude-sonnet-4-6 | Three real LLM turns through the gateway (`POST /sessions/<id>/runs`) | `ANTHROPIC_API_KEY` in env, plus `curl` + `python3` (or `perl`) for prompt rendering |
+
+In both modes, STEP 5+ (review → promote → approve → active →
+scored eval) is identical and exercises the real
+`argo skill review` CLI.
+
+## Running
 
 ```bash
 cargo build --bin argo
+
+# Deterministic (default; no API key needed)
 ARGO_BIN=$(pwd)/target/debug/argo bash demo/gtm_engineer_learning_loop.sh
+
+# Live (requires ANTHROPIC_API_KEY in env)
+export ANTHROPIC_API_KEY=...
+ARGO_BIN=$(pwd)/target/debug/argo bash demo/gtm_engineer_learning_loop.sh --live
+
+# Equivalent: env-var form for CI / wrapper scripts
+LIVE_LLM=1 ANTHROPIC_API_KEY=... bash demo/gtm_engineer_learning_loop.sh
 ```
 
-The script tears down its own ARGO_HOME on exit, so it leaves
-no state behind.
+The script tears down its own `ARGO_HOME` on exit, so it leaves
+no state behind. Live mode also tears down the gateway it
+started.
+
+## Safety contract (both modes)
+
+- Session is bound to the GTM Engineer vertical; the vertical's
+  manifest deny list (`terminal`, `file_write`, `file_patch`,
+  `delegate_task`) is enforced for every turn.
+- The agent runs **draft / analyze only** — no outbound sends,
+  no CRM writes, no destructive tool calls are reachable.
+- In live mode, the gateway is started bound to `127.0.0.1`
+  with `--max-requests 50` as a safety net; the script kills
+  it on exit (success or failure).
+- `ANTHROPIC_API_KEY` is read from env exactly once by the
+  gateway process; the script never echoes it, never stores
+  it, never writes it to any file.
+
+## What counts as success
+
+Both modes succeed iff every milestone below is observed:
+
+1. **STEP 1** — `argo new` returns a `created session <uuid>`
+   line; the session is bound to `gtm-engineer` with 8 bundled
+   skills attached.
+2. **STEP 2** — three `campaign_results` entries appear in
+   memory under `vertical=gtm-engineer`.
+3. **STEP 3** — one `patterns` entry tagged `propose_skill`.
+4. **STEP 4** — one `learned_skill_candidates` entry whose
+   parsed JSON has every required field as a non-empty string
+   (`schema_key`, `skill_name`, `problem`, `reusable_pattern`,
+   `evidence`, `expected_reuse`, `risk`).
+5. **STEP 5a/b** — the candidate appears in
+   `argo skill review list --json` under `.memory_candidates[]`,
+   then `argo skill review promote` returns
+   `lifecycle_state=pending_review`.
+6. **STEP 6** — `argo skill review approve` returns
+   `to=active`, and `argo skill list --json` includes the new
+   skill name.
+7. **STEP 7** — `argo vertical eval gtm-engineer --score
+   --actuals known_good_actuals.jsonl --json` reports
+   `pass_rate=1.0` (10/10).
+
+If any step fails, the script exits non-zero with a `FAIL:` line
+identifying what went wrong. The CI lock test
+(`crates/argo-cli/tests/demo_gtm_engineer_loop.rs`) re-asserts
+the same milestones from stdout AND opens the post-run DB to
+confirm the promoted skill is visible to
+`SkillStore::list_skills_for_vertical("gtm-engineer")` — the
+exact query the agent runner uses to assemble the next turn's
+system prompt.
+
+## Live mode: what each turn gets
+
+| Turn | Prompt template | Skill exercised | Expected output shape |
+|---|---|---|---|
+| 1 | `demo/data/live/01_analyze.txt` (3 campaign JSONs spliced in) | `analyze_campaign` | One short paragraph per campaign + a synthesis paragraph |
+| 2 | `demo/data/live/02_detect_pattern.txt` | `detect_gtm_pattern` | Two paragraphs (signal + counterexamples) ending in `tag: propose_skill` |
+| 3 | `demo/data/live/03_propose_skill.txt` | `propose_gtm_skill` | A single JSON object matching the `learned_skill_candidates` schema |
+
+Turn 3's JSON is parsed (with code-fence stripping as a
+defensive guard), validated, and appended via
+`argo memory append memory '<json>' --vertical gtm-engineer
+--session <sid>`. From there the lifecycle is identical to
+deterministic mode.
+
+If the model refuses (`{"refused": true, "reason": "..."}`)
+or emits malformed JSON, the script fails loud with the raw
+response printed for inspection — no silent fallback.
 
 ## What the demo proves
 
@@ -44,21 +133,24 @@ no state behind.
 8. The scored eval suite stays green throughout — promoting a
    new skill never regresses the existing 10-fixture contract.
 
-## What the demo does NOT prove
+## What deterministic mode does NOT prove on its own
 
-The "agent does work" steps (`analyze_campaign`,
-`detect_gtm_pattern`, `propose_gtm_skill`) are simulated by
-direct memory writes that use the exact JSON shapes those
-skills emit. The mock provider does not invoke an LLM, so the
-demo cannot show the agent autonomously deriving the pattern
-from raw campaign data — only the lifecycle from "candidate
-exists in memory" through "active skill in the catalog."
+In deterministic mode, the "agent does work" steps
+(`analyze_campaign`, `detect_gtm_pattern`, `propose_gtm_skill`)
+are simulated by direct memory writes that use the exact JSON
+shapes those skills emit. The mock provider does not invoke
+an LLM, so deterministic mode shows the lifecycle from
+"candidate exists in memory" through "active skill in the
+catalog" — not the agent autonomously deriving the pattern
+from raw campaign data.
 
-To exercise the LLM-driven path end-to-end, set
-`ANTHROPIC_API_KEY` and re-run with
-`--provider anthropic --model claude-sonnet-4-6` in step 1.
-The operator-side surface (review/promote/approve) is
-provider-agnostic and stays identical.
+**Live mode (`--live`) closes that gap.** The same three steps
+are driven by real `anthropic/claude-sonnet-4-6` turns through
+the gateway. The agent receives the campaign JSONs, applies
+its `analyze_campaign` / `detect_gtm_pattern` /
+`propose_gtm_skill` skills, and emits a JSON candidate that
+the script funnels through the same review/promote/approve
+chain. The operator-side surface is provider-agnostic.
 
 ## Step-by-step
 

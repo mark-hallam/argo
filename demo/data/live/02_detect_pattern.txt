@@ -1,0 +1,6 @@
+Now apply your `detect_gtm_pattern` skill to the three analyses you just produced. Your skill spec requires at least three reinforcing observations across distinct campaigns before a pattern qualifies for `propose_skill` tagging — refuse if that bar isn't met. If the bar IS met, summarise the pattern in two short paragraphs:
+
+1. The reinforcing signal (what consistently works, and for whom)
+2. The counterexamples / scope limits (where the signal does NOT generalise)
+
+End with a single line of the form: `tag: propose_skill` OR `tag: watch` OR `tag: test`. Do NOT propose the actual learned skill yet — that's the next turn. Do NOT send anything.

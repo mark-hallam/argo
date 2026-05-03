@@ -4,16 +4,51 @@
 #   role  →  work  →  gap/pattern  →  learned-skill candidate
 #         →  review/promote  →  active skill  →  improved second run
 #
-# All seven steps are driven by existing argo CLI surfaces against the
-# shipped GTM Engineer vertical. The "agent does work" steps
+# Default (deterministic) mode: the "agent does work" steps
 # (analyze_campaign, detect_gtm_pattern, propose_gtm_skill) are
 # simulated by direct memory writes that match the JSON shapes those
-# skills would emit — so the demo is fully reproducible without a
-# paid LLM API key. Set ARGO_BIN to point at a non-PATH binary;
-# defaults to `argo`.
+# skills would emit — fully reproducible without a paid LLM API key.
+#
+# Live mode (--live OR LIVE_LLM=1): the same three steps are driven
+# by real anthropic/claude-sonnet-4-6 turns through the gateway.
+# Requires ANTHROPIC_API_KEY in the environment. The vertical's
+# manifest deny list (terminal / file_write / file_patch /
+# delegate_task) keeps the agent draft/analyze-only — no sending,
+# no CRM mutation.
+#
+# Set ARGO_BIN to point at a non-PATH binary; defaults to `argo`.
 
 set -euo pipefail
 trap 'echo; echo "FAILED at line $LINENO" >&2' ERR
+
+# -------------------------------------------------------- argument parse
+LIVE_LLM_FLAG="${LIVE_LLM:-0}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --live) LIVE_LLM_FLAG=1 ;;
+    -h|--help)
+      cat <<USAGE
+Usage: $0 [--live]
+
+  --live          Drive the analyze / detect_pattern / propose_skill
+                  steps with anthropic/claude-sonnet-4-6 via the gateway.
+                  Requires ANTHROPIC_API_KEY in env.
+
+Env:
+  ARGO_BIN              Path to argo binary (default: argo on PATH)
+  ARGO_HOME             Reuse a caller-managed argo home (default: temp dir)
+  WORK_DIR              Reuse a caller-managed work dir (default: temp dir)
+  ARGO_VERTICALS_DIR    Override verticals dir (default: \$REPO_ROOT/verticals)
+  LIVE_LLM=1            Same as passing --live
+  ANTHROPIC_API_KEY     Required when running with --live / LIVE_LLM=1
+USAGE
+      exit 0
+      ;;
+    *) echo "FAIL: unknown argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+case "$LIVE_LLM_FLAG" in 1|true|TRUE|yes) LIVE_LLM=1 ;; *) LIVE_LLM=0 ;; esac
 
 # ---------------------------------------------------------------- setup
 ARGO_BIN="${ARGO_BIN:-argo}"
@@ -63,9 +98,25 @@ require() {
 require "$ARGO_BIN"
 require jq
 
+# Live mode: validate API key + curl + load helper library. Done
+# before STEP 1 so misconfigured runs fail before any state is written.
+MODE_LABEL="deterministic (mock provider)"
+PROVIDER_FLAGS=(--provider mock --model mock)
+if [ "$LIVE_LLM" = "1" ]; then
+  if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    fail "live mode requires ANTHROPIC_API_KEY in the environment (--live / LIVE_LLM=1 was set)"
+  fi
+  require curl
+  # shellcheck source=demo/lib/live_mode.sh
+  . "$DEMO_DIR/lib/live_mode.sh"
+  MODE_LABEL="LIVE (anthropic/claude-sonnet-4-6 via gateway)"
+  PROVIDER_FLAGS=(--provider anthropic --model claude-sonnet-4-6)
+fi
+
 echo "ARGO_BIN=$ARGO_BIN"
-echo "ARGO_HOME=$ARGO_HOME (temp; will be cleaned on exit)"
+echo "ARGO_HOME=$ARGO_HOME"
 echo "ARGO_VERTICALS_DIR=$ARGO_VERTICALS_DIR"
+echo "MODE=$MODE_LABEL"
 
 # Workspace bootstrap (writes argo.toml + db row in $ARGO_HOME).
 "$ARGO_BIN" workspace init >/dev/null
@@ -73,7 +124,7 @@ echo "ARGO_VERTICALS_DIR=$ARGO_VERTICALS_DIR"
 # ----------------------------------------------------- 1. role binding
 banner "STEP 1 — role: bind a session to the GTM Engineer vertical"
 NEW_OUT=$("$ARGO_BIN" new \
-  --provider mock --model mock \
+  "${PROVIDER_FLAGS[@]}" \
   --vertical gtm-engineer \
   --title "demo: GTM learning loop")
 echo "$NEW_OUT" | sed 's/^/  /'
@@ -81,10 +132,10 @@ SID=$(printf '%s\n' "$NEW_OUT" \
   | awk '/^created session / { print $3; exit }')
 [ -n "$SID" ] || fail "could not parse session id from: $NEW_OUT"
 
-# --------------------------------------------- 2. work: 3 campaigns
+# Always log the 3 campaign_results memory entries so the agent (and
+# the operator) can find them. In live mode the agent additionally
+# analyzes them via the LLM; in mock mode the analysis is implicit.
 banner "STEP 2 — work: operator records 3 campaign outcomes"
-echo "  (in a real run, the agent's analyze_campaign skill would emit"
-echo "  these memory writes from operator-supplied raw outcomes.)"
 for i in 1 2 3; do
   body=$(cat "$DEMO_DIR/data/campaign_${i}_results.json")
   out=$("$ARGO_BIN" memory append memory "$body" \
@@ -92,27 +143,77 @@ for i in 1 2 3; do
   echo "  $out"
 done
 
-# --------------------------------- 3. gap/pattern: 3 obs trigger detect
-banner "STEP 3 — gap/pattern: detect_gtm_pattern surfaces a 3-observation pattern"
-echo "  (in a real run, the agent's detect_gtm_pattern skill would emit"
-echo "  this — three reinforcing observations across distinct campaigns.)"
-pattern_body=$(cat "$DEMO_DIR/data/detected_pattern.json")
-pat_out=$("$ARGO_BIN" memory append memory "$pattern_body" \
-  --vertical gtm-engineer --session "$SID")
-echo "  $pat_out"
+if [ "$LIVE_LLM" = "1" ]; then
+  # ---------- LIVE MODE: 3 LLM turns drive STEP 2-4's analyses ---------
+  banner "STEP 2-4 (live) — start gateway + drive 3 GTM Engineer turns"
+  trap 'live_stop_gateway 2>/dev/null || true; cleanup' EXIT
+  live_start_gateway
 
-# ------------------------------------ 4. propose_gtm_skill writes candidate
-banner "STEP 4 — candidate: propose_gtm_skill emits a learned-skill candidate"
-echo "  (in a real run, the agent's propose_gtm_skill skill would emit"
-echo "  this candidate to memory.learned_skill_candidates[]. It is"
-echo "  IMMUTABLE once written and is never auto-activated.)"
-candidate_body=$(cat "$DEMO_DIR/data/skill_candidate.json")
-APPEND_OUT=$("$ARGO_BIN" memory append memory "$candidate_body" \
-  --vertical gtm-engineer --session "$SID")
-echo "  $APPEND_OUT"
-CANDIDATE_ID=$(printf '%s\n' "$APPEND_OUT" \
-  | awk '/^appended / { print $2; exit }')
-[ -n "$CANDIDATE_ID" ] || fail "could not parse candidate id from: $APPEND_OUT"
+  CAMPAIGN_1_JSON=$(cat "$DEMO_DIR/data/campaign_1_results.json")
+  CAMPAIGN_2_JSON=$(cat "$DEMO_DIR/data/campaign_2_results.json")
+  CAMPAIGN_3_JSON=$(cat "$DEMO_DIR/data/campaign_3_results.json")
+
+  echo "  → analyze_campaign turn (claude-sonnet-4-6)"
+  analyze_prompt=$(live_render_prompt "$DEMO_DIR/data/live/01_analyze.txt" \
+    "CAMPAIGN_1=$CAMPAIGN_1_JSON" \
+    "CAMPAIGN_2=$CAMPAIGN_2_JSON" \
+    "CAMPAIGN_3=$CAMPAIGN_3_JSON")
+  ANALYZE_TEXT=$(live_turn "$SID" "$analyze_prompt")
+  echo "  ✓ analyze response captured ($(printf '%s' "$ANALYZE_TEXT" | wc -c | awk '{print $1}') chars)"
+
+  echo "  → detect_gtm_pattern turn"
+  pattern_prompt=$(cat "$DEMO_DIR/data/live/02_detect_pattern.txt")
+  PATTERN_TEXT=$(live_turn "$SID" "$pattern_prompt")
+  echo "  ✓ pattern response captured ($(printf '%s' "$PATTERN_TEXT" | wc -c | awk '{print $1}') chars)"
+
+  echo "  → propose_gtm_skill turn (must emit JSON)"
+  propose_prompt=$(cat "$DEMO_DIR/data/live/03_propose_skill.txt")
+  PROPOSE_TEXT=$(live_turn "$SID" "$propose_prompt")
+  CANDIDATE_JSON=$(live_extract_json "$PROPOSE_TEXT")
+  [ -n "$CANDIDATE_JSON" ] \
+    || fail "could not extract JSON from propose_skill response; raw text:\n$PROPOSE_TEXT"
+  refused=$(printf '%s' "$CANDIDATE_JSON" | jq -r '.refused // false')
+  if [ "$refused" = "true" ]; then
+    reason=$(printf '%s' "$CANDIDATE_JSON" | jq -r '.reason // "(no reason given)"')
+    fail "live model refused to propose a skill: $reason"
+  fi
+  live_validate_candidate "$CANDIDATE_JSON"
+  echo "  ✓ candidate JSON validated"
+  live_stop_gateway
+  trap cleanup EXIT
+
+  banner "STEP 4 — candidate: persist live-derived candidate to memory"
+  APPEND_OUT=$("$ARGO_BIN" memory append memory "$CANDIDATE_JSON" \
+    --vertical gtm-engineer --session "$SID")
+  echo "  $APPEND_OUT"
+  CANDIDATE_ID=$(printf '%s\n' "$APPEND_OUT" \
+    | awk '/^appended / { print $2; exit }')
+  [ -n "$CANDIDATE_ID" ] || fail "could not parse candidate id from: $APPEND_OUT"
+else
+  # ---------- DETERMINISTIC MODE: direct memory writes ---------
+  echo "  (deterministic mode: in a real run the agent's analyze_campaign skill"
+  echo "  would emit these memory writes from operator-supplied raw outcomes.)"
+
+  banner "STEP 3 — gap/pattern: detect_gtm_pattern surfaces a 3-observation pattern"
+  echo "  (in a real run, the agent's detect_gtm_pattern skill would emit"
+  echo "  this — three reinforcing observations across distinct campaigns.)"
+  pattern_body=$(cat "$DEMO_DIR/data/detected_pattern.json")
+  pat_out=$("$ARGO_BIN" memory append memory "$pattern_body" \
+    --vertical gtm-engineer --session "$SID")
+  echo "  $pat_out"
+
+  banner "STEP 4 — candidate: propose_gtm_skill emits a learned-skill candidate"
+  echo "  (in a real run, the agent's propose_gtm_skill skill would emit"
+  echo "  this candidate to memory.learned_skill_candidates[]. It is"
+  echo "  IMMUTABLE once written and is never auto-activated.)"
+  candidate_body=$(cat "$DEMO_DIR/data/skill_candidate.json")
+  APPEND_OUT=$("$ARGO_BIN" memory append memory "$candidate_body" \
+    --vertical gtm-engineer --session "$SID")
+  echo "  $APPEND_OUT"
+  CANDIDATE_ID=$(printf '%s\n' "$APPEND_OUT" \
+    | awk '/^appended / { print $2; exit }')
+  [ -n "$CANDIDATE_ID" ] || fail "could not parse candidate id from: $APPEND_OUT"
+fi
 
 # --------------------------------------- 5. review: candidate visible
 banner "STEP 5a — review: candidate appears in the operator review queue"
@@ -183,6 +284,7 @@ EVAL_OK=$(printf '%s' "$EVAL" | jq -r '.ok')
 # -------------------------------------------------------------- recap
 banner "RECAP"
 cat <<EOF
+  Mode:                 $MODE_LABEL
   Session:              $SID
   Memory candidate:     $CANDIDATE_ID
   Promoted skill:       $SKILL_ID
@@ -193,21 +295,31 @@ cat <<EOF
   This demo exercised the full role → work → gap/pattern → candidate
   → review → promote → active loop end-to-end against the existing
   GTM Engineer vertical, using only shipped argo CLI surfaces.
-
-  The "agent does work" steps were simulated by direct memory writes
-  (campaign_results, patterns, learned_skill_candidates) using the
-  exact JSON shapes the corresponding skills would emit. The
-  review → promote → approve → active path was driven by the real
-  argo skill review CLI and produced a real lifecycle_state=active
-  skill row, visible to the next agent run that matches the new
-  skill's trigger conditions.
-
-  To exercise the LLM-driven path end-to-end (so the agent really
-  produces the candidate from raw campaign data), set
-  ANTHROPIC_API_KEY and re-run the same flow with
-    --provider anthropic --model claude-sonnet-4-6
-  on the argo new line. The review/promote/approve steps stay
-  identical because the operator-side surface is provider-agnostic.
 EOF
+if [ "$LIVE_LLM" = "1" ]; then
+  cat <<EOF
+
+  Live mode notes:
+    - 3 turns ran through the gateway against
+      anthropic/claude-sonnet-4-6 with the GTM Engineer vertical's
+      bundled skills loaded into the system prompt
+      (analyze_campaign, detect_gtm_pattern, propose_gtm_skill).
+    - The vertical's deny list (terminal / file_write / file_patch /
+      delegate_task) prevented any sending or external mutation.
+    - The candidate JSON the agent emitted was validated, then
+      appended to memory.learned_skill_candidates[] using the same
+      shape the deterministic mode uses — so review/promote/approve
+      and the consultation chain are identical from STEP 5 on.
+EOF
+else
+  cat <<EOF
+
+  Deterministic-mode notes:
+    - The "agent does work" steps were simulated by direct memory
+      writes using the exact JSON shapes the corresponding skills
+      emit. To exercise the LLM-driven path, re-run with --live
+      (requires ANTHROPIC_API_KEY in env).
+EOF
+fi
 echo
 echo "OK — demo completed successfully."

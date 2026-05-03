@@ -1,0 +1,26 @@
+Now apply your `propose_gtm_skill` skill to the pattern you just detected. The operator's CLI surface (`argo skill review`) consumes from `memory.learned_skill_candidates[]` so your output MUST be a single JSON object that fits that schema — nothing else.
+
+Output requirements (HARD):
+- Output ONLY the JSON object. No prose, no markdown, no code fences, no leading/trailing whitespace text.
+- The JSON must be parseable by `jq`.
+- All fields below are required and must be non-empty strings.
+
+Schema:
+```
+{
+  "schema_key": "learned_skill_candidates",
+  "skill_name": "<snake_case identifier>",
+  "problem": "<what fails or gets re-derived without this skill>",
+  "reusable_pattern": "<when X conditions hold, do Y>",
+  "evidence": "<one-paragraph summary of the campaign data that supports this>",
+  "expected_reuse": "<frequency / context / cap>",
+  "risk": "<edge cases, validity window, when NOT to use>"
+}
+```
+
+If the pattern does NOT qualify for a learned-skill proposal (insufficient evidence, contradictions, etc.), output ONLY this instead:
+```
+{"refused": true, "reason": "<one short sentence>"}
+```
+
+Remember: the proposal is NEVER auto-activated; the operator promotes + approves it via `argo skill review`. Do NOT send anything. Do NOT update CRMs. This is propose-only.
