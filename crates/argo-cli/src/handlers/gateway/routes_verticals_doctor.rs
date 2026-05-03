@@ -3,12 +3,20 @@
 //! `--json` mode.
 //!
 //! Status semantics:
-//! - 200 OK   → all three checks pass
+//! - 200 OK   → all four checks pass (or scored_eval skipped)
 //! - 422 Unprocessable Entity → any check failed (validate /
-//!   eval / lint). Body still carries the full report so the
-//!   caller can see WHICH check failed without parsing twice.
+//!   eval / lint / scored_eval). Body still carries the full
+//!   report so the caller can see WHICH check failed without
+//!   parsing twice.
 //! - 404 Not Found → unknown vertical id
 //! - 500      → discovery dir unreadable
+//!
+//! #696: scored_eval auto-detection ported from the CLI doctor
+//! (#695). Reuses the shared `collect_scored_outcomes` helper so
+//! both surfaces apply the same convention (look for
+//! `eval/known_good_actuals.jsonl` next to each suite); same
+//! aggregate `passed | skipped | failed` semantics.
+use crate::handlers::vertical_doctor::{collect_scored_outcomes, ScoredStatus};
 use crate::handlers::vertical_eval::collect_eval_report;
 use crate::handlers::vertical_lint::{lint_loaded, Severity};
 
@@ -55,7 +63,13 @@ pub(super) async fn vertical_doctor_response(id: &str) -> (&'static str, String)
         .count();
     let lint_ok = lint_error_count == 0;
 
-    let any_failed = !validate_ok || !eval_report.ok || !lint_ok;
+    // #696: fourth check, mirrored from CLI #695. Skipped is
+    // OK; failed flips overall to 422 just like the CLI flips
+    // to non-zero exit.
+    let scored = collect_scored_outcomes(loaded);
+    let scored_ok = !matches!(scored.status, ScoredStatus::Failed);
+
+    let any_failed = !validate_ok || !eval_report.ok || !lint_ok || !scored_ok;
 
     let body = serde_json::to_string(&serde_json::json!({
         "ok": !any_failed,
@@ -76,6 +90,7 @@ pub(super) async fn vertical_doctor_response(id: &str) -> (&'static str, String)
                 "message": f.message,
             })).collect::<Vec<_>>(),
         },
+        "scored_eval": scored.to_json(),
     }))
     .unwrap_or_default();
     let status: &'static str = if any_failed {

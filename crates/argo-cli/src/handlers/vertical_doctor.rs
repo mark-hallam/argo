@@ -153,8 +153,12 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
 /// files were found anywhere; `Failed` means at least one suite
 /// either had failing fixtures, malformed parse, or a malformed
 /// actuals file.
+///
+/// `pub(crate)` since #696 so the gateway doctor handler can
+/// reuse the same auto-detection + JSON shape (CLI/gateway
+/// symmetry — neither side reimplements the rules).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ScoredStatus {
+pub(crate) enum ScoredStatus {
     Passed,
     Skipped,
     Failed,
@@ -171,8 +175,8 @@ impl ScoredStatus {
 }
 
 #[derive(Debug)]
-struct ScoredOutcome {
-    status: ScoredStatus,
+pub(crate) struct ScoredOutcome {
+    pub(crate) status: ScoredStatus,
     suites: Vec<ScoredSuiteOutcome>,
 }
 
@@ -192,7 +196,7 @@ struct ScoredSuiteOutcome {
 }
 
 impl ScoredOutcome {
-    fn to_json(&self) -> serde_json::Value {
+    pub(crate) fn to_json(&self) -> serde_json::Value {
         serde_json::json!({
             "ok": !matches!(self.status, ScoredStatus::Failed),
             "status": self.status.label(),
@@ -275,7 +279,11 @@ impl ScoredOutcome {
     }
 }
 
-fn collect_scored_outcomes(loaded: &LoadedVertical) -> ScoredOutcome {
+/// Pulled out of `run` so the gateway handler (`/verticals/<id>
+/// /doctor`) can reuse the exact same detection + scoring
+/// without copy/paste. CLI/gateway symmetry — fix once,
+/// fix everywhere.
+pub(crate) fn collect_scored_outcomes(loaded: &LoadedVertical) -> ScoredOutcome {
     let suites_decl = loaded
         .manifest
         .evaluation
