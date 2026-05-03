@@ -64,6 +64,14 @@ pub struct MemoryEntry {
     pub hash: [u8; 32],
     /// Edit-protection lock (None if no lock row exists).
     pub lock: Lock,
+    /// Vertical that owns this entry, if any (#680, Rule 7).
+    /// NULL for legacy / workspace-global entries — those stay
+    /// reachable via the existing `append` / `list_active`
+    /// paths for backward compat. Vertical-bound writes via
+    /// `append_for_vertical` populate this; vertical-scoped
+    /// reads via `list_for_vertical` filter by it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vertical_id: Option<String>,
 }
 
 /// Caller-supplied override flag for agent-driven writes against a

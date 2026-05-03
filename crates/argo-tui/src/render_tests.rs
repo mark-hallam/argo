@@ -211,6 +211,7 @@ fn memory_overlay_renders_active_entries() {
         superseded_by: None,
         hash: [0xcd; 32],
         lock: Lock::None,
+        vertical_id: None,
     }]);
     let frame = render_to_strings(&state);
     assert!(frame.contains("active memory (1)"));

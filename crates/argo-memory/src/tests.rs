@@ -165,3 +165,99 @@ async fn hash_is_sha256_of_body() {
     let want = h.finalize();
     assert_eq!(entry.hash, want.as_slice());
 }
+
+// ---- vertical-scoped memory (#680, Rule 7) -----------------
+
+#[tokio::test]
+async fn append_for_vertical_persists_vertical_id() {
+    let (m, ws) = fresh().await;
+    let entry = m
+        .append_for_vertical(
+            ws,
+            MemoryFile::Memory,
+            "alpha-row".into(),
+            None,
+            "alpha",
+        )
+        .await
+        .unwrap();
+    assert_eq!(entry.vertical_id.as_deref(), Some("alpha"));
+}
+
+#[tokio::test]
+async fn list_for_vertical_filters_to_owned_rows_and_excludes_legacy() {
+    let (m, ws) = fresh().await;
+    // Three writes:
+    //  - alpha-only entry (vertical-tagged)
+    //  - beta-only entry (vertical-tagged)
+    //  - legacy entry (workspace-global, no vertical_id)
+    m.append_for_vertical(ws, MemoryFile::Memory, "alpha-row".into(), None, "alpha")
+        .await
+        .unwrap();
+    m.append_for_vertical(ws, MemoryFile::Memory, "beta-row".into(), None, "beta")
+        .await
+        .unwrap();
+    m.append(ws, MemoryFile::Memory, "legacy-row".into(), None)
+        .await
+        .unwrap();
+
+    // alpha sees only its own entry — NOT beta's, NOT legacy.
+    let alpha_view = m
+        .list_for_vertical(ws, MemoryFile::Memory, "alpha")
+        .await
+        .unwrap();
+    assert_eq!(alpha_view.len(), 1);
+    assert_eq!(alpha_view[0].body, "alpha-row");
+    assert_eq!(alpha_view[0].vertical_id.as_deref(), Some("alpha"));
+
+    // beta sees only its own entry.
+    let beta_view = m
+        .list_for_vertical(ws, MemoryFile::Memory, "beta")
+        .await
+        .unwrap();
+    assert_eq!(beta_view.len(), 1);
+    assert_eq!(beta_view[0].body, "beta-row");
+
+    // The legacy `list_active` still returns ALL three (back-
+    // compat — gateway / CLI integration is a follow-up).
+    let all = m.list_active(ws, MemoryFile::Memory).await.unwrap();
+    assert_eq!(all.len(), 3);
+}
+
+#[tokio::test]
+async fn list_for_vertical_with_unknown_vertical_returns_empty() {
+    let (m, ws) = fresh().await;
+    m.append_for_vertical(ws, MemoryFile::Memory, "x".into(), None, "alpha")
+        .await
+        .unwrap();
+    let ghost = m
+        .list_for_vertical(ws, MemoryFile::Memory, "ghost")
+        .await
+        .unwrap();
+    assert!(ghost.is_empty());
+}
+
+#[tokio::test]
+async fn vertical_id_round_trips_through_get_and_list_active() {
+    // The legacy `list_active` and `get` paths must surface
+    // the new `vertical_id` field on rows that have it
+    // (otherwise downstream serialization drops it).
+    let (m, ws) = fresh().await;
+    let written = m
+        .append_for_vertical(
+            ws,
+            MemoryFile::Memory,
+            "round-trip".into(),
+            None,
+            "alpha",
+        )
+        .await
+        .unwrap();
+
+    let fetched = m.get(written.id).await.unwrap();
+    assert_eq!(fetched.vertical_id.as_deref(), Some("alpha"));
+
+    let listed = m.list_active(ws, MemoryFile::Memory).await.unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].vertical_id.as_deref(), Some("alpha"));
+}
