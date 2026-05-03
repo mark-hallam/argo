@@ -179,6 +179,11 @@ pub(super) async fn session_show_response_with_format(
         let mut out = format!("# Session {title} (`{}`)\n\n", session.id.0);
         out.push_str(&format!("- **Provider**: `{}`\n", session.provider));
         out.push_str(&format!("- **Model**: `{}`\n", session.model));
+        // #689: surface vertical binding in the markdown header
+        // when bound; legacy sessions stay clean.
+        if let Some(v) = session.vertical_id.as_deref() {
+            out.push_str(&format!("- **Vertical**: `{v}`\n"));
+        }
         out.push_str(&format!(
             "- **Started**: {}\n",
             session.started_at.to_rfc3339()
@@ -195,6 +200,9 @@ pub(super) async fn session_show_response_with_format(
         ));
         return ("200 OK", out);
     }
+    // #689: vertical_id is always present in the response (null
+    // for unbound sessions) so clients don't need to special-case
+    // a missing key vs. an explicit null.
     let row = serde_json::json!({
         "id": session.id.0.to_string(),
         "tenant_id": session.tenant_id.0.to_string(),
@@ -202,6 +210,7 @@ pub(super) async fn session_show_response_with_format(
         "model": session.model,
         "provider": session.provider,
         "title": session.title,
+        "vertical_id": session.vertical_id,
         "started_at": session.started_at.to_rfc3339(),
         "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
         "elapsed_seconds": elapsed_seconds,
