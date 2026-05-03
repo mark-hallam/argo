@@ -252,11 +252,15 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 println!("\nlast {} rows:", tail_rows_data.len());
                 for r in &tail_rows_data {
                     let detail = payload_detail(&r.kind, &r.payload);
+                    // #691: vertical=<id|-> appears between session
+                    // and detail so triage can scan binding without
+                    // an extra drill-down. `-` for unbound rows.
                     println!(
-                        "  seq={:<6} kind={:<22} session={} {detail}",
+                        "  seq={:<6} kind={:<22} session={} vertical={} {detail}",
                         r.seq,
                         r.kind,
                         r.session_id.as_deref().unwrap_or("-"),
+                        r.vertical_id.as_deref().unwrap_or("-"),
                     );
                 }
             }

@@ -17,6 +17,14 @@ pub struct ExportedRow {
     pub id: String,
     /// Owning session, if any.
     pub session_id: Option<String>,
+    /// Vertical the owning session was bound to at create-time
+    /// (#691). LEFT JOIN through `session.vertical_id` — `None`
+    /// when the row has no session id, the session is unbound, or
+    /// the session row was deleted. Always-present (skip-if-none
+    /// in NDJSON) so consumers can triage by vertical without a
+    /// second query.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vertical_id: Option<String>,
     /// Event kind label (e.g. `"turn_start"`).
     pub kind: String,
     /// Canonical payload as serde_json::Value.
@@ -34,6 +42,8 @@ struct Row {
     seq: i64,
     id: Vec<u8>,
     session_id: Option<Vec<u8>>,
+    /// Joined from `session.vertical_id` via LEFT JOIN (#691).
+    vertical_id: Option<String>,
     kind: String,
     payload_json: String,
     parent_hash: Vec<u8>,
@@ -51,10 +61,16 @@ pub async fn export_ndjson<F>(store: &SessionStore, mut emit: F) -> ArgoResult<u
 where
     F: FnMut(&ExportedRow) -> ArgoResult<()>,
 {
+    // #691: LEFT JOIN session for vertical_id so each exported
+    // row carries the bound vertical without an N+1 lookup. Rows
+    // with no session_id (e.g. workspace-scoped audits) and rows
+    // whose session has been deleted both surface as NULL.
     let rows = sqlx::query_as::<_, Row>(
-        "SELECT seq, id, session_id, kind, payload_json, \
-         parent_hash, self_hash, created_at FROM audit_record \
-         ORDER BY seq ASC",
+        "SELECT a.seq, a.id, a.session_id, s.vertical_id, a.kind, \
+                a.payload_json, a.parent_hash, a.self_hash, a.created_at \
+         FROM audit_record a \
+         LEFT JOIN session s ON s.id = a.session_id \
+         ORDER BY a.seq ASC",
     )
     .fetch_all(store.pool())
     .await
@@ -103,28 +119,38 @@ pub async fn tail_rows_filtered(
     n: u32,
     filters: &TailFilters<'_>,
 ) -> ArgoResult<Vec<ExportedRow>> {
+    // #691: alias `audit_record` as `a` so the WHERE clauses can
+    // be qualified — ambiguous otherwise after the join.
     let mut where_clauses: Vec<&str> = Vec::new();
     if filters.kind.is_some() {
-        where_clauses.push("kind = ?");
+        where_clauses.push("a.kind = ?");
     }
     if filters.since_micros.is_some() {
-        where_clauses.push("created_at >= ?");
+        where_clauses.push("a.created_at >= ?");
     }
     if filters.session_id.is_some() {
-        where_clauses.push("session_id = ?");
+        where_clauses.push("a.session_id = ?");
     }
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
         format!(" WHERE {}", where_clauses.join(" AND "))
     };
+    // The inner subquery applies LIMIT first, then the outer
+    // re-orders ASC so callers always get oldest→newest within the
+    // window. LEFT JOIN runs at the outer level so the LIMIT
+    // semantics are unchanged from before #691.
     let sql = format!(
-        "SELECT * FROM (\
+        "SELECT a.seq, a.id, a.session_id, s.vertical_id, a.kind, \
+                a.payload_json, a.parent_hash, a.self_hash, a.created_at \
+         FROM (\
              SELECT seq, id, session_id, kind, payload_json, \
                     parent_hash, self_hash, created_at \
-             FROM audit_record{where_sql} \
+             FROM audit_record a{where_sql} \
              ORDER BY seq DESC LIMIT ?\
-         ) ORDER BY seq ASC"
+         ) a \
+         LEFT JOIN session s ON s.id = a.session_id \
+         ORDER BY a.seq ASC"
     );
     let mut q = sqlx::query_as::<_, Row>(&sql);
     if let Some(k) = filters.kind {
@@ -154,10 +180,14 @@ pub async fn rows_for_session(
     store: &SessionStore,
     session_id: argo_types::SessionId,
 ) -> ArgoResult<Vec<ExportedRow>> {
+    // #691: same LEFT JOIN shape as tail_rows_filtered so
+    // per-session timeline rows also surface vertical_id.
     let rows = sqlx::query_as::<_, Row>(
-        "SELECT seq, id, session_id, kind, payload_json, \
-                parent_hash, self_hash, created_at \
-         FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
+        "SELECT a.seq, a.id, a.session_id, s.vertical_id, a.kind, \
+                a.payload_json, a.parent_hash, a.self_hash, a.created_at \
+         FROM audit_record a \
+         LEFT JOIN session s ON s.id = a.session_id \
+         WHERE a.session_id = ? ORDER BY a.seq ASC",
     )
     .bind(session_id.0.as_bytes().as_slice())
     .fetch_all(store.pool())
@@ -171,6 +201,7 @@ fn row_to_exported(row: Row) -> ArgoResult<ExportedRow> {
         seq: row.seq,
         id: hex::encode(&row.id),
         session_id: row.session_id.map(|b| hex::encode(&b)),
+        vertical_id: row.vertical_id,
         kind: row.kind,
         payload: serde_json::from_str(&row.payload_json)
             .map_err(|e| ArgoError::Provider(format!("audit payload parse: {e}")))?,

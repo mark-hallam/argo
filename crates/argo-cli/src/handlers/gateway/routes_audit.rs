@@ -137,15 +137,18 @@ pub(super) async fn audit_recent_response(
                     if n == 1 { "" } else { "s" }
                 );
                 if !rows.is_empty() {
-                    out.push_str("| seq | kind | session_id |\n");
-                    out.push_str("| ---: | --- | --- |\n");
+                    // #691: vertical column lets operators triage
+                    // by binding without drilling into each row.
+                    out.push_str("| seq | kind | session_id | vertical |\n");
+                    out.push_str("| ---: | --- | --- | --- |\n");
                     for r in &rows {
                         let sid = r
                             .session_id
                             .as_deref()
                             .unwrap_or("-");
+                        let vert = r.vertical_id.as_deref().unwrap_or("-");
                         out.push_str(&format!(
-                            "| {} | `{}` | `{sid}` |\n",
+                            "| {} | `{}` | `{sid}` | `{vert}` |\n",
                             r.seq, r.kind
                         ));
                     }
@@ -280,8 +283,19 @@ pub(super) async fn audit_session_response(
             }
             if matches!(format, Some("markdown")) {
                 let n = rows.len();
+                // #691: surface the bound vertical in the heading
+                // when present. Within one session every row shares
+                // the same vertical so a per-row column would be
+                // pure repetition.
+                let vert = rows
+                    .iter()
+                    .find_map(|r| r.vertical_id.as_deref());
+                let header_suffix = match vert {
+                    Some(v) => format!(" — vertical `{v}`"),
+                    None => String::new(),
+                };
                 let mut out = format!(
-                    "# Audit chain for session `{sid}` ({n} row{})\n\n",
+                    "# Audit chain for session `{sid}` ({n} row{}){header_suffix}\n\n",
                     if n == 1 { "" } else { "s" }
                 );
                 if !rows.is_empty() {
