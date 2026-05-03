@@ -141,6 +141,49 @@ pub(super) fn judge_temperature_for(thinking_enabled: bool) -> f32 {
     }
 }
 
+/// Hardcoded extended-thinking budget the Anthropic transport
+/// injects when `[quirks].send-thinking-blocks = true` (see
+/// `argo_provider::anthropic::wire::apply_quirks`). We can't
+/// override it from the manifest today; this constant mirrors
+/// the transport's value so the live judge can pick a
+/// `max_tokens` safely above it. If the transport ever exposes
+/// a manifest field for the budget, replace this constant with
+/// a getter that reads the parsed manifest.
+pub(super) const ANTHROPIC_THINKING_BUDGET_TOKENS: u32 = 1024;
+
+/// Pick `max_tokens` for an Anthropic live judge request.
+/// Pure: no IO, no provider state.
+///
+/// Anthropic returns HTTP 400 when
+/// `max_tokens <= thinking.budget_tokens`. The transport
+/// hardcodes `budget_tokens = 1024` whenever thinking is
+/// enabled, so we MUST request well above that to leave room
+/// for the actual JSON verdict the judge emits.
+///
+/// - `thinking_enabled = true` → `2048` (1024 budget + 1024
+///   headroom for the verdict JSON; the verdict is small but
+///   the buffer matters when models occasionally pad
+///   reasoning before the fence).
+/// - `thinking_enabled = false` → `512` (compact JSON only;
+///   no reasoning channel to fund).
+///
+/// Invariant: when `thinking_enabled`, the returned value is
+/// strictly greater than [`ANTHROPIC_THINKING_BUDGET_TOKENS`].
+/// The regression test asserts this so a future edit can't
+/// silently re-introduce the HTTP 400.
+#[must_use]
+pub(super) fn judge_max_tokens_for(thinking_enabled: bool) -> u32 {
+    if thinking_enabled {
+        // Computed (not magic number): budget + at least 1024
+        // headroom for the verdict JSON. Using the constant
+        // means a future budget change in the transport
+        // automatically widens our cap.
+        ANTHROPIC_THINKING_BUDGET_TOKENS + 1024
+    } else {
+        512
+    }
+}
+
 /// Production Anthropic backend. Wraps an `AnthropicTransport`
 /// + the model id + the cached thinking-mode flag. `source()`
 /// returns `live:<provider>/<model>` so the verdict's audit
@@ -190,7 +233,12 @@ impl JudgeBackend for AnthropicJudgeBackend {
             ),
             sampling: Sampling {
                 temperature: Some(judge_temperature_for(self.thinking_enabled)),
-                max_tokens: Some(512),
+                // #701c: max_tokens MUST exceed
+                // thinking.budget_tokens or Anthropic returns
+                // HTTP 400 ("max_tokens must be greater than
+                // thinking.budget_tokens"). The helper picks
+                // 2048 when thinking is on, 512 when off.
+                max_tokens: Some(judge_max_tokens_for(self.thinking_enabled)),
                 ..Sampling::default()
             },
         };

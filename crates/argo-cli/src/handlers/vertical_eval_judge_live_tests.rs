@@ -204,6 +204,46 @@ fn judge_temperature_for_thinking_mode_is_one_not_zero() {
     );
 }
 
+// ---- max_tokens policy regression (#701c hotfix) ---------------
+
+#[test]
+fn judge_max_tokens_for_thinking_mode_strictly_exceeds_thinking_budget() {
+    // Anthropic returns HTTP 400 when `max_tokens <=
+    // thinking.budget_tokens`. The transport hardcodes
+    // budget_tokens=1024, so the live judge MUST request
+    // strictly more than that. This regression lock prevents
+    // a future tweak (e.g. "let's save tokens by setting
+    // max_tokens=1024") from re-introducing the 400.
+    let max = judge_max_tokens_for(true);
+    assert!(
+        max > ANTHROPIC_THINKING_BUDGET_TOKENS,
+        "max_tokens ({max}) MUST be strictly greater than thinking.budget_tokens ({ANTHROPIC_THINKING_BUDGET_TOKENS}) — Anthropic returns HTTP 400 otherwise"
+    );
+    // Symmetric: thinking off → smaller cap is fine.
+    let off = judge_max_tokens_for(false);
+    assert!(off < max, "thinking-off mode can use a tighter cap");
+    assert!(
+        off > 0,
+        "even compact JSON needs a non-zero cap to render"
+    );
+}
+
+#[test]
+fn anthropic_thinking_budget_constant_matches_transport_hardcoded_value() {
+    // The transport's `apply_quirks` hardcodes 1024 in
+    // `argo_provider::anthropic::wire`. We mirror that value
+    // here so `judge_max_tokens_for` can compute the headroom
+    // arithmetically. If the transport ever changes its
+    // budget, this test fails — which is exactly the signal
+    // we want.
+    assert_eq!(
+        ANTHROPIC_THINKING_BUDGET_TOKENS, 1024,
+        "if the transport's hardcoded budget changes, update ANTHROPIC_THINKING_BUDGET_TOKENS to match"
+    );
+}
+
+// ---- existing tests below ---------------------------------------
+
 #[test]
 fn shipped_anthropic_manifest_enables_thinking_so_temperature_must_be_one() {
     // End-to-end regression lock: the manifest the live

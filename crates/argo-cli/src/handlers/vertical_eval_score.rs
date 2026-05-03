@@ -153,12 +153,26 @@ pub(super) async fn run_scored(
         });
     }
 
+    // #701c: systemic-failure detector. If EVERY scored
+    // fixture's judge errored out (judge_call_failed), that's
+    // a configuration problem (manifest, key, network), not a
+    // GTM-quality regression. Surface it as a distinct error
+    // so operators don't read "all 4 fixtures failed" as
+    // "the agent's outputs are bad".
+    let systemic = detect_systemic_judge_failure(&per_suite);
+
     if json {
-        emit_json(id, &per_suite, !any_failure);
+        emit_json(id, &per_suite, !any_failure, systemic);
     } else {
-        emit_text(id, &per_suite);
+        emit_text(id, &per_suite, systemic);
     }
 
+    if systemic {
+        return Err(ArgoError::Provider(format!(
+            "vertical '{id}': live judge appears misconfigured — every scored fixture's judge call failed (e.g. provider 400, network error, missing manifest field). \
+             Re-run with --judge heuristic to confirm the rule engine still works, then check the per-fixture `judge.reason` strings for the underlying error."
+        )));
+    }
     if any_failure {
         Err(ArgoError::Schema(format!(
             "vertical '{id}': scored eval has {} failure(s) across {} suite(s)",
@@ -171,6 +185,28 @@ pub(super) async fn run_scored(
     } else {
         Ok(())
     }
+}
+
+/// `true` when EVERY scored fixture across all suites had its
+/// judge call fail (recognised by the
+/// `failed_criteria.contains("judge_call_failed")` marker
+/// emitted by `vertical_eval_judge_live::grade_fixture` on
+/// transport / parse errors). Returns `false` when there are
+/// no scored fixtures at all (no judge ran → nothing to detect).
+fn detect_systemic_judge_failure(per_suite: &[SuiteOutcome]) -> bool {
+    let mut total_judged = 0_usize;
+    let mut judge_call_failed = 0_usize;
+    for o in per_suite {
+        for jv in &o.judge_verdicts {
+            if let Some(v) = jv {
+                total_judged += 1;
+                if v.failed_criteria.iter().any(|c| c == "judge_call_failed") {
+                    judge_call_failed += 1;
+                }
+            }
+        }
+    }
+    total_judged > 0 && judge_call_failed == total_judged
 }
 
 /// Read + parse the actuals file. All errors fail loud — the
@@ -188,7 +224,12 @@ fn load_actuals(path: &str) -> ArgoResult<ActualsMap> {
     })
 }
 
-fn emit_json(id: &str, per_suite: &[SuiteOutcome], ok: bool) {
+fn emit_json(
+    id: &str,
+    per_suite: &[SuiteOutcome],
+    ok: bool,
+    judge_systemic_failure: bool,
+) {
     let suites_json: Vec<serde_json::Value> = per_suite
         .iter()
         .map(|o| {
@@ -229,10 +270,15 @@ fn emit_json(id: &str, per_suite: &[SuiteOutcome], ok: bool) {
             })
         })
         .collect();
+    // #701c: surface the systemic-failure signal at the top
+    // level so consumers don't need to scan per-fixture
+    // failed_criteria. `false` is the common case and stays
+    // unchanged from #698's shape.
     let payload = serde_json::json!({
         "id": id,
         "mode": "scored",
         "ok": ok,
+        "judge_systemic_failure": judge_systemic_failure,
         "suites": suites_json,
     });
     println!(
@@ -241,8 +287,25 @@ fn emit_json(id: &str, per_suite: &[SuiteOutcome], ok: bool) {
     );
 }
 
-fn emit_text(id: &str, per_suite: &[SuiteOutcome]) {
+fn emit_text(id: &str, per_suite: &[SuiteOutcome], judge_systemic_failure: bool) {
     println!("vertical '{id}': scored eval report");
+    if judge_systemic_failure {
+        // Print the warning ABOVE the per-suite detail so
+        // operators see it first. The message is written to
+        // be actionable: route to the offline fallback +
+        // point at where the underlying error lives.
+        println!();
+        println!(
+            "  WARN: live judge appears misconfigured — every scored fixture's judge call failed."
+        );
+        println!(
+            "        Re-run with `--judge heuristic` to confirm rules still work, then read"
+        );
+        println!(
+            "        per-fixture `judge.reason` strings below for the underlying error."
+        );
+        println!();
+    }
     if per_suite.is_empty() {
         println!("  (manifest declares no [evaluation].suites)");
         return;

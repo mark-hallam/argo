@@ -180,6 +180,75 @@ fn judge_without_score_flag_errors_clearly() {
 // ---- live judge wiring (#701) -----------------------------------
 
 #[test]
+fn judge_systemic_failure_field_is_false_when_judge_is_off() {
+    // Regression lock for the JSON shape (#701c added
+    // `judge_systemic_failure` at the top level). Off-by-
+    // default mode: no judge ran, no systemic failure, field
+    // present and false.
+    let dir = tempfile::tempdir().unwrap();
+    write_synthetic_vertical(
+        dir.path(),
+        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"x\"]},\"actual\":\"x present\"}\n",
+    );
+    let (success, out, _) = run_eval(
+        &["vertical", "eval", "judge-fixture", "--score", "--json"],
+        dir.path(),
+    );
+    assert!(success);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(
+        v["judge_systemic_failure"], false,
+        "off-by-default mode must report systemic_failure=false: {v}"
+    );
+}
+
+#[test]
+fn judge_systemic_failure_field_is_false_when_heuristic_judge_passes() {
+    let dir = tempfile::tempdir().unwrap();
+    write_synthetic_vertical(
+        dir.path(),
+        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"x\"]},\"actual\":\"x present\"}\n",
+    );
+    let (success, out, _) = run_eval(
+        &[
+            "vertical", "eval", "judge-fixture", "--score", "--json",
+            "--judge", "heuristic",
+        ],
+        dir.path(),
+    );
+    assert!(success);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["judge_systemic_failure"], false);
+}
+
+#[test]
+fn judge_systemic_failure_field_distinct_from_per_fixture_rule_failure() {
+    // Critical contract: the LLM/heuristic judge ran fine
+    // but the agent's output failed the rules. The systemic
+    // flag stays false because the judge itself succeeded —
+    // the fixture failure is a GTM-quality regression, not a
+    // configuration problem. Operators can tell them apart.
+    let dir = tempfile::tempdir().unwrap();
+    write_synthetic_vertical(
+        dir.path(),
+        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"missing-keyword-xyz\"]},\"actual\":\"this body is unrelated\"}\n",
+    );
+    let (_success, out, _) = run_eval(
+        &[
+            "vertical", "eval", "judge-fixture", "--score", "--json",
+            "--judge", "heuristic",
+        ],
+        dir.path(),
+    );
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(v["ok"], false, "fixture failed");
+    assert_eq!(
+        v["judge_systemic_failure"], false,
+        "rule failure ≠ systemic judge failure: {v}"
+    );
+}
+
+#[test]
 fn live_judge_without_api_key_errors_clearly_with_actionable_message() {
     // Critical contract: when the operator passes
     // `--judge <provider>/<model>` without setting the
