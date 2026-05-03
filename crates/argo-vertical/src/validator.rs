@@ -101,6 +101,19 @@ fn validate_memory(manifest: &VerticalManifest, root: &Path) -> ArgoResult<()> {
     if let Some(mem) = &manifest.memory {
         if let Some(schema) = &mem.schema {
             check_file(root, schema, "[memory].schema")?;
+            // Parse + validate the schema file (#663). Catches
+            // typos, duplicate keys, unknown types, and version
+            // drift at vertical-load time so the operator sees
+            // the failure once at startup instead of at first
+            // memory write. Pure additive — older manifests that
+            // pointed at a hand-written schema continue to load
+            // as long as the schema's well-formed.
+            let path = root.join(schema);
+            let src = std::fs::read_to_string(&path)
+                .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
+            crate::memory_schema::parse_memory_schema(&src).map_err(|e| {
+                ArgoError::Schema(format!("[memory].schema: {schema}: {e}"))
+            })?;
         }
         if let Some(seed) = &mem.seed {
             check_dir(root, seed, "[memory].seed")?;
@@ -298,6 +311,37 @@ public_endpoints = ["/v1/x", "/v1/x"]
         let m = parse(src).unwrap();
         let err = validate(&m, tempdir().unwrap().path()).unwrap_err();
         assert!(format!("{err}").contains("duplicate"));
+    }
+
+    #[test]
+    fn rejects_memory_schema_with_unknown_type() {
+        // Lock #663: schema content is parsed at validate-time,
+        // not just file-existence-checked.
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("memory.schema.toml"),
+            "schema_version = \"1\"\n[[entry]]\nkey=\"x\"\ntype=\"telepathic\"\n",
+        )
+        .unwrap();
+        let src = "schema_version = \"1\"\n[vertical]\nid = \"demo\"\nname = \"D\"\nversion = \"0.1.0\"\n[memory]\nschema = \"memory.schema.toml\"\n";
+        let m = parse(src).unwrap();
+        let err = validate(&m, dir.path()).unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("[memory].schema"), "got: {msg}");
+        assert!(msg.contains("unknown type 'telepathic'"), "got: {msg}");
+    }
+
+    #[test]
+    fn accepts_well_formed_memory_schema() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("memory.schema.toml"),
+            "schema_version = \"1\"\n[[entry]]\nkey=\"faqs\"\ntype=\"list-of-objects\"\npurpose=\"freq qns\"\n",
+        )
+        .unwrap();
+        let src = "schema_version = \"1\"\n[vertical]\nid = \"demo\"\nname = \"D\"\nversion = \"0.1.0\"\n[memory]\nschema = \"memory.schema.toml\"\n";
+        let m = parse(src).unwrap();
+        validate(&m, dir.path()).expect("well-formed schema must validate");
     }
 
     #[test]

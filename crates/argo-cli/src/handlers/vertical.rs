@@ -149,6 +149,20 @@ async fn show(id: &str, json: bool, format: &str) -> ArgoResult<()> {
     if let Some(gw) = &m.gateway {
         println!("  gateway endpoints: {}", gw.public_endpoints.len());
     }
+    // Memory typed-entries summary (#663). Read-only,
+    // non-fatal: a malformed schema would have already failed
+    // validate; here we just surface what the agent + operator
+    // are working with.
+    if let Some(mem) = &m.memory {
+        if let Some(schema_rel) = &mem.schema {
+            let p = loaded.root.join(schema_rel);
+            if let Ok(src) = std::fs::read_to_string(&p) {
+                if let Ok(s) = argo_vertical::parse_memory_schema(&src) {
+                    println!("  memory entries: {}", s.entries.len());
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -211,6 +225,23 @@ async fn validate(id: &str, json: bool) -> ArgoResult<()> {
 /// wire shape stays in lock-step.
 pub(crate) fn summarize_loaded(v: &LoadedVertical) -> serde_json::Value {
     let m = &v.manifest;
+    let memory_entries = m.memory.as_ref().and_then(|mem| {
+        let rel = mem.schema.as_ref()?;
+        let body = std::fs::read_to_string(v.root.join(rel)).ok()?;
+        let s = argo_vertical::parse_memory_schema(&body).ok()?;
+        Some(
+            s.entries
+                .into_iter()
+                .map(|e| {
+                    serde_json::json!({
+                        "key": e.key,
+                        "type": e.type_,
+                        "purpose": e.purpose,
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+    });
     serde_json::json!({
         "id": m.vertical.id,
         "name": m.vertical.name,
@@ -237,6 +268,7 @@ pub(crate) fn summarize_loaded(v: &LoadedVertical) -> serde_json::Value {
             .map(|e| e.suites.clone()).unwrap_or_default(),
         "gateway_endpoints": m.gateway.as_ref()
             .map(|g| g.public_endpoints.clone()).unwrap_or_default(),
+        "memory_entries": memory_entries,
     })
 }
 

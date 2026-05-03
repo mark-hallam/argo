@@ -51,6 +51,7 @@
 
 mod loader;
 mod manifest;
+mod memory_schema;
 mod registry;
 mod validator;
 mod workflow;
@@ -80,6 +81,10 @@ pub use manifest::{
     parse, EscalationSection, EvaluationSection, GatewaySection, MemorySection, ProviderSection,
     RoleSection, SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection,
     VerticalIdentity, VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
+};
+pub use memory_schema::{
+    parse_memory_schema, validate_memory_schema, MemoryEntry, MemorySchema,
+    MEMORY_SCHEMA_VERSION,
 };
 pub use registry::{LoadedVertical, Registry};
 pub use validator::validate;
