@@ -19,16 +19,32 @@ trap 'echo; echo "FAILED at line $LINENO" >&2' ERR
 ARGO_BIN="${ARGO_BIN:-argo}"
 DEMO_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$DEMO_DIR/.." && pwd)"
-ARGO_HOME="$(mktemp -d -t argo-demo-XXXXXX)"
-WORK_DIR="$(mktemp -d -t argo-demo-cwd-XXXXXX)"
+
+# Caller (e.g. the CI lock test) may pre-set ARGO_HOME / WORK_DIR
+# in order to inspect the resulting state after the script exits.
+# When unset, we mint our own temp dirs and clean them up on exit.
+ARGO_HOME_OWNED=0
+WORK_DIR_OWNED=0
+if [ -z "${ARGO_HOME:-}" ]; then
+  ARGO_HOME="$(mktemp -d -t argo-demo-XXXXXX)"
+  ARGO_HOME_OWNED=1
+fi
+if [ -z "${WORK_DIR:-}" ]; then
+  WORK_DIR="$(mktemp -d -t argo-demo-cwd-XXXXXX)"
+  WORK_DIR_OWNED=1
+fi
 ARGO_VERTICALS_DIR="${ARGO_VERTICALS_DIR:-$REPO_ROOT/verticals}"
 export ARGO_HOME ARGO_VERTICALS_DIR
 
-cleanup() { rm -rf "$ARGO_HOME" "$WORK_DIR"; }
+cleanup() {
+  [ "$ARGO_HOME_OWNED" = "1" ] && rm -rf "$ARGO_HOME"
+  [ "$WORK_DIR_OWNED" = "1" ] && rm -rf "$WORK_DIR"
+  return 0
+}
 trap cleanup EXIT
 
 # `argo workspace init` writes argo.toml into cwd, so we run
-# from a fresh temp dir to avoid clobbering any existing workspace.
+# from a dedicated work dir to avoid clobbering any existing workspace.
 cd "$WORK_DIR"
 
 banner() { echo; echo "═══ $* ═══"; }
