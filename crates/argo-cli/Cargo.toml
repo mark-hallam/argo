@@ -44,6 +44,10 @@ tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 tar = "0.4"
+# Used by `argo vertical install` (#675) to extract `.tar`
+# sources into a temp dir before recursing through the
+# directory-source code path.
+tempfile = "3"
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 

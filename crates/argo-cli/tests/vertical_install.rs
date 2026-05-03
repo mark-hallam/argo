@@ -215,6 +215,81 @@ fn cli_install_then_uninstall_round_trip() {
 }
 
 #[test]
+fn cli_pack_then_install_via_tarball_round_trips() {
+    // #675: install a source dir, pack it, install the
+    // resulting `.tar` into a fresh target, confirm files
+    // match.
+    let home = tempfile::tempdir().unwrap();
+    let src = tempfile::tempdir().unwrap();
+    let installed = tempfile::tempdir().unwrap();
+    let restored = tempfile::tempdir().unwrap();
+    let tar_dir = tempfile::tempdir().unwrap();
+    write_minimal_vertical(src.path(), "demo");
+
+    // Install source
+    Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "vertical",
+            "install",
+            src.path().to_str().unwrap(),
+            "--target",
+            installed.path().to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+
+    // Pack
+    let tar_path = tar_dir.path().join("demo.tar");
+    let pack_out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "vertical",
+            "pack",
+            "demo",
+            "--target",
+            installed.path().to_str().unwrap(),
+            "--out",
+            tar_path.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .expect("spawn pack");
+    assert!(
+        pack_out.status.success(),
+        "pack stderr: {}",
+        String::from_utf8_lossy(&pack_out.stderr)
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(pack_out.stdout).unwrap()).unwrap();
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["id"], "demo");
+    assert!(v["bytes"].as_u64().unwrap() > 0);
+    assert!(tar_path.exists());
+
+    // Install from the tarball
+    let inst_out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "vertical",
+            "install",
+            tar_path.to_str().unwrap(),
+            "--target",
+            restored.path().to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .expect("spawn install");
+    assert!(
+        inst_out.status.success(),
+        "install stderr: {}",
+        String::from_utf8_lossy(&inst_out.stderr)
+    );
+    assert!(restored.path().join("demo/vertical.toml").exists());
+    assert!(restored.path().join("demo/prompts/system.md").exists());
+}
+
+#[test]
 fn cli_install_then_workflow_run_round_trip() {
     // End-to-end: install a vertical that has a tool_call
     // workflow, then run it. Locks the install path against the

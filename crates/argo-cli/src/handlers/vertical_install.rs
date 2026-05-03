@@ -23,7 +23,9 @@
 use argo_types::{ArgoError, ArgoResult};
 use std::path::{Path, PathBuf};
 
-/// Top-level entry for `argo vertical install`.
+/// Top-level entry for `argo vertical install`. Source may be
+/// either a directory or a `.tar` archive (#675); auto-detected
+/// by extension.
 pub async fn install(
     source: &str,
     target: Option<&str>,
@@ -31,9 +33,21 @@ pub async fn install(
     json: bool,
 ) -> ArgoResult<()> {
     let src = PathBuf::from(source);
+    // Tarball path: extract into a temp dir + recurse with the
+    // extracted dir as the source. This keeps the dir-source
+    // path the canonical implementation.
+    if src.extension().and_then(|e| e.to_str()) == Some("tar") && src.is_file() {
+        let tmp = tempfile::tempdir().map_err(|e| {
+            ArgoError::Io(format!("create tempdir for tarball extract: {e}"))
+        })?;
+        extract_tar_into(&src, tmp.path())?;
+        let extracted = pick_single_subdir(tmp.path())?;
+        let extracted_str = extracted.to_string_lossy().into_owned();
+        return Box::pin(install(&extracted_str, target, force, json)).await;
+    }
     if !src.is_dir() {
         return Err(ArgoError::Provider(format!(
-            "source '{}' is not a directory (tarball + OCI flows ship in a follow-up PR)",
+            "source '{}' is neither a directory nor a `.tar` file",
             src.display()
         )));
     }
@@ -187,6 +201,122 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> ArgoResult<()> {
         // restriction can be relaxed with a feature flag.
     }
     Ok(())
+}
+
+/// Pack an installed vertical into a single `.tar` archive.
+/// Inverse of the tarball-source install path; ships with the
+/// vertical's id stamped as the top-level directory inside the
+/// archive so an `install` round-trip recovers the source name.
+pub async fn pack(
+    id: &str,
+    out: Option<&str>,
+    target: Option<&str>,
+    json: bool,
+) -> ArgoResult<()> {
+    let target_root = match target {
+        Some(t) => PathBuf::from(t),
+        None => argo_vertical::default_dir(),
+    };
+    let src_dir = target_root.join(id);
+    if !src_dir.is_dir() {
+        return Err(ArgoError::Provider(format!(
+            "no vertical with id '{id}' installed at {}",
+            target_root.display()
+        )));
+    }
+    // Validate before packing — refuse to ship a broken
+    // vertical as an artifact (operator could inadvertently
+    // distribute a half-edited manifest).
+    let manifest_src = std::fs::read_to_string(src_dir.join("vertical.toml"))
+        .map_err(|e| ArgoError::Io(format!("read manifest: {e}")))?;
+    let manifest = argo_vertical::parse(&manifest_src)?;
+    argo_vertical::validate(&manifest, &src_dir)?;
+
+    let out_path = match out {
+        Some(p) => PathBuf::from(p),
+        None => PathBuf::from(format!("{id}.tar")),
+    };
+    write_tar_from_dir(&src_dir, id, &out_path)?;
+    let bytes = std::fs::metadata(&out_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&serde_json::json!({
+                "ok": true,
+                "id": id,
+                "path": out_path.display().to_string(),
+                "bytes": bytes,
+            }))
+            .unwrap_or_default()
+        );
+    } else {
+        println!(
+            "packed vertical '{id}' → {} ({bytes} bytes)",
+            out_path.display()
+        );
+        println!("  → ship + restore with `argo vertical install {}`", out_path.display());
+    }
+    Ok(())
+}
+
+fn write_tar_from_dir(src_dir: &Path, id: &str, out_path: &Path) -> ArgoResult<()> {
+    let file = std::fs::File::create(out_path).map_err(|e| {
+        ArgoError::Io(format!("create {}: {e}", out_path.display()))
+    })?;
+    let mut builder = tar::Builder::new(file);
+    builder
+        .append_dir_all(id, src_dir)
+        .map_err(|e| ArgoError::Io(format!("tar append: {e}")))?;
+    builder
+        .finish()
+        .map_err(|e| ArgoError::Io(format!("tar finish: {e}")))?;
+    Ok(())
+}
+
+fn extract_tar_into(src: &Path, into: &Path) -> ArgoResult<()> {
+    let file = std::fs::File::open(src)
+        .map_err(|e| ArgoError::Io(format!("open {}: {e}", src.display())))?;
+    let mut archive = tar::Archive::new(file);
+    archive
+        .unpack(into)
+        .map_err(|e| ArgoError::Io(format!("tar unpack into {}: {e}", into.display())))?;
+    Ok(())
+}
+
+/// Tarballs produced by `pack` always carry a single top-level
+/// dir (the vertical's id). Pick that subdir from the extract
+/// dest so the caller installs the right tree.
+fn pick_single_subdir(into: &Path) -> ArgoResult<PathBuf> {
+    let mut entries: Vec<PathBuf> = Vec::new();
+    for entry in std::fs::read_dir(into)
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", into.display())))?
+    {
+        let entry =
+            entry.map_err(|e| ArgoError::Io(format!("read_dir entry under {}: {e}", into.display())))?;
+        if entry
+            .file_type()
+            .map(|t| t.is_dir())
+            .unwrap_or(false)
+        {
+            entries.push(entry.path());
+        }
+    }
+    if entries.len() == 1 {
+        return Ok(entries.into_iter().next().unwrap());
+    }
+    if entries.is_empty() {
+        // Tarball was packed flat (no top-level dir); install
+        // from the extract root directly.
+        return Ok(into.to_path_buf());
+    }
+    Err(ArgoError::Provider(format!(
+        "tarball at {} has multiple top-level directories ({}); expected exactly one (vertical id)",
+        into.display(),
+        entries.len()
+    )))
 }
 
 #[cfg(test)]

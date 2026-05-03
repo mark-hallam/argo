@@ -143,6 +143,23 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Pack an installed vertical into a tar archive (#675).
+    /// Inverse of `install` from a tarball — gives operators a
+    /// single artifact they can ship to CI / share with a team /
+    /// stash before editing.
+    Pack {
+        /// The vertical's id.
+        id: String,
+        /// Output path; defaults to `<id>.tar` in the cwd.
+        #[arg(long)]
+        out: Option<String>,
+        /// Source verticals dir. Defaults to the discovery dir.
+        #[arg(long)]
+        target: Option<String>,
+        /// Output as a single JSON object `{ok, id, path, bytes}`.
+        #[arg(long)]
+        json: bool,
+    },
     /// One-shot "from zero to running vertical" composite (#669).
     /// Creates a fresh session bound to the vertical, attaches
     /// every skill the manifest declares, then runs the named
