@@ -312,6 +312,7 @@ pub(super) async fn memory_response(
     body_contains: Option<String>,
     limit: Option<usize>,
     format: Option<&str>,
+    vertical: Option<String>,
 ) -> (&'static str, String) {
     use argo_memory::{MemoryFile, MemoryStore};
     let Some(store) = store else {
@@ -367,7 +368,14 @@ pub(super) async fn memory_response(
     let needle = body_contains.as_deref().map(str::to_lowercase);
     let mut all: Vec<serde_json::Value> = Vec::new();
     for f in files {
-        match memory.list_active(workspace, f).await {
+        // #687 — vertical-aware lookup mirrors the CLI #686
+        // `argo memory list --vertical`. Default-deny: legacy
+        // NULL-vertical rows excluded when ?vertical= is set.
+        let entries_result = match vertical.as_deref() {
+            Some(vid) => memory.list_for_vertical(workspace, f, vid).await,
+            None => memory.list_active(workspace, f).await,
+        };
+        match entries_result {
             Ok(entries) => {
                 for e in entries {
                     if let Some(c) = cutoff {
@@ -392,6 +400,7 @@ pub(super) async fn memory_response(
                         "lock": format!("{:?}", e.lock),
                         "hash": hex::encode(e.hash),
                         "learned_at": e.learned_at.to_rfc3339(),
+                        "vertical_id": e.vertical_id,
                     }));
                 }
             }

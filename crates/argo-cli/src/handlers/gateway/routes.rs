@@ -80,15 +80,10 @@ pub(super) async fn dispatch_route(
     }
     if let Some(rest) = req.strip_prefix("GET /verticals/") {
         if let Some((id_with_query, _)) = rest.split_once(' ') {
-            // /verticals/<id>/lint (#672) — gateway mirror of
-            // `argo vertical lint`. Strip the trailing `/lint`
-            // before falling through to the bare-id branch so
-            // both routes share the prefix parsing.
+            // /verticals/<id>/{lint,doctor} mirrors of CLI #671/#673.
             if let Some(id) = id_with_query.strip_suffix("/lint") {
                 return super::routes_verticals_lint::vertical_lint_response(id).await;
             }
-            // /verticals/<id>/doctor (#674) — gateway mirror of
-            // `argo vertical doctor`.
             if let Some(id) = id_with_query.strip_suffix("/doctor") {
                 return super::routes_verticals_doctor::vertical_doctor_response(id).await;
             }
@@ -173,6 +168,8 @@ pub(super) async fn dispatch_route(
         let body_contains = parse_query_kv(tail, "body-contains").map(|s| s.replace('+', " "));
         let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
         let format = parse_query_kv(tail, "format");
+        // #687 — vertical-aware filter mirrors CLI #686.
+        let vertical = parse_query_kv(tail, "vertical");
         return memory_response(
             store,
             file,
@@ -181,6 +178,7 @@ pub(super) async fn dispatch_route(
             body_contains,
             limit,
             format.as_deref(),
+            vertical,
         )
         .await;
     }

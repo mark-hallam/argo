@@ -82,11 +82,29 @@ pub(super) async fn append_memory_response(
         }
     };
     let memory = argo_memory::MemoryStore::new(Arc::clone(store));
-    match memory.append(workspace, file, body_text, None).await {
+    // #687 — vertical-aware append. When the body carries a
+    // `vertical_id` string, route through `append_for_vertical`
+    // so the new row is tagged for the per-vertical lookup
+    // (#680, Rule 7). Without it, the legacy workspace-global
+    // path is preserved.
+    let vertical = parsed
+        .get("vertical_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let result = match &vertical {
+        Some(vid) => {
+            memory
+                .append_for_vertical(workspace, file, body_text, None, vid)
+                .await
+        }
+        None => memory.append(workspace, file, body_text, None).await,
+    };
+    match result {
         Ok(entry) => {
             let resp = serde_json::json!({
                 "id": entry.id.to_string(),
                 "file": canonical,
+                "vertical_id": entry.vertical_id,
             });
             (
                 "201 Created",
