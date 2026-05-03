@@ -22,6 +22,16 @@ fn header(title: &str) -> SessionHeader {
     }
 }
 
+/// #699: bound-session header builder for the TUI vertical
+/// surfacing tests. Same shape as `header()` but tags the
+/// session with `vertical_id = Some(vertical)` so the list +
+/// detail panes render their badge / line.
+fn header_bound(title: &str, vertical: &str) -> SessionHeader {
+    let mut h = header(title);
+    h.vertical_id = Some(vertical.to_string());
+    h
+}
+
 fn render_to_strings(state: &ViewerState) -> String {
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -59,6 +69,42 @@ fn renders_selected_detail_pane() {
     let frame = render_to_strings(&state);
     assert!(frame.contains("provider:"));
     assert!(frame.contains("mock-provider"));
+}
+
+// ---- #699: vertical_id surfacing in TUI ----
+
+#[test]
+fn unbound_session_list_does_not_render_vertical_badge() {
+    let state = ViewerState::new(vec![header("legacy")]);
+    let frame = render_to_strings(&state);
+    let row = frame.lines().find(|l| l.contains("legacy")).expect("row");
+    assert!(!row.contains('['), "unbound row got badge: {row:?}");
+}
+
+#[test]
+fn bound_session_list_renders_vertical_badge() {
+    // Short title + short id so the narrow 80x24 list pane
+    // doesn't clip the badge. Longer ids still render; the
+    // clipping is a layout concern, not correctness.
+    let state = ViewerState::new(vec![header_bound("m", "gtm")]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("[gtm]"), "missing badge:\n{frame}");
+}
+
+#[test]
+fn unbound_session_detail_pane_does_not_render_vertical_line() {
+    let state = ViewerState::new(vec![header("legacy-detail")]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("provider:"));
+    assert!(!frame.contains("vertical:"), "unbound got vertical line:\n{frame}");
+}
+
+#[test]
+fn bound_session_detail_pane_renders_vertical_line() {
+    let state = ViewerState::new(vec![header_bound("focus", "gtm-engineer")]);
+    let frame = render_to_strings(&state);
+    assert!(frame.contains("vertical:"), "missing line:\n{frame}");
+    assert!(frame.contains("gtm-engineer"), "missing id:\n{frame}");
 }
 
 #[test]

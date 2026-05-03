@@ -209,13 +209,25 @@ fn draw_session_list(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             let title = s.title.as_deref().unwrap_or("(untitled)");
             // ● = still open (ended_at IS NULL), ○ = ended.
             let marker = if s.ended_at.is_none() { "●" } else { "○" };
-            ListItem::new(Line::from(vec![
+            // #699: vertical badge surfaces the binding when set
+            // — matches the CLI list column added in #690 so
+            // operators see the same signal across surfaces.
+            // Unbound rows render no badge (zero-cost) so legacy
+            // workspaces stay tidy.
+            let mut spans = vec![
                 Span::raw(format!("{marker} {} ", short_id(&s.id.0.to_string()))),
                 Span::styled(
                     title.to_string(),
                     Style::default().add_modifier(Modifier::BOLD),
                 ),
-            ]))
+            ];
+            if let Some(v) = s.vertical_id.as_deref() {
+                spans.push(Span::styled(
+                    format!(" [{v}]"),
+                    Style::default().add_modifier(Modifier::DIM),
+                ));
+            }
+            ListItem::new(Line::from(spans))
         })
         .collect();
     let title = if state.filter.is_empty() {
@@ -254,6 +266,12 @@ fn draw_session_detail(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
             lines.push(format!("workspace:    {}", s.workspace_id.0));
             lines.push(format!("provider:     {}", s.provider));
             lines.push(format!("model:        {}", s.model));
+            // #699: vertical line — present only when the
+            // session is bound. Mirrors the CLI `argo session
+            // show` text view from #689.
+            if let Some(v) = s.vertical_id.as_deref() {
+                lines.push(format!("vertical:     {v}"));
+            }
             lines.push(format!(
                 "title:        {}",
                 s.title.as_deref().unwrap_or("(none)")
