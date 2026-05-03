@@ -20,7 +20,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET",  "/verticals/<id>/lint", "best-practice hygiene checks for one vertical (#672); returns {ok, id, findings:[{severity, code, message}]}; 422 when any finding has severity=error"),
         ("GET",  "/verticals/<id>/doctor", "composite health check (#674): validate + eval + lint in one report; 422 when any check fails"),
         ("GET", "/version", "build version"),
-        ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),
+        ("GET", "/sessions", "list sessions incl. vertical_id per row (#690; ?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),
         ("GET", "/sessions/<id>", "one session header + counts incl. vertical_id (#689; ?format=markdown for a paste-able header doc)"),
         ("GET", "/sessions/count", "count of sessions (?status=open|ended|all&since-minutes=N&older-than-minutes=N&provider=…&model=…)"),
         ("GET", "/sessions/by-day", "sessions created per calendar day (?days=N&format=markdown; default 30, cap 365)"),

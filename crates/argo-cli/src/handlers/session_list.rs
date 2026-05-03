@@ -138,8 +138,11 @@ pub(super) async fn list_sessions(
             if sessions.is_empty() {
                 return Ok(());
             }
-            println!("| status | session_id | provider | model | spend (USD) | tools | title |");
-            println!("| :---: | --- | --- | --- | ---: | ---: | --- |");
+            // #690: vertical column (after model, before spend) so
+            // operators can scan which sessions are bound at a glance.
+            // Unbound rows render as `-` to keep the table tight.
+            println!("| status | session_id | provider | model | vertical | spend (USD) | tools | title |");
+            println!("| :---: | --- | --- | --- | --- | ---: | ---: | --- |");
             for s in &sessions {
                 let spent = spend_by_sid
                     .get(s.id.0.as_bytes().as_slice())
@@ -151,8 +154,9 @@ pub(super) async fn list_sessions(
                     .unwrap_or(0);
                 let marker = if s.ended_at.is_none() { "●" } else { "○" };
                 let title = s.title.as_deref().unwrap_or("").replace('|', "\\|");
+                let vertical = s.vertical_id.as_deref().unwrap_or("-");
                 println!(
-                    "| {marker} | `{}` | `{}` | `{}` | ${:.4} | {tcs} | {title} |",
+                    "| {marker} | `{}` | `{}` | `{}` | `{vertical}` | ${:.4} | {tcs} | {title} |",
                     s.id.0,
                     s.provider,
                     s.model,
@@ -172,11 +176,15 @@ pub(super) async fn list_sessions(
         println!("(no sessions in {})", db.display());
         return Ok(());
     }
+    // #690: 7-column header now includes vertical between model
+    // and spend. `-` for unbound keeps the column compact when
+    // most rows are legacy.
     println!(
-        "  {sid:<38} {prov:<12} {model:<24} {spend:>10} {tools:>5} title",
+        "  {sid:<38} {prov:<12} {model:<24} {vert:<10} {spend:>10} {tools:>5} title",
         sid = "session_id",
         prov = "provider",
         model = "model",
+        vert = "vertical",
         spend = "spend",
         tools = "tools",
     );
@@ -193,11 +201,13 @@ pub(super) async fn list_sessions(
         // TUI session-list marker so `argo session list` and the
         // viewer agree at a glance.
         let marker = if s.ended_at.is_none() { "●" } else { "○" };
+        let vertical = s.vertical_id.as_deref().unwrap_or("-");
         println!(
-            "{marker} {:<38} {:<12} {:<24} {:>10.4} {:>5} {}",
+            "{marker} {:<38} {:<12} {:<24} {:<10} {:>10.4} {:>5} {}",
             s.id.0,
             short(&s.provider, 12),
             short(&s.model, 24),
+            short(vertical, 10),
             spent as f64 / 1_000_000.0,
             tcs,
             s.title.as_deref().unwrap_or("")

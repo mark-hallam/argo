@@ -135,8 +135,11 @@ pub(super) async fn sessions_response(
                     if n == 1 { "" } else { "es" }
                 );
                 if !rows.is_empty() {
-                    out.push_str("| status | session_id | provider | model | spend (USD) | title |\n");
-                    out.push_str("| :---: | --- | --- | --- | ---: | --- |\n");
+                    // #690: vertical column completes the operator
+                    // trifecta (rollup + show + list). Unbound rows
+                    // render as `-` to keep the table compact.
+                    out.push_str("| status | session_id | provider | model | vertical | spend (USD) | title |\n");
+                    out.push_str("| :---: | --- | --- | --- | --- | ---: | --- |\n");
                     for s in &rows {
                         let spent = spend_by_sid
                             .get(s.id.0.as_bytes().as_slice())
@@ -144,8 +147,9 @@ pub(super) async fn sessions_response(
                             .unwrap_or(0);
                         let marker = if s.ended_at.is_none() { "●" } else { "○" };
                         let title = s.title.as_deref().unwrap_or("").replace('|', "\\|");
+                        let vertical = s.vertical_id.as_deref().unwrap_or("-");
                         out.push_str(&format!(
-                            "| {marker} | `{}` | `{}` | `{}` | ${:.4} | {title} |\n",
+                            "| {marker} | `{}` | `{}` | `{}` | `{vertical}` | ${:.4} | {title} |\n",
                             s.id.0,
                             s.provider,
                             s.model,
@@ -162,11 +166,15 @@ pub(super) async fn sessions_response(
                         .get(s.id.0.as_bytes().as_slice())
                         .copied()
                         .unwrap_or(0);
+                    // #690: vertical_id always present (null for
+                    // unbound) so clients don't have to special-case
+                    // a missing key.
                     serde_json::json!({
                         "id": s.id.0.to_string(),
                         "model": s.model,
                         "provider": s.provider,
                         "title": s.title,
+                        "vertical_id": s.vertical_id,
                         "started_at": s.started_at.to_rfc3339(),
                         "ended_at": s.ended_at.map(|d| d.to_rfc3339()),
                         "spent_usd_micros": spent,
