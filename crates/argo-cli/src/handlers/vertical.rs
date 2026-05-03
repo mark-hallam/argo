@@ -26,6 +26,7 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
         VerticalCmd::Show { id, json, format } => show(&id, json, &format).await,
         VerticalCmd::Validate { id, json } => validate(&id, json).await,
         VerticalCmd::Eval { id, json } => super::vertical_eval::run(&id, json).await,
+        VerticalCmd::Lint { id, json } => super::vertical_lint::run(&id, json).await,
         VerticalCmd::Workflow {
             vertical_id,
             workflow_name,

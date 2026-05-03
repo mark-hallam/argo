@@ -122,6 +122,19 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Run best-practice hygiene checks against a vertical
+    /// beyond `validate`'s structural rules (#671). Catches
+    /// orphan escalation entries, typo'd tool names against the
+    /// runtime's built-in set, empty bundles / suites, and
+    /// other things the operator probably didn't mean.
+    Lint {
+        /// The vertical's id.
+        id: String,
+        /// Output as a single JSON object
+        /// `{ok, id, findings:[{severity, code, message}]}`.
+        #[arg(long)]
+        json: bool,
+    },
     /// One-shot "from zero to running vertical" composite (#669).
     /// Creates a fresh session bound to the vertical, attaches
     /// every skill the manifest declares, then runs the named
