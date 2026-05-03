@@ -62,13 +62,21 @@ pub enum VerticalCmd {
     /// `prompt` need an LLM transport and are recorded with
     /// `status="deferred_no_llm"` so the operator can see what
     /// would have run. Capability + per-vertical deny lists are
-    /// enforced.
+    /// enforced. Pass `--session <id>` (#668) to bind the
+    /// workflow's tool calls to an existing session's audit
+    /// chain so `argo audit show --session <id>` shows the
+    /// activity alongside agent turns.
     Workflow {
         /// The vertical's id (`[vertical].id` in `vertical.toml`).
         vertical_id: String,
         /// The workflow's name (`workflow.name` field of the
         /// matching file in `[workflows].files`).
         workflow_name: String,
+        /// Bind the workflow's tool calls to this session's
+        /// audit chain (#668). Same audit shape as the agent
+        /// runner so the chain verifier accepts them.
+        #[arg(long)]
+        session: Option<String>,
         /// Output as a single JSON object
         /// `{vertical_id, workflow, ok, total_ms, steps:[…]}`.
         #[arg(long)]

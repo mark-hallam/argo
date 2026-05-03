@@ -18,14 +18,34 @@
 //! genuinely useful (e.g., "read these three files and tee
 //! them"), and the deferred steps emit clear status so future
 //! PRs can light them up incrementally without re-architecting.
+use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
+use argo_store::SessionStore;
 use argo_tool::{builtin_tools, ToolContext, ToolRegistry};
-use argo_types::{ArgoError, ArgoResult, Principal, ToolCallId};
+use argo_types::{ArgoError, ArgoResult, Principal, SessionId, ToolCallId};
 use argo_vertical::WorkflowStep;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Instant;
+use uuid::Uuid;
 
-pub async fn run(vertical_id: &str, workflow_name: &str, json: bool) -> ArgoResult<()> {
+/// Per-step audit context. When the runner is invoked with a
+/// session id (#668), every dispatched / blocked / paused step
+/// emits the same `ToolCall` / `ToolResult` / `RbacDeny` /
+/// `EscalationRequired` audit rows that the agent runner emits,
+/// so `argo audit show --session <id>` shows workflow activity
+/// alongside agent turns.
+struct WorkflowAuditCtx {
+    audit: AuditSink,
+    session_id: SessionId,
+}
+
+pub async fn run(
+    vertical_id: &str,
+    workflow_name: &str,
+    session_id_str: Option<&str>,
+    json: bool,
+) -> ArgoResult<()> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
     let loaded = registry.get(vertical_id).ok_or_else(|| {
@@ -34,6 +54,14 @@ pub async fn run(vertical_id: &str, workflow_name: &str, json: bool) -> ArgoResu
             dir.display()
         ))
     })?;
+
+    // #668: when --session is passed, build an audit sink so
+    // every dispatched step lands in the session's audit chain
+    // alongside the agent runner's turns.
+    let audit_ctx = match session_id_str {
+        Some(s) => Some(open_audit_ctx(s).await?),
+        None => None,
+    };
 
     // Resolve the workflow by name across the manifest's
     // [workflows].files list.
@@ -79,6 +107,7 @@ pub async fn run(vertical_id: &str, workflow_name: &str, json: bool) -> ArgoResu
             &cwd,
             &denied,
             &needs_approval,
+            audit_ctx.as_ref(),
         )
         .await;
         step_results.push(StepResult {
@@ -206,10 +235,21 @@ async fn run_one_step(
     cwd: &Path,
     denied: &std::collections::HashSet<String>,
     needs_approval: &std::collections::HashSet<String>,
+    audit_ctx: Option<&WorkflowAuditCtx>,
 ) -> StepOutcome {
     match step.kind.as_str() {
         "tool_call" => {
-            run_tool_call_step(step, registry, engine, principal, cwd, denied, needs_approval).await
+            run_tool_call_step(
+                step,
+                registry,
+                engine,
+                principal,
+                cwd,
+                denied,
+                needs_approval,
+                audit_ctx,
+            )
+            .await
         }
         "skill_invoke" => StepOutcome {
             status: "deferred_no_llm".into(),
@@ -237,6 +277,7 @@ async fn run_tool_call_step(
     cwd: &Path,
     denied: &std::collections::HashSet<String>,
     needs_approval: &std::collections::HashSet<String>,
+    audit_ctx: Option<&WorkflowAuditCtx>,
 ) -> StepOutcome {
     let Some(tool_name) = step.tool.as_deref() else {
         return StepOutcome {
@@ -244,10 +285,22 @@ async fn run_tool_call_step(
             message: "tool_call step missing `tool` field".into(),
         };
     };
-    // Deny-wins (#655): denied tools are blocked even if
-    // [escalation] would have asked for approval — a manifest
-    // declaring both still gets the harder boundary.
+    let call_id = ToolCallId::new();
+
+    // Deny-wins (#655) — emit RbacDeny when bound to a session
+    // so the chain is identical to the agent runner's deny path.
     if denied.contains(tool_name) {
+        emit_audit(
+            audit_ctx,
+            AuditKind::RbacDeny,
+            serde_json::json!({
+                "tool": tool_name,
+                "call_id": call_id,
+                "denied_by": "vertical_manifest",
+                "source": "workflow_runner",
+            }),
+        )
+        .await;
         return StepOutcome {
             status: "denied_by_vertical".into(),
             message: format!(
@@ -255,12 +308,21 @@ async fn run_tool_call_step(
             ),
         };
     }
-    // Approval gate (#660): tools listed in
-    // [escalation].human_approval_required pause here. The
-    // runner records a clean `escalation_required` outcome with
-    // the tool + args so the operator can decide. Non-zero
-    // workflow exit so CI surfaces the pause.
+    // Approval gate (#660) — emit EscalationRequired when bound
+    // to a session so an operator can correlate with the
+    // approve/revoke audit kinds.
     if needs_approval.contains(tool_name) {
+        emit_audit(
+            audit_ctx,
+            AuditKind::EscalationRequired,
+            serde_json::json!({
+                "tool": tool_name,
+                "call_id": call_id,
+                "reason": "human_approval_required",
+                "source": "workflow_runner",
+            }),
+        )
+        .await;
         return StepOutcome {
             status: "escalation_required".into(),
             message: format!(
@@ -268,10 +330,38 @@ async fn run_tool_call_step(
             ),
         };
     }
+    // Emit ToolCall before dispatch + ToolResult after, mirroring
+    // the agent runner's per-call audit shape.
+    emit_audit(
+        audit_ctx,
+        AuditKind::ToolCall,
+        serde_json::json!({
+            "tool": tool_name,
+            "call_id": call_id,
+            "source": "workflow_runner",
+        }),
+    )
+    .await;
     let args = step.args.clone().unwrap_or(serde_json::Value::Null);
     let mut ctx = ToolContext::new(principal.clone(), cwd.to_path_buf());
-    ctx.call_id = ToolCallId::new();
+    ctx.call_id = call_id;
     let result = registry.dispatch(tool_name, args, &ctx, engine).await;
+    let (is_error, duration_ms) = match &result {
+        Ok(r) => (r.is_error, r.duration_ms),
+        Err(_) => (true, 0),
+    };
+    emit_audit(
+        audit_ctx,
+        AuditKind::ToolResult,
+        serde_json::json!({
+            "tool": tool_name,
+            "call_id": call_id,
+            "is_error": is_error,
+            "duration_ms": duration_ms,
+            "source": "workflow_runner",
+        }),
+    )
+    .await;
     match result {
         Ok(r) if r.is_error => StepOutcome {
             status: "failed".into(),
@@ -286,6 +376,46 @@ async fn run_tool_call_step(
             message: format!("dispatch '{tool_name}' errored: {e}"),
         },
     }
+}
+
+async fn emit_audit(
+    audit_ctx: Option<&WorkflowAuditCtx>,
+    kind: AuditKind,
+    payload: serde_json::Value,
+) {
+    let Some(ctx) = audit_ctx else {
+        return;
+    };
+    // Best-effort — a failed audit write must not abort the
+    // workflow. The chain verifier will flag any breaks.
+    let _ = ctx.audit.write(Some(ctx.session_id), kind, payload).await;
+}
+
+async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowAuditCtx> {
+    use crate::home::{db_path, ensure_dir, resolve_home};
+    let cwd = std::env::current_dir()
+        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home).to_string_lossy().as_ref()).await?;
+    store.migrate().await?;
+    let store = Arc::new(store);
+    let uuid = Uuid::parse_str(session_id_str).map_err(|e| {
+        ArgoError::Provider(format!(
+            "invalid session id '{session_id_str}': {e}"
+        ))
+    })?;
+    let sid = SessionId(uuid);
+    if store.get_session(sid).await?.is_none() {
+        return Err(ArgoError::Provider(format!(
+            "no session with id '{session_id_str}'"
+        )));
+    }
+    let audit = AuditSink::new(store);
+    Ok(WorkflowAuditCtx {
+        audit,
+        session_id: sid,
+    })
 }
 
 fn tool_result_message(r: &argo_types::ToolCallResult) -> String {
