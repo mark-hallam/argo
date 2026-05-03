@@ -23,6 +23,7 @@
 mod parse;
 mod skill;
 mod store;
+mod store_vertical;
 
 #[cfg(test)]
 mod tests;

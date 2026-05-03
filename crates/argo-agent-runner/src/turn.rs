@@ -144,6 +144,7 @@ pub async fn run_turn_with_events(
         stream,
         events,
         vertical_ctx.as_deref(),
+        session.vertical_id.as_deref(),
         &vertical_deny,
         &vertical_approval,
         session_grants,
@@ -175,6 +176,7 @@ async fn run_turn_with_tools(
     stream: bool,
     events: Option<&RunEventSink>,
     vertical_prompt: Option<&str>,
+    vertical_scope: Option<&str>,
     vertical_deny: &std::collections::HashSet<String>,
     vertical_approval: &std::collections::HashSet<String>,
     session_grants: SessionGrantState,
@@ -182,7 +184,14 @@ async fn run_turn_with_tools(
     let mut session_grants = session_grants;
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
-    let mut system_prompt = build_system_prompt(store, session_id).await?;
+    // The vertical_id flows in via the parent `run_turn` call
+    // through `vertical_prompt` (when set) — but build_system_prompt
+    // needs the raw id, not the prompt body. The agent-runner's
+    // ergonomic seam: when we have a `vertical_prompt`, use the
+    // explicitly threaded `vertical_scope` value (id-only, no
+    // file content). Both come from the same session.vertical_id.
+    let mut system_prompt = build_system_prompt(store, session_id, vertical_scope)
+        .await?;
     // Vertical-bound session: prepend the vertical's
     // [role].system_prompt content so it lands ahead of skill-
     // derived guidance (#654). Falls through cleanly when the
@@ -379,17 +388,25 @@ async fn run_turn_with_tools(
 /// Resolution order:
 /// 1. If `session_skill` rows exist for `session_id`, use *only*
 ///    those skills (per-session curation, #279).
-/// 2. Otherwise fall back to every active row in the workspace.
+/// 2. Otherwise, when `vertical_id` is bound (#679 — Rule 6),
+///    fall back to skills scoped to that vertical
+///    (`SkillStore::list_skills_for_vertical`). Cross-vertical
+///    skill bleed-through is blocked at this layer.
+/// 3. Otherwise (unbound legacy session), fall back to every
+///    active row in the workspace.
 async fn build_system_prompt(
     store: &Arc<SessionStore>,
     session_id: SessionId,
+    vertical_id: Option<&str>,
 ) -> ArgoResult<Option<String>> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let attached = skills.skills_for_session(session_id).await?;
-    let active = if attached.is_empty() {
-        skills.list_active().await?
-    } else {
+    let active = if !attached.is_empty() {
         attached
+    } else if let Some(vid) = vertical_id {
+        skills.list_skills_for_vertical(vid).await?
+    } else {
+        skills.list_active().await?
     };
     if active.is_empty() {
         return Ok(None);
@@ -415,76 +432,7 @@ async fn build_system_prompt(
     Ok(Some(out))
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_store::SessionStore;
-
-    #[tokio::test]
-    async fn build_system_prompt_returns_none_for_empty_workspace() {
-        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
-        store.migrate().await.unwrap();
-        let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()))
-            .await
-            .unwrap();
-        assert!(prompt.is_none());
-    }
-
-    #[tokio::test]
-    async fn build_system_prompt_concatenates_active_skills() {
-        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
-        store.migrate().await.unwrap();
-        let skills = argo_skill::SkillStore::new(Arc::clone(&store));
-        let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
-                   lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
-        skills.install(raw, None).await.unwrap();
-        let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()))
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(prompt.contains("## alpha (v0.1)"));
-        assert!(prompt.contains("body-of-alpha"));
-        assert!(prompt.starts_with("You have access to"));
-    }
-
-    #[tokio::test]
-    async fn build_system_prompt_honours_per_session_attachments() {
-        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
-        store.migrate().await.unwrap();
-        let (tenant, ws) = store.ensure_workspace("ws", "/tmp/sa").await.unwrap();
-        let sid = store
-            .create_session(tenant, ws, "m", "p", Some("t"), None)
-            .await
-            .unwrap();
-
-        let skills = argo_skill::SkillStore::new(Arc::clone(&store));
-        let raw_a = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
-                     lock: none\nprovenance:\n  source: x\n  hash: sha256-x\n---\nbody-A";
-        let raw_b = "---\nname: beta\nversion: \"0.1\"\ndescription: D\n\
-                     lock: none\nprovenance:\n  source: x\n  hash: sha256-x\n---\nbody-B";
-        let _alpha = skills.install(raw_a, None).await.unwrap();
-        let beta = skills.install(raw_b, None).await.unwrap();
-
-        // Default behaviour: both active skills are in scope.
-        let prompt_default = build_system_prompt(&store, sid).await.unwrap().unwrap();
-        assert!(prompt_default.contains("body-A"));
-        assert!(prompt_default.contains("body-B"));
-
-        // Attach only beta — alpha should now drop out.
-        skills.attach_to_session(sid, beta.id).await.unwrap();
-        let prompt_curated = build_system_prompt(&store, sid).await.unwrap().unwrap();
-        assert!(prompt_curated.contains("body-B"));
-        assert!(!prompt_curated.contains("body-A"));
-
-        // Detach: falls back to all-active.
-        let removed = skills.detach_from_session(sid, beta.id).await.unwrap();
-        assert_eq!(removed, 1);
-        let prompt_after = build_system_prompt(&store, sid).await.unwrap().unwrap();
-        assert!(prompt_after.contains("body-A"));
-        assert!(prompt_after.contains("body-B"));
-    }
-
-    // Vertical-related unit tests live in `turn_vertical.rs`
-    // since the helpers were extracted there to keep this file
-    // under the 500-LOC budget (#654).
-}
+#[path = "turn_tests.rs"]
+mod tests;

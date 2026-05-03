@@ -35,27 +35,6 @@ impl SkillStore {
         self.install_for_vertical(raw, learned_in, None).await
     }
 
-    /// Install a skill, tagging it with the vertical that
-    /// bundled it (#678). Used by
-    /// `vertical_attach::install_and_attach_bundle` so per-
-    /// vertical skill lookups can scope correctly.
-    pub async fn install_for_vertical(
-        &self,
-        raw: &str,
-        learned_in: Option<SessionId>,
-        vertical_id: Option<&str>,
-    ) -> ArgoResult<Skill> {
-        let (frontmatter, body) = parse_skill_md(raw)?;
-        let existing = self.find_active_by_name(&frontmatter.name).await?;
-        if existing.is_some() {
-            return Err(ArgoError::Schema(format!(
-                "skill '{}' already installed; use supersede() to bump",
-                frontmatter.name
-            )));
-        }
-        self.insert_row(frontmatter, body, learned_in, vertical_id).await
-    }
-
     /// Replace the active version of `name` with a new `SKILL.md`. The new
     /// frontmatter MUST carry the same `name`.
     ///
@@ -316,7 +295,14 @@ impl SkillStore {
         rows.into_iter().map(Skill::try_from).collect()
     }
 
-    async fn insert_row(
+    /// Pool accessor for sibling-impl modules (e.g.
+    /// `store_vertical.rs`). Pub(crate) — not part of the
+    /// public API.
+    pub(crate) fn pool(&self) -> &sqlx::Pool<sqlx::Sqlite> {
+        self.store.pool()
+    }
+
+    pub(crate) async fn insert_row(
         &self,
         mut frontmatter: SkillFrontmatter,
         body: String,
@@ -361,28 +347,6 @@ impl SkillStore {
         })
     }
 
-    /// List skills bundled by a specific vertical (#678). Returns
-    /// only rows where `skill.vertical_id = ?` AND not superseded.
-    /// Used by per-vertical skill discovery + by lint to confirm
-    /// the bundled skill set.
-    pub async fn list_skills_bundled_by_vertical(
-        &self,
-        vertical_id: &str,
-    ) -> ArgoResult<Vec<Skill>> {
-        let rows: Vec<RawSkill> = sqlx::query_as::<_, RawSkill>(
-            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
-                    s.learned_in, s.superseded_by, s.created_at, l.lock, \
-                    s.vertical_id \
-             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
-             WHERE s.vertical_id = ? AND s.superseded_by IS NULL \
-             ORDER BY s.created_at ASC",
-        )
-        .bind(vertical_id)
-        .fetch_all(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("list_skills_bundled_by_vertical: {e}")))?;
-        rows.into_iter().map(Skill::try_from).collect()
-    }
 }
 
 fn sha256(body: &str) -> [u8; 32] {
@@ -395,21 +359,21 @@ fn sha256(body: &str) -> [u8; 32] {
 }
 
 #[derive(sqlx::FromRow)]
-struct RawSkill {
-    id: Vec<u8>,
-    name: String,
+pub(crate) struct RawSkill {
+    pub(crate) id: Vec<u8>,
+    pub(crate) name: String,
     #[allow(dead_code)]
-    version: String,
-    body: String,
-    frontmatter: String,
+    pub(crate) version: String,
+    pub(crate) body: String,
+    pub(crate) frontmatter: String,
     #[allow(dead_code)]
-    source: String,
-    hash: Vec<u8>,
-    learned_in: Option<Vec<u8>>,
-    superseded_by: Option<Vec<u8>>,
-    created_at: i64,
-    lock: Option<String>,
-    vertical_id: Option<String>,
+    pub(crate) source: String,
+    pub(crate) hash: Vec<u8>,
+    pub(crate) learned_in: Option<Vec<u8>>,
+    pub(crate) superseded_by: Option<Vec<u8>>,
+    pub(crate) created_at: i64,
+    pub(crate) lock: Option<String>,
+    pub(crate) vertical_id: Option<String>,
 }
 
 impl TryFrom<RawSkill> for Skill {

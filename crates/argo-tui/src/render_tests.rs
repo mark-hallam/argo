@@ -177,6 +177,7 @@ fn skills_overlay_renders_active_skills() {
         learned_in: None,
         superseded_by: None,
         created_at: Utc::now(),
+        vertical_id: None,
     }]);
     let frame = render_to_strings(&state);
     assert!(frame.contains("active skills (1)"));
