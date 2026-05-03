@@ -26,6 +26,7 @@ pub async fn run(
     json: bool,
     score: bool,
     actuals: Option<&str>,
+    judge: Option<&str>,
 ) -> ArgoResult<()> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
@@ -39,11 +40,16 @@ pub async fn run(
     if score {
         // Scored mode lives in a sibling file so this one stays
         // under the 500-LOC budget as more rule logic lands.
-        return super::vertical_eval_score::run_scored(id, loaded, json, actuals).await;
+        return super::vertical_eval_score::run_scored(id, loaded, json, actuals, judge).await;
     }
     if actuals.is_some() {
         return Err(ArgoError::Provider(
             "--actuals requires --score (it has no effect on the structural validator)".into(),
+        ));
+    }
+    if judge.is_some() {
+        return Err(ArgoError::Provider(
+            "--judge requires --score (it has no effect on the structural validator)".into(),
         ));
     }
 

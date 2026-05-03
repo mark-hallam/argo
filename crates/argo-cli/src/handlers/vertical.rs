@@ -30,7 +30,17 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
             json,
             score,
             actuals,
-        } => super::vertical_eval::run(&id, json, score, actuals.as_deref()).await,
+            judge,
+        } => {
+            super::vertical_eval::run(
+                &id,
+                json,
+                score,
+                actuals.as_deref(),
+                judge.as_deref(),
+            )
+            .await
+        }
         VerticalCmd::Lint { id, json } => super::vertical_lint::run(&id, json).await,
         VerticalCmd::Doctor { id, json } => super::vertical_doctor::run(&id, json).await,
         VerticalCmd::Pack {

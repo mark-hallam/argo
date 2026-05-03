@@ -83,6 +83,17 @@ pub enum VerticalCmd {
         /// ids that don't match any fixture.
         #[arg(long)]
         actuals: Option<String>,
+        /// Optional judge layer (#698). Off by default — without
+        /// this flag, scoring is purely rule-based. Two modes:
+        /// `--judge heuristic` aggregates the rule check
+        /// outcomes into one verdict per fixture (no LLM, no
+        /// API key); `--judge <provider>/<model>` is the seam
+        /// for a live LLM judge — the wiring lands in PR #698b
+        /// (today the verdict carries a `not_yet_wired` reason
+        /// that mirrors the rule-engine outcome). Ignored
+        /// without `--score`. Reject empty / malformed specs.
+        #[arg(long)]
+        judge: Option<String>,
     },
     /// Run a named workflow declared by a vertical (#659). Walks
     /// the workflow's steps in declaration order. Today only

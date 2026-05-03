@@ -38,18 +38,25 @@
 //! yet" — a coverage warning, not a regression).
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{
-    parse_actuals_jsonl, score_suite_jsonl, score_suite_jsonl_with_actuals, ActualsMap,
-    FixtureStatus, LoadedVertical, SuiteScore,
+    judge_fixture, parse_actuals_jsonl, parse_judge_spec, score_suite_jsonl,
+    score_suite_jsonl_with_actuals, ActualsMap, FixtureStatus, JudgePolicy, JudgeVerdict,
+    LoadedVertical, SuiteScore,
 };
 
 /// One suite's outcome bundle: relative path, the score rollup,
-/// any per-suite IO errors, and the unknown-id warning list (for
-/// suites that were scored against an external actuals file).
+/// any per-suite IO errors, the unknown-id warning list (for
+/// suites scored against an external actuals file), and an
+/// optional per-fixture judge verdict map (#698).
 struct SuiteOutcome {
     path: String,
     score: SuiteScore,
     errors: Vec<String>,
     unknown_actual_ids: Vec<String>,
+    /// Indexed parallel to `score.fixtures`. `None` when no
+    /// judge was configured (`--judge` not set) or the fixture
+    /// wasn't scored (no actual). Always-present + always
+    /// `Some` for `Scored` fixtures when a judge is active.
+    judge_verdicts: Vec<Option<JudgeVerdict>>,
 }
 
 pub(super) async fn run_scored(
@@ -57,7 +64,14 @@ pub(super) async fn run_scored(
     loaded: &LoadedVertical,
     json: bool,
     actuals_path: Option<&str>,
+    judge_spec: Option<&str>,
 ) -> ArgoResult<()> {
+    // Parse the judge spec up front so a malformed value fails
+    // loudly before any IO. None = no judge (default).
+    let judge_policy: Option<JudgePolicy> = match judge_spec {
+        Some(spec) => Some(parse_judge_spec(spec).map_err(ArgoError::Provider)?),
+        None => None,
+    };
     // Load the actuals map up front. Failures here abort the
     // run — a bad actuals file means scoring would silently
     // miss rows, which defeats the point of the file.
@@ -87,6 +101,7 @@ pub(super) async fn run_scored(
                     score: score_suite_jsonl(""),
                     errors,
                     unknown_actual_ids: Vec::new(),
+                    judge_verdicts: Vec::new(),
                 });
                 any_failure = true;
                 continue;
@@ -96,7 +111,27 @@ pub(super) async fn run_scored(
             Some(map) => score_suite_jsonl_with_actuals(&body, map),
             None => (score_suite_jsonl(&body), Vec::new()),
         };
-        if score.failed > 0 || score.malformed > 0 {
+        // #698: per-fixture judge pass — only for Scored
+        // fixtures (no_actual / malformed don't get judged).
+        // When the judge says "fail" but the rule engine said
+        // "pass", we DO flip the suite to failure so the
+        // operator sees the disagreement; symmetrically a judge
+        // "pass" never rescues a rule-engine fail.
+        let judge_verdicts: Vec<Option<JudgeVerdict>> = match &judge_policy {
+            None => score.fixtures.iter().map(|_| None).collect(),
+            Some(policy) => score
+                .fixtures
+                .iter()
+                .map(|fx| match fx.status {
+                    FixtureStatus::Scored => Some(judge_fixture(policy, fx)),
+                    _ => None,
+                })
+                .collect(),
+        };
+        let judge_failed = judge_verdicts
+            .iter()
+            .any(|v| matches!(v, Some(jv) if !jv.passed));
+        if score.failed > 0 || score.malformed > 0 || judge_failed {
             any_failure = true;
         }
         per_suite.push(SuiteOutcome {
@@ -104,6 +139,7 @@ pub(super) async fn run_scored(
             score,
             errors,
             unknown_actual_ids: unknown_ids,
+            judge_verdicts,
         });
     }
 
@@ -146,6 +182,28 @@ fn emit_json(id: &str, per_suite: &[SuiteOutcome], ok: bool) {
     let suites_json: Vec<serde_json::Value> = per_suite
         .iter()
         .map(|o| {
+            // #698: pair each fixture with its (optional) judge
+            // verdict by index. Skip-if-none in the JSON so
+            // unscored mode JSON shape stays unchanged.
+            let fixtures_json: Vec<serde_json::Value> = o
+                .score
+                .fixtures
+                .iter()
+                .zip(o.judge_verdicts.iter())
+                .map(|(fx, jv)| {
+                    let mut v = serde_json::to_value(fx).unwrap_or_else(|_| serde_json::json!({}));
+                    if let Some(verdict) = jv {
+                        if let Some(obj) = v.as_object_mut() {
+                            obj.insert(
+                                "judge".to_string(),
+                                serde_json::to_value(verdict)
+                                    .unwrap_or_else(|_| serde_json::Value::Null),
+                            );
+                        }
+                    }
+                    v
+                })
+                .collect();
             serde_json::json!({
                 "path": o.path,
                 "fixture_count": o.score.fixture_count,
@@ -156,7 +214,7 @@ fn emit_json(id: &str, per_suite: &[SuiteOutcome], ok: bool) {
                 "failed": o.score.failed,
                 "pass_rate": round3(o.score.pass_rate),
                 "unknown_actual_ids": &o.unknown_actual_ids,
-                "fixtures": &o.score.fixtures,
+                "fixtures": fixtures_json,
                 "errors": &o.errors,
             })
         })
@@ -210,16 +268,21 @@ fn emit_text(id: &str, per_suite: &[SuiteOutcome]) {
                 ids.join(", ")
             );
         }
-        for fx in &o.score.fixtures {
+        for (fx, jv) in o.score.fixtures.iter().zip(o.judge_verdicts.iter()) {
             if !matches!(fx.status, FixtureStatus::Scored) {
                 continue;
             }
-            if fx.passed {
+            let judge_failed = matches!(jv, Some(v) if !v.passed);
+            if fx.passed && !judge_failed {
                 continue;
             }
             println!("        FAIL `{}`:", fx.id);
             for r in &fx.fail_reasons {
                 println!("          - {r}");
+            }
+            if let Some(v) = jv {
+                let marker = if v.passed { "ok" } else { "FAIL" };
+                println!("          - judge[{marker}] ({}): {}", v.source, v.reason);
             }
         }
     }
