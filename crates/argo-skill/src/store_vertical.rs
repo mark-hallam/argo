@@ -188,6 +188,28 @@ impl SkillStore {
     }
 }
 
+impl SkillStore {
+    /// List skills awaiting human review (#684 — driven by
+    /// `argo skill review list`). Returns rows in `pending_review`
+    /// AND `superseded_by IS NULL`. Empty when the queue is
+    /// drained.
+    pub async fn list_pending_review(&self) -> ArgoResult<Vec<Skill>> {
+        let rows = sqlx::query_as::<_, crate::store::RawSkill>(
+            "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
+                    s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
+                    s.lifecycle_state \
+             FROM skill s LEFT JOIN skill_lock l ON l.skill_id = s.id \
+             WHERE s.superseded_by IS NULL \
+               AND s.lifecycle_state = 'pending_review' \
+             ORDER BY s.created_at ASC",
+        )
+        .fetch_all(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("list_pending_review: {e}")))?;
+        rows.into_iter().map(Skill::try_from).collect()
+    }
+}
+
 fn is_legal_transition(from: LifecycleState, to: LifecycleState) -> bool {
     use LifecycleState::*;
     matches!(

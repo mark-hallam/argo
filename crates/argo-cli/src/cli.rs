@@ -16,6 +16,8 @@ mod cli_messages_cmds;
 mod cli_vertical_cmds;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
+#[path = "cli_skill_review_cmds.rs"]
+mod cli_skill_review_cmds;
 #[path = "cli_workspace_cmds.rs"]
 pub(crate) mod cli_workspace_cmds;
 pub use cli_session_cmds::*;

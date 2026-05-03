@@ -204,6 +204,15 @@ pub enum SkillCmd {
         #[arg(long = "new-version", default_value = "0.1")]
         new_version: String,
     },
+    /// Drive the learned-skill review gate (#681 lifecycle):
+    /// list pending proposals + approve / reject them. Without
+    /// this surface the lifecycle gate is theoretical — agents
+    /// can propose skills via `propose_for_review`, but
+    /// operators have no way to act on the queue.
+    Review {
+        #[command(subcommand)]
+        cmd: SkillReviewCmd,
+    },
     /// Append a hint to the active skill's body and supersede it
     /// with a fresh version. Manual mutator — the score-driven
     /// version (run bench, accept only when the new score wins)
@@ -457,4 +466,8 @@ pub enum AuditCmd {
 // 500-LOC budget. Re-exported via `cli.rs` so callers don't
 // need to know the new path.
 pub use super::cli_workspace_cmds::{CostsCmd, DbCmd, WorkspaceCmd};
+
+// `SkillReviewCmd` (#684) lives in `cli_skill_review_cmds.rs`
+// to keep this file under the 500-LOC budget.
+pub use super::cli_skill_review_cmds::SkillReviewCmd;
 

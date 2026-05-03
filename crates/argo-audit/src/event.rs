@@ -74,6 +74,15 @@ pub enum AuditKind {
     /// policy — it only records the signal so a human (or the
     /// learned-skill review gate, #681) can decide what to do.
     CapabilityGap,
+    /// A learned skill in `pending_review` was promoted to
+    /// `active` by a human reviewer (#684). Distinct from
+    /// `ApprovalGranted` (which is for tool capability grants).
+    /// Payload: `{skill_id, name, vertical_id?}`.
+    SkillApproved,
+    /// A learned skill in `pending_review` was rejected by a
+    /// human reviewer (#684). The skill row stays in the table
+    /// for audit but the lookup never returns it.
+    SkillRejected,
 }
 
 impl AuditKind {
@@ -103,6 +112,8 @@ impl AuditKind {
             Self::ApprovalRevoked => "approval.revoked",
             Self::ApprovalConsumed => "approval.consumed",
             Self::CapabilityGap => "capability.gap",
+            Self::SkillApproved => "skill.approved",
+            Self::SkillRejected => "skill.rejected",
         }
     }
 
@@ -134,6 +145,8 @@ impl AuditKind {
             "approval.revoked" => Self::ApprovalRevoked,
             "approval.consumed" => Self::ApprovalConsumed,
             "capability.gap" => Self::CapabilityGap,
+            "skill.approved" => Self::SkillApproved,
+            "skill.rejected" => Self::SkillRejected,
             _ => return None,
         })
     }
@@ -158,11 +171,12 @@ impl AuditKind {
     }
 
     /// `true` for kinds added by the vertical-template surface
-    /// (Phase 6+). Today five: `EscalationRequired` (#660 gate),
+    /// (Phase 6+). Today seven: `EscalationRequired` (#660 gate),
     /// `ApprovalGranted` (#664 grant), `ApprovalRevoked` (#664
     /// revoke), `ApprovalConsumed` (#667 one-shot dispatch),
-    /// `CapabilityGap` (#682 detection). The gateway / CLI
-    /// rollups treat these the same as any other audit kind.
+    /// `CapabilityGap` (#682 detection), `SkillApproved` (#684),
+    /// `SkillRejected` (#684). The gateway / CLI rollups treat
+    /// these the same as any other audit kind.
     #[must_use]
     pub fn is_vertical(self) -> bool {
         matches!(
@@ -172,6 +186,8 @@ impl AuditKind {
                 | Self::ApprovalRevoked
                 | Self::ApprovalConsumed
                 | Self::CapabilityGap
+                | Self::SkillApproved
+                | Self::SkillRejected
         )
     }
 
@@ -202,6 +218,8 @@ impl AuditKind {
             Self::ApprovalRevoked,
             Self::ApprovalConsumed,
             Self::CapabilityGap,
+            Self::SkillApproved,
+            Self::SkillRejected,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -290,5 +308,21 @@ mod tests {
         assert!(!kind.is_v02());
         let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
         assert!(labels.contains(&"capability.gap"));
+    }
+
+    #[test]
+    fn skill_review_kinds_round_trip_and_are_vertical() {
+        for (label, kind) in [
+            ("skill.approved", AuditKind::SkillApproved),
+            ("skill.rejected", AuditKind::SkillRejected),
+        ] {
+            assert_eq!(AuditKind::from_label(label), Some(kind));
+            assert_eq!(kind.label(), label);
+            assert!(kind.is_vertical());
+            assert!(!kind.is_v02());
+        }
+        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+        assert!(labels.contains(&"skill.approved"));
+        assert!(labels.contains(&"skill.rejected"));
     }
 }

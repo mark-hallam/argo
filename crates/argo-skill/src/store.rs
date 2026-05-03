@@ -308,6 +308,16 @@ impl SkillStore {
         self.store.pool()
     }
 
+    /// Get a clone of the underlying session-store Arc — used
+    /// by callers that need to construct related stores
+    /// (e.g. `AuditSink`) over the same database connection.
+    /// Public so the CLI's `argo skill review` can emit audit
+    /// rows alongside lifecycle transitions (#684).
+    #[must_use]
+    pub fn store_arc(&self) -> Arc<argo_store::SessionStore> {
+        Arc::clone(&self.store)
+    }
+
     pub(crate) async fn insert_row(
         &self,
         frontmatter: SkillFrontmatter,

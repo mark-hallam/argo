@@ -58,6 +58,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::Refine { name, hint, new_version } => {
             refine(&skills, &name, &hint, new_version.as_deref()).await
         }
+        SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
         SkillCmd::Create {
             name,
             description,

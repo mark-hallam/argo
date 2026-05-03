@@ -81,6 +81,7 @@ mod session_search;
 mod session_skills;
 mod session_watch;
 pub mod skill;
+pub mod skill_review;
 pub mod steer;
 pub mod trace;
 pub mod tools;
