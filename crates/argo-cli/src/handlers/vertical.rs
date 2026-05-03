@@ -31,6 +31,18 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
             workflow_name,
             json,
         } => super::vertical_workflow::run(&vertical_id, &workflow_name, json).await,
+        VerticalCmd::Install {
+            source,
+            target,
+            force,
+            json,
+        } => super::vertical_install::install(&source, target.as_deref(), force, json).await,
+        VerticalCmd::Uninstall {
+            id,
+            target,
+            yes,
+            json,
+        } => super::vertical_install::uninstall(&id, target.as_deref(), yes, json).await,
     }
 }
 

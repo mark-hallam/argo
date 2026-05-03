@@ -74,4 +74,44 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Install a vertical from a source directory into the
+    /// discovery dir (#661). Validates the source manifest first,
+    /// then copies the whole tree to `<target>/<vertical-id>/`.
+    /// Refuses to overwrite an existing vertical unless `--force`
+    /// is passed.
+    Install {
+        /// Path to the source directory containing `vertical.toml`.
+        source: String,
+        /// Target verticals dir. Defaults to
+        /// `argo_vertical::default_dir()` (i.e., `./verticals`
+        /// or `$ARGO_VERTICALS_DIR`).
+        #[arg(long)]
+        target: Option<String>,
+        /// Replace an existing installation of the same id.
+        #[arg(long)]
+        force: bool,
+        /// Output as a single JSON object
+        /// `{ok, id, name, version, root}`.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Remove an installed vertical from the discovery dir
+    /// (#661). Refuses by default unless `--yes` is passed; this
+    /// is a destructive on-disk operation so the confirmation is
+    /// the safety boundary.
+    Uninstall {
+        /// The vertical's id.
+        id: String,
+        /// Target verticals dir. Defaults to
+        /// `argo_vertical::default_dir()`.
+        #[arg(long)]
+        target: Option<String>,
+        /// Confirm the deletion. Without this flag the command
+        /// prints what would happen and exits non-zero.
+        #[arg(long)]
+        yes: bool,
+        /// Output as a single JSON object `{ok, id, removed_path}`.
+        #[arg(long)]
+        json: bool,
+    },
 }
