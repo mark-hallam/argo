@@ -176,6 +176,67 @@ async fn judge_all_fixtures_handles_input_id_mismatch_as_no_judge() {
     assert_eq!(backend.prompts_seen().len(), 0);
 }
 
+// ---- temperature policy regression (#701 hotfix) ---------------
+
+#[test]
+fn judge_temperature_for_thinking_mode_is_one_not_zero() {
+    // Anthropic rejects requests with `temperature != 1` when
+    // `thinking` is enabled (HTTP 400: "temperature may only
+    // be set to 1 when thinking is enabled"). The shipped
+    // anthropic.toml manifest enables thinking via the
+    // send-thinking-blocks quirk, so the live judge MUST send
+    // 1.0 — regression-locked here so a future edit can't
+    // silently re-introduce the 0.0 default.
+    assert_eq!(
+        judge_temperature_for(true),
+        1.0,
+        "thinking-mode requires temperature=1.0 to satisfy Anthropic's API contract"
+    );
+    // Symmetric: when thinking is OFF, deterministic 0.0 is
+    // the right pick so verdicts are stable across runs.
+    assert_eq!(judge_temperature_for(false), 0.0);
+    // Belt-and-braces: never accidentally re-introduce 0.0 in
+    // the thinking branch.
+    assert_ne!(
+        judge_temperature_for(true),
+        0.0,
+        "regression guard: temperature=0.0 in thinking-mode triggers HTTP 400"
+    );
+}
+
+#[test]
+fn shipped_anthropic_manifest_enables_thinking_so_temperature_must_be_one() {
+    // End-to-end regression lock: the manifest the live
+    // judge ACTUALLY loads in production
+    // (`manifests/providers/anthropic.toml`) has
+    // send-thinking-blocks=true, and our temperature policy
+    // must recognise that and pick 1.0. If a future edit
+    // changes either side, this test fails fast with a
+    // pointer to the constraint.
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root");
+    let body = std::fs::read_to_string(
+        workspace_root.join("manifests/providers/anthropic.toml"),
+    )
+    .expect("shipped anthropic manifest readable from workspace root");
+    let m = argo_provider::ProviderManifest::from_toml_str(&body)
+        .expect("shipped manifest parses");
+    let thinking = manifest_enables_thinking(&m);
+    assert!(
+        thinking,
+        "shipped anthropic.toml must enable thinking — without it the constraint flips and \
+         this test no longer guards anything; if the manifest changes intentionally, update \
+         this test to mirror the new policy."
+    );
+    assert_eq!(
+        judge_temperature_for(thinking),
+        1.0,
+        "temperature picked from shipped manifest must be 1.0 — anything else 400s in production"
+    );
+}
+
 #[test]
 fn build_anthropic_backend_errors_clearly_when_manifest_missing() {
     // When the cwd doesn't have `manifests/providers/<id>.toml`,

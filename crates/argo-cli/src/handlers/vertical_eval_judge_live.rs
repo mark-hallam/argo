@@ -94,21 +94,66 @@ pub(super) fn build_anthropic_backend(
              offline run."
         ))
     })?;
+    // Detect Anthropic extended-thinking mode BEFORE the
+    // manifest is consumed by the transport. Anthropic rejects
+    // requests with `temperature != 1` when `thinking` is
+    // enabled (HTTP 400: "temperature may only be set to 1
+    // when thinking is enabled"). The shipped
+    // `manifests/providers/anthropic.toml` carries
+    // `[quirks].send-thinking-blocks = true`, so this MUST
+    // honour the constraint or every live judge call 400s.
+    let thinking_enabled = manifest_enables_thinking(&manifest);
     let transport = AnthropicTransport::from_manifest(manifest, &api_key)?;
     Ok(AnthropicJudgeBackend {
         transport: Arc::new(transport),
         model: model.to_string(),
         provider_id: provider_id.to_string(),
+        thinking_enabled,
     })
 }
 
+/// Read the manifest's `[quirks].send-thinking-blocks` flag.
+/// `true` means the transport will inject the `thinking` block
+/// into every request — and Anthropic requires `temperature=1`
+/// in that case. Pure inspector — no IO; lets the temperature-
+/// selection helper stay testable.
+pub(super) fn manifest_enables_thinking(manifest: &ProviderManifest) -> bool {
+    matches!(
+        manifest.quirks.get("send-thinking-blocks"),
+        Some(toml::Value::Boolean(true))
+    )
+}
+
+/// Pick the temperature for an Anthropic live judge request.
+/// Pure: no IO, no provider state, just policy.
+///
+/// - `thinking_enabled = true` → `1.0` (Anthropic constraint;
+///   any other value triggers HTTP 400 "temperature may only be
+///   set to 1 when thinking is enabled").
+/// - `thinking_enabled = false` → `0.0` (deterministic verdicts
+///   for the same fixture across runs).
+#[must_use]
+pub(super) fn judge_temperature_for(thinking_enabled: bool) -> f32 {
+    if thinking_enabled {
+        1.0
+    } else {
+        0.0
+    }
+}
+
 /// Production Anthropic backend. Wraps an `AnthropicTransport`
-/// and a model id. `source()` returns `live:<provider>/<model>`
-/// so the verdict's audit trail names the exact model.
+/// + the model id + the cached thinking-mode flag. `source()`
+/// returns `live:<provider>/<model>` so the verdict's audit
+/// trail names the exact model.
 pub(super) struct AnthropicJudgeBackend {
     transport: Arc<AnthropicTransport>,
     model: String,
     provider_id: String,
+    /// Cached at construction time from the manifest's
+    /// `[quirks].send-thinking-blocks` flag (#701 hotfix).
+    /// Drives the temperature pick — without honouring this,
+    /// every request 400s when the manifest enables thinking.
+    thinking_enabled: bool,
 }
 
 #[async_trait]
@@ -136,13 +181,15 @@ impl JudgeBackend for AnthropicJudgeBackend {
             model: self.model.clone(),
             messages,
             tools: Vec::new(),
-            // Tight system prompt + low temperature → judge
-            // verdicts are stable run-to-run for the same input.
+            // Tight system prompt → judge verdicts are stable
+            // for the same input. Temperature is policy-driven
+            // (see `judge_temperature_for`): 0.0 when free to
+            // choose; 1.0 when thinking-mode forces it.
             system: Some(
                 "You are a strict, deterministic eval grader. Reply with one fenced ```json block matching the requested shape. No prose around the block.".into(),
             ),
             sampling: Sampling {
-                temperature: Some(0.0),
+                temperature: Some(judge_temperature_for(self.thinking_enabled)),
                 max_tokens: Some(512),
                 ..Sampling::default()
             },

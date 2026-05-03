@@ -64,11 +64,18 @@ async fn server_crash_surfaces_as_mcp_error_crash() {
         .call_tool("crash", serde_json::json!({}))
         .await
         .unwrap();
-    // Second call must observe the broken pipe → Crash, not hang.
+    // Second call must observe the dead server and not hang.
+    // Whether it surfaces as Crash (reader saw EOF first, set
+    // crash_reason or failed pending) or Io (write_line hit EPIPE
+    // first) depends on which side of the pipe the OS marks broken
+    // first — both indicate the server is gone.
     let after = client
         .call_tool("echo", serde_json::json!({"text": "anyone home?"}))
         .await;
-    assert!(matches!(after, Err(McpError::Crash(_))));
+    assert!(
+        matches!(after, Err(McpError::Crash(_)) | Err(McpError::Io(_))),
+        "expected Crash or Io after server crash, got {after:?}"
+    );
 }
 
 #[tokio::test]
