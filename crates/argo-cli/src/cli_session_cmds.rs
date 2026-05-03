@@ -396,30 +396,19 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Per-session message-role histogram. Drills down into
-    /// `argo messages by-role` (#612) for one session. Mirrors
-    /// the gateway's `GET /sessions/<id>/messages/by-role` (#623).
+    /// Per-session message-role histogram (#612 / gateway #623).
     MessagesByRole {
-        /// Session id (uuid).
         id: String,
-        /// Filter to rows within this many recent minutes.
         #[arg(long)]
         since_minutes: Option<i64>,
-        /// Output as a single JSON object (`{by_role}`).
         #[arg(long)]
         json: bool,
     },
-    /// Per-session histogram of failed tool calls (tool_result rows
-    /// with is_error=true). Drills down into
-    /// `argo audit tool-errors` (#618) for one session. Mirrors
-    /// the gateway's `GET /sessions/<id>/audit/tool-errors` (#628).
+    /// Per-session failed-tool histogram (#618 / gateway #628).
     ToolErrors {
-        /// Session id (uuid).
         id: String,
-        /// Filter to rows within this many recent minutes.
         #[arg(long)]
         since_minutes: Option<i64>,
-        /// Output as a single JSON object (`{tool_errors}`).
         #[arg(long)]
         json: bool,
     },
@@ -450,6 +439,17 @@ pub enum SessionCmd {
     /// List active human-approval grants for a session (#666).
     ListGrants {
         session_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Capability-gap detectors over the session audit chain
+    /// (#685, uses #682 primitives). Today: policy denials.
+    CapabilityGaps {
+        session_id: String,
+        #[arg(long, default_value_t = 0)]
+        since_minutes: i64,
+        #[arg(long, default_value_t = 3)]
+        threshold: u64,
         #[arg(long)]
         json: bool,
     },

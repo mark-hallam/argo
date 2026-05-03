@@ -224,6 +224,20 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::ListGrants { session_id, json } => {
             super::session_approval::list_grants(&session_id, json).await
         }
+        SessionCmd::CapabilityGaps {
+            session_id,
+            since_minutes,
+            threshold,
+            json,
+        } => {
+            super::session_capability_gaps::run(
+                &session_id,
+                since_minutes,
+                threshold,
+                json,
+            )
+            .await
+        }
     }
 }
 
