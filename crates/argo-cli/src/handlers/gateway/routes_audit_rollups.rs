@@ -256,6 +256,89 @@ pub(super) async fn audit_tool_errors_response(
     }
 }
 
+/// `GET /audit/by-vertical[?since-minutes=M&format=markdown]` —
+/// per-vertical audit-row histogram (#688). Joins
+/// `audit_record.session_id` → `session.vertical_id` so the
+/// operator gets a count for each bound vertical (plus a
+/// `(none)` bucket for rows from unbound sessions or audit rows
+/// with no session_id). Mirrors `argo audit by-vertical`.
+/// Returns `{by_vertical: {vertical_id_or_none: count}}`.
+pub(super) async fn audit_by_vertical_response(
+    since_minutes: Option<i64>,
+    store: Option<&Arc<SessionStore>>,
+    format: Option<&str>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return super::store_unavailable();
+    };
+    let pool = store.pool();
+    let rows: Result<Vec<(Option<String>, i64)>, _> = match since_minutes {
+        Some(m) => {
+            let cutoff =
+                (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros();
+            sqlx::query_as(
+                "SELECT s.vertical_id, COUNT(*) \
+                 FROM audit_record a \
+                 LEFT JOIN session s ON s.id = a.session_id \
+                 WHERE a.created_at >= ? \
+                 GROUP BY s.vertical_id \
+                 ORDER BY COUNT(*) DESC, s.vertical_id ASC",
+            )
+            .bind(cutoff)
+            .fetch_all(pool)
+            .await
+        }
+        None => {
+            sqlx::query_as(
+                "SELECT s.vertical_id, COUNT(*) \
+                 FROM audit_record a \
+                 LEFT JOIN session s ON s.id = a.session_id \
+                 GROUP BY s.vertical_id \
+                 ORDER BY COUNT(*) DESC, s.vertical_id ASC",
+            )
+            .fetch_all(pool)
+            .await
+        }
+    };
+    match rows {
+        Ok(rows) => {
+            if matches!(format, Some("markdown")) {
+                let total: i64 = rows.iter().map(|(_, n)| *n).sum();
+                let mut out = format!(
+                    "# Audit by vertical ({total} rows across {} vertical{})\n\n",
+                    rows.len(),
+                    if rows.len() == 1 { "" } else { "s" }
+                );
+                if !rows.is_empty() {
+                    out.push_str("| vertical | count |\n");
+                    out.push_str("| --- | ---: |\n");
+                    for (v, n) in &rows {
+                        let label = v.as_deref().unwrap_or("(none)");
+                        out.push_str(&format!("| `{label}` | {n} |\n"));
+                    }
+                }
+                return ("200 OK", out);
+            }
+            let mut by_vertical = serde_json::Map::new();
+            for (v, n) in rows {
+                let key = v.unwrap_or_else(|| "(none)".to_string());
+                by_vertical.insert(key, serde_json::json!(n));
+            }
+            (
+                "200 OK",
+                serde_json::to_string(&serde_json::json!({
+                    "by_vertical": serde_json::Value::Object(by_vertical),
+                }))
+                .unwrap_or_else(|_| "{}".to_string()),
+            )
+        }
+        Err(e) => (
+            "500 Internal Server Error",
+            format!("{{\"error\":\"audit_by_vertical: {e}\"}}"),
+        ),
+    }
+}
+
 /// `GET /audit/by-day-by-kind[?days=N&format=markdown]` — 2D
 /// rollup: audit rows bucketed by `(day, kind)`. Useful for
 /// spotting volume spikes per kind ("did tool_call volume

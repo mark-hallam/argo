@@ -8,6 +8,7 @@ pub mod chat;
 pub mod audit_by_day;
 pub mod audit_by_day_by_kind;
 pub mod audit_by_kind;
+pub mod audit_by_vertical;
 pub mod audit_by_session;
 pub mod audit_by_tool;
 mod audit_helpers;

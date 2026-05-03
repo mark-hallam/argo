@@ -167,6 +167,22 @@ pub(super) async fn dispatch_rollups(
                 .await,
         );
     }
+    if req.starts_with("GET /audit/by-vertical ")
+        || req.starts_with("GET /audit/by-vertical?")
+    {
+        let tail = req.strip_prefix("GET ").unwrap_or(req);
+        let since = parse_query_kv(tail, "since-minutes")
+            .and_then(|v| v.parse::<i64>().ok());
+        let format = parse_query_kv(tail, "format");
+        return Some(
+            super::routes_audit_rollups::audit_by_vertical_response(
+                since,
+                store,
+                format.as_deref(),
+            )
+            .await,
+        );
+    }
     if req.starts_with("GET /audit/by-session ")
         || req.starts_with("GET /audit/by-session?")
     {

@@ -157,14 +157,45 @@ mod tests {
         assert!(s.contains("\"format\":\"mp3\""));
     }
 
+    /// `MINIMAX_API_KEY` / `MINIMAX_GROUP_ID` are process-wide
+    /// state — without a lock the two tests below would race when
+    /// cargo runs them in parallel inside the same binary, e.g.
+    /// `synthesize_with_no_key_returns_clean_error` reading the
+    /// fake key the other test set. The lock + Drop guard keep
+    /// each test serialised and restore the previous values.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    struct EnvGuard<'a> {
+        _lock: std::sync::MutexGuard<'a, ()>,
+        prev: Vec<(&'static str, Option<String>)>,
+    }
+    impl EnvGuard<'_> {
+        fn new(snapshot: &[&'static str]) -> Self {
+            let lock = ENV_LOCK
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let prev = snapshot
+                .iter()
+                .map(|k| (*k, std::env::var(k).ok()))
+                .collect();
+            Self { _lock: lock, prev }
+        }
+    }
+    impl Drop for EnvGuard<'_> {
+        fn drop(&mut self) {
+            for (k, v) in &self.prev {
+                match v {
+                    Some(val) => std::env::set_var(k, val),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
     #[tokio::test]
     async fn synthesize_with_no_key_returns_clean_error() {
-        let prev = std::env::var("MINIMAX_API_KEY").ok();
+        let _g = EnvGuard::new(&["MINIMAX_API_KEY"]);
         std::env::remove_var("MINIMAX_API_KEY");
         let r = synthesize("hi", None).await;
-        if let Some(p) = prev {
-            std::env::set_var("MINIMAX_API_KEY", p);
-        }
         assert!(r.is_error);
         match &r.content[0] {
             McpContent::Text { text } => assert!(text.contains("MINIMAX_API_KEY")),
@@ -174,19 +205,10 @@ mod tests {
 
     #[tokio::test]
     async fn synthesize_with_no_group_id_returns_clean_error() {
-        let prev_key = std::env::var("MINIMAX_API_KEY").ok();
-        let prev_grp = std::env::var("MINIMAX_GROUP_ID").ok();
+        let _g = EnvGuard::new(&["MINIMAX_API_KEY", "MINIMAX_GROUP_ID"]);
         std::env::set_var("MINIMAX_API_KEY", "fake-key");
         std::env::remove_var("MINIMAX_GROUP_ID");
         let r = synthesize("hi", None).await;
-        if let Some(p) = prev_key {
-            std::env::set_var("MINIMAX_API_KEY", p);
-        } else {
-            std::env::remove_var("MINIMAX_API_KEY");
-        }
-        if let Some(p) = prev_grp {
-            std::env::set_var("MINIMAX_GROUP_ID", p);
-        }
         assert!(r.is_error);
         match &r.content[0] {
             McpContent::Text { text } => assert!(text.contains("MINIMAX_GROUP_ID")),

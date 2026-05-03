@@ -59,6 +59,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("GET", "/audit/by-kind", "histogram of audit rows by kind (?since-minutes=N&format=markdown)"),
         ("GET", "/audit/by-session", "top-N sessions by audit row count (?limit=N&since-minutes=M&format=markdown; default limit 50, cap 500)"),
         ("GET", "/audit/by-tool", "histogram of tool_call+tool_result rows grouped by tool name (?since-minutes=N&format=markdown)"),
+        ("GET", "/audit/by-vertical", "per-vertical audit-row histogram (#688); rows from unbound sessions land in the `(none)` bucket (?since-minutes=N&format=markdown)"),
         ("GET", "/audit/tool-errors", "histogram of tool_result rows where is_error=true, grouped by tool (?since-minutes=N&format=markdown)"),
         ("GET", "/audit/by-day-by-kind", "2D rollup: audit rows bucketed by (day, kind) (?days=N&format=markdown; default 30, cap 365)"),
         ("GET", "/audit/by-day", "audit rows per calendar day (?days=N&format=markdown; default 30, cap 365)"),

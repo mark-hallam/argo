@@ -349,6 +349,9 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
         AuditCmd::ByKind { since_minutes, json } => {
             super::audit_by_kind::run(since_minutes, json).await
         }
+        AuditCmd::ByVertical { since_minutes, json } => {
+            super::audit_by_vertical::run(since_minutes, json).await
+        }
         AuditCmd::ByDay { days, json } => super::audit_by_day::run(days, json).await,
         AuditCmd::BySession {
             limit,

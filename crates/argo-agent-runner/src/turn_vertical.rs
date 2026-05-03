@@ -244,6 +244,32 @@ pub(crate) fn resolve_vertical_for_session(vertical_id: Option<&str>) -> Option<
 mod tests {
     use super::*;
 
+    /// Cargo runs unit tests in parallel within the same binary,
+    /// so the `ENV_VERTICALS_DIR` set/remove pairs in this module
+    /// would race without a process-wide lock — one test could
+    /// `remove_var` while another expected the value, producing
+    /// intermittent assertion flakes. The guard takes the lock,
+    /// sets the env var, and restores `unset` on drop so even
+    /// panics leave the next test with a clean slate.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    struct EnvGuard<'a> {
+        _lock: std::sync::MutexGuard<'a, ()>,
+    }
+    impl EnvGuard<'_> {
+        fn new(value: &std::path::Path) -> Self {
+            let lock = ENV_LOCK
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, value);
+            Self { _lock: lock }
+        }
+    }
+    impl Drop for EnvGuard<'_> {
+        fn drop(&mut self) {
+            std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        }
+    }
+
     #[test]
     fn turn_start_payload_omits_vertical_id_for_unbound() {
         let v = build_turn_start_payload("anthropic", "haiku", None);
@@ -296,9 +322,8 @@ mod tests {
     fn resolve_vertical_returns_prompt_for_bound_session() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_prompt(dir.path(), "you are demo agent");
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let got = resolve_vertical_for_session(Some("demo"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert_eq!(got.as_deref(), Some("you are demo agent"));
     }
 
@@ -306,9 +331,8 @@ mod tests {
     fn resolve_vertical_returns_none_for_unknown_id() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_prompt(dir.path(), "x");
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let got = resolve_vertical_for_session(Some("ghost"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(got.is_none());
     }
 
@@ -316,9 +340,8 @@ mod tests {
     fn resolve_vertical_returns_none_when_no_role_section() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_no_role(dir.path());
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let got = resolve_vertical_for_session(Some("noprompt"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(got.is_none());
     }
 
@@ -363,9 +386,8 @@ mod tests {
     fn deny_set_carries_manifest_denies() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_tools(dir.path(), "ro", &["file_read"], &["file_write", "terminal"]);
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let s = build_vertical_deny_set(Some("ro"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.contains("file_write"));
         assert!(s.contains("terminal"));
         assert!(!s.contains("file_read"));
@@ -376,9 +398,8 @@ mod tests {
     fn deny_set_empty_for_unknown_id() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_tools(dir.path(), "ro", &[], &["x"]);
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let s = build_vertical_deny_set(Some("ghost"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.is_empty());
     }
 
@@ -386,9 +407,8 @@ mod tests {
     fn deny_set_empty_when_no_tools_section() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_no_role(dir.path()); // no [tools] either
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let s = build_vertical_deny_set(Some("noprompt"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.is_empty());
     }
 
@@ -427,9 +447,8 @@ mod tests {
     fn approval_set_carries_manifest_list() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_approval(dir.path(), "gated", &["delegate_task", "terminal"]);
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let s = build_vertical_approval_set(Some("gated"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.contains("delegate_task"));
         assert!(s.contains("terminal"));
         assert_eq!(s.len(), 2);
@@ -439,9 +458,8 @@ mod tests {
     fn approval_set_empty_for_unknown_id() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_with_approval(dir.path(), "gated", &["x"]);
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let s = build_vertical_approval_set(Some("ghost"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.is_empty());
     }
 
@@ -449,9 +467,8 @@ mod tests {
     fn approval_set_empty_when_no_escalation_section() {
         let dir = tempfile::tempdir().unwrap();
         write_vertical_no_role(dir.path()); // no [escalation] either
-        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let _g = EnvGuard::new(dir.path());
         let s = build_vertical_approval_set(Some("noprompt"));
-        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.is_empty());
     }
 }

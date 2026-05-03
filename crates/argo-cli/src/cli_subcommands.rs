@@ -402,6 +402,15 @@ pub enum AuditCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Per-vertical audit-row histogram (#688). Joins
+    /// audit_record.session_id → session.vertical_id; rows from
+    /// unbound sessions / no-session-id rows fall in `(none)`.
+    ByVertical {
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Daily audit-row rollup. Mirrors the gateway's
     /// `GET /audit/by-day` (#571).
     ByDay {

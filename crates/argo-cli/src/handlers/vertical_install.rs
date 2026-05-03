@@ -305,7 +305,16 @@ fn pick_single_subdir(into: &Path) -> ArgoResult<PathBuf> {
         }
     }
     if entries.len() == 1 {
-        return Ok(entries.into_iter().next().unwrap());
+        // SAFETY: just checked len == 1 — `next()` always yields
+        // Some — but `unwrap_used` is denied at the crate root, so
+        // use a let-else to lint cleanly without a runtime panic
+        // path.
+        let Some(only) = entries.into_iter().next() else {
+            return Err(ArgoError::Provider(
+                "pick_single_subdir: len==1 but iterator empty (unreachable)".into(),
+            ));
+        };
+        return Ok(only);
     }
     if entries.is_empty() {
         // Tarball was packed flat (no top-level dir); install
