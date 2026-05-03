@@ -46,15 +46,33 @@ pub enum VerticalCmd {
     /// the manifest, validate each fixture row is well-formed,
     /// and tabulate fixture counts per suite. Useful as a CI
     /// gate that the suite hasn't drifted into bad shape (#656).
-    /// Live LLM-driven scoring is deferred — that's its own
-    /// PR scoped to scoring rubrics + API key handling.
+    ///
+    /// Default mode: structural validation only (fixture counts +
+    /// row-shape errors). Pass `--score` to switch to deterministic
+    /// rule-based scoring (#693) — each fixture's `expected` block
+    /// (must_include / must_not_include / abstain / hallucination /
+    /// pattern_detected / skill_proposal / external_mutation /
+    /// must_refuse_or_defer / personalization_quality) is checked
+    /// against an `actual` field on the same row. Rows without an
+    /// `actual` are reported as `no_actual` and don't count toward
+    /// pass/fail. No LLM dependency; an LLM-judge layer can be
+    /// added later as an opt-in extension.
     Eval {
         /// The vertical's id.
         id: String,
-        /// Output as a single JSON object
+        /// Output as a single JSON object. Structural mode shape:
         /// `{id, suites:[{path, fixture_count, errors:[…]}]}`.
+        /// Scored-mode shape:
+        /// `{id, mode:"scored", suites:[{path, fixture_count,
+        /// scored_count, no_actual, malformed, passed, failed,
+        /// pass_rate, fixtures:[…]}]}`.
         #[arg(long)]
         json: bool,
+        /// Switch to scored mode (#693). Off by default so CI
+        /// gates that already depend on the structural shape stay
+        /// stable.
+        #[arg(long)]
+        score: bool,
     },
     /// Run a named workflow declared by a vertical (#659). Walks
     /// the workflow's steps in declaration order. Today only

@@ -49,6 +49,7 @@
 //! ```
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod eval_score;
 mod isolation;
 mod loader;
 mod manifest;
@@ -77,6 +78,9 @@ pub fn default_dir() -> PathBuf {
     PathBuf::from("verticals")
 }
 
+pub use eval_score::{
+    score_fixture, score_suite_jsonl, FixtureScore, FixtureStatus, ScoreCheck, SuiteScore,
+};
 pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};
 pub use manifest::{

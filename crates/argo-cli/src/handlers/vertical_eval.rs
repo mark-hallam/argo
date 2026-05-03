@@ -2,20 +2,26 @@
 //! vertical declares, validate each fixture row is well-formed,
 //! and tabulate fixture counts (#656).
 //!
-//! **Scope**: structural validation + fixture counts + a basic
-//! comparison against `[success_metrics]` thresholds where they
-//! make sense without an LLM (e.g., "suite must have at least N
-//! fixtures"). Live LLM-driven scoring is deferred — that needs
-//! per-fixture rubrics + API key handling, which is its own PR
-//! scope.
+//! **Default mode (structural, unchanged from #656)**:
+//! validation + fixture counts + a basic comparison against
+//! `[success_metrics]` thresholds where they make sense without
+//! an LLM (e.g., "suite must have at least N fixtures").
+//!
+//! **`--score` mode (#693)**: deterministic rule-based scoring
+//! per fixture using the rule engine in `argo_vertical::eval_score`.
+//! No LLM dependency — every check is substring / heuristic /
+//! boolean. Rows that omit an `actual` field are reported as
+//! `no_actual` and don't count toward pass/fail. The scored
+//! branch dispatches into `vertical_eval_score` to keep this
+//! file under the LOC budget.
 //!
 //! Fail behavior: returns a non-zero exit code if ANY suite has
-//! a malformed fixture (so this is safe to use as a CI gate
-//! while authoring a vertical).
+//! a malformed fixture (structural mode) OR any scored fixture
+//! fails (scored mode) — safe as a CI gate either way.
 use argo_types::{ArgoError, ArgoResult};
 use std::path::Path;
 
-pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
+pub async fn run(id: &str, json: bool, score: bool) -> ArgoResult<()> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
     let loaded = registry.get(id).ok_or_else(|| {
@@ -24,6 +30,13 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
             dir.display()
         ))
     })?;
+
+    if score {
+        // Scored mode lives in a sibling file so this one stays
+        // under the 500-LOC budget as more rule logic lands.
+        return super::vertical_eval_score::run_scored(id, loaded, json).await;
+    }
+
     let report = collect_eval_report(loaded);
 
     if json {

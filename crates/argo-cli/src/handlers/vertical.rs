@@ -25,7 +25,9 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
         VerticalCmd::List { json } => list(json).await,
         VerticalCmd::Show { id, json, format } => show(&id, json, &format).await,
         VerticalCmd::Validate { id, json } => validate(&id, json).await,
-        VerticalCmd::Eval { id, json } => super::vertical_eval::run(&id, json).await,
+        VerticalCmd::Eval { id, json, score } => {
+            super::vertical_eval::run(&id, json, score).await
+        }
         VerticalCmd::Lint { id, json } => super::vertical_lint::run(&id, json).await,
         VerticalCmd::Doctor { id, json } => super::vertical_doctor::run(&id, json).await,
         VerticalCmd::Pack {
