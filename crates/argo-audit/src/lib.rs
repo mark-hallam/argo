@@ -27,6 +27,7 @@
 
 mod event;
 mod export;
+mod gap;
 mod sink;
 mod verify;
 
@@ -37,5 +38,6 @@ pub use event::AuditKind;
 pub use export::{
     export_ndjson, rows_for_session, tail_rows, tail_rows_filtered, ExportedRow, TailFilters,
 };
+pub use gap::{detect_policy_denials, CapabilityGap, GapKind};
 pub use sink::{compute_chain_hash, AuditSink};
 pub use verify::{verify_all, verify_session, ChainBreak, VerifyReport};

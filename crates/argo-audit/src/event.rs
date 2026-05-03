@@ -65,6 +65,15 @@ pub enum AuditKind {
     /// dispatches of the same tool re-block unless another grant
     /// is in place.
     ApprovalConsumed,
+    /// A capability-gap signal was detected (#682, work order
+    /// #4): repeated failure / manual correction / weak
+    /// evidence / missing knowledge / policy denial / repeated
+    /// similar task. Payload carries the gap kind + the
+    /// underlying signal (e.g. `{kind:"policy_denial",
+    /// tool:"...", count: N}`). The detector NEVER auto-bypasses
+    /// policy — it only records the signal so a human (or the
+    /// learned-skill review gate, #681) can decide what to do.
+    CapabilityGap,
 }
 
 impl AuditKind {
@@ -93,6 +102,7 @@ impl AuditKind {
             Self::ApprovalGranted => "approval.granted",
             Self::ApprovalRevoked => "approval.revoked",
             Self::ApprovalConsumed => "approval.consumed",
+            Self::CapabilityGap => "capability.gap",
         }
     }
 
@@ -123,6 +133,7 @@ impl AuditKind {
             "approval.granted" => Self::ApprovalGranted,
             "approval.revoked" => Self::ApprovalRevoked,
             "approval.consumed" => Self::ApprovalConsumed,
+            "capability.gap" => Self::CapabilityGap,
             _ => return None,
         })
     }
@@ -147,11 +158,11 @@ impl AuditKind {
     }
 
     /// `true` for kinds added by the vertical-template surface
-    /// (Phase 6+). Today four: `EscalationRequired` (#660 gate),
+    /// (Phase 6+). Today five: `EscalationRequired` (#660 gate),
     /// `ApprovalGranted` (#664 grant), `ApprovalRevoked` (#664
-    /// revoke), `ApprovalConsumed` (#667 one-shot dispatch).
-    /// The gateway / CLI rollups treat these the same as any
-    /// other audit kind.
+    /// revoke), `ApprovalConsumed` (#667 one-shot dispatch),
+    /// `CapabilityGap` (#682 detection). The gateway / CLI
+    /// rollups treat these the same as any other audit kind.
     #[must_use]
     pub fn is_vertical(self) -> bool {
         matches!(
@@ -160,6 +171,7 @@ impl AuditKind {
                 | Self::ApprovalGranted
                 | Self::ApprovalRevoked
                 | Self::ApprovalConsumed
+                | Self::CapabilityGap
         )
     }
 
@@ -189,6 +201,7 @@ impl AuditKind {
             Self::ApprovalGranted,
             Self::ApprovalRevoked,
             Self::ApprovalConsumed,
+            Self::CapabilityGap,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -266,5 +279,16 @@ mod tests {
         assert!(labels.contains(&"approval.granted"));
         assert!(labels.contains(&"approval.revoked"));
         assert!(labels.contains(&"approval.consumed"));
+    }
+
+    #[test]
+    fn capability_gap_round_trips_and_is_vertical() {
+        let kind = AuditKind::CapabilityGap;
+        assert_eq!(AuditKind::from_label("capability.gap"), Some(kind));
+        assert_eq!(kind.label(), "capability.gap");
+        assert!(kind.is_vertical());
+        assert!(!kind.is_v02());
+        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+        assert!(labels.contains(&"capability.gap"));
     }
 }
