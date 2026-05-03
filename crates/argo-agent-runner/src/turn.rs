@@ -16,7 +16,8 @@ use crate::helpers::{
 };
 use crate::transport::{build_transport, load_manifest};
 use crate::turn_vertical::{
-    build_turn_start_payload, build_vertical_deny_set, resolve_vertical_for_session,
+    build_turn_start_payload, build_vertical_approval_set, build_vertical_deny_set,
+    resolve_vertical_for_session,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
@@ -106,6 +107,7 @@ pub async fn run_turn_with_events(
     // turn still runs; the prompt just falls back to skill-derived.
     let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
     let vertical_deny = build_vertical_deny_set(session.vertical_id.as_deref());
+    let vertical_approval = build_vertical_approval_set(session.vertical_id.as_deref());
 
     let audit = AuditSink::new(store.clone());
     let turn_start = build_turn_start_payload(
@@ -136,6 +138,7 @@ pub async fn run_turn_with_events(
         events,
         vertical_ctx.as_deref(),
         &vertical_deny,
+        &vertical_approval,
     )
     .await;
     let kind = if result.is_ok() {
@@ -165,6 +168,7 @@ async fn run_turn_with_tools(
     events: Option<&RunEventSink>,
     vertical_prompt: Option<&str>,
     vertical_deny: &std::collections::HashSet<String>,
+    vertical_approval: &std::collections::HashSet<String>,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -262,6 +266,20 @@ async fn run_turn_with_tools(
             // capability engine. Emits an RbacDeny audit row + a
             // synthetic error ToolCallResult so the agent learns
             // the boundary instead of seeing a silent no-op.
+            //
+            // Then the escalation check (#660): tools in
+            // [escalation].human_approval_required are NOT
+            // dispatched until a human approves. We emit an
+            // EscalationRequired audit row and return an error
+            // result so the agent surfaces "this needs approval"
+            // to the operator. Approval grants are out of scope
+            // for this PR — a follow-up wires `argo session
+            // approve` to call `engine.grant_dynamic`.
+            //
+            // Ordering: deny is more restrictive than approval —
+            // a tool listed in BOTH stays denied even if the
+            // operator would have approved it. That keeps the
+            // deny list as the platform's hard "never" boundary.
             let result: ToolCallResult = if vertical_deny.contains(&call.name) {
                 let deny_payload = serde_json::json!({
                     "tool": call.name,
@@ -276,6 +294,29 @@ async fn run_turn_with_tools(
                     call.id,
                     format!(
                         "tool '{}' denied by the bound vertical's manifest [tools].denied list",
+                        call.name
+                    ),
+                    0,
+                )
+            } else if vertical_approval.contains(&call.name) {
+                let escalation_payload = serde_json::json!({
+                    "tool": call.name,
+                    "call_id": call.id,
+                    "reason": "human_approval_required",
+                    "source": "vertical_manifest",
+                });
+                audit
+                    .write(
+                        Some(session_id),
+                        AuditKind::EscalationRequired,
+                        escalation_payload.clone(),
+                    )
+                    .await?;
+                emit_event(events, "EscalationRequired", escalation_payload);
+                argo_tool::error_text(
+                    call.id,
+                    format!(
+                        "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); grant approval and re-issue the turn",
                         call.name
                     ),
                     0,

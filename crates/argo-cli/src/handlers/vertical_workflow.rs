@@ -54,6 +54,18 @@ pub async fn run(vertical_id: &str, workflow_name: &str, json: bool) -> ArgoResu
         .as_ref()
         .map(|t| t.denied.iter().cloned().collect())
         .unwrap_or_default();
+    // Approval list (#660) — tools listed here are blocked at the
+    // workflow runner the same way they are at the agent runner.
+    // Approval grants are not yet wired (a follow-up adds `argo
+    // session approve`), so today this is an enforcement gate
+    // that surfaces the manifest's intent + records a clean
+    // EscalationRequired-style step status for the operator.
+    let needs_approval: std::collections::HashSet<String> = loaded
+        .manifest
+        .escalation
+        .as_ref()
+        .map(|e| e.human_approval_required.iter().cloned().collect())
+        .unwrap_or_default();
 
     let mut step_results: Vec<StepResult> = Vec::with_capacity(workflow.steps.len());
     let started = Instant::now();
@@ -66,6 +78,7 @@ pub async fn run(vertical_id: &str, workflow_name: &str, json: bool) -> ArgoResu
             &principal,
             &cwd,
             &denied,
+            &needs_approval,
         )
         .await;
         step_results.push(StepResult {
@@ -78,16 +91,18 @@ pub async fn run(vertical_id: &str, workflow_name: &str, json: bool) -> ArgoResu
     }
     let total_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
 
-    // Both `failed` and `denied_by_vertical` propagate as
-    // workflow failure — the operator wants the runner to
-    // surface "your manifest blocked this" the same way it
-    // surfaces a tool error: non-zero exit + JSON ok=false.
-    // `deferred_no_llm` is intentionally not a failure — it
-    // describes work the runner *can't yet do*, not work that
-    // went wrong.
-    let any_failed = step_results
-        .iter()
-        .any(|s| s.status == "failed" || s.status == "denied_by_vertical");
+    // `failed`, `denied_by_vertical`, and `escalation_required`
+    // all propagate as workflow failure — the operator wants the
+    // runner to surface "your manifest blocked this / paused
+    // this" the same way it surfaces a tool error: non-zero exit
+    // + JSON ok=false. `deferred_no_llm` is intentionally not a
+    // failure — it describes work the runner *can't yet do*, not
+    // work that went wrong.
+    let any_failed = step_results.iter().any(|s| {
+        s.status == "failed"
+            || s.status == "denied_by_vertical"
+            || s.status == "escalation_required"
+    });
     if json {
         println!(
             "{}",
@@ -190,9 +205,12 @@ async fn run_one_step(
     principal: &Principal,
     cwd: &Path,
     denied: &std::collections::HashSet<String>,
+    needs_approval: &std::collections::HashSet<String>,
 ) -> StepOutcome {
     match step.kind.as_str() {
-        "tool_call" => run_tool_call_step(step, registry, engine, principal, cwd, denied).await,
+        "tool_call" => {
+            run_tool_call_step(step, registry, engine, principal, cwd, denied, needs_approval).await
+        }
         "skill_invoke" => StepOutcome {
             status: "deferred_no_llm".into(),
             message: format!(
@@ -218,6 +236,7 @@ async fn run_tool_call_step(
     principal: &Principal,
     cwd: &Path,
     denied: &std::collections::HashSet<String>,
+    needs_approval: &std::collections::HashSet<String>,
 ) -> StepOutcome {
     let Some(tool_name) = step.tool.as_deref() else {
         return StepOutcome {
@@ -225,11 +244,27 @@ async fn run_tool_call_step(
             message: "tool_call step missing `tool` field".into(),
         };
     };
+    // Deny-wins (#655): denied tools are blocked even if
+    // [escalation] would have asked for approval — a manifest
+    // declaring both still gets the harder boundary.
     if denied.contains(tool_name) {
         return StepOutcome {
             status: "denied_by_vertical".into(),
             message: format!(
                 "tool '{tool_name}' is in the bound vertical's [tools].denied list"
+            ),
+        };
+    }
+    // Approval gate (#660): tools listed in
+    // [escalation].human_approval_required pause here. The
+    // runner records a clean `escalation_required` outcome with
+    // the tool + args so the operator can decide. Non-zero
+    // workflow exit so CI surfaces the pause.
+    if needs_approval.contains(tool_name) {
+        return StepOutcome {
+            status: "escalation_required".into(),
+            message: format!(
+                "tool '{tool_name}' is in the bound vertical's [escalation].human_approval_required list — workflow paused for human approval"
             ),
         };
     }
@@ -277,6 +312,7 @@ fn print_text(name: &str, vertical_id: &str, results: &[StepResult], total_ms: u
             "ok" => "ok",
             "deferred_no_llm" => "deferred",
             "denied_by_vertical" => "DENIED",
+            "escalation_required" => "APPROVE?",
             _ => "FAIL",
         };
         println!(
@@ -287,147 +323,5 @@ fn print_text(name: &str, vertical_id: &str, results: &[StepResult], total_ms: u
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_vertical::{Workflow, WorkflowHeader};
-
-    fn empty_denied() -> std::collections::HashSet<String> {
-        std::collections::HashSet::new()
-    }
-
-    #[tokio::test]
-    async fn step_outcome_for_unknown_kind_fails() {
-        let step = WorkflowStep {
-            name: "weird".into(),
-            kind: "telepathy".into(),
-            depends_on: vec![],
-            skill: None,
-            prompt: None,
-            tool: None,
-            args: None,
-        };
-        // The outer parse_workflow rejects unknown kinds, but
-        // run_one_step is defensive in case future schema
-        // additions land mid-flight.
-        let dir = std::env::current_dir().unwrap();
-        let registry = ToolRegistry::new();
-        let engine = CapabilityEngine::with_defaults();
-        let principal = Principal::Local { os_user: "test".into() };
-        let outcome = run_one_step(
-            &step, &registry, &engine, &principal, &dir, &empty_denied(),
-        )
-        .await;
-        assert_eq!(outcome.status, "failed");
-        assert!(outcome.message.contains("telepathy"));
-    }
-
-    #[tokio::test]
-    async fn skill_invoke_step_is_deferred() {
-        let step = WorkflowStep {
-            name: "scan".into(),
-            kind: "skill_invoke".into(),
-            depends_on: vec![],
-            skill: Some("identify_invariant_violations".into()),
-            prompt: None,
-            tool: None,
-            args: None,
-        };
-        let dir = std::env::current_dir().unwrap();
-        let registry = ToolRegistry::new();
-        let engine = CapabilityEngine::with_defaults();
-        let principal = Principal::Local { os_user: "test".into() };
-        let outcome = run_one_step(
-            &step, &registry, &engine, &principal, &dir, &empty_denied(),
-        )
-        .await;
-        assert_eq!(outcome.status, "deferred_no_llm");
-        assert!(outcome.message.contains("identify_invariant_violations"));
-    }
-
-    #[tokio::test]
-    async fn prompt_step_is_deferred() {
-        let step = WorkflowStep {
-            name: "ask".into(),
-            kind: "prompt".into(),
-            depends_on: vec![],
-            skill: None,
-            prompt: Some("say hi".into()),
-            tool: None,
-            args: None,
-        };
-        let dir = std::env::current_dir().unwrap();
-        let registry = ToolRegistry::new();
-        let engine = CapabilityEngine::with_defaults();
-        let principal = Principal::Local { os_user: "test".into() };
-        let outcome = run_one_step(
-            &step, &registry, &engine, &principal, &dir, &empty_denied(),
-        )
-        .await;
-        assert_eq!(outcome.status, "deferred_no_llm");
-    }
-
-    #[tokio::test]
-    async fn tool_call_step_in_deny_list_is_blocked_before_dispatch() {
-        // Even though the registry has no tools, the deny check
-        // fires first — so we get `denied_by_vertical`, not
-        // "no such tool". This locks in the deny-wins ordering.
-        let step = WorkflowStep {
-            name: "boom".into(),
-            kind: "tool_call".into(),
-            depends_on: vec![],
-            skill: None,
-            prompt: None,
-            tool: Some("file_write".into()),
-            args: None,
-        };
-        let dir = std::env::current_dir().unwrap();
-        let registry = ToolRegistry::new();
-        let engine = CapabilityEngine::with_defaults();
-        let principal = Principal::Local { os_user: "test".into() };
-        let mut denied = empty_denied();
-        denied.insert("file_write".into());
-        let outcome = run_one_step(
-            &step, &registry, &engine, &principal, &dir, &denied,
-        )
-        .await;
-        assert_eq!(outcome.status, "denied_by_vertical");
-    }
-
-    #[tokio::test]
-    async fn tool_call_step_missing_tool_field_fails() {
-        let step = WorkflowStep {
-            name: "noop".into(),
-            kind: "tool_call".into(),
-            depends_on: vec![],
-            skill: None,
-            prompt: None,
-            tool: None,
-            args: None,
-        };
-        let dir = std::env::current_dir().unwrap();
-        let registry = ToolRegistry::new();
-        let engine = CapabilityEngine::with_defaults();
-        let principal = Principal::Local { os_user: "test".into() };
-        let outcome = run_one_step(
-            &step, &registry, &engine, &principal, &dir, &empty_denied(),
-        )
-        .await;
-        assert_eq!(outcome.status, "failed");
-        assert!(outcome.message.contains("missing `tool`"));
-    }
-
-    #[test]
-    fn workflow_types_are_publicly_constructible() {
-        // Lock the re-exports so the runner can construct headers
-        // + workflows from outside the argo-vertical crate.
-        let _wh = WorkflowHeader {
-            name: "x".into(),
-            description: String::new(),
-        };
-        let _wf = Workflow {
-            schema_version: "1".into(),
-            workflow: _wh,
-            steps: vec![],
-        };
-    }
-}
+#[path = "vertical_workflow_tests.rs"]
+mod tests;

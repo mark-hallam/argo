@@ -33,6 +33,33 @@ fn write_minimal_vertical(verticals_dir: &Path, id: &str, workflow_body: &str) {
     std::fs::write(v.join("workflows/main.workflow.toml"), workflow_body).unwrap();
 }
 
+fn write_vertical_with_approval(
+    verticals_dir: &Path,
+    id: &str,
+    approval: &[&str],
+    workflow_body: &str,
+) {
+    let v = verticals_dir.join(id);
+    std::fs::create_dir_all(v.join("workflows")).unwrap();
+    let approval_toml = approval
+        .iter()
+        .map(|s| format!("\"{s}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    std::fs::write(
+        v.join("vertical.toml"),
+        format!(
+            "schema_version = \"1\"\n\
+             [vertical]\nid = \"{id}\"\nname = \"X\"\nversion = \"0.1.0\"\n\
+             [tools]\nallowed = [\"file_read\", \"file_write\"]\ndenied = []\n\
+             [escalation]\nhuman_approval_required = [{approval_toml}]\n\
+             [workflows]\nfiles = [\"workflows/main.workflow.toml\"]\n"
+        ),
+    )
+    .unwrap();
+    std::fs::write(v.join("workflows/main.workflow.toml"), workflow_body).unwrap();
+}
+
 #[test]
 fn cli_workflow_runs_tool_call_step_end_to_end() {
     let home = tempfile::tempdir().unwrap();
@@ -177,6 +204,51 @@ fn cli_workflow_unknown_workflow_name_fails_loudly() {
     assert!(!out.status.success());
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(stderr.contains("ghost"), "got: {stderr}");
+}
+
+#[test]
+fn cli_workflow_pauses_on_tool_in_human_approval_required_list() {
+    // Approval gate (#660): a tool in the bound vertical's
+    // [escalation].human_approval_required list does NOT
+    // dispatch — the runner records `escalation_required` and
+    // exits non-zero so CI surfaces the pause.
+    let home = tempfile::tempdir().unwrap();
+    let verticals = tempfile::tempdir().unwrap();
+    let wd = tempfile::tempdir().unwrap();
+    write_vertical_with_approval(
+        verticals.path(),
+        "gated",
+        &["file_write"],
+        "schema_version = \"1\"\n\
+         [workflow]\nname = \"go\"\n\
+         [[step]]\nname = \"r\"\nkind = \"tool_call\"\ntool = \"file_write\"\n\
+         args = { path = \"will_not_be_written.txt\", content = \"x\" }\n",
+    );
+
+    let out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .env("ARGO_VERTICALS_DIR", verticals.path())
+        .current_dir(wd.path())
+        .args(["vertical", "workflow", "gated", "go", "--json"])
+        .output()
+        .expect("spawn");
+    assert!(
+        !out.status.success(),
+        "approval-required workflow must exit non-zero"
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(v["ok"], false);
+    let steps = v["steps"].as_array().unwrap();
+    assert_eq!(steps[0]["status"], "escalation_required");
+    let msg = steps[0]["message"].as_str().unwrap();
+    assert!(msg.contains("file_write"), "got: {msg}");
+    assert!(msg.contains("human approval"), "got: {msg}");
+    // Critically: the file MUST NOT have been written.
+    assert!(
+        !wd.path().join("will_not_be_written.txt").exists(),
+        "approval gate must block dispatch"
+    );
 }
 
 #[test]

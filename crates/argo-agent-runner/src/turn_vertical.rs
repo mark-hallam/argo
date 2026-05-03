@@ -66,6 +66,44 @@ pub(crate) fn build_vertical_deny_set(
     out
 }
 
+/// Build the set of tool names that the vertical declares
+/// require human approval before dispatch (#660). Mirror of
+/// [`build_vertical_deny_set`] for the `[escalation]
+/// .human_approval_required` list.
+///
+/// Returns an empty set when:
+/// - the session isn't vertical-bound,
+/// - the discovery dir can't be loaded,
+/// - the vertical isn't registered,
+/// - the manifest declares no `[escalation]` block,
+/// - or the list is empty.
+///
+/// Approval semantics: tools in the returned set are NOT
+/// dispatched. The caller emits an `EscalationRequired` audit
+/// row + returns a synthetic-error tool result so the agent
+/// learns the boundary instead of seeing a silent no-op.
+pub(crate) fn build_vertical_approval_set(
+    vertical_id: Option<&str>,
+) -> std::collections::HashSet<String> {
+    let mut out = std::collections::HashSet::new();
+    let Some(vid) = vertical_id else {
+        return out;
+    };
+    let dir = argo_vertical::default_dir();
+    let Ok((registry, _errors)) = argo_vertical::load_dir(&dir) else {
+        return out;
+    };
+    let Some(loaded) = registry.get(vid) else {
+        return out;
+    };
+    if let Some(esc) = &loaded.manifest.escalation {
+        for name in &esc.human_approval_required {
+            out.insert(name.clone());
+        }
+    }
+    out
+}
+
 /// Resolve the vertical's `[role].system_prompt` markdown for a
 /// vertical-bound session. Returns `None` (silently) when:
 /// - the session isn't vertical-bound,
@@ -233,6 +271,69 @@ mod tests {
         write_vertical_no_role(dir.path()); // no [tools] either
         std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
         let s = build_vertical_deny_set(Some("noprompt"));
+        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        assert!(s.is_empty());
+    }
+
+    // ---- vertical approval-set (#660) ------------------------
+
+    fn write_vertical_with_approval(
+        dir: &std::path::Path,
+        id: &str,
+        approval: &[&str],
+    ) {
+        let v = dir.join(id);
+        std::fs::create_dir_all(&v).unwrap();
+        let approval_toml = approval
+            .iter()
+            .map(|s| format!("\"{s}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        std::fs::write(
+            v.join("vertical.toml"),
+            format!(
+                "schema_version = \"1\"\n\
+                 [vertical]\nid = \"{id}\"\nname = \"X\"\nversion = \"0.1.0\"\n\
+                 [escalation]\nhuman_approval_required = [{approval_toml}]\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn approval_set_empty_for_unbound_session() {
+        let s = build_vertical_approval_set(None);
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn approval_set_carries_manifest_list() {
+        let dir = tempfile::tempdir().unwrap();
+        write_vertical_with_approval(dir.path(), "gated", &["delegate_task", "terminal"]);
+        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let s = build_vertical_approval_set(Some("gated"));
+        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        assert!(s.contains("delegate_task"));
+        assert!(s.contains("terminal"));
+        assert_eq!(s.len(), 2);
+    }
+
+    #[test]
+    fn approval_set_empty_for_unknown_id() {
+        let dir = tempfile::tempdir().unwrap();
+        write_vertical_with_approval(dir.path(), "gated", &["x"]);
+        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let s = build_vertical_approval_set(Some("ghost"));
+        std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
+        assert!(s.is_empty());
+    }
+
+    #[test]
+    fn approval_set_empty_when_no_escalation_section() {
+        let dir = tempfile::tempdir().unwrap();
+        write_vertical_no_role(dir.path()); // no [escalation] either
+        std::env::set_var(argo_vertical::ENV_VERTICALS_DIR, dir.path());
+        let s = build_vertical_approval_set(Some("noprompt"));
         std::env::remove_var(argo_vertical::ENV_VERTICALS_DIR);
         assert!(s.is_empty());
     }

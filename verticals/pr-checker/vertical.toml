@@ -41,10 +41,15 @@ bundle = "skills/"
 files = ["workflows/read_repo_anchors.workflow.toml"]
 
 [escalation]
+# Tools listed here are NOT dispatched until a human approves
+# (#660). The PR-Checker is read-only by manifest, so this is
+# defence-in-depth: even if a future edit accidentally adds a
+# state-mutating tool to [tools].allowed, the approval gate
+# catches the mistake before any side effect lands.
+human_approval_required = ["delegate_task"]
 # When two consecutive turns fail (provider error, tool denial,
 # parse error), pause and notify. Phase 6 wires the gate; today
 # the field is parsed but not yet enforced.
-human_approval_required = []
 escalate_after_failures = 2
 escalate_to             = "logs"
 

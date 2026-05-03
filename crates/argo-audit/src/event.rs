@@ -48,6 +48,11 @@ pub enum AuditKind {
     LockViolate,
     /// Steer enqueued onto a running session.
     SteerEnqueued,
+    /// A tool dispatch was halted because the bound vertical's
+    /// `[escalation].human_approval_required` list named the tool
+    /// (#660). The dispatch did NOT run; an operator must approve
+    /// (or refuse) before the agent can re-issue the call.
+    EscalationRequired,
 }
 
 impl AuditKind {
@@ -72,6 +77,7 @@ impl AuditKind {
             Self::LockSet => "lock.set",
             Self::LockViolate => "lock.violate",
             Self::SteerEnqueued => "steer.enqueued",
+            Self::EscalationRequired => "escalation.required",
         }
     }
 
@@ -98,6 +104,7 @@ impl AuditKind {
             "lock.set" => Self::LockSet,
             "lock.violate" => Self::LockViolate,
             "steer.enqueued" => Self::SteerEnqueued,
+            "escalation.required" => Self::EscalationRequired,
             _ => return None,
         })
     }
@@ -119,6 +126,15 @@ impl AuditKind {
                 | Self::LockViolate
                 | Self::SteerEnqueued
         )
+    }
+
+    /// `true` for kinds added by the vertical-template surface
+    /// (Phase 6+). Today there is one (`EscalationRequired`,
+    /// #660) — the gateway / CLI rollups treat these the same as
+    /// any other audit kind.
+    #[must_use]
+    pub fn is_vertical(self) -> bool {
+        matches!(self, Self::EscalationRequired)
     }
 
     /// All known kinds, sorted by label. Used by tests + `argo audit
@@ -143,6 +159,7 @@ impl AuditKind {
             Self::LockSet,
             Self::LockViolate,
             Self::SteerEnqueued,
+            Self::EscalationRequired,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -183,5 +200,23 @@ mod tests {
         ] {
             assert!(!k.is_v02(), "{:?} should not be v02", k);
         }
+    }
+
+    #[test]
+    fn escalation_required_is_known_vertical_kind() {
+        // Locked: gateway rollups, CLI filters, and the verifier
+        // all walk `AuditKind::all()` — escalation.required must
+        // be enumerable there.
+        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+        assert!(
+            labels.contains(&"escalation.required"),
+            "got: {labels:?}"
+        );
+        assert!(AuditKind::EscalationRequired.is_vertical());
+        assert!(!AuditKind::EscalationRequired.is_v02());
+        assert_eq!(
+            AuditKind::from_label("escalation.required"),
+            Some(AuditKind::EscalationRequired)
+        );
     }
 }

@@ -74,6 +74,28 @@ fn pr_checker_is_read_only_by_manifest() {
 }
 
 #[test]
+fn pr_checker_escalation_lists_delegate_task_for_human_approval() {
+    // Defence-in-depth: even though delegate_task is in the
+    // deny list (deny-wins), the manifest also lists it under
+    // [escalation].human_approval_required so a future edit
+    // that accidentally removes it from `denied` still fails
+    // closed (#660). Locks the operator-facing intent.
+    let dir = repo_verticals_dir();
+    let (registry, _) = argo_vertical::load_dir(dir).unwrap();
+    let pr = registry.get("pr-checker").unwrap();
+    let esc = pr
+        .manifest
+        .escalation
+        .as_ref()
+        .expect("[escalation] section");
+    assert!(
+        esc.human_approval_required.iter().any(|t| t == "delegate_task"),
+        "pr-checker manifest must list delegate_task under [escalation].human_approval_required; got: {:?}",
+        esc.human_approval_required
+    );
+}
+
+#[test]
 fn pr_checker_eval_suite_is_non_empty() {
     let dir = repo_verticals_dir();
     let (registry, _) = argo_vertical::load_dir(dir).expect("load_dir");
