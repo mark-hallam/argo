@@ -122,4 +122,32 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// One-shot "from zero to running vertical" composite (#669).
+    /// Creates a fresh session bound to the vertical, attaches
+    /// every skill the manifest declares, then runs the named
+    /// `--workflow` against that session so the workflow's tool
+    /// calls land in the session's audit chain. Emits one
+    /// combined JSON document with both the session metadata
+    /// and the workflow report.
+    Run {
+        /// The vertical's id.
+        vertical_id: String,
+        /// The workflow to run inside the freshly-created
+        /// session.
+        #[arg(long)]
+        workflow: String,
+        /// Optional human-readable session title.
+        #[arg(long)]
+        title: Option<String>,
+        /// Provider id; defaults to `mock` so the command
+        /// works without paid credentials in CI / demo flows.
+        #[arg(long, default_value = "mock")]
+        provider: String,
+        /// Model id; defaults to `mock`.
+        #[arg(long, default_value = "mock")]
+        model: String,
+        /// Output as a single combined JSON document.
+        #[arg(long)]
+        json: bool,
+    },
 }

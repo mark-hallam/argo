@@ -392,6 +392,7 @@ async fn show_session(raw: &str, json: bool, format: &str) -> ArgoResult<()> {
                 "provider": session.provider,
                 "model": session.model,
                 "title": session.title,
+                "vertical_id": session.vertical_id,
                 "started_at": session.started_at.to_rfc3339(),
                 "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
                 "message_count": count,

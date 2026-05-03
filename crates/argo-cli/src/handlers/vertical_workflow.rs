@@ -46,6 +46,68 @@ pub async fn run(
     session_id_str: Option<&str>,
     json: bool,
 ) -> ArgoResult<()> {
+    let report = run_collect(vertical_id, workflow_name, session_id_str).await?;
+    if json {
+        println!("{}", report.to_json().to_string());
+    } else {
+        report.print_text();
+    }
+    if !report.ok {
+        return Err(ArgoError::Provider(format!(
+            "workflow '{workflow_name}': one or more steps failed or were denied by the vertical's [tools].denied list"
+        )));
+    }
+    Ok(())
+}
+
+/// Structured workflow run report — used by both the standalone
+/// CLI command and by the higher-level composite handlers (e.g.
+/// `argo vertical run`, #669) so they can combine the workflow
+/// outcome with their own metadata in a single JSON document.
+#[derive(Clone)]
+pub struct WorkflowReport {
+    pub vertical_id: String,
+    pub workflow_name: String,
+    pub ok: bool,
+    pub total_ms: u64,
+    pub steps: Vec<StepResult>,
+}
+
+impl WorkflowReport {
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "vertical_id": self.vertical_id,
+            "workflow": self.workflow_name,
+            "ok": self.ok,
+            "total_ms": self.total_ms,
+            "steps": self.steps.iter().map(|s| serde_json::json!({
+                "name": s.name,
+                "kind": s.kind,
+                "status": s.status,
+                "message": s.message,
+                "duration_ms": s.duration_ms,
+            })).collect::<Vec<_>>(),
+        })
+    }
+
+    pub fn print_text(&self) {
+        print_text(
+            &self.workflow_name,
+            &self.vertical_id,
+            &self.steps,
+            self.total_ms,
+        );
+    }
+}
+
+/// Run the workflow and return the structured report without
+/// printing or propagating an Err on step failures. Callers
+/// decide how to surface the outcome.
+pub async fn run_collect(
+    vertical_id: &str,
+    workflow_name: &str,
+    session_id_str: Option<&str>,
+) -> ArgoResult<WorkflowReport> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
     let loaded = registry.get(vertical_id).ok_or_else(|| {
@@ -55,39 +117,27 @@ pub async fn run(
         ))
     })?;
 
-    // #668: when --session is passed, build an audit sink so
-    // every dispatched step lands in the session's audit chain
-    // alongside the agent runner's turns.
     let audit_ctx = match session_id_str {
         Some(s) => Some(open_audit_ctx(s).await?),
         None => None,
     };
 
-    // Resolve the workflow by name across the manifest's
-    // [workflows].files list.
     let workflow = find_workflow(loaded, workflow_name)?;
 
     let cwd = std::env::current_dir()
         .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
 
-    // Build the dispatch context once; reused across tool_call
-    // steps so the engine's role grants land predictably.
     let (registry_t, engine, principal) = build_local_dispatch_ctx(&cwd)?;
 
-    // Vertical's deny list is consulted per step — same deny-wins
-    // semantics as the agent runner's per-turn dispatch (#655).
+    // Deny-wins (#655) and approval-gate (#660) sets are
+    // resolved once per workflow run — same precedence as the
+    // agent runner's per-turn dispatch.
     let denied: std::collections::HashSet<String> = loaded
         .manifest
         .tools
         .as_ref()
         .map(|t| t.denied.iter().cloned().collect())
         .unwrap_or_default();
-    // Approval list (#660) — tools listed here are blocked at the
-    // workflow runner the same way they are at the agent runner.
-    // Approval grants are not yet wired (a follow-up adds `argo
-    // session approve`), so today this is an enforcement gate
-    // that surfaces the manifest's intent + records a clean
-    // EscalationRequired-style step status for the operator.
     let needs_approval: std::collections::HashSet<String> = loaded
         .manifest
         .escalation
@@ -119,55 +169,27 @@ pub async fn run(
         });
     }
     let total_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-
-    // `failed`, `denied_by_vertical`, and `escalation_required`
-    // all propagate as workflow failure — the operator wants the
-    // runner to surface "your manifest blocked this / paused
-    // this" the same way it surfaces a tool error: non-zero exit
-    // + JSON ok=false. `deferred_no_llm` is intentionally not a
-    // failure — it describes work the runner *can't yet do*, not
-    // work that went wrong.
     let any_failed = step_results.iter().any(|s| {
         s.status == "failed"
             || s.status == "denied_by_vertical"
             || s.status == "escalation_required"
     });
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string(&serde_json::json!({
-                "vertical_id": vertical_id,
-                "workflow": workflow_name,
-                "ok": !any_failed,
-                "total_ms": total_ms,
-                "steps": step_results.iter().map(|s| serde_json::json!({
-                    "name": s.name,
-                    "kind": s.kind,
-                    "status": s.status,
-                    "message": s.message,
-                    "duration_ms": s.duration_ms,
-                })).collect::<Vec<_>>(),
-            }))
-            .unwrap_or_default()
-        );
-    } else {
-        print_text(&workflow.workflow.name, vertical_id, &step_results, total_ms);
-    }
-    if any_failed {
-        return Err(ArgoError::Provider(format!(
-            "workflow '{workflow_name}': one or more steps failed or were denied by the vertical's [tools].denied list"
-        )));
-    }
-    Ok(())
+    Ok(WorkflowReport {
+        vertical_id: vertical_id.to_string(),
+        workflow_name: workflow.workflow.name.clone(),
+        ok: !any_failed,
+        total_ms,
+        steps: step_results,
+    })
 }
 
 #[derive(Clone)]
-struct StepResult {
-    name: String,
-    kind: String,
-    status: String,
-    message: String,
-    duration_ms: u64,
+pub struct StepResult {
+    pub name: String,
+    pub kind: String,
+    pub status: String,
+    pub message: String,
+    pub duration_ms: u64,
 }
 
 struct StepOutcome {

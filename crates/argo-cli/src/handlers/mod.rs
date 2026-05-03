@@ -24,6 +24,7 @@ pub mod vertical;
 pub mod vertical_attach;
 pub mod vertical_eval;
 pub mod vertical_install;
+pub mod vertical_run;
 pub mod vertical_workflow;
 pub mod costs;
 pub mod costs_by_day;
