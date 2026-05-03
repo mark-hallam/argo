@@ -1,8 +1,9 @@
-//! `argo session audit-by-kind <id>` + `argo session audit-by-tool <id>`
-//! + `argo session tool-errors <id>` — per-session audit drill-downs.
-//! Mirror the gateway's `GET /sessions/<id>/audit/by-kind` (#621),
-//! `…/audit/by-tool` (#621) and `…/audit/tool-errors` (#628). Same
-//! SQL the gateway runs.
+//! `argo session audit-by-kind <id>` + `argo session
+//! audit-by-tool <id>` + `argo session tool-errors <id>`
+//! — per-session audit drill-downs. Mirror the gateway's
+//! `GET /sessions/<id>/audit/by-kind` (#621),
+//! `…/audit/by-tool` (#621) and `…/audit/tool-errors` (#628).
+//! Same SQL the gateway runs.
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};

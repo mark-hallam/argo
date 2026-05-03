@@ -86,7 +86,6 @@ fn new_session(
         .find(|l| l.starts_with("created session"))
         .unwrap_or_else(|| panic!("no 'created session' line in:\n{stdout}"));
     line.trim_start_matches("created session")
-        .trim()
         .split_whitespace()
         .next()
         .unwrap_or_else(|| panic!("no uuid token in: {line}"))

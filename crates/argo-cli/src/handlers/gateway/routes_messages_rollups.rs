@@ -188,6 +188,9 @@ pub(super) async fn messages_recent_response(
     let pool = store.pool();
     let since_micros = since_minutes
         .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
+    // The 6-tuple mirrors the SELECT shape; aliasing it would
+    // hide rather than clarify the column order.
+    #[allow(clippy::type_complexity)]
     let rows: Result<Vec<(i64, Vec<u8>, Vec<u8>, String, String, i64)>, _> = match (role, since_micros) {
         (Some(r), Some(s)) => sqlx::query_as(
             "SELECT seq, id, session_id, role, content_json, created_at \

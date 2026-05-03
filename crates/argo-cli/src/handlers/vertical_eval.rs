@@ -56,7 +56,7 @@ pub async fn run(
     let report = collect_eval_report(loaded);
 
     if json {
-        println!("{}", report.to_json().to_string());
+        println!("{}", report.to_json());
     } else {
         print_text_report(&report);
     }

@@ -2,7 +2,7 @@
 //! column for vertical-namespaced memory (#680, Rule 7).
 //!
 //! Background: `memory_entry` rows are scoped by `workspace_id`
-//! + `file` (one of MEMORY/USER/SOUL/AGENTS), but have no
+//! and `file` (one of MEMORY/USER/SOUL/AGENTS), but have no
 //! linkage to the bound vertical. A session bound to vertical
 //! A and a session bound to vertical B in the same workspace
 //! see the same memory rows — Rule 7 ("memory reads/writes

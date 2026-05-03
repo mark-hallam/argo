@@ -11,25 +11,60 @@ This dir contains **adapter** files that map Codex outputs onto
 Argo fixture ids so `argo vertical eval gtm-engineer --score
 --actuals <file>` can grade them. **Outputs are preserved
 verbatim** — no rewriting, no cleanup, no removing weak
-variants. The point of the comparison is to see how Codex's
-GTM Engineer responses fare against Argo's deterministic rule
-engine.
+variants.
 
-## Files
+## Files (renamed in #701e — see "Label correction" below)
 
 | File | Purpose |
 |---|---|
-| `gtm_engineer_codex_best.jsonl` | Strongest Codex variant per shared fixture |
-| `gtm_engineer_codex_worst.jsonl` | Weakest Codex variant per shared fixture |
-| `gtm_engineer_codex_medium.jsonl` | Representative middle variant |
+| `gtm_engineer_codex_argo_aligned.jsonl` | Variant per fixture that best aligns with the Argo GTM Engineer contract (explicit assumption-labeling, sample-size warnings, conservative recommendations) |
+| `gtm_engineer_codex_polished_but_less_grounded.jsonl` | Variant per fixture that's structurally cleaner (named buyer roles, positioning hypothesis) but less rigorous on evidence-awareness |
+| `gtm_engineer_codex_weak.jsonl` | Variant per fixture that exhibits the GTM-anti-pattern failure mode (generic copy, "scale to 5,000", "any company trying to use AI") |
+| `CODEX_COMPARISON_REPORT.md` | Full per-fixture analysis + live-judge calibration results |
 | `README.md` | This file |
+
+## Label correction (#701e)
+
+The original labels (`best` / `medium` / `worst`) shipped in
+PR #700 were assigned based on **superficial structure**: the
+"best" variant looked more polished (named buyer roles,
+positioning hypothesis, counter-positioning); the "medium"
+variant looked more conversational. That labelling was wrong
+for the Argo GTM Engineer contract — and the live LLM judge
+(#701d) caught it.
+
+### Live judge calibration (run with `claude-sonnet-4-6`)
+
+| Original label | New label | Live judge avg score |
+|---|---|---:|
+| best | `polished_but_less_grounded` | **0.553** |
+| medium | `argo_aligned` | **0.615** |
+| worst | `weak` | **0.183** |
+
+**The live judge correctly ranked the Argo-contract-aligned
+variant ABOVE the polished-but-less-grounded variant.** The
+"medium" variants:
+- lead with explicit "Assumptions: I do not have verified
+  SKYCOT product docs" (the discipline the `define_icp` skill
+  spec rewards)
+- recommend "do NOT scale yet" on weak signal (the discipline
+  the `analyze_campaign` skill spec rewards: "don't overfit
+  small samples")
+- frame analysis with explicit sample-size warnings
+
+The "best" variants are stylistically cleaner but skip the
+evidence-awareness step that distinguishes a GTM Engineer
+from a generic content writer.
+
+The renamed labels reflect what the live judge actually
+measures — ARGO contract alignment, not surface polish.
 
 ## ID mapping (Codex → Argo)
 
 | Codex id | Argo fixture id | Coverage notes |
 |---|---|---|
 | `define_icp_for_skycot` | `gtm_icp_skycot` | direct semantic match |
-| `generate_outreach_for_target_segment` | `gtm_company_personalization` | best variant carries audit-trail framing; weak variant is generic copy |
+| `generate_outreach_for_target_segment` | `gtm_company_personalization` | argo_aligned variant carries audit-trail framing; weak variant is generic copy |
 | `generate_outreach_for_target_segment` | `gtm_role_based_personalization` | re-used for the role-based personalization fixture |
 | `analyze_campaign_performance` | `gtm_low_reply_analysis` | direct semantic match |
 
@@ -75,6 +110,15 @@ prompt — not anchored to that specific input. So Codex outputs
 won't carry the substring `AI support launch` that Argo's
 rule engine expects.
 
-This is itself the comparison signal: see the report at the
-end of the PR or `docs/codex-comparison.md` (if added) for
-the per-fixture analysis.
+The deterministic rule engine therefore scores all three
+variants 0/4 on shared fixtures (see `CODEX_COMPARISON_REPORT.md`
+for detail). The live LLM judge (`--judge anthropic/<model>`)
+sees through the literal-substring brittleness and correctly
+distinguishes the three variants — that's the calibration
+result above.
+
+## Git history preserves the original labels
+
+The rename was done with `git mv` so `git log --follow` on any
+of the renamed files traces back to the original PR #700
+content. No data lost.

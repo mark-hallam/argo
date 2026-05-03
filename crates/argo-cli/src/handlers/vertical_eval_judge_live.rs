@@ -57,9 +57,9 @@ pub(super) trait JudgeBackend: Send + Sync {
 }
 
 /// Build a live Anthropic-backed judge from a manifest path
-/// + the env-resolved API key. Fails loudly when the env var
-/// isn't set — operators get an actionable message instead of
-/// a silent fallback.
+/// and the env-resolved API key. Fails loudly when the env
+/// var isn't set — operators get an actionable message
+/// instead of a silent fallback.
 pub(super) fn build_anthropic_backend(
     provider_id: &str,
     model: &str,
@@ -184,10 +184,11 @@ pub(super) fn judge_max_tokens_for(thinking_enabled: bool) -> u32 {
     }
 }
 
-/// Production Anthropic backend. Wraps an `AnthropicTransport`
-/// + the model id + the cached thinking-mode flag. `source()`
-/// returns `live:<provider>/<model>` so the verdict's audit
-/// trail names the exact model.
+/// Production Anthropic backend. Wraps an
+/// `AnthropicTransport`, the model id, and the cached
+/// thinking-mode flag. `source()` returns
+/// `live:<provider>/<model>` so the verdict's audit trail
+/// names the exact model.
 pub(super) struct AnthropicJudgeBackend {
     transport: Arc<AnthropicTransport>,
     model: String,

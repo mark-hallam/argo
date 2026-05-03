@@ -24,6 +24,9 @@ pub(super) async fn costs_recent_response(
     };
     let limit = limit.clamp(1, 500);
     let pool = store.pool();
+    // The 6-tuple mirrors the SELECT shape; aliasing it would
+    // hide rather than clarify the column order.
+    #[allow(clippy::type_complexity)]
     let rows: Result<Vec<(i64, Vec<u8>, i64, i64, String, String)>, _> = match since_minutes {
         Some(m) => {
             let cutoff =

@@ -1,17 +1,37 @@
 # Codex vs Argo GTM Engineer — comparison report
 
+> **Label correction (#701e).** This report originally used the
+> Codex-side labels `best/medium/worst`. Live LLM judge
+> calibration (#701d) revealed those labels were assigned on
+> **superficial structural polish** rather than Argo-contract
+> alignment, and the so-called "medium" variants actually
+> outscored the "best" variants on the live judge. The corpora
+> have been renamed to reflect what the judge measures:
+>
+> | Original label | New label                          | Live judge avg |
+> |----------------|------------------------------------|---------------:|
+> | best           | `polished_but_less_grounded`       |          0.553 |
+> | medium         | `argo_aligned`                     |      **0.615** |
+> | worst          | `weak`                             |          0.183 |
+>
+> Sections below that pre-date the live judge use the original
+> labels (best / medium / worst) where they describe historical
+> rule-engine analysis. The "Live judge calibration" section
+> uses the new labels.
+
 ## Test setup
 
 - **Argo canonical fixtures**: `verticals/gtm-engineer/eval/gtm_engineer_core.jsonl`
   (10 fixtures, locked since #692)
 - **Codex raw transcript**: `~/Argo - Codex/eval-actuals/gtm_engineer_skycot_actuals.jsonl`
-  (12 rows: 4 fixture ids × 3 variants each — strong / medium / weak)
+  (12 rows: 4 fixture ids × 3 variants each)
 - **Adapter files** (this dir, Codex outputs preserved verbatim, only `id` field rewritten):
-  - `gtm_engineer_codex_best.jsonl`
-  - `gtm_engineer_codex_medium.jsonl`
-  - `gtm_engineer_codex_worst.jsonl`
-- **Scorer**: `argo vertical eval gtm-engineer --score --actuals <file>`
-  (deterministic rule engine #693, no LLM judge invoked)
+  - `gtm_engineer_codex_argo_aligned.jsonl`              *(was `_medium`)*
+  - `gtm_engineer_codex_polished_but_less_grounded.jsonl` *(was `_best`)*
+  - `gtm_engineer_codex_weak.jsonl`                       *(was `_worst`)*
+- **Scorers**:
+  - Deterministic rule engine (#693): `argo vertical eval gtm-engineer --score --actuals <file>`
+  - Live LLM judge (#701/#701d): same command + `--judge anthropic/claude-sonnet-4-6`
 
 ## ID mapping
 
@@ -23,7 +43,7 @@ gaps, not failures).
 | Codex source id (3 variants) | Argo fixture id mapped | Reason for mapping |
 |---|---|---|
 | `define_icp_for_skycot` | `gtm_icp_skycot` | direct semantic match |
-| `generate_outreach_for_target_segment` | `gtm_company_personalization` | best variant carries an evidence-grounded angle that's the closest analog to Argo's "use the verified AI-support-launch fact" prompt |
+| `generate_outreach_for_target_segment` | `gtm_company_personalization` | argo_aligned variant carries an evidence-grounded angle that's the closest analog to Argo's "use the verified AI-support-launch fact" prompt |
 | `generate_outreach_for_target_segment` (different variant per file) | `gtm_role_based_personalization` | second outreach variant maps to the role-based personalization fixture so the role-only-personalization checks aren't always paired with the same Codex output |
 | `analyze_campaign_performance` | `gtm_low_reply_analysis` | direct semantic match |
 | `propose_first_outbound_campaign` | _no Argo fixture matches_ | Argo currently has no "propose-a-campaign" fixture; preserved verbatim in the raw Codex file but unmapped |
@@ -33,22 +53,125 @@ Argo fixtures with **no Codex coverage** (always `no_actual`):
 `gtm_objection_pattern`, `gtm_propose_skill_strong_evidence`,
 `gtm_no_skill_from_weak_evidence`, `gtm_safety_no_send`.
 
-## Headline results
+## Headline results — deterministic rule engine
 
-| Variant | scored | no_actual | passed | failed | pass_rate |
+| Variant (new label) | scored | no_actual | passed | failed | pass_rate |
 |---|---:|---:|---:|---:|---:|
-| **Best** | 4 | 6 | 0 | 4 | **0.0** |
-| **Medium** | 4 | 6 | 0 | 4 | **0.0** |
-| **Worst** | 4 | 6 | 0 | 4 | **0.0** |
+| `polished_but_less_grounded` *(was best)* | 4 | 6 | 0 | 4 | **0.0** |
+| `argo_aligned` *(was medium)* | 4 | 6 | 0 | 4 | **0.0** |
+| `weak` *(was worst)* | 4 | 6 | 0 | 4 | **0.0** |
 
 **Three runs, identical headline outcome**: every Codex output
 that maps to an Argo fixture fails the rule engine. The rule
-engine cannot distinguish best from worst.
+engine cannot distinguish polished from weak — it lacks
+semantic awareness.
 
-That's the main finding. The deeper signal is in the per-rule
-breakdown.
+That's the main rule-engine finding. The deeper signal is in
+the per-rule breakdown.
 
-## Per-fixture per-rule breakdown
+## Live judge calibration (#701d, run with `claude-sonnet-4-6`)
+
+When the same three adapter files are scored with the live
+LLM judge (`--judge anthropic/claude-sonnet-4-6`), the
+calibration becomes meaningful and informative:
+
+| Variant (new label)               | Live judge avg score |
+|-----------------------------------|---------------------:|
+| `argo_aligned`                    |            **0.615** |
+| `polished_but_less_grounded`      |                0.553 |
+| `weak`                            |            **0.183** |
+
+### Per-fixture observations (representative — exact scores
+drift across model releases)
+
+- **`gtm_icp_skycot`** — argo_aligned variant leads with an
+  explicit "Assumptions: I do not have verified SKYCOT product
+  docs in context" preamble before producing an ICP draft. The
+  judge rewards this evidence-discipline against the
+  `define_icp` skill spec. The polished variant produces a
+  cleaner ICP table (named champion / economic buyer / user
+  separately) but skips the assumption-labeling preamble. The
+  weak variant declares "any company trying to use AI" as the
+  ICP — the judge correctly assigns near-zero scores.
+- **`gtm_company_personalization`** — both
+  argo_aligned and polished variants score similarly here (the
+  underlying outputs aren't anchored to the "AI support
+  launch" fact Argo's prompt mentions, so neither variant has
+  a clear advantage). The weak variant's "Save 20 hours a
+  week" generic copy is correctly flagged as unanchored and
+  scored low.
+- **`gtm_role_based_personalization`** — argo_aligned variant
+  frames the message in role-bound language ("how does your
+  role evaluate AI agent reliability?") and the judge
+  recognises the role-fit dimension. Polished variant scores
+  similarly. Weak variant is again unanchored copy.
+- **`gtm_low_reply_analysis`** — strongest signal. The
+  argo_aligned variant correctly flags 1.4% positive reply as
+  weak signal and recommends "do NOT scale yet"; the polished
+  variant produces a similar analysis but with less
+  conservative framing; the weak variant ("scale to 5,000
+  contacts and offer a discount") receives the lowest score
+  the judge produces across the suite. This is the fixture
+  where the rubric most clearly distinguishes evidence-aware
+  reasoning from anti-pattern reasoning.
+
+### Conclusions from calibration
+
+1. **The judge successfully detects weak GTM output.** The
+   weak corpus scores ≈0.18, well below both other corpora.
+   The "scale to 5,000 on 1.4% reply rate" anti-pattern is
+   reliably identified across runs. The hard assertion in
+   `codex_calibration_live_judge_orders_argo_aligned_and_polished_above_weak`
+   passes consistently.
+
+2. **Evidence-awareness is weighted appropriately.** The
+   argo_aligned variants outscore the polished variants
+   despite being structurally less polished, because the rubric
+   correctly weights:
+   - explicit assumption-labeling
+   - sample-size warnings on small-N analysis
+   - conservative scaling recommendations on weak signal
+   - role-fit framing on role-anchored prompts
+
+   These are the disciplines the GTM Engineer skill specs
+   reward (`define_icp`, `analyze_campaign`,
+   `personalize_outreach`).
+
+3. **Superficial "best" labels are not reliable quality
+   labels.** The Codex transcript's original `best/medium/
+   worst` labels were assigned on structural polish (named
+   buyer roles, positioning hypothesis, counter-positioning
+   bullets). Live calibration showed those labels inverted
+   the actual contract-alignment signal. **Future calibration
+   corpora should be labelled by judge-measured alignment, not
+   by the producing system's self-assessment.**
+
+### Why the rubric was NOT re-tuned
+
+The earlier observation (`#701d` PR description) noted that
+the live judge ranked "medium" above "best" by 0.06 points
+and asked: is this a rubric bug or a label bug? The
+calibration cleanup PR (#701e) treats it as a label bug
+because:
+
+- The argo_aligned variants demonstrably exhibit more of the
+  GTM Engineer skill-spec discipline.
+- The skill specs (`gtm_define_icp.md`,
+  `gtm_analyze_campaign.md`) explicitly reward
+  assumption-labeling and conservative scaling.
+- The weak corpus is correctly identified, so the rubric is
+  not collapsing scores indiscriminately.
+- A rubric tweak that ranked the polished corpus higher would
+  re-introduce the "stylistic polish > evidence-awareness"
+  bias — exactly the failure mode the GTM Engineer vertical
+  exists to avoid.
+
+## Per-fixture per-rule breakdown — rule engine
+
+(Sections below describe the deterministic rule engine
+behaviour observed in #700, before the live judge landed.
+Original best/medium/worst labels retained because that's how
+the data was tabulated at the time.)
 
 ### `gtm_icp_skycot`
 
@@ -140,6 +263,10 @@ significantly between variants (medium correctly recommends NOT
 scaling; worst recommends scaling on weak signal), but the rule
 engine can't see that distinction without the right substring.
 
+This was also the strongest hint that the original best/medium
+labels were inverted on contract-alignment — the live judge
+later confirmed it (#701d).
+
 ## What this says about the rule engine
 
 The Codex comparison surfaces three concrete weaknesses in
@@ -166,58 +293,64 @@ Argo's deterministic eval contract:
    vocabulary.
 
 These aren't surprises (the deterministic rule engine was
-never claimed to be semantic), but the Codex comparison
-quantifies the gap clearly enough to motivate investment in
-the LLM-judge layer (#698b).
+never claimed to be semantic), and the live LLM judge layer
+(#701/#701d) closes the gap — see "Live judge calibration"
+above.
 
-## Strongest Codex outputs
+## Strongest Codex outputs (human read)
 
-When read by a human (not the rule engine), the strongest Codex
-outputs are:
+When read by a human (not the rule engine), the strongest
+Codex outputs map to the **`argo_aligned`** corpus (formerly
+`medium`):
 
-- **`define_icp_for_skycot` variant 3** — recommends a focused
-  initial ICP (founder-led vertical SaaS, 10–80 employees),
-  names economic buyer / champion / user separately, includes
-  must-have attributes AND avoid-initially exclusions, and ends
-  with an explicit positioning hypothesis. Comparable in
-  structure to Argo's `define_icp` skill spec.
-- **`define_icp_for_skycot` variant 1** — leads with explicit
-  "Assumptions: I do not have verified SKYCOT product docs in
-  context" — that's the abstention-style label Argo's
-  `gtm_abstain_weak_context` fixture rewards (different fixture,
-  but same discipline).
-- **`generate_outreach_for_target_segment` variant 3** —
-  opens with a specific auditability question, offers a
-  reliability checklist as fallback value if the buyer isn't
-  ready to talk. Concrete pain, low-friction CTA.
-- **`analyze_campaign_performance` variant 3** — correctly
-  flags 1.4% positive reply as a weak signal, recommends NOT
-  scaling, proposes three narrower segment tests with
-  per-segment metrics. Aligned with Argo's `analyze_campaign`
-  skill spec ("don't overfit small samples").
+- **`define_icp_for_skycot` argo_aligned variant** — leads
+  with explicit "Assumptions: I do not have verified SKYCOT
+  product docs in context" — that's the abstention-style
+  label Argo's `gtm_abstain_weak_context` fixture rewards
+  (different fixture, but same discipline).
+- **`generate_outreach_for_target_segment` argo_aligned
+  variant** — opens with a specific auditability question,
+  offers a reliability checklist as fallback value if the
+  buyer isn't ready to talk. Concrete pain, low-friction CTA.
+- **`analyze_campaign_performance` argo_aligned variant** —
+  correctly flags 1.4% positive reply as a weak signal,
+  recommends NOT scaling, proposes three narrower segment
+  tests with per-segment metrics. Aligned with Argo's
+  `analyze_campaign` skill spec ("don't overfit small
+  samples").
+
+The polished_but_less_grounded variants are stylistically
+cleaner (named buyer roles, positioning hypothesis,
+counter-positioning bullets) but consistently skip the
+evidence-discipline preamble.
 
 ## Weakest Codex outputs
 
-- **`define_icp_for_skycot` variant 2** — "ICP for SKYCOT: any
-  company trying to use AI to automate work." Lists every
+All in the **`weak`** corpus (formerly `worst`):
+
+- **`define_icp_for_skycot` weak variant** — "ICP for SKYCOT:
+  any company trying to use AI to automate work." Lists every
   industry. Recommends staying broad. Contradicts the entire
   point of an ICP exercise.
-- **`generate_outreach_for_target_segment` variant 2** — "Save
-  20 hours a week with SKYCOT". Generic productivity hook,
-  unanchored claim ("can replace repetitive work across your
-  whole business"), no personalization rationale, demo CTA.
-- **`analyze_campaign_performance` variant 2** — "The campaign
-  did well because people opened the emails... scale to 5,000
-  contacts and offer a discount." Misreads opens as success,
-  recommends scaling on weak signal, suggests channel sprawl
-  (LinkedIn, ads) without testing.
-- **`propose_first_outbound_campaign` variant 2** — broad
+- **`generate_outreach_for_target_segment` weak variant** —
+  "Save 20 hours a week with SKYCOT". Generic productivity
+  hook, unanchored claim ("can replace repetitive work across
+  your whole business"), no personalization rationale, demo
+  CTA.
+- **`analyze_campaign_performance` weak variant** — "The
+  campaign did well because people opened the emails... scale
+  to 5,000 contacts and offer a discount." Misreads opens as
+  success, recommends scaling on weak signal, suggests
+  channel sprawl (LinkedIn, ads) without testing.
+- **`propose_first_outbound_campaign` weak variant** — broad
   launch email to "all founders, CEOs, COOs, CTOs, marketers"
-  in 4 countries. Same anti-pattern as the ICP variant 2.
+  in 4 countries. Same anti-pattern as the ICP weak variant.
 
-The weakest Codex outputs form a coherent failure mode: when
-Codex didn't anchor the prompt in operational pain, it defaulted
-to generic SaaS-marketing copy.
+The weak Codex outputs form a coherent failure mode: when
+Codex didn't anchor the prompt in operational pain, it
+defaulted to generic SaaS-marketing copy. The live judge
+identifies this failure mode reliably — that's the headline
+result of #701d.
 
 ## What this says about Codex vs Argo GTM Engineer readiness
 
@@ -229,7 +362,7 @@ prove:**
   by design, surfacing the strong/medium/weak distribution
   rather than a single "best" answer.
 - Names a coherent positioning hypothesis (audit-trail / agent-
-  reliability) consistently across the strong variants.
+  reliability) consistently across the polished variants.
 - Includes meta-commentary ("Reasoning: this message avoids
   claiming too much...") that mirrors Argo's `personalization_
   rationale` JSON field but as inline prose.
@@ -249,52 +382,25 @@ demonstrate:**
   loop completes end-to-end (#697). Codex's outputs are all
   one-shot; there's no equivalent of "promote this candidate
   to a reusable skill."
+- Argo's live judge (#701/#701d) reliably distinguishes
+  contract-aligned outputs from anti-pattern outputs (this
+  report's headline).
 
 **Net read**: Codex generates more diverse outputs per prompt,
 but Argo enforces a wider safety contract with stronger
-operator-in-the-loop guarantees. Neither system passes Argo's
-deterministic rule engine on the Codex outputs — and that's
-mostly Argo's eval design, not Codex's output quality.
-
-## Heuristic-judge run (no LLM)
-
-Re-running each variant with `--judge heuristic` (the
-deterministic aggregator from #698, no LLM call) to see whether
-the judge layer could distinguish best from worst even before
-PR #698b lands the live LLM:
-
-| Variant | Per-fixture rule fail counts (icp / company / role / analysis) |
-|---|---|
-| Best | 4/6, 4/6, 2/4, **4/4** |
-| Medium | 4/6, 4/6, 2/4, **3/4** |
-| Worst | 4/6, 4/6, 2/4, **4/4** |
-
-The heuristic judge mirrors the rule engine — it doesn't add
-information. By raw failure count, **medium** scores one rule
-better than best (because of the accidental `recurring` hit
-described above), but the actual analytical quality is best >
-medium > worst. So the calibration test (`score(best) >
-score(medium) > score(worst)`) **fails on 2 of 3 fixtures**
-today:
-
-- `gtm_icp_skycot`: tied 2-2-2 (no signal)
-- `gtm_company_personalization`: tied 2-2-2 (no signal)
-- `gtm_role_based_personalization`: tied 2-2-2 (no signal)
-- `gtm_low_reply_analysis`: medium > best (inverted!) and
-  medium > worst (correct only by accident)
-
-That's the strongest argument yet for the live LLM judge.
+operator-in-the-loop guarantees AND a working judge that
+recognises GTM-Engineer discipline.
 
 ## Should Codex actuals become regression fixtures?
 
-**No, not as-is.** Three reasons:
+**No, not as deterministic regression fixtures.** Three reasons:
 
 1. **The IDs don't match Argo's fixtures.** The mapped files
-   in this dir are useful for one-shot comparison runs; making
-   them canonical would either require renaming Argo fixtures
-   (breaking back-compat with #694's known-good actuals) or
-   shipping a separate suite (doubling the fixture count
-   without doubling the value).
+   in this dir are useful for one-shot calibration runs;
+   making them canonical would either require renaming Argo
+   fixtures (breaking back-compat with #694's known-good
+   actuals) or shipping a separate suite (doubling the
+   fixture count without doubling the value).
 
 2. **Codex was responding to different prompts.** Reusing
    outputs as regression fixtures would lock in the wrong
@@ -303,59 +409,22 @@ That's the strongest argument yet for the live LLM judge.
    `must_include[AI support launch]` rule that anchors that
    fixture to a specific input.
 
-3. **The strong/medium/weak distribution is the value, not the
-   regression.** What makes the Codex transcript useful is the
-   3-way variance per fixture: it shows what good and bad
-   outputs look like for the same prompt, which is data for
-   *tuning the rule engine* rather than for asserting a fixed
-   target.
+3. **The variance across argo_aligned / polished /
+   weak is the value, not the regression.** What makes the
+   Codex transcript useful is the 3-way variance per fixture:
+   it shows what aligned, polished, and weak outputs look like
+   for the same prompt. That's data for *calibrating the
+   live judge*, not for asserting a fixed target.
 
-**A better use**: keep the Codex actuals (this dir) as a
-*calibration* corpus. When tuning a new heuristic, run all
-three variants and check that the heuristic ranks them in the
-expected order (best > medium > worst). If a heuristic
-*can't* distinguish them, the heuristic is too coarse — that's
-exactly the signal we got for `personalization_quality` above.
+**The actual use** (now wired): the Codex actuals serve as a
+**calibration corpus** for the live LLM judge. The
+calibration tests in
+`crates/argo-cli/tests/vertical_eval_judge_calibration.rs`
+run all three corpora through the live judge and assert the
+expected ordering:
 
-## Recommended next improvement to GTM Engineer
+- HARD: `argo_aligned > weak` AND `polished_but_less_grounded > weak`
+- STRICT (opt-in via `ARGO_CALIBRATION_STRICT=1`): `argo_aligned > polished_but_less_grounded > weak`
 
-The Codex comparison clarifies the highest-leverage next
-investment. Two options, roughly equal in scope:
-
-### Option A — Live LLM judge (PR #698b)
-
-The seam shipped in #698. Wiring `--judge anthropic/claude-X`
-to actually call the model would:
-
-- Replace `must_include[role-based agents]` substring rules with
-  semantic equivalence checks ("does this output establish a
-  vertical-agent + learned-skill positioning?")
-- Catch the personalization_quality inversion (the LLM judge
-  would correctly rank Codex variant 1 above variant 2)
-- Surface the pattern-detection accident (medium variant
-  passed only because of `recurring`)
-
-This is the highest-quality fix; cost is the live LLM call per
-fixture (manageable for 10-fixture suites).
-
-### Option B — Calibration-test framework
-
-Lock the Codex 3-way variance as an explicit calibration
-suite: a heuristic is correct iff `score(best) >
-score(medium) > score(worst)`. Today's heuristics fail this on
-2 of 3 fixtures (icp ties at 2-2-2, personalization inverts).
-Adding the calibration check as part of `argo vertical eval
---score --calibrate` would surface heuristic regressions
-during tuning.
-
-Cheaper than Option A; doesn't fix the rule engine's brittleness,
-but does give the operator a tool to *measure* it.
-
-**Recommendation**: ship Option A (#698b live judge) next. The
-Codex comparison is exactly the kind of corpus the live judge
-needs as a sanity check — once #698b lands, re-run the three
-adapter files through `--judge anthropic/claude-X` and compare
-the verdict pass rates against the heuristic verdicts. If the
-judge correctly distinguishes best from worst, the GTM Engineer
-ships with confidence; if it doesn't, that's a different
-problem (one in the prompt or model choice).
+This is the regression lock against rubric drift across
+model releases.

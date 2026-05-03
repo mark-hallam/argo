@@ -48,7 +48,7 @@ pub async fn run(
 ) -> ArgoResult<()> {
     let report = run_collect(vertical_id, workflow_name, session_id_str).await?;
     if json {
-        println!("{}", report.to_json().to_string());
+        println!("{}", report.to_json());
     } else {
         report.print_text();
     }
@@ -249,6 +249,12 @@ fn build_local_dispatch_ctx(
     Ok((reg, engine, principal))
 }
 
+// 8 args is intentional here — workflow steps need access to
+// the registry, engine, principal, cwd, both ACL sets, and the
+// audit ctx. Bundling them into a struct would just push the
+// same arity into a struct definition without removing the
+// coupling, so we accept the lint locally.
+#[allow(clippy::too_many_arguments)]
 async fn run_one_step(
     step: &WorkflowStep,
     registry: &ToolRegistry,
@@ -291,6 +297,8 @@ async fn run_one_step(
     }
 }
 
+// 8 args mirrors `run_one_step` for the same reason.
+#[allow(clippy::too_many_arguments)]
 async fn run_tool_call_step(
     step: &WorkflowStep,
     registry: &ToolRegistry,

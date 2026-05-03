@@ -75,7 +75,6 @@ fn boot_gtm_session(home: &Path, verticals: &Path) -> String {
         .find(|l| l.starts_with("created session"))
         .and_then(|l| {
             l.trim_start_matches("created session")
-                .trim()
                 .split_whitespace()
                 .next()
         })

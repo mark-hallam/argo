@@ -22,6 +22,10 @@ pub async fn run(
     let limit = limit.clamp(1, 500);
     let since_micros = since_minutes
         .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
+    // The 6-tuple mirrors the SELECT shape; introducing a
+    // type alias for what's local to one query would obscure
+    // the column order rather than clarify it.
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i64, Vec<u8>, Vec<u8>, String, String, i64)> = match (role.as_deref(), since_micros) {
         (Some(r), Some(s)) => sqlx::query_as(
             "SELECT seq, id, session_id, role, content_json, created_at \

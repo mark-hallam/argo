@@ -178,7 +178,7 @@ fn cli_validate_fails_loud_for_broken_vertical() {
     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["id"], "broken");
     assert_eq!(v["valid"], false);
-    assert!(v["error"].as_str().unwrap().len() > 0);
+    assert!(!v["error"].as_str().unwrap().is_empty());
 }
 
 // ---- Gateway tests --------------------------------------------------

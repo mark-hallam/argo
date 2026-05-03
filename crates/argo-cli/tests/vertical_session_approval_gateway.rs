@@ -32,7 +32,7 @@ fn gateway_post_approve_persists_grant_returns_200_and_emits_audit() {
     let (mut child, _stderr) = boot(port, 6);
     let sid = create_session_via_gateway(port);
 
-    let body = format!("{{\"tool\":\"delegate_task\",\"note\":\"gw test\"}}");
+    let body = "{\"tool\":\"delegate_task\",\"note\":\"gw test\"}".to_string();
     let resp = http_post(port, &format!("/sessions/{sid}/approve"), &body);
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();

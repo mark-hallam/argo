@@ -197,12 +197,10 @@ fn detect_systemic_judge_failure(per_suite: &[SuiteOutcome]) -> bool {
     let mut total_judged = 0_usize;
     let mut judge_call_failed = 0_usize;
     for o in per_suite {
-        for jv in &o.judge_verdicts {
-            if let Some(v) = jv {
-                total_judged += 1;
-                if v.failed_criteria.iter().any(|c| c == "judge_call_failed") {
-                    judge_call_failed += 1;
-                }
+        for v in o.judge_verdicts.iter().flatten() {
+            total_judged += 1;
+            if v.failed_criteria.iter().any(|c| c == "judge_call_failed") {
+                judge_call_failed += 1;
             }
         }
     }
@@ -248,7 +246,7 @@ fn emit_json(
                             obj.insert(
                                 "judge".to_string(),
                                 serde_json::to_value(verdict)
-                                    .unwrap_or_else(|_| serde_json::Value::Null),
+                                    .unwrap_or(serde_json::Value::Null),
                             );
                         }
                     }
