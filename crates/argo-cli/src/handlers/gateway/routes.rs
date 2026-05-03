@@ -87,6 +87,11 @@ pub(super) async fn dispatch_route(
             if let Some(id) = id_with_query.strip_suffix("/lint") {
                 return super::routes_verticals_lint::vertical_lint_response(id).await;
             }
+            // /verticals/<id>/doctor (#674) — gateway mirror of
+            // `argo vertical doctor`.
+            if let Some(id) = id_with_query.strip_suffix("/doctor") {
+                return super::routes_verticals_doctor::vertical_doctor_response(id).await;
+            }
             let (id, query) = match id_with_query.split_once('?') {
                 Some((i, q)) => (i, Some(q)),
                 None => (id_with_query, None),

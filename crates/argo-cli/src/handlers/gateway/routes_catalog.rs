@@ -18,6 +18,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/verticals/<id>/sessions", "create a session bound to this vertical; body {model, provider, title?} (#651)"),
         ("POST", "/verticals/<id>/run", "one-shot composite (#670): create session + attach skills + run the named workflow against the new session; body {workflow, title?, provider?, model?}; returns {session_id, vertical_id, skills_attached, workflow:{…}}"),
         ("GET",  "/verticals/<id>/lint", "best-practice hygiene checks for one vertical (#672); returns {ok, id, findings:[{severity, code, message}]}; 422 when any finding has severity=error"),
+        ("GET",  "/verticals/<id>/doctor", "composite health check (#674): validate + eval + lint in one report; 422 when any check fails"),
         ("GET", "/version", "build version"),
         ("GET", "/sessions", "list sessions (?limit&since-minutes&older-than-minutes&status&provider&model&title-contains&spent-min&spent-max&format=markdown)"),
         ("GET", "/sessions/<id>", "one session header + counts (?format=markdown for a paste-able header doc)"),

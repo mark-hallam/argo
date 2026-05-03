@@ -11,6 +11,7 @@ mod routes_audit;
 mod routes_audit_rollups;
 mod routes_dispatch_forge;
 mod routes_verticals;
+mod routes_verticals_doctor;
 mod routes_verticals_lint;
 mod routes_verticals_run;
 mod routes_health;
