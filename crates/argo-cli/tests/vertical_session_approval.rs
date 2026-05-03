@@ -197,6 +197,95 @@ fn cli_approve_then_revoke_round_trips() {
 }
 
 #[test]
+fn cli_list_grants_after_two_approves_shows_both() {
+    let home = tempfile::tempdir().unwrap();
+    let sid = create_session(home.path());
+
+    // Approve two distinct tools.
+    Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args(["session", "approve", &sid, "--tool", "delegate_task"])
+        .status()
+        .unwrap();
+    Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "session",
+            "approve",
+            &sid,
+            "--tool",
+            "terminal",
+            "--note",
+            "for one-off debug",
+        ])
+        .status()
+        .unwrap();
+
+    let out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args(["session", "list-grants", &sid, "--json"])
+        .output()
+        .expect("spawn list-grants");
+    assert!(
+        out.status.success(),
+        "list-grants stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(v["session_id"], sid);
+    assert_eq!(v["count"].as_u64().unwrap(), 2);
+    let grants = v["grants"].as_array().unwrap();
+    let tools: Vec<&str> = grants
+        .iter()
+        .map(|g| g["tool"].as_str().unwrap())
+        .collect();
+    assert!(tools.contains(&"delegate_task"), "got: {tools:?}");
+    assert!(tools.contains(&"terminal"), "got: {tools:?}");
+    // One of them carries the note we passed.
+    let with_note: Vec<&serde_json::Value> = grants
+        .iter()
+        .filter(|g| g["note"].as_str().is_some())
+        .collect();
+    assert_eq!(with_note.len(), 1);
+    assert_eq!(with_note[0]["note"].as_str().unwrap(), "for one-off debug");
+}
+
+#[test]
+fn cli_list_grants_for_session_with_no_grants_returns_count_zero() {
+    let home = tempfile::tempdir().unwrap();
+    let sid = create_session(home.path());
+
+    let out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args(["session", "list-grants", &sid, "--json"])
+        .output()
+        .expect("spawn");
+    assert!(out.status.success());
+    let v: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(v["count"].as_u64().unwrap(), 0);
+    assert!(v["grants"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn cli_list_grants_unknown_session_fails_loudly() {
+    let home = tempfile::tempdir().unwrap();
+    let out = Command::new(argo_bin())
+        .env("ARGO_HOME", home.path())
+        .args([
+            "session",
+            "list-grants",
+            "00000000-0000-7000-8000-000000000000",
+        ])
+        .output()
+        .expect("spawn");
+    assert!(!out.status.success());
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("no session"), "stderr: {stderr}");
+}
+
+#[test]
 fn cli_revoke_with_no_grants_returns_zero_and_succeeds() {
     let home = tempfile::tempdir().unwrap();
     let sid = create_session(home.path());

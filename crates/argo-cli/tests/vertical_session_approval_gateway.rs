@@ -152,5 +152,64 @@ fn gateway_routes_catalog_lists_the_two_new_endpoints() {
         body.contains("/sessions/<id>/revoke-approval"),
         "catalog should list revoke-approval route; body: {body}"
     );
+    assert!(
+        body.contains("/sessions/<id>/grants"),
+        "catalog should list grants route; body: {body}"
+    );
+    let _ = child.kill();
+}
+
+#[test]
+fn gateway_get_grants_returns_active_grants() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 6);
+    let sid = create_session_via_gateway(port);
+
+    http_post(
+        port,
+        &format!("/sessions/{sid}/approve"),
+        r#"{"tool":"delegate_task","note":"gw test"}"#,
+    );
+    http_post(
+        port,
+        &format!("/sessions/{sid}/approve"),
+        r#"{"tool":"terminal"}"#,
+    );
+
+    let resp = http_get(port, &format!("/sessions/{sid}/grants"));
+    assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
+    let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
+    assert_eq!(v["session_id"], sid);
+    assert_eq!(v["count"].as_u64().unwrap(), 2);
+    let tools: Vec<&str> = v["grants"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["tool"].as_str().unwrap())
+        .collect();
+    assert!(tools.contains(&"delegate_task"));
+    assert!(tools.contains(&"terminal"));
+
+    let _ = child.kill();
+}
+
+#[test]
+fn gateway_get_grants_unknown_session_returns_404() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 1);
+    let resp = http_get(
+        port,
+        "/sessions/00000000-0000-7000-8000-000000000000/grants",
+    );
+    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp: {resp}");
+    let _ = child.kill();
+}
+
+#[test]
+fn gateway_get_grants_invalid_uuid_returns_400() {
+    let port = pick_free_port();
+    let (mut child, _stderr) = boot(port, 1);
+    let resp = http_get(port, "/sessions/not-a-uuid/grants");
+    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp: {resp}");
     let _ = child.kill();
 }

@@ -137,6 +137,56 @@ pub(super) async fn session_revoke_approval_response(
     )
 }
 
+/// `GET /sessions/<id>/grants` — list every active human-
+/// approval grant for the session (#666). Same JSON shape as
+/// the CLI's `--json` mode: `{session_id, count, grants:[…]}`.
+pub(super) async fn session_grants_get_response(
+    sid_str: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let Ok(sid) = parse_sid(sid_str) else {
+        return bad_request(&format!("invalid session id '{sid_str}'"));
+    };
+    let exists = match store.get_session(sid).await {
+        Ok(opt) => opt.is_some(),
+        Err(e) => return server_error(&format!("get_session: {e}")),
+    };
+    if !exists {
+        return (
+            "404 Not Found",
+            format!("{{\"error\":\"no session with id '{sid_str}'\"}}"),
+        );
+    }
+    let grants = match store.list_session_grants(sid).await {
+        Ok(v) => v,
+        Err(e) => return server_error(&format!("list_session_grants: {e}")),
+    };
+    let arr: Vec<serde_json::Value> = grants
+        .iter()
+        .map(|g| {
+            serde_json::json!({
+                "id": g.id.to_string(),
+                "tool": g.tool_name,
+                "granted_at_secs": g.granted_at_secs,
+                "source": g.source,
+                "note": g.notes,
+            })
+        })
+        .collect();
+    (
+        "200 OK",
+        serde_json::to_string(&serde_json::json!({
+            "session_id": sid_str,
+            "count": arr.len(),
+            "grants": arr,
+        }))
+        .unwrap_or_default(),
+    )
+}
+
 fn parse_sid(s: &str) -> Result<SessionId, ()> {
     let s = s.trim_end_matches('/');
     Uuid::parse_str(s).map(SessionId).map_err(|_| ())

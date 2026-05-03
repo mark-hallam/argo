@@ -446,6 +446,12 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List active human-approval grants for a session (#666).
+    ListGrants {
+        session_id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —

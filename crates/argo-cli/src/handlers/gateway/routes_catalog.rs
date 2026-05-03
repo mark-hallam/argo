@@ -119,6 +119,7 @@ pub(crate) fn routes_response(method_filter: Option<&str>) -> (&'static str, Str
         ("POST", "/sessions/<id>/replay/stream", "chunked-NDJSON replay event stream"),
         ("GET", "/sessions/<id>/skills", "skills attached to the session (?format=markdown)"),
         ("GET", "/sessions/<id>/judge", "judge_record rows for the session (?format=markdown)"),
+        ("GET", "/sessions/<id>/grants", "list active human-approval grants for this session (#666); returns {session_id, count, grants:[…]}"),
         ("POST", "/sessions/<id>/skills/attach", "attach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/skills/detach", "detach a skill ({skill: name})"),
         ("POST", "/sessions/<id>/skills/clear", "detach every attached skill"),

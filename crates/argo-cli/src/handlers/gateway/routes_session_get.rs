@@ -143,6 +143,14 @@ pub(super) async fn dispatch_session_get(
                 session_skills_list_response(sid, store, format.as_deref()).await,
             );
         }
+        // #666 — list active human-approval grants for this
+        // session. Operator visibility into "what's currently
+        // allowed through the escalation gate".
+        if tail.starts_with("grants ") || tail.starts_with("grants?") {
+            return Some(
+                super::routes_session_approval::session_grants_get_response(sid, store).await,
+            );
+        }
         if tail.starts_with("judge ") || tail.starts_with("judge?") {
             let format = parse_query_kv(tail, "format");
             return Some(session_judge_response(sid, store, format.as_deref()).await);
