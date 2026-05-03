@@ -25,6 +25,7 @@ pub mod vertical;
 pub mod vertical_attach;
 pub mod vertical_doctor;
 pub mod vertical_eval;
+mod vertical_eval_judge_live;
 mod vertical_eval_score;
 pub mod vertical_install;
 pub mod vertical_lint;

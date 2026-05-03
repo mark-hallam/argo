@@ -130,30 +130,14 @@ fn judge_heuristic_propagates_rule_failure_into_suite_failure() {
     );
 }
 
-#[test]
-fn judge_live_placeholder_attaches_not_wired_verdict() {
-    let dir = tempfile::tempdir().unwrap();
-    write_synthetic_vertical(
-        dir.path(),
-        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"x\"]},\"actual\":\"x present\"}\n",
-    );
-    let (success, out, _) = run_eval(
-        &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "anthropic/claude-sonnet-4-6",
-        ],
-        dir.path(),
-    );
-    assert!(success, "live placeholder mirrors rule pass: out={out}");
-    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
-    let fx = &v["suites"][0]["fixtures"][0];
-    let judge = &fx["judge"];
-    assert_eq!(judge["passed"], true);
-    assert_eq!(judge["source"], "not_wired:anthropic/claude-sonnet-4-6");
-    let reason = judge["reason"].as_str().unwrap();
-    assert!(reason.contains("not yet wired"), "reason={reason}");
-    assert!(reason.contains("anthropic/claude-sonnet-4-6"), "reason={reason}");
-}
+// REPLACED in #701: this slot used to lock the `not_wired`
+// placeholder behaviour from #698. PR #701 wires the live
+// transport, so `--judge anthropic/...` now invokes the real
+// backend (or fails loudly without an API key — covered by
+// `live_judge_without_api_key_errors_clearly_with_actionable_message`
+// below). The pure-helper placeholder is locked at the
+// argo-vertical sibling test
+// `live_placeholder_mirrors_rule_outcome_and_explains_gap`.
 
 #[test]
 fn judge_invalid_spec_is_rejected_before_any_fixture_runs() {
@@ -191,6 +175,100 @@ fn judge_without_score_flag_errors_clearly() {
         stderr.contains("--judge requires --score"),
         "stderr: {stderr}"
     );
+}
+
+// ---- live judge wiring (#701) -----------------------------------
+
+#[test]
+fn live_judge_without_api_key_errors_clearly_with_actionable_message() {
+    // Critical contract: when the operator passes
+    // `--judge <provider>/<model>` without setting the
+    // matching API key env, the run must fail BEFORE any
+    // grading happens. The error must name the missing env
+    // var (or, if the manifest itself is unreachable, name
+    // the manifest path) and the offline fallback (`--judge
+    // heuristic`). Locks the "no API key in CI" guarantee.
+    let dir = tempfile::tempdir().unwrap();
+    write_synthetic_vertical(
+        dir.path(),
+        "{\"id\":\"a\",\"input\":\"x\",\"expected\":{\"must_include\":[\"x\"]},\"actual\":\"x present\"}\n",
+    );
+    let out = Command::new(argo_bin())
+        .env("ARGO_VERTICALS_DIR", dir.path())
+        .env_remove("ANTHROPIC_API_KEY")
+        .args([
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--judge",
+            "anthropic/claude-sonnet-4-6",
+        ])
+        .output()
+        .expect("spawn");
+    assert!(!out.status.success(), "must fail without key");
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    // Either error path is acceptable: missing key OR
+    // missing manifest. Both emit a recognisable "live
+    // judge:" prefix from build_anthropic_backend so
+    // operators know to fix configuration before re-running.
+    assert!(
+        stderr.contains("live judge:"),
+        "stderr should be prefixed by live-judge configuration error: {stderr}"
+    );
+}
+
+#[test]
+fn judge_verdict_json_includes_score_field() {
+    // #701 added `score` to JudgeVerdict. Lock the JSON shape —
+    // operators downstream parse this.
+    let dir = tempfile::tempdir().unwrap();
+    write_synthetic_vertical(
+        dir.path(),
+        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"specific\"]},\"actual\":\"contains specific words here\"}\n",
+    );
+    let (success, out, _) = run_eval(
+        &[
+            "vertical", "eval", "judge-fixture", "--score", "--json",
+            "--judge", "heuristic",
+        ],
+        dir.path(),
+    );
+    assert!(success, "out={out}");
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let judge = &v["suites"][0]["fixtures"][0]["judge"];
+    assert_eq!(judge["passed"], true);
+    assert_eq!(judge["score"].as_f64().unwrap(), 1.0);
+    // failed_criteria is skip-if-empty, so it's absent on pass.
+    assert!(
+        judge.get("failed_criteria").is_none(),
+        "passing verdict should NOT carry failed_criteria: {judge}"
+    );
+}
+
+#[test]
+fn judge_verdict_json_failed_criteria_populated_on_heuristic_fail() {
+    let dir = tempfile::tempdir().unwrap();
+    write_synthetic_vertical(
+        dir.path(),
+        "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"absent\",\"missing\"]},\"actual\":\"this contains neither keyword\"}\n",
+    );
+    let (success, out, _) = run_eval(
+        &[
+            "vertical", "eval", "judge-fixture", "--score", "--json",
+            "--judge", "heuristic",
+        ],
+        dir.path(),
+    );
+    assert!(!success);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let judge = &v["suites"][0]["fixtures"][0]["judge"];
+    assert_eq!(judge["passed"], false);
+    assert_eq!(judge["score"].as_f64().unwrap(), 0.0);
+    let criteria = judge["failed_criteria"].as_array().unwrap();
+    assert_eq!(criteria.len(), 2, "two must_include rules failed: {judge}");
+    assert!(criteria.iter().any(|c| c.as_str().unwrap().contains("absent")));
+    assert!(criteria.iter().any(|c| c.as_str().unwrap().contains("missing")));
 }
 
 #[test]

@@ -86,7 +86,10 @@ pub use eval_score::{
 pub use eval_score_actuals::{
     parse_actuals_jsonl, score_suite_jsonl_with_actuals, ActualsMap, ActualsParseError,
 };
-pub use eval_score_judge::{judge_fixture, parse_judge_spec, JudgePolicy, JudgeVerdict};
+pub use eval_score_judge::{
+    build_judge_prompt, judge_fixture, parse_judge_response, parse_judge_spec, JudgePolicy,
+    JudgeVerdict,
+};
 pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};
 pub use manifest::{

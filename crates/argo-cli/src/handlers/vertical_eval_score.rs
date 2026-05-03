@@ -117,16 +117,26 @@ pub(super) async fn run_scored(
         // "pass", we DO flip the suite to failure so the
         // operator sees the disagreement; symmetrically a judge
         // "pass" never rescues a rule-engine fail.
+        //
+        // #701: when the policy is `Live`, replace the
+        // placeholder verdicts with real LLM verdicts via the
+        // live backend. Heuristic mode keeps the pure helper.
         let judge_verdicts: Vec<Option<JudgeVerdict>> = match &judge_policy {
             None => score.fixtures.iter().map(|_| None).collect(),
-            Some(policy) => score
+            Some(JudgePolicy::Heuristic) => score
                 .fixtures
                 .iter()
                 .map(|fx| match fx.status {
-                    FixtureStatus::Scored => Some(judge_fixture(policy, fx)),
+                    FixtureStatus::Scored => {
+                        Some(judge_fixture(&JudgePolicy::Heuristic, fx))
+                    }
                     _ => None,
                 })
                 .collect(),
+            Some(JudgePolicy::Live { provider, model }) => {
+                live_judge_for_suite(provider, model, &score, &body, actuals.as_ref())
+                    .await?
+            }
         };
         let judge_failed = judge_verdicts
             .iter()
@@ -286,6 +296,84 @@ fn emit_text(id: &str, per_suite: &[SuiteOutcome]) {
             }
         }
     }
+}
+
+/// Build a live judge backend, re-parse the suite to extract
+/// per-fixture (input, expected, actual) triples, and grade
+/// every Scored fixture (#701). Returns one `Option<JudgeVerdict>`
+/// per `score.fixtures` entry, indexed parallel.
+///
+/// Errors propagate from backend construction (missing manifest,
+/// unsupported provider family, missing API key) — those are
+/// configuration problems the operator must fix before any
+/// fixture gets graded.
+async fn live_judge_for_suite(
+    provider: &str,
+    model: &str,
+    score: &SuiteScore,
+    suite_body: &str,
+    actuals: Option<&ActualsMap>,
+) -> ArgoResult<Vec<Option<JudgeVerdict>>> {
+    let backend =
+        super::vertical_eval_judge_live::build_anthropic_backend(provider, model)?;
+    let inputs = collect_fixture_inputs(suite_body, actuals);
+    Ok(super::vertical_eval_judge_live::judge_all_fixtures(
+        &backend,
+        &score.fixtures,
+        &inputs,
+    )
+    .await)
+}
+
+/// Re-parse the suite body into `(id, input, expected, actual)`
+/// tuples for the live judge. Applies the same actuals overlay
+/// the rule engine uses so the live judge sees identical
+/// content. Skips rows that don't parse as JSON objects (the
+/// rule engine already surfaced those as Malformed).
+fn collect_fixture_inputs(
+    body: &str,
+    actuals: Option<&ActualsMap>,
+) -> Vec<(String, String, serde_json::Value, String)> {
+    let mut out: Vec<(String, String, serde_json::Value, String)> = Vec::new();
+    for raw in body.lines() {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let mut v: serde_json::Value = match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let Some(id) = v.get("id").and_then(|x| x.as_str()).map(String::from) else {
+            continue;
+        };
+        // Apply external actuals overlay (file wins over row-
+        // embedded actual, same precedence as the rule engine).
+        if let Some(map) = actuals {
+            if let Some(a) = map.get(&id) {
+                if let Some(obj) = v.as_object_mut() {
+                    obj.insert(
+                        "actual".to_string(),
+                        serde_json::Value::String(a.clone()),
+                    );
+                }
+            }
+        }
+        let input = v
+            .get("input")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
+        let expected = v.get("expected").cloned().unwrap_or(serde_json::Value::Null);
+        let Some(actual) = v.get("actual").and_then(|x| x.as_str()).map(String::from) else {
+            // No actual → won't be Scored, so the live judge
+            // will skip it. Still emit the tuple so id matching
+            // doesn't false-negative.
+            continue;
+        };
+        out.push((id, input, expected, actual));
+    }
+    out
 }
 
 /// Round to 3 decimal places — keeps machine-readable output
