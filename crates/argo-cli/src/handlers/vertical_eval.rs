@@ -24,47 +24,10 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
             dir.display()
         ))
     })?;
-
-    let suites = loaded
-        .manifest
-        .evaluation
-        .as_ref()
-        .map(|e| e.suites.clone())
-        .unwrap_or_default();
-
-    let mut report = SuiteReport {
-        id: id.to_string(),
-        suites: Vec::new(),
-        ok: true,
-    };
-
-    for rel in &suites {
-        let path = loaded.root.join(rel);
-        let result = scan_suite(&path);
-        if !result.errors.is_empty() {
-            report.ok = false;
-        }
-        report.suites.push(SuiteRow {
-            path: rel.clone(),
-            fixture_count: result.fixture_count,
-            errors: result.errors,
-        });
-    }
+    let report = collect_eval_report(loaded);
 
     if json {
-        println!(
-            "{}",
-            serde_json::to_string(&serde_json::json!({
-                "id": report.id,
-                "ok": report.ok,
-                "suites": report.suites.iter().map(|s| serde_json::json!({
-                    "path": s.path,
-                    "fixture_count": s.fixture_count,
-                    "errors": s.errors,
-                })).collect::<Vec<_>>(),
-            }))
-            .unwrap_or_default()
-        );
+        println!("{}", report.to_json().to_string());
     } else {
         print_text_report(&report);
     }
@@ -78,16 +41,61 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     }
 }
 
-struct SuiteReport {
-    id: String,
-    suites: Vec<SuiteRow>,
-    ok: bool,
+/// Walk every eval suite the manifest declares + return a
+/// structured per-suite report. Used by both the standalone
+/// CLI command and by `argo vertical doctor` (#673) which
+/// composes eval + validate + lint into one health check.
+pub(crate) fn collect_eval_report(loaded: &argo_vertical::LoadedVertical) -> SuiteReport {
+    let suites = loaded
+        .manifest
+        .evaluation
+        .as_ref()
+        .map(|e| e.suites.clone())
+        .unwrap_or_default();
+    let mut report = SuiteReport {
+        id: loaded.manifest.vertical.id.clone(),
+        suites: Vec::new(),
+        ok: true,
+    };
+    for rel in &suites {
+        let path = loaded.root.join(rel);
+        let result = scan_suite(&path);
+        if !result.errors.is_empty() {
+            report.ok = false;
+        }
+        report.suites.push(SuiteRow {
+            path: rel.clone(),
+            fixture_count: result.fixture_count,
+            errors: result.errors,
+        });
+    }
+    report
 }
 
-struct SuiteRow {
-    path: String,
-    fixture_count: usize,
-    errors: Vec<String>,
+pub(crate) struct SuiteReport {
+    pub(crate) id: String,
+    pub(crate) suites: Vec<SuiteRow>,
+    pub(crate) ok: bool,
+}
+
+impl SuiteReport {
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id,
+            "ok": self.ok,
+            "suites": self.suites.iter().map(|s| serde_json::json!({
+                "path": s.path,
+                "fixture_count": s.fixture_count,
+                "errors": s.errors,
+            })).collect::<Vec<_>>(),
+        })
+    }
+}
+
+pub(crate) struct SuiteRow {
+    pub(crate) path: String,
+    pub(crate) fixture_count: usize,
+    pub(crate) errors: Vec<String>,
 }
 
 struct ScanResult {

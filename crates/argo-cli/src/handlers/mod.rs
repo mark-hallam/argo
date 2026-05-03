@@ -22,6 +22,7 @@ pub mod gateway_probe;
 pub mod setup;
 pub mod vertical;
 pub mod vertical_attach;
+pub mod vertical_doctor;
 pub mod vertical_eval;
 pub mod vertical_install;
 pub mod vertical_lint;

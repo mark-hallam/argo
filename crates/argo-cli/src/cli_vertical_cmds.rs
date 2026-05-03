@@ -135,6 +135,14 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Composite "is this vertical OK?" health check (#673):
+    /// validate + eval + lint in one report. Exits non-zero if
+    /// any check fails. Useful as a single CI gate.
+    Doctor {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// One-shot "from zero to running vertical" composite (#669).
     /// Creates a fresh session bound to the vertical, attaches
     /// every skill the manifest declares, then runs the named
