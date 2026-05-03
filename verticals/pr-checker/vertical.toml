@@ -32,12 +32,13 @@ seed   = "memory/seed/"
 [skills]
 bundle = "skills/"
 
-# Workflows are scaffold-only at v0.1.0 — Phase 5 will wire the
-# actual state-machine runner. Carrying the file list lets the
-# manifest validate today and lets the runner pick it up later
-# without a schema change.
+# Workflows are wired in #659 (sequential runner; tool_call steps
+# run end-to-end, skill_invoke + prompt steps are recorded with
+# `status="deferred_no_llm"` until the LLM-driven runner lands).
+# `read_repo_anchors.workflow.toml` is a tool-only smoke workflow
+# that proves the runner end-to-end against this vertical.
 [workflows]
-files = []
+files = ["workflows/read_repo_anchors.workflow.toml"]
 
 [escalation]
 # When two consecutive turns fail (provider error, tool denial,

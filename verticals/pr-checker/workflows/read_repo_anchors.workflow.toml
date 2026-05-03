@@ -1,0 +1,39 @@
+schema_version = "1"
+
+# Smoke workflow: prove the runner end-to-end against this vertical.
+#
+# All three steps are tool_call so they run today (#659). When the
+# LLM-driven runner lands, we'll add a follow-up workflow that uses
+# skill_invoke + prompt steps too.
+#
+# The point is to read three "anchor" files that should be present
+# in any repo this vertical operates against — README, CONTRIBUTING,
+# CLAUDE.md — and let the operator confirm the runner's previews
+# look right. Failures are non-fatal (one missing file does not
+# stop the workflow today; the runner records the per-step status
+# for the operator to triage). A future Phase 5+ upgrade can add
+# `on_failure = "stop"` semantics.
+
+[workflow]
+name        = "read_repo_anchors"
+description = "Read README, CONTRIBUTING, CLAUDE.md as a smoke test that the workflow runner is wired end-to-end against this vertical."
+
+[[step]]
+name = "read_readme"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "README.md" }
+
+[[step]]
+name = "read_contributing"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "CONTRIBUTING.md" }
+depends_on = ["read_readme"]
+
+[[step]]
+name = "read_claude_md"
+kind = "tool_call"
+tool = "file_read"
+args = { path = "CLAUDE.md" }
+depends_on = ["read_readme"]

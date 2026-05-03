@@ -56,4 +56,22 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Run a named workflow declared by a vertical (#659). Walks
+    /// the workflow's steps in declaration order. Today only
+    /// `tool_call` steps run end-to-end — `skill_invoke` and
+    /// `prompt` need an LLM transport and are recorded with
+    /// `status="deferred_no_llm"` so the operator can see what
+    /// would have run. Capability + per-vertical deny lists are
+    /// enforced.
+    Workflow {
+        /// The vertical's id (`[vertical].id` in `vertical.toml`).
+        vertical_id: String,
+        /// The workflow's name (`workflow.name` field of the
+        /// matching file in `[workflows].files`).
+        workflow_name: String,
+        /// Output as a single JSON object
+        /// `{vertical_id, workflow, ok, total_ms, steps:[…]}`.
+        #[arg(long)]
+        json: bool,
+    },
 }

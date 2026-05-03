@@ -15,6 +15,7 @@ fn fake_session(title: &str) -> SessionHeader {
         title: Some(title.into()),
         started_at: Utc::now(),
         ended_at: None,
+        vertical_id: None,
     }
 }
 
