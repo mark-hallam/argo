@@ -13,6 +13,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod forge_meta;
+mod grants;
 mod marketplace_meta;
 mod migrations;
 mod models;
@@ -21,6 +22,7 @@ mod spend;
 mod stats;
 mod workspace;
 
+pub use grants::SessionGrant;
 pub use marketplace_meta::MarketplaceArtifactRow;
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
 pub use spend::GlobalSpend;

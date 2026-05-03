@@ -423,6 +423,29 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Grant the session permission to dispatch a tool that the
+    /// bound vertical's `[escalation].human_approval_required`
+    /// list would otherwise block (#664). Persists the grant;
+    /// the next turn will let the tool through. Idempotent.
+    Approve {
+        session_id: String,
+        #[arg(long)]
+        tool: String,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Revoke every grant for a (session, tool) pair (#664).
+    /// The next turn against the session will block the tool
+    /// again. Returns the number of grants removed.
+    RevokeApproval {
+        session_id: String,
+        #[arg(long)]
+        tool: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // `ForgeCmd` + `ForgeRunsCmd` live in `cli_forge_cmds.rs` —

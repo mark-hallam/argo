@@ -104,6 +104,31 @@ pub(crate) fn build_vertical_approval_set(
     out
 }
 
+/// Build the set of tool names the operator has explicitly
+/// approved for this session via `argo session approve` (#664).
+/// The approval gate (#660) lets these through even when the
+/// vertical's `[escalation].human_approval_required` would have
+/// blocked them.
+///
+/// Returns an empty set when:
+/// - the session has no grants (the common case),
+/// - the store query errors (we degrade closed — better the
+///   gate stays in effect than spurious "approval found"),
+/// - the session id is unknown.
+pub(crate) async fn build_session_grant_set(
+    store: &argo_store::SessionStore,
+    session_id: argo_types::SessionId,
+) -> std::collections::HashSet<String> {
+    let mut out = std::collections::HashSet::new();
+    let Ok(grants) = store.list_session_grants(session_id).await else {
+        return out;
+    };
+    for g in grants {
+        out.insert(g.tool_name);
+    }
+    out
+}
+
 /// Resolve the vertical's `[role].system_prompt` markdown for a
 /// vertical-bound session. Returns `None` (silently) when:
 /// - the session isn't vertical-bound,

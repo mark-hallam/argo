@@ -16,8 +16,8 @@ use crate::helpers::{
 };
 use crate::transport::{build_transport, load_manifest};
 use crate::turn_vertical::{
-    build_turn_start_payload, build_vertical_approval_set, build_vertical_deny_set,
-    resolve_vertical_for_session,
+    build_session_grant_set, build_turn_start_payload, build_vertical_approval_set,
+    build_vertical_deny_set, resolve_vertical_for_session,
 };
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
@@ -108,6 +108,10 @@ pub async fn run_turn_with_events(
     let vertical_ctx = resolve_vertical_for_session(session.vertical_id.as_deref());
     let vertical_deny = build_vertical_deny_set(session.vertical_id.as_deref());
     let vertical_approval = build_vertical_approval_set(session.vertical_id.as_deref());
+    // Operator-issued approvals from `argo session approve` (#664).
+    // The approval gate lets these through even when the
+    // vertical's manifest would have blocked them.
+    let session_grants = build_session_grant_set(store, session_id).await;
 
     let audit = AuditSink::new(store.clone());
     let turn_start = build_turn_start_payload(
@@ -139,6 +143,7 @@ pub async fn run_turn_with_events(
         vertical_ctx.as_deref(),
         &vertical_deny,
         &vertical_approval,
+        &session_grants,
     )
     .await;
     let kind = if result.is_ok() {
@@ -169,6 +174,7 @@ async fn run_turn_with_tools(
     vertical_prompt: Option<&str>,
     vertical_deny: &std::collections::HashSet<String>,
     vertical_approval: &std::collections::HashSet<String>,
+    session_grants: &std::collections::HashSet<String>,
 ) -> ArgoResult<TurnResult> {
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
     let tools = provider_schemas(&registry);
@@ -298,7 +304,14 @@ async fn run_turn_with_tools(
                     ),
                     0,
                 )
-            } else if vertical_approval.contains(&call.name) {
+            } else if vertical_approval.contains(&call.name)
+                && !session_grants.contains(&call.name)
+            {
+                // Approval gate (#660) — but if the operator has
+                // explicitly approved this tool for this session
+                // via `argo session approve` (#664), the grant
+                // overrides the gate and we fall through to
+                // dispatch.
                 let escalation_payload = serde_json::json!({
                     "tool": call.name,
                     "call_id": call.id,
@@ -316,8 +329,8 @@ async fn run_turn_with_tools(
                 argo_tool::error_text(
                     call.id,
                     format!(
-                        "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); grant approval and re-issue the turn",
-                        call.name
+                        "tool '{}' requires human approval (declared in the bound vertical's manifest [escalation].human_approval_required); run `argo session approve <session-id> --tool {}` and re-issue the turn",
+                        call.name, call.name
                     ),
                     0,
                 )

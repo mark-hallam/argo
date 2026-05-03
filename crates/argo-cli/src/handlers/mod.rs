@@ -58,6 +58,7 @@ pub mod provider;
 pub mod resume;
 pub mod route;
 pub mod session;
+pub mod session_approval;
 mod session_aggregates;
 mod session_audit_rollups;
 mod session_messages_rollups;

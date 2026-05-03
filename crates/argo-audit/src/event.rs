@@ -53,6 +53,12 @@ pub enum AuditKind {
     /// (#660). The dispatch did NOT run; an operator must approve
     /// (or refuse) before the agent can re-issue the call.
     EscalationRequired,
+    /// An operator granted human approval for a previously-
+    /// blocked tool on a specific session via `argo session
+    /// approve` or the gateway equivalent (#664).
+    ApprovalGranted,
+    /// An operator revoked a previously-granted approval (#664).
+    ApprovalRevoked,
 }
 
 impl AuditKind {
@@ -78,6 +84,8 @@ impl AuditKind {
             Self::LockViolate => "lock.violate",
             Self::SteerEnqueued => "steer.enqueued",
             Self::EscalationRequired => "escalation.required",
+            Self::ApprovalGranted => "approval.granted",
+            Self::ApprovalRevoked => "approval.revoked",
         }
     }
 
@@ -105,6 +113,8 @@ impl AuditKind {
             "lock.violate" => Self::LockViolate,
             "steer.enqueued" => Self::SteerEnqueued,
             "escalation.required" => Self::EscalationRequired,
+            "approval.granted" => Self::ApprovalGranted,
+            "approval.revoked" => Self::ApprovalRevoked,
             _ => return None,
         })
     }
@@ -129,12 +139,16 @@ impl AuditKind {
     }
 
     /// `true` for kinds added by the vertical-template surface
-    /// (Phase 6+). Today there is one (`EscalationRequired`,
-    /// #660) — the gateway / CLI rollups treat these the same as
+    /// (Phase 6+). Today three: `EscalationRequired` (#660 gate),
+    /// `ApprovalGranted` (#664 grant), `ApprovalRevoked` (#664
+    /// revoke). The gateway / CLI rollups treat these the same as
     /// any other audit kind.
     #[must_use]
     pub fn is_vertical(self) -> bool {
-        matches!(self, Self::EscalationRequired)
+        matches!(
+            self,
+            Self::EscalationRequired | Self::ApprovalGranted | Self::ApprovalRevoked
+        )
     }
 
     /// All known kinds, sorted by label. Used by tests + `argo audit
@@ -160,6 +174,8 @@ impl AuditKind {
             Self::LockViolate,
             Self::SteerEnqueued,
             Self::EscalationRequired,
+            Self::ApprovalGranted,
+            Self::ApprovalRevoked,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -218,5 +234,22 @@ mod tests {
             AuditKind::from_label("escalation.required"),
             Some(AuditKind::EscalationRequired)
         );
+    }
+
+    #[test]
+    fn approval_kinds_round_trip_and_are_vertical() {
+        for (label, kind) in [
+            ("approval.granted", AuditKind::ApprovalGranted),
+            ("approval.revoked", AuditKind::ApprovalRevoked),
+        ] {
+            assert_eq!(AuditKind::from_label(label), Some(kind));
+            assert_eq!(kind.label(), label);
+            assert!(kind.is_vertical(), "{kind:?} should be vertical");
+            assert!(!kind.is_v02(), "{kind:?} must not be v02");
+        }
+        // both must appear in all()
+        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+        assert!(labels.contains(&"approval.granted"));
+        assert!(labels.contains(&"approval.revoked"));
     }
 }

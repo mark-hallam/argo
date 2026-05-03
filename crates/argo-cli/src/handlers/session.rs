@@ -200,6 +200,17 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             since_minutes,
             json,
         } => super::session_audit_rollups::run_tool_errors(id, since_minutes, json).await,
+        SessionCmd::Approve {
+            session_id,
+            tool,
+            note,
+            json,
+        } => super::session_approval::approve(&session_id, &tool, note.as_deref(), json).await,
+        SessionCmd::RevokeApproval {
+            session_id,
+            tool,
+            json,
+        } => super::session_approval::revoke_approval(&session_id, &tool, json).await,
     }
 }
 
