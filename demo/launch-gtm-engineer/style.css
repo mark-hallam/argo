@@ -477,18 +477,19 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-/* ── PDF/print safety net ──────────────────────────────────────
-   Chrome's "Save as PDF" has known issues with negative letter-
-   spacing + transformed inline-block + text-wrap: balance. Kill
-   motion, neutralise the reveal-line stacking context, and use the
-   safest heading typography we can while still feeling intentional. */
+/* ── PDF/print safety net (#713) ───────────────────────────────
+   Minimal print rules: ONLY typography fixes that prevent space
+   collapse + a flag so the marketing backgrounds actually render
+   in the exported PDF (browsers default to dropping them). All
+   visible elements stay visible — nav, hero bg, video frame, CTA
+   glow, etc. — so the PDF looks like the screen, not a stripped
+   document. No layout overrides. */
 @media print {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  html, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .reveal-line { overflow: visible; }
   .reveal-line > span { display: inline; transform: none !important; }
   .h-display, .h-1 { letter-spacing: -0.005em !important; word-spacing: 0.08em !important; text-wrap: normal !important; }
-  .nav, .video-frame, .cta-glow, .hero-grid, .hero-bg { display: none; }
-  .section, .hero { padding: 24px 0; } body { color: var(--ink); }
 }
 
 ::selection { background: var(--accent-soft); color: var(--ink); }
