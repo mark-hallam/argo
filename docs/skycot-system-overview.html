@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>SKYCOT — System Overview</title>
+<link rel="stylesheet" href="skycot-system-overview.css" />
+</head>
+<body>
+
+<!-- ─── COVER ──────────────────────────────────────────── -->
+<section class="cover">
+  <div class="cover-mark" aria-hidden="true">
+    <svg width="64" height="64" viewBox="0 0 22 22" fill="none">
+      <circle cx="11" cy="11" r="10" stroke="currentColor" stroke-opacity="0.28"/>
+      <path d="M16 6.5C14.5 5 12.8 4.5 11 4.5C7.5 4.5 5.5 6.7 5.5 9C5.5 11.5 7.7 12.5 11 13C14.3 13.5 16.5 14.5 16.5 17C16.5 19.3 14.5 21.5 11 21.5"
+            stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="16" cy="6.5" r="1.6" fill="var(--accent)"/>
+    </svg>
+  </div>
+  <h1 class="cover-title">SKYCOT</h1>
+  <p class="cover-sub">AI employees that learn the job.</p>
+  <p class="cover-tag">From work&nbsp;&rarr; to learning &rarr; to reusable skills.</p>
+  <div class="cover-meta">
+    <span>System overview · 2026</span>
+    <span>For investors, design partners, technical founders, GTM operators</span>
+  </div>
+</section>
+
+<!-- ─── 1. WHAT SKYCOT IS ─────────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">01 · What SKYCOT is</span>
+    <h2>Role-based AI employees that improve through work.</h2>
+  </header>
+  <p class="lead">
+    SKYCOT builds <b>role-based AI employees</b> &mdash; agents hired into a
+    specific job, given real work, evaluated by a human manager, and rewarded
+    by adding what they learned to a reusable skill library.
+  </p>
+  <p>
+    Most AI tools generate outputs. SKYCOT employees improve through work.
+  </p>
+  <table class="contrast">
+    <thead><tr><th>Most AI</th><th>SKYCOT</th></tr></thead>
+    <tbody>
+      <tr><td>Generates outputs</td><td>Performs real work</td></tr>
+      <tr><td>Forgets what worked</td><td>Remembers patterns</td></tr>
+      <tr><td>Re-derives every prompt</td><td>Builds reusable skills</td></tr>
+      <tr><td>Untracked quality</td><td>Evaluated like real work</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 2. THE CORE LOOP ──────────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">02 · The core loop</span>
+    <h2>Every run can produce a learned skill.</h2>
+  </header>
+  <p class="lead">
+    The defining capability is the closed loop from work to learning to
+    next-run improvement. Every SKYCOT agent runs this loop.
+  </p>
+  <ol class="loop-chain" aria-label="Seven-step learning loop">
+    <li><span class="loop-i">01</span><span class="loop-name">role</span></li>
+    <li class="loop-arr" aria-hidden="true">&rarr;</li>
+    <li><span class="loop-i">02</span><span class="loop-name">work</span></li>
+    <li class="loop-arr" aria-hidden="true">&rarr;</li>
+    <li><span class="loop-i">03</span><span class="loop-name">pattern</span></li>
+    <li class="loop-arr" aria-hidden="true">&rarr;</li>
+    <li><span class="loop-i">04</span><span class="loop-name">skill</span></li>
+    <li class="loop-arr" aria-hidden="true">&rarr;</li>
+    <li><span class="loop-i">05</span><span class="loop-name">approval</span></li>
+    <li class="loop-arr" aria-hidden="true">&rarr;</li>
+    <li><span class="loop-i">06</span><span class="loop-name">reuse</span></li>
+    <li class="loop-arr" aria-hidden="true">&rarr;</li>
+    <li><span class="loop-i">07</span><span class="loop-name">improved next run</span></li>
+  </ol>
+  <dl class="step-defs">
+    <dt>Role</dt><dd>The agent is bound to a vertical (e.g. GTM Engineer) with a deny list, an allow list, a memory schema, and bundled skills attached at session-creation time.</dd>
+    <dt>Work</dt><dd>The agent performs real tasks &mdash; analysis, drafting, research &mdash; inside that vertical's safety boundary.</dd>
+    <dt>Pattern</dt><dd>Across at least three reinforcing observations, the agent's pattern-detection skill identifies a stable signal.</dd>
+    <dt>Skill</dt><dd>A propose-skill meta-skill emits a candidate to memory in <span class="mono">pending_review</span> state. <b>Never auto-active.</b></dd>
+    <dt>Approval</dt><dd>The operator reviews the candidate and promotes it. One CLI call flips lifecycle state to active.</dd>
+    <dt>Reuse</dt><dd>The next agent turn whose context matches the skill's trigger conditions consults the new skill via the same query the runtime always uses.</dd>
+    <dt>Improved next run</dt><dd>The agent's output incorporates the learned pattern. The library compounds.</dd>
+  </dl>
+</section>
+
+<!-- ─── 3. EXAMPLE: GTM ENGINEER ─────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">03 · Example</span>
+    <h2>The GTM Engineer.</h2>
+  </header>
+  <p class="lead">
+    The first shipped role. The GTM Engineer is bound to eight bundled
+    skills.
+  </p>
+  <ul class="skills-list">
+    <li><b>define_icp</b> &mdash; defines or refines an ICP from product, market, known customers, constraints. Flags evidence gaps.</li>
+    <li><b>find_target_accounts</b> &mdash; searches for candidate accounts matching the ICP.</li>
+    <li><b>research_company</b> &mdash; per-account deep research: signals, pain hypothesis, fit scoring.</li>
+    <li><b>research_person</b> &mdash; per-role persona research: responsibilities, buying signals, message angles.</li>
+    <li><b>generate_outreach</b> &mdash; drafts personalized outreach using verified facts and role/company research.</li>
+    <li><b>analyze_campaign</b> &mdash; ingests operator-reported campaign outcomes; surfaces what worked, proposes next experiments.</li>
+    <li><b>detect_gtm_pattern</b> &mdash; surfaces repeatable patterns from at least three observations across distinct campaigns. Refuses single-instance claims.</li>
+    <li><b>propose_gtm_skill</b> &mdash; the meta-skill. Converts high-confidence patterns into reusable learned-skill candidates queued for operator approval.</li>
+  </ul>
+  <aside class="callout">
+    <span class="callout-label">Safety boundary</span>
+    The vertical's manifest deny list blocks <span class="mono">terminal</span>,
+    <span class="mono">file_write</span>, <span class="mono">file_patch</span>, and
+    <span class="mono">delegate_task</span>. The GTM Engineer is draft-only by
+    contract &mdash; no sending, no CRM updates, no destructive tool calls reachable.
+  </aside>
+</section>
+
+<!-- ─── 4. REAL DEMO FLOW ────────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">04 · Real demo flow</span>
+    <h2>Before. Learning. Approval. After.</h2>
+  </header>
+  <p class="lead">
+    The full GTM Engineer learning loop, recorded against real CLI surfaces.
+    Two equivalent paths: deterministic for reproducible demos, or live for
+    end-to-end LLM verification.
+  </p>
+
+  <article class="demo-step demo-before">
+    <h3>Before &mdash; a weak campaign</h3>
+    <p class="metric-line"><b>100</b> emails sent &middot; <b>2</b> replies &middot; <b>0</b> positive</p>
+    <p>The agent's diagnosis: generic productivity hook, no verified company signal, audience-flat (&ldquo;everyone gets time back&rdquo;), single demo CTA. The control variant landed at zero positive replies on one hundred sends.</p>
+  </article>
+
+  <article class="demo-step demo-learn">
+    <h3>Learning &mdash; pattern detected, skill proposed</h3>
+    <p>Across three reinforcing variant cohorts (one hundred sixty-five sends total), the agent identified that leading with the agent-learning loop and audit-chain visibility lifted positive-reply rate to 6&ndash;8% on technical-founder targets &mdash; well above the zero-positive baseline.</p>
+    <p>The propose-skill meta-skill emitted a candidate: <span class="mono">technical_founder_learning_moat_outreach</span>. State: <span class="state-pending">pending_review</span>.</p>
+  </article>
+
+  <article class="demo-step demo-approve">
+    <h3>Approval &mdash; pending_review &rarr; active</h3>
+    <p>The operator reviewed the candidate's scope, rule, and guards. One CLI call flipped lifecycle state to <span class="state-active">active</span>. The skill is now in the catalog.</p>
+  </article>
+
+  <article class="demo-step demo-after">
+    <h3>After &mdash; improved GTM output</h3>
+    <p>The next agent turn that matches the trigger conditions (technical founder + agent-platform GTM hypothesis) consults the active skill. The output anchors in one verified company signal, leads with audit-chain framing, holds to under one hundred twenty words, single low-friction CTA. Projected uplift: +4&ndash;6 percentage points on positive-reply rate vs the generic control.</p>
+  </article>
+</section>
+
+<!-- ─── 5. THE PROOF SYSTEM ──────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">05 · The proof system</span>
+    <h2>Every step produces verifiable evidence.</h2>
+  </header>
+  <dl class="proof-defs">
+    <dt>Role binding</dt>
+    <dd>Every session row records the bound vertical id; bundled skills are materialised into the skill table at session-creation time and are visible to the agent runner via the same query the prompt assembler uses on every turn.</dd>
+
+    <dt>Memory</dt>
+    <dd>Campaign outcomes, detected patterns, and skill candidates are vertical-namespaced and append-only. Candidates are immutable once written; superseded proposals get a new row.</dd>
+
+    <dt>Skill lifecycle</dt>
+    <dd>Every skill row carries a <span class="mono">lifecycle_state</span> column &mdash; draft, pending_review, active, rejected, archived. Illegal transitions are rejected at the storage layer.</dd>
+
+    <dt>Evaluation</dt>
+    <dd>Each vertical ships a fixture suite (ten fixtures for the GTM Engineer) with a deterministic rule-engine scorer plus an optional LLM judge.</dd>
+
+    <dt>LLM judge calibration</dt>
+    <dd>A three-cohort calibration corpus &mdash; <span class="mono">argo_aligned</span>, <span class="mono">polished_but_less_grounded</span>, <span class="mono">weak</span> &mdash; locks the judge ranking; integration tests assert the ordering.</dd>
+
+    <dt>Audit trail</dt>
+    <dd>Every CLI surface emits structured audit rows. The gateway surface is an HTTP mirror of the CLI; both write to the same SQLite store.</dd>
+  </dl>
+</section>
+
+<!-- ─── 6. ARCHITECTURE ──────────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">06 · Architecture</span>
+    <h2>Two halves with clear roles.</h2>
+  </header>
+
+  <div class="arch-grid">
+    <article class="arch-card">
+      <h3>Claude / Argo</h3>
+      <ul>
+        <li>builds and runs role-based agents</li>
+        <li>handles vertical manifests, bundled skills, vertical-namespaced memory</li>
+        <li>manages the full skill lifecycle (propose &rarr; review &rarr; promote &rarr; approve &rarr; active)</li>
+        <li>runs deterministic + LLM-judge evaluations</li>
+        <li>exposes everything via CLI and gateway HTTP</li>
+        <li>enforces the safety contract (deny lists, allow lists)</li>
+      </ul>
+    </article>
+    <article class="arch-card">
+      <h3>Codex</h3>
+      <ul>
+        <li>generates real GTM outputs at scale (multi-variant campaigns)</li>
+        <li>creates calibration data for the LLM judge (strong / medium / weak distinctions)</li>
+        <li>validates output quality across distinct cohorts</li>
+        <li>does the heavy producer work that the evaluation system grades</li>
+      </ul>
+    </article>
+  </div>
+
+  <p class="footnote">
+    The two systems share the canonical fixture set. Codex outputs flow into
+    the calibration corpus that the LLM judge is tuned against.
+  </p>
+</section>
+
+<!-- ─── 7. EVALUATION ────────────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">07 · Evaluation</span>
+    <h2>Two layers, complementary.</h2>
+  </header>
+
+  <article class="eval-block">
+    <h3>Deterministic rule engine</h3>
+    <p>Fast, free, runs on every commit. Validates structural rules: required substrings, forbidden phrases, hallucination detection, abstention checks. Misses semantic equivalence &mdash; a model that says &ldquo;role-based AI agents&rdquo; instead of &ldquo;role-based agents&rdquo; gets zero credit. Useful as a fast safety gate, not as a quality judge.</p>
+  </article>
+
+  <article class="eval-block">
+    <h3>Live LLM judge</h3>
+    <p><span class="mono">anthropic/claude-sonnet-4-6</span>, opt-in. Six quality dimensions: evidence-awareness, specificity, safe-abstention, operational-usefulness, role-fit, non-generic-GTM-reasoning. A safety veto caps the score and forces verdict=fail when the agent commits a contract violation (must-refuse, external mutation, unjustified skill proposal).</p>
+  </article>
+
+  <article class="eval-block">
+    <h3>Calibration</h3>
+    <p>The corpus has three variants per fixture: <span class="mono">argo_aligned</span>, <span class="mono">polished_but_less_grounded</span>, <span class="mono">weak</span>. Hard CI lock: the judge must rank <span class="mono">argo_aligned &gt; weak</span> AND <span class="mono">polished &gt; weak</span>. Strict mode (opt-in) enforces the full ordering <span class="mono">argo_aligned &gt; polished &gt; weak</span>.</p>
+  </article>
+
+  <p class="footnote">
+    Why both: the deterministic engine catches obvious failures cheaply; the
+    LLM judge catches semantic ones the substring engine can't see. Together
+    they form a tight quality gate that's both fast in CI and meaningful for
+    the operator.
+  </p>
+</section>
+
+<!-- ─── 8. WHAT MAKES THIS DIFFERENT ─────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">08 · What makes this different</span>
+    <h2>Six properties, all load-bearing.</h2>
+  </header>
+  <ul class="diff-list">
+    <li><b>Role-based.</b> Agents are hired into specific jobs, not given open-ended chat.</li>
+    <li><b>Learning loop.</b> Every run can produce a candidate skill; the library compounds.</li>
+    <li><b>Reusable skills.</b> Promoted skills persist across sessions, are vertical-namespaced, and are version-tracked.</li>
+    <li><b>Human approval.</b> No skill auto-activates. Operator review is mandatory.</li>
+    <li><b>Evaluation built-in.</b> Every vertical ships fixtures and a judge. Quality is contracted, not assumed.</li>
+    <li><b>Safety-first execution.</b> Manifest deny lists are enforced at runtime. The GTM Engineer cannot send, write files, or update CRMs even if asked.</li>
+  </ul>
+</section>
+
+<!-- ─── 9 + 10. STATUS + NEXT ────────────────────────── -->
+<section class="page">
+  <header class="section-head">
+    <span class="kicker">09 · Current status</span>
+    <h2>Shipped today.</h2>
+  </header>
+  <ul class="status-list">
+    <li><span class="status-dot done" aria-hidden="true"></span>Pivoted role-agent V1 complete (Codex)</li>
+    <li><span class="status-dot done" aria-hidden="true"></span>GTM Engineer vertical implemented end-to-end &mdash; eight skills, eleven memory schemas, ten evaluation fixtures</li>
+    <li><span class="status-dot done" aria-hidden="true"></span>Live demo working &mdash; deterministic mode in about two seconds, LLM-driven mode via the gateway</li>
+    <li><span class="status-dot done" aria-hidden="true"></span>Learning loop proven &mdash; role &rarr; work &rarr; pattern &rarr; skill &rarr; approval &rarr; active locked by integration tests</li>
+    <li><span class="status-dot done" aria-hidden="true"></span>Evaluation calibrated &mdash; three-cohort corpus and judge ordering enforced in CI</li>
+    <li><span class="status-dot done" aria-hidden="true"></span>Launch microsite &mdash; single-page artifact for demo videos and shareable launches</li>
+  </ul>
+
+  <header class="section-head section-head-next">
+    <span class="kicker">10 · What comes next</span>
+    <h2>Next quarter.</h2>
+  </header>
+  <ul class="next-list">
+    <li><b>More roles.</b> Customer Support Triage, Account Research, Competitive Intelligence.</li>
+    <li><b>Improved evaluation.</b> Broader fixture coverage; cross-vertical calibration corpus.</li>
+    <li><b>Production deployment.</b> Managed gateway, multi-tenant workspaces, audit export.</li>
+    <li><b>Design-partner onboarding.</b> Early-access cohort with operator-side review tooling.</li>
+  </ul>
+</section>
+
+<!-- ─── BACK / SIGN-OFF ──────────────────────────────── -->
+<section class="back">
+  <div class="back-mark" aria-hidden="true">
+    <svg width="44" height="44" viewBox="0 0 22 22" fill="none">
+      <circle cx="11" cy="11" r="10" stroke="currentColor" stroke-opacity="0.28"/>
+      <path d="M16 6.5C14.5 5 12.8 4.5 11 4.5C7.5 4.5 5.5 6.7 5.5 9C5.5 11.5 7.7 12.5 11 13C14.3 13.5 16.5 14.5 16.5 17C16.5 19.3 14.5 21.5 11 21.5"
+            stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="16" cy="6.5" r="1.6" fill="var(--accent)"/>
+    </svg>
+  </div>
+  <p class="back-line">SKYCOT &mdash; AI employees that learn the job.</p>
+  <p class="back-meta">For early-access enquiries, contact your SKYCOT design-partner lead.</p>
+</section>
+
+</body>
+</html>

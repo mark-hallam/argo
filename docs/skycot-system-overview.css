@@ -1,0 +1,239 @@
+/* SKYCOT system-overview PDF — print-quality stylesheet.
+   Designed for Chrome headless --print-to-pdf at A4. */
+
+:root {
+  --canvas: #ffffff;
+  --canvas-2: #fafbfc;
+  --surface: #f6f7f9;
+  --hairline: #e5e7eb;
+  --hairline-strong: #cfd2d8;
+  --ink: #0a0b0d;
+  --ink-2: #1f2227;
+  --ink-3: #4d5159;
+  --ink-dim: #6f747e;
+  --mute: #9097a2;
+
+  --accent: #059669;
+  --accent-2: #047857;
+  --accent-soft: rgba(5, 150, 105, 0.10);
+  --accent-glow: rgba(5, 150, 105, 0.22);
+  --accent-ink: #065f46;
+
+  --warn: #b45309;
+  --weak: #b91c1c;
+
+  --font-display: 'Inter Tight', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+@page { size: A4; margin: 22mm 20mm; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--canvas); color: var(--ink-2); font-family: var(--font-display); }
+html, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+body {
+  font-size: 11.5pt; line-height: 1.55;
+  letter-spacing: -0.003em; word-spacing: 0.03em;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4, p, ul, ol, dl, dt, dd, table { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+b { font-weight: 600; color: var(--ink); }
+.mono { font-family: var(--font-mono); font-size: 0.92em; }
+
+/* ─── COVER ───────────────────────────────────────────── */
+.cover {
+  page-break-after: always;
+  min-height: calc(297mm - 44mm);
+  display: flex; flex-direction: column; justify-content: center;
+  position: relative; padding: 0 8mm;
+}
+.cover::before {
+  content: ""; position: absolute; left: -10mm; right: -10mm; top: 0; bottom: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 35%, var(--accent-soft), transparent 65%);
+  z-index: -1;
+}
+.cover-mark { color: var(--ink); margin-bottom: 28mm; }
+.cover-title {
+  font-size: 96pt; line-height: 0.96; font-weight: 600;
+  letter-spacing: -0.04em; word-spacing: 0.02em;
+  color: var(--ink); margin: 0 0 12mm;
+  font-feature-settings: "ss01";
+}
+.cover-sub {
+  font-size: 22pt; font-weight: 500; color: var(--ink);
+  letter-spacing: -0.015em; word-spacing: 0.03em;
+  margin: 0 0 6mm; max-width: 18em; line-height: 1.18;
+}
+.cover-tag {
+  font-size: 13pt; color: var(--ink-3); letter-spacing: -0.005em;
+  margin: 0 0 24mm; max-width: 32em;
+}
+.cover-meta {
+  display: flex; flex-direction: column; gap: 4mm;
+  font-family: var(--font-mono); font-size: 9pt; letter-spacing: 0.04em;
+  color: var(--ink-dim); text-transform: uppercase;
+}
+
+/* ─── SECTION PAGE ────────────────────────────────────── */
+.page { page-break-before: always; padding: 8mm 0 0; }
+.page:last-of-type { page-break-after: avoid; }
+
+.section-head { margin-bottom: 12mm; padding-bottom: 6mm; border-bottom: 1px solid var(--hairline); }
+.section-head-next { margin-top: 16mm; padding-top: 0; border-top: 1px solid var(--hairline); padding-bottom: 0; }
+.kicker {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 9pt; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim);
+  margin-bottom: 6mm;
+}
+.kicker::before {
+  content: ""; width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft);
+  display: inline-block;
+}
+.section-head h2 {
+  font-size: 28pt; line-height: 1.1; font-weight: 600;
+  letter-spacing: -0.02em; word-spacing: 0.04em;
+  color: var(--ink); max-width: 22em;
+}
+.section-head-next h2 { margin-top: 6mm; }
+.lead { font-size: 13pt; line-height: 1.5; color: var(--ink-2); margin-bottom: 6mm; max-width: 38em; }
+p { margin-bottom: 4mm; max-width: 38em; color: var(--ink-2); }
+p:last-child { margin-bottom: 0; }
+
+.footnote { margin-top: 10mm; font-size: 10pt; color: var(--ink-3); font-style: italic; max-width: 38em; }
+
+/* ─── 01: CONTRAST TABLE ─────────────────────────────── */
+.contrast {
+  width: 100%; border-collapse: collapse; margin-top: 8mm;
+  border: 1px solid var(--hairline); border-radius: 6px; overflow: hidden;
+  font-size: 11pt;
+}
+.contrast th, .contrast td { padding: 10px 16px; text-align: left; }
+.contrast th { background: var(--surface); color: var(--ink); font-weight: 600; font-size: 10pt; letter-spacing: 0.02em; }
+.contrast tr + tr td { border-top: 1px solid var(--hairline); }
+.contrast td:first-child { color: var(--ink-3); }
+.contrast td:last-child { color: var(--ink); font-weight: 500; }
+
+/* ─── 02: LOOP CHAIN + STEP DEFS ─────────────────────── */
+.loop-chain {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; row-gap: 6px;
+  padding: 14px 18px; margin: 8mm 0;
+  border: 1px solid var(--hairline); background: var(--canvas-2); border-radius: 999px;
+  font-size: 10pt;
+}
+.loop-chain > li { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-weight: 500; }
+.loop-i {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 999px;
+  border: 1px solid var(--hairline-strong); color: var(--ink-3);
+  font-family: var(--font-mono); font-size: 7.5pt; letter-spacing: 0.06em;
+}
+.loop-name { letter-spacing: -0.005em; }
+.loop-arr { color: var(--ink-dim); font-size: 11pt; }
+
+.step-defs { margin-top: 8mm; display: grid; grid-template-columns: 9em 1fr; gap: 4mm 8mm; font-size: 11pt; }
+.step-defs dt { font-weight: 600; color: var(--ink); }
+.step-defs dd { color: var(--ink-2); margin: 0; }
+
+/* ─── 03: SKILLS LIST + CALLOUT ──────────────────────── */
+.skills-list { margin-top: 4mm; display: flex; flex-direction: column; gap: 5mm; }
+.skills-list li {
+  position: relative; padding-left: 18px;
+  font-size: 11pt; color: var(--ink-2); line-height: 1.5;
+}
+.skills-list li::before {
+  content: ""; position: absolute; left: 0; top: 0.7em;
+  width: 8px; height: 1px; background: var(--accent);
+}
+.skills-list li b { color: var(--ink); }
+.callout {
+  margin-top: 10mm; padding: 14px 18px;
+  background: var(--accent-soft); border-left: 3px solid var(--accent);
+  border-radius: 4px; color: var(--ink-2); font-size: 11pt; line-height: 1.55;
+  page-break-inside: avoid;
+}
+.callout-label {
+  display: block; font-family: var(--font-mono); font-size: 9pt;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-2);
+  font-weight: 500; margin-bottom: 4px;
+}
+
+/* ─── 04: DEMO STEPS ─────────────────────────────────── */
+.demo-step {
+  padding: 6mm 7mm; margin-top: 6mm;
+  border: 1px solid var(--hairline); border-radius: 8px;
+  background: var(--canvas-2); page-break-inside: avoid;
+}
+.demo-step h3 { font-size: 13pt; font-weight: 600; color: var(--ink); margin-bottom: 3mm; letter-spacing: -0.01em; }
+.demo-step p { font-size: 10.5pt; color: var(--ink-2); line-height: 1.55; max-width: 38em; }
+.demo-before { border-color: rgba(185, 28, 28, 0.20); }
+.demo-after  { border-color: rgba(5, 150, 105, 0.30); background: var(--accent-soft); }
+.metric-line { font-family: var(--font-mono); font-size: 14pt; color: var(--ink); letter-spacing: -0.005em; margin-bottom: 3mm; }
+.metric-line b { color: var(--weak); font-weight: 600; }
+.demo-after .metric-line b { color: var(--accent-2); }
+.state-pending { color: var(--warn); font-weight: 600; }
+.state-active { color: var(--accent-2); font-weight: 600; }
+
+/* ─── 05: PROOF DEFS ─────────────────────────────────── */
+.proof-defs { display: flex; flex-direction: column; gap: 6mm; margin-top: 4mm; }
+.proof-defs dt { font-size: 12pt; font-weight: 600; color: var(--ink); margin-bottom: 1mm; }
+.proof-defs dd { font-size: 10.5pt; color: var(--ink-2); line-height: 1.55; max-width: 40em; margin: 0; }
+
+/* ─── 06: ARCHITECTURE GRID ──────────────────────────── */
+.arch-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6mm;
+  margin-top: 6mm;
+}
+.arch-card {
+  padding: 7mm; border: 1px solid var(--hairline); border-radius: 8px;
+  background: var(--surface); page-break-inside: avoid;
+}
+.arch-card h3 { font-size: 14pt; font-weight: 600; color: var(--ink); margin-bottom: 4mm; letter-spacing: -0.01em; }
+.arch-card ul { display: flex; flex-direction: column; gap: 2mm; }
+.arch-card li { font-size: 10pt; color: var(--ink-2); line-height: 1.5; padding-left: 14px; position: relative; }
+.arch-card li::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
+
+/* ─── 07: EVAL BLOCKS ────────────────────────────────── */
+.eval-block {
+  padding: 6mm 0; border-top: 1px solid var(--hairline);
+  page-break-inside: avoid;
+}
+.eval-block:first-of-type { border-top: 0; padding-top: 0; }
+.eval-block h3 { font-size: 13pt; font-weight: 600; color: var(--ink); margin-bottom: 2mm; letter-spacing: -0.01em; }
+.eval-block p { font-size: 10.5pt; color: var(--ink-2); line-height: 1.55; max-width: 40em; margin: 0; }
+
+/* ─── 08: DIFF LIST ──────────────────────────────────── */
+.diff-list { display: flex; flex-direction: column; gap: 5mm; margin-top: 6mm; }
+.diff-list li {
+  padding: 4mm 6mm; border: 1px solid var(--hairline); border-radius: 6px;
+  background: var(--canvas-2); font-size: 11pt; color: var(--ink-2); line-height: 1.55;
+}
+.diff-list li b { color: var(--ink); }
+
+/* ─── 09 + 10: STATUS + NEXT LISTS ───────────────────── */
+.status-list, .next-list { display: flex; flex-direction: column; gap: 3mm; margin-top: 4mm; }
+.status-list li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 11pt; color: var(--ink-2); line-height: 1.5;
+}
+.status-dot {
+  width: 14px; height: 14px; border-radius: 999px; flex-shrink: 0;
+  margin-top: 4px;
+  background: var(--accent); border: 2px solid var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.next-list li {
+  padding-left: 18px; position: relative;
+  font-size: 11pt; color: var(--ink-2); line-height: 1.5;
+}
+.next-list li::before { content: "→"; position: absolute; left: 0; color: var(--accent); top: 0; }
+.next-list li b { color: var(--ink); }
+
+/* ─── BACK / SIGN-OFF ────────────────────────────────── */
+.back { page-break-before: always; min-height: calc(297mm - 44mm);
+  display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.back-mark { color: var(--ink); margin-bottom: 18mm; }
+.back-line { font-size: 18pt; font-weight: 500; color: var(--ink); margin-bottom: 4mm; letter-spacing: -0.01em; }
+.back-meta { font-family: var(--font-mono); font-size: 9pt; color: var(--ink-dim); letter-spacing: 0.06em; text-transform: uppercase; }
