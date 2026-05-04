@@ -176,6 +176,8 @@ pub enum SessionCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
+    /// Full session transcript (#720). `session show` keeps its snippet shape.
+    Transcript { id: String, #[arg(long)] json: bool },
     /// Dump a session's messages (defaults to stdout; pass
     /// `--out <path>` to write to a file). Default format is
     /// JSONL (one self-describing object per line); pass

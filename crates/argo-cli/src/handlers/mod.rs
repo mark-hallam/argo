@@ -83,6 +83,7 @@ mod session_messages;
 pub mod session_replay;
 mod session_show;
 mod session_resolve;
+mod session_transcript;
 mod session_search;
 mod session_skills;
 mod session_watch;

@@ -43,6 +43,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         SessionCmd::Show { id, json, format } => {
             super::session_show::show_session(&id, json, &format).await
         }
+        SessionCmd::Transcript { id, json } => {
+            super::session_transcript::run(&id, json).await
+        }
         SessionCmd::Count {
             status,
             since_minutes,
