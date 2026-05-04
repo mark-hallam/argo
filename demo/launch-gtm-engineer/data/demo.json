@@ -2,38 +2,38 @@
   "story": {
     "company": "SKYCOT",
     "tagline": "SKYCOT builds AI employees that learn the job.",
-    "headline": "This AI learned how to sell SKYCOT.",
-    "subheadline": "It analyzed weak GTM results, detected a pattern, created a reusable skill, got operator approval, and used the skill on the next run.",
-    "cta": "Watch the loop",
-    "captured_at": "2026-05-03T23:56:23Z",
+    "headline": "AI employees that learn the job.",
+    "subheadline": "SKYCOT agents perform real work, get evaluated, learn reusable skills, and improve over time.",
+    "cta": "Request early access",
+    "captured_at": "2026-05-04T02:32:55Z",
     "mode": "deterministic"
   },
   "before": {
     "campaign_id": "demo-c1-2026-04-12",
     "metrics": {
-      "sends": 50,
-      "open_rate": 0.42,
-      "reply_rate": 0.08,
-      "positive_reply_rate": 0.015,
-      "label": "1.5% positive reply",
+      "sends": 100,
+      "open_rate": 0.31,
+      "reply_rate": 0.02,
+      "positive_reply_rate": 0.0,
+      "label": "0 positive on 100",
       "verdict": "weak"
     },
     "weak_message": {
-      "subject": "Save 20 hours a week with SKYCOT",
-      "body": "Hi {{first_name}},\n\nQuick question — how much time does your team spend on repetitive work?\n\nSKYCOT can replace that across your whole business. Founders, ops, marketing — everyone gets time back.\n\nWorth a 15-min demo?\n\nThanks,\nAlex"
+      "subject": "Save 20 hours a week with AI employees",
+      "body": "Hi {{first_name}},\n\nQuick question — how much time does your team spend on repetitive work?\n\nAI employees can replace that across your whole business. Founders, ops, marketing — everyone gets time back.\n\nWorth a 15-min demo?\n\nThanks,\nAlex"
     },
-    "agent_diagnosis": "Generic productivity hook. No verified company signal. Audience-flat (\"everyone\"). Single demo CTA without a fallback ladder. The control variant landed at 1.5% positive reply on 50 sends — well below the 6%+ the variant cohort produced when anchored in the agent-learning-loop framing."
+    "agent_diagnosis": "Generic messaging failed for technical founders. No verified company signal. Audience-flat (\"everyone gets time back\"). Single demo CTA without a low-friction fallback. The control variant landed at 0 positive replies on 100 sends — well below the 6%+ the variant cohort produced when anchored in the agent-learning-loop framing."
   },
   "learning_moment": {
     "pattern": {
       "name": "technical_founder_learning_moat_signal",
       "observations_count": 3,
       "tag": "propose_skill",
-      "summary": "Across 3 campaigns to technical founders at Series A-C B2B startups with an agent-platform GTM hypothesis, leading with the agent-learning loop and audit-chain visibility outperformed generic automation copy on positive-reply rate by 3-4x. Pattern is reinforcing across 165 sends total.",
+      "summary": "Across three reinforcing variant cohorts to technical founders at Series A-C B2B startups with an agent-platform GTM hypothesis, leading with the agent-learning loop and audit-chain visibility lifted positive-reply rate to 6-8% — well above the 0-positive baseline the latest 100-send control just produced. Pattern is reinforcing across 165 variant sends total.",
       "evidence": [
-        "demo-c1-2026-04-12 — 6.0% positive reply (variant) vs 1.5% (control), n=50",
-        "demo-c2-2026-04-19 — 7.0% positive reply (variant) vs 1.7% (control), n=60",
-        "demo-c3-2026-04-26 — 8.0% positive reply (variant) vs 1.8% (control), n=55"
+        "cohort-01 — variant 6.0% positive · n=50 · agent-learning + audit-chain framing",
+        "cohort-02 — variant 7.0% positive · n=60 · refined low-friction CTA",
+        "cohort-03 — variant 8.0% positive · n=55 · anchored in verified company signal"
       ],
       "counterexamples": [
         "Did NOT generalise to non-technical founders in the same employer segment — they replied at the control rate."
@@ -50,7 +50,7 @@
       "from": "pending_review",
       "to": "active"
     },
-    "memory_entry_id": "019df045-8bb9-7c32-b744-16a316dd6784"
+    "memory_entry_id": "019df0d4-dbb8-7bc2-9334-2c9d446a531a"
   },
   "after": {
     "improved_message": {
@@ -63,7 +63,7 @@
   },
   "proof": {
     "role": {
-      "session_id": "019df045-8b57-70b2-b875-51a6c45de781",
+      "session_id": "019df0d4-db5c-7dc1-a521-64bd6fd50ccd",
       "vertical": "gtm-engineer",
       "skills_attached": 8,
       "provider": "mock",
@@ -72,33 +72,33 @@
     "memory_writes": [
       {
         "kind": "campaign_results",
-        "id": "019df045-8b7e-7123-a429-a7732b76f3e1"
+        "id": "019df0d4-db7e-7113-a570-b57aa1739aa2"
       },
       {
         "kind": "campaign_results",
-        "id": "019df045-8b8c-7950-84ef-05333afb51a6"
+        "id": "019df0d4-db8b-7b71-b4e5-c50cacc6bca0"
       },
       {
         "kind": "campaign_results",
-        "id": "019df045-8b9a-7663-a992-b89b3ca18844"
+        "id": "019df0d4-db97-7d13-8204-e2de68fa0d6a"
       },
       {
         "kind": "patterns",
-        "id": "019df045-8bac-76a0-a7b5-cf6ae742c415"
+        "id": "019df0d4-dba6-71b0-b88b-5c66a0704b32"
       },
       {
         "kind": "learned_skill_candidates",
-        "id": "019df045-8bb9-7c32-b744-16a316dd6784"
+        "id": "019df0d4-dbb8-7bc2-9334-2c9d446a531a"
       }
     ],
     "candidate_promoted": {
-      "memory_entry_id": "019df045-8bb9-7c32-b744-16a316dd6784",
-      "to_skill_id": "019df045-8c29-77d0-a093-a855bcd2e79f",
+      "memory_entry_id": "019df0d4-dbb8-7bc2-9334-2c9d446a531a",
+      "to_skill_id": "019df0d4-dc3b-74f0-bd62-9d4d4e3d588b",
       "from_state": "(memory candidate)",
       "to_state": "pending_review"
     },
     "skill_approved": {
-      "skill_id": "019df045-8c29-77d0-a093-a855bcd2e79f",
+      "skill_id": "019df0d4-dc3b-74f0-bd62-9d4d4e3d588b",
       "from_state": "pending_review",
       "to_state": "active"
     },

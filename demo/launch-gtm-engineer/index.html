@@ -4,131 +4,286 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0a0a0c" />
-  <title>This AI learned how to sell SKYCOT — GTM Engineer</title>
-  <meta name="description" content="The AI GTM Engineer analyzes a weak campaign, detects a pattern, proposes a learned skill, gets approval, and uses the skill on the next run." />
+  <title>SKYCOT — AI employees that learn the job</title>
+  <meta name="description" content="SKYCOT agents perform real work, get evaluated, learn reusable skills, and improve over time. Watch the GTM Engineer learn how to sell." />
 
   <!-- OpenGraph / Twitter share metadata; values are static-fallback,
        app.js overwrites with values from data/demo.json once loaded. -->
-  <meta property="og:title" content="This AI learned how to sell SKYCOT" />
-  <meta property="og:description" content="The AI GTM Engineer analyzed weak GTM results, detected a pattern, created a reusable skill, and used it on the next run." />
+  <meta property="og:title" content="SKYCOT — AI employees that learn the job" />
+  <meta property="og:description" content="Watch an AI GTM Engineer analyze a weak campaign, detect a pattern, propose a reusable skill, get approval, and improve on the next run." />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <!-- ─── NAV ─────────────────────────────────────────── -->
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#hero" aria-label="SKYCOT home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="10" stroke="currentColor" stroke-opacity="0.28"/>
+            <path d="M16 6.5C14.5 5 12.8 4.5 11 4.5C7.5 4.5 5.5 6.7 5.5 9C5.5 11.5 7.7 12.5 11 13C14.3 13.5 16.5 14.5 16.5 17C16.5 19.3 14.5 21.5 11 21.5"
+              stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="16" cy="6.5" r="1.6" fill="var(--accent)"/>
+          </svg>
+        </span>
+        <span class="brand-name">SKYCOT</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#problem" data-route="problem">Problem</a>
+        <a href="#difference" data-route="difference">Approach</a>
+        <a href="#demo" data-route="demo">Demo</a>
+        <a href="#proof" data-route="proof">Proof</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="#cta" class="btn btn-ghost">Sign in</a>
+        <a href="#cta" class="btn btn-primary">Request early access <span class="arr">→</span></a>
+      </div>
+    </div>
+  </header>
+
   <main>
 
-    <!-- =================================================== HERO -->
-    <section class="hero" id="hero">
-      <div class="container">
-        <span class="eyebrow" data-bind="story.tagline">SKYCOT builds AI employees that learn the job.</span>
-        <h1 class="hero-headline" data-bind="story.headline">This AI learned how to sell SKYCOT.</h1>
-        <p class="hero-sub" data-bind="story.subheadline">It analyzed weak GTM results, detected a pattern, created a reusable skill, and used it on the next run.</p>
-        <a href="#before" class="cta-primary" id="cta-watch" data-bind="story.cta">Watch the loop</a>
-        <p class="hero-meta">
-          captured <span data-bind="story.captured_at" data-format="date">—</span>
-          · mode <span data-bind="story.mode" class="mode-pill">—</span>
-        </p>
-      </div>
+    <!-- ─── 1 · HERO ───────────────────────────────────── -->
+    <section class="hero" id="hero" data-section="hero">
+      <div class="hero-bg" aria-hidden="true"></div>
       <div class="hero-grid" aria-hidden="true"></div>
+      <div class="page hero-inner">
+        <div class="hero-meta fade-in" style="animation-delay:.1s">
+          <span class="tag-pill"><i class="dot"></i>Now in private beta</span>
+          <span class="body-sm mono dim">
+            captured <span data-bind="story.captured_at" data-format="date">—</span>
+            · mode <span data-bind="story.mode">—</span>
+          </span>
+        </div>
+        <h1 class="h-display">
+          <span class="reveal-line"><span style="animation-delay:.05s">AI employees</span></span>
+          <span class="reveal-line"><span style="animation-delay:.18s">that learn the job.</span></span>
+        </h1>
+        <p class="hero-sub fade-up" style="animation-delay:.55s">
+          SKYCOT agents don't just generate answers. They perform real work, get evaluated,
+          learn reusable skills, and improve over time.
+        </p>
+        <div class="hero-cta fade-up" style="animation-delay:.7s">
+          <a href="#demo" class="btn btn-primary btn-lg">Watch the GTM Engineer learn <span class="arr">→</span></a>
+          <a href="#cta" class="btn btn-ghost btn-lg">Request early access</a>
+        </div>
+
+        <div class="video-frame fade-up" style="animation-delay:.95s">
+          <div class="video-chrome">
+            <span class="stage-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="mono dim">skycot · gtm-engineer · learning-loop · session <span data-bind="proof.role.session_id" data-format="short-id">—</span></span>
+            <span class="video-live mono"><i class="live-dot"></i>LIVE RUN</span>
+          </div>
+          <div class="video-stage">
+            <button class="video-play" type="button" aria-label="Play GTM Engineer demo">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M9 6 L22 14 L9 22 Z" fill="currentColor"/>
+              </svg>
+            </button>
+            <div class="video-stage-grid" aria-hidden="true"></div>
+            <div class="video-meta mono">
+              <span>22-SECOND CINEMATIC</span>
+              <span class="dim">VERTICAL <b data-bind="proof.role.vertical">gtm-engineer</b> · SKILLS <b data-bind="proof.role.skills_attached">8</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- ================================================= BEFORE -->
-    <section class="section section-before" id="before">
-      <div class="container">
-        <header class="section-head">
-          <span class="section-tag tag-weak">01 · Before</span>
-          <h2>The agent inherited a weak campaign.</h2>
-        </header>
+    <!-- ─── 2 · PROBLEM ───────────────────────────────── -->
+    <section class="section section-tight" id="problem" data-section="problem">
+      <div class="page">
+        <div class="grid-2 gap-80 align-start">
+          <div>
+            <span class="eyebrow">The problem</span>
+            <h2 class="h-1 mt-4 max-22">Most AI tools generate outputs.<br><span class="ink-dim">They don't improve.</span></h2>
+          </div>
+          <div class="problem-body">
+            <ul class="problem-list">
+              <li>They don't remember what worked.</li>
+              <li>They don't learn reusable skills.</li>
+              <li>They don't get evaluated like real work.</li>
+            </ul>
+            <p class="body-lg mt-8">So every task starts from scratch.</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <div class="grid-2">
+    <!-- ─── 3 · DIFFERENCE ────────────────────────────── -->
+    <section class="section section-surface" id="difference" data-section="difference">
+      <div class="page">
+        <div class="grid-2 gap-80 align-start">
+          <div>
+            <span class="eyebrow">The difference</span>
+            <h2 class="h-1 mt-4 max-22">SKYCOT turns AI into employees.</h2>
+            <p class="body-lg mt-8 max-44">Each agent is hired into a role, given real work, and reviewed by a human manager. Skills it learns persist — and compound across the team.</p>
+          </div>
+          <ol class="diff-list">
+            <li><span class="diff-i mono">01</span><span>Is assigned a role</span></li>
+            <li><span class="diff-i mono">02</span><span>Performs real work</span></li>
+            <li><span class="diff-i mono">03</span><span>Is evaluated</span></li>
+            <li><span class="diff-i mono">04</span><span>Detects patterns</span></li>
+            <li><span class="diff-i mono">05</span><span>Proposes reusable skills</span></li>
+            <li><span class="diff-i mono">06</span><span>Improves only after approval</span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── 4 · DEMO SECTION ──────────────────────────── -->
+    <section class="section" id="demo" data-section="demo">
+      <div class="page">
+        <div class="row-end mb-48">
+          <div>
+            <span class="eyebrow">The demo</span>
+            <h2 class="h-1 mt-4 max-22">Watch an AI GTM Engineer learn how to sell.</h2>
+          </div>
+          <p class="body-lg max-36">Five acts, on a single Tuesday morning. The whole loop — from a weak run to a learned skill — in under a minute.</p>
+        </div>
+
+        <ol class="flow-grid">
+          <li class="flow-card">
+            <span class="flow-i mono">01</span>
+            <h3>Analyze a weak campaign</h3>
+            <p>The agent pulls the latest run, walks the funnel, and flags where reply rate fell below the floor.</p>
+          </li>
+          <li class="flow-card">
+            <span class="flow-i mono">02</span>
+            <h3>Detect a pattern</h3>
+            <p>Across reinforcing cohorts, a stable variant emerges — the same prospect signal predicts a 3–4× lift.</p>
+          </li>
+          <li class="flow-card">
+            <span class="flow-i mono">03</span>
+            <h3>Propose a new GTM skill</h3>
+            <p>Declarative, scoped, reviewable. Filed for human approval — never auto-deployed.</p>
+          </li>
+          <li class="flow-card">
+            <span class="flow-i mono">04</span>
+            <h3>You approve it</h3>
+            <p>Read the diff, see the evidence, click once. The skill enters the versioned library.</p>
+          </li>
+          <li class="flow-card">
+            <span class="flow-i mono">05</span>
+            <h3>The next run improves automatically</h3>
+            <p>The skill applies to matching prospects on the next batch. The loop closes. Library compounds.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ─── 5 · BEFORE ────────────────────────────────── -->
+    <section class="section section-surface" id="before" data-section="before">
+      <div class="page">
+        <span class="eyebrow tag-weak">Act 01 · Before</span>
+        <h2 class="h-1 mt-4 max-22">The agent inherited a weak campaign.</h2>
+
+        <div class="grid-2 gap-48 mt-12 align-stretch">
           <article class="card card-weak">
-            <h3>Outreach (control variant)</h3>
+            <header class="card-head">
+              <span class="mono dim">CONTROL VARIANT</span>
+              <span class="mono dim">DAY 0 · OUTBOUND</span>
+            </header>
             <div class="msg">
-              <div class="msg-row"><span class="msg-label">Subject</span><span data-bind="before.weak_message.subject">—</span></div>
-              <pre class="msg-body" data-bind="before.weak_message.body">—</pre>
+              <div class="msg-row">
+                <span class="msg-label mono">SUBJECT</span>
+                <span class="msg-subject">Save 20 hours a week with AI employees</span>
+              </div>
+              <pre class="msg-body">Hi {{first_name}},
+
+Quick question — how much time does your team spend on repetitive work?
+
+AI employees can replace that across your whole business. Founders, ops, marketing — everyone gets time back.
+
+Worth a 15-min demo?
+
+Thanks,
+Alex</pre>
             </div>
           </article>
 
           <article class="card card-metrics">
-            <h3>Result</h3>
-            <div class="metric metric-bad">
-              <span class="metric-value" data-bind="before.metrics.label">—</span>
-              <span class="metric-caption">on <span data-bind="before.metrics.sends">—</span> sends</span>
+            <header class="card-head">
+              <span class="mono dim">RESULT</span>
+              <span class="weak-pill mono">VERDICT · WEAK</span>
+            </header>
+            <div class="metric-grid">
+              <div class="metric"><div class="metric-num">100</div><div class="metric-sub mono">EMAILS SENT</div></div>
+              <div class="metric metric-bad"><div class="metric-num">2</div><div class="metric-sub mono">REPLIES</div></div>
+              <div class="metric metric-bad"><div class="metric-num">0</div><div class="metric-sub mono">POSITIVE</div></div>
             </div>
-            <ul class="metric-list">
-              <li><span>open rate</span><b data-bind="before.metrics.open_rate" data-format="pct">—</b></li>
-              <li><span>reply rate</span><b data-bind="before.metrics.reply_rate" data-format="pct">—</b></li>
-              <li><span>positive reply</span><b data-bind="before.metrics.positive_reply_rate" data-format="pct">—</b></li>
-            </ul>
             <p class="diagnosis">
-              <span class="diagnosis-label">Agent diagnosis</span>
-              <span data-bind="before.agent_diagnosis">—</span>
+              <span class="diagnosis-label mono">AGENT DIAGNOSIS</span>
+              Generic messaging failed for technical founders. No verified company signal.
+              Audience-flat (“everyone gets time back”). Single demo CTA without a low-friction fallback.
             </p>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- ======================================== LEARNING MOMENT -->
-    <section class="section section-learning" id="learning">
-      <div class="container">
-        <header class="section-head">
-          <span class="section-tag tag-learn">02 · Learning Moment</span>
-          <h2>3 reinforcing observations → a learned skill candidate.</h2>
-        </header>
+    <!-- ─── 6 · LEARNING MOMENT ───────────────────────── -->
+    <section class="section" id="learning" data-section="learning">
+      <div class="page">
+        <span class="eyebrow tag-learn">Act 02 · Learning moment</span>
+        <h2 class="h-1 mt-4 max-22">3 reinforcing observations → one learned skill.</h2>
 
-        <article class="card card-pattern">
-          <h3>Pattern detected — <span data-bind="learning_moment.pattern.name" class="mono">—</span></h3>
-          <p class="pattern-summary" data-bind="learning_moment.pattern.summary">—</p>
-          <div class="pattern-cols">
-            <div>
-              <h4>Evidence (<span data-bind="learning_moment.pattern.observations_count">—</span> observations)</h4>
-              <ul class="evidence-list" data-bind-list="learning_moment.pattern.evidence" data-list-template="li.evidence-item"></ul>
-            </div>
-            <div>
-              <h4>Counterexamples</h4>
-              <ul class="counter-list" data-bind-list="learning_moment.pattern.counterexamples" data-list-template="li.counter-item"></ul>
-            </div>
-          </div>
+        <article class="card card-pattern mt-12">
+          <header class="card-head">
+            <span class="mono dim">PATTERN DETECTED</span>
+            <span class="mono dim">N=3 cohorts · 165 sends</span>
+          </header>
+          <h3 class="card-h">Technical founders respond to auditability + learning signals.</h3>
+          <p class="card-body">
+            Across three reinforcing cohorts, prospects in the technical-founder segment
+            opened, replied, and converted at <b>3–4×</b> the control rate when the message
+            led with the agent learning loop and audit-chain visibility — anchored in one
+            verified company signal.
+          </p>
+          <ul class="evidence-grid mono">
+            <li><span class="ev-k">cohort-01</span><span class="ev-v">6.0% positive · n=50</span></li>
+            <li><span class="ev-k">cohort-02</span><span class="ev-v">7.0% positive · n=60</span></li>
+            <li><span class="ev-k">cohort-03</span><span class="ev-v">8.0% positive · n=55</span></li>
+          </ul>
         </article>
 
         <article class="card card-candidate" id="candidate-card">
-          <header class="candidate-head">
-            <h3>Learned-skill candidate</h3>
-            <span class="lifecycle-badge" id="lifecycle-badge" data-state="pending_review">pending_review</span>
+          <header class="card-head">
+            <span class="mono dim">PROPOSED SKILL</span>
+            <span class="lifecycle-badge mono" id="lifecycle-badge" data-state="pending_review">pending_review</span>
           </header>
-          <h4 class="candidate-name mono" data-bind="learning_moment.candidate.skill_name">—</h4>
+          <h3 class="candidate-name mono">technical_founder_learning_moat_outreach</h3>
 
           <div class="candidate-fields">
             <div>
-              <span class="field-label">Problem</span>
-              <p data-bind="learning_moment.candidate.problem">—</p>
+              <span class="field-label mono">SCOPE</span>
+              <p>Outbound email to technical founders at Series A–C B2B startups whose GTM hypothesis includes an agent-platform message.</p>
             </div>
             <div>
-              <span class="field-label">Reusable pattern</span>
-              <p data-bind="learning_moment.candidate.reusable_pattern">—</p>
+              <span class="field-label mono">RULE</span>
+              <p>Lead with the agent learning loop and audit-chain framing. Anchor in one verified signal (launch, hire, raise). Body ≤120 words. Single low-friction CTA.</p>
             </div>
-            <div class="candidate-meta">
-              <div>
-                <span class="field-label">Expected reuse</span>
-                <p data-bind="learning_moment.candidate.expected_reuse">—</p>
-              </div>
-              <div>
-                <span class="field-label">Risk</span>
-                <p data-bind="learning_moment.candidate.risk">—</p>
-              </div>
+            <div>
+              <span class="field-label mono">GUARDS</span>
+              <p>Re-validate quarterly. Cap reuse at one send per account per quarter. Do <em>not</em> generalize beyond technical founders.</p>
             </div>
           </div>
 
           <div class="candidate-actions">
-            <button type="button" id="approve-btn" class="cta-primary cta-approve">
+            <button id="approve-btn" type="button" class="btn btn-primary btn-lg cta-approve">
               <span class="approve-label">Approve skill</span>
               <span class="approve-spinner" aria-hidden="true"></span>
+              <span class="arr">→</span>
             </button>
             <p class="approve-help">
-              The agent <em>never</em> auto-activates a learned skill. Operator approval flips
+              The agent <em>never</em> auto-activates a learned skill. Approval flips
               <span class="mono">lifecycle_state</span> from
               <span class="mono">pending_review</span> →
               <span class="mono">active</span>.
@@ -138,116 +293,140 @@
       </div>
     </section>
 
-    <!-- ================================================== AFTER -->
-    <section class="section section-after" id="after">
-      <div class="container">
-        <header class="section-head">
-          <span class="section-tag tag-good">03 · After</span>
-          <h2>The next run consults the new skill.</h2>
-        </header>
-
-        <div class="grid-2">
-          <article class="card card-strong">
-            <header class="msg-header-row">
-              <h3>Outreach (with active skill)</h3>
-              <span class="active-skill-pill mono" data-bind="after.active_skill_name">—</span>
-            </header>
-            <div class="msg">
-              <div class="msg-row"><span class="msg-label">Subject</span><span data-bind="after.improved_message.subject">—</span></div>
-              <pre class="msg-body" data-bind="after.improved_message.body">—</pre>
-            </div>
-          </article>
-
-          <article class="card card-explain">
-            <h3>Why it improved</h3>
-            <p data-bind="after.why_improved">—</p>
-            <div class="projection">
-              <span class="projection-label">Projected uplift</span>
-              <span data-bind="after.projected_uplift">—</span>
-            </div>
-          </article>
+    <!-- ─── 7 · AFTER ─────────────────────────────────── -->
+    <section class="section section-surface" id="after" data-section="after">
+      <div class="page">
+        <div class="grid-2 gap-80 align-start">
+          <div>
+            <span class="eyebrow">After</span>
+            <h2 class="h-1 mt-4 max-22">The hard part isn't the demo.</h2>
+          </div>
+          <div class="after-body">
+            <p class="body-lg">Most AI-agent tools demo well once. The hard part is proving they improve <em>safely</em> over time.</p>
+            <p class="body-lg dim mt-4">SKYCOT tracks roles, skills, approvals, and learned patterns so your GTM system improves without becoming a black box.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ================================================== PROOF -->
-    <section class="section section-proof" id="proof">
-      <div class="container">
-        <header class="section-head">
-          <span class="section-tag tag-proof">04 · Proof</span>
-          <h2>Receipts — every step is a real argo CLI call.</h2>
-        </header>
+    <!-- ─── 8 · PROOF ─────────────────────────────────── -->
+    <section class="section" id="proof" data-section="proof">
+      <div class="page">
+        <div class="row-end mb-48">
+          <div>
+            <span class="eyebrow">Proof</span>
+            <h2 class="h-1 mt-4 max-22">Every step is a real CLI call.</h2>
+          </div>
+          <span class="body-sm mono dim">
+            eval <b data-bind="proof.scored_eval.passed">10</b>/<b data-bind="proof.scored_eval.scored">10</b>
+            · pass_rate <b data-bind="proof.scored_eval.pass_rate" data-format="pct1">100%</b>
+            · fixtures <span data-bind="proof.scored_eval.fixtures">—</span>
+          </span>
+        </div>
 
-        <ol class="proof-list">
-          <li class="proof-row">
-            <span class="step">role bound</span>
-            <span class="detail mono">
-              session <span data-bind="proof.role.session_id" data-format="short-id">—</span>
-              · vertical <b data-bind="proof.role.vertical">—</b>
-              · skills <b data-bind="proof.role.skills_attached">—</b>
-              · provider <b data-bind="proof.role.provider">—</b>
-            </span>
+        <ol class="proof-steps">
+          <li class="proof-step">
+            <span class="proof-i mono">01</span>
+            <div class="proof-text">
+              <h3>Role: GTM Engineer</h3>
+              <p class="mono">vertical <b data-bind="proof.role.vertical">gtm-engineer</b> · session <span data-bind="proof.role.session_id" data-format="short-id">—</span> · provider <b data-bind="proof.role.provider">—</b> · skills <b data-bind="proof.role.skills_attached">—</b></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
           </li>
-          <li class="proof-row">
-            <span class="step">memory written</span>
-            <span class="detail mono"><span data-bind="proof.memory_writes" data-format="memory-summary">—</span></span>
+          <li class="proof-step">
+            <span class="proof-i mono">02</span>
+            <div class="proof-text">
+              <h3>Pattern stored</h3>
+              <p class="mono">memory_writes · <span data-bind="proof.memory_writes" data-format="memory-summary">—</span></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
           </li>
-          <li class="proof-row">
-            <span class="step">candidate promoted</span>
-            <span class="detail mono">
-              memory <span data-bind="proof.candidate_promoted.memory_entry_id" data-format="short-id">—</span>
-              → skill <span data-bind="proof.candidate_promoted.to_skill_id" data-format="short-id">—</span>
-              <span class="state-arrow">
-                <span data-bind="proof.candidate_promoted.from_state">—</span>
-                →
-                <span class="state-pending" data-bind="proof.candidate_promoted.to_state">—</span>
-              </span>
-            </span>
+          <li class="proof-step">
+            <span class="proof-i mono">03</span>
+            <div class="proof-text">
+              <h3>Skill proposed</h3>
+              <p class="mono">candidate <span data-bind="proof.candidate_promoted.memory_entry_id" data-format="short-id">—</span> → skill <span data-bind="proof.candidate_promoted.to_skill_id" data-format="short-id">—</span> · <span class="state-pending" data-bind="proof.candidate_promoted.to_state">pending_review</span></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
           </li>
-          <li class="proof-row">
-            <span class="step">skill approved</span>
-            <span class="detail mono">
-              skill <span data-bind="proof.skill_approved.skill_id" data-format="short-id">—</span>
-              <span class="state-arrow">
-                <span class="state-pending" data-bind="proof.skill_approved.from_state">—</span>
-                →
-                <span class="state-active" data-bind="proof.skill_approved.to_state">—</span>
-              </span>
-            </span>
+          <li class="proof-step">
+            <span class="proof-i mono">04</span>
+            <div class="proof-text">
+              <h3>Skill approved</h3>
+              <p class="mono">skill <span data-bind="proof.skill_approved.skill_id" data-format="short-id">—</span> · <span class="state-pending" data-bind="proof.skill_approved.from_state">pending_review</span> → <span class="state-active" data-bind="proof.skill_approved.to_state">active</span></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
           </li>
-          <li class="proof-row">
-            <span class="step">active skill available</span>
-            <span class="detail mono">
-              <b data-bind="proof.active_skill.name">—</b>
-              · query <code data-bind="proof.active_skill.consultation_query">—</code>
-            </span>
+          <li class="proof-step">
+            <span class="proof-i mono">05</span>
+            <div class="proof-text">
+              <h3>Skill active</h3>
+              <p class="mono"><b data-bind="proof.active_skill.name">—</b></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
           </li>
-          <li class="proof-row">
-            <span class="step">scored eval</span>
-            <span class="detail mono">
-              <b data-bind="proof.scored_eval.passed">—</b> / <b data-bind="proof.scored_eval.scored">—</b> passed
-              · pass_rate <b data-bind="proof.scored_eval.pass_rate" data-format="pct1">—</b>
-              · fixtures <span data-bind="proof.scored_eval.fixtures">—</span>
-            </span>
+          <li class="proof-step">
+            <span class="proof-i mono">06</span>
+            <div class="proof-text">
+              <h3>Used in next run</h3>
+              <p class="mono">query <code data-bind="proof.active_skill.consultation_query">—</code></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
+          </li>
+          <li class="proof-step">
+            <span class="proof-i mono">07</span>
+            <div class="proof-text">
+              <h3>Eval passed</h3>
+              <p class="mono"><b data-bind="proof.scored_eval.passed">10</b> / <b data-bind="proof.scored_eval.scored">10</b> · pass_rate <b data-bind="proof.scored_eval.pass_rate" data-format="pct1">100%</b></p>
+            </div>
+            <span class="proof-mark" aria-hidden="true">●</span>
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- ================================================ FOOTER -->
-    <footer class="site-footer">
-      <div class="container">
-        <p>
-          Loop driven by
-          <code>demo/gtm_engineer_learning_loop.sh</code>
-          against the GTM Engineer vertical.
-          Capture this page's data with
-          <code>demo/launch-gtm-engineer/capture_demo.sh</code>.
-        </p>
+    <!-- ─── 9 · CTA ───────────────────────────────────── -->
+    <section class="section section-cta" id="cta" data-section="cta">
+      <div class="page">
+        <div class="cta-card">
+          <div class="cta-glow" aria-hidden="true"></div>
+          <span class="eyebrow">Early access</span>
+          <h2 class="h-display max-14">Get early access to SKYCOT.</h2>
+          <p class="body-lg max-44">We onboard four design partners per month. Bring a role, a workflow, and a manager who will review skills.</p>
+          <div class="cta-actions">
+            <a class="btn btn-primary btn-lg" href="mailto:hello@skycot.com?subject=SKYCOT%20early%20access">Request early access <span class="arr">→</span></a>
+            <a class="btn btn-ghost btn-lg" href="#demo">Watch the demo again</a>
+          </div>
+        </div>
       </div>
-    </footer>
+    </section>
 
   </main>
+
+  <!-- ─── 10 · FOOTER ──────────────────────────────── -->
+  <footer class="footer">
+    <div class="page">
+      <div class="footer-row">
+        <span class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              <circle cx="11" cy="11" r="10" stroke="currentColor" stroke-opacity="0.28"/>
+              <path d="M16 6.5C14.5 5 12.8 4.5 11 4.5C7.5 4.5 5.5 6.7 5.5 9C5.5 11.5 7.7 12.5 11 13C14.3 13.5 16.5 14.5 16.5 17C16.5 19.3 14.5 21.5 11 21.5"
+                stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="16" cy="6.5" r="1.6" fill="var(--accent)"/>
+            </svg>
+          </span>
+          <span class="brand-name">SKYCOT</span>
+        </span>
+        <span class="dim">— AI employees that learn the job.</span>
+      </div>
+      <div class="footer-bot">
+        <span class="mono dim">© 2026 SKYCOT, INC. · SAN FRANCISCO · LONDON</span>
+        <span class="mono dim">Loop driven by <code>demo/gtm_engineer_learning_loop.sh</code> · capture with <code>capture_demo.sh</code></span>
+      </div>
+    </div>
+  </footer>
+
   <script src="app.js" defer></script>
 </body>
 </html>

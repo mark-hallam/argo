@@ -100,10 +100,10 @@ show:
 | Section | Indicator |
 |---|---|
 | Hero | mode pill reads `deterministic` or `live`, captured-at date is today |
-| Before | weak-message body + 1.5% positive reply on 50 sends |
+| Before | weak-message body + the campaign metrics read **100 emails sent · 2 replies · 0 positive** |
 | Learning Moment | candidate fields populated; **Approve skill** button visible |
 | After | active-skill pill matches the candidate's skill name |
-| Proof | all 6 receipt rows show real UUIDs + `10/10 passed pass_rate=1.0` |
+| Proof | all 7 receipt rows show real UUIDs + `10/10 passed pass_rate=1.0` |
 
 Click **Approve skill** in the Learning Moment section to see the
 `pending_review → active` animation, then auto-scroll into After.
@@ -114,9 +114,10 @@ A 60-90 second demo video pattern that hits every story beat:
 
 1. **0:00-0:08** — Hero. Pause on the headline. Read the
    subheadline aloud.
-2. **0:08-0:25** — Click "Watch the loop" → Before. Voiceover:
-   "The AI inherited a generic outreach campaign — 1.5% positive
-   reply rate on 50 sends. The agent diagnoses why."
+2. **0:08-0:25** — Click "Watch the GTM Engineer learn" → Before.
+   Voiceover: "The AI inherited a generic outreach campaign —
+   100 emails sent, 2 replies, 0 positive. The agent diagnoses
+   why."
 3. **0:25-0:50** — Scroll into Learning Moment. Voiceover:
    "Three reinforcing observations across distinct cohorts. The
    agent emits a learned-skill candidate — but it never
@@ -127,9 +128,9 @@ A 60-90 second demo video pattern that hits every story beat:
    send — anchored in a verified signal, audit-chain framing,
    single CTA. The agent now consults the skill it just learned."
 6. **1:25-1:40** — Scroll into Proof. Voiceover: "Every step is
-   a real argo CLI call. Real session, real memory writes, real
-   skill row in `lifecycle_state=active`. Re-running the scored
-   eval confirms the platform stayed green throughout."
+   a real CLI call. Real session, real memory writes, real skill
+   row in `lifecycle_state=active`. Re-running the scored eval
+   confirms the platform stayed green throughout."
 
 For best capture quality:
 - Resize browser to ~1280×800 for 16:10 video framing.
