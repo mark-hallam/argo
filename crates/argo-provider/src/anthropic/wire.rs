@@ -186,15 +186,24 @@ fn content_block_to_anthropic(block: &ContentBlock) -> Option<serde_json::Value>
 }
 
 fn tool_call_to_anthropic(tc: &ToolCallRequest) -> serde_json::Value {
-    // Issue #4 / F-9: prefer the Anthropic-issued `toolu_…` id when we
-    // have it so multi-turn `tool_result` messages round-trip cleanly.
-    let id = tc
-        .provider_call_id
-        .clone()
-        .unwrap_or_else(|| tc.id.to_string());
+    // #719: emit the internal `tc.id` (UUIDv7), NOT
+    // `provider_call_id`. The matching `tool_result` block produced
+    // by `push_tool_result` derives its `tool_use_id` from
+    // `Message.tool_call_id` — i.e. the same internal `ToolCallId`
+    // — so both sides round-trip with the same id and Anthropic
+    // accepts the multi-turn request.
+    //
+    // Pre-#719 this preferred `provider_call_id` (the `toolu_…` id
+    // Anthropic generated). That was an aspirational comment ("so
+    // multi-turn round-trips cleanly") that broke the round-trip
+    // because `ToolCallResult` never carried `provider_call_id`,
+    // so the two sides emitted different ids. Anthropic's API
+    // doesn't require the round-tripped id to be the original
+    // `toolu_…` value — only that the assistant's `tool_use.id`
+    // matches the next user message's `tool_result.tool_use_id`.
     serde_json::json!({
         "type": "tool_use",
-        "id": id,
+        "id": tc.id.to_string(),
         "name": tc.name,
         "input": tc.arguments,
     })

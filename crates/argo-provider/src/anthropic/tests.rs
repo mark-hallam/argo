@@ -159,6 +159,119 @@ fn assemble_response_picks_text_thinking_and_tool_use() {
     assert_eq!(r.tool_calls[0].arguments["path"], "/");
 }
 
+/// #719: when we replay a multi-turn conversation back to Anthropic,
+/// the tool_use block in the assistant message and the tool_result
+/// block in the following user message MUST carry matching ids —
+/// otherwise Anthropic returns HTTP 400 "unexpected `tool_use_id`
+/// found in `tool_result` blocks. Each `tool_result` block must
+/// have a corresponding `tool_use` block in the previous message."
+///
+/// Pre-#719, `tool_call_to_anthropic` preferred `provider_call_id`
+/// (the `toolu_…` Anthropic gave us) while `push_tool_result` only
+/// had `Message.tool_call_id` (our internal UUID, never plumbed
+/// through `ToolCallResult`). The two sides emitted different ids
+/// and Anthropic rejected the second-round request — the exact
+/// failure live `argo work serve --provider anthropic` hit.
+///
+/// This test pins the round-trip invariant.
+#[test]
+fn tool_use_and_tool_result_ids_match_in_multi_turn_request() {
+    let m = parse_manifest();
+    // Same internal ToolCallId on both sides; tool_call's
+    // provider_call_id is set to a fake "toolu_…" so we can confirm
+    // it's NOT what gets emitted (the bug pre-#719).
+    let internal_id = "00000000-0000-7000-8000-000000000030";
+    let provider_id = "toolu_abcDEF123";
+
+    let user: Message = serde_json::from_value(serde_json::json!({
+        "id": "00000000-0000-7000-8000-000000000010",
+        "session_id": "00000000-0000-7000-8000-000000000001",
+        "role": "user",
+        "content": [{"type":"text","text":"list /"}],
+        "tool_calls": [],
+        "tool_call_id": null,
+        "reasoning": null,
+        "created_at": "2025-01-01T00:00:00Z",
+        "provider_meta": null
+    })).unwrap();
+
+    let assistant: Message = serde_json::from_value(serde_json::json!({
+        "id": "00000000-0000-7000-8000-000000000011",
+        "session_id": "00000000-0000-7000-8000-000000000001",
+        "role": "assistant",
+        "content": [{"type":"text","text":"ok, calling ls."}],
+        "tool_calls": [{
+            "id": internal_id,
+            "provider_call_id": provider_id,
+            "name": "ls",
+            "arguments": {"path":"/"}
+        }],
+        "tool_call_id": null,
+        "reasoning": null,
+        "created_at": "2025-01-01T00:00:00Z",
+        "provider_meta": null
+    })).unwrap();
+
+    let tool: Message = serde_json::from_value(serde_json::json!({
+        "id": "00000000-0000-7000-8000-000000000012",
+        "session_id": "00000000-0000-7000-8000-000000000001",
+        "role": "tool",
+        "content": [{
+            "type": "tool_result",
+            "id": internal_id,
+            "is_error": false,
+            "content": [{"type":"text","text":"/etc /var"}],
+            "duration_ms": 12,
+            "tokens_in": null,
+            "tokens_out": null
+        }],
+        "tool_calls": [],
+        "tool_call_id": internal_id,
+        "reasoning": null,
+        "created_at": "2025-01-01T00:00:00Z",
+        "provider_meta": null
+    })).unwrap();
+
+    let req = ProviderRequest {
+        model: "claude-haiku-4-5".into(),
+        messages: vec![user, assistant, tool],
+        tools: vec![],
+        system: None,
+        sampling: Sampling::default(),
+    };
+    let body = build_request_body(&m, &req).unwrap();
+    let messages = body["messages"].as_array().expect("messages array");
+    assert_eq!(messages.len(), 3, "expected user / assistant / user-tool_result");
+
+    // Locate the assistant tool_use block's id and the user
+    // tool_result block's tool_use_id, then assert they're equal.
+    let asst_content = messages[1]["content"].as_array().expect("assistant content");
+    let tool_use_id = asst_content
+        .iter()
+        .find_map(|b| {
+            (b["type"] == "tool_use")
+                .then(|| b["id"].as_str().map(str::to_string))
+                .flatten()
+        })
+        .expect("assistant message must carry a tool_use block");
+
+    let tool_content = messages[2]["content"].as_array().expect("tool_result content");
+    let tool_result_ref = tool_content
+        .iter()
+        .find_map(|b| {
+            (b["type"] == "tool_result")
+                .then(|| b["tool_use_id"].as_str().map(str::to_string))
+                .flatten()
+        })
+        .expect("user message must carry a tool_result block");
+
+    assert_eq!(
+        tool_use_id, tool_result_ref,
+        "tool_use.id ({tool_use_id}) must match tool_result.tool_use_id ({tool_result_ref}) — \
+         Anthropic 400's the request otherwise"
+    );
+}
+
 #[test]
 fn assemble_response_handles_missing_stop_reason_as_end_turn() {
     let parsed: AnthropicResponse = serde_json::from_value(serde_json::json!({
