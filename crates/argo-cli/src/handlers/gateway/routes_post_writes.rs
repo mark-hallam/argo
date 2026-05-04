@@ -4,6 +4,7 @@
 //! Lives in its own module so `routes_post.rs` (the session-
 //! flavoured POSTs) stays under the 500-LOC ceiling.
 use super::{body_from_request, store_unavailable};
+use crate::home::cwd_workspace;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -65,19 +66,13 @@ pub(super) async fn append_memory_response(
             "{\"error\":\"empty body\"}".to_string(),
         );
     }
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => {
-            return (
-                "400 Bad Request",
-                "{\"error\":\"no workspace registered yet — run `argo workspace init`\"}"
-                    .to_string(),
-            );
-        }
+    // #718: cwd-bound workspace (matches every reader's path).
+    let workspace = match cwd_workspace(store).await {
+        Ok(w) => w,
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+                format!("{{\"error\":\"cwd_workspace: {e}\"}}"),
             );
         }
     };

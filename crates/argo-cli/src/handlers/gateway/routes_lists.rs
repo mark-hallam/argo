@@ -2,6 +2,7 @@
 //! out of `routes.rs` so the dispatcher file stays under the
 //! 500-LOC ceiling.
 use super::store_unavailable;
+use crate::home::cwd_workspace;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -179,18 +180,13 @@ pub(super) async fn memory_count_response(
             );
         }
     };
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => {
-            return (
-                "200 OK",
-                format!("{{\"count\":0,\"file\":\"{}\"}}", file.as_deref().unwrap_or("all")),
-            );
-        }
+    // #718: cwd-bound workspace (matches every writer's path).
+    let workspace = match cwd_workspace(store).await {
+        Ok(w) => w,
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+                format!("{{\"error\":\"cwd_workspace: {e}\"}}"),
             );
         }
     };
@@ -338,13 +334,13 @@ pub(super) async fn memory_response(
             );
         }
     };
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => return ("200 OK", "[]".to_string()),
+    // #718: cwd-bound workspace (matches every writer's path).
+    let workspace = match cwd_workspace(store).await {
+        Ok(w) => w,
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+                format!("{{\"error\":\"cwd_workspace: {e}\"}}"),
             );
         }
     };

@@ -349,6 +349,77 @@ fn work_queue_rows_visible_via_memory_list_and_session_show() {
     );
 }
 
+/// #718 regression: prove the cwd-resolved workspace isolation
+/// across multiple workspaces sharing one ARGO_HOME (the
+/// real-world scenario the user hit). Pre-#718, all read-side
+/// handlers used `store.first_workspace()` which returns whichever
+/// workspace was inserted FIRST — so writes from a newer cwd
+/// vanished from `memory list --vertical`. After #718 every
+/// reader resolves to the same workspace its cwd-mate writers
+/// already use.
+#[test]
+fn cwd_workspace_isolates_reads_across_multiple_workspaces() {
+    let home = tempfile::tempdir().expect("home tempdir");
+    let stale_cwd = tempfile::tempdir().expect("stale cwd tempdir");
+    let active_cwd = tempfile::tempdir().expect("active cwd tempdir");
+
+    let env = |cmd: &mut Command, cwd: &Path| {
+        cmd.env("ARGO_HOME", home.path())
+            .env("ARGO_VERTICALS_DIR", workspace_root().join("verticals"))
+            .current_dir(cwd);
+    };
+
+    // Bootstrap workspace 1 (the "stale" one). It carries a
+    // gtm-engineer pending_jobs entry that should NOT leak into
+    // reads from the second workspace's cwd.
+    let mut c = Command::new(argo_bin());
+    c.arg("workspace").arg("init");
+    env(&mut c, stale_cwd.path());
+    assert!(c.output().expect("init1").status.success());
+
+    let mut c = Command::new(argo_bin());
+    c.args([
+        "work", "add",
+        "--vertical", "gtm-engineer",
+        "--prompt", "stale-job-should-not-leak",
+    ]);
+    env(&mut c, stale_cwd.path());
+    assert!(c.output().expect("stale work add").status.success());
+
+    // Bootstrap workspace 2 (the "active" one) under the same
+    // ARGO_HOME. Different cwd → different workspace_id (lookup
+    // by root_path inside ensure_workspace).
+    let mut c = Command::new(argo_bin());
+    c.arg("workspace").arg("init");
+    env(&mut c, active_cwd.path());
+    assert!(c.output().expect("init2").status.success());
+
+    let mut c = Command::new(argo_bin());
+    c.args([
+        "work", "add",
+        "--vertical", "gtm-engineer",
+        "--prompt", "active-job-should-be-visible",
+    ]);
+    env(&mut c, active_cwd.path());
+    assert!(c.output().expect("active work add").status.success());
+
+    // Read from active_cwd. After #718 the cwd-resolved workspace
+    // is workspace 2; only its single pending_jobs row should
+    // surface — workspace 1's "stale-job-should-not-leak" must
+    // not appear.
+    let pending = list_jobs_by_schema(home.path(), active_cwd.path(), "gtm-engineer", "pending_jobs");
+    assert_eq!(
+        pending.len(), 1,
+        "active cwd should see exactly its own pending row; got {pending:?}"
+    );
+    assert_eq!(pending[0]["prompt"], "active-job-should-be-visible");
+
+    // Symmetric check: from stale_cwd we see only workspace 1's row.
+    let stale_pending = list_jobs_by_schema(home.path(), stale_cwd.path(), "gtm-engineer", "pending_jobs");
+    assert_eq!(stale_pending.len(), 1);
+    assert_eq!(stale_pending[0]["prompt"], "stale-job-should-not-leak");
+}
+
 #[test]
 fn work_add_unknown_vertical_fails_clearly() {
     let (home, work) = fresh_workspace();

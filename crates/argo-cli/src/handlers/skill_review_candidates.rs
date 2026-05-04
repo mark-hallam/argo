@@ -49,9 +49,11 @@ pub(super) async fn collect_memory_candidates(
     skills: &SkillStore,
 ) -> ArgoResult<Vec<CandidateRow>> {
     let store = skills.store_arc();
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => return Ok(Vec::new()),
+    // #718: cwd-resolved workspace (matches every writer's path).
+    // Errors here are folded into "no candidates" so a transient
+    // workspace resolution issue doesn't blank the entire surface.
+    let workspace = match crate::home::cwd_workspace(&store).await {
+        Ok(w) => w,
         Err(_) => return Ok(Vec::new()),
     };
     let memory = MemoryStore::new(Arc::clone(&store));

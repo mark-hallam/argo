@@ -23,7 +23,11 @@ fn skill_install_returns_400_on_missing_raw_and_201_on_valid_doc() {
 }
 
 #[test]
-fn memory_append_returns_400_on_unknown_file_and_when_no_workspace() {
+fn memory_append_returns_400_on_unknown_file_and_auto_bootstraps_workspace() {
+    // #718: invalid file rejected with 400; valid append now
+    // auto-bootstraps the cwd-resolved workspace via ensure_workspace
+    // (matches every CLI writer's path) instead of 400'ing on a
+    // missing first_workspace row.
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 2);
 
@@ -31,9 +35,15 @@ fn memory_append_returns_400_on_unknown_file_and_when_no_workspace() {
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
     let resp = http_post(port, "/memory", r#"{"file":"memory","body":"hello"}"#);
-    assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
+    assert!(
+        resp.contains("HTTP/1.1 201 Created"),
+        "valid memory append must auto-bootstrap workspace; resp={resp}"
+    );
     let body = body_of(&resp);
-    assert!(body.contains("workspace"), "body={body}");
+    assert!(
+        body.contains("\"id\""),
+        "201 body should carry the new entry id; body={body}"
+    );
 
     assert!(child.wait().expect("wait").success());
 }

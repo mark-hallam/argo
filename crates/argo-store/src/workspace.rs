@@ -57,6 +57,32 @@ impl SessionStore {
             )
         }))
     }
+
+    /// Full info for a specific workspace by id —
+    /// `(workspace_id, name, root_path, created_at_micros)`.
+    /// Used by gateway endpoints that need the metadata row for
+    /// the cwd-resolved workspace (matches `ensure_workspace`'s
+    /// path; #718). Returns `None` if the id doesn't exist.
+    pub async fn workspace_info(
+        &self,
+        id: WorkspaceId,
+    ) -> StoreResult<Option<(WorkspaceId, String, String, i64)>> {
+        let row: Option<(Vec<u8>, String, String, i64)> = sqlx::query_as(
+            "SELECT id, name, root_path, created_at FROM workspace WHERE id = ?",
+        )
+        .bind(id.0.as_bytes().as_slice())
+        .fetch_optional(self.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("workspace_info: {e}")))?;
+        Ok(row.map(|(id, name, root, ts)| {
+            (
+                WorkspaceId(models::uuid_from_blob(&id)),
+                name,
+                root,
+                ts,
+            )
+        }))
+    }
 }
 
 /// Insert a tenant + workspace pair if no workspace already exists at

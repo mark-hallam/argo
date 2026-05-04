@@ -51,7 +51,7 @@ mod routes_workspace;
 mod streaming;
 
 use crate::cli::GatewayCmd;
-use crate::home::{db_path, ensure_dir, resolve_home};
+use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
 use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
@@ -220,8 +220,14 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     metrics::init_boot_time();
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
     if let Some(s) = store.as_ref() {
-        if let Ok(Some(name)) = s.first_workspace_name().await {
-            eprintln!("argo gateway: workspace = '{name}'");
+        // #718: print the cwd-bound workspace's name (matches the path
+        // every request handler resolves to). Pre-fix this used
+        // `first_workspace_name()` and on multi-workspace dbs surfaced
+        // a stale workspace's name.
+        if let Ok(id) = cwd_workspace(s).await {
+            if let Ok(Some((_, name, _, _))) = s.workspace_info(id).await {
+                eprintln!("argo gateway: workspace = '{name}'");
+            }
         }
     }
     eprintln!("  GET  /health   → {{\"status\":\"ok\"}}");

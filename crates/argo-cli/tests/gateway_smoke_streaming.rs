@@ -162,7 +162,12 @@ fn last_message_returns_404_on_session_with_no_messages() {
 }
 
 #[test]
-fn workspace_info_returns_404_on_clean_workspace() {
+fn workspace_info_auto_bootstraps_on_first_request() {
+    // #718: GET /workspace/info now uses cwd_workspace (matches
+    // every writer's path). On a fresh DB the gateway's process cwd
+    // is materialised into a workspace row by ensure_workspace, so
+    // the endpoint returns 200 + the cwd-derived metadata. Pre-#718
+    // it returned 404 until `argo workspace init` had run separately.
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(argo_bin())
@@ -182,11 +187,16 @@ fn workspace_info_returns_404_on_clean_workspace() {
     let mut stderr = BufReader::new(child.stderr.take().unwrap());
     await_listening(&mut stderr);
 
-    // Clean workspace → 404 (no row registered yet).
     let resp = http_get(port, "/workspace/info");
-    assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp={resp}");
+    assert!(
+        resp.contains("HTTP/1.1 200 OK"),
+        "fresh DB should auto-bootstrap; resp={resp}"
+    );
     let body = body_of(&resp);
-    assert!(body.contains("no workspace"), "body={body}");
+    assert!(
+        body.contains("\"workspace_id\"") && body.contains("\"name\""),
+        "response should carry workspace_id + name; body={body}"
+    );
 
     let status = child.wait().expect("wait");
     assert!(status.success());

@@ -1,6 +1,7 @@
 //! Workspace-flavoured GET handlers — `/workspace/info` and
 //! `/workspace/artifacts`. Lifted out of `routes_meta.rs` so
 //! that file stays under the 500-LOC ceiling.
+use crate::home::cwd_workspace;
 use argo_store::SessionStore;
 use std::sync::Arc;
 
@@ -14,7 +15,19 @@ pub(super) async fn workspace_info_response(
     let Some(store) = store else {
         return super::store_unavailable();
     };
-    match store.first_workspace_info().await {
+    // #718: resolve the cwd-bound workspace, then fetch its row
+    // (matches every writer's path; previous `first_workspace_info`
+    // returned a stale historic workspace on multi-workspace dbs).
+    let id = match cwd_workspace(store).await {
+        Ok(id) => id,
+        Err(e) => {
+            return (
+                "500 Internal Server Error",
+                format!("{{\"error\":\"cwd_workspace: {e}\"}}"),
+            );
+        }
+    };
+    match store.workspace_info(id).await {
         Ok(Some((id, name, root, created))) => {
             if matches!(format, Some("markdown")) {
                 let mut out = format!("# Workspace `{name}`\n\n");
@@ -40,7 +53,7 @@ pub(super) async fn workspace_info_response(
         ),
         Err(e) => (
             "500 Internal Server Error",
-            format!("{{\"error\":\"first_workspace_info: {e}\"}}"),
+            format!("{{\"error\":\"workspace_info: {e}\"}}"),
         ),
     }
 }
@@ -60,18 +73,13 @@ pub(super) async fn artifacts_response(
     let Some(store) = store else {
         return super::store_unavailable();
     };
-    let workspace = match store.first_workspace().await {
-        Ok(Some(w)) => w,
-        Ok(None) => {
-            if matches!(format, Some("markdown")) {
-                return ("200 OK", "# Marketplace artifacts (0)\n".to_string());
-            }
-            return ("200 OK", "[]".to_string());
-        }
+    // #718: cwd-bound workspace (matches every writer's path).
+    let workspace = match cwd_workspace(store).await {
+        Ok(w) => w,
         Err(e) => {
             return (
                 "500 Internal Server Error",
-                format!("{{\"error\":\"first_workspace: {e}\"}}"),
+                format!("{{\"error\":\"cwd_workspace: {e}\"}}"),
             );
         }
     };

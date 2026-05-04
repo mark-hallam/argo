@@ -1,7 +1,7 @@
 //! `argo health` — meta-command that runs every read-only
 //! verification and exits non-zero on the first failure. Wraps the
 //! existing CLI surface so the per-command UX stays canonical.
-use crate::home::{db_path, ensure_dir, resolve_home};
+use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
 use argo_audit::verify_all as audit_verify_all;
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_skill::SkillStore;
@@ -208,10 +208,8 @@ async fn verify_skills(store: &Arc<SessionStore>) -> ArgoResult<usize> {
 
 async fn verify_memory(store: &Arc<SessionStore>) -> ArgoResult<usize> {
     use sha2::{Digest, Sha256};
-    let workspace = match store.first_workspace().await? {
-        Some(w) => w,
-        None => return Ok(0),
-    };
+    // #718: cwd-resolved workspace (matches every writer's path).
+    let workspace = cwd_workspace(store).await?;
     let memory = MemoryStore::new(Arc::clone(store));
     let mut total = 0_usize;
     let mut bad = 0_usize;
