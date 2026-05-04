@@ -20,8 +20,11 @@ mod cli_session_cmds;
 mod cli_skill_review_cmds;
 #[path = "cli_workspace_cmds.rs"]
 pub(crate) mod cli_workspace_cmds;
+#[path = "cli_work_cmds.rs"]
+pub(crate) mod cli_work_cmds;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
+pub use cli_work_cmds::WorkCmd;
 
 use clap::{Parser, Subcommand};
 
@@ -109,6 +112,14 @@ pub enum Command {
     Cron {
         #[command(subcommand)]
         cmd: CronCmd,
+    },
+    /// Work queue v0 (#716). `add` enqueues a unit of work for a
+    /// vertical-bound worker; `serve` runs a persistent loop that
+    /// processes the queue using existing session + memory + chat
+    /// primitives. Default provider `mock` works without an API key.
+    Work {
+        #[command(subcommand)]
+        cmd: WorkCmd,
     },
     Audit {
         #[command(subcommand)]
