@@ -213,8 +213,13 @@ async fn process_job(
     // assistant message — no LLM dispatch. Live providers go
     // through the same run_turn the gateway POST /runs uses.
     let (assistant_text, assistant_id, user_message_id) = if provider == "mock" {
+        // #717: messages are stored as content_json — typed text
+        // blocks `[{"type":"text","text":"..."}]` so `argo session
+        // show` and `GET /sessions/<id>` extract bodies correctly.
+        // The plain text we render in completed_jobs is unchanged.
+        let user_content = serde_json::json!([{"type":"text","text":prompt}]).to_string();
         let user_id = store
-            .append_message(session_id, MessageRole::User, prompt)
+            .append_message(session_id, MessageRole::User, &user_content)
             .await
             .map_err(|e| ArgoError::Provider(format!("append user msg: {e}")))?;
         let text = format!(
@@ -224,8 +229,9 @@ async fn process_job(
             job.id,
             Utc::now().to_rfc3339(),
         );
+        let asst_content = serde_json::json!([{"type":"text","text":text}]).to_string();
         let aid = store
-            .append_message(session_id, MessageRole::Assistant, &text)
+            .append_message(session_id, MessageRole::Assistant, &asst_content)
             .await
             .map_err(|e| ArgoError::Provider(format!("append assistant msg: {e}")))?;
         (text, aid, user_id)

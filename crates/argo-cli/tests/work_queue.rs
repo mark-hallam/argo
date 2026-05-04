@@ -260,6 +260,95 @@ fn work_serve_does_not_duplicate_completed_jobs_on_second_pass() {
     );
 }
 
+/// #717 regression: drives the EXACT CLI sequence the user reported
+/// broken — `argo memory list --vertical gtm-engineer --json` must
+/// surface both the pending and completed job rows that `work add`
+/// and `work serve --once` write. Also asserts that
+/// `argo session show` renders non-empty first/last message snippets
+/// so work-created sessions display useful content. Pre-#717 this
+/// test would fail on two counts: (a) memory list resolved
+/// `first_workspace()` instead of the cwd's workspace (so the rows
+/// were invisible across the CLI surface), and (b) work handler
+/// stored message content as raw strings instead of
+/// `[{"type":"text","text":"..."}]` typed blocks (so session show's
+/// snippet extractor returned empty).
+#[test]
+fn work_queue_rows_visible_via_memory_list_and_session_show() {
+    let (home, work) = fresh_workspace();
+
+    // Step 1: enqueue a job — exact prompt from the user's report.
+    let add = run_argo(
+        home.path(), work.path(),
+        &["work", "add",
+          "--vertical", "gtm-engineer",
+          "--prompt", "Analyze this weak campaign: 100 emails, 2 replies, 0 positive. Recommend the next GTM move.",
+          "--json"],
+    );
+    assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
+    let added: Value = serde_json::from_slice(&add.stdout).expect("json");
+    let job_id = added["job_id"].as_str().expect("job_id").to_string();
+
+    // Step 2: BEFORE serve — `memory list --vertical` MUST show the
+    // pending row (this is the regression check vs first_workspace()).
+    let pre = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "pending_jobs");
+    assert_eq!(
+        pre.len(), 1,
+        "memory list --vertical gtm-engineer must surface the pending job; got {pre:?}"
+    );
+    assert_eq!(pre[0]["vertical_id"], "gtm-engineer");
+    assert_eq!(pre[0]["status"], "pending");
+
+    // Step 3: serve --once → completed row written.
+    let serve = run_argo(home.path(), work.path(),
+        &["work", "serve", "--vertical", "gtm-engineer", "--once", "--json"]);
+    assert!(serve.status.success(), "{}", String::from_utf8_lossy(&serve.stderr));
+    let processed: Value = serde_json::from_slice(&serve.stdout).expect("json");
+    let session_id = processed["session_id"].as_str().expect("session_id").to_string();
+    let assistant_id = processed["assistant_id"].as_str().expect("assistant_id").to_string();
+
+    // Step 4: AFTER serve — completed row must surface with all the
+    // fields the user listed as required.
+    let post = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "completed_jobs");
+    assert_eq!(post.len(), 1, "expected one completed_jobs row; got {post:?}");
+    assert_eq!(post[0]["vertical_id"], "gtm-engineer");
+    assert_eq!(post[0]["pending_job_id"], job_id);
+    assert_eq!(post[0]["session_id"], session_id);
+    assert_eq!(post[0]["assistant_id"], assistant_id);
+    let asst_text = post[0]["assistant_text"].as_str().expect("assistant_text");
+    assert!(!asst_text.is_empty(), "assistant_text must be persisted");
+    assert!(post[0]["completed_at"].as_str().is_some(), "completed_at required");
+
+    // Step 5: argo session show — both first (user) and last
+    // (assistant) bodies must extract a non-empty snippet.
+    let show = run_argo(home.path(), work.path(),
+        &["session", "show", &session_id]);
+    assert!(show.status.success(), "{}", String::from_utf8_lossy(&show.stderr));
+    let stdout = String::from_utf8_lossy(&show.stdout);
+    let first_line = stdout.lines().find(|l| l.trim_start().starts_with("first ("))
+        .unwrap_or_else(|| panic!("session show missing 'first (' line; got:\n{stdout}"));
+    let last_line = stdout.lines().find(|l| l.trim_start().starts_with("last  ("))
+        .unwrap_or_else(|| panic!("session show missing 'last  (' line; got:\n{stdout}"));
+
+    // The colon delimits role from snippet — anything after must be
+    // non-empty text. Pre-fix this would be `first (user):` (empty
+    // tail); post-fix it should carry a chunk of the prompt / mock
+    // response.
+    let first_snippet = first_line.split_once("):").map(|(_, s)| s.trim()).unwrap_or("");
+    let last_snippet = last_line.split_once("):").map(|(_, s)| s.trim()).unwrap_or("");
+    assert!(
+        !first_snippet.is_empty(),
+        "session show first (user) snippet must be non-empty; full output:\n{stdout}"
+    );
+    assert!(
+        !last_snippet.is_empty(),
+        "session show last (assistant) snippet must be non-empty; full output:\n{stdout}"
+    );
+    assert!(
+        first_snippet.contains("100 emails") || first_snippet.contains("Analyze"),
+        "first snippet should echo the prompt; got: {first_snippet:?}"
+    );
+}
+
 #[test]
 fn work_add_unknown_vertical_fails_clearly() {
     let (home, work) = fresh_workspace();

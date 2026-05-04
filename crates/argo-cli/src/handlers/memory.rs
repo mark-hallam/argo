@@ -14,10 +14,12 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = Arc::new(SessionStore::open(&db).await?);
     store.migrate().await?;
-    let workspace = store
-        .first_workspace()
-        .await?
-        .ok_or_else(|| ArgoError::Provider("no workspace registered yet".into()))?;
+    // #717: resolve workspace from cwd (same path every writer uses).
+    // Previous `first_workspace()` returned a historic workspace on
+    // dev machines with multiple workspaces — hiding vertical writes.
+    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
         MemoryCmd::List {
