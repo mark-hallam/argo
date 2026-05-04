@@ -103,10 +103,11 @@
         <div class="grid-2 gap-80 align-start">
           <div>
             <span class="eyebrow">The problem</span>
-            <h2 class="h-1 mt-4 max-22">Most AI tools generate outputs.<br><span class="ink-dim">They don't improve.</span></h2>
+            <h2 class="h-1 mt-4 max-22">Most AI tools generate outputs.</h2>
           </div>
           <div class="problem-body">
             <ul class="problem-list">
+              <li>They don't improve.</li>
               <li>They don't remember what worked.</li>
               <li>They don't learn reusable skills.</li>
               <li>They don't get evaluated like real work.</li>
@@ -149,7 +150,19 @@
           <p class="body-lg max-36">Five acts, on a single Tuesday morning. The whole loop — from a weak run to a learned skill — in under a minute.</p>
         </div>
 
-        <ol class="flow-grid">
+        <ol class="flow-loop" aria-label="Five-step learning loop">
+          <li><span class="flow-loop-i mono">01</span><span class="flow-loop-name">Analyze</span></li>
+          <li class="flow-loop-arrow" aria-hidden="true">→</li>
+          <li><span class="flow-loop-i mono">02</span><span class="flow-loop-name">Pattern</span></li>
+          <li class="flow-loop-arrow" aria-hidden="true">→</li>
+          <li><span class="flow-loop-i mono">03</span><span class="flow-loop-name">Skill</span></li>
+          <li class="flow-loop-arrow" aria-hidden="true">→</li>
+          <li><span class="flow-loop-i mono">04</span><span class="flow-loop-name">Approval</span></li>
+          <li class="flow-loop-arrow" aria-hidden="true">→</li>
+          <li><span class="flow-loop-i mono">05</span><span class="flow-loop-name">Improved&nbsp;run</span></li>
+        </ol>
+
+        <ol class="flow-grid mt-8">
           <li class="flow-card">
             <span class="flow-i mono">01</span>
             <h3>Analyze a weak campaign</h3>
@@ -254,10 +267,14 @@ Alex</pre>
           </ul>
         </article>
 
-        <article class="card card-candidate" id="candidate-card">
+        <article class="card card-candidate mt-12" id="candidate-card">
           <header class="card-head">
             <span class="mono dim">PROPOSED SKILL</span>
-            <span class="lifecycle-badge mono" id="lifecycle-badge" data-state="pending_review">pending_review</span>
+            <div class="lifecycle-row" aria-label="Skill lifecycle transition">
+              <span class="lifecycle-badge mono" id="lifecycle-badge" data-state="pending_review">pending_review</span>
+              <span class="lifecycle-arrow" aria-hidden="true">→</span>
+              <span class="lifecycle-target mono">active</span>
+            </div>
           </header>
           <h3 class="candidate-name mono">technical_founder_learning_moat_outreach</h3>
 
@@ -328,8 +345,11 @@ Alex</pre>
           <li class="proof-step">
             <span class="proof-i mono">01</span>
             <div class="proof-text">
-              <h3>Role: GTM Engineer</h3>
-              <p class="mono">vertical <b data-bind="proof.role.vertical">gtm-engineer</b> · session <span data-bind="proof.role.session_id" data-format="short-id">—</span> · provider <b data-bind="proof.role.provider">—</b> · skills <b data-bind="proof.role.skills_attached">—</b></p>
+              <h3>Role bound</h3>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono">vertical <b data-bind="proof.role.vertical">gtm-engineer</b> · session <span data-bind="proof.role.session_id" data-format="short-id">—</span> · provider <b data-bind="proof.role.provider">—</b> · skills <b data-bind="proof.role.skills_attached">—</b></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -337,7 +357,10 @@ Alex</pre>
             <span class="proof-i mono">02</span>
             <div class="proof-text">
               <h3>Pattern stored</h3>
-              <p class="mono">memory_writes · <span data-bind="proof.memory_writes" data-format="memory-summary">—</span></p>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono">memory_writes · <span data-bind="proof.memory_writes" data-format="memory-summary">—</span></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -345,7 +368,10 @@ Alex</pre>
             <span class="proof-i mono">03</span>
             <div class="proof-text">
               <h3>Skill proposed</h3>
-              <p class="mono">candidate <span data-bind="proof.candidate_promoted.memory_entry_id" data-format="short-id">—</span> → skill <span data-bind="proof.candidate_promoted.to_skill_id" data-format="short-id">—</span> · <span class="state-pending" data-bind="proof.candidate_promoted.to_state">pending_review</span></p>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono">candidate <span data-bind="proof.candidate_promoted.memory_entry_id" data-format="short-id">—</span> → skill <span data-bind="proof.candidate_promoted.to_skill_id" data-format="short-id">—</span> · <span class="state-pending" data-bind="proof.candidate_promoted.to_state">pending_review</span></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -353,7 +379,10 @@ Alex</pre>
             <span class="proof-i mono">04</span>
             <div class="proof-text">
               <h3>Skill approved</h3>
-              <p class="mono">skill <span data-bind="proof.skill_approved.skill_id" data-format="short-id">—</span> · <span class="state-pending" data-bind="proof.skill_approved.from_state">pending_review</span> → <span class="state-active" data-bind="proof.skill_approved.to_state">active</span></p>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono">skill <span data-bind="proof.skill_approved.skill_id" data-format="short-id">—</span> · <span class="state-pending" data-bind="proof.skill_approved.from_state">pending_review</span> → <span class="state-active" data-bind="proof.skill_approved.to_state">active</span></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -361,7 +390,10 @@ Alex</pre>
             <span class="proof-i mono">05</span>
             <div class="proof-text">
               <h3>Skill active</h3>
-              <p class="mono"><b data-bind="proof.active_skill.name">—</b></p>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono"><b data-bind="proof.active_skill.name">—</b></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -369,7 +401,10 @@ Alex</pre>
             <span class="proof-i mono">06</span>
             <div class="proof-text">
               <h3>Used in next run</h3>
-              <p class="mono">query <code data-bind="proof.active_skill.consultation_query">—</code></p>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono">query <code data-bind="proof.active_skill.consultation_query">—</code></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -377,7 +412,10 @@ Alex</pre>
             <span class="proof-i mono">07</span>
             <div class="proof-text">
               <h3>Eval passed</h3>
-              <p class="mono"><b data-bind="proof.scored_eval.passed">10</b> / <b data-bind="proof.scored_eval.scored">10</b> · pass_rate <b data-bind="proof.scored_eval.pass_rate" data-format="pct1">100%</b></p>
+              <details class="proof-receipt">
+                <summary>view receipt</summary>
+                <p class="mono"><b data-bind="proof.scored_eval.passed">10</b> / <b data-bind="proof.scored_eval.scored">10</b> · pass_rate <b data-bind="proof.scored_eval.pass_rate" data-format="pct1">100%</b></p>
+              </details>
             </div>
             <span class="proof-mark" aria-hidden="true">●</span>
           </li>
@@ -394,7 +432,7 @@ Alex</pre>
           <h2 class="h-display max-14">Get early access to SKYCOT.</h2>
           <p class="body-lg max-44">We onboard four design partners per month. Bring a role, a workflow, and a manager who will review skills.</p>
           <div class="cta-actions">
-            <a class="btn btn-primary btn-lg" href="mailto:hello@skycot.com?subject=SKYCOT%20early%20access">Request early access <span class="arr">→</span></a>
+            <a class="btn btn-primary btn-xl" href="mailto:hello@skycot.com?subject=SKYCOT%20early%20access">Request early access to SKYCOT <span class="arr">→</span></a>
             <a class="btn btn-ghost btn-lg" href="#demo">Watch the demo again</a>
           </div>
         </div>
