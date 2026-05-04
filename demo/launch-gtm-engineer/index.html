@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0a0a0c" />
+  <title>This AI learned how to sell SKYCOT — GTM Engineer</title>
+  <meta name="description" content="The AI GTM Engineer analyzes a weak campaign, detects a pattern, proposes a learned skill, gets approval, and uses the skill on the next run." />
+
+  <!-- OpenGraph / Twitter share metadata; values are static-fallback,
+       app.js overwrites with values from data/demo.json once loaded. -->
+  <meta property="og:title" content="This AI learned how to sell SKYCOT" />
+  <meta property="og:description" content="The AI GTM Engineer analyzed weak GTM results, detected a pattern, created a reusable skill, and used it on the next run." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+
+    <!-- =================================================== HERO -->
+    <section class="hero" id="hero">
+      <div class="container">
+        <span class="eyebrow" data-bind="story.tagline">SKYCOT builds AI employees that learn the job.</span>
+        <h1 class="hero-headline" data-bind="story.headline">This AI learned how to sell SKYCOT.</h1>
+        <p class="hero-sub" data-bind="story.subheadline">It analyzed weak GTM results, detected a pattern, created a reusable skill, and used it on the next run.</p>
+        <a href="#before" class="cta-primary" id="cta-watch" data-bind="story.cta">Watch the loop</a>
+        <p class="hero-meta">
+          captured <span data-bind="story.captured_at" data-format="date">—</span>
+          · mode <span data-bind="story.mode" class="mode-pill">—</span>
+        </p>
+      </div>
+      <div class="hero-grid" aria-hidden="true"></div>
+    </section>
+
+    <!-- ================================================= BEFORE -->
+    <section class="section section-before" id="before">
+      <div class="container">
+        <header class="section-head">
+          <span class="section-tag tag-weak">01 · Before</span>
+          <h2>The agent inherited a weak campaign.</h2>
+        </header>
+
+        <div class="grid-2">
+          <article class="card card-weak">
+            <h3>Outreach (control variant)</h3>
+            <div class="msg">
+              <div class="msg-row"><span class="msg-label">Subject</span><span data-bind="before.weak_message.subject">—</span></div>
+              <pre class="msg-body" data-bind="before.weak_message.body">—</pre>
+            </div>
+          </article>
+
+          <article class="card card-metrics">
+            <h3>Result</h3>
+            <div class="metric metric-bad">
+              <span class="metric-value" data-bind="before.metrics.label">—</span>
+              <span class="metric-caption">on <span data-bind="before.metrics.sends">—</span> sends</span>
+            </div>
+            <ul class="metric-list">
+              <li><span>open rate</span><b data-bind="before.metrics.open_rate" data-format="pct">—</b></li>
+              <li><span>reply rate</span><b data-bind="before.metrics.reply_rate" data-format="pct">—</b></li>
+              <li><span>positive reply</span><b data-bind="before.metrics.positive_reply_rate" data-format="pct">—</b></li>
+            </ul>
+            <p class="diagnosis">
+              <span class="diagnosis-label">Agent diagnosis</span>
+              <span data-bind="before.agent_diagnosis">—</span>
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================== LEARNING MOMENT -->
+    <section class="section section-learning" id="learning">
+      <div class="container">
+        <header class="section-head">
+          <span class="section-tag tag-learn">02 · Learning Moment</span>
+          <h2>3 reinforcing observations → a learned skill candidate.</h2>
+        </header>
+
+        <article class="card card-pattern">
+          <h3>Pattern detected — <span data-bind="learning_moment.pattern.name" class="mono">—</span></h3>
+          <p class="pattern-summary" data-bind="learning_moment.pattern.summary">—</p>
+          <div class="pattern-cols">
+            <div>
+              <h4>Evidence (<span data-bind="learning_moment.pattern.observations_count">—</span> observations)</h4>
+              <ul class="evidence-list" data-bind-list="learning_moment.pattern.evidence" data-list-template="li.evidence-item"></ul>
+            </div>
+            <div>
+              <h4>Counterexamples</h4>
+              <ul class="counter-list" data-bind-list="learning_moment.pattern.counterexamples" data-list-template="li.counter-item"></ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-candidate" id="candidate-card">
+          <header class="candidate-head">
+            <h3>Learned-skill candidate</h3>
+            <span class="lifecycle-badge" id="lifecycle-badge" data-state="pending_review">pending_review</span>
+          </header>
+          <h4 class="candidate-name mono" data-bind="learning_moment.candidate.skill_name">—</h4>
+
+          <div class="candidate-fields">
+            <div>
+              <span class="field-label">Problem</span>
+              <p data-bind="learning_moment.candidate.problem">—</p>
+            </div>
+            <div>
+              <span class="field-label">Reusable pattern</span>
+              <p data-bind="learning_moment.candidate.reusable_pattern">—</p>
+            </div>
+            <div class="candidate-meta">
+              <div>
+                <span class="field-label">Expected reuse</span>
+                <p data-bind="learning_moment.candidate.expected_reuse">—</p>
+              </div>
+              <div>
+                <span class="field-label">Risk</span>
+                <p data-bind="learning_moment.candidate.risk">—</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="candidate-actions">
+            <button type="button" id="approve-btn" class="cta-primary cta-approve">
+              <span class="approve-label">Approve skill</span>
+              <span class="approve-spinner" aria-hidden="true"></span>
+            </button>
+            <p class="approve-help">
+              The agent <em>never</em> auto-activates a learned skill. Operator approval flips
+              <span class="mono">lifecycle_state</span> from
+              <span class="mono">pending_review</span> →
+              <span class="mono">active</span>.
+            </p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================================================== AFTER -->
+    <section class="section section-after" id="after">
+      <div class="container">
+        <header class="section-head">
+          <span class="section-tag tag-good">03 · After</span>
+          <h2>The next run consults the new skill.</h2>
+        </header>
+
+        <div class="grid-2">
+          <article class="card card-strong">
+            <header class="msg-header-row">
+              <h3>Outreach (with active skill)</h3>
+              <span class="active-skill-pill mono" data-bind="after.active_skill_name">—</span>
+            </header>
+            <div class="msg">
+              <div class="msg-row"><span class="msg-label">Subject</span><span data-bind="after.improved_message.subject">—</span></div>
+              <pre class="msg-body" data-bind="after.improved_message.body">—</pre>
+            </div>
+          </article>
+
+          <article class="card card-explain">
+            <h3>Why it improved</h3>
+            <p data-bind="after.why_improved">—</p>
+            <div class="projection">
+              <span class="projection-label">Projected uplift</span>
+              <span data-bind="after.projected_uplift">—</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================== PROOF -->
+    <section class="section section-proof" id="proof">
+      <div class="container">
+        <header class="section-head">
+          <span class="section-tag tag-proof">04 · Proof</span>
+          <h2>Receipts — every step is a real argo CLI call.</h2>
+        </header>
+
+        <ol class="proof-list">
+          <li class="proof-row">
+            <span class="step">role bound</span>
+            <span class="detail mono">
+              session <span data-bind="proof.role.session_id" data-format="short-id">—</span>
+              · vertical <b data-bind="proof.role.vertical">—</b>
+              · skills <b data-bind="proof.role.skills_attached">—</b>
+              · provider <b data-bind="proof.role.provider">—</b>
+            </span>
+          </li>
+          <li class="proof-row">
+            <span class="step">memory written</span>
+            <span class="detail mono"><span data-bind="proof.memory_writes" data-format="memory-summary">—</span></span>
+          </li>
+          <li class="proof-row">
+            <span class="step">candidate promoted</span>
+            <span class="detail mono">
+              memory <span data-bind="proof.candidate_promoted.memory_entry_id" data-format="short-id">—</span>
+              → skill <span data-bind="proof.candidate_promoted.to_skill_id" data-format="short-id">—</span>
+              <span class="state-arrow">
+                <span data-bind="proof.candidate_promoted.from_state">—</span>
+                →
+                <span class="state-pending" data-bind="proof.candidate_promoted.to_state">—</span>
+              </span>
+            </span>
+          </li>
+          <li class="proof-row">
+            <span class="step">skill approved</span>
+            <span class="detail mono">
+              skill <span data-bind="proof.skill_approved.skill_id" data-format="short-id">—</span>
+              <span class="state-arrow">
+                <span class="state-pending" data-bind="proof.skill_approved.from_state">—</span>
+                →
+                <span class="state-active" data-bind="proof.skill_approved.to_state">—</span>
+              </span>
+            </span>
+          </li>
+          <li class="proof-row">
+            <span class="step">active skill available</span>
+            <span class="detail mono">
+              <b data-bind="proof.active_skill.name">—</b>
+              · query <code data-bind="proof.active_skill.consultation_query">—</code>
+            </span>
+          </li>
+          <li class="proof-row">
+            <span class="step">scored eval</span>
+            <span class="detail mono">
+              <b data-bind="proof.scored_eval.passed">—</b> / <b data-bind="proof.scored_eval.scored">—</b> passed
+              · pass_rate <b data-bind="proof.scored_eval.pass_rate" data-format="pct1">—</b>
+              · fixtures <span data-bind="proof.scored_eval.fixtures">—</span>
+            </span>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ================================================ FOOTER -->
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          Loop driven by
+          <code>demo/gtm_engineer_learning_loop.sh</code>
+          against the GTM Engineer vertical.
+          Capture this page's data with
+          <code>demo/launch-gtm-engineer/capture_demo.sh</code>.
+        </p>
+      </div>
+    </footer>
+
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>

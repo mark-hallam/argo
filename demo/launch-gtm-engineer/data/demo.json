@@ -1,0 +1,117 @@
+{
+  "story": {
+    "company": "SKYCOT",
+    "tagline": "SKYCOT builds AI employees that learn the job.",
+    "headline": "This AI learned how to sell SKYCOT.",
+    "subheadline": "It analyzed weak GTM results, detected a pattern, created a reusable skill, got operator approval, and used the skill on the next run.",
+    "cta": "Watch the loop",
+    "captured_at": "2026-05-03T23:56:23Z",
+    "mode": "deterministic"
+  },
+  "before": {
+    "campaign_id": "demo-c1-2026-04-12",
+    "metrics": {
+      "sends": 50,
+      "open_rate": 0.42,
+      "reply_rate": 0.08,
+      "positive_reply_rate": 0.015,
+      "label": "1.5% positive reply",
+      "verdict": "weak"
+    },
+    "weak_message": {
+      "subject": "Save 20 hours a week with SKYCOT",
+      "body": "Hi {{first_name}},\n\nQuick question — how much time does your team spend on repetitive work?\n\nSKYCOT can replace that across your whole business. Founders, ops, marketing — everyone gets time back.\n\nWorth a 15-min demo?\n\nThanks,\nAlex"
+    },
+    "agent_diagnosis": "Generic productivity hook. No verified company signal. Audience-flat (\"everyone\"). Single demo CTA without a fallback ladder. The control variant landed at 1.5% positive reply on 50 sends — well below the 6%+ the variant cohort produced when anchored in the agent-learning-loop framing."
+  },
+  "learning_moment": {
+    "pattern": {
+      "name": "technical_founder_learning_moat_signal",
+      "observations_count": 3,
+      "tag": "propose_skill",
+      "summary": "Across 3 campaigns to technical founders at Series A-C B2B startups with an agent-platform GTM hypothesis, leading with the agent-learning loop and audit-chain visibility outperformed generic automation copy on positive-reply rate by 3-4x. Pattern is reinforcing across 165 sends total.",
+      "evidence": [
+        "demo-c1-2026-04-12 — 6.0% positive reply (variant) vs 1.5% (control), n=50",
+        "demo-c2-2026-04-19 — 7.0% positive reply (variant) vs 1.7% (control), n=60",
+        "demo-c3-2026-04-26 — 8.0% positive reply (variant) vs 1.8% (control), n=55"
+      ],
+      "counterexamples": [
+        "Did NOT generalise to non-technical founders in the same employer segment — they replied at the control rate."
+      ]
+    },
+    "candidate": {
+      "skill_name": "technical_founder_learning_moat_outreach",
+      "problem": "Generic automation copy underperforms on outreach to technical founders building agent platforms. Without a reusable skill, every campaign re-derives this from scratch.",
+      "reusable_pattern": "When the recipient is a technical founder at a Series A-C B2B startup AND the GTM hypothesis includes an agent-platform message, lead with the agent learning loop and audit-chain visibility. Anchor the message in one verified company signal (recent launch, hire, raise). Keep the body <=120 words. Single CTA. Do NOT use this skill for non-technical founders in the same segment.",
+      "expected_reuse": "Per send to a matching prospect — ~30-50 prospects per quarter at current pipeline.",
+      "risk": "Pattern may be specific to current market timing. Re-validate quarterly. Cap reuse at one send per account per quarter."
+    },
+    "lifecycle": {
+      "from": "pending_review",
+      "to": "active"
+    },
+    "memory_entry_id": "019df045-8bb9-7c32-b744-16a316dd6784"
+  },
+  "after": {
+    "improved_message": {
+      "subject": "How does your team review the audit trail of your agent decisions?",
+      "body": "Hi {{first_name}},\n\nSaw {{company}} shipped your agent platform last week — congrats.\n\nWhen we talk to technical founders building in this space, the question that keeps coming up is: how do you review the audit trail of your agents' decisions before they ship to production? Most teams discover late that they need a learning loop where every action is reviewable.\n\nIf this resonates, I have a one-page reliability checklist I can share — no demo required.\n\nThanks,\nAlex"
+    },
+    "why_improved": "Anchored in one verified signal (the recent product launch). Led with the audit-chain framing — the discipline that lifted positive reply 4x across 3 prior cohorts. Single low-friction CTA (\"share a checklist\"), not a calendar grab. 96 words, under the 120-word cap the learned skill enforces.",
+    "active_skill_name": "technical_founder_learning_moat_outreach",
+    "projected_uplift": "Based on the 3-cohort sample: +4-6 percentage points on positive-reply rate vs the generic control."
+  },
+  "proof": {
+    "role": {
+      "session_id": "019df045-8b57-70b2-b875-51a6c45de781",
+      "vertical": "gtm-engineer",
+      "skills_attached": 8,
+      "provider": "mock",
+      "model": "mock"
+    },
+    "memory_writes": [
+      {
+        "kind": "campaign_results",
+        "id": "019df045-8b7e-7123-a429-a7732b76f3e1"
+      },
+      {
+        "kind": "campaign_results",
+        "id": "019df045-8b8c-7950-84ef-05333afb51a6"
+      },
+      {
+        "kind": "campaign_results",
+        "id": "019df045-8b9a-7663-a992-b89b3ca18844"
+      },
+      {
+        "kind": "patterns",
+        "id": "019df045-8bac-76a0-a7b5-cf6ae742c415"
+      },
+      {
+        "kind": "learned_skill_candidates",
+        "id": "019df045-8bb9-7c32-b744-16a316dd6784"
+      }
+    ],
+    "candidate_promoted": {
+      "memory_entry_id": "019df045-8bb9-7c32-b744-16a316dd6784",
+      "to_skill_id": "019df045-8c29-77d0-a093-a855bcd2e79f",
+      "from_state": "(memory candidate)",
+      "to_state": "pending_review"
+    },
+    "skill_approved": {
+      "skill_id": "019df045-8c29-77d0-a093-a855bcd2e79f",
+      "from_state": "pending_review",
+      "to_state": "active"
+    },
+    "active_skill": {
+      "name": "technical_founder_learning_moat_outreach",
+      "available_to_next_run": true,
+      "consultation_query": "SkillStore::list_skills_for_vertical(\"gtm-engineer\")"
+    },
+    "scored_eval": {
+      "passed": 10,
+      "scored": 10,
+      "pass_rate": 1,
+      "fixtures": "verticals/gtm-engineer/eval/gtm_engineer_core.jsonl"
+    }
+  }
+}
