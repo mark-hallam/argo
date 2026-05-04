@@ -24,7 +24,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(
 body {
   font-family: var(--font-display); background: var(--canvas); color: var(--ink-2);
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-  letter-spacing: -0.005em; font-feature-settings: "ss01", "cv11";
+  letter-spacing: -0.003em; font-feature-settings: "ss01";
 }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
@@ -96,24 +96,21 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 .tag-weak::before { background: var(--weak); box-shadow: 0 0 0 4px var(--weak-soft); }
 .tag-learn::before { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
 
-/* Hero + section display headlines.
-   Tight tracking + 600 weight → premium, intentional feel.
-   `text-wrap: balance` keeps line breaks elegant at any width.
-   Letter-spacing eased back from -0.045em to -0.032em so words
-   like "AI employees" no longer feel mashed; word-spacing left
-   default so natural Inter Tight kerning takes over. */
+/* Hero + section display headlines. Word-spacing fix (#712):
+   negative letter-spacing narrows the space char; PDF print + text-wrap
+   balance then collapsed those gaps entirely. Fix: ease letter-spacing,
+   set explicit word-spacing, replace `balance` with `pretty`. */
 .h-display {
   font-size: clamp(48px, 7.4vw, 92px);
-  line-height: 1.02; letter-spacing: -0.032em;
-  font-weight: 600; text-wrap: balance; color: var(--ink);
-  margin: 0 0 32px;
-  font-feature-settings: "ss01", "ss02", "cv11";
+  line-height: 1.02; letter-spacing: -0.018em; word-spacing: 0.06em;
+  font-weight: 600; text-wrap: pretty; color: var(--ink);
+  margin: 0 0 32px; font-feature-settings: "ss01", "cv11";
 }
 /* Each reveal-line sits on its own block; a small bottom-margin
    between them turns the line break into a deliberate beat
    without breaking the tight overall rhythm. */
 .h-display .reveal-line + .reveal-line { margin-top: 2px; }
-.h-1 { font-size: clamp(36px, 4.5vw, 56px); line-height: 1.04; letter-spacing: -0.028em; font-weight: 600; text-wrap: balance; margin: 0; color: var(--ink); }
+.h-1 { font-size: clamp(36px, 4.5vw, 56px); line-height: 1.04; letter-spacing: -0.012em; word-spacing: 0.06em; font-weight: 600; text-wrap: pretty; margin: 0; color: var(--ink); }
 .body-lg { font-size: 19px; line-height: 1.55; color: var(--ink-2); text-wrap: pretty; }
 .body-sm { font-size: 13px; line-height: 1.5; color: var(--ink-3); }
 .mono { font-family: var(--font-mono); font-feature-settings: normal; }
@@ -478,6 +475,20 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ── PDF/print safety net ──────────────────────────────────────
+   Chrome's "Save as PDF" has known issues with negative letter-
+   spacing + transformed inline-block + text-wrap: balance. Kill
+   motion, neutralise the reveal-line stacking context, and use the
+   safest heading typography we can while still feeling intentional. */
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .reveal-line { overflow: visible; }
+  .reveal-line > span { display: inline; transform: none !important; }
+  .h-display, .h-1 { letter-spacing: -0.005em !important; word-spacing: 0.08em !important; text-wrap: normal !important; }
+  .nav, .video-frame, .cta-glow, .hero-grid, .hero-bg { display: none; }
+  .section, .hero { padding: 24px 0; } body { color: var(--ink); }
 }
 
 ::selection { background: var(--accent-soft); color: var(--ink); }
