@@ -9,9 +9,26 @@ ship a working agent without touching the core platform crates.
 > deliberately vertical-agnostic. A vertical is the **product**
 > shape of the platform — a manifest + prompts + skills + eval
 > fixtures + memory schema that, taken together, become a
-> specific agent (front desk, PR reviewer, ticket triage, …).
-> Two reference verticals ship today (`pr-checker`,
-> `receptionist`) — copy either as a starting point.
+> specific agent (front desk, PR reviewer, ticket triage,
+> marketplace seller, sales follow-up, …).
+>
+> **Five reference verticals ship today.** Copy the closest
+> one to your domain as a starting point:
+>
+> | Vertical                 | What it does                                                                                  |
+> |--------------------------|-----------------------------------------------------------------------------------------------|
+> | `pr-checker`             | Reviews pull requests against repo-specific style + invariant rules.                          |
+> | `receptionist`           | Original AI-receptionist reference (pre-Worker-v3 actions).                                   |
+> | `gtm-engineer`           | Marketplace seller — researches comps, drafts listings, queues posts for approval.            |
+> | `ai-receptionist`        | Front-desk worker (Worker v3 actions). Triage, schedule, take messages.                      |
+> | `sales-follow-up`        | Warm-lead follow-up — research, draft, send (approval-gated), schedule cadence, log to CRM.   |
+>
+> The last three (`gtm-engineer`, `ai-receptionist`,
+> `sales-follow-up`) are the **Worker v3** reference set —
+> they declare an `[actions]` section so the worker can
+> propose external-world actions through the OS's approval-
+> gated state machine. Prefer these as templates for any
+> action-emitting vertical.
 
 ## TL;DR (5 minutes)
 
@@ -271,6 +288,20 @@ argo session list --vertical my-vertical --json
 The gateway exposes a parallel surface (`GET /verticals`,
 `POST /verticals/<id>/sessions`) so non-CLI clients can do the
 same things without spawning a process per call.
+
+## Worker v3 actions
+
+For verticals whose worker proposes external-world actions
+(post a listing, send an email, book a meeting, mutate a CRM
+row), the manifest's `[actions]` section is the safety
+boundary the OS enforces in code.
+
+See **[`AUTHORING_v3_ACTIONS.md`](AUTHORING_v3_ACTIONS.md)**
+for the full walkthrough: field reference, three reference
+action vocabularies (gtm-engineer / ai-receptionist /
+sales-follow-up), the classification pattern that works, and
+the safety-boundary lock test every action-emitting vertical
+should ship.
 
 ## What you must NOT do
 
