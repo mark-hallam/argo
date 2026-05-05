@@ -17,7 +17,19 @@ tokio = { workspace = true, features = ["fs", "process", "time", "io-util", "mac
 tracing = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
+# #723 — real web_search + web_extract. reqwest is the same client
+# the provider transports already use; scraper is the lightest mature
+# Rust HTML parser (built on Servo's html5ever).
+reqwest = { workspace = true }
+scraper = "0.20"
+# Transitive of `scraper` but our readability walker needs its
+# `NodeRef` / `NodeId` types in function signatures, so it's a
+# direct dep too.
+ego-tree = "0.6"
 
 [dev-dependencies]
 tokio = { workspace = true }
 tempfile = "3"
+# Captured-HTML fixtures live under `tests/fixtures/`; no live HTTP
+# is hit in CI. The opt-in live tests (gated on `ARGO_LIVE_WEB=1`)
+# go through reqwest directly — no mock-server crate needed.

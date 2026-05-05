@@ -77,18 +77,17 @@ fn gtm_engineer_is_draft_only_by_manifest() {
     let tools = v.manifest.tools.as_ref().expect("[tools] section");
     // #721 added `memory` to the deny list because the in-tree
     // builtin is a stub ("memory store not wired" — lands with
-    // Agent H / Phase 3 §14). #722 added `web_search` and
-    // `web_extract` for the same reason (the in-tree tools
-    // return a clear "configure an MCP backend" error). Once an
-    // MCP web backend ships these come off the deny list.
+    // Agent H / Phase 3 §14). #722 also denied `web_search` and
+    // `web_extract` because they were stubs at the time; #723
+    // shipped real HTTP backends, so those two come back into
+    // the allow list and only `memory` remains in the
+    // stub-denied set.
     let mutating = [
         "file_write",
         "file_patch",
         "terminal",
         "delegate_task",
         "memory",
-        "web_search",
-        "web_extract",
     ];
     for t in &mutating {
         assert!(
@@ -101,10 +100,12 @@ fn gtm_engineer_is_draft_only_by_manifest() {
             "gtm-engineer manifest must NOT allow `{t}` (draft-only)"
         );
     }
-    // Allow-list must be the read-only / draft-only tools
+    // Allow-list must be the read-only / research-only tools
     // and ONLY those. A surprise addition here is suspicious.
     let allowed: HashSet<&str> = tools.allowed.iter().map(String::as_str).collect();
-    let expected: HashSet<&str> = ["file_read"].into_iter().collect();
+    let expected: HashSet<&str> = ["file_read", "web_search", "web_extract"]
+        .into_iter()
+        .collect();
     assert_eq!(
         allowed, expected,
         "gtm-engineer allow-list drift: expected {expected:?}, got {allowed:?}"

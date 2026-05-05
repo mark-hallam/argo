@@ -1,0 +1,67 @@
+<!--
+  Trimmed snapshot of a DuckDuckGo HTML SERP for the query
+  "Argo Anthropic agent runtime". Captured for the unit test
+  in `crates/argo-tool/src/tools/web.rs`. Real DDG HTML changes
+  over time; the fixture exercises the parser's selectors
+  against a known-good shape so a parse regression fails fast.
+  No network is hit by the unit test.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Argo Anthropic agent runtime at DuckDuckGo</title>
+</head>
+<body>
+  <div class="serp__results">
+    <div class="result results_links results_links_deep web-result">
+      <div class="result__body links_main links_deep">
+        <h2 class="result__title">
+          <a class="result__a"
+             href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fmark-hallam%2FArgo-Agent&amp;rut=abc123">
+            Argo — autonomous agent runtime on GitHub
+          </a>
+        </h2>
+        <a class="result__snippet"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Fmark-hallam%2FArgo-Agent&amp;rut=abc123">
+          Argo is a Rust workspace that ships an autonomous agent
+          runtime: vertical-bound sessions, multi-step worker loops,
+          provider transports, capability checks, and an MCP plugin
+          surface. Built by Mark Hallam.
+        </a>
+      </div>
+    </div>
+    <div class="result results_links results_links_deep web-result">
+      <div class="result__body links_main links_deep">
+        <h2 class="result__title">
+          <a class="result__a"
+             href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.anthropic.com%2Fclaude%2Fdocs%2Ftool-use&amp;rut=def456">
+            Anthropic — Tool use guide for Claude
+          </a>
+        </h2>
+        <a class="result__snippet"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.anthropic.com%2Fclaude%2Fdocs%2Ftool-use&amp;rut=def456">
+          Tool use lets Claude call functions you define. Argo
+          implements this with an in-core tool registry and per-call
+          capability checks before dispatch.
+        </a>
+      </div>
+    </div>
+    <div class="result results_links results_links_deep web-result">
+      <div class="result__body links_main links_deep">
+        <h2 class="result__title">
+          <a class="result__a"
+             href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmodel-context-protocol.io%2Fspec&amp;rut=ghi789">
+            Model Context Protocol — Spec
+          </a>
+        </h2>
+        <a class="result__snippet"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmodel-context-protocol.io%2Fspec&amp;rut=ghi789">
+          The Model Context Protocol defines the wire format Argo
+          uses to delegate browser, voice, and (eventually) web
+          search/extract to dedicated MCP servers.
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

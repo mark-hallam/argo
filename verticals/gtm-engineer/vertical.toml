@@ -25,24 +25,18 @@ cost_tier = "balanced"
 #
 # `memory` is denied because the in-tree builtin is a stub
 # ("memory store not wired" — lands with Agent H / Phase 3 §14).
-# `web_search` and `web_extract` are denied for the same reason
-# in Phase 3 (#722): the in-tree tools return a clear "configure
-# an MCP backend" error, so exposing them to the model would
-# waste turns. The worker's pre-flight check picks this up and
-# fails fast with `stop_reason = research_tools_unavailable`
-# rather than producing unverified output. Once an MCP web
-# backend lands (Phase 4 / §12) these come off the deny list.
+#
+# `web_search` and `web_extract` are ALLOWED again as of #723.
+# They were previously denied (#722) because the in-tree
+# implementations were schema-only stubs; #723 ships real HTTP
+# backends (DuckDuckGo HTML by default; Tavily / Brave when
+# `TAVILY_API_KEY` / `BRAVE_API_KEY` is set). The worker's
+# pre-flight gate now passes for this manifest and the
+# multi-step loop can plan → research → verify → draft inside
+# one queued job.
 [tools]
-allowed = ["file_read"]
-denied  = [
-    "terminal",
-    "file_write",
-    "file_patch",
-    "delegate_task",
-    "memory",
-    "web_search",
-    "web_extract",
-]
+allowed = ["file_read", "web_search", "web_extract"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task", "memory"]
 
 [memory]
 schema = "memory/schema.toml"

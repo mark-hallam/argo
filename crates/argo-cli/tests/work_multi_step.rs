@@ -112,21 +112,110 @@ fn list_jobs_by_schema(home: &Path, work: &Path, schema_key: &str) -> Vec<Value>
 
 // ────────────────────────────────────────────────────────── tests
 
-/// The headline v2 acceptance test: with the gtm-engineer
-/// manifest denying both stub web tools, the default
-/// multi-step worker run must fail the pre-flight, NOT silently
-/// produce an unverified output.
+/// Build a tempdir-backed verticals directory that contains a
+/// single fixture vertical denying both web tools. Lets the
+/// pre-flight test exercise the `research_tools_unavailable`
+/// path even after #723 made the production gtm-engineer
+/// manifest allow them again.
+fn build_no_research_verticals_dir() -> tempfile::TempDir {
+    let root = tempfile::tempdir().expect("verticals tempdir");
+    let v_dir = root.path().join("no-research");
+    std::fs::create_dir_all(v_dir.join("prompts")).expect("prompts dir");
+    std::fs::write(
+        v_dir.join("prompts").join("system.md"),
+        "Test vertical that denies web research tools so the worker pre-flight fires.\n",
+    )
+    .unwrap();
+    std::fs::write(
+        v_dir.join("prompts").join("persona.md"),
+        "Test persona for the no-research fixture vertical.\n",
+    )
+    .unwrap();
+    std::fs::write(
+        v_dir.join("vertical.toml"),
+        r#"schema_version = "1"
+
+[vertical]
+id          = "no-research"
+name        = "No Research Test"
+description = "Test fixture: denies web tools so worker v2 pre-flight fires."
+version     = "0.0.1"
+authors     = ["test"]
+tags        = ["test", "draft-only"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "mock"
+fallback  = "mock"
+cost_tier = "balanced"
+
+[tools]
+allowed = []
+denied  = ["web_search", "web_extract"]
+"#,
+    )
+    .unwrap();
+    root
+}
+
+/// Run `argo` with `ARGO_VERTICALS_DIR` overridden to a custom
+/// directory (for the no-research fixture). Mirrors run_argo
+/// otherwise.
+fn run_argo_with_verticals(
+    home: &Path,
+    work: &Path,
+    verticals: &Path,
+    args: &[&str],
+) -> std::process::Output {
+    Command::new(argo_bin())
+        .args(args)
+        .env("ARGO_HOME", home)
+        .env("ARGO_VERTICALS_DIR", verticals)
+        .current_dir(work)
+        .output()
+        .expect("spawn argo")
+}
+
+/// The headline v2 + #723 acceptance test: with a vertical that
+/// denies both web tools, the default multi-step worker run
+/// must fail the pre-flight rather than silently produce an
+/// unverified output. The production gtm-engineer manifest now
+/// has the real tools in its allow list, so we use a tempdir
+/// fixture vertical that restores the deny shape #722 originally
+/// tested.
 #[test]
 fn multi_step_fails_fast_when_research_tools_unavailable() {
-    let (home, work) = fresh_workspace();
-    let add = run_argo(
+    let verticals = build_no_research_verticals_dir();
+
+    // Bootstrap a workspace + ARGO_HOME pointing at the fixture
+    // verticals dir so `validate_vertical` and `add` both see
+    // `no-research` instead of the production set.
+    let home = tempfile::tempdir().expect("home tempdir");
+    let work = tempfile::tempdir().expect("work tempdir");
+    let init = run_argo_with_verticals(
         home.path(),
         work.path(),
+        verticals.path(),
+        &["workspace", "init"],
+    );
+    assert!(
+        init.status.success(),
+        "{}",
+        String::from_utf8_lossy(&init.stderr)
+    );
+
+    let add = run_argo_with_verticals(
+        home.path(),
+        work.path(),
+        verticals.path(),
         &[
             "work",
             "add",
             "--vertical",
-            "gtm-engineer",
+            "no-research",
             "--prompt",
             "Sell these skates.",
             "--json",
@@ -141,14 +230,15 @@ fn multi_step_fails_fast_when_research_tools_unavailable() {
     let job_id = added["job_id"].as_str().expect("job_id").to_string();
 
     // No --max-steps → defaults to 5 → pre-flight fires.
-    let serve = run_argo(
+    let serve = run_argo_with_verticals(
         home.path(),
         work.path(),
+        verticals.path(),
         &[
             "work",
             "serve",
             "--vertical",
-            "gtm-engineer",
+            "no-research",
             "--once",
             "--json",
         ],
@@ -168,16 +258,31 @@ fn multi_step_fails_fast_when_research_tools_unavailable() {
         "detail must name both denied tools; got: {detail}"
     );
 
-    // The completed_jobs row carries the same shape so a future
-    // queue tick won't re-pick this job.
-    let completed = list_jobs_by_schema(home.path(), work.path(), "completed_jobs");
-    assert_eq!(completed.len(), 1);
-    assert_eq!(completed[0]["pending_job_id"], job_id);
-    assert_eq!(completed[0]["stop_reason"], "research_tools_unavailable");
-    assert_eq!(completed[0]["steps_completed"], 0);
+    // completed_jobs row exists (so the queue dedup converges).
+    let by_body = run_argo_with_verticals(
+        home.path(),
+        work.path(),
+        verticals.path(),
+        &[
+            "memory",
+            "list",
+            "--vertical",
+            "no-research",
+            "--body-contains",
+            "completed_jobs",
+            "--json",
+        ],
+    );
+    assert!(by_body.status.success());
+    let rows: Vec<Value> = String::from_utf8_lossy(&by_body.stdout)
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    assert!(!rows.is_empty(), "completed_jobs row must land");
 
     // Artifact directory still landed — operators can still see
-    // WHY the job stopped, side-by-side with the prior runs.
+    // WHY the job stopped.
     let output_dir_str = processed["output_dir"]
         .as_str()
         .expect("output_dir present even on pre-flight stop");
@@ -189,6 +294,64 @@ fn multi_step_fails_fast_when_research_tools_unavailable() {
         approval.contains("stop_reason: `research_tools_unavailable`"),
         "approval checklist must surface the stop reason; got:\n{approval}"
     );
+    let _ = job_id; // silence dead-code if removed later
+}
+
+/// #723 — with the production gtm-engineer manifest (which now
+/// allows real web_search / web_extract), the default
+/// multi-step worker run must PASS the pre-flight gate and
+/// dispatch the mock turn. Locks the post-#723 happy path so a
+/// future regression that re-denies the tools fails this test
+/// loudly.
+#[test]
+fn multi_step_pre_flight_passes_when_research_tools_are_real() {
+    let (home, work) = fresh_workspace();
+    let add = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "add",
+            "--vertical",
+            "gtm-engineer",
+            "--prompt",
+            "Smoke test that pre-flight passes.",
+            "--json",
+        ],
+    );
+    assert!(
+        add.status.success(),
+        "{}",
+        String::from_utf8_lossy(&add.stderr)
+    );
+
+    // Default --max-steps 5 → pre-flight runs. With the production
+    // gtm-engineer manifest post-#723 it must PASS, then the mock
+    // turn runs and emits [STOP: TASK_COMPLETE] on step 1.
+    let serve = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "serve",
+            "--vertical",
+            "gtm-engineer",
+            "--once",
+            "--json",
+        ],
+    );
+    assert!(
+        serve.status.success(),
+        "{}",
+        String::from_utf8_lossy(&serve.stderr)
+    );
+    let processed: Value = serde_json::from_slice(&serve.stdout).expect("json");
+    assert_eq!(processed["ok"], true);
+    assert_eq!(
+        processed["stop_reason"], "task_complete",
+        "post-#723 pre-flight passes; mock then completes in 1 step"
+    );
+    assert_eq!(processed["steps_completed"], 1);
 }
 
 /// `--max-steps 1` skips the pre-flight check and runs the
