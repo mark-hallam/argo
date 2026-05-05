@@ -68,11 +68,16 @@ For other verticals (AI Receptionist, Sales Follow-up, etc.), see the
    walked end-to-end so you can see what an operator hour looks like.
 3. **[Operator runbook](operator_runbook.md)** — full reference for
    `argo worker actions {list,show,approve,execute,complete,fail,
-   status,render,retry}`, ledger artifacts, and troubleshooting.
+   status,render,retry}` + `argo worker doctor`, ledger artifacts,
+   and troubleshooting.
 4. **[Examples](../../examples/marketplace-seller/)** — sample
    prompts that work, a hand-crafted artifact bundle showing
    what the worker writes to disk, and an operator-flow
    walkthrough of the 6 typical decision points per run.
+5. **[Launch readiness](launch_readiness.md)** — single-page
+   confidence audit: every shipped capability, what's locked in
+   tests, what's intentionally out of v1 scope, and the
+   pre-launch checklist.
 
 ## Design + invariants
 

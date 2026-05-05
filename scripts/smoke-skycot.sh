@@ -154,6 +154,13 @@ grep -q "verify_price" "$WORKDIR/.skycot/completed_actions.md" \
   || fail "completed_actions.md missing verify_price entry" "$(cat "$WORKDIR/.skycot/completed_actions.md")"
 ok "3 ledger files rendered, expected entries present"
 
+heading "13. doctor reports healthy state"
+doctor_out=$("$ARGO_BIN" worker doctor --vertical gtm-engineer --json 2>&1) || fail "doctor" "$doctor_out"
+echo "$doctor_out" | grep -qE '"id"[[:space:]]*:[[:space:]]*"gtm-engineer"' || fail "doctor missing gtm-engineer in verticals" "$doctor_out"
+echo "$doctor_out" | grep -qE '"completed"[[:space:]]*:[[:space:]]*1' || fail "doctor expected 1 completed action" "$doctor_out"
+echo "$doctor_out" | grep -qE '"blocked"[[:space:]]*:[[:space:]]*1' || fail "doctor expected 1 blocked action" "$doctor_out"
+ok "doctor reports verticals + counts as expected"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"

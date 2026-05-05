@@ -149,6 +149,21 @@ auditing "who approved this and when".
 argo worker actions status <action_id> [--json]
 ```
 
+### `argo worker doctor`
+
+One-shot SKYCOT health check across the workspace. Loaded
+verticals, action-ledger counts by state, recent failures /
+blocked rows from the last 24h, and the last-refresh time of
+the workspace ledger files.
+
+```bash
+argo worker doctor [--vertical <id>] [--json]
+```
+
+Use this as the daily "is the worker setup healthy?" check
+without scripting `list` + `render` + manual inspection
+together. JSON mode is suitable for monitoring scrapes.
+
 ### `argo worker actions render`
 
 Re-renders the workspace-level per-state ledger files at
