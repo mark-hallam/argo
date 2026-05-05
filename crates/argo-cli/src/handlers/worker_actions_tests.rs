@@ -42,13 +42,20 @@ fn action_state_transition_matrix_matches_design() {
     // Legal transitions per the module docs:
     assert!(Pending.can_transition_to(Approved));
     assert!(Pending.can_transition_to(Blocked));
+    // Autonomous-safe path — manifest's `requires_approval = false`
+    // actions go pending → executing directly. The
+    // approval gate for `requires_approval = true` rows is
+    // enforced in the `execute` handler, not the state matrix.
+    assert!(Pending.can_transition_to(Executing));
     assert!(Approved.can_transition_to(Executing));
     assert!(Approved.can_transition_to(Completed));
     assert!(Executing.can_transition_to(Completed));
     assert!(Executing.can_transition_to(Failed));
     // Illegal — these MUST NOT be allowed by the writer:
-    assert!(!Pending.can_transition_to(Executing), "must approve first");
-    assert!(!Pending.can_transition_to(Completed), "must approve first");
+    assert!(
+        !Pending.can_transition_to(Completed),
+        "must execute first; complete from pending is not legal"
+    );
     assert!(!Completed.can_transition_to(Approved));
     assert!(!Failed.can_transition_to(Approved));
     assert!(!Blocked.can_transition_to(Approved));

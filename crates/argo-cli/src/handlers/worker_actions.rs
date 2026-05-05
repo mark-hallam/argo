@@ -94,16 +94,20 @@ impl ActionState {
         matches!(self, Self::Completed | Self::Failed | Self::Blocked)
     }
 
-    /// Whether `self → next` is a legal transition. The action
-    /// writers in #730 / #731 will use this to validate before
-    /// appending; #728 only ships the predicate so the contract
-    /// is testable now.
+    /// Whether `self → next` is a legal transition. Pure state-
+    /// state predicate — does NOT enforce approval gating.
+    /// Approval gating is enforced upstream by the `execute`
+    /// transition handler against the row's `requires_approval`
+    /// field (the manifest classification stamped at emission
+    /// time). Keeping the two concerns separate means the state
+    /// machine stays a pure invariant of the action lifecycle.
     pub(crate) fn can_transition_to(&self, next: ActionState) -> bool {
         use ActionState::*;
         matches!(
             (*self, next),
             (Pending, Approved)
                 | (Pending, Blocked)
+                | (Pending, Executing) // autonomous-safe path
                 | (Approved, Executing)
                 | (Approved, Completed)
                 | (Executing, Completed)
@@ -112,73 +116,13 @@ impl ActionState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ActionType {
-    // Autonomous-safe (no approval required):
-    CreateListingDraft,
-    VerifyPrice,
-    RequestPhotos,
-    // Approval-gated:
-    PostListing,
-    BoostListing,
-    ReplyToBuyer,
-    FollowUpBuyer,
-    MarkItemSold,
-    UpdatePrice,
-    RelistItem,
-}
-
-#[allow(dead_code)]
-impl ActionType {
-    pub(crate) fn as_str(&self) -> &'static str {
-        match self {
-            ActionType::CreateListingDraft => "create_listing_draft",
-            ActionType::VerifyPrice => "verify_price",
-            ActionType::RequestPhotos => "request_photos",
-            ActionType::PostListing => "post_listing",
-            ActionType::BoostListing => "boost_listing",
-            ActionType::ReplyToBuyer => "reply_to_buyer",
-            ActionType::FollowUpBuyer => "follow_up_buyer",
-            ActionType::MarkItemSold => "mark_item_sold",
-            ActionType::UpdatePrice => "update_price",
-            ActionType::RelistItem => "relist_item",
-        }
-    }
-
-    pub(crate) fn parse(s: &str) -> Option<Self> {
-        match s {
-            "create_listing_draft" => Some(Self::CreateListingDraft),
-            "verify_price" => Some(Self::VerifyPrice),
-            "request_photos" => Some(Self::RequestPhotos),
-            "post_listing" => Some(Self::PostListing),
-            "boost_listing" => Some(Self::BoostListing),
-            "reply_to_buyer" => Some(Self::ReplyToBuyer),
-            "follow_up_buyer" => Some(Self::FollowUpBuyer),
-            "mark_item_sold" => Some(Self::MarkItemSold),
-            "update_price" => Some(Self::UpdatePrice),
-            "relist_item" => Some(Self::RelistItem),
-            _ => None,
-        }
-    }
-
-    /// Per the SKYCOT safety boundary: approval-gated action
-    /// types may NEVER autonomously transition past `pending`.
-    /// They require an explicit operator approval (recorded as
-    /// a state-row transition `pending → approved`) before
-    /// `approved → executing` can fire.
-    pub(crate) fn requires_approval(&self) -> bool {
-        matches!(
-            self,
-            Self::PostListing
-                | Self::BoostListing
-                | Self::ReplyToBuyer
-                | Self::FollowUpBuyer
-                | Self::MarkItemSold
-                | Self::UpdatePrice
-                | Self::RelistItem
-        )
-    }
-}
+// `ActionType` enum lives in `worker_actions_type.rs` — kept
+// distinct so `worker_actions.rs` stays under the per-file
+// 500-LOC budget. The SKYCOT safety boundary lock test in
+// `worker_actions_tests.rs` continues to import it via the
+// re-export below.
+#[allow(unused_imports)]
+pub(crate) use super::worker_actions_type::ActionType;
 
 // ──────────────────────── record ─────────────────────────
 
@@ -260,6 +204,62 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 .await
             }
             WorkerActionsCmd::Show { action_id, json } => show(&action_id, json).await,
+            WorkerActionsCmd::Approve {
+                action_id,
+                approved_by,
+                note,
+                json,
+            } => {
+                super::worker_actions_dispatch::approve(
+                    &action_id,
+                    approved_by.as_deref(),
+                    note.as_deref(),
+                    json,
+                )
+                .await
+            }
+            WorkerActionsCmd::ApproveBatch {
+                action_ids,
+                approved_by,
+                note,
+                json,
+            } => {
+                super::worker_actions_dispatch::approve_batch(
+                    &action_ids,
+                    approved_by.as_deref(),
+                    note.as_deref(),
+                    json,
+                )
+                .await
+            }
+            WorkerActionsCmd::Execute { action_id, json } => {
+                super::worker_actions_dispatch::execute(&action_id, json).await
+            }
+            WorkerActionsCmd::Complete {
+                action_id,
+                note,
+                result_json,
+                json,
+            } => {
+                super::worker_actions_dispatch::complete(
+                    &action_id,
+                    note.as_deref(),
+                    result_json.as_deref(),
+                    json,
+                )
+                .await
+            }
+            WorkerActionsCmd::Fail {
+                action_id,
+                reason,
+                json,
+            } => super::worker_actions_dispatch::fail(&action_id, &reason, json).await,
+            WorkerActionsCmd::Status { action_id, json } => {
+                super::worker_actions_dispatch::status(&action_id, json).await
+            }
+            WorkerActionsCmd::Render { vertical } => {
+                super::worker_actions_dispatch::render(vertical.as_deref()).await
+            }
         },
     }
 }

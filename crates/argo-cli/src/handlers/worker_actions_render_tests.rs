@@ -74,3 +74,109 @@ fn render_actions_json_evidence_sufficient_flag_round_trips() {
     let v: Value = serde_json::from_str(&out).expect("valid JSON");
     assert_eq!(v["evidence_sufficient"], false);
 }
+
+// ───────── per-state ledger renderers (#730) ───────────
+
+fn rec_full(
+    action_id: &str,
+    action_type: &str,
+    state: &str,
+    requires_approval: bool,
+    blocked_reason: Option<&str>,
+    result: Option<serde_json::Value>,
+) -> ActionRecord {
+    ActionRecord {
+        schema_key: ActionRecord::SCHEMA_KEY.to_string(),
+        action_id: action_id.to_string(),
+        job_id: "job-1".to_string(),
+        item_id: None,
+        action_type: action_type.to_string(),
+        risk_level: "medium".to_string(),
+        requires_approval,
+        state: state.to_string(),
+        payload: serde_json::json!({}),
+        approved_by: None,
+        approved_at: None,
+        executed_at: Some("2026-05-05T12:00:00Z".to_string()),
+        platform: None,
+        result,
+        evidence: Vec::new(),
+        blocked_reason: blocked_reason.map(String::from),
+        created_at: "2026-05-05T12:00:00Z".to_string(),
+    }
+}
+
+#[test]
+fn render_approval_queue_lists_only_pending_approval_gated() {
+    let records = vec![
+        rec_full("a-1", "post_listing", "pending", true, None, None),
+        rec_full("a-2", "verify_price", "pending", false, None, None),
+        rec_full("a-3", "post_listing", "approved", true, None, None),
+    ];
+    let out = render_approval_queue(&records);
+    assert!(out.contains("`a-1`"));
+    assert!(!out.contains("`a-2`"), "autonomous-safe should not appear");
+    assert!(!out.contains("`a-3`"), "approved should not appear");
+    assert!(out.contains("1 action(s) awaiting"));
+}
+
+#[test]
+fn render_approval_queue_empty_state_placeholder() {
+    let out = render_approval_queue(&[]);
+    assert!(out.starts_with("# Approval queue"));
+    assert!(out.contains("(no actions awaiting approval)"));
+}
+
+#[test]
+fn render_completed_actions_surfaces_summary_and_executed_at() {
+    let records = vec![
+        rec_full(
+            "c-1",
+            "post_listing",
+            "completed",
+            true,
+            None,
+            Some(serde_json::json!({"summary": "posted to ebay"})),
+        ),
+        rec_full("c-2", "verify_price", "pending", false, None, None),
+    ];
+    let out = render_completed_actions(&records);
+    assert!(out.contains("`c-1`"));
+    assert!(!out.contains("`c-2`"));
+    assert!(out.contains("posted to ebay"));
+    assert!(out.contains("executed_at: 2026-05-05T12:00:00Z"));
+    assert!(out.contains("1 completed action(s)"));
+}
+
+#[test]
+fn render_completed_actions_empty_state_placeholder() {
+    let out = render_completed_actions(&[]);
+    assert!(out.starts_with("# Completed actions"));
+    assert!(out.contains("(no actions have completed yet)"));
+}
+
+#[test]
+fn render_blocked_actions_surfaces_reason_inline() {
+    let records = vec![
+        rec_full(
+            "b-1",
+            "drain_account",
+            "blocked",
+            false,
+            Some("no capability grant"),
+            None,
+        ),
+        rec_full("b-2", "verify_price", "completed", false, None, None),
+    ];
+    let out = render_blocked_actions(&records);
+    assert!(out.contains("`b-1`"));
+    assert!(!out.contains("`b-2`"));
+    assert!(out.contains("reason: no capability grant"));
+}
+
+#[test]
+fn render_blocked_actions_empty_state_placeholder() {
+    let out = render_blocked_actions(&[]);
+    assert!(out.starts_with("# Blocked actions"));
+    assert!(out.contains("(no actions are blocked)"));
+}

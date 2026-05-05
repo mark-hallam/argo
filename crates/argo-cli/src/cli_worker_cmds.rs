@@ -1,12 +1,17 @@
 //! `argo worker` — Worker v3 execution-mode action ledger CLI
-//! (#728). Distinct from `argo work {add,serve}` (which manages
-//! the queue + the running worker process); `argo worker` is for
-//! inspecting and (in later PRs) acting on the actions the
+//! (#728/#730). Distinct from `argo work {add,serve}` (which
+//! manages the queue + the running worker process); `argo
+//! worker` is for inspecting and acting on the actions the
 //! worker has proposed / approved / executed.
 //!
-//! #728 ships only the read-side: `list` and `show`. The
-//! write-side (`approve`, `execute`, `complete`) lands in #730
-//! once the action types it gates are also in (#729).
+//! #728 shipped read-side (`list` / `show`). #729 added the
+//! emission layer. #730 (this PR) ships the write-side state-
+//! transition CLI: `approve` / `approve-batch` / `execute` /
+//! `complete` / `fail` / `status` / `render`. Each transition
+//! appends a NEW `worker_action` memory row carrying the full
+//! snapshot at that state — append-only, latest-wins per
+//! `action_id`. Validates against `ActionState::can_transition_to`
+//! so an `executing` action can't be re-approved, etc.
 
 use clap::Subcommand;
 
@@ -64,5 +69,85 @@ pub enum WorkerActionsCmd {
         /// Emit JSON instead of the human-readable preview.
         #[arg(long)]
         json: bool,
+    },
+    /// Approve an approval-gated action: `pending → approved`.
+    /// Records `approved_by` + `approved_at`. Refuses if the
+    /// action isn't currently `pending` or doesn't require
+    /// approval (per the manifest classification).
+    Approve {
+        /// `action_id` (UUIDv7).
+        action_id: String,
+        /// Operator identifier recorded into `approved_by`.
+        /// Defaults to `$USER` when omitted.
+        #[arg(long)]
+        approved_by: Option<String>,
+        /// Optional free-form note appended into the row's
+        /// `result` field for audit context.
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Approve multiple actions in one call. Each id is processed
+    /// independently — one failure does not stop the rest.
+    ApproveBatch {
+        /// Space-separated list of `action_id`s.
+        action_ids: Vec<String>,
+        #[arg(long)]
+        approved_by: Option<String>,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Mark an approved (or autonomous-pending) action as
+    /// `executing`. The actual executor logic ships in #731 —
+    /// for now this is just a state stamp so an operator can
+    /// signal "I started doing this offline".
+    Execute {
+        action_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Mark an executing action as `completed`. Records
+    /// `executed_at` and stores any operator-supplied result.
+    Complete {
+        action_id: String,
+        /// Free-form one-liner stored under `result.summary`.
+        #[arg(long)]
+        note: Option<String>,
+        /// Optional structured result blob. Must be valid JSON.
+        #[arg(long)]
+        result_json: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Mark an executing action as `failed`. Records the reason
+    /// into `result.failure` for downstream retry / triage.
+    Fail {
+        action_id: String,
+        /// Free-form failure summary (required).
+        #[arg(long)]
+        reason: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show the full state-row history for one action — every
+    /// `worker_action` row that shares the `action_id`, in
+    /// time order. Useful to audit who approved when.
+    Status {
+        action_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Render workspace-level per-state ledger artifacts under
+    /// `.skycot/`. Writes `approval_queue.md`,
+    /// `completed_actions.md`, and `blocked_actions.md` so the
+    /// operator has a single review surface across all jobs.
+    Render {
+        /// Optional vertical filter — when omitted, walks every
+        /// loaded vertical.
+        #[arg(long)]
+        vertical: Option<String>,
     },
 }
