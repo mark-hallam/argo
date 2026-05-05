@@ -170,7 +170,83 @@ full table. Headlines:
 
 ---
 
-## Unreleased
+## [0.1.1] — 2026-05-05 — Customer-launch hardening
+
+This release rolls up the operational hardening that landed
+post-0.1.0 (#751–#762). All 0.1.0 surface area still works the
+same; this release adds the operator-facing primitives that
+turn "ready to demo" into "ready for the first paying
+customer."
+
+### Added — Retry policy with `max_attempts` + force override
+
+- `[actions.<id>.retry]` block in `vertical.toml` declares
+  `max_attempts`, `backoff`, and `initial_delay_seconds`
+  per action type.
+- `argo worker actions retry <id>` enforces the policy by
+  counting prior retries in the evidence chain. Exits non-
+  zero when the next attempt would exceed `max_attempts`.
+- `--force` override lets the operator bypass the cap with
+  an explicit ack. The override is logged at WARN level so
+  audit trails show who forced what.
+- `argo worker actions show <id>` surfaces
+  `attempt N/max_attempts` in both text + JSON output so the
+  operator sees the budget before deciding to retry.
+- gtm-engineer manifest declares retry policies on every
+  declared action: 3× for verify_price, 2× for the
+  approval-gated send / post / message-the-buyer family.
+  (#755)
+
+### Added — Canonical failure-modes reference
+
+- New `docs/skycot/failure_modes.md` — 11 modes covering
+  provider failures, worker crash mid-step, worker crash
+  mid-execute, DB lock, DB corruption, disk full, action
+  retry exhausted, action stuck pending, concurrent workers,
+  vertical fails to load, and abandoning a stuck job.
+- Each mode follows symptom / cause / recovery / prevention
+  shape so an on-call operator can navigate the runbook
+  without scanning prose. (#756)
+
+### Added — Prometheus + JSON metrics for the action ledger
+
+- `/metrics` (text exposition) + `/metrics/json` now expose
+  three new gauges:
+  - `argo_worker_actions_total{state="<state>"}` — per-state
+    rows, deduped to the latest snapshot per action_id.
+    Mirrors the operator's `argo worker actions list` view
+    so dashboards align with the CLI.
+  - `argo_worker_actions_pending_approval_total` — the
+    operator's review queue depth.
+  - `argo_worker_actions_pending_autonomous_total` — pending
+    rows that the worker may advance without operator
+    intervention.
+- Read-only / scrape-safe; never mutates ledger state. (#757)
+
+### Added — Provider keys + production secrets flow
+
+- New `docs/skycot/provider_keys.md` — local development via
+  `argo setup`, three production patterns (systemd Env /
+  k8s Secret + envFrom / Vault wrapper script), what NOT to
+  do, key rotation runbook, spend tracking via `/metrics`,
+  and a 6-box production launch checklist. (#758)
+
+### Added — `argo setup --check` for launch checklists
+
+- New `--check` mode on `argo setup` skips the interactive
+  walkthrough and verifies that at least one provider key
+  (ANTHROPIC / OPENAI / GEMINI / AWS_ACCESS_KEY_ID /
+  ELEVENLABS) is loadable from the process env. Exits 0 on
+  success, non-zero with a clear FAIL message + canonical
+  resolution-order summary on failure. Designed for CI and
+  the production-launch checklist in `provider_keys.md`.
+- Rejects empty / whitespace-only env values so a broken
+  `EnvironmentFile=` doesn't silently look configured.
+- 4 integration tests + 1 unit test lock the contract.
+- `provider_keys.md` aligned with reality: removed
+  aspirational claims about `argo setup` writing a
+  `~/.config/argo/secrets.toml` (the resolver only reads
+  env today; secrets.toml is a v1.x roadmap item). (#761)
 
 ### Added — Eval suite expansion across the Worker v3 cohort
 
@@ -208,19 +284,33 @@ full table. Headlines:
 - Check #17: `argo setup --check` exits zero with `[ok]`
   when ANTHROPIC_API_KEY is set. (#762)
 
-### Added — `argo setup --check` for launch checklists
+### Added — Documentation refresh
 
-- New `--check` mode on `argo setup` skips the interactive
-  walkthrough and verifies that at least one provider key
-  (ANTHROPIC / OPENAI / GEMINI / AWS_ACCESS_KEY_ID /
-  ELEVENLABS) is loadable from the process env. Exits 0 on
-  success, non-zero with a clear FAIL message + canonical
-  resolution-order summary on failure. Designed for CI and
-  the production-launch checklist in `provider_keys.md`.
-- Rejects empty / whitespace-only env values so a broken
-  `EnvironmentFile=` doesn't silently look configured.
-- 4 integration tests + 1 unit test lock the contract.
-- `provider_keys.md` aligned with reality: removed
-  aspirational claims about `argo setup` writing a
-  `~/.config/argo/secrets.toml` (the resolver only reads
-  env today; secrets.toml is a v1.x roadmap item). (#761)
+- `docs/skycot/launch_readiness.md` rewritten end-to-end to
+  reflect the work that landed in 0.1.1 — the "Ready" table
+  grows by 6 capabilities, the "Not ready" table loses
+  Prometheus metrics (shipped) and gains per-tenant spend
+  caps + live-LLM eval scoring as v1.x roadmap items, and
+  the pre-launch checklist grows 6 → 11 items. (#760)
+- `argo work logs <job_id>` for direct artifact-bundle
+  viewing without manually opening `.skycot/outputs/`. (#751)
+- `examples/sales-follow-up/` — 5 lead scenarios + sample
+  research / draft / approval checklist, parallel to the
+  marketplace-seller and ai-receptionist examples. (#752)
+- README + CHANGELOG roll-ups so all 5 shipped verticals
+  show up in the docs surface. (#753)
+- 14th smoke check (`argo vertical lint` across all 3 v3
+  verticals) — superseded by 17 checks in 0.1.1. (#749)
+
+### Internal — Dev runtime guardrails
+
+- `scripts/dev-safe-check.sh` + `dev-safe-clean.sh` +
+  `dev-safe-test.sh` for long autonomous coding sessions:
+  pre-flight disk health gate, target/ + tempdir cleanup,
+  fmt + clippy + test in one shot. Operator-invisible. (#754)
+
+---
+
+## Unreleased
+
+(no changes since 0.1.1)
