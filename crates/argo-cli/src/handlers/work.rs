@@ -69,6 +69,7 @@ pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
             limit,
             json,
         } => super::work_jobs::list(&state, vertical.as_deref(), limit, json).await,
+        WorkCmd::Logs { job_id, kind } => super::work_jobs::logs(&job_id, &kind).await,
     }
 }
 

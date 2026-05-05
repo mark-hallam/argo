@@ -239,6 +239,78 @@ fn truncate(s: &str, n: usize) -> String {
     }
 }
 
+/// `argo work logs <job_id> --kind X` — surface one job's
+/// artifact bundle from disk. Looks up the job's `output_dir`
+/// in its `completed_jobs` memory row, then cats the requested
+/// file. Operators don't need to remember the
+/// `.skycot/outputs/<job_id>/...` layout.
+pub(crate) async fn logs(job_id: &str, kind: &str) -> ArgoResult<()> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (_t, ws) = store.ensure_workspace(name, &root).await?;
+    let memory = MemoryStore::new(Arc::new(store));
+
+    let rows = collect_jobs(&memory, ws, None).await?;
+    let job = rows.iter().find(|r| r.job_id == job_id).ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "no job with job_id '{job_id}' — try `argo work jobs --json` to find one"
+        ))
+    })?;
+    let dir = job
+        .output_dir
+        .as_deref()
+        .ok_or_else(|| {
+            ArgoError::Provider(format!(
+                "job '{job_id}' has no output_dir (it may still be pending — try \
+                 `argo work jobs --json` to confirm)"
+            ))
+        })
+        .map(std::path::PathBuf::from)?;
+
+    let kinds: Vec<&str> = match kind {
+        "all" => vec![
+            "transcript",
+            "assistant",
+            "approval_checklist",
+            "execution_plan",
+        ],
+        other => vec![other],
+    };
+    let print_all = kinds.len() > 1;
+    for k in &kinds {
+        let filename = match *k {
+            "transcript" => "transcript.md",
+            "assistant" => "assistant_output.md",
+            "approval_checklist" => "approval_checklist.md",
+            "execution_plan" => "execution_plan.md",
+            other => {
+                return Err(ArgoError::Provider(format!(
+                    "unknown --kind '{other}'; valid: transcript, assistant, approval_checklist, execution_plan, all"
+                )));
+            }
+        };
+        let path = dir.join(filename);
+        let body = std::fs::read_to_string(&path)
+            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        if print_all {
+            println!("===== {filename} ({}) =====\n", path.display());
+        }
+        print!("{body}");
+        if print_all && !body.ends_with('\n') {
+            println!();
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "work_jobs_tests.rs"]
 mod tests;

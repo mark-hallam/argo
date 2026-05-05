@@ -75,6 +75,26 @@ pub enum WorkCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Surface one job's artifact bundle from disk without
+    /// requiring the operator to remember the
+    /// `.skycot/outputs/<job_id>/...` layout. Looks up the
+    /// job's `output_dir` from its `completed_jobs` memory
+    /// row, then prints (or writes to stdout) the requested
+    /// file.
+    Logs {
+        /// The `job_id` (UUIDv7) of a previously-served job.
+        /// Use `argo work jobs --json` to find a recent one.
+        job_id: String,
+        /// Which file to surface. Defaults to `transcript`.
+        /// `all` prints a header per file followed by its
+        /// contents, in canonical reading order.
+        #[arg(
+            long,
+            default_value = "transcript",
+            value_parser = ["transcript", "assistant", "approval_checklist", "execution_plan", "all"],
+        )]
+        kind: String,
+    },
     /// List queued + completed worker jobs across the
     /// workspace. Walks the same `pending_jobs` /
     /// `completed_jobs` memory rows the queue runner uses, so
