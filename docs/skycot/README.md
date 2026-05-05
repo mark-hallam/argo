@@ -85,11 +85,15 @@ task; see the `verticals/` directory + `argo vertical lint
    6 inbound triage prompts (sales call, support call, recruiter,
    spam, ambiguous, urgent calendar coordination) + a hand-crafted
    sample bundle showing receptionist-domain artifact shape.
-6. **[Launch readiness](launch_readiness.md)** — single-page
+6. **[Examples — Sales Follow-up](../../examples/sales-follow-up/)** —
+   5 lead scenarios (post-demo nudge, post-trial check-in, role
+   change signal, podcast signal, dropped-lead handling) + sample
+   research / draft / approval checklist.
+7. **[Launch readiness](launch_readiness.md)** — single-page
    confidence audit: every shipped capability, what's locked in
    tests, what's intentionally out of v1 scope, and the
    pre-launch checklist.
-7. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
+8. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
    version, customer-facing.
 
 ## Design + invariants
