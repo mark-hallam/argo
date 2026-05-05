@@ -10,6 +10,7 @@
 //! budget.
 
 use super::worker_actions::ActionRecord;
+use super::worker_actions_executor;
 use super::worker_actions_render;
 use super::worker_actions_transitions;
 use argo_memory::{MemoryFile, MemoryStore};
@@ -108,9 +109,61 @@ pub(crate) async fn approve_batch(
 
 pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    // 1. Advance state pending/approved → executing.
     let rec = worker_actions_transitions::execute(&memory, ws, action_id).await?;
-    print_record(&rec, json);
+    // 2. Resolve the executor declared by the manifest. v1 only
+    //    supports `executor = "human"` — anything else is a hard
+    //    error so the operator sees the gap. Future executors
+    //    (browser, marketplace SDK) plug in here.
+    let bundle_path = invoke_executor_for(&rec).await?;
+    if json {
+        let mut payload = serde_json::to_value(&rec).unwrap_or(serde_json::json!({}));
+        if let Some(map) = payload.as_object_mut() {
+            map.insert(
+                "execution_bundle_path".to_string(),
+                serde_json::Value::String(bundle_path.to_string_lossy().into_owned()),
+            );
+        }
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
+        );
+    } else {
+        print_record(&rec, false);
+        println!("  bundle       {}", bundle_path.display());
+    }
     Ok(())
+}
+
+/// Hand an executing action to whichever executor its manifest
+/// declares. Lifted out of `execute` so the file stays small +
+/// testable. Returns the path to the per-action artifact bundle.
+async fn invoke_executor_for(rec: &ActionRecord) -> ArgoResult<std::path::PathBuf> {
+    let dir = super::vertical::resolve_verticals_dir();
+    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
+    // Find the manifest that owns this action. We don't have
+    // vertical_id on the ActionRecord directly; walk the
+    // registry's action declarations looking for one that
+    // declares this action_type.
+    let manifest = registry
+        .list()
+        .find_map(|(_, loaded)| {
+            loaded
+                .manifest
+                .actions
+                .as_ref()
+                .and_then(|a| a.actions.get(&rec.action_type))
+                .map(|_| &loaded.manifest)
+        })
+        .ok_or_else(|| {
+            ArgoError::Provider(format!(
+                "no loaded vertical declares action_type '{}' — cannot resolve executor",
+                rec.action_type
+            ))
+        })?;
+    let executor = worker_actions_executor::resolve_executor(manifest, &rec.action_type)?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    executor.execute(rec, &cwd)
 }
 
 pub(crate) async fn complete(

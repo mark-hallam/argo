@@ -101,6 +101,7 @@ mod work_steps;
 pub mod worker_actions;
 mod worker_actions_dispatch;
 pub(crate) mod worker_actions_emit;
+mod worker_actions_executor;
 mod worker_actions_render;
 mod worker_actions_transitions;
 mod worker_actions_type;

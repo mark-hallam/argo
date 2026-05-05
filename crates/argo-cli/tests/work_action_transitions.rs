@@ -265,6 +265,53 @@ fn render_writes_workspace_level_ledger_artifacts() {
 }
 
 #[test]
+fn execute_writes_per_action_bundle_via_human_executor() {
+    let (home, work) = fresh_workspace_with_actions();
+    let rows = list_actions(home.path(), work.path());
+    let verify = rows
+        .iter()
+        .find(|r| r["action_type"] == "verify_price")
+        .expect("verify_price row");
+    let id = verify["action_id"].as_str().expect("action_id");
+    let job_id = verify["job_id"].as_str().expect("job_id");
+
+    let exec = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "execute", id, "--json"],
+    );
+    assert!(
+        exec.status.success(),
+        "execute: {}",
+        String::from_utf8_lossy(&exec.stderr)
+    );
+    let v: Value = serde_json::from_slice(&exec.stdout).expect("execute json");
+    let bundle_path = v["execution_bundle_path"]
+        .as_str()
+        .expect("execution_bundle_path on execute --json");
+    let bundle = PathBuf::from(bundle_path);
+    // Bundle layout: .skycot/outputs/<job_id>/actions/<action_id>/
+    assert!(
+        bundle_path.contains(job_id),
+        "bundle_path should include job_id; got {bundle_path}"
+    );
+    assert!(
+        bundle_path.contains(id),
+        "bundle_path should include action_id; got {bundle_path}"
+    );
+    let instructions =
+        std::fs::read_to_string(bundle.join("instructions.md")).expect("instructions.md");
+    let evidence = std::fs::read_to_string(bundle.join("evidence.md")).expect("evidence.md");
+    let action_json: Value =
+        serde_json::from_slice(&std::fs::read(bundle.join("action.json")).unwrap()).unwrap();
+    assert!(instructions.contains("verify_price"));
+    assert!(instructions.contains("argo worker actions complete"));
+    assert!(evidence.contains("Evidence for action"));
+    assert_eq!(action_json["action_type"], "verify_price");
+    assert_eq!(action_json["state"], "executing");
+}
+
+#[test]
 fn fail_records_reason_for_an_executing_action() {
     let (home, work) = fresh_workspace_with_actions();
     let rows = list_actions(home.path(), work.path());
