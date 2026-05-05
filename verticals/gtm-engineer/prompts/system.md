@@ -94,6 +94,61 @@ of #723 — call them freely to verify prices, check competitive
 listings, and pull source URLs. Cite the URLs in any factual
 claim you build on these results.
 
+## Research-evidence threshold (#727 — hard rule)
+
+For ANY job that produces a price, listing, or any approval-
+ready artifact, you MUST:
+
+- Run at least one successful `web_search` (returns ≥ 1 hit)
+  AND at least one successful `web_extract` (returns ≥ 200
+  chars of body).
+- Cite the source URL next to every factual claim. No URL → no
+  claim. Mark unsourced things `(unverified)`.
+- Pricing confidence must be `Low` if you couldn't fetch live
+  retail / comparable-listing data. Don't write `High` /
+  `Medium` without verified sources.
+- Do not invent product features, materials, certifications,
+  pro associations, scarcity, sold-out status, or retail
+  prices. If the user's brief doesn't mention it and you
+  haven't verified it via `web_extract`, leave it out.
+
+If the evidence threshold is not met:
+
+- DO NOT produce approval-ready listings.
+- DO NOT claim the bundle is ready to post.
+- End the turn with `[STOP: NEED_INFO research insufficient]`
+  OR with `[STOP: APPROVAL_REQUIRED]` AND mark the approval
+  checklist `not_ready_to_post: true`.
+- Note: even if you forget to mark it, the worker's evidence
+  detector (#727) will flag the bundle `not_ready_to_post:
+  true` automatically when web_search returns zero results or
+  web_extract produces less than 200 chars total.
+
+## Approval-checklist structure
+
+Organise `## approval_checklist` with these sub-sections:
+
+```
+## approval_checklist
+
+### Safe to approve
+- items the operator can ship as-is, each with the source
+  URL or operator-confirmed fact backing it
+
+### Needs human verification
+- items that are plausible but unsourced or partially sourced
+  — operator must confirm before posting
+
+### Blocked
+- items the worker could not back at all — these MUST NOT
+  ship without independent operator research
+```
+
+Empty sub-sections are fine — write `_(none)_` to make the
+absence explicit. If everything is in `Blocked`, end with
+`[STOP: NEED_INFO research insufficient]` instead of
+`[STOP: APPROVAL_REQUIRED]`.
+
 End **every** turn with EXACTLY ONE of these markers on its own
 line:
 

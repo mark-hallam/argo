@@ -26,7 +26,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
+mod evidence;
 mod sections;
+mod transcript;
 
 /// All the pieces `process_job` already has by the time the
 /// turn completes — bundled into a single struct so the call
@@ -80,19 +82,44 @@ pub(crate) async fn write_artifacts(
         .ok_or_else(|| ArgoError::Provider(format!("no session {}", inputs.session_id.0)))?;
     let messages = store.list_messages(inputs.session_id).await?;
 
-    let transcript = render_transcript_md(&session, &messages);
+    let transcript = transcript::render_transcript_md(&session, &messages);
     write_file(&output_dir.join("transcript.md"), &transcript)?;
     write_file(
         &output_dir.join("assistant_output.md"),
         inputs.assistant_text,
     )?;
 
-    // #722 — split the assistant's final text into the four
-    // sectioned deliverables the multi-step worker is prompted
-    // to produce. Missing sections get a clear placeholder so
-    // operators always see the same file layout regardless of
-    // whether the worker actually wrote that section yet.
-    let sections = SectionedOutput::from_assistant_text(inputs.assistant_text);
+    // #727 Issue 1 — assemble sections from EVERY assistant
+    // turn in the session, not just the final one. A research-
+    // heavy job often produces pricing/listings in step 1 and
+    // only the approval_checklist in step 2; pre-#727 the step-1
+    // sections were lost because the splitter only saw the last
+    // assistant text. `from_assistant_messages` merges per-step
+    // results with "latest non-empty wins" semantics so step 1's
+    // pricing survives when step 2 doesn't re-emit it.
+    let assistant_texts: Vec<String> = messages
+        .iter()
+        .filter(|m| m.role == "assistant")
+        .map(|m| extract_text_blocks(&m.content_json))
+        .filter(|t| !t.trim().is_empty())
+        .collect();
+    let sections = SectionedOutput::from_assistant_messages(&assistant_texts);
+
+    // #727 Issue 2 — research-evidence gate. Walk the session's
+    // tool_result blocks, count successful web_search hits + the
+    // total chars web_extract returned, and flag the bundle as
+    // BLOCKED when the model claims approval-readiness on top of
+    // weak research. We don't override stop_reason — operators
+    // still see what the model claimed — but the artifact bundle
+    // makes the gap loud via `not_ready_to_post: true` in
+    // result.json and a BLOCKED preamble on approval_checklist.md.
+    let row_pairs: Vec<(&str, &str)> = messages
+        .iter()
+        .map(|m| (m.role.as_str(), m.content_json.as_str()))
+        .collect();
+    let ev = evidence::summarize_evidence(row_pairs);
+    let blocked = inputs.stop_reason == "approval_required" && !ev.is_sufficient();
+
     write_file(
         &output_dir.join("research.md"),
         &sections.research_or_placeholder(),
@@ -107,9 +134,15 @@ pub(crate) async fn write_artifacts(
     )?;
     write_file(
         &output_dir.join("approval_checklist.md"),
-        &sections.approval_checklist_or_placeholder(inputs.stop_reason, inputs.stop_detail),
+        &sections.approval_checklist_or_placeholder(
+            inputs.stop_reason,
+            inputs.stop_detail,
+            blocked,
+            &ev.insufficiency_reason(),
+        ),
     )?;
 
+    let missing = sections.missing_sections();
     let job = json!({
         "job_id": inputs.job_id.to_string(),
         "vertical_id": inputs.vertical_id,
@@ -144,6 +177,17 @@ pub(crate) async fn write_artifacts(
         "steps_completed": inputs.steps_completed,
         "stop_reason": inputs.stop_reason,
         "stop_detail": inputs.stop_detail,
+        // #727 — visibility for operators inspecting the bundle.
+        "sections_present": json!({
+            "research": sections.research.is_some(),
+            "pricing": sections.pricing.is_some(),
+            "listings": sections.listings.is_some(),
+            "approval_checklist": sections.approval_checklist.is_some(),
+        }),
+        "missing_sections": missing,
+        "evidence": ev,
+        "not_ready_to_post": blocked,
+        "blocked_reason": if blocked { ev.insufficiency_reason() } else { String::new() },
     });
     write_file(
         &output_dir.join("result.json"),
@@ -189,6 +233,60 @@ impl SectionedOutput {
         }
     }
 
+    /// Walk every assistant message in document order and merge
+    /// the per-message section results so the artifact bundle
+    /// reflects the WHOLE worker run, not just the final
+    /// assistant turn (#727 / Issue 1).
+    ///
+    /// Merge rule: for each named section, the LATEST non-empty
+    /// version wins. If step 1 produced `## pricing` and step 2
+    /// only produced `## approval_checklist`, the step-1 pricing
+    /// body is preserved (instead of the prior behaviour of
+    /// silently replacing it with a placeholder).
+    pub(crate) fn from_assistant_messages<I, S>(messages: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut acc = SectionedOutput::default();
+        for text in messages {
+            let s = SectionedOutput::from_assistant_text(text.as_ref());
+            if s.research.is_some() {
+                acc.research = s.research;
+            }
+            if s.pricing.is_some() {
+                acc.pricing = s.pricing;
+            }
+            if s.listings.is_some() {
+                acc.listings = s.listings;
+            }
+            if s.approval_checklist.is_some() {
+                acc.approval_checklist = s.approval_checklist;
+            }
+        }
+        acc
+    }
+
+    /// Names of the four canonical sections that this run did
+    /// NOT produce. Surfaced into result.json (#727) so the
+    /// operator sees at a glance which deliverables landed.
+    pub(crate) fn missing_sections(&self) -> Vec<&'static str> {
+        let mut out = Vec::new();
+        if self.research.is_none() {
+            out.push("research");
+        }
+        if self.pricing.is_none() {
+            out.push("pricing");
+        }
+        if self.listings.is_none() {
+            out.push("listings");
+        }
+        if self.approval_checklist.is_none() {
+            out.push("approval_checklist");
+        }
+        out
+    }
+
     pub(crate) fn research_or_placeholder(&self) -> String {
         section_or_placeholder("research", self.research.as_deref())
     }
@@ -206,10 +304,18 @@ impl SectionedOutput {
     /// emit a `## approval_checklist` header — because the
     /// reason is the most operationally relevant signal for the
     /// human reviewer.
+    ///
+    /// When `blocked` is true, a prominent BLOCKED banner is
+    /// prepended ahead of the model's checklist (#727 Issue 2).
+    /// `blocked_reason` is the one-liner from
+    /// `EvidenceSummary::insufficiency_reason()` that names what
+    /// failed (zero-result searches, fetch errors, etc.).
     pub(crate) fn approval_checklist_or_placeholder(
         &self,
         stop_reason: &str,
         stop_detail: &str,
+        blocked: bool,
+        blocked_reason: &str,
     ) -> String {
         let body = match self.approval_checklist.as_deref() {
             Some(s) if !s.trim().is_empty() => s.to_string(),
@@ -217,9 +323,26 @@ impl SectionedOutput {
                 .to_string(),
         };
         let mut out = String::from("# Approval checklist\n\n");
+        if blocked {
+            out.push_str(
+                "> **🛑 BLOCKED — NOT READY TO POST.**\n>\n\
+                 > The worker's research evidence was insufficient \
+                 to back the approval-ready claims in this bundle. \
+                 Do not post listings, message buyers, or commit \
+                 spend until the items below are independently \
+                 verified by a human.\n>\n",
+            );
+            if !blocked_reason.is_empty() {
+                out.push_str(&format!("> - reason: {blocked_reason}\n"));
+            }
+            out.push('\n');
+        }
         out.push_str(&format!("- stop_reason: `{stop_reason}`\n"));
         if !stop_detail.is_empty() {
             out.push_str(&format!("- stop_detail: {stop_detail}\n"));
+        }
+        if blocked {
+            out.push_str("- not_ready_to_post: `true`\n");
         }
         out.push_str("\n---\n\n");
         out.push_str(&body);
@@ -247,88 +370,24 @@ fn write_file(path: &Path, body: &str) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))
 }
 
-fn render_transcript_md(
-    session: &argo_store::SessionHeader,
-    messages: &[argo_store::MessageRow],
-) -> String {
-    let mut out = String::new();
-    out.push_str(&format!(
-        "# Worker run transcript — session {}\n\n",
-        session.id.0
-    ));
-    if let Some(v) = &session.vertical_id {
-        out.push_str(&format!("- vertical: `{v}`\n"));
-    }
-    out.push_str(&format!(
-        "- provider: `{}/{}`\n",
-        session.provider, session.model
-    ));
-    out.push_str(&format!("- started: {}\n", session.started_at.to_rfc3339()));
-    if let Some(end) = session.ended_at {
-        out.push_str(&format!("- ended: {}\n", end.to_rfc3339()));
-    }
-    out.push_str(&format!("- messages: {}\n\n---\n\n", messages.len()));
-
-    for (i, row) in messages.iter().enumerate() {
-        out.push_str(&format!("## [{:02}] {}\n\n", i + 1, row.role));
-        let body = render_blocks_md(&row.content_json);
-        if body.trim().is_empty() {
-            out.push_str("_(empty)_\n\n");
-        } else {
-            out.push_str(&body);
-            if !body.ends_with('\n') {
-                out.push('\n');
-            }
-            out.push('\n');
-        }
-    }
-    out
-}
-
-/// Stored content_json may be a typed-block array, a raw string
-/// (legacy), or null. Render to readable markdown either way.
-fn render_blocks_md(content_json: &str) -> String {
+/// Pull just the `text` blocks out of a stored `content_json`
+/// payload, joining with `\n`. Used for multi-step section
+/// assembly (#727) — we want the model's prose, NOT tool_use
+/// or tool_result blocks (those would otherwise interleave
+/// JSON noise into the splitter's input).
+fn extract_text_blocks(content_json: &str) -> String {
     let parsed: Value = serde_json::from_str(content_json).unwrap_or(Value::Null);
     let arr: Vec<Value> = match parsed {
         Value::Array(a) => a,
         Value::String(s) => return s,
-        Value::Null => return String::new(),
-        other => vec![other],
+        _ => return String::new(),
     };
     let mut out = String::new();
     for b in arr {
-        let kind = b.get("type").and_then(|t| t.as_str()).unwrap_or("?");
-        match kind {
-            "text" => {
-                if let Some(t) = b.get("text").and_then(|t| t.as_str()) {
-                    out.push_str(t);
-                    out.push('\n');
-                }
-            }
-            "tool_use" => {
-                let name = b.get("name").and_then(|n| n.as_str()).unwrap_or("?");
-                let input = b
-                    .get("input")
-                    .map(|i| i.to_string())
-                    .unwrap_or_else(|| "{}".into());
-                out.push_str(&format!("→ tool_use `{name}`({input})\n"));
-            }
-            "tool_result" => {
-                let id = b.get("id").and_then(|i| i.as_str()).unwrap_or("?");
-                let body = b
-                    .get("content")
-                    .and_then(|c| c.as_array())
-                    .and_then(|arr| {
-                        arr.iter()
-                            .find_map(|inner| inner.get("text").and_then(|t| t.as_str()))
-                    })
-                    .unwrap_or("(no text)");
-                let is_error = b.get("is_error").and_then(|e| e.as_bool()).unwrap_or(false);
-                let mark = if is_error { "✗" } else { "✓" };
-                out.push_str(&format!("{mark} tool_result `{id}`: {body}\n"));
-            }
-            other => {
-                out.push_str(&format!("[{other}]\n"));
+        if b.get("type").and_then(|t| t.as_str()) == Some("text") {
+            if let Some(t) = b.get("text").and_then(|t| t.as_str()) {
+                out.push_str(t);
+                out.push('\n');
             }
         }
     }
@@ -336,109 +395,4 @@ fn render_blocks_md(content_json: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn render_blocks_md_handles_typed_text_blocks() {
-        let out = render_blocks_md(r#"[{"type":"text","text":"hi there"}]"#);
-        assert!(out.contains("hi there"));
-    }
-
-    #[test]
-    fn render_blocks_md_handles_raw_string_legacy() {
-        let out = render_blocks_md(r#""legacy raw body""#);
-        assert!(out.contains("legacy raw body"));
-    }
-
-    #[test]
-    fn render_blocks_md_passes_full_text_no_truncation() {
-        let long = "x".repeat(5000);
-        let json = format!(r#"[{{"type":"text","text":"{long}"}}]"#);
-        let out = render_blocks_md(&json);
-        // No 80-char snippet, no 2000-char cap.
-        assert!(out.len() >= 5000);
-    }
-
-    #[test]
-    fn render_blocks_md_handles_tool_use_and_tool_result() {
-        let json = r#"[
-            {"type":"tool_use","name":"web_search","input":{"q":"GTM"}},
-            {"type":"tool_result","id":"abc","is_error":false,
-             "content":[{"type":"text","text":"ok"}]}
-        ]"#;
-        let out = render_blocks_md(json);
-        assert!(out.contains("→ tool_use `web_search`"));
-        assert!(out.contains("✓ tool_result `abc`: ok"));
-    }
-
-    /// #722 — splitter pulls the four labelled deliverables out
-    /// of a multi-step worker's final assistant message.
-    #[test]
-    fn sectioned_output_splits_all_four_named_sections() {
-        let body = "\
-            preamble that should not be captured\n\n\
-            ## research\nOne find with [src](https://e.example).\n\n\
-            ## pricing\n| comp | $99 |\n\n\
-            ## listings\nDraft: ProSkates 110mm\n\n\
-            ## approval_checklist\n- [ ] confirm reserve price\n\n\
-            [STOP: APPROVAL_REQUIRED]\n";
-        let s = SectionedOutput::from_assistant_text(body);
-        assert!(s.research.as_deref().unwrap_or("").contains("[src]"));
-        assert!(s.pricing.as_deref().unwrap_or("").contains("comp"));
-        assert!(s.listings.as_deref().unwrap_or("").contains("ProSkates"));
-        assert!(s
-            .approval_checklist
-            .as_deref()
-            .unwrap_or("")
-            .contains("reserve price"));
-    }
-
-    #[test]
-    fn sectioned_output_handles_missing_sections_with_placeholder() {
-        let body = "## research\nfindings here\n";
-        let s = SectionedOutput::from_assistant_text(body);
-        assert!(s.research.is_some());
-        assert!(s.pricing.is_none());
-        let pricing = s.pricing_or_placeholder();
-        assert!(pricing.contains("not produced this run"));
-        let listings = s.listings_or_placeholder();
-        assert!(listings.contains("not produced this run"));
-    }
-
-    #[test]
-    fn approval_checklist_always_carries_stop_reason_in_preamble() {
-        let s = SectionedOutput::from_assistant_text("## approval_checklist\n- [ ] human check\n");
-        let out = s.approval_checklist_or_placeholder("approval_required", "");
-        assert!(out.contains("# Approval checklist"));
-        assert!(out.contains("stop_reason: `approval_required`"));
-        assert!(out.contains("human check"));
-    }
-
-    #[test]
-    fn approval_checklist_includes_need_info_detail() {
-        let s = SectionedOutput::default();
-        let out = s.approval_checklist_or_placeholder("need_info", "seller's reserve price");
-        assert!(out.contains("stop_detail: seller's reserve price"));
-    }
-
-    #[test]
-    fn sectioned_output_recognises_listings_singular_variant() {
-        let body = "## listing\ndraft ad copy here\n";
-        let s = SectionedOutput::from_assistant_text(body);
-        assert!(
-            s.listings.is_some(),
-            "should match `## listing` (singular) too"
-        );
-    }
-
-    #[test]
-    fn sectioned_output_treats_unrelated_text_as_empty_sections() {
-        let body = "the worker said many words but never used a section header";
-        let s = SectionedOutput::from_assistant_text(body);
-        assert!(s.research.is_none());
-        assert!(s.pricing.is_none());
-        assert!(s.listings.is_none());
-        assert!(s.approval_checklist.is_none());
-    }
-}
+mod tests;
