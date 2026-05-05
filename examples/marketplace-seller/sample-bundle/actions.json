@@ -1,0 +1,91 @@
+{
+  "schema_version": "1",
+  "job_id": "019df8aa-0fb3-7421-b78e-1c2233445566",
+  "vertical_id": "gtm-engineer",
+  "evidence_sufficient": true,
+  "counts": {
+    "total": 3,
+    "pending_approval": 2,
+    "pending_autonomous": 1,
+    "blocked": 0
+  },
+  "actions": [
+    {
+      "schema_key": "worker_action",
+      "action_id": "019df8aa-1f12-7a01-9f10-2f49e0c0bbcc",
+      "job_id": "019df8aa-0fb3-7421-b78e-1c2233445566",
+      "item_id": "skates-110",
+      "action_type": "verify_price",
+      "risk_level": "low",
+      "requires_approval": false,
+      "state": "pending",
+      "payload": { "target": 150 },
+      "approved_by": null,
+      "approved_at": null,
+      "executed_at": null,
+      "platform": null,
+      "result": null,
+      "evidence": [
+        "https://www.facebook.com/marketplace/item/0001",
+        "https://www.facebook.com/marketplace/item/0002",
+        "https://www.ebay.com/itm/00001",
+        "https://www.ebay.com/itm/00002"
+      ],
+      "blocked_reason": null,
+      "created_at": "2026-05-05T10:00:12Z"
+    },
+    {
+      "schema_key": "worker_action",
+      "action_id": "019df8aa-1f12-7a01-9f10-2f4a31f3acdb",
+      "job_id": "019df8aa-0fb3-7421-b78e-1c2233445566",
+      "item_id": "skates-110",
+      "action_type": "post_listing",
+      "risk_level": "medium",
+      "requires_approval": true,
+      "state": "pending",
+      "payload": {
+        "title": "Powerslide Imperial 110mm Inline Skates — Size 12 US — Used 8x, Perfect Condition",
+        "price": 165,
+        "category": "Sporting Goods/Skates"
+      },
+      "approved_by": null,
+      "approved_at": null,
+      "executed_at": null,
+      "platform": "facebook_marketplace",
+      "result": null,
+      "evidence": [
+        "https://www.facebook.com/marketplace/item/0001",
+        "https://www.facebook.com/marketplace/item/0002"
+      ],
+      "blocked_reason": null,
+      "created_at": "2026-05-05T10:00:13Z"
+    },
+    {
+      "schema_key": "worker_action",
+      "action_id": "019df8aa-1f12-7a01-9f10-2f4d77c8be21",
+      "job_id": "019df8aa-0fb3-7421-b78e-1c2233445566",
+      "item_id": "skates-110",
+      "action_type": "post_listing",
+      "risk_level": "medium",
+      "requires_approval": true,
+      "state": "pending",
+      "payload": {
+        "title": "Powerslide Imperial 110 mm Inline Speed Skates — US Men's 12 — Used 8x",
+        "price": 160,
+        "format": "buy_it_now",
+        "best_offer": true
+      },
+      "approved_by": null,
+      "approved_at": null,
+      "executed_at": null,
+      "platform": "ebay",
+      "result": null,
+      "evidence": [
+        "https://www.ebay.com/itm/00001",
+        "https://www.ebay.com/itm/00002"
+      ],
+      "blocked_reason": null,
+      "created_at": "2026-05-05T10:00:14Z"
+    }
+  ]
+}

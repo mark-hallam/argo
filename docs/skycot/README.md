@@ -68,7 +68,11 @@ For other verticals (AI Receptionist, Sales Follow-up, etc.), see the
    walked end-to-end so you can see what an operator hour looks like.
 3. **[Operator runbook](operator_runbook.md)** — full reference for
    `argo worker actions {list,show,approve,execute,complete,fail,
-   status,render}`, ledger artifacts, and troubleshooting.
+   status,render,retry}`, ledger artifacts, and troubleshooting.
+4. **[Examples](../../examples/marketplace-seller/)** — sample
+   prompts that work, a hand-crafted artifact bundle showing
+   what the worker writes to disk, and an operator-flow
+   walkthrough of the 6 typical decision points per run.
 
 ## Design + invariants
 

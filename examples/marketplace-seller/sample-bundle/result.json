@@ -1,0 +1,39 @@
+{
+  "assistant_id": "019df8aa-1ea3-7501-9f10-1234567890ab",
+  "assistant_text_preview": "## research\nThe operator wants to sell Powerslide Imperial 110mm inline skates...",
+  "full_assistant_text_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/assistant_output.md",
+  "transcript_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/transcript.md",
+  "research_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/research.md",
+  "pricing_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/pricing.md",
+  "listings_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/listings.md",
+  "approval_checklist_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/approval_checklist.md",
+  "execution_plan_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/execution_plan.md",
+  "actions_path": ".skycot/outputs/019df8aa-0fb3-7421-b78e-1c2233445566/actions.json",
+  "steps_completed": 3,
+  "stop_reason": "approval_required",
+  "stop_detail": "",
+  "sections_present": {
+    "research": true,
+    "pricing": true,
+    "listings": true,
+    "approval_checklist": true
+  },
+  "missing_sections": [],
+  "evidence": {
+    "web_search_calls": 4,
+    "web_search_zero_result": 0,
+    "web_search_failed": 0,
+    "total_search_hits": 18,
+    "web_extract_calls": 5,
+    "web_extract_failed": 1,
+    "web_extract_total_chars": 8200
+  },
+  "not_ready_to_post": false,
+  "blocked_reason": "",
+  "actions": {
+    "total": 3,
+    "pending_approval": 2,
+    "pending_autonomous": 1,
+    "blocked": 0
+  }
+}
