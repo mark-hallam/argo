@@ -141,7 +141,15 @@ pub enum Command {
     /// `curl … | bash && argo setup` Hermes-style two-step
     /// install (#646). Idempotent: re-runnable to verify
     /// configuration or pick a different provider.
-    Setup,
+    Setup {
+        /// Verification mode — skip the interactive walkthrough
+        /// and exit non-zero if no provider key is loadable from
+        /// the process environment. Designed for CI / production-
+        /// launch checklists; pairs with the
+        /// `provider_keys.md` rotation runbook.
+        #[arg(long)]
+        check: bool,
+    },
     /// Vertical-template discovery surface (#650). Read-only —
     /// `list`, `show`, `validate`. Install / eval / run land in
     /// later PRs.

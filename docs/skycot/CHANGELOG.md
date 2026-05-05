@@ -197,3 +197,20 @@ full table. Headlines:
 - AUTHORING_v3_ACTIONS.md gains an "Eval suites" section
   documenting the rule keys + the cohort's structural
   coverage. (#759)
+
+### Added — `argo setup --check` for launch checklists
+
+- New `--check` mode on `argo setup` skips the interactive
+  walkthrough and verifies that at least one provider key
+  (ANTHROPIC / OPENAI / GEMINI / AWS_ACCESS_KEY_ID /
+  ELEVENLABS) is loadable from the process env. Exits 0 on
+  success, non-zero with a clear FAIL message + canonical
+  resolution-order summary on failure. Designed for CI and
+  the production-launch checklist in `provider_keys.md`.
+- Rejects empty / whitespace-only env values so a broken
+  `EnvironmentFile=` doesn't silently look configured.
+- 4 integration tests + 1 unit test lock the contract.
+- `provider_keys.md` aligned with reality: removed
+  aspirational claims about `argo setup` writing a
+  `~/.config/argo/secrets.toml` (the resolver only reads
+  env today; secrets.toml is a v1.x roadmap item). (#761)

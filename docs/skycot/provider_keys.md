@@ -28,30 +28,35 @@ smoke tests.
 argo setup
 ```
 
-It interactively prompts for keys and writes them to
-`~/.config/argo/secrets.toml` (mode `0600`). After setup, every
-`argo` invocation reads from this file plus the environment.
+It detects which provider env-vars are already exported and, if
+none are set, walks the operator through picking one and adding
+the right `export …` line to their shell rc.
+
+To verify a configured environment without going through the
+walkthrough (handy for CI or a launch checklist):
+
+```bash
+argo setup --check
+```
+
+Exits 0 when at least one provider key is loadable from the
+process env, non-zero with a clear FAIL message + resolution-
+order summary on stderr otherwise.
 
 ## Order of resolution
 
 When the worker (or any `argo` command that calls a provider)
-needs a key, it checks sources in this order — first hit wins:
+needs a key, it reads the **process environment**:
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` etc.
+exported in the shell (or unit file / pod env) that invoked
+`argo`.
 
-1. **Process environment** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`
-   etc. set in the shell that invoked `argo`.
-2. **`~/.config/argo/secrets.toml`** — the file `argo setup`
-   writes:
+The vertical's `[provider]` declaration only specifies which
+provider to USE — never the key itself.
 
-   ```toml
-   [providers.anthropic]
-   api_key = "sk-ant-…"
-
-   [providers.openai]
-   api_key = "sk-…"
-   ```
-
-3. **Vertical's `[provider]` declaration** — only specifies
-   which provider to USE, never the key itself.
+A future v1.x release will add a `~/.config/argo/secrets.toml`
+fallback so operators can keep keys out of shell history; track
+via the SKYCOT roadmap. Until then, env is the single source.
 
 If the key is missing, the worker fails the next provider call
 with a transport-error stop reason. See
@@ -138,9 +143,9 @@ infrastructure handle delivery.
 
 ## What you must NOT do
 
-- **Don't commit `secrets.toml`.** It's gitignored by default;
-  if your tooling writes it elsewhere, add that path to your
-  `.gitignore`.
+- **Don't commit `.env` files or systemd `EnvironmentFile=`
+  paths to the repo.** If your tooling writes one alongside the
+  repo, add that path to your `.gitignore`.
 - **Don't put keys in `vertical.toml`.** The whole verticals
   tree is readable by the worker AND the gateway AND any
   agent dispatched against it. Keys belong outside the
@@ -148,9 +153,9 @@ infrastructure handle delivery.
 - **Don't paste keys into prompts.** The chat history is
   persisted in the SQLite store + dumped to artifact bundles.
   Anything in a prompt is in the audit trail forever.
-- **Don't share `~/.config/argo/secrets.toml` across
-  operators.** Each operator should have their own keys,
-  not least so audit + spend tracking is per-operator.
+- **Don't share env vars across operators.** Each operator
+  should have their own keys, not least so audit + spend
+  tracking is per-operator.
 
 ## Verifying a setup
 
