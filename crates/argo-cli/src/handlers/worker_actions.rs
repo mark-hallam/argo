@@ -1,0 +1,428 @@
+//! Worker v3 execution-mode action ledger (#728).
+//!
+//! Actions are persisted as `worker_action` memory rows in the
+//! originating job's vertical namespace. Each row captures a
+//! complete snapshot of the action at the moment its state
+//! changed; the "current" state of an action is the latest row
+//! whose `action_id` matches.
+//!
+//! ## State machine
+//!
+//! ```text
+//!   pending ──→ approved ──→ executing ──→ completed
+//!     │           │              │           ▲
+//!     │           └──────────────┴───────────┘   (synchronous shortcut)
+//!     │                                ↓
+//!     │                              failed
+//!     ↓
+//!   blocked  (terminal)
+//! ```
+//!
+//! ## Safety boundary
+//!
+//! Per the SKYCOT mission: the worker may autonomously plan,
+//! draft, queue, and verify evidence; it must require human
+//! approval before any action that posts publicly, messages a
+//! buyer, spends money, changes a public price, or marks an
+//! item sold. `ActionType::requires_approval()` encodes that
+//! boundary in the type system so #730 / #731 can rely on it
+//! rather than re-deriving the rule.
+//!
+//! #728 scope: data model + read-side CLI (`list` / `show`).
+//! Worker emits actions in #729; approval CLI in #730;
+//! approval-gated action types + execution in #731.
+
+use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd};
+use crate::handlers::vertical::resolve_verticals_dir;
+use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_memory::{MemoryFile, MemoryStore};
+use argo_store::SessionStore;
+use argo_types::{ArgoError, ArgoResult};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+// ───────────────────────── enums ─────────────────────────
+//
+// `#[allow(dead_code)]` on the impl blocks: the `parse`,
+// `requires_approval`, `is_terminal`, and `can_transition_to`
+// methods are exercised by the unit tests below + consumed by
+// the writer + approval CLI in #729 / #730. They land in #728
+// as part of the contract so the boundary is testable now.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ActionState {
+    Pending,
+    Approved,
+    Executing,
+    Completed,
+    Failed,
+    Blocked,
+}
+
+#[allow(dead_code)]
+impl ActionState {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            ActionState::Pending => "pending",
+            ActionState::Approved => "approved",
+            ActionState::Executing => "executing",
+            ActionState::Completed => "completed",
+            ActionState::Failed => "failed",
+            ActionState::Blocked => "blocked",
+        }
+    }
+
+    pub(crate) fn parse(s: &str) -> Option<Self> {
+        match s {
+            "pending" => Some(Self::Pending),
+            "approved" => Some(Self::Approved),
+            "executing" => Some(Self::Executing),
+            "completed" => Some(Self::Completed),
+            "failed" => Some(Self::Failed),
+            "blocked" => Some(Self::Blocked),
+            _ => None,
+        }
+    }
+
+    /// Terminal states never transition further. `failed` is
+    /// terminal for THIS action — operators retry by creating a
+    /// new action that references the failed one in `evidence`.
+    pub(crate) fn is_terminal(&self) -> bool {
+        matches!(self, Self::Completed | Self::Failed | Self::Blocked)
+    }
+
+    /// Whether `self → next` is a legal transition. The action
+    /// writers in #730 / #731 will use this to validate before
+    /// appending; #728 only ships the predicate so the contract
+    /// is testable now.
+    pub(crate) fn can_transition_to(&self, next: ActionState) -> bool {
+        use ActionState::*;
+        matches!(
+            (*self, next),
+            (Pending, Approved)
+                | (Pending, Blocked)
+                | (Approved, Executing)
+                | (Approved, Completed)
+                | (Executing, Completed)
+                | (Executing, Failed)
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ActionType {
+    // Autonomous-safe (no approval required):
+    CreateListingDraft,
+    VerifyPrice,
+    RequestPhotos,
+    // Approval-gated:
+    PostListing,
+    BoostListing,
+    ReplyToBuyer,
+    FollowUpBuyer,
+    MarkItemSold,
+    UpdatePrice,
+    RelistItem,
+}
+
+#[allow(dead_code)]
+impl ActionType {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            ActionType::CreateListingDraft => "create_listing_draft",
+            ActionType::VerifyPrice => "verify_price",
+            ActionType::RequestPhotos => "request_photos",
+            ActionType::PostListing => "post_listing",
+            ActionType::BoostListing => "boost_listing",
+            ActionType::ReplyToBuyer => "reply_to_buyer",
+            ActionType::FollowUpBuyer => "follow_up_buyer",
+            ActionType::MarkItemSold => "mark_item_sold",
+            ActionType::UpdatePrice => "update_price",
+            ActionType::RelistItem => "relist_item",
+        }
+    }
+
+    pub(crate) fn parse(s: &str) -> Option<Self> {
+        match s {
+            "create_listing_draft" => Some(Self::CreateListingDraft),
+            "verify_price" => Some(Self::VerifyPrice),
+            "request_photos" => Some(Self::RequestPhotos),
+            "post_listing" => Some(Self::PostListing),
+            "boost_listing" => Some(Self::BoostListing),
+            "reply_to_buyer" => Some(Self::ReplyToBuyer),
+            "follow_up_buyer" => Some(Self::FollowUpBuyer),
+            "mark_item_sold" => Some(Self::MarkItemSold),
+            "update_price" => Some(Self::UpdatePrice),
+            "relist_item" => Some(Self::RelistItem),
+            _ => None,
+        }
+    }
+
+    /// Per the SKYCOT safety boundary: approval-gated action
+    /// types may NEVER autonomously transition past `pending`.
+    /// They require an explicit operator approval (recorded as
+    /// a state-row transition `pending → approved`) before
+    /// `approved → executing` can fire.
+    pub(crate) fn requires_approval(&self) -> bool {
+        matches!(
+            self,
+            Self::PostListing
+                | Self::BoostListing
+                | Self::ReplyToBuyer
+                | Self::FollowUpBuyer
+                | Self::MarkItemSold
+                | Self::UpdatePrice
+                | Self::RelistItem
+        )
+    }
+}
+
+// ──────────────────────── record ─────────────────────────
+
+/// Wire shape persisted into a memory row's body. Each state
+/// transition appends a NEW row carrying the full snapshot at
+/// that state; the action's "current state" is determined by
+/// taking the latest row matching the `action_id`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct ActionRecord {
+    pub schema_key: String,
+    pub action_id: String,
+    pub job_id: String,
+    #[serde(default)]
+    pub item_id: Option<String>,
+    pub action_type: String,
+    pub state: String,
+    pub payload: Value,
+    #[serde(default)]
+    pub approved_by: Option<String>,
+    #[serde(default)]
+    pub approved_at: Option<String>,
+    #[serde(default)]
+    pub executed_at: Option<String>,
+    #[serde(default)]
+    pub platform: Option<String>,
+    #[serde(default)]
+    pub result: Option<Value>,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+    #[serde(default)]
+    pub blocked_reason: Option<String>,
+    pub created_at: String,
+}
+
+impl ActionRecord {
+    pub(crate) const SCHEMA_KEY: &'static str = "worker_action";
+}
+
+// ───────────────────────── CLI ───────────────────────────
+
+pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
+    match cmd {
+        WorkerCmd::Actions(actions_cmd) => match actions_cmd {
+            WorkerActionsCmd::List {
+                state,
+                job_id,
+                vertical,
+                action_type,
+                platform,
+                limit,
+                json,
+            } => {
+                list(
+                    &state,
+                    job_id.as_deref(),
+                    vertical.as_deref(),
+                    action_type.as_deref(),
+                    platform.as_deref(),
+                    limit,
+                    json,
+                )
+                .await
+            }
+            WorkerActionsCmd::Show { action_id, json } => show(&action_id, json).await,
+        },
+    }
+}
+
+// ─────────────────── implementation ──────────────────────
+
+#[allow(clippy::too_many_arguments)]
+async fn list(
+    state_filter: &str,
+    job_id: Option<&str>,
+    vertical: Option<&str>,
+    action_type_filter: Option<&str>,
+    platform_filter: Option<&str>,
+    limit: usize,
+    json_out: bool,
+) -> ArgoResult<()> {
+    let actions = collect_latest_actions(vertical).await?;
+    let mut rows: Vec<ActionRecord> = actions
+        .into_iter()
+        .filter(|a| match state_filter {
+            "all" => true,
+            other => a.state == other,
+        })
+        .filter(|a| job_id.is_none_or(|j| a.job_id == j))
+        .filter(|a| action_type_filter.is_none_or(|t| a.action_type == t))
+        .filter(|a| platform_filter.is_none_or(|p| a.platform.as_deref() == Some(p)))
+        .collect();
+    // Sort newest-first by created_at — operators want recent
+    // first; ties broken by action_id for determinism.
+    rows.sort_by(|a, b| {
+        b.created_at
+            .cmp(&a.created_at)
+            .then_with(|| a.action_id.cmp(&b.action_id))
+    });
+    rows.truncate(limit);
+
+    if json_out {
+        for a in &rows {
+            println!(
+                "{}",
+                serde_json::to_string(&a).unwrap_or_else(|_| "{}".into())
+            );
+        }
+    } else if rows.is_empty() {
+        println!("(no actions)");
+    } else {
+        println!("action_id                  state        type                   platform       created_at");
+        for a in &rows {
+            println!(
+                "{:<26} {:<12} {:<22} {:<14} {}",
+                short(&a.action_id),
+                a.state,
+                a.action_type,
+                a.platform.as_deref().unwrap_or("-"),
+                a.created_at,
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn show(action_id: &str, json_out: bool) -> ArgoResult<()> {
+    let actions = collect_latest_actions(None).await?;
+    let Some(found) = actions.into_iter().find(|a| a.action_id == action_id) else {
+        return Err(ArgoError::Provider(format!(
+            "no action with action_id '{action_id}'"
+        )));
+    };
+    if json_out {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&found).unwrap_or_else(|_| "{}".into())
+        );
+    } else {
+        println!("action_id     {}", found.action_id);
+        println!("job_id        {}", found.job_id);
+        if let Some(it) = &found.item_id {
+            println!("item_id       {it}");
+        }
+        println!("action_type   {}", found.action_type);
+        println!("state         {}", found.state);
+        if let Some(p) = &found.platform {
+            println!("platform      {p}");
+        }
+        println!("created_at    {}", found.created_at);
+        if let Some(by) = &found.approved_by {
+            println!("approved_by   {by}");
+        }
+        if let Some(at) = &found.approved_at {
+            println!("approved_at   {at}");
+        }
+        if let Some(at) = &found.executed_at {
+            println!("executed_at   {at}");
+        }
+        if let Some(reason) = &found.blocked_reason {
+            println!("blocked       {reason}");
+        }
+        if !found.evidence.is_empty() {
+            println!("evidence:");
+            for e in &found.evidence {
+                println!("  - {e}");
+            }
+        }
+        println!("payload:");
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&found.payload).unwrap_or_else(|_| "{}".into())
+        );
+        if let Some(r) = &found.result {
+            println!("result:");
+            println!(
+                "{}",
+                serde_json::to_string_pretty(r).unwrap_or_else(|_| "{}".into())
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Walk every loaded vertical's memory namespace, collect every
+/// `worker_action` row, and reduce to "latest snapshot per
+/// `action_id`". When `vertical` is set, walk only that one.
+async fn collect_latest_actions(vertical: Option<&str>) -> ArgoResult<Vec<ActionRecord>> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
+    let store_arc = Arc::new(store);
+    let memory = MemoryStore::new(store_arc.clone());
+
+    // Build the list of verticals to walk. With --vertical, just
+    // that one; otherwise every loaded vertical.
+    let vertical_ids: Vec<String> = match vertical {
+        Some(v) => vec![v.to_string()],
+        None => {
+            let dir = resolve_verticals_dir();
+            let (registry, _errors) = argo_vertical::load_dir(&dir)?;
+            registry.list().map(|(id, _)| id.to_string()).collect()
+        }
+    };
+
+    let mut latest: HashMap<String, ActionRecord> = HashMap::new();
+    for vid in &vertical_ids {
+        let entries = memory
+            .list_for_vertical(workspace, MemoryFile::Memory, vid)
+            .await?;
+        for e in entries {
+            let Ok(rec) = serde_json::from_str::<ActionRecord>(&e.body) else {
+                continue;
+            };
+            if rec.schema_key != ActionRecord::SCHEMA_KEY {
+                continue;
+            }
+            // Latest-wins via created_at comparison.
+            match latest.get(&rec.action_id) {
+                Some(prev) if prev.created_at >= rec.created_at => {}
+                _ => {
+                    latest.insert(rec.action_id.clone(), rec);
+                }
+            }
+        }
+    }
+    Ok(latest.into_values().collect())
+}
+
+fn short(id: &str) -> String {
+    if id.len() > 24 {
+        format!("{}…", &id[..23])
+    } else {
+        id.to_string()
+    }
+}
+
+#[cfg(test)]
+#[path = "worker_actions_tests.rs"]
+mod tests;

@@ -97,5 +97,6 @@ pub mod work;
 mod work_artifacts;
 mod work_loop;
 mod work_steps;
+pub mod worker_actions;
 pub mod workspace;
 mod workspace_marketplace;

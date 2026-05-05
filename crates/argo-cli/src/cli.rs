@@ -22,9 +22,12 @@ mod cli_skill_review_cmds;
 pub(crate) mod cli_workspace_cmds;
 #[path = "cli_work_cmds.rs"]
 pub(crate) mod cli_work_cmds;
+#[path = "cli_worker_cmds.rs"]
+pub(crate) mod cli_worker_cmds;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
 pub use cli_work_cmds::WorkCmd;
+pub use cli_worker_cmds::WorkerCmd;
 
 use clap::{Parser, Subcommand};
 
@@ -120,6 +123,15 @@ pub enum Command {
     Work {
         #[command(subcommand)]
         cmd: WorkCmd,
+    },
+    /// Worker v3 execution-mode action ledger (#728). Inspect (and
+    /// in later PRs: approve / execute / complete) the actions
+    /// the worker has proposed. Distinct from `argo work` — this
+    /// surface is the noun (the worker's output), not the verb
+    /// (running the worker).
+    Worker {
+        #[command(subcommand)]
+        cmd: WorkerCmd,
     },
     Audit {
         #[command(subcommand)]
