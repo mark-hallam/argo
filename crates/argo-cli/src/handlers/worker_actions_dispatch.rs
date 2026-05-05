@@ -56,6 +56,7 @@ pub(crate) async fn approve(
     let by = default_approver(approved_by);
     let rec = worker_actions_transitions::approve(&memory, ws, action_id, &by, note).await?;
     print_record(&rec, json);
+    auto_refresh_ledger(&memory, ws).await;
     Ok(())
 }
 
@@ -97,6 +98,7 @@ pub(crate) async fn approve_batch(
             eprintln!("FAILED {id}: {err}");
         }
     }
+    auto_refresh_ledger(&memory, ws).await;
     if !failed.is_empty() {
         return Err(ArgoError::Provider(format!(
             "{}/{} approvals failed",
@@ -132,6 +134,7 @@ pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
         print_record(&rec, false);
         println!("  bundle       {}", bundle_path.display());
     }
+    auto_refresh_ledger(&memory, ws).await;
     Ok(())
 }
 
@@ -176,6 +179,7 @@ pub(crate) async fn complete(
     let rec =
         worker_actions_transitions::complete(&memory, ws, action_id, note, result_json).await?;
     print_record(&rec, json);
+    auto_refresh_ledger(&memory, ws).await;
     Ok(())
 }
 
@@ -183,6 +187,7 @@ pub(crate) async fn fail(action_id: &str, reason: &str, json: bool) -> ArgoResul
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     let rec = worker_actions_transitions::fail(&memory, ws, action_id, reason).await?;
     print_record(&rec, json);
+    auto_refresh_ledger(&memory, ws).await;
     Ok(())
 }
 
@@ -230,8 +235,37 @@ pub(crate) async fn status(action_id: &str, json: bool) -> ArgoResult<()> {
 /// `.skycot/`.
 pub(crate) async fn render(vertical: Option<&str>) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let counts = refresh_workspace_ledger(&memory, ws, vertical).await?;
+    println!(
+        "wrote {} (queue), {} (completed), {} (blocked) under {}",
+        counts.pending_approval,
+        counts.completed,
+        counts.blocked,
+        counts.dir.display(),
+    );
+    Ok(())
+}
+
+/// Counts surfaced by `refresh_workspace_ledger` so callers can
+/// log meaningful one-liners without re-walking the records.
+struct LedgerCounts {
+    pending_approval: usize,
+    completed: usize,
+    blocked: usize,
+    dir: std::path::PathBuf,
+}
+
+/// Re-render the workspace-level ledger files (approval_queue,
+/// completed_actions, blocked_actions). Used by both the
+/// explicit `render` CLI command and the auto-refresh hook
+/// that fires after every transition (#735).
+async fn refresh_workspace_ledger(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    vertical: Option<&str>,
+) -> ArgoResult<LedgerCounts> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
-    let records = collect_latest_actions(&memory, ws, vertical).await?;
+    let records = collect_latest_actions(memory, workspace, vertical).await?;
     let dir = cwd.join(".skycot");
     std::fs::create_dir_all(&dir)
         .map_err(|e| ArgoError::Provider(format!("create .skycot dir: {e}")))?;
@@ -241,17 +275,29 @@ pub(crate) async fn render(vertical: Option<&str>) -> ArgoResult<()> {
     write(&dir.join("approval_queue.md"), &queue)?;
     write(&dir.join("completed_actions.md"), &completed)?;
     write(&dir.join("blocked_actions.md"), &blocked)?;
-    println!(
-        "wrote {} (queue), {} (completed), {} (blocked) under {}",
-        records
+    Ok(LedgerCounts {
+        pending_approval: records
             .iter()
             .filter(|r| r.state == "pending" && r.requires_approval)
             .count(),
-        records.iter().filter(|r| r.state == "completed").count(),
-        records.iter().filter(|r| r.state == "blocked").count(),
-        dir.display(),
-    );
-    Ok(())
+        completed: records.iter().filter(|r| r.state == "completed").count(),
+        blocked: records.iter().filter(|r| r.state == "blocked").count(),
+        dir,
+    })
+}
+
+/// Auto-refresh hook fired after every successful transition so
+/// the operator's review surface (`.skycot/{approval_queue,
+/// completed_actions, blocked_actions}.md`) stays current
+/// without manual `argo worker actions render` calls (#735).
+///
+/// Failure is logged + swallowed — the transition itself already
+/// landed; the ledger files are a derived projection that can
+/// always be rebuilt from `argo worker actions render`.
+async fn auto_refresh_ledger(memory: &MemoryStore, workspace: WorkspaceId) {
+    if let Err(e) = refresh_workspace_ledger(memory, workspace, None).await {
+        eprintln!("argo worker: warning — workspace ledger auto-refresh failed: {e}");
+    }
 }
 
 fn write(path: &std::path::Path, body: &str) -> ArgoResult<()> {

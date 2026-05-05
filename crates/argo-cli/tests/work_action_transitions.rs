@@ -365,6 +365,61 @@ fn execute_renders_manifest_template_when_one_is_declared() {
 }
 
 #[test]
+fn approve_auto_refreshes_workspace_ledger_files() {
+    // Operators shouldn't have to remember to run
+    // `argo worker actions render` after every transition.
+    // #735 wires an auto-refresh into approve/execute/complete/
+    // fail so the 3 ledger files always reflect the latest
+    // ledger state.
+    let (home, work) = fresh_workspace_with_actions();
+    let rows = list_actions(home.path(), work.path());
+    let post = rows
+        .iter()
+        .find(|r| r["action_type"] == "post_listing")
+        .expect("post_listing row");
+    let post_id = post["action_id"].as_str().expect("post_id");
+    // post_listing landed `blocked` under mock evidence — so
+    // before any transition, blocked_actions.md doesn't exist
+    // (no render has fired yet).
+    let dir = work.path().join(".skycot");
+    assert!(
+        !dir.join("blocked_actions.md").exists(),
+        "auto-render must NOT have fired before any transition"
+    );
+
+    // Now run a transition (use verify_price → execute since
+    // it's the easiest transition and isn't blocked).
+    let verify = rows
+        .iter()
+        .find(|r| r["action_type"] == "verify_price")
+        .expect("verify_price row");
+    let verify_id = verify["action_id"].as_str().expect("verify_id");
+    let exec = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "execute", verify_id, "--json"],
+    );
+    assert!(exec.status.success());
+
+    // After the transition, all 3 ledger files exist (auto-
+    // refresh fired). The blocked file lists post_listing.
+    let blocked = std::fs::read_to_string(dir.join("blocked_actions.md"))
+        .expect("blocked_actions.md auto-rendered");
+    assert!(
+        blocked.contains(post_id),
+        "auto-rendered blocked_actions.md should contain {post_id}; got:\n{blocked}"
+    );
+    assert!(
+        dir.join("approval_queue.md").exists(),
+        "approval_queue.md should have auto-rendered"
+    );
+    assert!(
+        dir.join("completed_actions.md").exists(),
+        "completed_actions.md should have auto-rendered"
+    );
+}
+
+#[test]
 fn fail_records_reason_for_an_executing_action() {
     let (home, work) = fresh_workspace_with_actions();
     let rows = list_actions(home.path(), work.path());
