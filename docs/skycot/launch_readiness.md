@@ -4,8 +4,10 @@ A single-page summary of what's shipped, what's not, and the
 confidence level on each. The view that should be in front of
 you the day before first customer onboarding.
 
-Last updated after PRs #729–#743 (Worker v3 generic execution
-through to second vertical binding).
+Last updated after PRs #729–#759 (Worker v3 generic execution
+through to provider-keys docs, Prometheus metrics for the
+action ledger, retry policy, failure-modes reference, and the
+eval suite expansion across the cohort).
 
 ## Ready for first customer
 
@@ -34,7 +36,13 @@ bindings"), every literal requirement has shipped:
 | `argo work jobs list` — read-side queue     | High       | #742        | unit (pending/completed merge + filter) |
 | Cross-vertical isolation                    | High       | #741        | end-to-end integration: actions emitted under A invisible to B |
 | Second vertical binding (AI Receptionist)   | High       | #743        | manifest classification lock + lint-clean integration |
-| End-to-end smoke verification               | High       | #734, #740  | 13-check shell script |
+| Third vertical binding (Sales Follow-up)    | High       | #746        | manifest classification lock + lint-clean integration |
+| End-to-end smoke verification               | High       | #734, #740, #749 | 14-check shell script lint-cleans all 3 v3 verticals |
+| Retry policy w/ max_attempts + force        | High       | #755        | unit (count_retry_chain) + integration (force override) |
+| Canonical failure-modes reference           | High       | #756        | docs/skycot/failure_modes.md — 11 modes |
+| Prometheus + JSON metrics for action ledger | High       | #757        | unit (gather/dedupe/render) + gateway scrape |
+| Provider-keys + production secrets flow     | High       | #758        | docs/skycot/provider_keys.md — env / systemd / k8s / Vault |
+| Eval suite expansion across v3 cohort       | High       | #759        | structural CI lock for all 3 verticals (≥7 fixtures each) |
 
 **Approval-gate enforced in code (the headline safety primitive):**
 
@@ -49,8 +57,13 @@ bindings"), every literal requirement has shipped:
 - `docs/skycot/getting_started.md` — install → first action in 10 minutes.
 - `docs/skycot/demo_script.md` — 9-scene end-to-end walkthrough.
 - `docs/skycot/operator_runbook.md` — full CLI reference + troubleshooting.
+- `docs/skycot/failure_modes.md` — 11 failure modes with symptom / cause / recovery / prevention shape (#756).
+- `docs/skycot/provider_keys.md` — local-dev secrets flow + production patterns (env / systemd / k8s Secret / Vault) + key rotation + production launch checklist (#758).
+- `docs/skycot/CHANGELOG.md` — customer-facing release notes per SKYCOT version.
 - `examples/marketplace-seller/` — 8 sample prompts, hand-crafted artifact bundle, 6-decision-point operator flow.
-- `scripts/smoke-skycot.sh` — 12-check end-to-end install verification (mock provider; no API keys).
+- `examples/ai-receptionist/` — 6 inbound triage prompts + sample bundle.
+- `examples/sales-follow-up/` — 5 lead scenarios + sample research / draft / approval checklist.
+- `scripts/smoke-skycot.sh` — 14-check end-to-end install verification (mock provider; no API keys).
 
 ## Vertical bindings shipped
 
@@ -89,57 +102,76 @@ TOML-and-prompt-only.
 | OCI registry CI smoke                   | Needs test creds                                                | Decision-gated, not blocked.                      |
 | Cloud browser backends (Browserbase)    | User-pays                                                       | Optional; per-customer decision.                  |
 | Multi-vertical deployment isolation hardening | Memory rows are scoped per-vertical but no explicit cross-vertical RBAC | Add when first multi-tenant customer lands.   |
-| Prometheus metrics for action ledger    | /metrics endpoint exists; action transitions don't publish yet | Wire into existing gateway/metrics.rs.            |
+| Per-tenant spend caps (auto-throttle at $X/hour) | `/metrics` exposes `argo_spend_usd_micros_total`; no in-process budget primitive yet | Operator monitors via `/metrics` + alerts; budget primitive is a v1.x add. |
 | `argo skycot init` convenience command  | Operators run 4 commands today (init / add / serve / list)      | Quality-of-life; not blocking.                    |
 | TUI overlay for the action ledger       | TUI exists with 10 overlays; actions overlay TBD                | Quality-of-life; not blocking.                    |
-| Vertical bindings beyond gtm-engineer   | AI Receptionist, Sales Follow-up, Support Triage manifests TBD | Per-customer; vertical authoring is data-only.    |
+| Live-LLM eval scoring per vertical      | Structural eval suites land in #759; populating actuals against a real provider is a manual / per-customer task | Operator runs `argo vertical eval --score` after `--actuals` is wired. |
 
 ## Pre-launch checklist
 
 Before the first paying customer:
 
-- [ ] **Provider key sourcing** — operator must configure
-      `argo setup` with their own Anthropic / OpenAI key.
-      SKYCOT will not bring its own.
-- [ ] **Vertical lint clean** — run `argo vertical lint <id>`
+- [ ] **Provider keys wired per `provider_keys.md`** — operator
+      configured `argo setup` (local) or env vars / k8s Secret
+      / systemd unit / Vault wrapper (production). Both
+      `ANTHROPIC_API_KEY` AND the fallback provider key
+      (`OPENAI_API_KEY` by default) are loadable from the
+      worker's process environment.
+- [ ] **`argo setup --check` passes** against the production env.
+- [ ] **Vertical lint clean** — `argo vertical lint <id>`
       against any custom verticals; fix warnings before they
       cause runtime confusion.
 - [ ] **Smoke script passes** — `./scripts/smoke-skycot.sh`
-      after install. 12 checks cover the operator surface.
+      after install. 14 checks cover the operator surface +
+      lint-clean across all 3 Worker v3 verticals.
 - [ ] **Doctor confirms healthy** — `argo worker doctor`
       shows expected vertical loaded + zero unexpected
       failures or blocked rows in the ledger.
 - [ ] **Read the demo script** — `docs/skycot/demo_script.md`
       walks the operator through a real run end-to-end before
       they touch their own data.
+- [ ] **Read `failure_modes.md`** — 11 modes with recovery
+      procedures so the operator isn't ad-libbing under
+      pressure.
 - [ ] **Approval gate test** — confirm in your own workspace
       that `argo worker actions execute` refuses an
       approval-gated action without `approve` first. The
       smoke script does this; verify locally too.
+- [ ] **At least one non-mock smoke job** ran end-to-end and
+      `completed_jobs.stop_reason` was NOT `need_info`.
+- [ ] **Key rotation procedure tested at least once** —
+      planned restart with the rotation runbook in
+      `provider_keys.md` § Key rotation.
+- [ ] **`/metrics` is being scraped** + an alert threshold on
+      `argo_spend_usd_micros_total` is configured.
 
 ## CI status
 
 Local verification across the worker stack:
 
-- 80+ unit tests under `crates/argo-cli/src/handlers/{worker_actions*, worker_doctor, work_jobs}` and the `worker_actions_*` sibling test files.
-- 14+ integration tests under `crates/argo-cli/tests/{work_action_*, vertical_ai_receptionist, vertical_sales_follow_up}`.
+- 80+ unit tests under `crates/argo-cli/src/handlers/{worker_actions*, worker_doctor, work_jobs, gateway/metrics_actions}` and the `worker_actions_*` sibling test files.
+- 14+ integration tests under `crates/argo-cli/tests/{work_action_*, vertical_ai_receptionist, vertical_sales_follow_up, vertical_eval}` including the cohort-wide `cli_eval_worker_v3_verticals_real_assets_pass` lock.
 - All authored files under the 500-LOC budget.
-- `cargo fmt --all` + `cargo clippy --workspace --all-targets -- -D warnings` clean.
+- `cargo clippy --workspace --all-targets -- -D warnings` clean.
 - `cargo test --workspace` exit 0 (modulo the pre-existing OCI port-binding flake which is documented in `MEMORY.md`).
 - `./scripts/smoke-skycot.sh` 14-check end-to-end pass — covers full operator flow + lint-clean across all 3 Worker v3 verticals.
 
-Remote CI billing on the GitHub Actions side may be intermittently blocked — every PR's actual code is verified locally before merge.
+Remote CI billing on the GitHub Actions side is intermittently blocked at the account level; every PR's code is verified locally before merge as a matter of policy.
 
 ## Confidence summary
 
-> **The OS layer is launch-ready for both shipped verticals
-> (marketplace seller + AI receptionist) and any new vertical
-> authored by TOML+prompt only.** The safety primitives that
-> matter (approval gating, evidence gating, undeclared-action
-> rejection, manifest-canonical classification, **cross-vertical
-> isolation**) are enforced in code, not prompts, and locked
-> in regression tests. The operator surface (CLI + artifact
-> bundles + workspace ledger files + doctor + smoke script +
-> `work jobs` queue view) is coherent and documented. The
-> launch path is gated only on what third-party integrations
-> the customer wants — none of those are in v1's contract.
+> **The OS layer is launch-ready for all three shipped verticals
+> (marketplace seller, AI receptionist, sales follow-up) and
+> any new vertical authored by TOML+prompt only.** The safety
+> primitives that matter (approval gating, evidence gating,
+> undeclared-action rejection, manifest-canonical classification,
+> retry-policy enforcement, **cross-vertical isolation**) are
+> enforced in code, not prompts, and locked in regression tests.
+> The operator surface is coherent and documented end-to-end:
+> CLI + artifact bundles + workspace ledger files + `worker
+> doctor` + smoke script + `work jobs` queue view +
+> `provider_keys.md` for the secrets pipeline + `failure_modes.md`
+> for runbook recovery + Prometheus / JSON metrics for the
+> action ledger. The launch path is gated only on what
+> third-party integrations the customer wants — none of those
+> are in v1's contract.
