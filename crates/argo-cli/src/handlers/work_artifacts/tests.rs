@@ -232,7 +232,10 @@ async fn write_artifacts_blocks_bundle_on_zero_evidence_research() {
         stop_reason: "approval_required",
         stop_detail: "",
     };
-    let dir = write_artifacts(&store, cwd.path(), &inputs).await.unwrap();
+    let dir = write_artifacts(&store, cwd.path(), &inputs)
+        .await
+        .unwrap()
+        .output_dir;
 
     // Issue 1 acceptance: step-1 pricing survived even though
     // step-2 didn't re-emit it.
@@ -333,7 +336,10 @@ async fn write_artifacts_does_not_block_bundle_when_evidence_is_sufficient() {
         stop_reason: "approval_required",
         stop_detail: "",
     };
-    let dir = write_artifacts(&store, cwd.path(), &inputs).await.unwrap();
+    let dir = write_artifacts(&store, cwd.path(), &inputs)
+        .await
+        .unwrap()
+        .output_dir;
 
     let approval = std::fs::read_to_string(dir.join("approval_checklist.md")).unwrap();
     assert!(!approval.contains("BLOCKED"));

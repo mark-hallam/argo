@@ -194,6 +194,19 @@ pub(crate) struct ActionRecord {
     #[serde(default)]
     pub item_id: Option<String>,
     pub action_type: String,
+    /// `low` / `medium` / `high` — stamped from the bound
+    /// vertical's `[actions.<name>].risk` declaration at
+    /// emission time (#729). The model can't override this.
+    /// Default is `low` for compatibility with action rows
+    /// written before this field existed.
+    #[serde(default = "default_risk")]
+    pub risk_level: String,
+    /// Stamped from the bound vertical's
+    /// `[actions.<name>].requires_approval` at emission time.
+    /// The model can't override this. Default `false` for
+    /// pre-#729 rows.
+    #[serde(default)]
+    pub requires_approval: bool,
     pub state: String,
     pub payload: Value,
     #[serde(default)]
@@ -215,6 +228,10 @@ pub(crate) struct ActionRecord {
 
 impl ActionRecord {
     pub(crate) const SCHEMA_KEY: &'static str = "worker_action";
+}
+
+fn default_risk() -> String {
+    "low".to_string()
 }
 
 // ───────────────────────── CLI ───────────────────────────

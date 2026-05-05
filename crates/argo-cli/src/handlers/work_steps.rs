@@ -65,6 +65,12 @@ pub(crate) async fn run_mock_step(
          ## pricing\n_(mock: pricing stub)_\n\n\
          ## listings\n_(mock: listings stub)_\n\n\
          ## approval_checklist\n- [ ] human review (mock placeholder)\n\n\
+         ```action\n\
+         {{\"action_type\": \"verify_price\", \"payload\": {{\"target\": 0}}}}\n\
+         ```\n\n\
+         ```action\n\
+         {{\"action_type\": \"post_listing\", \"payload\": {{\"title\": \"mock\"}}}}\n\
+         ```\n\n\
          [STOP: TASK_COMPLETE]\n",
         Utc::now().to_rfc3339(),
     );
@@ -259,7 +265,7 @@ pub(crate) async fn record_research_unavailable(
         stop_detail: &detail,
     };
     let output_dir = match work_artifacts::write_artifacts(store, &cwd, &inputs).await {
-        Ok(p) => Some(p.to_string_lossy().to_string()),
+        Ok(a) => Some(a.output_dir.to_string_lossy().to_string()),
         Err(e) => {
             eprintln!("argo work: warning — output artifacts not written: {e}");
             None

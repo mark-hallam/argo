@@ -60,6 +60,27 @@ pub(crate) struct ArtifactInputs<'a> {
     pub stop_detail: &'a str,
 }
 
+/// What `write_artifacts` returns to `process_job` so the
+/// caller can drive #729 action emission off the same data this
+/// function already walked. Bundling the 3 pieces (path,
+/// evidence-sufficient verdict, every assistant turn's text)
+/// avoids `process_job` re-fetching messages + re-running the
+/// evidence detector after artifacts are written.
+pub(crate) struct ArtifactOutput {
+    pub output_dir: PathBuf,
+    /// Whether the research-evidence gate (#727) passed —
+    /// `process_job` (#729) feeds this into
+    /// `worker_actions_emit::emit_actions_from_text` so an
+    /// approval-gated emission on top of weak research is
+    /// downgraded to `state = "blocked"`.
+    pub evidence_sufficient: bool,
+    /// The text-only content of every assistant message in the
+    /// session, in document order. Empty turns are dropped. The
+    /// emission orchestrator scans each one for ` ```action `
+    /// fenced JSON blocks.
+    pub assistant_texts: Vec<String>,
+}
+
 /// Materialise the `.skycot/outputs/<job_id>/` directory and
 /// return its absolute path. Caller stores that path in the
 /// `completed_jobs` memory entry so downstream tooling can
@@ -68,7 +89,7 @@ pub(crate) async fn write_artifacts(
     store: &Arc<SessionStore>,
     cwd: &Path,
     inputs: &ArtifactInputs<'_>,
-) -> ArgoResult<PathBuf> {
+) -> ArgoResult<ArtifactOutput> {
     let output_dir = cwd
         .join(".skycot")
         .join("outputs")
@@ -193,7 +214,12 @@ pub(crate) async fn write_artifacts(
         &output_dir.join("result.json"),
         &serde_json::to_string_pretty(&result).unwrap_or_default(),
     )?;
-    Ok(output_dir)
+    let evidence_sufficient = ev.is_sufficient();
+    Ok(ArtifactOutput {
+        output_dir,
+        evidence_sufficient,
+        assistant_texts,
+    })
 }
 
 /// The four labelled sections we expect the multi-step worker

@@ -93,13 +93,13 @@ pub use eval_score_judge::{
 pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};
 pub use manifest::{
-    parse, EscalationSection, EvaluationSection, GatewaySection, MemorySection, ProviderSection,
-    RoleSection, SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection,
-    VerticalIdentity, VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
+    parse, ActionDeclaration, ActionRiskLevel, ActionsSection, EscalationSection,
+    EvaluationSection, GatewaySection, MemorySection, ProviderSection, RoleSection, SkillsSection,
+    SuccessMetricsSection, ToolsSection, TuiSection, VerticalIdentity, VerticalManifest,
+    WorkflowsSection, SCHEMA_VERSION,
 };
 pub use memory_schema::{
-    parse_memory_schema, validate_memory_schema, MemoryEntry, MemorySchema,
-    MEMORY_SCHEMA_VERSION,
+    parse_memory_schema, validate_memory_schema, MemoryEntry, MemorySchema, MEMORY_SCHEMA_VERSION,
 };
 pub use registry::{LoadedVertical, Registry};
 pub use validator::validate;

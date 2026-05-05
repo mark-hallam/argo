@@ -345,12 +345,34 @@ async fn process_job(
         stop_reason: &stop_reason_str,
         stop_detail: &stop_detail_str,
     };
-    let output_dir = match super::work_artifacts::write_artifacts(store, &cwd, &inputs).await {
-        Ok(p) => Some(p.to_string_lossy().to_string()),
+    let artifact = match super::work_artifacts::write_artifacts(store, &cwd, &inputs).await {
+        Ok(a) => Some(a),
         Err(e) => {
             eprintln!("argo work: warning — output artifacts not written: {e}");
             None
         }
+    };
+    let output_dir = artifact
+        .as_ref()
+        .map(|a| a.output_dir.to_string_lossy().to_string());
+
+    // #729 — emit actions from every assistant turn's text and
+    // persist each as a `worker_action` memory row + render
+    // execution_plan.md alongside the artifact bundle. Failure
+    // to persist a single action is logged but doesn't tank the
+    // job — the bundle on disk plus the completed_jobs memory
+    // entry stay authoritative either way.
+    let actions_emitted = if let Some(art) = artifact.as_ref() {
+        super::work_emission::emit_and_persist_actions(
+            memory,
+            workspace,
+            vertical_id,
+            &job.id.to_string(),
+            art,
+        )
+        .await
+    } else {
+        0
     };
 
     let mut completed_body = json!({
@@ -369,6 +391,7 @@ async fn process_job(
     if let Some(dir) = &output_dir {
         completed_body["output_dir"] = json!(dir);
     }
+    completed_body["actions_emitted"] = json!(actions_emitted);
     memory
         .append_for_vertical(
             workspace,
@@ -390,16 +413,18 @@ async fn process_job(
             "steps_completed": outcome.steps_completed,
             "stop_reason": stop_reason_str,
             "stop_detail": stop_detail_str,
+            "actions_emitted": actions_emitted,
         });
         println!("{}", serde_json::to_string(&out).unwrap_or_default());
     } else {
         println!(
-            "processed job {} → session {} → {} chars (steps={}, stop_reason={})",
+            "processed job {} → session {} → {} chars (steps={}, stop_reason={}, actions_emitted={})",
             job.id,
             session_id.0,
             assistant_text.len(),
             outcome.steps_completed,
             stop_reason_str,
+            actions_emitted,
         );
     }
     Ok(())
@@ -454,3 +479,4 @@ fn validate_vertical(vertical_id: &str) -> ArgoResult<()> {
     }
     Ok(())
 }
+

@@ -201,3 +201,49 @@ worker's artifact splitter can write each as its own file:
 Cite sources with URLs whenever you use a fact you didn't
 already know. Empty sections are fine — the splitter writes a
 clear placeholder rather than a fabricated stub.
+
+## Action emission (#729 — execution mode)
+
+When this vertical's manifest declares an `[actions]` section,
+you can propose specific concrete actions for the operator's
+ledger by emitting one or more fenced `action` blocks containing
+JSON. Each block lands as one row in the action ledger; the
+operator approves and executes from there.
+
+Use this ONLY for actions the manifest declares. Undeclared
+`action_type`s land `blocked` with an "no capability grant"
+reason — the OS won't pretend you had authorisation you didn't.
+
+Block format:
+
+```action
+{
+  "action_type": "<must match a name from [actions] in vertical.toml>",
+  "payload": { /* action-shaped fields, free-form */ },
+  "platform": "facebook_marketplace",   /* optional */
+  "item_id":  "skates-110",             /* optional */
+  "evidence": ["https://..."]            /* optional, source URLs */
+}
+```
+
+Rules:
+
+- `action_type` MUST match a key under `[actions.*]` in the
+  vertical manifest. Anything else lands `blocked`.
+- `payload` is required (use `{}` for empty). Free-form JSON.
+- The OS stamps `risk_level` and `requires_approval` from the
+  manifest declaration onto every persisted row — you cannot
+  override these.
+- Approval-gated emissions land `pending` only when the research
+  evidence threshold passes. If web_search returned zero results
+  or web_extract gave less than 200 chars total, approval-gated
+  actions are downgraded to `blocked` automatically — do not
+  attempt to "claim approval-readiness" on top of weak research.
+- Safe-autonomous emissions are NOT downgraded by the evidence
+  gate (a price-verification action is fine to queue regardless
+  of search hits).
+- Multiple `action` blocks per assistant message are fine.
+- A `Blocked` section in the approval checklist must
+  correspond to actions you do NOT emit. If the operator should
+  do something themselves, describe it in prose; don't emit a
+  ledger row for it.

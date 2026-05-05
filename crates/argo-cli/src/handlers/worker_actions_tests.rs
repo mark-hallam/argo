@@ -6,6 +6,9 @@
 //! mod tests;` at the bottom of `worker_actions.rs`.
 
 use super::*;
+use crate::handlers::worker_actions_emit::{
+    build_emission, classify_for_emission, ActionEmissionInputs, ApprovalCategory,
+};
 
 #[test]
 fn action_state_round_trips_through_string() {
@@ -112,6 +115,8 @@ fn action_record_round_trips_through_json_with_defaults() {
         job_id: "019df-job".into(),
         item_id: Some("skates-110mm".into()),
         action_type: ActionType::CreateListingDraft.as_str().into(),
+        risk_level: "low".into(),
+        requires_approval: false,
         state: ActionState::Pending.as_str().into(),
         payload: serde_json::json!({"title":"Pro Skates","body":"..."}),
         approved_by: None,
@@ -150,4 +155,239 @@ fn short_truncates_long_action_ids() {
         24
     );
     assert_eq!(short("short"), "short");
+}
+
+// ─────────────────── #729 emitter tests ────────────────────
+
+/// Synthetic vertical for the emitter tests. Mirrors the
+/// gtm-engineer manifest's safety boundary at small scale.
+fn synthetic_vertical() -> argo_vertical::VerticalManifest {
+    let toml = r#"
+schema_version = "1"
+
+[vertical]
+id          = "syn"
+name        = "Synthetic"
+description = "Test fixture for the action emitter."
+version     = "0.0.1"
+
+[actions]
+
+[actions.verify_price]
+risk              = "low"
+requires_approval = false
+description       = "Cross-check price."
+executor          = "human"
+
+[actions.post_listing]
+risk              = "medium"
+requires_approval = true
+description       = "Public marketplace post."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay"]
+
+[actions.reply_to_buyer]
+risk              = "high"
+requires_approval = true
+description       = "Touches another human."
+executor          = "human"
+"#;
+    argo_vertical::parse(toml).expect("manifest parses")
+}
+
+#[test]
+fn classify_for_emission_returns_safe_autonomous_for_low_no_approval() {
+    let v = synthetic_vertical();
+    assert_eq!(
+        classify_for_emission(&v, "verify_price"),
+        ApprovalCategory::SafeAutonomous,
+    );
+}
+
+#[test]
+fn classify_for_emission_returns_approval_for_required_action() {
+    let v = synthetic_vertical();
+    assert_eq!(
+        classify_for_emission(&v, "post_listing"),
+        ApprovalCategory::Approval,
+    );
+    assert_eq!(
+        classify_for_emission(&v, "reply_to_buyer"),
+        ApprovalCategory::Approval,
+    );
+}
+
+/// Locks the SKYCOT safety contract: an action_type the
+/// vertical hasn't declared MUST NOT autonomously execute. The
+/// emitter persists it as `blocked` so the operator sees the
+/// rejection in the ledger rather than nothing.
+#[test]
+fn classify_for_emission_returns_forbidden_for_undeclared_action_type() {
+    let v = synthetic_vertical();
+    assert_eq!(
+        classify_for_emission(&v, "post_to_tiktok"),
+        ApprovalCategory::Forbidden,
+    );
+    assert_eq!(
+        classify_for_emission(&v, "drain_bank_account"),
+        ApprovalCategory::Forbidden,
+    );
+}
+
+#[test]
+fn classify_for_emission_returns_forbidden_when_no_actions_section_declared() {
+    // v2-style vertical (no [actions] section) — emission is opt-in.
+    // Every emission against such a vertical is forbidden until the
+    // operator declares the vocabulary.
+    let toml = r#"
+schema_version = "1"
+
+[vertical]
+id      = "v2-style"
+name    = "v2 style"
+version = "0.0.1"
+"#;
+    let v = argo_vertical::parse(toml).expect("parses");
+    assert_eq!(
+        classify_for_emission(&v, "verify_price"),
+        ApprovalCategory::Forbidden,
+    );
+}
+
+/// `build_emission` stamps `risk_level` + `requires_approval`
+/// from the manifest. The model can't override either field
+/// because they're not even read from the inputs — they're
+/// looked up from the vertical declaration.
+#[test]
+fn build_emission_stamps_risk_and_requires_approval_from_manifest() {
+    let v = synthetic_vertical();
+    let inputs = ActionEmissionInputs {
+        vertical: &v,
+        job_id: "job-1",
+        action_type: "post_listing",
+        payload: serde_json::json!({"title": "x"}),
+        item_id: Some("item-1"),
+        platform: Some("facebook_marketplace"),
+        evidence: vec!["https://example.com/1".into()],
+    };
+    let rec = build_emission(&inputs);
+    assert_eq!(rec.action_type, "post_listing");
+    assert_eq!(rec.state, "pending");
+    assert_eq!(rec.risk_level, "medium");
+    assert!(rec.requires_approval);
+    assert_eq!(rec.platform.as_deref(), Some("facebook_marketplace"));
+    assert_eq!(rec.item_id.as_deref(), Some("item-1"));
+    assert_eq!(rec.evidence.len(), 1);
+    assert!(rec.blocked_reason.is_none());
+}
+
+#[test]
+fn build_emission_for_safe_autonomous_lands_pending_low_no_approval() {
+    let v = synthetic_vertical();
+    let inputs = ActionEmissionInputs {
+        vertical: &v,
+        job_id: "job-1",
+        action_type: "verify_price",
+        payload: serde_json::json!({"target": 250}),
+        item_id: None,
+        platform: None,
+        evidence: vec![],
+    };
+    let rec = build_emission(&inputs);
+    assert_eq!(rec.state, "pending");
+    assert_eq!(rec.risk_level, "low");
+    assert!(!rec.requires_approval);
+    assert!(rec.blocked_reason.is_none());
+}
+
+#[test]
+fn build_emission_for_high_risk_action_stamps_high_and_requires_approval() {
+    let v = synthetic_vertical();
+    let inputs = ActionEmissionInputs {
+        vertical: &v,
+        job_id: "job-1",
+        action_type: "reply_to_buyer",
+        payload: serde_json::json!({"message": "hi"}),
+        item_id: None,
+        platform: None,
+        evidence: vec![],
+    };
+    let rec = build_emission(&inputs);
+    assert_eq!(rec.risk_level, "high");
+    assert!(rec.requires_approval);
+}
+
+/// Locks the boundary at the persistence layer. An emission
+/// for an undeclared action_type lands as `blocked`, with
+/// `blocked_reason` naming the gap. The OS NEVER persists a
+/// pending row for an undeclared action.
+#[test]
+fn build_emission_for_undeclared_action_lands_blocked_with_reason() {
+    let v = synthetic_vertical();
+    let inputs = ActionEmissionInputs {
+        vertical: &v,
+        job_id: "job-1",
+        action_type: "drain_bank_account",
+        payload: serde_json::json!({"amount": 99999}),
+        item_id: None,
+        platform: None,
+        evidence: vec![],
+    };
+    let rec = build_emission(&inputs);
+    assert_eq!(rec.state, "blocked");
+    assert!(!rec.requires_approval);
+    let reason = rec.blocked_reason.expect("blocked_reason populated");
+    assert!(
+        reason.contains("drain_bank_account") && reason.contains("syn"),
+        "blocked_reason must name the rejected action AND the vertical; got: {reason}"
+    );
+}
+
+/// Locks that the production gtm-engineer manifest (the one
+/// the worker actually loads) declares the autonomous-safe
+/// action types correctly. A regression here would let the
+/// worker accidentally require approval for `verify_price` —
+/// or, worse, autonomously fire `post_listing`.
+#[test]
+fn gtm_engineer_manifest_declares_expected_action_classification() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("verticals");
+    let (registry, errors) = argo_vertical::load_dir(&dir).expect("load verticals dir");
+    assert!(errors.is_empty(), "loader produced errors: {errors:?}");
+    let v = registry.get("gtm-engineer").expect("gtm-engineer present");
+    let manifest = &v.manifest;
+
+    // Autonomous-safe set:
+    for safe in ["create_listing_draft", "verify_price", "request_photos"] {
+        assert_eq!(
+            classify_for_emission(manifest, safe),
+            ApprovalCategory::SafeAutonomous,
+            "{safe} must be SafeAutonomous in the production gtm-engineer manifest"
+        );
+    }
+    // Approval-gated set (the one that touches money / public surfaces / buyers):
+    for gated in [
+        "post_listing",
+        "boost_listing",
+        "reply_to_buyer",
+        "follow_up_buyer",
+        "mark_item_sold",
+        "update_price",
+        "relist_item",
+    ] {
+        assert_eq!(
+            classify_for_emission(manifest, gated),
+            ApprovalCategory::Approval,
+            "{gated} must be Approval-gated in the production gtm-engineer manifest"
+        );
+    }
+    // Anything not declared is forbidden:
+    assert_eq!(
+        classify_for_emission(manifest, "post_to_tiktok"),
+        ApprovalCategory::Forbidden,
+    );
 }

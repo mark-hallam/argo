@@ -88,3 +88,99 @@ auth_required    = true
 
 [tui]
 overlay_label = "GTM Engineer"
+
+# ─────────────────────────── Worker v3 actions (#729)
+#
+# Action vocabulary the GTM Engineer can emit while running a
+# job. The OS reads this section at action-emission time and
+# stamps `requires_approval` + `risk_level` on every persisted
+# `worker_action` row — the model can't override these. See
+# `docs/design/worker_v3_execution.md` §5 for the design.
+#
+# Three categories per the SKYCOT safety boundary:
+#   * autonomous-safe (risk = low, requires_approval = false)
+#   * approval-gated  (requires_approval = true)
+#   * forbidden       (not declared here at all)
+#
+# `executor = "human"` for every action in v1 — the worker
+# produces a ready-to-paste artifact bundle and the operator
+# runs it manually. Later (#733+) some of these will gain a
+# `browser_mcp` or per-platform `api` executor without
+# changing the action's name or payload shape.
+
+[actions]
+
+# Autonomous-safe — worker may execute without operator approval.
+
+[actions.create_listing_draft]
+risk              = "low"
+requires_approval = false
+description       = "Draft a marketplace listing (title + body + tags) without posting it."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+[actions.verify_price]
+risk              = "low"
+requires_approval = false
+description       = "Cross-check a proposed price against live retail / comp data via web_search + web_extract."
+executor          = "human"
+
+[actions.request_photos]
+risk              = "low"
+requires_approval = false
+description       = "Produce a list of photos the operator must supply before listing can post."
+executor          = "human"
+
+# Approval-gated — touches money / public surfaces / buyers.
+# Worker may emit these as `pending` but cannot execute them
+# without an explicit `argo worker actions approve` from the
+# operator.
+
+[actions.post_listing]
+risk              = "medium"
+requires_approval = true
+description       = "Post a previously-drafted listing to a marketplace platform. Reversible (delete) but public."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+[actions.boost_listing]
+risk              = "medium"
+requires_approval = true
+description       = "Pay to boost an existing listing's visibility. Spends operator funds."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay"]
+
+[actions.update_price]
+risk              = "medium"
+requires_approval = true
+description       = "Change the public price on a posted listing."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+[actions.relist_item]
+risk              = "medium"
+requires_approval = true
+description       = "Re-post an expired or removed listing. Public, reversible."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+[actions.mark_item_sold]
+risk              = "medium"
+requires_approval = true
+description       = "Mark an item sold on a platform — closes the listing to further offers."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+[actions.reply_to_buyer]
+risk              = "high"
+requires_approval = true
+description       = "Send a reply to a buyer's message. Touches another human; not reversible."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+[actions.follow_up_buyer]
+risk              = "high"
+requires_approval = true
+description       = "Send a follow-up to a buyer who didn't respond to a prior message."
+executor          = "human"
+platforms         = ["facebook_marketplace", "ebay", "gumtree"]
