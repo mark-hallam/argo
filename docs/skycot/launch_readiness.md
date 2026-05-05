@@ -37,7 +37,7 @@ bindings"), every literal requirement has shipped:
 | Cross-vertical isolation                    | High       | #741        | end-to-end integration: actions emitted under A invisible to B |
 | Second vertical binding (AI Receptionist)   | High       | #743        | manifest classification lock + lint-clean integration |
 | Third vertical binding (Sales Follow-up)    | High       | #746        | manifest classification lock + lint-clean integration |
-| End-to-end smoke verification               | High       | #734, #740, #749 | 14-check shell script lint-cleans all 3 v3 verticals |
+| End-to-end smoke verification               | High       | #734, #740, #749 | 17-check shell script: lint + eval + setup --check all 3 v3 verticals |
 | Retry policy w/ max_attempts + force        | High       | #755        | unit (count_retry_chain) + integration (force override) |
 | Canonical failure-modes reference           | High       | #756        | docs/skycot/failure_modes.md — 11 modes |
 | Prometheus + JSON metrics for action ledger | High       | #757        | unit (gather/dedupe/render) + gateway scrape |
@@ -63,7 +63,7 @@ bindings"), every literal requirement has shipped:
 - `examples/marketplace-seller/` — 8 sample prompts, hand-crafted artifact bundle, 6-decision-point operator flow.
 - `examples/ai-receptionist/` — 6 inbound triage prompts + sample bundle.
 - `examples/sales-follow-up/` — 5 lead scenarios + sample research / draft / approval checklist.
-- `scripts/smoke-skycot.sh` — 14-check end-to-end install verification (mock provider; no API keys).
+- `scripts/smoke-skycot.sh` — 17-check end-to-end install verification (mock provider; no API keys).
 
 ## Vertical bindings shipped
 
@@ -122,7 +122,7 @@ Before the first paying customer:
       against any custom verticals; fix warnings before they
       cause runtime confusion.
 - [ ] **Smoke script passes** — `./scripts/smoke-skycot.sh`
-      after install. 14 checks cover the operator surface +
+      after install. 17 checks cover the operator surface +
       lint-clean across all 3 Worker v3 verticals.
 - [ ] **Doctor confirms healthy** — `argo worker doctor`
       shows expected vertical loaded + zero unexpected
@@ -154,7 +154,7 @@ Local verification across the worker stack:
 - All authored files under the 500-LOC budget.
 - `cargo clippy --workspace --all-targets -- -D warnings` clean.
 - `cargo test --workspace` exit 0 (modulo the pre-existing OCI port-binding flake which is documented in `MEMORY.md`).
-- `./scripts/smoke-skycot.sh` 14-check end-to-end pass — covers full operator flow + lint-clean across all 3 Worker v3 verticals.
+- `./scripts/smoke-skycot.sh` 17-check end-to-end pass — covers full operator flow + lint-clean across all 3 Worker v3 verticals.
 
 Remote CI billing on the GitHub Actions side is intermittently blocked at the account level; every PR's code is verified locally before merge as a matter of policy.
 

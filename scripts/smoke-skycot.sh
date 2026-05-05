@@ -172,6 +172,45 @@ for vid in gtm-engineer ai-receptionist sales-follow-up; do
 done
 ok "all 3 Worker v3 verticals lint clean"
 
+heading "15. all shipped action-emitting verticals have valid eval suites"
+# Cohort-wide structural lock for the eval fixtures landed in
+# #759. A future "rip out fixtures" change has to either fix the
+# manifest or trip this check.
+for vid in gtm-engineer ai-receptionist sales-follow-up; do
+  eval_out=$("$ARGO_BIN" vertical eval "$vid" --json 2>&1) || fail "eval $vid" "$eval_out"
+  echo "$eval_out" | grep -qE '"ok"[[:space:]]*:[[:space:]]*true' || fail "$vid eval reported errors" "$eval_out"
+  total=$(echo "$eval_out" | grep -oE '"fixture_count":[0-9]+' | awk -F: '{s += $2} END {print s+0}')
+  [[ "$total" -ge 5 ]] || fail "$vid: expected ≥5 eval fixtures, got $total" "$eval_out"
+done
+ok "all 3 Worker v3 verticals carry structurally valid eval suites"
+
+heading "16. argo setup --check reports FAIL with no provider keys"
+# Locks the launch-checklist contract from #761: with NO
+# provider env vars exported, --check must exit non-zero and
+# emit a [FAIL] marker on stderr. The launch checklist relies
+# on this to surface a missing-key gap loudly.
+check_no_keys=$(env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY -u GEMINI_API_KEY \
+  -u AWS_ACCESS_KEY_ID -u ELEVENLABS_API_KEY \
+  "$ARGO_BIN" setup --check 2>&1)
+check_no_keys_exit=$?
+[[ $check_no_keys_exit -ne 0 ]] || fail "setup --check should fail with no provider keys" "$check_no_keys"
+echo "$check_no_keys" | grep -q "\[FAIL\]" || fail "setup --check stderr missing [FAIL] marker" "$check_no_keys"
+ok "setup --check FAIL path verified"
+
+heading "17. argo setup --check reports OK with at least one provider key"
+# Inverse of #16: with ANTHROPIC_API_KEY set (any non-empty
+# value), --check must exit 0 and emit [ok]. Locks the
+# happy-path contract.
+check_with_key=$(env -u OPENAI_API_KEY -u GEMINI_API_KEY \
+  -u AWS_ACCESS_KEY_ID -u ELEVENLABS_API_KEY \
+  ANTHROPIC_API_KEY="sk-ant-smoke-only-not-real" \
+  "$ARGO_BIN" setup --check 2>&1)
+check_with_key_exit=$?
+[[ $check_with_key_exit -eq 0 ]] || fail "setup --check should pass with ANTHROPIC_API_KEY set" "$check_with_key"
+echo "$check_with_key" | grep -q "\[ok\]" || fail "setup --check stdout missing [ok] marker" "$check_with_key"
+echo "$check_with_key" | grep -q "ANTHROPIC_API_KEY" || fail "setup --check stdout missing detected key name" "$check_with_key"
+ok "setup --check OK path verified"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"

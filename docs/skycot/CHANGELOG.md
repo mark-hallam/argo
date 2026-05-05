@@ -198,6 +198,16 @@ full table. Headlines:
   documenting the rule keys + the cohort's structural
   coverage. (#759)
 
+### Added — Smoke script extensions
+
+- `./scripts/smoke-skycot.sh` grows from 14 → 17 checks.
+- Check #15: every Worker v3 vertical's eval suite passes
+  `argo vertical eval --json` and carries ≥5 fixtures.
+- Check #16: `argo setup --check` exits non-zero with a
+  `[FAIL]` marker when no provider env vars are exported.
+- Check #17: `argo setup --check` exits zero with `[ok]`
+  when ANTHROPIC_API_KEY is set. (#762)
+
 ### Added — `argo setup --check` for launch checklists
 
 - New `--check` mode on `argo setup` skips the interactive
