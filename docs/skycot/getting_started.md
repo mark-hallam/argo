@@ -3,6 +3,11 @@
 A 10-minute path from zero to a worker job that emits actions you can
 approve + execute.
 
+> **Just want to confirm SKYCOT is wired end-to-end?** Run
+> `./scripts/smoke-skycot.sh` from the repo root. It drives every
+> state transition against a tempdir workspace in mock-mode and
+> asserts each piece works. Zero API keys required.
+
 ## 1. Install Argo
 
 Pick your OS:
