@@ -6,29 +6,25 @@
 //!   - `routes`:    HTTP route dispatch + per-endpoint handlers.
 mod lifecycle;
 mod metrics;
+mod metrics_actions;
 mod routes;
 mod routes_audit;
 mod routes_audit_rollups;
-mod routes_dispatch_forge;
-mod routes_verticals;
-mod routes_verticals_doctor;
-mod routes_verticals_lint;
-mod routes_verticals_run;
-mod routes_health;
-mod routes_session_audit_rollups;
 pub(crate) mod routes_catalog;
-mod routes_counts;
 mod routes_costs_by_day;
+mod routes_counts;
 mod routes_cron;
 mod routes_dispatch_costs;
+mod routes_dispatch_forge;
 mod routes_dispatch_post;
 mod routes_dispatch_rollups;
 mod routes_forge;
-mod routes_forge_rollups;
 mod routes_forge_promote;
+mod routes_forge_rollups;
+mod routes_health;
 mod routes_lists;
-mod routes_meta;
 mod routes_messages_rollups;
+mod routes_meta;
 mod routes_msgs;
 mod routes_post;
 mod routes_post_admin;
@@ -39,6 +35,7 @@ mod routes_query;
 mod routes_search;
 mod routes_session;
 mod routes_session_approval;
+mod routes_session_audit_rollups;
 mod routes_session_clone;
 mod routes_session_get;
 mod routes_session_skills;
@@ -47,6 +44,10 @@ mod routes_sessions_rollups;
 mod routes_skill_refine;
 mod routes_skills_show;
 mod routes_top;
+mod routes_verticals;
+mod routes_verticals_doctor;
+mod routes_verticals_lint;
+mod routes_verticals_run;
 mod routes_workspace;
 mod streaming;
 
@@ -134,7 +135,10 @@ fn print_routes(
             for row in &rows {
                 let m = row["method"].as_str().unwrap_or("?");
                 let p = row["path"].as_str().unwrap_or("?");
-                let d = row["description"].as_str().unwrap_or("").replace('|', "\\|");
+                let d = row["description"]
+                    .as_str()
+                    .unwrap_or("")
+                    .replace('|', "\\|");
                 println!("| `{m}` | `{p}` | {d} |");
             }
             return Ok(());
@@ -233,7 +237,9 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /health   → {{\"status\":\"ok\"}}");
     eprintln!("  GET  /version  → {{\"version\":\"<crate>\"}}");
     eprintln!("  GET  /sessions[?since-minutes=N] → recent sessions (JSON array; carries spent_usd_micros)");
-    eprintln!("  GET  /sessions/<uuid> → one session header + message_count + tool_call_count + spend");
+    eprintln!(
+        "  GET  /sessions/<uuid> → one session header + message_count + tool_call_count + spend"
+    );
     eprintln!("  GET  /sessions/<uuid>/messages[?limit=N&role=user&since-minutes=M] → messages on the session");
     eprintln!("  GET  /sessions/<uuid>/messages/last → just the last message");
     eprintln!("  GET  /sessions/<uuid>/spend → per-session spend ledger rows + total");
@@ -272,7 +278,9 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  GET  /forge/runs/<id>      → one forge_run row");
     eprintln!("  GET  /cron                 → scheduled cron jobs (workspace cron/jobs/)");
     eprintln!("  GET  /cron/<name>          → one cron job by name");
-    eprintln!("  POST /cron                 → create a job ({{name, schedule, prompt, platform, chat}})");
+    eprintln!(
+        "  POST /cron                 → create a job ({{name, schedule, prompt, platform, chat}})"
+    );
     eprintln!("  POST /workspace/init       → register a workspace row ({{name, root_path}})");
     eprintln!("  POST /judge/<record_id>/override → override a judge verdict ({{to}})");
     eprintln!("  POST /cron/<name>/delete   → remove the on-disk job file");

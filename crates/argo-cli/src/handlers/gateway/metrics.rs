@@ -90,35 +90,102 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
     );
 
     let pool = store.pool();
-    push_count(&mut out, pool, "argo_sessions_total", "Recorded sessions",
-        "SELECT COUNT(*) FROM session").await;
-    push_count(&mut out, pool, "argo_sessions_open",
+    push_count(
+        &mut out,
+        pool,
+        "argo_sessions_total",
+        "Recorded sessions",
+        "SELECT COUNT(*) FROM session",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_sessions_open",
         "Sessions with no ended_at stamp (still open)",
-        "SELECT COUNT(*) FROM session WHERE ended_at IS NULL").await;
-    push_count(&mut out, pool, "argo_messages_total", "Recorded messages",
-        "SELECT COUNT(*) FROM message").await;
-    push_count(&mut out, pool, "argo_audit_rows_total", "Audit-chain rows",
-        "SELECT COUNT(*) FROM audit_record").await;
-    push_count(&mut out, pool, "argo_skills_active_total", "Skills with no superseded_by",
-        "SELECT COUNT(*) FROM skill WHERE superseded_by IS NULL").await;
-    push_count(&mut out, pool, "argo_workspace_artifacts_total", "Recorded marketplace pushes",
-        "SELECT COUNT(*) FROM marketplace_artifact").await;
-    push_count(&mut out, pool, "argo_forge_runs_running",
+        "SELECT COUNT(*) FROM session WHERE ended_at IS NULL",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_messages_total",
+        "Recorded messages",
+        "SELECT COUNT(*) FROM message",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_audit_rows_total",
+        "Audit-chain rows",
+        "SELECT COUNT(*) FROM audit_record",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_skills_active_total",
+        "Skills with no superseded_by",
+        "SELECT COUNT(*) FROM skill WHERE superseded_by IS NULL",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_workspace_artifacts_total",
+        "Recorded marketplace pushes",
+        "SELECT COUNT(*) FROM marketplace_artifact",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_forge_runs_running",
         "Forge runs currently in flight (status='running')",
-        "SELECT COUNT(*) FROM forge_run WHERE status = 'running'").await;
-    push_count(&mut out, pool, "argo_workspaces_total",
+        "SELECT COUNT(*) FROM forge_run WHERE status = 'running'",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_workspaces_total",
         "Registered workspace rows",
-        "SELECT COUNT(*) FROM workspace").await;
-    push_count(&mut out, pool, "argo_memory_entries_total",
+        "SELECT COUNT(*) FROM workspace",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_memory_entries_total",
         "Active memory_entry rows (not superseded)",
-        "SELECT COUNT(*) FROM memory_entry WHERE superseded_by IS NULL").await;
-    push_count(&mut out, pool, "argo_judge_records_total",
+        "SELECT COUNT(*) FROM memory_entry WHERE superseded_by IS NULL",
+    )
+    .await;
+    push_count(
+        &mut out,
+        pool,
+        "argo_judge_records_total",
         "Recorded judge_record rows",
-        "SELECT COUNT(*) FROM judge_record").await;
-    push_sum(&mut out, pool, "argo_spend_usd_micros_total",
+        "SELECT COUNT(*) FROM judge_record",
+    )
+    .await;
+    push_sum(
+        &mut out,
+        pool,
+        "argo_spend_usd_micros_total",
         "Sum of spend_ledger.amount_usd_micros across every session",
-        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger").await;
+        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger",
+    )
+    .await;
     push_forge_runs_by_status(&mut out, pool).await;
+
+    // Worker action ledger gauges (#757). Walk the memory rows
+    // in-process, dedupe to latest-wins per action_id, group by
+    // state. Lives in the metrics_actions sibling so this file
+    // stays under the per-file budget.
+    let action_counts = super::metrics_actions::gather(store).await;
+    super::metrics_actions::render_text(&mut out, &action_counts);
 
     // Audit chain integrity — verify_all is more expensive than
     // a COUNT, so it gets its own block. Failure logs a comment
@@ -288,6 +355,12 @@ pub(super) async fn render_json(store: Option<&Arc<SessionStore>>) -> String {
         "argo_forge_runs_total".into(),
         serde_json::Value::Object(status_map),
     );
+    // Worker action ledger gauges (#757) — same shape as the
+    // text exposition's action block, packaged into the JSON
+    // payload so consumers don't have to parse the Prometheus
+    // text format.
+    let action_counts = super::metrics_actions::gather(store).await;
+    super::metrics_actions::render_json(&mut payload, &action_counts);
     match argo_audit::verify_all(store).await {
         Ok(report) => {
             payload.insert(
@@ -315,8 +388,7 @@ fn finalize_json(
     if !errors.is_empty() {
         payload.insert("_errors".into(), serde_json::json!(errors));
     }
-    serde_json::to_string(&serde_json::Value::Object(payload))
-        .unwrap_or_else(|_| "{}".to_string())
+    serde_json::to_string(&serde_json::Value::Object(payload)).unwrap_or_else(|_| "{}".to_string())
 }
 
 async fn insert_count(
@@ -337,13 +409,7 @@ async fn insert_count(
     }
 }
 
-async fn push_count(
-    out: &mut String,
-    pool: &sqlx::SqlitePool,
-    name: &str,
-    help: &str,
-    sql: &str,
-) {
+async fn push_count(out: &mut String, pool: &sqlx::SqlitePool, name: &str, help: &str, sql: &str) {
     let _ = writeln!(out, "\n# HELP {name} {help}\n# TYPE {name} counter");
     match sqlx::query_scalar::<_, i64>(sql).fetch_one(pool).await {
         Ok(n) => {
@@ -355,13 +421,7 @@ async fn push_count(
     }
 }
 
-async fn push_sum(
-    out: &mut String,
-    pool: &sqlx::SqlitePool,
-    name: &str,
-    help: &str,
-    sql: &str,
-) {
+async fn push_sum(out: &mut String, pool: &sqlx::SqlitePool, name: &str, help: &str, sql: &str) {
     let _ = writeln!(out, "\n# HELP {name} {help}\n# TYPE {name} counter");
     match sqlx::query_scalar::<_, i64>(sql).fetch_one(pool).await {
         Ok(n) => {
@@ -454,7 +514,9 @@ mod tests {
     #[tokio::test]
     async fn render_with_open_store_emits_count_lines() {
         let dir = tempfile::tempdir().unwrap();
-        let store = SessionStore::open(&dir.path().join("argo.db")).await.unwrap();
+        let store = SessionStore::open(&dir.path().join("argo.db"))
+            .await
+            .unwrap();
         store.migrate().await.unwrap();
         let store = Arc::new(store);
         let body = render(Some(&store)).await;
