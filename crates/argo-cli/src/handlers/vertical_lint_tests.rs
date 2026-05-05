@@ -26,6 +26,123 @@ fn lint_clean_when_manifest_only_declares_required_sections() {
     assert!(findings.is_empty(), "got: {findings:?}");
 }
 
+// ───────── instruction template lint (#736) ──────────────
+
+#[test]
+fn lint_template_clean_when_only_known_keys_referenced() {
+    let dir = tempfile::tempdir().unwrap();
+    let v = write_vertical(
+        dir.path(),
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"d\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [actions.verify_price]\n\
+         risk = \"low\"\nrequires_approval = false\ndescription = \"x\"\nexecutor = \"human\"\n\
+         instruction_template = \"action_id={{ action_id }}, target=${{ payload.target }}, \
+         platform={{ platform }}, item={{ item_id }}\"\n",
+    );
+    let findings = lint_loaded(&v);
+    let template_findings: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.code == "actions.template.unknown_key")
+        .collect();
+    assert!(
+        template_findings.is_empty(),
+        "expected no template lint findings; got: {template_findings:?}"
+    );
+}
+
+#[test]
+fn lint_warns_when_template_references_unknown_top_level_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let v = write_vertical(
+        dir.path(),
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"d\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [actions.verify_price]\n\
+         risk = \"low\"\nrequires_approval = false\ndescription = \"x\"\nexecutor = \"human\"\n\
+         instruction_template = \"step={{ stepz }} | id={{ action_id }}\"\n",
+    );
+    let findings = lint_loaded(&v);
+    let f = findings
+        .iter()
+        .find(|f| f.code == "actions.template.unknown_key")
+        .expect("expected unknown_key finding");
+    assert_eq!(f.severity, Severity::Warn);
+    assert!(f.message.contains("stepz"), "got: {}", f.message);
+    assert!(f.message.contains("verify_price"), "got: {}", f.message);
+    assert!(f.message.contains("default"), "got: {}", f.message);
+}
+
+#[test]
+fn lint_warns_on_unknown_key_in_per_platform_override() {
+    let dir = tempfile::tempdir().unwrap();
+    let v = write_vertical(
+        dir.path(),
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"d\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [actions.post_listing]\n\
+         risk = \"medium\"\nrequires_approval = true\ndescription = \"x\"\nexecutor = \"human\"\n\
+         [actions.post_listing.instruction_templates]\n\
+         ebay = \"price={{ payload.tytle }}\"\n",
+    );
+    let findings = lint_loaded(&v);
+    // payload.tytle is treated as a valid payload reference
+    // (we don't enforce payload-schema match — that's a deeper
+    // lint that requires the action's payload_schema). So this
+    // template should be CLEAN at the lint level.
+    let template_findings: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.code == "actions.template.unknown_key")
+        .collect();
+    assert!(
+        template_findings.is_empty(),
+        "payload.<x> references should not trigger lint (no payload_schema check yet); got: {template_findings:?}"
+    );
+}
+
+#[test]
+fn lint_warns_on_unknown_top_level_key_in_per_platform_override() {
+    let dir = tempfile::tempdir().unwrap();
+    let v = write_vertical(
+        dir.path(),
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"d\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [actions.post_listing]\n\
+         risk = \"medium\"\nrequires_approval = true\ndescription = \"x\"\nexecutor = \"human\"\n\
+         [actions.post_listing.instruction_templates]\n\
+         ebay = \"buyer={{ buyrer }}\"\n",
+    );
+    let findings = lint_loaded(&v);
+    let f = findings
+        .iter()
+        .find(|f| f.code == "actions.template.unknown_key")
+        .expect("expected unknown_key finding");
+    assert!(f.message.contains("buyrer"), "got: {}", f.message);
+    assert!(f.message.contains("ebay"), "got: {}", f.message);
+}
+
+#[test]
+fn lint_clean_when_template_is_empty_or_unmatched_braces() {
+    let dir = tempfile::tempdir().unwrap();
+    let v = write_vertical(
+        dir.path(),
+        "schema_version = \"1\"\n\
+         [vertical]\nid = \"d\"\nname = \"D\"\nversion = \"0.1.0\"\n\
+         [actions.verify_price]\n\
+         risk = \"low\"\nrequires_approval = false\ndescription = \"x\"\nexecutor = \"human\"\n\
+         instruction_template = \"unmatched {{ open with no close\"\n",
+    );
+    let findings = lint_loaded(&v);
+    let template_findings: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.code == "actions.template.unknown_key")
+        .collect();
+    assert!(
+        template_findings.is_empty(),
+        "unmatched {{ should not trip the lint; got: {template_findings:?}"
+    );
+}
+
 #[test]
 fn lint_warns_on_unknown_tool_in_allowed_list() {
     let dir = tempfile::tempdir().unwrap();
@@ -98,9 +215,7 @@ fn lint_does_not_warn_when_escalation_tool_is_in_denied_list() {
     );
     let findings = lint_loaded(&v);
     assert!(
-        findings
-            .iter()
-            .all(|f| f.code != "escalation.orphan_tool"),
+        findings.iter().all(|f| f.code != "escalation.orphan_tool"),
         "should not warn on intentional defence-in-depth: {findings:?}"
     );
 }
@@ -119,15 +234,11 @@ fn lint_warns_on_escalation_tool_with_unknown_name() {
     // Should fire BOTH unknown_tool (typo) AND not orphan
     // (since it's in allowed). Lock both.
     assert!(
-        findings
-            .iter()
-            .any(|f| f.code == "escalation.unknown_tool"),
+        findings.iter().any(|f| f.code == "escalation.unknown_tool"),
         "got: {findings:?}"
     );
     assert!(
-        findings
-            .iter()
-            .all(|f| f.code != "escalation.orphan_tool"),
+        findings.iter().all(|f| f.code != "escalation.orphan_tool"),
         "tool is in allowed → not orphan"
     );
 }
