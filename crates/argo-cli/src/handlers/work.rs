@@ -48,6 +48,7 @@ pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
             model,
             once,
             max_steps,
+            max_tool_rounds,
             json,
         } => {
             serve(
@@ -57,6 +58,7 @@ pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
                 &model,
                 once,
                 max_steps,
+                max_tool_rounds,
                 json,
             )
             .await
@@ -128,6 +130,7 @@ async fn serve(
     model: &str,
     once: bool,
     max_steps: u32,
+    max_tool_rounds: usize,
     json_out: bool,
 ) -> ArgoResult<()> {
     let cwd =
@@ -149,7 +152,7 @@ async fn serve(
     let memory = MemoryStore::new(store_arc.clone());
 
     eprintln!(
-        "argo work: serving vertical={vertical_id} provider={provider} model={model} interval={interval_seconds}s max_steps={max_steps}{}",
+        "argo work: serving vertical={vertical_id} provider={provider} model={model} interval={interval_seconds}s max_steps={max_steps} max_tool_rounds={max_tool_rounds}{}",
         if once { " (--once)" } else { "" },
     );
 
@@ -172,6 +175,7 @@ async fn serve(
                     model,
                     job,
                     max_steps,
+                    max_tool_rounds,
                     json_out,
                 )
                 .await?;
@@ -201,11 +205,11 @@ async fn serve(
 }
 
 // ────────────────────────────────────────────── job dispatch
-// 10 args is intentional: each is load-bearing (storage handles,
+// 11 args is intentional: each is load-bearing (storage handles,
 // tenancy ids, vertical scope, provider config, the job, max
-// steps, output mode). Bundling into a struct would just push
-// the same arity into the struct definition without removing
-// the coupling.
+// steps, max tool rounds, output mode). Bundling into a struct
+// would just push the same arity into the struct definition
+// without removing the coupling.
 #[allow(clippy::too_many_arguments)]
 async fn process_job(
     store: &Arc<SessionStore>,
@@ -217,6 +221,7 @@ async fn process_job(
     model: &str,
     job: &MemoryEntry,
     max_steps: u32,
+    max_tool_rounds: usize,
     json_out: bool,
 ) -> ArgoResult<()> {
     let body = parse_body(&job.body)
@@ -297,7 +302,14 @@ async fn process_job(
         )
         .await?
     } else {
-        super::work_steps::run_live_loop(store, session_id, prompt.to_string(), max_steps).await?
+        super::work_steps::run_live_loop(
+            store,
+            session_id,
+            prompt.to_string(),
+            max_steps,
+            max_tool_rounds,
+        )
+        .await?
     };
     let assistant_text = step_run.assistant_text;
     let assistant_id = step_run.assistant_id;

@@ -87,14 +87,23 @@ pub(crate) async fn run_mock_step(
 
 /// Live multi-step loop. Each iteration calls `chat::run_turn`
 /// (which itself runs the agent loop with tool dispatch up to
-/// MAX_TOOL_ROUNDS) and parses the assistant text for a stop
+/// `max_tool_rounds`) and parses the assistant text for a stop
 /// marker. Continues until a marker is found or `max_steps` is
 /// reached.
+///
+/// `max_tool_rounds` is the per-step ceiling on internal tool-
+/// dispatch rounds. When a single step exhausts that budget
+/// (#724), `chat::run_turn` returns Ok with
+/// `stopped_on_tool_budget=true` rather than Err — we annotate
+/// the transcript and let the outer loop continue to the next
+/// step. Genuine transport errors still arrive as Err and stop
+/// the loop with `[STOP: NEED_INFO transport error]`.
 pub(crate) async fn run_live_loop(
     store: &Arc<SessionStore>,
     session_id: SessionId,
     initial_prompt: String,
     max_steps: u32,
+    max_tool_rounds: usize,
 ) -> ArgoResult<StepRunOutput> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     // Tracked outside the closure because async closures can't
@@ -113,19 +122,37 @@ pub(crate) async fn run_live_loop(
                 session_id,
                 Some(&prompt),
                 false,
-                crate::handlers::chat::MAX_TOOL_ROUNDS,
+                max_tool_rounds,
             )
             .await
             {
                 Ok(r) => {
                     last_assistant_id.set(r.assistant_id);
-                    work_loop::StepResult { text: r.text }
+                    let mut text = r.text;
+                    if r.stopped_on_tool_budget {
+                        // #724 — append a visible breadcrumb so the
+                        // transcript shows where the cap fired, but
+                        // emit NO stop marker so the outer loop
+                        // continues to the next step naturally. The
+                        // session already contains every dispatched
+                        // tool's `tool_result`, so the next call
+                        // resumes cleanly.
+                        if !text.is_empty() && !text.ends_with('\n') {
+                            text.push('\n');
+                        }
+                        text.push_str(
+                            "\n_[step boundary: tool-round budget exhausted; \
+                             continuing in next step]_\n",
+                        );
+                    }
+                    work_loop::StepResult { text }
                 }
                 Err(e) => {
-                    // Surface as a [STOP: NEED_INFO] so the loop
-                    // terminates cleanly — the actual error text
-                    // is preserved in the assistant message body
-                    // and shows up in the transcript.
+                    // Genuine transport / dispatch error — surface
+                    // as a [STOP: NEED_INFO] so the outer loop
+                    // terminates cleanly. The error text is
+                    // preserved in the assistant message body and
+                    // shows up in the transcript.
                     work_loop::StepResult {
                         text: format!(
                             "worker step failed: {e}\n[STOP: NEED_INFO transport error — \

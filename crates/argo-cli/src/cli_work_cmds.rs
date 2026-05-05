@@ -61,6 +61,16 @@ pub enum WorkCmd {
         /// research-tools pre-flight check.
         #[arg(long, default_value_t = 5)]
         max_steps: u32,
+        /// Per-step ceiling on internal tool-dispatch rounds (#724).
+        /// One "tool round" is one provider call plus its tool
+        /// dispatch — research-heavy work (web_search ×N, then
+        /// web_extract ×N) can hit the cap mid-turn. When that
+        /// happens the worker no longer aborts with a transport
+        /// error; it persists the partial transcript, ends the
+        /// step cleanly, and continues to the next outer step.
+        /// Default 8.
+        #[arg(long, default_value_t = 8)]
+        max_tool_rounds: usize,
         /// Emit JSON per job instead of human-readable.
         #[arg(long)]
         json: bool,

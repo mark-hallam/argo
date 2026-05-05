@@ -294,4 +294,55 @@ mod tests {
         let out = continue_nudge(3, 5);
         assert!(out.contains("step 3/5"), "got: {out}");
     }
+
+    /// #724 — when chat::run_turn returns Ok with empty text
+    /// (e.g. the model only emitted tool_use blocks before
+    /// max_rounds capped the inner loop), parse_stop_marker
+    /// returns None on empty text, so the outer loop must
+    /// continue to the next step instead of treating empty as
+    /// a stop condition.
+    #[tokio::test]
+    async fn loop_continues_when_step_returns_empty_text() {
+        let calls = RefCell::new(0u32);
+        let outcome = run_loop("seed".into(), 4, |_step, _prompt| {
+            *calls.borrow_mut() += 1;
+            async move {
+                StepResult {
+                    text: String::new(),
+                }
+            }
+        })
+        .await;
+        assert_eq!(*calls.borrow(), 4, "outer loop must run all 4 steps");
+        assert_eq!(outcome.steps_completed, 4);
+        assert_eq!(
+            outcome.stop_reason,
+            StopReason::MaxStepsReached,
+            "empty text has no stop marker so loop caps at max_steps"
+        );
+    }
+
+    /// Same shape as the live integration: each step returns
+    /// the breadcrumb run_live_loop would append on a
+    /// tool-budget-exhausted Ok TurnResult — text without any
+    /// stop marker. The outer loop must run all max_steps and
+    /// surface MaxStepsReached (NOT NeedInfo).
+    #[tokio::test]
+    async fn loop_treats_tool_budget_breadcrumb_as_continuation() {
+        let outcome = run_loop("seed".into(), 3, |step, _prompt| async move {
+            StepResult {
+                text: format!(
+                    "step {step} did some work\n\n_[step boundary: \
+                     tool-round budget exhausted; continuing in next step]_\n"
+                ),
+            }
+        })
+        .await;
+        assert_eq!(outcome.steps_completed, 3);
+        assert_eq!(outcome.stop_reason, StopReason::MaxStepsReached);
+        assert!(
+            outcome.final_text.contains("step boundary"),
+            "final_text must preserve the breadcrumb so the artifact splitter surfaces it"
+        );
+    }
 }

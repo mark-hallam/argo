@@ -23,9 +23,7 @@ use crate::turn_vertical::{
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_store::SessionStore;
-use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult,
-};
+use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -48,6 +46,15 @@ pub struct TurnResult {
     pub tokens_in: Option<u32>,
     /// Provider-reported output tokens, if any.
     pub tokens_out: Option<u32>,
+    /// `true` when the loop exited because `max_rounds` was hit
+    /// (the model still wanted more tool dispatch). The session
+    /// state is consistent — every dispatched tool has its
+    /// matching `tool_result` persisted — so the caller can
+    /// safely issue another `run_turn` to continue. Worker v2's
+    /// outer step loop uses this signal to convert a research-
+    /// heavy turn into a clean step boundary instead of a
+    /// transport error (#724).
+    pub stopped_on_tool_budget: bool,
 }
 
 /// One agent-loop turn against an open SessionStore.
@@ -195,8 +202,7 @@ async fn run_turn_with_tools(
     // ergonomic seam: when we have a `vertical_prompt`, use the
     // explicitly threaded `vertical_scope` value (id-only, no
     // file content). Both come from the same session.vertical_id.
-    let mut system_prompt = build_system_prompt(store, session_id, vertical_scope)
-        .await?;
+    let mut system_prompt = build_system_prompt(store, session_id, vertical_scope).await?;
     // Vertical-bound session: prepend the vertical's
     // [role].system_prompt content so it lands ahead of skill-
     // derived guidance (#654). Falls through cleanly when the
@@ -274,6 +280,7 @@ async fn run_turn_with_tools(
                 text: last_text,
                 tokens_in: last_tokens_in,
                 tokens_out: last_tokens_out,
+                stopped_on_tool_budget: false,
             });
         }
 
@@ -307,9 +314,7 @@ async fn run_turn_with_tools(
                     ),
                     0,
                 )
-            } else if vertical_approval.contains(&call.name)
-                && !session_grants.allows(&call.name)
-            {
+            } else if vertical_approval.contains(&call.name) && !session_grants.allows(&call.name) {
                 // Approval gate (#660) — but if the operator has
                 // explicitly approved this tool for this session
                 // via `argo session approve` (#664/#667), the
@@ -340,12 +345,17 @@ async fn run_turn_with_tools(
             } else {
                 // #667: track grant-gate permission so we can
                 // consume the one-shot after the dispatch.
-                let approved_via_grant = vertical_approval.contains(&call.name)
-                    && session_grants.allows(&call.name);
+                let approved_via_grant =
+                    vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
                 let res = dispatch_one(&registry, &engine, &principal, cwd, call).await;
                 if approved_via_grant {
                     consume_one_shot_if_present(
-                        store, session_id, &call.name, &mut session_grants, audit, events,
+                        store,
+                        session_id,
+                        &call.name,
+                        &mut session_grants,
+                        audit,
+                        events,
                     )
                     .await?;
                 }
@@ -371,17 +381,30 @@ async fn run_turn_with_tools(
                 .await?;
         }
 
-        if round + 1 == max_rounds {
-            return Err(ArgoError::Provider(format!(
-                "tool-dispatch loop hit max_rounds={max_rounds}; aborting"
-            )));
-        }
+        // #724 — when we hit `max_rounds` the for-loop ends
+        // naturally; we DON'T return Err. The session state is
+        // consistent (every dispatched tool just got its
+        // `tool_result` appended above) so the caller can issue
+        // another `run_turn` to continue. We surface the cap via
+        // the `stopped_on_tool_budget` flag and an audit hint so
+        // the outer worker step loop (in argo-cli) can convert
+        // this into a clean step boundary rather than treating
+        // it as a transport error and stopping the job.
     }
+    let halt_payload = serde_json::json!({
+        "reason": "tool_budget_exhausted",
+        "max_rounds": max_rounds,
+    });
+    audit
+        .write(Some(session_id), AuditKind::Halt, halt_payload.clone())
+        .await?;
+    emit_event(events, "Halt", halt_payload);
     Ok(TurnResult {
         assistant_id: last_assistant_id,
         text: last_text,
         tokens_in: last_tokens_in,
         tokens_out: last_tokens_out,
+        stopped_on_tool_budget: true,
     })
 }
 
@@ -436,7 +459,6 @@ async fn build_system_prompt(
     }
     Ok(Some(out))
 }
-
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]
