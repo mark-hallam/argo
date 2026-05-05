@@ -63,6 +63,12 @@ pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
             )
             .await
         }
+        WorkCmd::Jobs {
+            state,
+            vertical,
+            limit,
+            json,
+        } => super::work_jobs::list(&state, vertical.as_deref(), limit, json).await,
     }
 }
 
@@ -479,4 +485,3 @@ fn validate_vertical(vertical_id: &str) -> ArgoResult<()> {
     }
     Ok(())
 }
-

@@ -96,6 +96,7 @@ pub mod vertical_workflow;
 pub mod work;
 mod work_artifacts;
 mod work_emission;
+mod work_jobs;
 mod work_loop;
 mod work_steps;
 pub mod worker_actions;

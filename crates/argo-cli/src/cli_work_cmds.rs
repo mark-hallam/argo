@@ -75,4 +75,26 @@ pub enum WorkCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List queued + completed worker jobs across the
+    /// workspace. Walks the same `pending_jobs` /
+    /// `completed_jobs` memory rows the queue runner uses, so
+    /// what you see here is exactly what the worker would
+    /// process / has processed.
+    Jobs {
+        /// Filter by job state. One of `pending`, `completed`,
+        /// or `all`. Defaults to `all`.
+        #[arg(long, default_value = "all")]
+        state: String,
+        /// Filter to a specific vertical's namespace. When
+        /// omitted, walks every loaded vertical.
+        #[arg(long)]
+        vertical: Option<String>,
+        /// Cap the number of rows printed. Default 50.
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+        /// Emit JSON-lines (one row per job) instead of a
+        /// human-readable table.
+        #[arg(long)]
+        json: bool,
+    },
 }
