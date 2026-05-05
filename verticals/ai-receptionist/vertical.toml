@@ -1,0 +1,172 @@
+schema_version = "1"
+
+[vertical]
+id          = "ai-receptionist"
+name        = "AI Receptionist"
+description = "Front-desk worker that triages incoming calls, schedules meetings, and routes messages to the right team member. Approval-gated for anything that touches the calendar or the human."
+version     = "0.0.1"
+authors     = ["Argo platform team"]
+tags        = ["receptionist", "calendar", "messages", "draft-only"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic"
+fallback  = "openai"
+cost_tier = "balanced"
+
+# Receptionist needs research / schedule lookup / contact verification
+# but never sending. Sending is per-action gated below.
+[tools]
+allowed = ["web_search", "web_extract"]
+denied  = []
+
+# ─────────────────────────── actions ────────────────────────────
+# Autonomous-safe — drafting + research only.
+
+[actions.lookup_contact]
+risk              = "low"
+requires_approval = false
+description       = "Look up an inbound caller's contact / company / role using public sources."
+executor          = "human"
+instruction_template = """
+# Lookup contact for caller `{{ payload.caller_name }}`
+
+Inbound caller: `{{ payload.caller_name }}`
+Company they mentioned: `{{ payload.company }}`
+
+Steps:
+1. Web search for the caller + company to verify identity.
+2. Note their role + their likely reason for calling.
+3. Decide whether to forward to sales / support / founder.
+
+When done:
+
+```
+argo worker actions complete {{ action_id }} --note "<verdict>" \\
+  --result-json '{"role": "<title>", "route_to": "<sales|support|founder>"}'
+```
+"""
+
+[actions.draft_meeting_request]
+risk              = "low"
+requires_approval = false
+description       = "Draft a meeting-request email to a caller. Does not send — operator reviews, then `send_calendar_invite` actually books."
+executor          = "human"
+
+[actions.take_message]
+risk              = "low"
+requires_approval = false
+description       = "Capture a caller's message + callback number. Stored locally; the operator reads it next morning."
+executor          = "human"
+instruction_template = """
+# Message from `{{ payload.caller_name }}`
+
+Captured at: `{{ payload.captured_at }}`
+Callback:    `{{ payload.callback }}`
+
+> {{ payload.message }}
+
+Operator action: read the message above + decide whether to call back yourself or forward to a team member. Mark this complete when read:
+
+```
+argo worker actions complete {{ action_id }} --note "read"
+```
+"""
+
+# Approval-gated — touches the calendar or sends to a human.
+
+[actions.send_calendar_invite]
+risk              = "medium"
+requires_approval = true
+description       = "Book a calendar slot + send the invite to the caller. Touches calendar AND a human inbox."
+executor          = "human"
+platforms         = ["google_calendar", "outlook"]
+instruction_template = """
+# Send calendar invite — `{{ payload.title }}` to `{{ payload.attendee_email }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Meeting:
+- title:        `{{ payload.title }}`
+- attendee:     `{{ payload.attendee_email }}`
+- proposed at:  `{{ payload.proposed_time }}`
+- duration:     `{{ payload.duration_minutes }} minutes`
+- platform:     `{{ platform }}`
+
+Steps:
+1. Open `{{ platform }}` calendar.
+2. Create event at the proposed time + invite the attendee.
+3. Add a meeting link (Zoom / Meet) per your default tooling.
+4. Send the invite.
+
+When sent:
+
+```
+argo worker actions complete {{ action_id }} --note "invite sent" \\
+  --result-json '{"event_id": "<id>", "meeting_url": "<url>"}'
+```
+"""
+
+[actions.send_calendar_invite.instruction_templates]
+google_calendar = """
+# Send calendar invite — `{{ payload.title }}` (Google Calendar)
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+- title:    `{{ payload.title }}`
+- attendee: `{{ payload.attendee_email }}`
+- start:    `{{ payload.proposed_time }}` ({{ payload.duration_minutes }} min)
+
+Google Calendar checklist:
+1. **Conferencing** — turn on `Add Google Meet video conferencing`. Don't paste a Zoom link in the description; Meet auto-attaches.
+2. **Guests can** — leave at default ("see other guests"). Don't grant "modify event" unless the attendee is internal.
+3. **Notification** — keep the default 30-min reminder; receptionist doesn't need to hold their hand.
+
+When sent:
+
+```
+argo worker actions complete {{ action_id }} --note "google invite sent" \\
+  --result-json '{"event_id": "<id>", "meeting_url": "https://meet.google.com/..."}'
+```
+"""
+
+[actions.forward_call]
+risk              = "medium"
+requires_approval = true
+description       = "Forward an active call to a specific team member's line. Reaches another human in real time."
+executor          = "human"
+
+[actions.send_followup_email]
+risk              = "high"
+requires_approval = true
+description       = "Send a follow-up email to a caller after the call ends. HIGH RISK — touches another human; not reversible."
+executor          = "human"
+instruction_template = """
+# Follow-up email — `{{ payload.subject }}` to `{{ payload.recipient_email }}`
+
+⚠️ **HIGH RISK** — sending an email to another human; cannot be undone.
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Recipient: `{{ payload.recipient_email }}`
+Subject:   `{{ payload.subject }}`
+
+Body (review BEFORE sending):
+
+> {{ payload.body }}
+
+Steps:
+1. Open your email client.
+2. Paste the body above; tweak greeting / signoff to your tone.
+3. Send.
+
+When sent:
+
+```
+argo worker actions complete {{ action_id }} --note "sent" \\
+  --result-json '{"recipient": "{{ payload.recipient_email }}", "subject": "{{ payload.subject }}"}'
+```
+"""
