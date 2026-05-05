@@ -22,9 +22,15 @@ cost_tier = "balanced"
 # discoverability hint to the agent. Every state-mutating + every
 # external-sending tool stays denied until a future approval-gated
 # integration ships behind explicit operator opt-in.
+#
+# `memory` is kept in `denied` for now: the in-tree builtin tool
+# is still a stub that returns "memory store not wired" (lands
+# with Agent H / Phase 3 §14). #721 surfaces this honestly to the
+# model via filtered schema lift so the worker doesn't waste turns
+# planning around a tool that always errors.
 [tools]
-allowed = ["web_search", "web_extract", "file_read", "memory"]
-denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task", "memory"]
 
 [memory]
 schema = "memory/schema.toml"

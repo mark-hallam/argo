@@ -36,17 +36,26 @@ use uuid::Uuid;
 
 pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
     match cmd {
-        WorkCmd::Add { vertical, prompt, json } => add(&vertical, &prompt, json).await,
+        WorkCmd::Add {
+            vertical,
+            prompt,
+            json,
+        } => add(&vertical, &prompt, json).await,
         WorkCmd::Serve {
-            vertical, interval_seconds, provider, model, once, json,
+            vertical,
+            interval_seconds,
+            provider,
+            model,
+            once,
+            json,
         } => serve(&vertical, interval_seconds, &provider, &model, once, json).await,
     }
 }
 
 // ────────────────────────────────────────────────────────── add
 async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
 
@@ -54,7 +63,10 @@ async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> 
 
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
     let store_arc = Arc::new(store);
@@ -104,8 +116,8 @@ async fn serve(
     once: bool,
     json_out: bool,
 ) -> ArgoResult<()> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
 
@@ -113,7 +125,10 @@ async fn serve(
 
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, workspace) = store.ensure_workspace(name, &root).await?;
     let store_arc = Arc::new(store);
@@ -134,8 +149,15 @@ async fn serve(
         match next {
             Some(job) => {
                 process_job(
-                    &store_arc, &memory, tenant, workspace, vertical_id, provider,
-                    model, job, json_out,
+                    &store_arc,
+                    &memory,
+                    tenant,
+                    workspace,
+                    vertical_id,
+                    provider,
+                    model,
+                    job,
+                    json_out,
                 )
                 .await?;
             }
@@ -180,15 +202,17 @@ async fn process_job(
     job: &MemoryEntry,
     json_out: bool,
 ) -> ArgoResult<()> {
-    let body = parse_body(&job.body).ok_or_else(|| {
-        ArgoError::Provider(format!("malformed pending_jobs entry {}", job.id))
-    })?;
+    let body = parse_body(&job.body)
+        .ok_or_else(|| ArgoError::Provider(format!("malformed pending_jobs entry {}", job.id)))?;
     let prompt = body
         .get("prompt")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            ArgoError::Provider(format!("pending_jobs {} missing `prompt`", job.id))
-        })?;
+        .ok_or_else(|| ArgoError::Provider(format!("pending_jobs {} missing `prompt`", job.id)))?;
+    let pending_created_at = body
+        .get("created_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     // Fresh vertical-bound session per job. Bundled skills are
     // attached at session-creation time via the same path
@@ -196,7 +220,14 @@ async fn process_job(
     // catalog the GTM Engineer (or any vertical) declares.
     let title = format!("work job {}", job.id);
     let session_id = store
-        .create_session(tenant, workspace, model, provider, Some(&title), Some(vertical_id))
+        .create_session(
+            tenant,
+            workspace,
+            model,
+            provider,
+            Some(&title),
+            Some(vertical_id),
+        )
         .await
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;
     let store_for_attach = Arc::clone(store);
@@ -204,7 +235,9 @@ async fn process_job(
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
     if let Some(v) = registry.get(vertical_id) {
         let _ = crate::handlers::vertical_attach::install_and_attach_bundle(
-            &store_for_attach, v, session_id,
+            &store_for_attach,
+            v,
+            session_id,
         )
         .await;
     }
@@ -239,8 +272,7 @@ async fn process_job(
         // run_turn appends the user message itself when given Some(prompt)
         // and then runs the LLM dispatch. We use the same MAX_TOOL_ROUNDS
         // the gateway runs surface uses.
-        let cwd = std::env::current_dir()
-            .map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
         let result = crate::handlers::chat::run_turn(
             store,
             &cwd,
@@ -260,7 +292,33 @@ async fn process_job(
     // memory carries a preview pointer.
     let preview: String = assistant_text.chars().take(2000).collect();
     let completed_at = Utc::now().to_rfc3339();
-    let completed_body = json!({
+
+    // #721: write per-job artifacts to .skycot/outputs/<job_id>/.
+    // Failure here is non-fatal — we still record the completed_jobs
+    // memory entry so the dedup set converges; we just lose the
+    // disk-side mirror. The session's message rows remain canonical.
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let inputs = super::work_artifacts::ArtifactInputs {
+        job_id: job.id,
+        session_id,
+        vertical_id,
+        provider,
+        model,
+        created_at: &pending_created_at,
+        completed_at: &completed_at,
+        assistant_id,
+        assistant_text: &assistant_text,
+        assistant_text_preview: &preview,
+    };
+    let output_dir = match super::work_artifacts::write_artifacts(store, &cwd, &inputs).await {
+        Ok(p) => Some(p.to_string_lossy().to_string()),
+        Err(e) => {
+            eprintln!("argo work: warning — output artifacts not written: {e}");
+            None
+        }
+    };
+
+    let mut completed_body = json!({
         "schema_key": "completed_jobs",
         "pending_job_id": job.id.to_string(),
         "vertical_id": vertical_id,
@@ -270,6 +328,9 @@ async fn process_job(
         "assistant_text": preview,
         "completed_at": completed_at,
     });
+    if let Some(dir) = &output_dir {
+        completed_body["output_dir"] = json!(dir);
+    }
     memory
         .append_for_vertical(
             workspace,
@@ -287,6 +348,7 @@ async fn process_job(
             "session_id": session_id.0.to_string(),
             "assistant_id": assistant_id.to_string(),
             "completed_at": completed_at,
+            "output_dir": output_dir,
         });
         println!("{}", serde_json::to_string(&out).unwrap_or_default());
     } else {

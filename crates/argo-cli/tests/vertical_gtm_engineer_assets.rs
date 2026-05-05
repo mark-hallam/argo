@@ -80,7 +80,11 @@ fn gtm_engineer_is_draft_only_by_manifest() {
     let (registry, _) = argo_vertical::load_dir(dir).unwrap();
     let v = registry.get("gtm-engineer").unwrap();
     let tools = v.manifest.tools.as_ref().expect("[tools] section");
-    let mutating = ["file_write", "file_patch", "terminal", "delegate_task"];
+    // #721 added `memory` to the deny list because the in-tree
+    // builtin tool is still a stub ("memory store not wired" —
+    // lands with Agent H / Phase 3 §14). Surfacing it as denied
+    // (not allowed) stops the agent wasting turns calling it.
+    let mutating = ["file_write", "file_patch", "terminal", "delegate_task", "memory"];
     for t in &mutating {
         assert!(
             tools.denied.iter().any(|d| d == t),
@@ -92,11 +96,11 @@ fn gtm_engineer_is_draft_only_by_manifest() {
             "gtm-engineer manifest must NOT allow `{t}` (draft-only)"
         );
     }
-    // Allow-list must be the four read-only / draft-only tools
+    // Allow-list must be the read-only / draft-only tools
     // and ONLY those. A surprise addition here is suspicious.
     let allowed: HashSet<&str> = tools.allowed.iter().map(String::as_str).collect();
     let expected: HashSet<&str> =
-        ["web_search", "web_extract", "file_read", "memory"]
+        ["web_search", "web_extract", "file_read"]
             .into_iter()
             .collect();
     assert_eq!(

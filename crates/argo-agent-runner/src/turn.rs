@@ -9,7 +9,7 @@
 //!
 //! Streaming (`stream = true`) prints assistant text to stdout as
 //! it arrives but otherwise runs the same multi-round loop.
-use crate::dispatch::{build_dispatch_ctx, dispatch_one, provider_schemas};
+use crate::dispatch::{build_dispatch_ctx, dispatch_one, provider_schemas_filtered};
 use crate::helpers::{
     build_assistant_content, emit_event, message_from_row, price_for, record_turn_spend,
     stream_one_round, RoundResp, RunEventSink, SpendCtx,
@@ -183,7 +183,12 @@ async fn run_turn_with_tools(
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
     let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
-    let tools = provider_schemas(&registry);
+    // #721: hide manifest-denied tools from the model's tool list
+    // entirely — the per-call deny check below remains the hard
+    // authoritative guard; this is the discoverability layer that
+    // stops the agent wasting turns calling things that will get
+    // rejected anyway (observed in the first live worker run).
+    let tools = provider_schemas_filtered(&registry, vertical_deny);
     // The vertical_id flows in via the parent `run_turn` call
     // through `vertical_prompt` (when set) — but build_system_prompt
     // needs the raw id, not the prompt body. The agent-runner's

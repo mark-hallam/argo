@@ -3,6 +3,7 @@
 pub mod agents;
 pub mod audit;
 pub mod work;
+mod work_artifacts;
 mod audit_md;
 mod audit_count;
 pub mod chat;

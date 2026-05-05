@@ -5,6 +5,7 @@ use argo_capability::CapabilityEngine;
 use argo_provider::ToolSchema as ProviderToolSchema;
 use argo_tool::{builtin_tools, ToolContext, ToolRegistry};
 use argo_types::{ArgoResult, Principal, ToolCallRequest, ToolCallResult};
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Build a tool registry + capability engine that grants the
@@ -28,10 +29,20 @@ pub(crate) fn build_dispatch_ctx(
 }
 
 /// Lift the registry's tool schemas into the wire form the
-/// provider transport expects.
-pub(crate) fn provider_schemas(reg: &ToolRegistry) -> Vec<ProviderToolSchema> {
+/// provider transport expects, dropping any whose name appears
+/// in `deny`. Worker v1 (#721) advertises only the already-
+/// allowed set to the model so it doesn't waste turns calling
+/// tools the vertical manifest will deny anyway. The per-call
+/// deny check in `run_turn_with_tools` is still the hard
+/// authoritative guard — this is the discoverability layer.
+/// Pass `&HashSet::new()` to behave as an unfiltered lift.
+pub(crate) fn provider_schemas_filtered(
+    reg: &ToolRegistry,
+    deny: &HashSet<String>,
+) -> Vec<ProviderToolSchema> {
     reg.schemas()
         .into_iter()
+        .filter(|s| !deny.contains(&s.name))
         .map(|s| ProviderToolSchema {
             name: s.name,
             description: s.description,
@@ -63,5 +74,70 @@ pub(crate) async fn dispatch_one(
             format!("dispatch '{}' failed: {e}", call.name),
             u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// Worker v1 (#721): the model-facing schema list must drop
+    /// tools the vertical denies, so the agent doesn't waste
+    /// turns calling things the dispatcher will reject anyway.
+    /// This locks the discoverability filter that prevents the
+    /// `delegate_task`-tried-and-denied trace observed in the
+    /// first live Anthropic worker run.
+    #[test]
+    fn filtered_schemas_drop_denied_tools() {
+        let mut reg = ToolRegistry::new();
+        for t in builtin_tools(PathBuf::from(".")) {
+            reg.register(t);
+        }
+        let unfiltered = provider_schemas_filtered(&reg, &HashSet::new());
+        let names: Vec<String> = unfiltered.iter().map(|s| s.name.clone()).collect();
+        // Smoke: builtin set actually contains the deny targets we
+        // assert on below — otherwise the filter test is vacuous.
+        assert!(
+            names.iter().any(|n| n == "delegate_task"),
+            "builtin set must include delegate_task for this test to be meaningful; got {names:?}"
+        );
+        assert!(
+            names.iter().any(|n| n == "memory"),
+            "builtin set must include memory for this test to be meaningful; got {names:?}"
+        );
+
+        let mut deny: HashSet<String> = HashSet::new();
+        deny.insert("delegate_task".into());
+        deny.insert("memory".into());
+
+        let filtered = provider_schemas_filtered(&reg, &deny);
+        let filtered_names: Vec<String> = filtered.iter().map(|s| s.name.clone()).collect();
+        assert!(
+            !filtered_names.iter().any(|n| n == "delegate_task"),
+            "delegate_task must be filtered out; got {filtered_names:?}"
+        );
+        assert!(
+            !filtered_names.iter().any(|n| n == "memory"),
+            "memory must be filtered out; got {filtered_names:?}"
+        );
+        // And non-denied tools still surface.
+        assert_eq!(
+            filtered.len(),
+            unfiltered.len() - 2,
+            "filtered set must drop exactly the two denied tools",
+        );
+    }
+
+    /// Empty deny set is the unbound-session path: filter is a
+    /// no-op so every registered tool surfaces.
+    #[test]
+    fn filtered_schemas_no_op_with_empty_deny_set() {
+        let mut reg = ToolRegistry::new();
+        for t in builtin_tools(PathBuf::from(".")) {
+            reg.register(t);
+        }
+        let filtered = provider_schemas_filtered(&reg, &HashSet::new());
+        assert_eq!(reg.schemas().len(), filtered.len());
     }
 }
