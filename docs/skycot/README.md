@@ -77,15 +77,19 @@ task; see the `verticals/` directory + `argo vertical lint
    `argo worker actions {list,show,approve,execute,complete,fail,
    status,render,retry}` + `argo worker doctor`, ledger artifacts,
    and troubleshooting.
-4. **[Examples](../../examples/marketplace-seller/)** — sample
-   prompts that work, a hand-crafted artifact bundle showing
-   what the worker writes to disk, and an operator-flow
-   walkthrough of the 6 typical decision points per run.
-5. **[Launch readiness](launch_readiness.md)** — single-page
+4. **[Examples — marketplace seller](../../examples/marketplace-seller/)** —
+   sample prompts that work, a hand-crafted artifact bundle showing
+   what the worker writes to disk, and an operator-flow walkthrough
+   of the 6 typical decision points per run.
+5. **[Examples — AI receptionist](../../examples/ai-receptionist/)** —
+   6 inbound triage prompts (sales call, support call, recruiter,
+   spam, ambiguous, urgent calendar coordination) + a hand-crafted
+   sample bundle showing receptionist-domain artifact shape.
+6. **[Launch readiness](launch_readiness.md)** — single-page
    confidence audit: every shipped capability, what's locked in
    tests, what's intentionally out of v1 scope, and the
    pre-launch checklist.
-6. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
+7. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
    version, customer-facing.
 
 ## Design + invariants

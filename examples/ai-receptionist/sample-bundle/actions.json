@@ -1,0 +1,89 @@
+{
+  "schema_version": "1",
+  "job_id": "019df917-4321-7777-aaaa-1234567890ab",
+  "vertical_id": "ai-receptionist",
+  "evidence_sufficient": true,
+  "counts": {
+    "total": 3,
+    "pending_approval": 1,
+    "pending_autonomous": 2,
+    "blocked": 0
+  },
+  "actions": [
+    {
+      "schema_key": "worker_action",
+      "action_id": "019df917-4321-7777-aaaa-2222220c0001",
+      "job_id": "019df917-4321-7777-aaaa-1234567890ab",
+      "item_id": "mark-chen-acme",
+      "action_type": "lookup_contact",
+      "risk_level": "low",
+      "requires_approval": false,
+      "state": "pending",
+      "payload": {
+        "caller_name": "Mark Chen",
+        "company": "Acme Corp"
+      },
+      "approved_by": null,
+      "approved_at": null,
+      "executed_at": null,
+      "platform": null,
+      "result": null,
+      "evidence": [
+        "https://www.linkedin.com/in/mark-chen-acme",
+        "https://www.acmecorp.io/team"
+      ],
+      "blocked_reason": null,
+      "created_at": "2026-05-05T09:08:12Z"
+    },
+    {
+      "schema_key": "worker_action",
+      "action_id": "019df917-4321-7777-aaaa-2222220c0002",
+      "job_id": "019df917-4321-7777-aaaa-1234567890ab",
+      "item_id": "mark-chen-acme",
+      "action_type": "draft_meeting_request",
+      "risk_level": "low",
+      "requires_approval": false,
+      "state": "pending",
+      "payload": {
+        "attendee_email": "mark@acmecorp.io",
+        "duration_minutes": 20,
+        "proposed_window": "Thursday or Friday afternoon PST",
+        "subject": "Quick partnership chat — SKYCOT × Acme"
+      },
+      "approved_by": null,
+      "approved_at": null,
+      "executed_at": null,
+      "platform": null,
+      "result": null,
+      "evidence": [],
+      "blocked_reason": null,
+      "created_at": "2026-05-05T09:08:13Z"
+    },
+    {
+      "schema_key": "worker_action",
+      "action_id": "019df917-4321-7777-aaaa-2222220c0003",
+      "job_id": "019df917-4321-7777-aaaa-1234567890ab",
+      "item_id": "mark-chen-acme",
+      "action_type": "send_calendar_invite",
+      "risk_level": "medium",
+      "requires_approval": true,
+      "state": "pending",
+      "payload": {
+        "attendee_email": "mark@acmecorp.io",
+        "title": "Quick partnership chat — SKYCOT × Acme",
+        "proposed_time": "2026-05-08T14:00:00-08:00",
+        "duration_minutes": 20
+      },
+      "approved_by": null,
+      "approved_at": null,
+      "executed_at": null,
+      "platform": "google_calendar",
+      "result": null,
+      "evidence": [
+        "https://www.linkedin.com/in/mark-chen-acme"
+      ],
+      "blocked_reason": null,
+      "created_at": "2026-05-05T09:08:14Z"
+    }
+  ]
+}
