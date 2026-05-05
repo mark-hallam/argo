@@ -137,7 +137,44 @@ argo worker actions fail <action_id> --reason "<why>" [--json]
 ```
 
 `failed` is terminal. Retries create a NEW action that can
-reference the failed one in its `evidence` list.
+reference the failed one in its `evidence` list. Use
+`argo worker actions retry <id>` to do this — see below.
+
+### `argo worker actions retry <action_id>`
+
+Emit a NEW pending action with the same payload as a
+previously-failed one. The failed action_id is added to the
+new action's `evidence` as `argo://action/<id>` so the ledger
+captures the retry chain.
+
+```bash
+argo worker actions retry <action_id> [--force] [--json]
+```
+
+**Retry policy (#755):** the bound vertical's manifest can
+declare a per-action retry policy:
+
+```toml
+[actions.verify_price.retry]
+max_attempts          = 3              # original + 2 retries
+backoff               = "exponential"  # informational hint
+initial_delay_seconds = 30
+```
+
+The OS counts the retry chain length from the source's
+`evidence` field. Refuses retries past `max_attempts` with a
+clear error mentioning the cap and the `--force` override.
+
+`--force` bypasses the cap but logs a `WARN` breadcrumb to
+stderr so audit reviewers see when an operator overrode the
+policy. Use sparingly — typically the fix is upstream
+(different prompt, different vertical, different time-of-day)
+rather than another blind retry.
+
+The default policy when none is declared is `max_attempts = 1`
+(no retries). `argo worker actions show <id> --json` carries
+`retry_attempt` + `retry_max_attempts` so monitoring + dashboards
+can spot actions approaching their cap.
 
 ### `argo worker actions status <action_id>`
 

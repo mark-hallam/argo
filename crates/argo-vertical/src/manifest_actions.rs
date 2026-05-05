@@ -1,0 +1,187 @@
+//! Action-related manifest types extracted from `manifest.rs`
+//! to keep the main file under the per-file 500-LOC budget.
+//!
+//! Owns:
+//!
+//! * `ActionsSection` — the `[actions]` table.
+//! * `ActionDeclaration` — one entry inside `[actions]`.
+//! * `ActionRiskLevel` — the `risk` enum.
+//! * `RetryPolicy` — the `[actions.<name>.retry]` sub-section
+//!   added in #755.
+//!
+//! These types are re-exported from the crate root via
+//! `manifest::ActionsSection` etc., so the public API surface
+//! is unchanged.
+
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// `[actions]` — the vertical's action vocabulary (Worker v3
+/// generic execution layer, #729).
+///
+/// Each entry's TOML key is the action_type name, e.g.
+/// `[actions.create_listing_draft]`. The OS uses this section to:
+///
+///   1. Validate every action emission against the declared
+///      vocabulary — undeclared `action_type` strings are
+///      rejected at emission time, NOT at the prompt level.
+///   2. Stamp `requires_approval` + `risk_level` on every
+///      persisted `worker_action` row. The model can't override
+///      the manifest's classification.
+///   3. Render the human-executable artifact bundle via the
+///      per-action `executor` + `payload_schema`.
+///
+/// See `docs/design/worker_v3_execution.md` for the full design.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct ActionsSection {
+    /// Map from action_type name (e.g. `"create_listing_draft"`)
+    /// to its declaration. `BTreeMap` rather than `HashMap` so
+    /// iteration order is deterministic — the artifact renderer
+    /// in #730+ depends on this for `execution_plan.md`.
+    #[serde(flatten)]
+    pub actions: BTreeMap<String, ActionDeclaration>,
+}
+
+/// One per-action declaration inside `[actions]`. Locked to
+/// `deny_unknown_fields` so a typo in a vertical manifest
+/// surfaces at load time, not at runtime.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
+pub struct ActionDeclaration {
+    /// `low` / `medium` / `high`. See the design doc §5 for
+    /// semantics. Surfaced into `approval_queue.md` ordering
+    /// and (later) into auto-approve budget logic.
+    pub risk: ActionRiskLevel,
+    /// When `true`, the action MUST NOT autonomously transition
+    /// past `pending` — only an explicit
+    /// `argo worker actions approve` can move it forward.
+    pub requires_approval: bool,
+    /// One-line human description shown in
+    /// `argo worker actions list` text mode + the design doc.
+    #[serde(default)]
+    pub description: String,
+    /// Optional path (relative to the vertical's root) to a
+    /// JSON-Schema doc that validates the action's payload.
+    /// When set, the OS validates every emission's payload
+    /// against this schema before persisting.
+    #[serde(default)]
+    pub payload_schema: Option<String>,
+    /// Which executor the OS dispatches this action to. v1
+    /// supports `human` only (produces a ready-to-paste
+    /// artifact bundle); future executors include
+    /// `browser_mcp` and per-platform `api`. See design doc §8.
+    #[serde(default = "default_executor_human")]
+    pub executor: String,
+    /// Optional list of destination platforms this action can
+    /// target (e.g. `["facebook_marketplace", "ebay"]`). Empty
+    /// means platform-agnostic.
+    #[serde(default)]
+    pub platforms: Vec<String>,
+    /// Default operator-instruction template for this action.
+    /// Used by the human executor (#731) when rendering
+    /// `instructions.md`. When `Some`, the template body is
+    /// rendered with simple `{{ key }}` and `{{ payload.X }}`
+    /// substitution against the action's fields. When `None`,
+    /// the executor falls back to the generic JSON dump.
+    ///
+    /// Per-platform overrides go in `instruction_templates` —
+    /// e.g. `instruction_templates.ebay = "..."` wins over the
+    /// default when the action's `platform` is `"ebay"`.
+    #[serde(default)]
+    pub instruction_template: Option<String>,
+    /// Per-platform overrides for `instruction_template`. Keyed
+    /// by platform name as it appears on the emitted action's
+    /// `platform` field. Falls back to `instruction_template`
+    /// when no platform key matches; falls back to the generic
+    /// dump when neither is present.
+    #[serde(default)]
+    pub instruction_templates: BTreeMap<String, String>,
+    /// Optional retry policy (#755). When the manifest doesn't
+    /// declare one, the OS treats the action as
+    /// `max_attempts = 1` (no retries) — a `failed` row stays
+    /// terminal. With a declared policy, the OS counts the
+    /// `argo://action/<id>` retry chain in each row's
+    /// `evidence` and refuses `argo worker actions retry`
+    /// when the chain reaches `max_attempts`.
+    ///
+    /// Operators can bypass the limit with `--force`; the
+    /// retry handler logs a WARN-level breadcrumb when they do.
+    #[serde(default)]
+    pub retry: Option<RetryPolicy>,
+}
+
+/// Retry policy declared per-action in the manifest (#755).
+/// Pure declarative — the runtime reads these fields and
+/// enforces `max_attempts`; nothing schedules anything itself
+/// (human-executable mode means delays are operator-driven).
+/// `initial_delay_seconds` is informational, surfaced into
+/// the per-action bundle's `instructions.md` as "wait at
+/// least N seconds before retrying" so the operator paces
+/// retries against the upstream's recovery curve.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RetryPolicy {
+    /// Total attempts allowed including the original. `1`
+    /// means "no retries". `3` means "the original + up to 2
+    /// retries". The OS counts the retry chain length from
+    /// the action's `evidence` field — every `argo worker
+    /// actions retry` invocation adds an `argo://action/<id>`
+    /// reference, so chain length tracks attempts directly.
+    #[serde(default = "default_max_attempts")]
+    pub max_attempts: u32,
+    /// Backoff strategy hint. v1 supports `none` (no delay
+    /// hint surfaced) and `exponential` (suggests doubling
+    /// `initial_delay_seconds` per attempt). The runtime
+    /// doesn't enforce delays in human-executable mode; the
+    /// hint lands in the per-action bundle so the operator
+    /// can pace retries deliberately.
+    #[serde(default = "default_backoff")]
+    pub backoff: String,
+    /// Suggested wait before the first retry, in seconds.
+    /// Surfaced as a hint; never enforced in human mode.
+    #[serde(default = "default_initial_delay")]
+    pub initial_delay_seconds: u32,
+}
+
+impl Default for RetryPolicy {
+    fn default() -> Self {
+        Self {
+            max_attempts: default_max_attempts(),
+            backoff: default_backoff(),
+            initial_delay_seconds: default_initial_delay(),
+        }
+    }
+}
+
+fn default_max_attempts() -> u32 {
+    1
+}
+
+fn default_backoff() -> String {
+    "none".to_string()
+}
+
+fn default_initial_delay() -> u32 {
+    60
+}
+
+fn default_executor_human() -> String {
+    "human".to_string()
+}
+
+/// Risk level for an action. Verticals declare per-action; the
+/// OS surfaces it in artifacts and (later) uses it for
+/// budget-based auto-approval. See design doc §5.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ActionRiskLevel {
+    /// Read-only / draft-only / file-side-effect-only. Safe to
+    /// autonomously execute.
+    #[default]
+    Low,
+    /// Touches a public surface but reversible.
+    Medium,
+    /// Touches another human OR irreversible. Requires approval
+    /// AND a human-readable preview before execution.
+    High,
+}

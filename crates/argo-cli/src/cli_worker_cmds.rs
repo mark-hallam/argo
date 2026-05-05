@@ -171,9 +171,23 @@ pub enum WorkerActionsCmd {
     /// the manifest still says `requires_approval = true`, it
     /// lands `pending` awaiting approval. The failed action stays
     /// terminal in the ledger; nothing is mutated retroactively.
+    ///
+    /// Retry policy (#755): the bound vertical's manifest can
+    /// declare `[actions.<name>.retry] max_attempts = N`. The
+    /// OS counts the retry chain from the source's `evidence`
+    /// and refuses retries past `max_attempts` unless `--force`
+    /// is passed. `--force` overrides log to stderr for audit.
     Retry {
         /// `action_id` (UUIDv7) of the failed action.
         action_id: String,
+        /// Bypass the manifest's `max_attempts` ceiling. Logged
+        /// to stderr so audit reviewers see when an operator
+        /// overrode the policy. Use sparingly — typically the
+        /// fix is upstream (different prompt, different
+        /// vertical, different time-of-day) rather than another
+        /// blind retry.
+        #[arg(long)]
+        force: bool,
         #[arg(long)]
         json: bool,
     },

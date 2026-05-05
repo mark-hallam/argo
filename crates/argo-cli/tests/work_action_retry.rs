@@ -190,3 +190,153 @@ fn retry_emits_new_pending_action_referencing_failed_one() {
     );
     assert!(String::from_utf8_lossy(&non_failed.stderr).contains("not 'failed'"));
 }
+
+/// gtm-engineer's `verify_price` declares `max_attempts = 3`
+/// (#755). Walk a verify_price action through the full retry
+/// budget, verify the limit holds, and verify `--force`
+/// overrides — each behaviour locked end-to-end through the
+/// binary.
+#[test]
+fn retry_enforces_max_attempts_and_force_overrides() {
+    let (home, work) = fresh_workspace_with_actions();
+
+    // Helper: walk an action_id pending → executing → failed
+    // so it's a valid retry source.
+    let walk_to_failed = |id: &str| {
+        let _ = run_argo(
+            home.path(),
+            work.path(),
+            &["worker", "actions", "execute", id, "--json"],
+        );
+        let _ = run_argo(
+            home.path(),
+            work.path(),
+            &[
+                "worker",
+                "actions",
+                "fail",
+                id,
+                "--reason",
+                "transient",
+                "--json",
+            ],
+        );
+    };
+
+    // Original verify_price (attempt #1).
+    let rows = list_actions(home.path(), work.path());
+    let verify = rows
+        .iter()
+        .find(|r| r["action_type"] == "verify_price")
+        .expect("verify_price row");
+    let id1 = verify["action_id"].as_str().expect("action_id").to_string();
+    walk_to_failed(&id1);
+
+    // First retry → attempt #2 (within max_attempts=3).
+    let r1 = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "retry", &id1, "--json"],
+    );
+    assert!(
+        r1.status.success(),
+        "retry #1 should succeed: {}",
+        String::from_utf8_lossy(&r1.stderr)
+    );
+    let v1: Value = serde_json::from_slice(&r1.stdout).expect("json");
+    assert_eq!(v1["retry_attempt"], 2);
+    assert_eq!(v1["max_attempts"], 3);
+    assert_eq!(v1["forced"], false);
+    let id2 = v1["new_action"]["action_id"]
+        .as_str()
+        .expect("id2")
+        .to_string();
+
+    // Walk #2 to failed, then retry → attempt #3 (still within
+    // max_attempts=3).
+    walk_to_failed(&id2);
+    let r2 = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "retry", &id2, "--json"],
+    );
+    assert!(
+        r2.status.success(),
+        "retry #2 should succeed: {}",
+        String::from_utf8_lossy(&r2.stderr)
+    );
+    let v2: Value = serde_json::from_slice(&r2.stdout).expect("json");
+    assert_eq!(v2["retry_attempt"], 3);
+    let id3 = v2["new_action"]["action_id"]
+        .as_str()
+        .expect("id3")
+        .to_string();
+
+    // Walk #3 to failed, then attempt #4 — this would breach
+    // max_attempts=3, so retry MUST refuse without --force.
+    walk_to_failed(&id3);
+    let r3 = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "retry", &id3, "--json"],
+    );
+    assert!(
+        !r3.status.success(),
+        "retry #3 (attempt #4) must be refused"
+    );
+    let stderr = String::from_utf8_lossy(&r3.stderr);
+    assert!(
+        stderr.contains("max_attempts = 3"),
+        "stderr should explain the policy; got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--force"),
+        "stderr should mention --force override; got: {stderr}"
+    );
+
+    // --force lets the operator override the cap. Logs to
+    // stderr; succeeds; sets `forced: true` in the JSON.
+    let r3f = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "retry", &id3, "--force", "--json"],
+    );
+    assert!(
+        r3f.status.success(),
+        "retry --force should succeed: {}",
+        String::from_utf8_lossy(&r3f.stderr)
+    );
+    let v3f: Value = serde_json::from_slice(&r3f.stdout).expect("json");
+    assert_eq!(v3f["retry_attempt"], 4);
+    assert_eq!(v3f["forced"], true);
+    let stderr_f = String::from_utf8_lossy(&r3f.stderr);
+    assert!(
+        stderr_f.contains("WARN"),
+        "--force must log a WARN breadcrumb for audit; got: {stderr_f}"
+    );
+}
+
+/// `argo worker actions show <id> --json` surfaces the retry
+/// counters so monitoring + dashboards don't have to re-parse
+/// the evidence chain or re-load the manifest.
+#[test]
+fn show_json_carries_retry_attempt_and_max_attempts() {
+    let (home, work) = fresh_workspace_with_actions();
+    let rows = list_actions(home.path(), work.path());
+    let verify = rows
+        .iter()
+        .find(|r| r["action_type"] == "verify_price")
+        .expect("verify_price row");
+    let id = verify["action_id"].as_str().expect("action_id");
+
+    let show = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "show", id, "--json"],
+    );
+    assert!(show.status.success());
+    let v: Value = serde_json::from_slice(&show.stdout).expect("json");
+    // Original action: attempt 1 of 3 (verify_price's manifest cap).
+    assert_eq!(v["retry_attempt"], 1);
+    assert_eq!(v["retry_max_attempts"], 3);
+}

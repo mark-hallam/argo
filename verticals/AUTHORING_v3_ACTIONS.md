@@ -118,6 +118,47 @@ fn my_vertical_manifest_declares_expected_action_classification() {
 }
 ```
 
+## Retry policy (#755)
+
+Each action can optionally declare how many times the operator
+is allowed to retry a failed instance:
+
+```toml
+[actions.verify_price.retry]
+max_attempts          = 3              # original + 2 retries
+backoff               = "exponential"  # hint only; not enforced
+initial_delay_seconds = 30             # hint only; not enforced
+```
+
+Default when omitted: `max_attempts = 1` (no retries; a
+`failed` row is fully terminal).
+
+The OS enforces `max_attempts` in code by counting the retry
+chain from the source action's `evidence` field — every
+`argo worker actions retry` adds an `argo://action/<id>`
+reference, so chain length tracks attempts directly. The
+runtime refuses retries past the cap unless the operator
+passes `--force` (which logs a `WARN` breadcrumb to stderr
+for audit).
+
+**Pattern that works across the shipped verticals:**
+
+| Action shape                                            | Suggested `max_attempts` |
+|---------------------------------------------------------|--------------------------|
+| Web research / drafting (autonomous, low risk)          | 3                        |
+| Public-surface posting (medium risk)                    | 2                        |
+| Buyer / prospect / inbox-touching (high risk)           | 2                        |
+| Spend or bid placement                                  | 1 (no retries)           |
+
+The `gtm-engineer` vertical's manifest is the live reference —
+`verify_price` retries 3×, `post_listing` and
+`reply_to_buyer` retry 2× each.
+
+`backoff` and `initial_delay_seconds` are surfaced into the
+per-action bundle's `instructions.md` as a hint ("wait at least
+N seconds before retrying"). Human-executable mode means the
+operator paces retries; the runtime never blocks on a delay.
+
 ## Lint your templates
 
 ```bash

@@ -289,21 +289,30 @@ async fn refresh_workspace_ledger(
 
 /// `argo worker actions retry <failed-id>` — emit a fresh
 /// pending action with the same payload + platform + item_id
-/// as a previously-failed one (#737). The failed action_id is
-/// added to the new action's `evidence` so the ledger captures
-/// the retry chain without mutating the original row.
+/// as a previously-failed one (#737, retry policy added in
+/// #755). The failed action_id is added to the new action's
+/// `evidence` so the ledger captures the retry chain without
+/// mutating the original row.
+///
+/// Retry policy enforcement (#755):
+///   The bound vertical's manifest can declare
+///   `[actions.<name>.retry]` with `max_attempts`. When set,
+///   the OS counts the chain length from the source action's
+///   `evidence` (every `argo://action/<id>` reference is one
+///   prior attempt). If the chain has reached `max_attempts`,
+///   retry refuses unless `--force` is passed. Operators who
+///   bypass with `--force` get a stderr WARN breadcrumb so
+///   audit reviewers can see when the limit was overridden.
 ///
 /// Errors when:
 /// - the source action_id doesn't exist
-/// - the source isn't currently `failed` (the retry primitive
-///   only applies to terminal failures; restarts of an
-///   approved/executing action go through the explicit
-///   transition CLI, not retry)
+/// - the source isn't currently `failed`
+/// - max_attempts reached without `--force`
 /// - the source's `action_type` isn't declared in the bound
 ///   vertical's manifest (handled by `build_emission` —
 ///   undeclared types land `blocked` with an OS-level
 ///   capability-grant reason)
-pub(crate) async fn retry(action_id: &str, json: bool) -> ArgoResult<()> {
+pub(crate) async fn retry(action_id: &str, force: bool, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     let located = worker_actions_transitions::find_action(&memory, ws, action_id)
         .await?
@@ -325,6 +334,42 @@ pub(crate) async fn retry(action_id: &str, json: bool) -> ArgoResult<()> {
             located.vertical_id
         ))
     })?;
+
+    // ── retry-policy enforcement (#755) ────────────────────
+    // Count the existing chain length: every `argo://action/`
+    // entry in the source's evidence is one prior attempt.
+    // The source itself counts as attempt #1, so the chain
+    // length AT THIS RETRY's persist time will be
+    // `prior_attempts + 1` (we're emitting the next attempt
+    // right now). Compare against max_attempts to decide.
+    let prior_attempts = count_retry_chain(&located.record);
+    let next_attempt_number = prior_attempts + 1;
+    let policy = loaded
+        .manifest
+        .actions
+        .as_ref()
+        .and_then(|a| a.actions.get(&located.record.action_type))
+        .and_then(|d| d.retry.clone())
+        .unwrap_or_default();
+    if next_attempt_number > policy.max_attempts && !force {
+        return Err(ArgoError::Provider(format!(
+            "retry refused: action_type '{}' has max_attempts = {} and \
+             this would be attempt #{}; pass --force to override (the \
+             override is logged for audit)",
+            located.record.action_type, policy.max_attempts, next_attempt_number
+        )));
+    }
+    if force && next_attempt_number > policy.max_attempts {
+        eprintln!(
+            "argo worker: WARN — --force bypassed retry max_attempts={} \
+             for '{}' (attempt #{} of action_id {})",
+            policy.max_attempts,
+            located.record.action_type,
+            next_attempt_number,
+            located.record.action_id,
+        );
+    }
+
     let mut new_evidence = located.record.evidence.clone();
     new_evidence.push(format!("argo://action/{}", located.record.action_id));
 
@@ -343,6 +388,9 @@ pub(crate) async fn retry(action_id: &str, json: bool) -> ArgoResult<()> {
         let payload = serde_json::json!({
             "retried_from": located.record.action_id,
             "new_action": new_rec,
+            "retry_attempt": next_attempt_number,
+            "max_attempts": policy.max_attempts,
+            "forced": force && next_attempt_number > policy.max_attempts,
         });
         println!(
             "{}",
@@ -350,12 +398,31 @@ pub(crate) async fn retry(action_id: &str, json: bool) -> ArgoResult<()> {
         );
     } else {
         println!(
-            "retried {} → new action {} (state {})",
-            located.record.action_id, new_rec.action_id, new_rec.state
+            "retried {} → new action {} (state {}, attempt {}/{})",
+            located.record.action_id,
+            new_rec.action_id,
+            new_rec.state,
+            next_attempt_number,
+            policy.max_attempts,
         );
     }
     auto_refresh_ledger(&memory, ws).await;
     Ok(())
+}
+
+/// Count prior attempts in the retry chain. Every
+/// `argo://action/<id>` reference in the action's `evidence`
+/// is one prior attempt; the action itself counts as the
+/// initial attempt, so the total chain length is `1 +
+/// retry_marker_count`. Pure function on the ActionRecord —
+/// no I/O, no side effects.
+pub(crate) fn count_retry_chain(rec: &super::worker_actions::ActionRecord) -> u32 {
+    let prior_retries = rec
+        .evidence
+        .iter()
+        .filter(|e| e.starts_with("argo://action/"))
+        .count() as u32;
+    1 + prior_retries
 }
 
 /// Auto-refresh hook fired after every successful transition so

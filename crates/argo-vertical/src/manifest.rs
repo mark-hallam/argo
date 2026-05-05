@@ -233,92 +233,15 @@ pub struct EvaluationSection {
 ///      per-action `executor` + `payload_schema`.
 ///
 /// See `docs/design/worker_v3_execution.md` for the full design.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub struct ActionsSection {
-    /// Map from action_type name (e.g. `"create_listing_draft"`)
-    /// to its declaration. `BTreeMap` rather than `HashMap` so
-    /// iteration order is deterministic — the artifact renderer
-    /// in #730+ depends on this for `execution_plan.md`.
-    #[serde(flatten)]
-    pub actions: BTreeMap<String, ActionDeclaration>,
-}
-
-/// One per-action declaration inside `[actions]`. Locked to
-/// `deny_unknown_fields` so a typo in a vertical manifest
-/// surfaces at load time, not at runtime.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(deny_unknown_fields)]
-pub struct ActionDeclaration {
-    /// `low` / `medium` / `high`. See the design doc §5 for
-    /// semantics. Surfaced into `approval_queue.md` ordering
-    /// and (later) into auto-approve budget logic.
-    pub risk: ActionRiskLevel,
-    /// When `true`, the action MUST NOT autonomously transition
-    /// past `pending` — only an explicit
-    /// `argo worker actions approve` can move it forward.
-    pub requires_approval: bool,
-    /// One-line human description shown in
-    /// `argo worker actions list` text mode + the design doc.
-    #[serde(default)]
-    pub description: String,
-    /// Optional path (relative to the vertical's root) to a
-    /// JSON-Schema doc that validates the action's payload.
-    /// When set, the OS validates every emission's payload
-    /// against this schema before persisting.
-    #[serde(default)]
-    pub payload_schema: Option<String>,
-    /// Which executor the OS dispatches this action to. v1
-    /// supports `human` only (produces a ready-to-paste
-    /// artifact bundle); future executors include
-    /// `browser_mcp` and per-platform `api`. See design doc §8.
-    #[serde(default = "default_executor_human")]
-    pub executor: String,
-    /// Optional list of destination platforms this action can
-    /// target (e.g. `["facebook_marketplace", "ebay"]`). Empty
-    /// means platform-agnostic.
-    #[serde(default)]
-    pub platforms: Vec<String>,
-    /// Default operator-instruction template for this action.
-    /// Used by the human executor (#731) when rendering
-    /// `instructions.md`. When `Some`, the template body is
-    /// rendered with simple `{{ key }}` and `{{ payload.X }}`
-    /// substitution against the action's fields. When `None`,
-    /// the executor falls back to the generic JSON dump.
-    ///
-    /// Per-platform overrides go in `instruction_templates` —
-    /// e.g. `instruction_templates.ebay = "..."` wins over the
-    /// default when the action's `platform` is `"ebay"`.
-    #[serde(default)]
-    pub instruction_template: Option<String>,
-    /// Per-platform overrides for `instruction_template`. Keyed
-    /// by platform name as it appears on the emitted action's
-    /// `platform` field. Falls back to `instruction_template`
-    /// when no platform key matches; falls back to the generic
-    /// dump when neither is present.
-    #[serde(default)]
-    pub instruction_templates: BTreeMap<String, String>,
-}
-
-fn default_executor_human() -> String {
-    "human".to_string()
-}
-
-/// Risk level for an action. Verticals declare per-action; the
-/// OS surfaces it in artifacts and (later) uses it for
-/// budget-based auto-approval. See design doc §5.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum ActionRiskLevel {
-    /// Read-only / draft-only / file-side-effect-only. Safe to
-    /// autonomously execute.
-    #[default]
-    Low,
-    /// Touches a public surface but reversible.
-    Medium,
-    /// Touches another human OR irreversible. Requires approval
-    /// AND a human-readable preview before execution.
-    High,
-}
+///
+/// `ActionsSection`, `ActionDeclaration`, `ActionRiskLevel`, and
+/// `RetryPolicy` live in `manifest_actions.rs` so this file stays
+/// under the 500-LOC budget; they're re-exported here so the
+/// public API surface (`argo_vertical::ActionsSection`, etc.) is
+/// unchanged.
+pub use crate::manifest_actions::{
+    ActionDeclaration, ActionRiskLevel, ActionsSection, RetryPolicy,
+};
 
 /// `[gateway]` — public HTTP endpoints to mount when the vertical
 /// is loaded. Wired by Phase 2.

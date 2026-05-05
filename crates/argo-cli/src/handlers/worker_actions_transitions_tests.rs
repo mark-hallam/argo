@@ -218,3 +218,38 @@ async fn approve_refuses_unknown_action_id() {
         .expect_err("approve should fail for unknown id");
     assert!(err.to_string().contains("missing"));
 }
+
+// ───────────────── retry chain counter (#755) ─────────────
+
+#[test]
+fn count_retry_chain_returns_one_for_an_action_with_no_retry_markers() {
+    let r = pending_record("a-1", false);
+    let n = crate::handlers::worker_actions_dispatch::count_retry_chain(&r);
+    assert_eq!(n, 1, "no argo://action/ markers → first attempt");
+}
+
+#[test]
+fn count_retry_chain_increments_per_argo_action_marker() {
+    let mut r = pending_record("a-2", false);
+    r.evidence = vec![
+        "https://example.com/comp1".to_string(),
+        "argo://action/00000000-0000-0000-0000-000000000001".to_string(),
+        "argo://action/00000000-0000-0000-0000-000000000002".to_string(),
+        "https://example.com/comp2".to_string(),
+    ];
+    let n = crate::handlers::worker_actions_dispatch::count_retry_chain(&r);
+    // 1 (this attempt) + 2 prior retry markers = 3.
+    assert_eq!(n, 3);
+}
+
+#[test]
+fn count_retry_chain_ignores_non_retry_evidence_urls() {
+    let mut r = pending_record("a-3", false);
+    r.evidence = vec![
+        "https://example.com/x".to_string(),
+        "argo://session/foo".to_string(), // not action/
+        "argohttps://".to_string(),       // doesn't start with the marker
+    ];
+    let n = crate::handlers::worker_actions_dispatch::count_retry_chain(&r);
+    assert_eq!(n, 1);
+}

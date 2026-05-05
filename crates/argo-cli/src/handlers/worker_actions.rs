@@ -263,9 +263,11 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             WorkerActionsCmd::Render { vertical } => {
                 super::worker_actions_dispatch::render(vertical.as_deref()).await
             }
-            WorkerActionsCmd::Retry { action_id, json } => {
-                super::worker_actions_dispatch::retry(&action_id, json).await
-            }
+            WorkerActionsCmd::Retry {
+                action_id,
+                force,
+                json,
+            } => super::worker_actions_dispatch::retry(&action_id, force, json).await,
         },
     }
 }
@@ -334,10 +336,21 @@ async fn show(action_id: &str, json_out: bool) -> ArgoResult<()> {
             "no action with action_id '{action_id}'"
         )));
     };
+    // #755: surface retry-chain counters alongside the rest.
+    let attempt_number = super::worker_actions_dispatch::count_retry_chain(&found);
+    let max_attempts = lookup_max_attempts(&found.action_type).await.unwrap_or(1);
     if json_out {
+        // Augment the serialized record with the derived
+        // retry counters so consumers don't have to re-walk
+        // the evidence chain or reload the manifest.
+        let mut v = serde_json::to_value(&found).unwrap_or(serde_json::json!({}));
+        if let Some(map) = v.as_object_mut() {
+            map.insert("retry_attempt".into(), serde_json::json!(attempt_number));
+            map.insert("retry_max_attempts".into(), serde_json::json!(max_attempts));
+        }
         println!(
             "{}",
-            serde_json::to_string_pretty(&found).unwrap_or_else(|_| "{}".into())
+            serde_json::to_string_pretty(&v).unwrap_or_else(|_| "{}".into())
         );
     } else {
         println!("action_id     {}", found.action_id);
@@ -351,6 +364,7 @@ async fn show(action_id: &str, json_out: bool) -> ArgoResult<()> {
             println!("platform      {p}");
         }
         println!("created_at    {}", found.created_at);
+        println!("attempt       {attempt_number}/{max_attempts}");
         if let Some(by) = &found.approved_by {
             println!("approved_by   {by}");
         }
@@ -444,6 +458,28 @@ fn short(id: &str) -> String {
     } else {
         id.to_string()
     }
+}
+
+/// Lookup the manifest's declared `retry.max_attempts` for an
+/// action_type, walking every loaded vertical to find the
+/// owning declaration. Returns `None` when no manifest declares
+/// the type — caller treats that as the conservative default
+/// (`1`, no retries). Used by `show` (#755) to surface the
+/// retry ceiling alongside the action's current attempt count.
+async fn lookup_max_attempts(action_type: &str) -> Option<u32> {
+    let dir = super::vertical::resolve_verticals_dir();
+    let (registry, _errs) = argo_vertical::load_dir(&dir).ok()?;
+    for (_id, loaded) in registry.list() {
+        if let Some(decl) = loaded
+            .manifest
+            .actions
+            .as_ref()
+            .and_then(|a| a.actions.get(action_type))
+        {
+            return Some(decl.retry.clone().unwrap_or_default().max_attempts);
+        }
+    }
+    None
 }
 
 #[cfg(test)]

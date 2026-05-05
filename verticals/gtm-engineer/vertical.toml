@@ -142,6 +142,15 @@ argo worker actions complete {{ action_id }} --note "<verdict>" \\
 ```
 """
 
+# Web research hits transient backend errors regularly; allow
+# the worker / operator to re-attempt without burning the
+# manifest's safety budget. 3 attempts total = original + 2
+# retries.
+[actions.verify_price.retry]
+max_attempts          = 3
+backoff               = "exponential"
+initial_delay_seconds = 30
+
 [actions.request_photos]
 risk              = "low"
 requires_approval = false
@@ -316,3 +325,31 @@ requires_approval = true
 description       = "Send a follow-up to a buyer who didn't respond to a prior message."
 executor          = "human"
 platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+
+# ─────────────────────────── retry policies ────────────────────
+# Retry caps per #755. The manifest defaults to max_attempts=1
+# (no retries) when omitted; declare here for action types where
+# transient retries make sense. High-risk public-surface +
+# buyer-touching actions stay tight (max 2) to avoid spamming;
+# autonomous research can retry more freely.
+
+[actions.post_listing.retry]
+max_attempts = 2
+
+[actions.boost_listing.retry]
+max_attempts = 2
+
+[actions.update_price.retry]
+max_attempts = 2
+
+[actions.relist_item.retry]
+max_attempts = 2
+
+[actions.mark_item_sold.retry]
+max_attempts = 2
+
+[actions.reply_to_buyer.retry]
+max_attempts = 2
+
+[actions.follow_up_buyer.retry]
+max_attempts = 2
