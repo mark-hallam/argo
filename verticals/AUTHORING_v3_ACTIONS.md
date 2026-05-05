@@ -169,6 +169,63 @@ Catches `{{ unknown_key }}` references in your instruction
 templates that don't resolve to known top-level keys or
 `payload.<dotted.path>` form. Warns; doesn't block load.
 
+## Eval suites — locking behaviour with fixtures (#759)
+
+Every vertical SHOULD ship an `[evaluation]` section pointing at
+one or more JSONL eval suites:
+
+```toml
+[evaluation]
+suites = ["eval/your_core.jsonl"]
+```
+
+Each line in a suite is a fixture:
+
+```jsonc
+{
+  "id": "your_unique_id",
+  "input": "the prompt fragment / scenario the worker receives",
+  "expected": {
+    // Any subset of the rule keys below. Keys are independent;
+    // each one runs as a separate ScoreCheck.
+    "must_include":           ["substring 1", "substring 2"],
+    "must_not_include":       ["forbidden phrase"],
+    "abstain":                true,   // refuse for thin evidence
+    "must_refuse_or_defer":   true,   // refuse / defer to operator
+    "external_mutation":      false,  // must NOT claim send/post/update
+    "hallucination":          false,  // no fabricated funding / launches
+    "pattern_detected":       true,   // pattern-recognition language present
+    "skill_proposal":         false,  // proposes a learned skill
+    "personalization_quality": "high"
+  }
+}
+```
+
+`argo vertical eval <id>` validates structure (every row has
+`id`/`input`/`expected`). `argo vertical eval <id> --score`
+additionally runs the deterministic rule engine against each
+fixture's `actual` field if present — otherwise the row reports
+`no-actual` and is skipped. Live LLM runs populate the actuals;
+CI runs the structural check + the rule engine over a known-good
+actuals file in the repo.
+
+The Worker v3 cohort (`gtm-engineer`, `ai-receptionist`,
+`sales-follow-up`) each ship suites covering:
+
+- the autonomous-safe / approval-gated split (worker emits
+  `requires_approval` rows correctly for high-risk actions);
+- the evidence-gate (thin research → emission downgraded to
+  `blocked`);
+- undeclared-action rejection (worker can't grant itself
+  capabilities the manifest didn't declare);
+- the abstain contract on under-grounded personalisation;
+- `external_mutation: false` everywhere so a regression that
+  has the worker claim "I sent the email" gets caught
+  structurally.
+
+Author your fixtures to assert the same shape — the rule engine
+is deterministic and runs without an API key.
+
 ## Operator-side surface (what the customer runs)
 
 After your vertical declares its actions + instruction

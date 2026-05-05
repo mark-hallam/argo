@@ -98,7 +98,10 @@ fn cli_doctor_vertical_with_missing_role_file_fails_with_validate_error() {
     // (since validate runs there too), so the doctor command
     // bails with a load-side error before producing JSON.
     // Either way it must exit non-zero.
-    assert!(!out.status.success(), "doctor must surface validate failures");
+    assert!(
+        !out.status.success(),
+        "doctor must surface validate failures"
+    );
 }
 
 #[test]
@@ -151,8 +154,12 @@ fn write_vertical_with_optional_actuals(
 #[test]
 fn cli_doctor_gtm_engineer_reports_scored_eval_passed_ten_of_ten() {
     // GTM Engineer ships verticals/gtm-engineer/eval/known_good_
-    // actuals.jsonl from #694. Doctor must auto-detect it and
-    // report the scored line as 10/10 pass without any flag.
+    // actuals.jsonl from #694 covering the core suite. #759 adds
+    // a second worker-v3-emission suite WITHOUT bundled actuals;
+    // doctor must report the core suite as 10/10 pass and the
+    // emission suite as actuals_present=true (file exists in the
+    // same dir) but scored_count=0 (no actual rows match its
+    // fixture ids), without flipping overall status to failed.
     let home = tempfile::tempdir().unwrap();
     let out = Command::new(argo_bin())
         .env("ARGO_HOME", home.path())
@@ -172,14 +179,29 @@ fn cli_doctor_gtm_engineer_reports_scored_eval_passed_ten_of_ten() {
     assert_eq!(scored["status"], "passed", "scored_eval: {scored}");
     assert_eq!(scored["ok"], true);
     let suites = scored["suites"].as_array().unwrap();
-    assert_eq!(suites.len(), 1);
-    let s = &suites[0];
-    assert_eq!(s["actuals_present"], true);
-    assert_eq!(s["actuals_path"], "eval/known_good_actuals.jsonl");
-    assert_eq!(s["scored_count"], 10);
-    assert_eq!(s["passed"], 10);
-    assert_eq!(s["failed"], 0);
-    assert_eq!(s["pass_rate"].as_f64().unwrap(), 1.0);
+    assert_eq!(suites.len(), 2, "expected core + worker_v3_emission suites");
+    // Locate the core suite by path — order is manifest-declared
+    // but lookup-by-path is more robust than index.
+    let core = suites
+        .iter()
+        .find(|s| s["path"] == "eval/gtm_engineer_core.jsonl")
+        .expect("core suite present");
+    assert_eq!(core["actuals_present"], true);
+    assert_eq!(core["actuals_path"], "eval/known_good_actuals.jsonl");
+    assert_eq!(core["scored_count"], 10);
+    assert_eq!(core["passed"], 10);
+    assert_eq!(core["failed"], 0);
+    assert_eq!(core["pass_rate"].as_f64().unwrap(), 1.0);
+    let emission = suites
+        .iter()
+        .find(|s| s["path"] == "eval/worker_v3_emission.jsonl")
+        .expect("worker_v3_emission suite present");
+    // The shared known_good_actuals.jsonl exists, so
+    // actuals_present is true — but no IDs match this suite's
+    // fixtures, so scored_count is 0 and pass/fail are both 0.
+    assert_eq!(emission["actuals_present"], true);
+    assert_eq!(emission["passed"], 0);
+    assert_eq!(emission["failed"], 0);
 }
 
 #[test]

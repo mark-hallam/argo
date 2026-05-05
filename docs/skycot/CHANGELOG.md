@@ -172,4 +172,28 @@ full table. Headlines:
 
 ## Unreleased
 
-(no changes since 0.1.0)
+### Added — Eval suite expansion across the Worker v3 cohort
+
+- `verticals/gtm-engineer/eval/worker_v3_emission.jsonl`: 7
+  fixtures covering action-block emission, the evidence-gate,
+  undeclared-action rejection, the autonomous-safe / approval
+  split, and retry-chain evidence-carry. Adds to the existing
+  10-fixture `gtm_engineer_core.jsonl` for 17 total.
+- `verticals/ai-receptionist/eval/triage_core.jsonl`: 7
+  fixtures covering inbound triage (sales, recruiter, spam,
+  ambiguous, urgent), approval-gated calendar invites, and
+  undeclared-action rejection.
+- `verticals/sales-follow-up/eval/followup_core.jsonl`: 7
+  fixtures covering signal-led drafting (post-demo, post-trial,
+  role-change, podcast), the abstain contract on dropped
+  leads, approval-gated email send, autonomous-safe CRM logging.
+- New `[evaluation]` sections wired into `ai-receptionist` +
+  `sales-follow-up` `vertical.toml` files (gtm-engineer already
+  had one; new suite added to its list).
+- CI integration test
+  `cli_eval_worker_v3_verticals_real_assets_pass` locks all
+  three suites to a minimum-fixture floor — a future "rip out
+  fixtures" PR fails CI loudly.
+- AUTHORING_v3_ACTIONS.md gains an "Eval suites" section
+  documenting the rule keys + the cohort's structural
+  coverage. (#759)

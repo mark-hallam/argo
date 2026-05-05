@@ -127,3 +127,9 @@ argo worker actions complete {{ action_id }} --note "logged" \\
   --result-json '{"crm": "{{ platform }}", "contact_id": "<id>"}'
 ```
 """
+
+[evaluation]
+# Follow-up eval suite (#759). Validates signal-led drafting,
+# personalization grounding, the abstain contract on thin signals,
+# and approval-gate discipline for send actions.
+suites = ["eval/followup_core.jsonl"]

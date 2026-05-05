@@ -80,7 +80,10 @@ median_response_seconds     = 120
 required_audit_chain_intact = true
 
 [evaluation]
-suites = ["eval/gtm_engineer_core.jsonl"]
+suites = [
+    "eval/gtm_engineer_core.jsonl",
+    "eval/worker_v3_emission.jsonl",
+]
 
 [gateway]
 public_endpoints = []

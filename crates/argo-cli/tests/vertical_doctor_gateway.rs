@@ -51,8 +51,7 @@ fn repo_verticals_dir() -> std::path::PathBuf {
 #[test]
 fn gateway_get_doctor_pr_checker_returns_200_ok_passing_all_checks() {
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
 
     let resp = http_get(port, "/verticals/pr-checker/doctor");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
@@ -68,8 +67,7 @@ fn gateway_get_doctor_pr_checker_returns_200_ok_passing_all_checks() {
 #[test]
 fn gateway_get_doctor_receptionist_returns_200_ok() {
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
     let resp = http_get(port, "/verticals/receptionist/doctor");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
@@ -81,8 +79,7 @@ fn gateway_get_doctor_receptionist_returns_200_ok() {
 fn gateway_get_doctor_unknown_vertical_returns_404() {
     let verticals = tempfile::tempdir().unwrap();
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(verticals.path(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(verticals.path(), wd.path(), 1);
     let resp = http_get(port, "/verticals/ghost/doctor");
     assert!(resp.contains("HTTP/1.1 404 Not Found"), "resp: {resp}");
     let _ = child.kill();
@@ -103,8 +100,7 @@ fn gateway_get_doctor_synthetic_lint_warn_still_returns_200_ok() {
          [tools]\nallowed = [\"file_read\", \"file_reed_typo\"]\ndenied = []\n",
     )
     .unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(verticals.path(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(verticals.path(), wd.path(), 1);
     let resp = http_get(port, "/verticals/warner/doctor");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();
@@ -116,8 +112,7 @@ fn gateway_get_doctor_synthetic_lint_warn_still_returns_200_ok() {
 #[test]
 fn gateway_routes_catalog_lists_doctor_endpoint() {
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 1);
     let resp = http_get(port, "/routes");
     assert!(resp.contains("HTTP/1.1 200 OK"));
     let body = body_of(&resp);
@@ -160,12 +155,14 @@ fn write_synthetic_vertical_with_actuals(
 #[test]
 fn gateway_get_doctor_gtm_engineer_includes_scored_eval_passed_ten_of_ten() {
     // GTM Engineer ships verticals/gtm-engineer/eval/known_good_
-    // actuals.jsonl from #694. The gateway doctor must auto-
-    // detect it (same convention as the CLI in #695) and report
-    // scored_eval passed 10/10 alongside validate / eval / lint.
+    // actuals.jsonl from #694 covering the core suite. #759 added a
+    // second worker-v3-emission suite WITHOUT bundled actuals; the
+    // gateway must still report scored_eval passed for the core
+    // suite (10/10) and the new suite as actuals_present=true (file
+    // exists in the same dir) but scored_count=0, without flipping
+    // overall status.
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
 
     let resp = http_get(port, "/verticals/gtm-engineer/doctor");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
@@ -175,14 +172,24 @@ fn gateway_get_doctor_gtm_engineer_includes_scored_eval_passed_ten_of_ten() {
     assert_eq!(scored["status"], "passed", "scored_eval: {scored}");
     assert_eq!(scored["ok"], true);
     let suites = scored["suites"].as_array().unwrap();
-    assert_eq!(suites.len(), 1);
-    let s = &suites[0];
-    assert_eq!(s["actuals_present"], true);
-    assert_eq!(s["actuals_path"], "eval/known_good_actuals.jsonl");
-    assert_eq!(s["scored_count"], 10);
-    assert_eq!(s["passed"], 10);
-    assert_eq!(s["failed"], 0);
-    assert_eq!(s["pass_rate"].as_f64().unwrap(), 1.0);
+    assert_eq!(suites.len(), 2, "expected core + worker_v3_emission suites");
+    let core = suites
+        .iter()
+        .find(|s| s["path"] == "eval/gtm_engineer_core.jsonl")
+        .expect("core suite present");
+    assert_eq!(core["actuals_present"], true);
+    assert_eq!(core["actuals_path"], "eval/known_good_actuals.jsonl");
+    assert_eq!(core["scored_count"], 10);
+    assert_eq!(core["passed"], 10);
+    assert_eq!(core["failed"], 0);
+    assert_eq!(core["pass_rate"].as_f64().unwrap(), 1.0);
+    let emission = suites
+        .iter()
+        .find(|s| s["path"] == "eval/worker_v3_emission.jsonl")
+        .expect("worker_v3_emission suite present");
+    assert_eq!(emission["actuals_present"], true);
+    assert_eq!(emission["passed"], 0);
+    assert_eq!(emission["failed"], 0);
 
     let _ = child.kill();
 }
@@ -194,8 +201,7 @@ fn gateway_get_doctor_pr_checker_includes_scored_eval_skipped() {
     // Locks the back-compat behaviour for verticals that don't
     // ship actuals yet.
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 2);
 
     let resp = http_get(port, "/verticals/pr-checker/doctor");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp: {resp}");
@@ -227,8 +233,7 @@ fn gateway_get_doctor_returns_422_when_known_good_actuals_contain_failing_actual
         "{\"id\":\"a\",\"input\":\"\",\"expected\":{\"must_include\":[\"alpha\"]}}\n",
         Some("{\"id\":\"a\",\"actual\":\"only beta here\"}\n"),
     );
-    let (mut child, _stderr, port) =
-        boot_with_vertical(verticals.path(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(verticals.path(), wd.path(), 1);
 
     let resp = http_get(port, "/verticals/bad-actuals-gw/doctor");
     assert!(
@@ -265,8 +270,7 @@ fn gateway_get_doctor_returns_422_when_actuals_file_is_malformed() {
         "{\"id\":\"a\",\"input\":\"\",\"expected\":{}}\n",
         Some("{\"id\":\"a\",\"actual\":\"ok\"}\nNOT JSON\n"),
     );
-    let (mut child, _stderr, port) =
-        boot_with_vertical(verticals.path(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(verticals.path(), wd.path(), 1);
 
     let resp = http_get(port, "/verticals/malformed-gw/doctor");
     assert!(
@@ -290,8 +294,7 @@ fn gateway_get_doctor_existing_three_check_fields_remain_intact() {
     // present + carry the same shape after #696. Adding
     // `scored_eval` is purely additive.
     let wd = tempfile::tempdir().unwrap();
-    let (mut child, _stderr, port) =
-        boot_with_vertical(&repo_verticals_dir(), wd.path(), 1);
+    let (mut child, _stderr, port) = boot_with_vertical(&repo_verticals_dir(), wd.path(), 1);
 
     let resp = http_get(port, "/verticals/pr-checker/doctor");
     let v: serde_json::Value = serde_json::from_str(body_of(&resp)).unwrap();

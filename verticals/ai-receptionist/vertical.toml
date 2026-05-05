@@ -170,3 +170,10 @@ argo worker actions complete {{ action_id }} --note "sent" \\
   --result-json '{"recipient": "{{ payload.recipient_email }}", "subject": "{{ payload.subject }}"}'
 ```
 """
+
+[evaluation]
+# Receptionist eval suite (#759). Validates triage-shape behaviour:
+# the worker must take_message for ambiguous inbound, send_calendar_invite
+# only behind approval, refuse undeclared actions, and never claim
+# external-mutation outcomes it can't actually perform.
+suites = ["eval/triage_core.jsonl"]
