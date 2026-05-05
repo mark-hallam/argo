@@ -26,6 +26,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
+mod sections;
+
 /// All the pieces `process_job` already has by the time the
 /// turn completes — bundled into a single struct so the call
 /// site stays readable. Borrowed strs to avoid clones.
@@ -166,17 +168,23 @@ pub(crate) struct SectionedOutput {
 
 impl SectionedOutput {
     /// Parse `## research`, `## pricing`, `## listings`, and
-    /// `## approval_checklist` headers (and a couple of
-    /// near-equivalent variants like `## Approval Checklist`)
-    /// out of free-form assistant markdown.
+    /// `## approval_checklist` headers (case-insensitive,
+    /// tolerant of trailing qualifiers, emoji prefixes, and
+    /// `_` vs ` ` variants) out of free-form assistant markdown.
+    /// Recognises bare `## approval` as a fallback for the
+    /// approval_checklist target. See `sections::split_sections`
+    /// for the splitter contract; #726 rewrote it to walk
+    /// line-by-line rather than slice via lowercased byte
+    /// indices, which prevents nested-section bleed-through.
     pub(crate) fn from_assistant_text(text: &str) -> Self {
+        let sections = sections::split_sections(text);
         SectionedOutput {
-            research: extract_section(text, &["research"]),
-            pricing: extract_section(text, &["pricing"]),
-            listings: extract_section(text, &["listings", "listing"]),
-            approval_checklist: extract_section(
-                text,
-                &["approval_checklist", "approval checklist"],
+            research: sections::find_section(&sections, &["research"]),
+            pricing: sections::find_section(&sections, &["pricing"]),
+            listings: sections::find_section(&sections, &["listings", "listing"]),
+            approval_checklist: sections::find_section(
+                &sections,
+                &["approval_checklist", "approval checklist", "approval"],
             ),
         }
     }
@@ -219,52 +227,11 @@ impl SectionedOutput {
     }
 }
 
-/// Find a `## <name>` header (case-insensitive, leading hashes
-/// 1..=3) and return the body up to the next heading at the
-/// same-or-shallower depth, or end-of-text. Returns `None` when
-/// no matching header is found.
-fn extract_section(text: &str, candidate_names: &[&str]) -> Option<String> {
-    let lower = text.to_lowercase();
-    let mut start_idx: Option<usize> = None;
-    for name in candidate_names {
-        for prefix in ["# ", "## ", "### "] {
-            let needle = format!("{prefix}{name}");
-            if let Some(idx) = lower.find(&needle) {
-                // Anchor on the START of the header line.
-                let line_start = lower[..idx].rfind('\n').map(|n| n + 1).unwrap_or(0);
-                start_idx = Some(start_idx.map(|s| s.min(line_start)).unwrap_or(line_start));
-            }
-        }
-    }
-    let start = start_idx?;
-
-    // Find the next heading after the body — anything `#`,
-    // `##`, or `###` at line start beyond our header line.
-    let after_header_line = text[start..]
-        .find('\n')
-        .map(|n| start + n + 1)
-        .unwrap_or(text.len());
-    let mut end = text.len();
-    let rest = &text[after_header_line..];
-    for (i, line) in rest.split_inclusive('\n').enumerate() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("# ") || trimmed.starts_with("## ") || trimmed.starts_with("### ") {
-            // Compute absolute byte index of this line's start.
-            let mut absolute = after_header_line;
-            for prior in rest.split_inclusive('\n').take(i) {
-                absolute += prior.len();
-            }
-            end = absolute;
-            break;
-        }
-    }
-    let section = text[start..end].trim().to_string();
-    if section.is_empty() {
-        None
-    } else {
-        Some(section)
-    }
-}
+// `extract_section` (the old lower-case-byte-index splitter)
+// was removed in #726 — see `sections::split_sections` for
+// the line-based replacement. Kept as a removal-marker
+// comment so a future archaeologist can find the rationale
+// in the PR history.
 
 fn section_or_placeholder(name: &str, body: Option<&str>) -> String {
     match body {
