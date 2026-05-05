@@ -62,23 +62,50 @@ fn run_argo(home: &Path, work: &Path, args: &[&str]) -> std::process::Output {
 /// session id along with the prompt we used.
 fn process_one_mock_job(home: &Path, work: &Path, prompt: &str) -> String {
     let add = run_argo(
-        home, work,
-        &["work", "add",
-          "--vertical", "gtm-engineer",
-          "--prompt", prompt,
-          "--json"],
+        home,
+        work,
+        &[
+            "work",
+            "add",
+            "--vertical",
+            "gtm-engineer",
+            "--prompt",
+            prompt,
+            "--json",
+        ],
     );
-    assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
+    assert!(
+        add.status.success(),
+        "{}",
+        String::from_utf8_lossy(&add.stderr)
+    );
     let serve = run_argo(
-        home, work,
-        &["work", "serve",
-          "--vertical", "gtm-engineer",
-          "--once",
-          "--json"],
+        home,
+        work,
+        &[
+            "work",
+            "serve",
+            "--vertical",
+            "gtm-engineer",
+            "--once",
+            // #722 — single-step keeps these transcript tests on
+            // the v1 single-turn mock path so the existing
+            // assertions about message ordering / count still hold.
+            "--max-steps",
+            "1",
+            "--json",
+        ],
     );
-    assert!(serve.status.success(), "{}", String::from_utf8_lossy(&serve.stderr));
+    assert!(
+        serve.status.success(),
+        "{}",
+        String::from_utf8_lossy(&serve.stderr)
+    );
     let processed: Value = serde_json::from_slice(&serve.stdout).expect("json");
-    processed["session_id"].as_str().expect("session_id").to_string()
+    processed["session_id"]
+        .as_str()
+        .expect("session_id")
+        .to_string()
 }
 
 // ── tests ─────────────────────────────────────────────────
@@ -94,9 +121,16 @@ fn transcript_emits_full_messages_for_work_created_mock_session() {
     );
     let session_id = process_one_mock_job(home.path(), work.path(), &prompt);
 
-    let out = run_argo(home.path(), work.path(),
-        &["session", "transcript", &session_id, "--json"]);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = run_argo(
+        home.path(),
+        work.path(),
+        &["session", "transcript", &session_id, "--json"],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let payload: Value = serde_json::from_slice(&out.stdout).expect("json");
 
     // Header
@@ -151,9 +185,16 @@ fn transcript_text_mode_renders_full_bodies_and_header() {
     let prompt = "lorem ipsum dolor sit amet — consectetur adipiscing.";
     let session_id = process_one_mock_job(home.path(), work.path(), prompt);
 
-    let out = run_argo(home.path(), work.path(),
-        &["session", "transcript", &session_id]);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = run_argo(
+        home.path(),
+        work.path(),
+        &["session", "transcript", &session_id],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
 
     // Header lines
@@ -183,15 +224,31 @@ fn transcript_includes_multiple_message_roles_in_sequence() {
 
     // Add a second user message manually so we can assert the
     // transcript surfaces messages in seq order.
-    let extra = run_argo(home.path(), work.path(),
-        &["chat", "--session-id", &session_id, "--user", "follow-up question"]);
+    let extra = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "chat",
+            "--session-id",
+            &session_id,
+            "--user",
+            "follow-up question",
+        ],
+    );
     // chat may exit non-zero against mock provider (no transport);
     // we only need the user message to land. Tolerate either.
     let _ = extra;
 
-    let out = run_argo(home.path(), work.path(),
-        &["session", "transcript", &session_id, "--json"]);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = run_argo(
+        home.path(),
+        work.path(),
+        &["session", "transcript", &session_id, "--json"],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let payload: Value = serde_json::from_slice(&out.stdout).expect("json");
     let messages = payload["messages"].as_array().expect("messages");
 
@@ -216,19 +273,28 @@ fn transcript_includes_multiple_message_roles_in_sequence() {
 fn transcript_unknown_session_fails_clearly() {
     let (home, work) = fresh_workspace();
     let out = run_argo(
-        home.path(), work.path(),
-        &["session", "transcript",
-          "00000000-0000-7000-8000-000000000000",
-          "--json"],
+        home.path(),
+        work.path(),
+        &[
+            "session",
+            "transcript",
+            "00000000-0000-7000-8000-000000000000",
+            "--json",
+        ],
     );
-    assert!(!out.status.success(), "expected non-zero exit for unknown session");
+    assert!(
+        !out.status.success(),
+        "expected non-zero exit for unknown session"
+    );
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(
-        combined.contains("no session") || combined.contains("not found") || combined.contains("00000000"),
+        combined.contains("no session")
+            || combined.contains("not found")
+            || combined.contains("00000000"),
         "expected clear error referencing the unknown id; got:\n{combined}"
     );
 }
@@ -241,13 +307,23 @@ fn argo_session_show_remains_snippet_only_post_transcript() {
     let prompt = "verifying that show stays unchanged";
     let session_id = process_one_mock_job(home.path(), work.path(), prompt);
 
-    let out = run_argo(home.path(), work.path(),
-        &["session", "show", &session_id, "--json"]);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let out = run_argo(
+        home.path(),
+        work.path(),
+        &["session", "show", &session_id, "--json"],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let payload: Value = serde_json::from_slice(&out.stdout).expect("json");
 
     // show keeps its snippet shape — no `messages` array, only first/last.
-    assert!(payload.get("messages").is_none(), "show must NOT carry messages array");
+    assert!(
+        payload.get("messages").is_none(),
+        "show must NOT carry messages array"
+    );
     assert!(
         payload["first_message"].is_object() || payload["first_message"].is_null(),
         "show must still surface first_message"

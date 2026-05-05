@@ -155,6 +155,11 @@ fn work_serve_writes_full_output_artifact_directory() {
             "--vertical",
             "gtm-engineer",
             "--once",
+            // #722 — single-step keeps this v1 regression focused on
+            // the artifact bundle layout itself; multi-step + the
+            // research-tools pre-flight have their own tests.
+            "--max-steps",
+            "1",
             "--json",
         ],
     );

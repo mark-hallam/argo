@@ -26,7 +26,7 @@ use crate::handlers::vertical::resolve_verticals_dir;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_memory::{MemoryEntry, MemoryFile, MemoryStore};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, MessageRole, TenantId, WorkspaceId};
+use argo_types::{ArgoError, ArgoResult, TenantId, WorkspaceId};
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -47,8 +47,20 @@ pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
             provider,
             model,
             once,
+            max_steps,
             json,
-        } => serve(&vertical, interval_seconds, &provider, &model, once, json).await,
+        } => {
+            serve(
+                &vertical,
+                interval_seconds,
+                &provider,
+                &model,
+                once,
+                max_steps,
+                json,
+            )
+            .await
+        }
     }
 }
 
@@ -108,12 +120,14 @@ async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> 
 }
 
 // ──────────────────────────────────────────────────────── serve
+#[allow(clippy::too_many_arguments)]
 async fn serve(
     vertical_id: &str,
     interval_seconds: u64,
     provider: &str,
     model: &str,
     once: bool,
+    max_steps: u32,
     json_out: bool,
 ) -> ArgoResult<()> {
     let cwd =
@@ -135,7 +149,7 @@ async fn serve(
     let memory = MemoryStore::new(store_arc.clone());
 
     eprintln!(
-        "argo work: serving vertical={vertical_id} provider={provider} model={model} interval={interval_seconds}s{}",
+        "argo work: serving vertical={vertical_id} provider={provider} model={model} interval={interval_seconds}s max_steps={max_steps}{}",
         if once { " (--once)" } else { "" },
     );
 
@@ -157,6 +171,7 @@ async fn serve(
                     provider,
                     model,
                     job,
+                    max_steps,
                     json_out,
                 )
                 .await?;
@@ -186,10 +201,11 @@ async fn serve(
 }
 
 // ────────────────────────────────────────────── job dispatch
-// 9 args is intentional: each is load-bearing (storage handles,
-// tenancy ids, vertical scope, provider config, the job, output
-// mode). Bundling into a struct would just push the same arity
-// into the struct definition without removing the coupling.
+// 10 args is intentional: each is load-bearing (storage handles,
+// tenancy ids, vertical scope, provider config, the job, max
+// steps, output mode). Bundling into a struct would just push
+// the same arity into the struct definition without removing
+// the coupling.
 #[allow(clippy::too_many_arguments)]
 async fn process_job(
     store: &Arc<SessionStore>,
@@ -200,6 +216,7 @@ async fn process_job(
     provider: &str,
     model: &str,
     job: &MemoryEntry,
+    max_steps: u32,
     json_out: bool,
 ) -> ArgoResult<()> {
     let body = parse_body(&job.body)
@@ -213,6 +230,30 @@ async fn process_job(
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+
+    // #722 — pre-flight research-tools gate. Multi-step worker
+    // mode (>1 step) presumes research/verification, so refuses
+    // to start when neither web_search nor web_extract is
+    // available to the bound vertical. Sets the
+    // `research_tools_unavailable` stop reason so the artifacts
+    // and completed_jobs row reflect WHY it stopped (vs.
+    // silently producing an unverified output).
+    let research_available = super::work_steps::research_tools_available_for(vertical_id)?;
+    if max_steps > 1 && !research_available {
+        return super::work_steps::record_research_unavailable(
+            store,
+            memory,
+            tenant,
+            workspace,
+            vertical_id,
+            provider,
+            model,
+            job,
+            json_out,
+            &pending_created_at,
+        )
+        .await;
+    }
 
     // Fresh vertical-bound session per job. Bundled skills are
     // attached at session-creation time via the same path
@@ -242,50 +283,29 @@ async fn process_job(
         .await;
     }
 
-    // Run one turn. Mock provider short-circuits to a synthetic
-    // assistant message — no LLM dispatch. Live providers go
-    // through the same run_turn the gateway POST /runs uses.
-    let (assistant_text, assistant_id, user_message_id) = if provider == "mock" {
-        // #717: messages are stored as content_json — typed text
-        // blocks `[{"type":"text","text":"..."}]` so `argo session
-        // show` and `GET /sessions/<id>` extract bodies correctly.
-        // The plain text we render in completed_jobs is unchanged.
-        let user_content = serde_json::json!([{"type":"text","text":prompt}]).to_string();
-        let user_id = store
-            .append_message(session_id, MessageRole::User, &user_content)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("append user msg: {e}")))?;
-        let text = format!(
-            "[mock] vertical={vertical_id} job={} processed at {}\n\n\
-             prompt:\n{prompt}\n\n\
-             (deterministic synthetic response — no LLM dispatched)",
-            job.id,
-            Utc::now().to_rfc3339(),
-        );
-        let asst_content = serde_json::json!([{"type":"text","text":text}]).to_string();
-        let aid = store
-            .append_message(session_id, MessageRole::Assistant, &asst_content)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("append assistant msg: {e}")))?;
-        (text, aid, user_id)
-    } else {
-        // run_turn appends the user message itself when given Some(prompt)
-        // and then runs the LLM dispatch. We use the same MAX_TOOL_ROUNDS
-        // the gateway runs surface uses.
-        let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
-        let result = crate::handlers::chat::run_turn(
+    // #722 — drive the multi-step loop. Mock provider still
+    // short-circuits to a synthetic deterministic response (no
+    // LLM dispatch); live providers run chat::run_turn per step.
+    // Both paths yield the same StepRunOutput shape.
+    let step_run = if provider == "mock" {
+        super::work_steps::run_mock_step(
             store,
-            &cwd,
             session_id,
-            Some(prompt),
-            false,
-            crate::handlers::chat::MAX_TOOL_ROUNDS,
+            vertical_id,
+            &job.id.to_string(),
+            prompt,
         )
-        .await?;
-        // run_turn doesn't surface the user-message id, so we re-derive
-        // it by listing — but the audit trail captures the full chain.
-        (result.text, result.assistant_id, Uuid::nil())
+        .await?
+    } else {
+        super::work_steps::run_live_loop(store, session_id, prompt.to_string(), max_steps).await?
     };
+    let assistant_text = step_run.assistant_text;
+    let assistant_id = step_run.assistant_id;
+    let user_message_id = step_run.user_message_id;
+    let outcome = step_run.outcome;
+
+    let stop_reason_str = outcome.stop_reason.as_str().to_string();
+    let stop_detail_str = outcome.stop_reason.detail().to_string();
 
     // Truncate the persisted assistant text to keep the memory entry
     // reasonable. The full text is in the session's message rows;
@@ -309,6 +329,9 @@ async fn process_job(
         assistant_id,
         assistant_text: &assistant_text,
         assistant_text_preview: &preview,
+        steps_completed: outcome.steps_completed,
+        stop_reason: &stop_reason_str,
+        stop_detail: &stop_detail_str,
     };
     let output_dir = match super::work_artifacts::write_artifacts(store, &cwd, &inputs).await {
         Ok(p) => Some(p.to_string_lossy().to_string()),
@@ -327,6 +350,9 @@ async fn process_job(
         "assistant_id": assistant_id.to_string(),
         "assistant_text": preview,
         "completed_at": completed_at,
+        "steps_completed": outcome.steps_completed,
+        "stop_reason": stop_reason_str,
+        "stop_detail": stop_detail_str,
     });
     if let Some(dir) = &output_dir {
         completed_body["output_dir"] = json!(dir);
@@ -349,20 +375,31 @@ async fn process_job(
             "assistant_id": assistant_id.to_string(),
             "completed_at": completed_at,
             "output_dir": output_dir,
+            "steps_completed": outcome.steps_completed,
+            "stop_reason": stop_reason_str,
+            "stop_detail": stop_detail_str,
         });
         println!("{}", serde_json::to_string(&out).unwrap_or_default());
     } else {
         println!(
-            "processed job {} → session {} → {} chars",
+            "processed job {} → session {} → {} chars (steps={}, stop_reason={})",
             job.id,
             session_id.0,
-            assistant_text.len()
+            assistant_text.len(),
+            outcome.steps_completed,
+            stop_reason_str,
         );
     }
     Ok(())
 }
 
 // ──────────────────────────────────────────────────── helpers
+//
+// Multi-step step drivers + the research-tools pre-flight live
+// in `super::work_steps` (#722) so this file stays under the
+// per-file budget. What remains here is just the queue-side
+// helpers (parse_body, pick_next_pending_job, validate_vertical).
+
 fn parse_body(body: &str) -> Option<Value> {
     serde_json::from_str(body).ok()
 }

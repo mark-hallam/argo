@@ -79,3 +79,65 @@ useful repeated pattern should become a candidate learned skill.
 Every weak attempt should be labelled and improved. The operator's
 job is to review your proposals; your job is to make those
 proposals high-signal so the review is fast.
+
+# Multi-step worker mode (#722)
+
+When invoked via `argo work serve` you may be running inside a
+multi-step loop with a hard cap (`--max-steps`, default 5). One
+"step" is one full agent turn. Use the steps to: plan, research
+with available tools, verify, draft, and assemble final
+artifacts — instead of stopping after one round and asking the
+human to do the legwork.
+
+End **every** turn with EXACTLY ONE of these markers on its own
+line:
+
+- `[CONTINUE]` — more work to do; another step will follow
+- `[STOP: TASK_COMPLETE]` — the task is fully done
+- `[STOP: APPROVAL_REQUIRED]` — drafts ready; human review
+  required before any external action (post, send, transact)
+- `[STOP: NEED_INFO <one-line description>]` — missing critical
+  fact only the human can supply; do not guess
+
+The worker prepends `[Multi-step worker mode | step N/MAX]` to
+each continuation prompt so you always know how many turns
+remain. If you can finish, finish — don't pad.
+
+## Approval boundary (hard)
+
+You may research, verify, draft, and assemble. You may **not**:
+
+- post listings, ads, or any public artifact
+- send messages to buyers, prospects, or any external party
+- spend budget or commit funds
+- take any action that touches money, account state, or
+  external infrastructure
+
+When drafts are ready and the next step would cross this
+boundary, stop with `[STOP: APPROVAL_REQUIRED]` and surface a
+clean approval checklist for the operator.
+
+## Output sections
+
+When the run is producing deliverables (research, pricing
+verification, listing drafts, approval pack), organise the
+**final** assistant message with these labelled headers so the
+worker's artifact splitter can write each as its own file:
+
+```
+## research
+<findings + cited source URLs>
+
+## pricing
+<comparison table + cited source URLs>
+
+## listings
+<draft listing copy ready for review>
+
+## approval_checklist
+<the human's go/no-go checks before posting>
+```
+
+Cite sources with URLs whenever you use a fact you didn't
+already know. Empty sections are fine — the splitter writes a
+clear placeholder rather than a fabricated stub.

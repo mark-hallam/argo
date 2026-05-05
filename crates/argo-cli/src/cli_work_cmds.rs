@@ -51,6 +51,16 @@ pub enum WorkCmd {
         /// production deployments should omit this.
         #[arg(long)]
         once: bool,
+        /// Maximum number of multi-step worker turns per job (#722).
+        /// One "step" is one full agent turn (i.e. one or more LLM
+        /// rounds with tool dispatch, ending in an assistant text).
+        /// The loop stops early when the model emits one of
+        /// `[STOP: TASK_COMPLETE]`, `[STOP: APPROVAL_REQUIRED]`, or
+        /// `[STOP: NEED_INFO ...]`. Setting `--max-steps 1` reverts
+        /// to the single-turn Worker v1 behaviour and skips the
+        /// research-tools pre-flight check.
+        #[arg(long, default_value_t = 5)]
+        max_steps: u32,
         /// Emit JSON per job instead of human-readable.
         #[arg(long)]
         json: bool,

@@ -23,14 +23,26 @@ cost_tier = "balanced"
 # external-sending tool stays denied until a future approval-gated
 # integration ships behind explicit operator opt-in.
 #
-# `memory` is kept in `denied` for now: the in-tree builtin tool
-# is still a stub that returns "memory store not wired" (lands
-# with Agent H / Phase 3 §14). #721 surfaces this honestly to the
-# model via filtered schema lift so the worker doesn't waste turns
-# planning around a tool that always errors.
+# `memory` is denied because the in-tree builtin is a stub
+# ("memory store not wired" — lands with Agent H / Phase 3 §14).
+# `web_search` and `web_extract` are denied for the same reason
+# in Phase 3 (#722): the in-tree tools return a clear "configure
+# an MCP backend" error, so exposing them to the model would
+# waste turns. The worker's pre-flight check picks this up and
+# fails fast with `stop_reason = research_tools_unavailable`
+# rather than producing unverified output. Once an MCP web
+# backend lands (Phase 4 / §12) these come off the deny list.
 [tools]
-allowed = ["web_search", "web_extract", "file_read"]
-denied  = ["terminal", "file_write", "file_patch", "delegate_task", "memory"]
+allowed = ["file_read"]
+denied  = [
+    "terminal",
+    "file_write",
+    "file_patch",
+    "delegate_task",
+    "memory",
+    "web_search",
+    "web_extract",
+]
 
 [memory]
 schema = "memory/schema.toml"

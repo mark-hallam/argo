@@ -50,11 +50,7 @@ fn gtm_engineer_loads_via_argo_vertical() {
     assert_eq!(v.manifest.vertical.name, "GTM Engineer");
     assert_eq!(v.manifest.vertical.version, "0.1.0");
     assert!(
-        v.manifest
-            .vertical
-            .tags
-            .iter()
-            .any(|t| t == "draft-only"),
+        v.manifest.vertical.tags.iter().any(|t| t == "draft-only"),
         "draft-only tag must be set so consumers can filter; got: {:?}",
         v.manifest.vertical.tags
     );
@@ -65,8 +61,7 @@ fn gtm_engineer_validates_clean() {
     let dir = repo_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(dir).expect("load_dir");
     let v = registry.get("gtm-engineer").unwrap();
-    argo_vertical::validate(&v.manifest, &v.root)
-        .expect("gtm-engineer manifest must validate");
+    argo_vertical::validate(&v.manifest, &v.root).expect("gtm-engineer manifest must validate");
 }
 
 #[test]
@@ -81,10 +76,20 @@ fn gtm_engineer_is_draft_only_by_manifest() {
     let v = registry.get("gtm-engineer").unwrap();
     let tools = v.manifest.tools.as_ref().expect("[tools] section");
     // #721 added `memory` to the deny list because the in-tree
-    // builtin tool is still a stub ("memory store not wired" —
-    // lands with Agent H / Phase 3 §14). Surfacing it as denied
-    // (not allowed) stops the agent wasting turns calling it.
-    let mutating = ["file_write", "file_patch", "terminal", "delegate_task", "memory"];
+    // builtin is a stub ("memory store not wired" — lands with
+    // Agent H / Phase 3 §14). #722 added `web_search` and
+    // `web_extract` for the same reason (the in-tree tools
+    // return a clear "configure an MCP backend" error). Once an
+    // MCP web backend ships these come off the deny list.
+    let mutating = [
+        "file_write",
+        "file_patch",
+        "terminal",
+        "delegate_task",
+        "memory",
+        "web_search",
+        "web_extract",
+    ];
     for t in &mutating {
         assert!(
             tools.denied.iter().any(|d| d == t),
@@ -99,10 +104,7 @@ fn gtm_engineer_is_draft_only_by_manifest() {
     // Allow-list must be the read-only / draft-only tools
     // and ONLY those. A surprise addition here is suspicious.
     let allowed: HashSet<&str> = tools.allowed.iter().map(String::as_str).collect();
-    let expected: HashSet<&str> =
-        ["web_search", "web_extract", "file_read"]
-            .into_iter()
-            .collect();
+    let expected: HashSet<&str> = ["file_read"].into_iter().collect();
     assert_eq!(
         allowed, expected,
         "gtm-engineer allow-list drift: expected {expected:?}, got {allowed:?}"
@@ -141,9 +143,9 @@ fn gtm_engineer_bundles_all_eight_spec_skills() {
     let skills = v.manifest.skills.as_ref().expect("[skills] section");
     let bundle_dir = v.root.join(&skills.bundle);
     let mut found: HashSet<String> = HashSet::new();
-    for entry in std::fs::read_dir(&bundle_dir).unwrap_or_else(|e| {
-        panic!("read_dir {}: {e}", bundle_dir.display())
-    }) {
+    for entry in std::fs::read_dir(&bundle_dir)
+        .unwrap_or_else(|e| panic!("read_dir {}: {e}", bundle_dir.display()))
+    {
         let path = entry.unwrap().path();
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
             if name.ends_with(".skill.md") {
@@ -250,8 +252,7 @@ fn gtm_engineer_memory_schema_parses_with_eleven_entries() {
     let schema_rel = mem.schema.as_ref().expect("[memory].schema set");
     let body = std::fs::read_to_string(v.root.join(schema_rel))
         .unwrap_or_else(|e| panic!("memory schema unreadable: {e}"));
-    let schema = argo_vertical::parse_memory_schema(&body)
-        .expect("memory schema must parse");
+    let schema = argo_vertical::parse_memory_schema(&body).expect("memory schema must parse");
     assert_eq!(
         schema.entries.len(),
         11,
@@ -271,8 +272,7 @@ fn gtm_engineer_memory_schema_parses_with_eleven_entries() {
         "winning_plays",
         "learned_skill_candidates",
     ];
-    let got: HashSet<&str> =
-        schema.entries.iter().map(|e| e.key.as_str()).collect();
+    let got: HashSet<&str> = schema.entries.iter().map(|e| e.key.as_str()).collect();
     for k in &required_keys {
         assert!(
             got.contains(*k),
@@ -293,8 +293,7 @@ fn gtm_engineer_role_section_points_at_extant_files() {
         "system_prompt path must resolve to a file: {}",
         sys.display()
     );
-    let body =
-        std::fs::read_to_string(&sys).expect("system prompt must read");
+    let body = std::fs::read_to_string(&sys).expect("system prompt must read");
     assert!(
         body.contains("GTM Engineer"),
         "system prompt should self-identify as GTM Engineer"
@@ -362,8 +361,7 @@ fn gtm_engineer_memory_schema_does_not_leak_keys_into_pr_checker() {
     let pr_schema_rel = pr_mem.schema.as_ref().expect("[memory].schema set");
     let pr_body = std::fs::read_to_string(pr.root.join(pr_schema_rel)).unwrap();
     let pr_schema = argo_vertical::parse_memory_schema(&pr_body).unwrap();
-    let pr_keys: HashSet<&str> =
-        pr_schema.entries.iter().map(|e| e.key.as_str()).collect();
+    let pr_keys: HashSet<&str> = pr_schema.entries.iter().map(|e| e.key.as_str()).collect();
     let gtm_only = [
         "icp",
         "account_research",

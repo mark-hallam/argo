@@ -40,6 +40,20 @@ pub(crate) struct ArtifactInputs<'a> {
     pub assistant_id: Uuid,
     pub assistant_text: &'a str,
     pub assistant_text_preview: &'a str,
+    /// Worker v2 (#722) — number of multi-step turns the worker
+    /// actually executed for this job. `1` for a Worker v1-style
+    /// single-turn run (or `--max-steps 1`), up to `--max-steps`
+    /// for a fully exercised loop.
+    pub steps_completed: u32,
+    /// Lower-snake-case wire form: `task_complete`,
+    /// `approval_required`, `need_info`, `max_steps_reached`,
+    /// `research_tools_unavailable`. See `work_loop::StopReason`.
+    pub stop_reason: &'a str,
+    /// Free-form one-liner that accompanies `need_info`; empty
+    /// for the other variants. Surfaced into the approval
+    /// checklist + result.json so a human sees exactly which
+    /// fact the worker is missing.
+    pub stop_detail: &'a str,
 }
 
 /// Materialise the `.skycot/outputs/<job_id>/` directory and
@@ -71,6 +85,29 @@ pub(crate) async fn write_artifacts(
         inputs.assistant_text,
     )?;
 
+    // #722 — split the assistant's final text into the four
+    // sectioned deliverables the multi-step worker is prompted
+    // to produce. Missing sections get a clear placeholder so
+    // operators always see the same file layout regardless of
+    // whether the worker actually wrote that section yet.
+    let sections = SectionedOutput::from_assistant_text(inputs.assistant_text);
+    write_file(
+        &output_dir.join("research.md"),
+        &sections.research_or_placeholder(),
+    )?;
+    write_file(
+        &output_dir.join("pricing.md"),
+        &sections.pricing_or_placeholder(),
+    )?;
+    write_file(
+        &output_dir.join("listings.md"),
+        &sections.listings_or_placeholder(),
+    )?;
+    write_file(
+        &output_dir.join("approval_checklist.md"),
+        &sections.approval_checklist_or_placeholder(inputs.stop_reason, inputs.stop_detail),
+    )?;
+
     let job = json!({
         "job_id": inputs.job_id.to_string(),
         "vertical_id": inputs.vertical_id,
@@ -80,6 +117,9 @@ pub(crate) async fn write_artifacts(
         "status": "completed",
         "created_at": inputs.created_at,
         "completed_at": inputs.completed_at,
+        "steps_completed": inputs.steps_completed,
+        "stop_reason": inputs.stop_reason,
+        "stop_detail": inputs.stop_detail,
     });
     write_file(
         &output_dir.join("job.json"),
@@ -93,12 +133,146 @@ pub(crate) async fn write_artifacts(
             .join("assistant_output.md")
             .to_string_lossy(),
         "transcript_path": output_dir.join("transcript.md").to_string_lossy(),
+        "research_path": output_dir.join("research.md").to_string_lossy(),
+        "pricing_path": output_dir.join("pricing.md").to_string_lossy(),
+        "listings_path": output_dir.join("listings.md").to_string_lossy(),
+        "approval_checklist_path": output_dir
+            .join("approval_checklist.md")
+            .to_string_lossy(),
+        "steps_completed": inputs.steps_completed,
+        "stop_reason": inputs.stop_reason,
+        "stop_detail": inputs.stop_detail,
     });
     write_file(
         &output_dir.join("result.json"),
         &serde_json::to_string_pretty(&result).unwrap_or_default(),
     )?;
     Ok(output_dir)
+}
+
+/// The four labelled sections we expect the multi-step worker
+/// to emit in its final assistant message. Each is `None` when
+/// the model didn't produce that header in this run; the
+/// `*_or_placeholder` accessors provide a clear `_(not produced
+/// this run)_` stub so the artifact directory layout stays
+/// stable across runs.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct SectionedOutput {
+    pub research: Option<String>,
+    pub pricing: Option<String>,
+    pub listings: Option<String>,
+    pub approval_checklist: Option<String>,
+}
+
+impl SectionedOutput {
+    /// Parse `## research`, `## pricing`, `## listings`, and
+    /// `## approval_checklist` headers (and a couple of
+    /// near-equivalent variants like `## Approval Checklist`)
+    /// out of free-form assistant markdown.
+    pub(crate) fn from_assistant_text(text: &str) -> Self {
+        SectionedOutput {
+            research: extract_section(text, &["research"]),
+            pricing: extract_section(text, &["pricing"]),
+            listings: extract_section(text, &["listings", "listing"]),
+            approval_checklist: extract_section(
+                text,
+                &["approval_checklist", "approval checklist"],
+            ),
+        }
+    }
+
+    pub(crate) fn research_or_placeholder(&self) -> String {
+        section_or_placeholder("research", self.research.as_deref())
+    }
+
+    pub(crate) fn pricing_or_placeholder(&self) -> String {
+        section_or_placeholder("pricing", self.pricing.as_deref())
+    }
+
+    pub(crate) fn listings_or_placeholder(&self) -> String {
+        section_or_placeholder("listings", self.listings.as_deref())
+    }
+
+    /// The approval checklist file always carries the worker's
+    /// stop reason in its preamble — even if the model didn't
+    /// emit a `## approval_checklist` header — because the
+    /// reason is the most operationally relevant signal for the
+    /// human reviewer.
+    pub(crate) fn approval_checklist_or_placeholder(
+        &self,
+        stop_reason: &str,
+        stop_detail: &str,
+    ) -> String {
+        let body = match self.approval_checklist.as_deref() {
+            Some(s) if !s.trim().is_empty() => s.to_string(),
+            _ => "_(not produced this run — see assistant_output.md for the worker's full reasoning)_\n"
+                .to_string(),
+        };
+        let mut out = String::from("# Approval checklist\n\n");
+        out.push_str(&format!("- stop_reason: `{stop_reason}`\n"));
+        if !stop_detail.is_empty() {
+            out.push_str(&format!("- stop_detail: {stop_detail}\n"));
+        }
+        out.push_str("\n---\n\n");
+        out.push_str(&body);
+        out
+    }
+}
+
+/// Find a `## <name>` header (case-insensitive, leading hashes
+/// 1..=3) and return the body up to the next heading at the
+/// same-or-shallower depth, or end-of-text. Returns `None` when
+/// no matching header is found.
+fn extract_section(text: &str, candidate_names: &[&str]) -> Option<String> {
+    let lower = text.to_lowercase();
+    let mut start_idx: Option<usize> = None;
+    for name in candidate_names {
+        for prefix in ["# ", "## ", "### "] {
+            let needle = format!("{prefix}{name}");
+            if let Some(idx) = lower.find(&needle) {
+                // Anchor on the START of the header line.
+                let line_start = lower[..idx].rfind('\n').map(|n| n + 1).unwrap_or(0);
+                start_idx = Some(start_idx.map(|s| s.min(line_start)).unwrap_or(line_start));
+            }
+        }
+    }
+    let start = start_idx?;
+
+    // Find the next heading after the body — anything `#`,
+    // `##`, or `###` at line start beyond our header line.
+    let after_header_line = text[start..]
+        .find('\n')
+        .map(|n| start + n + 1)
+        .unwrap_or(text.len());
+    let mut end = text.len();
+    let rest = &text[after_header_line..];
+    for (i, line) in rest.split_inclusive('\n').enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("# ") || trimmed.starts_with("## ") || trimmed.starts_with("### ") {
+            // Compute absolute byte index of this line's start.
+            let mut absolute = after_header_line;
+            for prior in rest.split_inclusive('\n').take(i) {
+                absolute += prior.len();
+            }
+            end = absolute;
+            break;
+        }
+    }
+    let section = text[start..end].trim().to_string();
+    if section.is_empty() {
+        None
+    } else {
+        Some(section)
+    }
+}
+
+fn section_or_placeholder(name: &str, body: Option<&str>) -> String {
+    match body {
+        Some(s) if !s.trim().is_empty() => s.to_string(),
+        _ => format!(
+            "## {name}\n\n_(not produced this run — see assistant_output.md for the worker's full reasoning)_\n"
+        ),
+    }
 }
 
 fn write_file(path: &Path, body: &str) -> ArgoResult<()> {
@@ -229,5 +403,75 @@ mod tests {
         let out = render_blocks_md(json);
         assert!(out.contains("→ tool_use `web_search`"));
         assert!(out.contains("✓ tool_result `abc`: ok"));
+    }
+
+    /// #722 — splitter pulls the four labelled deliverables out
+    /// of a multi-step worker's final assistant message.
+    #[test]
+    fn sectioned_output_splits_all_four_named_sections() {
+        let body = "\
+            preamble that should not be captured\n\n\
+            ## research\nOne find with [src](https://e.example).\n\n\
+            ## pricing\n| comp | $99 |\n\n\
+            ## listings\nDraft: ProSkates 110mm\n\n\
+            ## approval_checklist\n- [ ] confirm reserve price\n\n\
+            [STOP: APPROVAL_REQUIRED]\n";
+        let s = SectionedOutput::from_assistant_text(body);
+        assert!(s.research.as_deref().unwrap_or("").contains("[src]"));
+        assert!(s.pricing.as_deref().unwrap_or("").contains("comp"));
+        assert!(s.listings.as_deref().unwrap_or("").contains("ProSkates"));
+        assert!(s
+            .approval_checklist
+            .as_deref()
+            .unwrap_or("")
+            .contains("reserve price"));
+    }
+
+    #[test]
+    fn sectioned_output_handles_missing_sections_with_placeholder() {
+        let body = "## research\nfindings here\n";
+        let s = SectionedOutput::from_assistant_text(body);
+        assert!(s.research.is_some());
+        assert!(s.pricing.is_none());
+        let pricing = s.pricing_or_placeholder();
+        assert!(pricing.contains("not produced this run"));
+        let listings = s.listings_or_placeholder();
+        assert!(listings.contains("not produced this run"));
+    }
+
+    #[test]
+    fn approval_checklist_always_carries_stop_reason_in_preamble() {
+        let s = SectionedOutput::from_assistant_text("## approval_checklist\n- [ ] human check\n");
+        let out = s.approval_checklist_or_placeholder("approval_required", "");
+        assert!(out.contains("# Approval checklist"));
+        assert!(out.contains("stop_reason: `approval_required`"));
+        assert!(out.contains("human check"));
+    }
+
+    #[test]
+    fn approval_checklist_includes_need_info_detail() {
+        let s = SectionedOutput::default();
+        let out = s.approval_checklist_or_placeholder("need_info", "seller's reserve price");
+        assert!(out.contains("stop_detail: seller's reserve price"));
+    }
+
+    #[test]
+    fn sectioned_output_recognises_listings_singular_variant() {
+        let body = "## listing\ndraft ad copy here\n";
+        let s = SectionedOutput::from_assistant_text(body);
+        assert!(
+            s.listings.is_some(),
+            "should match `## listing` (singular) too"
+        );
+    }
+
+    #[test]
+    fn sectioned_output_treats_unrelated_text_as_empty_sections() {
+        let body = "the worker said many words but never used a section header";
+        let s = SectionedOutput::from_assistant_text(body);
+        assert!(s.research.is_none());
+        assert!(s.pricing.is_none());
+        assert!(s.listings.is_none());
+        assert!(s.approval_checklist.is_none());
     }
 }

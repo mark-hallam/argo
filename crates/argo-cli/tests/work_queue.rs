@@ -62,7 +62,8 @@ fn run_argo(home: &Path, work: &Path, args: &[&str]) -> std::process::Output {
 
 fn list_memory_jsonl(home: &Path, work: &Path, vertical: &str) -> Vec<Value> {
     let out = run_argo(
-        home, work,
+        home,
+        work,
         &["memory", "list", "--vertical", vertical, "--json"],
     );
     assert!(
@@ -86,11 +87,15 @@ fn list_memory_jsonl(home: &Path, work: &Path, vertical: &str) -> Vec<Value> {
 /// then `argo memory view <id> --json` fetches each body.
 fn list_jobs_by_schema(home: &Path, work: &Path, vertical: &str, schema_key: &str) -> Vec<Value> {
     let by_body = run_argo(
-        home, work,
+        home,
+        work,
         &[
-            "memory", "list",
-            "--vertical", vertical,
-            "--body-contains", schema_key,
+            "memory",
+            "list",
+            "--vertical",
+            vertical,
+            "--body-contains",
+            schema_key,
             "--json",
         ],
     );
@@ -133,11 +138,17 @@ fn list_jobs_by_schema(home: &Path, work: &Path, vertical: &str, schema_key: &st
 fn work_add_creates_pending_job_in_memory() {
     let (home, work) = fresh_workspace();
     let out = run_argo(
-        home.path(), work.path(),
-        &["work", "add",
-          "--vertical", "gtm-engineer",
-          "--prompt", "Analyze the latest weak campaign.",
-          "--json"],
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "add",
+            "--vertical",
+            "gtm-engineer",
+            "--prompt",
+            "Analyze the latest weak campaign.",
+            "--json",
+        ],
     );
     assert!(
         out.status.success(),
@@ -159,7 +170,8 @@ fn work_add_creates_pending_job_in_memory() {
 
     let pending = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "pending_jobs");
     assert_eq!(
-        pending.len(), 1,
+        pending.len(),
+        1,
         "expected exactly one pending_jobs body; got {pending:?}"
     );
     assert_eq!(pending[0]["status"], "pending");
@@ -172,22 +184,41 @@ fn work_add_creates_pending_job_in_memory() {
 fn work_serve_once_processes_one_pending_job_and_persists_output() {
     let (home, work) = fresh_workspace();
     let add = run_argo(
-        home.path(), work.path(),
-        &["work", "add",
-          "--vertical", "gtm-engineer",
-          "--prompt", "Diagnose the 100/2/0 cohort.",
-          "--json"],
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "add",
+            "--vertical",
+            "gtm-engineer",
+            "--prompt",
+            "Diagnose the 100/2/0 cohort.",
+            "--json",
+        ],
     );
-    assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
+    assert!(
+        add.status.success(),
+        "{}",
+        String::from_utf8_lossy(&add.stderr)
+    );
     let added: Value = serde_json::from_slice(&add.stdout).expect("json");
     let job_id = added["job_id"].as_str().expect("job_id").to_string();
 
     let serve = run_argo(
-        home.path(), work.path(),
-        &["work", "serve",
-          "--vertical", "gtm-engineer",
-          "--once",
-          "--json"],
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "serve",
+            "--vertical",
+            "gtm-engineer",
+            "--once",
+            // #722 — single-step keeps this v1 regression on the
+            // single-turn mock path; v2 multi-step has its own tests.
+            "--max-steps",
+            "1",
+            "--json",
+        ],
     );
     assert!(
         serve.status.success(),
@@ -197,19 +228,24 @@ fn work_serve_once_processes_one_pending_job_and_persists_output() {
     let processed: Value = serde_json::from_slice(&serve.stdout).expect("json");
     assert_eq!(processed["ok"], true);
     assert_eq!(processed["job_id"], job_id);
-    let session_id = processed["session_id"].as_str().expect("session_id").to_string();
+    let session_id = processed["session_id"]
+        .as_str()
+        .expect("session_id")
+        .to_string();
     assert!(!session_id.is_empty());
 
     // (a) completed_jobs memory entry exists, points at our pending id
     let completed = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "completed_jobs");
     assert_eq!(
-        completed.len(), 1,
+        completed.len(),
+        1,
         "expected exactly one completed_jobs body; got {completed:?}"
     );
     assert_eq!(completed[0]["pending_job_id"], job_id);
     assert_eq!(completed[0]["session_id"], session_id);
     let assistant_text = completed[0]["assistant_text"]
-        .as_str().expect("assistant_text");
+        .as_str()
+        .expect("assistant_text");
     assert!(
         assistant_text.starts_with("[mock]"),
         "expected mock-prefixed text; got: {assistant_text}"
@@ -220,9 +256,16 @@ fn work_serve_once_processes_one_pending_job_and_persists_output() {
     );
 
     // (b) session has both a user message and an assistant message
-    let show = run_argo(home.path(), work.path(),
-        &["session", "show", &session_id, "--json"]);
-    assert!(show.status.success(), "{}", String::from_utf8_lossy(&show.stderr));
+    let show = run_argo(
+        home.path(),
+        work.path(),
+        &["session", "show", &session_id, "--json"],
+    );
+    assert!(
+        show.status.success(),
+        "{}",
+        String::from_utf8_lossy(&show.stderr)
+    );
     let session: Value = serde_json::from_slice(&show.stdout).expect("session json");
     assert_eq!(session["vertical_id"], "gtm-engineer");
 }
@@ -230,21 +273,51 @@ fn work_serve_once_processes_one_pending_job_and_persists_output() {
 #[test]
 fn work_serve_does_not_duplicate_completed_jobs_on_second_pass() {
     let (home, work) = fresh_workspace();
-    run_argo(home.path(), work.path(),
-        &["work", "add",
-          "--vertical", "gtm-engineer",
-          "--prompt", "First and only job."]);
+    run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "add",
+            "--vertical",
+            "gtm-engineer",
+            "--prompt",
+            "First and only job.",
+        ],
+    );
 
     // First pass — processes the one pending job.
-    let first = run_argo(home.path(), work.path(),
-        &["work", "serve", "--vertical", "gtm-engineer", "--once"]);
+    let first = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "serve",
+            "--vertical",
+            "gtm-engineer",
+            "--once",
+            "--max-steps",
+            "1",
+        ],
+    );
     assert!(first.status.success());
 
     // Second pass — queue is now drained because the only pending
     // is in the completed-set. Worker should exit cleanly without
     // writing another completed_jobs row.
-    let second = run_argo(home.path(), work.path(),
-        &["work", "serve", "--vertical", "gtm-engineer", "--once"]);
+    let second = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "serve",
+            "--vertical",
+            "gtm-engineer",
+            "--once",
+            "--max-steps",
+            "1",
+        ],
+    );
     assert!(second.status.success());
     let stderr = String::from_utf8_lossy(&second.stderr);
     assert!(
@@ -254,7 +327,8 @@ fn work_serve_does_not_duplicate_completed_jobs_on_second_pass() {
 
     let completed = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "completed_jobs");
     assert_eq!(
-        completed.len(), 1,
+        completed.len(),
+        1,
         "second pass must NOT duplicate the completed entry; got {} completed bodies",
         completed.len()
     );
@@ -284,7 +358,11 @@ fn work_queue_rows_visible_via_memory_list_and_session_show() {
           "--prompt", "Analyze this weak campaign: 100 emails, 2 replies, 0 positive. Recommend the next GTM move.",
           "--json"],
     );
-    assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
+    assert!(
+        add.status.success(),
+        "{}",
+        String::from_utf8_lossy(&add.stderr)
+    );
     let added: Value = serde_json::from_slice(&add.stdout).expect("json");
     let job_id = added["job_id"].as_str().expect("job_id").to_string();
 
@@ -292,49 +370,92 @@ fn work_queue_rows_visible_via_memory_list_and_session_show() {
     // pending row (this is the regression check vs first_workspace()).
     let pre = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "pending_jobs");
     assert_eq!(
-        pre.len(), 1,
+        pre.len(),
+        1,
         "memory list --vertical gtm-engineer must surface the pending job; got {pre:?}"
     );
     assert_eq!(pre[0]["vertical_id"], "gtm-engineer");
     assert_eq!(pre[0]["status"], "pending");
 
     // Step 3: serve --once → completed row written.
-    let serve = run_argo(home.path(), work.path(),
-        &["work", "serve", "--vertical", "gtm-engineer", "--once", "--json"]);
-    assert!(serve.status.success(), "{}", String::from_utf8_lossy(&serve.stderr));
+    let serve = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "serve",
+            "--vertical",
+            "gtm-engineer",
+            "--once",
+            "--max-steps",
+            "1",
+            "--json",
+        ],
+    );
+    assert!(
+        serve.status.success(),
+        "{}",
+        String::from_utf8_lossy(&serve.stderr)
+    );
     let processed: Value = serde_json::from_slice(&serve.stdout).expect("json");
-    let session_id = processed["session_id"].as_str().expect("session_id").to_string();
-    let assistant_id = processed["assistant_id"].as_str().expect("assistant_id").to_string();
+    let session_id = processed["session_id"]
+        .as_str()
+        .expect("session_id")
+        .to_string();
+    let assistant_id = processed["assistant_id"]
+        .as_str()
+        .expect("assistant_id")
+        .to_string();
 
     // Step 4: AFTER serve — completed row must surface with all the
     // fields the user listed as required.
     let post = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "completed_jobs");
-    assert_eq!(post.len(), 1, "expected one completed_jobs row; got {post:?}");
+    assert_eq!(
+        post.len(),
+        1,
+        "expected one completed_jobs row; got {post:?}"
+    );
     assert_eq!(post[0]["vertical_id"], "gtm-engineer");
     assert_eq!(post[0]["pending_job_id"], job_id);
     assert_eq!(post[0]["session_id"], session_id);
     assert_eq!(post[0]["assistant_id"], assistant_id);
     let asst_text = post[0]["assistant_text"].as_str().expect("assistant_text");
     assert!(!asst_text.is_empty(), "assistant_text must be persisted");
-    assert!(post[0]["completed_at"].as_str().is_some(), "completed_at required");
+    assert!(
+        post[0]["completed_at"].as_str().is_some(),
+        "completed_at required"
+    );
 
     // Step 5: argo session show — both first (user) and last
     // (assistant) bodies must extract a non-empty snippet.
-    let show = run_argo(home.path(), work.path(),
-        &["session", "show", &session_id]);
-    assert!(show.status.success(), "{}", String::from_utf8_lossy(&show.stderr));
+    let show = run_argo(home.path(), work.path(), &["session", "show", &session_id]);
+    assert!(
+        show.status.success(),
+        "{}",
+        String::from_utf8_lossy(&show.stderr)
+    );
     let stdout = String::from_utf8_lossy(&show.stdout);
-    let first_line = stdout.lines().find(|l| l.trim_start().starts_with("first ("))
+    let first_line = stdout
+        .lines()
+        .find(|l| l.trim_start().starts_with("first ("))
         .unwrap_or_else(|| panic!("session show missing 'first (' line; got:\n{stdout}"));
-    let last_line = stdout.lines().find(|l| l.trim_start().starts_with("last  ("))
+    let last_line = stdout
+        .lines()
+        .find(|l| l.trim_start().starts_with("last  ("))
         .unwrap_or_else(|| panic!("session show missing 'last  (' line; got:\n{stdout}"));
 
     // The colon delimits role from snippet — anything after must be
     // non-empty text. Pre-fix this would be `first (user):` (empty
     // tail); post-fix it should carry a chunk of the prompt / mock
     // response.
-    let first_snippet = first_line.split_once("):").map(|(_, s)| s.trim()).unwrap_or("");
-    let last_snippet = last_line.split_once("):").map(|(_, s)| s.trim()).unwrap_or("");
+    let first_snippet = first_line
+        .split_once("):")
+        .map(|(_, s)| s.trim())
+        .unwrap_or("");
+    let last_snippet = last_line
+        .split_once("):")
+        .map(|(_, s)| s.trim())
+        .unwrap_or("");
     assert!(
         !first_snippet.is_empty(),
         "session show first (user) snippet must be non-empty; full output:\n{stdout}"
@@ -379,9 +500,12 @@ fn cwd_workspace_isolates_reads_across_multiple_workspaces() {
 
     let mut c = Command::new(argo_bin());
     c.args([
-        "work", "add",
-        "--vertical", "gtm-engineer",
-        "--prompt", "stale-job-should-not-leak",
+        "work",
+        "add",
+        "--vertical",
+        "gtm-engineer",
+        "--prompt",
+        "stale-job-should-not-leak",
     ]);
     env(&mut c, stale_cwd.path());
     assert!(c.output().expect("stale work add").status.success());
@@ -396,9 +520,12 @@ fn cwd_workspace_isolates_reads_across_multiple_workspaces() {
 
     let mut c = Command::new(argo_bin());
     c.args([
-        "work", "add",
-        "--vertical", "gtm-engineer",
-        "--prompt", "active-job-should-be-visible",
+        "work",
+        "add",
+        "--vertical",
+        "gtm-engineer",
+        "--prompt",
+        "active-job-should-be-visible",
     ]);
     env(&mut c, active_cwd.path());
     assert!(c.output().expect("active work add").status.success());
@@ -407,81 +534,48 @@ fn cwd_workspace_isolates_reads_across_multiple_workspaces() {
     // is workspace 2; only its single pending_jobs row should
     // surface — workspace 1's "stale-job-should-not-leak" must
     // not appear.
-    let pending = list_jobs_by_schema(home.path(), active_cwd.path(), "gtm-engineer", "pending_jobs");
+    let pending = list_jobs_by_schema(
+        home.path(),
+        active_cwd.path(),
+        "gtm-engineer",
+        "pending_jobs",
+    );
     assert_eq!(
-        pending.len(), 1,
+        pending.len(),
+        1,
         "active cwd should see exactly its own pending row; got {pending:?}"
     );
     assert_eq!(pending[0]["prompt"], "active-job-should-be-visible");
 
     // Symmetric check: from stale_cwd we see only workspace 1's row.
-    let stale_pending = list_jobs_by_schema(home.path(), stale_cwd.path(), "gtm-engineer", "pending_jobs");
+    let stale_pending = list_jobs_by_schema(
+        home.path(),
+        stale_cwd.path(),
+        "gtm-engineer",
+        "pending_jobs",
+    );
     assert_eq!(stale_pending.len(), 1);
     assert_eq!(stale_pending[0]["prompt"], "stale-job-should-not-leak");
 }
 
-/// #719 live work-serve. Gated by BOTH ARGO_LIVE_DEMO=1 AND
-/// ANTHROPIC_API_KEY so CI never spends API credit. Exercises
-/// chat::run_turn → Anthropic wire layer end-to-end.
-#[test]
-#[cfg(not(target_os = "windows"))]
-fn work_serve_live_anthropic_processes_one_job_when_opted_in() {
-    let opted_in = std::env::var("ARGO_LIVE_DEMO").map(|v| v == "1").unwrap_or(false);
-    let key_present = std::env::var("ANTHROPIC_API_KEY").map(|s| !s.trim().is_empty()).unwrap_or(false);
-    if !opted_in || !key_present {
-        eprintln!("SKIP: live work-serve requires ARGO_LIVE_DEMO=1 AND ANTHROPIC_API_KEY");
-        return;
-    }
-
-    let (home, work) = fresh_workspace();
-    let add = run_argo(home.path(), work.path(),
-        &["work", "add",
-          "--vertical", "gtm-engineer",
-          "--prompt", "Briefly: what's one risk in scaling outbound campaigns?",
-          "--json"]);
-    assert!(add.status.success(), "{}", String::from_utf8_lossy(&add.stderr));
-
-    // ANTHROPIC_API_KEY inherits via process env (not explicitly
-    // forwarded), so the key never lands in any test-author log.
-    let serve = Command::new(argo_bin())
-        .args(["work", "serve",
-               "--vertical", "gtm-engineer",
-               "--provider", "anthropic",
-               "--model", "claude-sonnet-4-6",
-               "--once",
-               "--json"])
-        .env("ARGO_HOME", home.path())
-        .env("ARGO_VERTICALS_DIR", workspace_root().join("verticals"))
-        .current_dir(work.path())
-        .output()
-        .expect("spawn work serve --provider anthropic");
-
-    assert!(
-        serve.status.success(),
-        "live work serve must succeed post-#719; exit={:?} stdout:\n{}\nstderr:\n{}",
-        serve.status.code(),
-        String::from_utf8_lossy(&serve.stdout),
-        String::from_utf8_lossy(&serve.stderr)
-    );
-
-    let completed = list_jobs_by_schema(home.path(), work.path(), "gtm-engineer", "completed_jobs");
-    assert_eq!(completed.len(), 1, "expected one completed_jobs row");
-    let assistant_text = completed[0]["assistant_text"]
-        .as_str().expect("assistant_text");
-    assert!(
-        !assistant_text.starts_with("[mock]"),
-        "live mode should produce real text, not a mock prefix; got: {assistant_text}"
-    );
-    assert!(!assistant_text.trim().is_empty(), "assistant_text must be non-empty");
-}
+// The live Anthropic work-serve test (#719) lives in
+// `tests/work_queue_live.rs` so this file stays under budget.
 
 #[test]
 fn work_add_unknown_vertical_fails_clearly() {
     let (home, work) = fresh_workspace();
-    let out = run_argo(home.path(), work.path(),
-        &["work", "add",
-          "--vertical", "this-vertical-does-not-exist",
-          "--prompt", "..."]);
+    let out = run_argo(
+        home.path(),
+        work.path(),
+        &[
+            "work",
+            "add",
+            "--vertical",
+            "this-vertical-does-not-exist",
+            "--prompt",
+            "...",
+        ],
+    );
     assert!(
         !out.status.success(),
         "expected non-zero exit for unknown vertical; got success with stdout:\n{}",
