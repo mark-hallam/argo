@@ -99,6 +99,20 @@ enforced in code.
 - `verticals/ai-receptionist/` — front-desk worker. 6
   declared action types covering call triage, message
   capture, calendar booking, follow-up email. (#743)
+- `verticals/sales-follow-up/` — warm-lead follow-up worker.
+  6 declared action types covering research, drafting,
+  approval-gated send / cadence / CRM logging. (#746)
+
+### Added — Authoring + customer-facing examples
+
+- `verticals/AUTHORING_v3_ACTIONS.md` — full walkthrough of
+  the `[actions]` declaration: field reference, three
+  reference action vocabularies, classification pattern, the
+  safety-boundary lock test every action-emitting vertical
+  should ship. (#747)
+- `examples/ai-receptionist/` — 6 inbound triage prompts +
+  hand-crafted artifact bundle showing receptionist-domain
+  output, parallel to `examples/marketplace-seller/`. (#748)
 
 ### Safety primitives (enforced in code, not prompts)
 
@@ -121,13 +135,20 @@ enforced in code.
   vertical A are NEVER visible to commands scoped to vertical
   B. Locked end-to-end in
   `actions_emitted_under_gtm_engineer_are_invisible_to_demo_shop`. (#741)
+- **Manifest classification locks for every shipped vertical.**
+  gtm-engineer + ai-receptionist + sales-follow-up each ship a
+  regression test pinning their action-classification table.
+  A drift means an approval-gated action silently became
+  autonomous. (#728, #743, #746)
 
 ### Test coverage
 
 - 80+ unit tests across the worker stack.
-- 11+ integration tests driving the actual `argo` binary
-  end-to-end.
-- 13-check smoke script covering install verification.
+- 14+ integration tests driving the actual `argo` binary
+  end-to-end (transition flows, retry, isolation, ai-receptionist
+  + sales-follow-up manifest locks).
+- 14-check smoke script covering install verification +
+  lint-clean across all 3 Worker v3 verticals. (#749)
 - `cargo fmt --all` + `cargo clippy --workspace
   --all-targets -- -D warnings` clean across the workspace.
 
