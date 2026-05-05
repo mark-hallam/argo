@@ -45,20 +45,27 @@ Short version: **the worker does the legwork; you keep the keys.**
 
 ## What ships in v1
 
-The marketplace-seller vertical is the launch product. It ships
-inside the Argo binary:
+Two complete vertical bindings ship in the binary:
 
 ```
-verticals/gtm-engineer/        # the v1 launch vertical
+verticals/gtm-engineer/        # marketplace seller — the v1 reference vertical
+verticals/ai-receptionist/     # front-desk worker — same OS, different domain
 ```
 
-It declares 10 marketplace-action types (verify_price, post_listing,
-mark_item_sold, reply_to_buyer, …) — autonomous-safe ones run
-straight through; everything that touches money / public surfaces /
-buyers is approval-gated.
+**`gtm-engineer`** declares 10 marketplace-action types
+(verify_price, post_listing, mark_item_sold, reply_to_buyer, …)
+with per-platform instruction templates for ebay /
+facebook_marketplace / gumtree.
 
-For other verticals (AI Receptionist, Sales Follow-up, etc.), see the
-`verticals/` directory and the `argo vertical` CLI surface.
+**`ai-receptionist`** declares 6 receptionist actions
+(lookup_contact, take_message, draft_meeting_request,
+send_calendar_invite, forward_call, send_followup_email) with a
+Google Calendar template override.
+
+Both verticals share zero code beyond the OS-level Worker v3
+contract. Authoring a third vertical is a TOML-and-prompt-only
+task; see the `verticals/` directory + `argo vertical lint
+<id>` for the path.
 
 ## Read next
 

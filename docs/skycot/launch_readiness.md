@@ -4,7 +4,8 @@ A single-page summary of what's shipped, what's not, and the
 confidence level on each. The view that should be in front of
 you the day before first customer onboarding.
 
-Last updated after PR #739 (worker doctor health-check).
+Last updated after PRs #729–#743 (Worker v3 generic execution
+through to second vertical binding).
 
 ## Ready for first customer
 
@@ -29,8 +30,11 @@ bindings"), every literal requirement has shipped:
 | Vertical-aware instruction templates        | High       | #732        | per-platform precedence unit + integration |
 | Vertical lint for templates                 | Medium     | #736        | unknown-key unit; gtm-engineer manifest passes |
 | `retry` failed actions                      | High       | #737        | integration (refuses non-failed; references source in evidence) |
-| `argo worker doctor` health-check           | Medium     | #739        | unit (counts, dedup, recent-failed) |
-| End-to-end smoke verification               | High       | #734        | 12-check shell script |
+| `argo worker doctor` health-check           | High       | #739, #740  | unit (counts, dedup, recent-failed) + smoke check #13 |
+| `argo work jobs list` — read-side queue     | High       | #742        | unit (pending/completed merge + filter) |
+| Cross-vertical isolation                    | High       | #741        | end-to-end integration: actions emitted under A invisible to B |
+| Second vertical binding (AI Receptionist)   | High       | #743        | manifest classification lock + lint-clean integration |
+| End-to-end smoke verification               | High       | #734, #740  | 13-check shell script |
 
 **Approval-gate enforced in code (the headline safety primitive):**
 
@@ -50,12 +54,21 @@ bindings"), every literal requirement has shipped:
 
 ## Vertical bindings shipped
 
-- `verticals/gtm-engineer/` — marketplace seller. 10 declared
-  action types (verify_price, request_photos, post_listing,
-  boost_listing, update_price, relist_item, mark_item_sold,
-  reply_to_buyer, follow_up_buyer, create_listing_draft).
-  Per-platform instruction templates for `ebay` and
-  `facebook_marketplace` on `post_listing`.
+- **`verticals/gtm-engineer/` — marketplace seller.** 10
+  declared action types (verify_price, request_photos,
+  post_listing, boost_listing, update_price, relist_item,
+  mark_item_sold, reply_to_buyer, follow_up_buyer,
+  create_listing_draft). Per-platform instruction templates
+  for `ebay` and `facebook_marketplace` on `post_listing`.
+
+- **`verticals/ai-receptionist/` — front-desk worker (#743).**
+  6 declared action types. Autonomous-safe: `lookup_contact`,
+  `draft_meeting_request`, `take_message`. Approval-gated:
+  `send_calendar_invite` (with a Google-Calendar-specific
+  template override), `forward_call`, `send_followup_email`
+  (HIGH RISK). Shares zero code with gtm-engineer beyond the
+  OS-level Worker v3 contract — proves the vertical authoring
+  surface is TOML-and-prompt-only.
 
 ## Not ready / out of scope for v1
 
@@ -99,22 +112,25 @@ Before the first paying customer:
 
 Local verification across the worker stack:
 
-- 70+ unit tests under `crates/argo-cli/src/handlers/worker_actions*` + `worker_doctor` + `worker_actions_executor` + `worker_actions_render` + `worker_actions_transitions`.
-- 9+ integration tests under `crates/argo-cli/tests/work_action_*`.
+- 80+ unit tests under `crates/argo-cli/src/handlers/{worker_actions*, worker_doctor, work_jobs}` and the `worker_actions_*` sibling test files.
+- 11+ integration tests under `crates/argo-cli/tests/{work_action_*, vertical_ai_receptionist}`.
 - All authored files under the 500-LOC budget.
 - `cargo fmt --all` + `cargo clippy --workspace --all-targets -- -D warnings` clean.
 - `cargo test --workspace` exit 0 (modulo the pre-existing OCI port-binding flake which is documented in `MEMORY.md`).
+- `./scripts/smoke-skycot.sh` 13-check end-to-end pass.
 
 Remote CI billing on the GitHub Actions side may be intermittently blocked — every PR's actual code is verified locally before merge.
 
 ## Confidence summary
 
-> **The OS layer is launch-ready for the marketplace-seller use
-> case.** The safety primitives that matter (approval gating,
-> evidence gating, undeclared-action rejection, manifest-canonical
-> classification) are enforced in code, not prompts, and locked
+> **The OS layer is launch-ready for both shipped verticals
+> (marketplace seller + AI receptionist) and any new vertical
+> authored by TOML+prompt only.** The safety primitives that
+> matter (approval gating, evidence gating, undeclared-action
+> rejection, manifest-canonical classification, **cross-vertical
+> isolation**) are enforced in code, not prompts, and locked
 > in regression tests. The operator surface (CLI + artifact
-> bundles + workspace ledger files + doctor + smoke script) is
-> coherent and documented. The launch path is gated only on what
-> third-party integrations the customer wants — none of those are
-> in v1's contract.
+> bundles + workspace ledger files + doctor + smoke script +
+> `work jobs` queue view) is coherent and documented. The
+> launch path is gated only on what third-party integrations
+> the customer wants — none of those are in v1's contract.

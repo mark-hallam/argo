@@ -149,6 +149,25 @@ auditing "who approved this and when".
 argo worker actions status <action_id> [--json]
 ```
 
+### `argo work jobs`
+
+Read-side view of the worker queue — every `pending_jobs` /
+`completed_jobs` row across the loaded verticals, formatted with
+the columns operators actually want.
+
+```bash
+argo work jobs [--state pending|completed|all] \
+              [--vertical <id>] \
+              [--limit N] \
+              [--json]
+```
+
+Defaults: `--state all`, `--limit 50`, newest-first.
+
+Used as: "what's queued?" / "what did the worker just finish?" /
+"which jobs landed `approval_required` vs `task_complete`?"
+without scripting `argo memory list` together with row drill-downs.
+
 ### `argo worker doctor`
 
 One-shot SKYCOT health check across the workspace. Loaded
