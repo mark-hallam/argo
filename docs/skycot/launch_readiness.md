@@ -66,9 +66,18 @@ bindings"), every literal requirement has shipped:
   `draft_meeting_request`, `take_message`. Approval-gated:
   `send_calendar_invite` (with a Google-Calendar-specific
   template override), `forward_call`, `send_followup_email`
-  (HIGH RISK). Shares zero code with gtm-engineer beyond the
-  OS-level Worker v3 contract — proves the vertical authoring
-  surface is TOML-and-prompt-only.
+  (HIGH RISK).
+
+- **`verticals/sales-follow-up/` — warm-lead follow-up
+  worker (#746).** 6 declared action types. Autonomous-safe:
+  `research_lead`, `find_contact`, `draft_followup`.
+  Approval-gated: `schedule_followup_cadence`, `log_to_crm`
+  (per-platform templates ready for hubspot / salesforce /
+  close), `send_followup_email` (HIGH RISK).
+
+All three shipped verticals share zero code beyond the OS-level
+Worker v3 contract — proving vertical authoring is genuinely
+TOML-and-prompt-only.
 
 ## Not ready / out of scope for v1
 
@@ -113,11 +122,11 @@ Before the first paying customer:
 Local verification across the worker stack:
 
 - 80+ unit tests under `crates/argo-cli/src/handlers/{worker_actions*, worker_doctor, work_jobs}` and the `worker_actions_*` sibling test files.
-- 11+ integration tests under `crates/argo-cli/tests/{work_action_*, vertical_ai_receptionist}`.
+- 14+ integration tests under `crates/argo-cli/tests/{work_action_*, vertical_ai_receptionist, vertical_sales_follow_up}`.
 - All authored files under the 500-LOC budget.
 - `cargo fmt --all` + `cargo clippy --workspace --all-targets -- -D warnings` clean.
 - `cargo test --workspace` exit 0 (modulo the pre-existing OCI port-binding flake which is documented in `MEMORY.md`).
-- `./scripts/smoke-skycot.sh` 13-check end-to-end pass.
+- `./scripts/smoke-skycot.sh` 14-check end-to-end pass — covers full operator flow + lint-clean across all 3 Worker v3 verticals.
 
 Remote CI billing on the GitHub Actions side may be intermittently blocked — every PR's actual code is verified locally before merge.
 

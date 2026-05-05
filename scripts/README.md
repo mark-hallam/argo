@@ -16,7 +16,7 @@ artifact bundle landed correctly.
 ./scripts/smoke-skycot.sh ~/.local/bin/argo
 ```
 
-**What it asserts (12 checks):**
+**What it asserts (14 checks):**
 
 1. `argo` is on PATH (or at the given path).
 2. `argo workspace init` succeeds.
@@ -35,6 +35,12 @@ artifact bundle landed correctly.
     transition history.
 12. `render` writes the 3 workspace ledger files with expected
     entries.
+13. `argo worker doctor --json` reports the gtm-engineer vertical
+    + the expected `completed: 1` + `blocked: 1` counts.
+14. All 3 Worker v3 reference verticals (`gtm-engineer`,
+    `ai-receptionist`, `sales-follow-up`) lint clean — catches
+    template-key typos / malformed manifests before customer
+    runtime exposure.
 
 **Exit codes:**
 

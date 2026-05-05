@@ -161,6 +161,17 @@ echo "$doctor_out" | grep -qE '"completed"[[:space:]]*:[[:space:]]*1' || fail "d
 echo "$doctor_out" | grep -qE '"blocked"[[:space:]]*:[[:space:]]*1' || fail "doctor expected 1 blocked action" "$doctor_out"
 ok "doctor reports verticals + counts as expected"
 
+heading "14. all shipped action-emitting verticals lint clean"
+# Each Worker v3 reference vertical (#729 → #746) ships with
+# its own [actions] declarations + instruction templates.
+# Catch template-key typos / malformed manifests before the
+# customer hits them at runtime.
+for vid in gtm-engineer ai-receptionist sales-follow-up; do
+  lint_out=$("$ARGO_BIN" vertical lint "$vid" 2>&1) || fail "lint $vid" "$lint_out"
+  echo "$lint_out" | grep -q "lint clean" || fail "$vid not lint-clean" "$lint_out"
+done
+ok "all 3 Worker v3 verticals lint clean"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"
