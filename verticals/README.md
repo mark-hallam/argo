@@ -45,19 +45,34 @@ invariants you must respect, the recommended workflow when
 starting a new vertical, and a 30-minute Day-1 walkthrough that
 takes you from empty tempdir to a working install + uninstall.
 
-The [`pr-checker/`](./pr-checker/) and
-[`receptionist/`](./receptionist/) directories are the live
-references — copy whichever is closer to your shape and edit.
+For Worker v3 actions specifically (the `[actions]` section
+that lets a worker propose external-world actions through the
+OS's approval-gated state machine), see
+[`AUTHORING_v3_ACTIONS.md`](./AUTHORING_v3_ACTIONS.md).
 
 ## Verticals shipped today
 
-| Slug | Purpose | Status |
-|---|---|---|
-| `pr-checker` | Advisory PR review against project invariants | v0.1.0 (#652) |
-| `receptionist` | Front-desk visitor triage with intent classification + escalation | v0.1.0 (#657) |
+| Slug | Purpose | Worker v3 actions? | Status |
+|---|---|---|---|
+| `pr-checker` | Advisory PR review against project invariants | no | v0.1.0 (#652) |
+| `receptionist` | Front-desk visitor triage with intent classification + escalation | no (pre-v3) | v0.1.0 (#657) |
+| `gtm-engineer` | Marketplace seller — research → draft listings → approval-gated post | yes — 10 actions | v0.1.0 (#729 → #732) |
+| `ai-receptionist` | Front-desk worker for inbound call/email triage with calendar booking | yes — 6 actions | v0.0.1 (#743) |
+| `sales-follow-up` | Warm-lead follow-up with research → draft → approval-gated send → CRM logging | yes — 6 actions | v0.0.1 (#746) |
 
-The two ship as a deliberate pair: pr-checker is technical +
-structured + read-only-against-files, receptionist is
-conversational + soft-skilled + no-external-integrations. If
-both load + behave per their manifests through the same runtime,
-the abstraction generalizes.
+The set covers a deliberate spread: technical/structured
+(pr-checker), conversational soft-skilled (receptionist),
+research-heavy commerce (gtm-engineer), interrupt-driven
+triage (ai-receptionist), high-volume outbound (sales-follow-up).
+Five verticals running through the same runtime, sharing zero
+domain-specific code in the platform crates — that's the
+abstraction working.
+
+When authoring a NEW vertical:
+
+- For action-emitting workers, copy `gtm-engineer`,
+  `ai-receptionist`, or `sales-follow-up` (whichever shape is
+  closest). They show the `[actions]` section, instruction
+  templates, per-platform overrides.
+- For non-action verticals, copy `pr-checker` (technical /
+  read-only) or `receptionist` (conversational / pre-v3).
