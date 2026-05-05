@@ -260,6 +260,9 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             WorkerActionsCmd::Render { vertical } => {
                 super::worker_actions_dispatch::render(vertical.as_deref()).await
             }
+            WorkerActionsCmd::Retry { action_id, json } => {
+                super::worker_actions_dispatch::retry(&action_id, json).await
+            }
         },
     }
 }

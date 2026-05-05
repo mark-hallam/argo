@@ -150,4 +150,17 @@ pub enum WorkerActionsCmd {
         #[arg(long)]
         vertical: Option<String>,
     },
+    /// Retry a failed action: emit a NEW pending action with the
+    /// same payload + platform + item_id, with the failed
+    /// action_id referenced in the new action's `evidence`. The
+    /// new action goes through the OS classification fresh — if
+    /// the manifest still says `requires_approval = true`, it
+    /// lands `pending` awaiting approval. The failed action stays
+    /// terminal in the ledger; nothing is mutated retroactively.
+    Retry {
+        /// `action_id` (UUIDv7) of the failed action.
+        action_id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }

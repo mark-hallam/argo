@@ -10,6 +10,7 @@
 //! budget.
 
 use super::worker_actions::ActionRecord;
+use super::worker_actions_emit;
 use super::worker_actions_executor;
 use super::worker_actions_render;
 use super::worker_actions_transitions;
@@ -284,6 +285,77 @@ async fn refresh_workspace_ledger(
         blocked: records.iter().filter(|r| r.state == "blocked").count(),
         dir,
     })
+}
+
+/// `argo worker actions retry <failed-id>` — emit a fresh
+/// pending action with the same payload + platform + item_id
+/// as a previously-failed one (#737). The failed action_id is
+/// added to the new action's `evidence` so the ledger captures
+/// the retry chain without mutating the original row.
+///
+/// Errors when:
+/// - the source action_id doesn't exist
+/// - the source isn't currently `failed` (the retry primitive
+///   only applies to terminal failures; restarts of an
+///   approved/executing action go through the explicit
+///   transition CLI, not retry)
+/// - the source's `action_type` isn't declared in the bound
+///   vertical's manifest (handled by `build_emission` —
+///   undeclared types land `blocked` with an OS-level
+///   capability-grant reason)
+pub(crate) async fn retry(action_id: &str, json: bool) -> ArgoResult<()> {
+    let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let located = worker_actions_transitions::find_action(&memory, ws, action_id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no action with action_id '{action_id}'")))?;
+    if located.record.state != "failed" {
+        return Err(ArgoError::Provider(format!(
+            "action {action_id} is in state '{}', not 'failed'; \
+             retry only applies to terminal failures",
+            located.record.state
+        )));
+    }
+    // Reload the manifest so build_emission can classify the
+    // retried action against the current declarations.
+    let dir = super::vertical::resolve_verticals_dir();
+    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
+    let loaded = registry.get(&located.vertical_id).ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "vertical '{}' not loaded; cannot retry",
+            located.vertical_id
+        ))
+    })?;
+    let mut new_evidence = located.record.evidence.clone();
+    new_evidence.push(format!("argo://action/{}", located.record.action_id));
+
+    let inputs = worker_actions_emit::ActionEmissionInputs {
+        vertical: &loaded.manifest,
+        job_id: &located.record.job_id,
+        action_type: &located.record.action_type,
+        payload: located.record.payload.clone(),
+        item_id: located.record.item_id.as_deref(),
+        platform: located.record.platform.as_deref(),
+        evidence: new_evidence,
+    };
+    let new_rec = worker_actions_emit::build_emission(&inputs);
+    worker_actions_emit::persist_action_record(&memory, ws, &located.vertical_id, &new_rec).await?;
+    if json {
+        let payload = serde_json::json!({
+            "retried_from": located.record.action_id,
+            "new_action": new_rec,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
+        );
+    } else {
+        println!(
+            "retried {} → new action {} (state {})",
+            located.record.action_id, new_rec.action_id, new_rec.state
+        );
+    }
+    auto_refresh_ledger(&memory, ws).await;
+    Ok(())
 }
 
 /// Auto-refresh hook fired after every successful transition so
