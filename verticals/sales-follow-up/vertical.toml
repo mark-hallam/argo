@@ -1,0 +1,129 @@
+schema_version = "1"
+
+[vertical]
+id          = "sales-follow-up"
+name        = "Sales Follow-up"
+description = "Follow-up worker for warm leads — research, draft personalised outreach, propose follow-up cadence. Approval-gated for anything that touches a prospect's inbox or the CRM."
+version     = "0.0.1"
+authors     = ["Argo platform team"]
+tags        = ["sales", "outreach", "draft-only", "follow-up"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic"
+fallback  = "openai"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract"]
+denied  = []
+
+# ─────────────────────────── actions ────────────────────────────
+# Autonomous-safe — research + drafting only.
+
+[actions.research_lead]
+risk              = "low"
+requires_approval = false
+description       = "Research a warm lead — company, role, recent signals — to inform follow-up tone."
+executor          = "human"
+instruction_template = """
+# Research lead `{{ payload.lead_name }}`
+
+Lead:    `{{ payload.lead_name }}`
+Company: `{{ payload.company }}`
+
+Steps:
+1. Web search for `{{ payload.lead_name }} + {{ payload.company }}` to verify role + tenure.
+2. Pull last 3-6 months of public signals (LinkedIn posts, podcast guest spots, press mentions).
+3. Note one specific signal that justifies the follow-up cadence.
+
+When done:
+
+```
+argo worker actions complete {{ action_id }} --note "research done" \\
+  --result-json '{"role": "<title>", "tenure_months": <n>, "signal": "<short>", "signal_url": "<url>"}'
+```
+"""
+
+[actions.find_contact]
+risk              = "low"
+requires_approval = false
+description       = "Verify a lead's email + LinkedIn from public sources. Drafting only — does not send."
+executor          = "human"
+
+[actions.draft_followup]
+risk              = "low"
+requires_approval = false
+description       = "Draft a follow-up email body that references the previous touch + the new signal."
+executor          = "human"
+
+# Approval-gated — touches a prospect's inbox or CRM state.
+
+[actions.send_followup_email]
+risk              = "high"
+requires_approval = true
+description       = "Send the drafted follow-up email. HIGH RISK — touches a prospect's inbox; not reversible."
+executor          = "human"
+instruction_template = """
+# Send follow-up — `{{ payload.subject }}` to `{{ payload.recipient_email }}`
+
+⚠️ **HIGH RISK** — emailing a prospect; cannot be undone.
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Recipient: `{{ payload.recipient_email }}`
+Subject:   `{{ payload.subject }}`
+Signal:    `{{ payload.signal_url }}` ({{ payload.signal }})
+
+Body (review BEFORE sending):
+
+> {{ payload.body }}
+
+Steps:
+1. Open your sequencer (Apollo / Outreach / Mixmax / direct Gmail).
+2. Paste the body; tweak greeting + signoff to your tone.
+3. Send.
+
+When sent:
+
+```
+argo worker actions complete {{ action_id }} --note "sent" \\
+  --result-json '{"recipient": "{{ payload.recipient_email }}", "subject": "{{ payload.subject }}", "sequenced_in": "<tool>"}'
+```
+"""
+
+[actions.schedule_followup_cadence]
+risk              = "medium"
+requires_approval = true
+description       = "Schedule the next follow-up touch in the operator's sequencer (next-touch + offset days)."
+executor          = "human"
+
+[actions.log_to_crm]
+risk              = "medium"
+requires_approval = true
+description       = "Log the follow-up touch to the operator's CRM (HubSpot / Salesforce / Close). Mutates external state."
+executor          = "human"
+platforms         = ["hubspot", "salesforce", "close"]
+instruction_template = """
+# Log to CRM — `{{ payload.lead_name }}` ({{ platform }})
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Lead:    `{{ payload.lead_name }}` ({{ payload.recipient_email }})
+Touch:   `{{ payload.touch_type }}` — `{{ payload.notes }}`
+
+Steps:
+1. Open `{{ platform }}`, find the contact.
+2. Add a `Note` on the contact's timeline with the body above.
+3. Tag with `follow-up-{{ payload.cadence }}`.
+
+When done:
+
+```
+argo worker actions complete {{ action_id }} --note "logged" \\
+  --result-json '{"crm": "{{ platform }}", "contact_id": "<id>"}'
+```
+"""
