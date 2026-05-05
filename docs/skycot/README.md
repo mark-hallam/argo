@@ -85,6 +85,8 @@ task; see the `verticals/` directory + `argo vertical lint
    confidence audit: every shipped capability, what's locked in
    tests, what's intentionally out of v1 scope, and the
    pre-launch checklist.
+6. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
+   version, customer-facing.
 
 ## Design + invariants
 
