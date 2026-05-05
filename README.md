@@ -18,6 +18,17 @@ Argo is the agent framework that **a single engineer can fully audit on a weeken
 
 These five are the spec. Anything that violates them is a bug.
 
+## Running a worker (SKYCOT)
+
+Argo also ships **SKYCOT** — the commercial worker layer for running role-bound, evidence-aware, approval-gated AI workers. If you came here to operate a worker (not extend the platform), start with the operator-facing docs:
+
+- [`docs/skycot/README.md`](docs/skycot/README.md) — what SKYCOT is + safety boundaries.
+- [`docs/skycot/getting_started.md`](docs/skycot/getting_started.md) — 10-minute path from install to your first approved + executed action.
+- [`docs/skycot/demo_script.md`](docs/skycot/demo_script.md) — marketplace-seller end-to-end demo.
+- [`docs/skycot/operator_runbook.md`](docs/skycot/operator_runbook.md) — full `argo worker actions` CLI reference + ledger artifact map.
+
+The launch vertical is `verticals/gtm-engineer/` (marketplace seller). The Worker v3 generic execution layer lives in `crates/argo-cli/src/handlers/worker_actions*.rs`; the design spec is `docs/design/worker_v3_execution.md`.
+
 ## Why not Hermes Agent?
 
 Argo is a structurally different shape: Rust core, JSON-RPC plugin ABI, multi-tenant by construction, capability-based security, provider manifests instead of adapters, an MCP-first integration model — plus an external-judge adjudicator for skill creation, automated skill optimization (Argo Forge), time-travel session replay, and a workspace OCI marketplace. Roughly 5× smaller for ~95% of Hermes capability and addressing the 14 most-cited Hermes user pain points by design (token overhead, RBAC, multi-agent, adaptive timeouts, …). See `docs/plan/argo-vs-hermes-gap-analysis.md`.
