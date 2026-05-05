@@ -304,11 +304,64 @@ fn execute_writes_per_action_bundle_via_human_executor() {
     let evidence = std::fs::read_to_string(bundle.join("evidence.md")).expect("evidence.md");
     let action_json: Value =
         serde_json::from_slice(&std::fs::read(bundle.join("action.json")).unwrap()).unwrap();
-    assert!(instructions.contains("verify_price"));
+    // gtm-engineer's verify_price now ships an instruction_template
+    // (#732) — the rendered body is template-driven rather than
+    // the generic dump, so we assert on template content.
+    assert!(
+        instructions.contains("Verify price"),
+        "expected verify_price template content; got:\n{instructions}"
+    );
     assert!(instructions.contains("argo worker actions complete"));
     assert!(evidence.contains("Evidence for action"));
     assert_eq!(action_json["action_type"], "verify_price");
     assert_eq!(action_json["state"], "executing");
+}
+
+#[test]
+fn execute_renders_manifest_template_when_one_is_declared() {
+    // gtm-engineer's `verify_price` declares an
+    // `instruction_template` that includes `{{ payload.target }}`
+    // and an `argo worker actions complete <id>` recipe. Confirm
+    // the rendered bundle uses that template (not the generic
+    // dump) when execute fires.
+    let (home, work) = fresh_workspace_with_actions();
+    let rows = list_actions(home.path(), work.path());
+    let verify = rows
+        .iter()
+        .find(|r| r["action_type"] == "verify_price")
+        .expect("verify_price row");
+    let id = verify["action_id"].as_str().expect("action_id");
+
+    let exec = run_argo(
+        home.path(),
+        work.path(),
+        &["worker", "actions", "execute", id, "--json"],
+    );
+    assert!(
+        exec.status.success(),
+        "execute: {}",
+        String::from_utf8_lossy(&exec.stderr)
+    );
+    let v: Value = serde_json::from_slice(&exec.stdout).expect("execute json");
+    let bundle = PathBuf::from(v["execution_bundle_path"].as_str().expect("bundle path"));
+    let instr = std::fs::read_to_string(bundle.join("instructions.md"))
+        .expect("instructions.md from template");
+    // The template body has these literal substrings — they
+    // can't appear in the generic dump.
+    assert!(
+        instr.contains("Verify price for"),
+        "expected manifest template body; got:\n{instr}"
+    );
+    assert!(
+        instr.contains("argo worker actions complete"),
+        "manifest template should still steer the operator to the next CLI step; got:\n{instr}"
+    );
+    // payload.target was 0 in the mock action — confirm it
+    // round-trips through the substitution.
+    assert!(
+        instr.contains("$0"),
+        "expected ${{payload.target}} (= 0) to render; got:\n{instr}"
+    );
 }
 
 #[test]

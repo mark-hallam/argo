@@ -278,6 +278,25 @@ pub struct ActionDeclaration {
     /// means platform-agnostic.
     #[serde(default)]
     pub platforms: Vec<String>,
+    /// Default operator-instruction template for this action.
+    /// Used by the human executor (#731) when rendering
+    /// `instructions.md`. When `Some`, the template body is
+    /// rendered with simple `{{ key }}` and `{{ payload.X }}`
+    /// substitution against the action's fields. When `None`,
+    /// the executor falls back to the generic JSON dump.
+    ///
+    /// Per-platform overrides go in `instruction_templates` —
+    /// e.g. `instruction_templates.ebay = "..."` wins over the
+    /// default when the action's `platform` is `"ebay"`.
+    #[serde(default)]
+    pub instruction_template: Option<String>,
+    /// Per-platform overrides for `instruction_template`. Keyed
+    /// by platform name as it appears on the emitted action's
+    /// `platform` field. Falls back to `instruction_template`
+    /// when no platform key matches; falls back to the generic
+    /// dump when neither is present.
+    #[serde(default)]
+    pub instruction_templates: BTreeMap<String, String>,
 }
 
 fn default_executor_human() -> String {

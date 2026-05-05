@@ -28,6 +28,7 @@
 
 use super::worker_actions::ActionRecord;
 use argo_types::{ArgoError, ArgoResult};
+use argo_vertical::ActionDeclaration;
 use std::path::{Path, PathBuf};
 
 /// Executor abstraction. v1 has a single implementor
@@ -54,32 +55,67 @@ pub(crate) fn resolve_executor(
     vertical: &argo_vertical::VerticalManifest,
     action_type: &str,
 ) -> ArgoResult<Box<dyn Executor>> {
+    let decl = lookup_action(vertical, action_type)?;
+    match decl.executor.as_str() {
+        "human" => Ok(Box::new(HumanExecutor::new(decl.clone()))),
+        other => Err(ArgoError::Provider(format!(
+            "executor '{other}' for action_type '{action_type}' is not yet implemented; \
+             v1 supports `executor = \"human\"` only (browser/API land in later PRs)"
+        ))),
+    }
+}
+
+/// Shared lookup so resolve_executor + the test helpers don't
+/// duplicate the "find the action_type in the manifest" logic.
+fn lookup_action<'a>(
+    vertical: &'a argo_vertical::VerticalManifest,
+    action_type: &str,
+) -> ArgoResult<&'a ActionDeclaration> {
     let actions = vertical.actions.as_ref().ok_or_else(|| {
         ArgoError::Provider(format!(
             "vertical '{}' has no [actions] section; cannot execute action_type '{action_type}'",
             vertical.vertical.id
         ))
     })?;
-    let decl = actions.actions.get(action_type).ok_or_else(|| {
+    actions.actions.get(action_type).ok_or_else(|| {
         ArgoError::Provider(format!(
             "vertical '{}' does not declare action_type '{action_type}'",
             vertical.vertical.id
         ))
-    })?;
-    match decl.executor.as_str() {
-        "human" => Ok(Box::new(HumanExecutor)),
-        other => Err(ArgoError::Provider(format!(
-            "executor '{other}' for action_type '{action_type}' is not yet implemented; \
-             v1 supports `executor = \"human\"` only (browser/API land in #732+)"
-        ))),
-    }
+    })
 }
 
 /// Execution-mode-v1 default. Renders the per-action bundle to
 /// disk; the human operator carries the action out offline and
 /// then runs `argo worker actions complete <id>` to record the
 /// result.
-pub(crate) struct HumanExecutor;
+///
+/// When the manifest's `[actions.<name>]` declaration carries an
+/// `instruction_template` (or a per-platform override in
+/// `instruction_templates`), the executor renders that template
+/// instead of the generic dump. See `pick_template` for the
+/// platform-precedence rules.
+pub(crate) struct HumanExecutor {
+    declaration: Option<ActionDeclaration>,
+}
+
+impl HumanExecutor {
+    pub(crate) fn new(declaration: ActionDeclaration) -> Self {
+        Self {
+            declaration: Some(declaration),
+        }
+    }
+
+    /// Constructor used by `dispatch::invoke_executor_for` when
+    /// it needs an executor without a manifest in hand (the
+    /// existing call site already proves the action is
+    /// declared, so this path stays conservative — falls back
+    /// to the generic dump).
+    #[allow(dead_code)]
+    pub(crate) fn without_manifest() -> Self {
+        Self { declaration: None }
+    }
+}
 
 impl Executor for HumanExecutor {
     fn execute(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<PathBuf> {
@@ -95,7 +131,14 @@ impl Executor for HumanExecutor {
                 dir.display()
             ))
         })?;
-        let instructions = render_instructions(action);
+        let template_body = self
+            .declaration
+            .as_ref()
+            .and_then(|d| pick_template(d, action.platform.as_deref()));
+        let instructions = match template_body {
+            Some(body) => render_with_template(action, body),
+            None => render_instructions(action),
+        };
         let evidence = render_evidence(action);
         write(&dir.join("instructions.md"), &instructions)?;
         write(&dir.join("evidence.md"), &evidence)?;
@@ -104,6 +147,102 @@ impl Executor for HumanExecutor {
             &serde_json::to_string_pretty(action).unwrap_or_else(|_| "{}".into()),
         )?;
         Ok(dir)
+    }
+}
+
+/// Choose which instruction template to use for an action, in
+/// the precedence order:
+///   1. `instruction_templates.<platform>` (per-platform override)
+///   2. `instruction_template` (default for this action_type)
+///   3. `None` → executor falls back to the generic dump
+pub(crate) fn pick_template<'a>(
+    decl: &'a ActionDeclaration,
+    platform: Option<&str>,
+) -> Option<&'a str> {
+    if let Some(p) = platform {
+        if let Some(per_platform) = decl.instruction_templates.get(p) {
+            return Some(per_platform.as_str());
+        }
+    }
+    decl.instruction_template.as_deref()
+}
+
+/// Render an instruction template against the action's fields.
+/// Tiny substitution engine — no Handlebars dep, just literal
+/// `{{ key }}` and `{{ payload.X }}` lookups. Unknown keys
+/// render as `(unset)` so operators see the gap rather than a
+/// confusing literal.
+pub(crate) fn render_with_template(action: &ActionRecord, body: &str) -> String {
+    let mut out = String::with_capacity(body.len() + 64);
+    let bytes = body.as_bytes();
+    let mut cursor = 0;
+    while cursor < bytes.len() {
+        let Some(start) = body[cursor..].find("{{") else {
+            out.push_str(&body[cursor..]);
+            break;
+        };
+        out.push_str(&body[cursor..cursor + start]);
+        let open = cursor + start;
+        let Some(rel_end) = body[open + 2..].find("}}") else {
+            // Unmatched `{{` — emit verbatim and stop.
+            out.push_str(&body[open..]);
+            break;
+        };
+        let close = open + 2 + rel_end;
+        let key = body[open + 2..close].trim();
+        let resolved = lookup_template_key(action, key);
+        out.push_str(&resolved);
+        cursor = close + 2;
+    }
+    out
+}
+
+fn lookup_template_key(action: &ActionRecord, key: &str) -> String {
+    match key {
+        "action_id" => action.action_id.clone(),
+        "action_type" => action.action_type.clone(),
+        "job_id" => action.job_id.clone(),
+        "risk_level" => action.risk_level.clone(),
+        "platform" => action.platform.clone().unwrap_or_else(|| "(unset)".into()),
+        "item_id" => action.item_id.clone().unwrap_or_else(|| "(unset)".into()),
+        "approved_by" => action
+            .approved_by
+            .clone()
+            .unwrap_or_else(|| "(unset)".into()),
+        "approved_at" => action
+            .approved_at
+            .clone()
+            .unwrap_or_else(|| "(unset)".into()),
+        other => {
+            if let Some(rest) = other.strip_prefix("payload.") {
+                return lookup_payload_field(&action.payload, rest);
+            }
+            "(unset)".to_string()
+        }
+    }
+}
+
+/// Lookup a dotted path inside the action's payload Value. Each
+/// segment must resolve to a string-coercible value at the leaf;
+/// missing segments return `(unset)`. Numbers + booleans render
+/// via their canonical to_string.
+fn lookup_payload_field(payload: &serde_json::Value, path: &str) -> String {
+    let mut cur = payload;
+    for seg in path.split('.') {
+        match cur {
+            serde_json::Value::Object(map) => match map.get(seg) {
+                Some(v) => cur = v,
+                None => return "(unset)".to_string(),
+            },
+            _ => return "(unset)".to_string(),
+        }
+    }
+    match cur {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Null => "(unset)".to_string(),
+        other => other.to_string(),
     }
 }
 

@@ -124,6 +124,23 @@ risk              = "low"
 requires_approval = false
 description       = "Cross-check a proposed price against live retail / comp data via web_search + web_extract."
 executor          = "human"
+instruction_template = """
+# Verify price for `{{ item_id }}`
+
+Target price to verify: `${{ payload.target }}`.
+
+Run a quick sanity check:
+1. Pull at least 2 comparable listings (same item, same condition).
+2. Note the median sold price and the median asking price.
+3. Decide: is `${{ payload.target }}` within ±10% of the median?
+
+When done, run:
+
+```
+argo worker actions complete {{ action_id }} --note "<verdict>" \\
+  --result-json '{"median_asking": <num>, "median_sold": <num>, "verdict": "<within-band|too-high|too-low>"}'
+```
+"""
 
 [actions.request_photos]
 risk              = "low"
@@ -142,6 +159,81 @@ requires_approval = true
 description       = "Post a previously-drafted listing to a marketplace platform. Reversible (delete) but public."
 executor          = "human"
 platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+instruction_template = """
+# Post listing — `{{ payload.title }}` on `{{ platform }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Title:    `{{ payload.title }}`
+Price:    `${{ payload.price }}`
+Item:     `{{ item_id }}`
+
+Steps:
+1. Sign into your `{{ platform }}` seller account.
+2. Create a new listing with the title above.
+3. Paste the description from the listing draft (see `assistant_output.md`).
+4. Set price to `${{ payload.price }}` and shipping per the draft.
+5. Upload photos (see `instructions.md` for the photo list if attached).
+6. Publish.
+
+When live, copy the listing URL and run:
+
+```
+argo worker actions complete {{ action_id }} --note "live" \\
+  --result-json '{"listing_url": "<url>", "platform": "{{ platform }}"}'
+```
+"""
+
+[actions.post_listing.instruction_templates]
+ebay = """
+# Post listing — `{{ payload.title }}` on **eBay**
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Listing:
+- title:    `{{ payload.title }}`
+- price:    `${{ payload.price }}`
+- item_id:  `{{ item_id }}`
+
+eBay-specific checklist:
+1. **Listing format** — pick `Buy it Now` for fixed-price OR `Auction` for high-demand items.
+2. **Category** — let eBay auto-detect; override if it lands in the wrong sub-category.
+3. **Item specifics** — fill EVERY required field (Brand, Model, Condition, Size). eBay's algo penalises sparse listings.
+4. **Photos** — at least 4. eBay caps at 12 free.
+5. **Shipping** — quote actual cost; never `local pickup only` unless the item ships heavy.
+6. **Returns** — 30-day returns recommended; reduces buyer-side friction.
+
+When live, copy the listing URL and run:
+
+```
+argo worker actions complete {{ action_id }} --note "ebay live" \\
+  --result-json '{"listing_url": "<url>", "platform": "ebay"}'
+```
+"""
+facebook_marketplace = """
+# Post listing — `{{ payload.title }}` on **Facebook Marketplace**
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Listing:
+- title:    `{{ payload.title }}`
+- price:    `${{ payload.price }}`
+- item_id:  `{{ item_id }}`
+
+Facebook Marketplace checklist:
+1. **Category** — Marketplace forces you to pick one. Use the closest match.
+2. **Photos** — Marketplace shows the first photo as the thumbnail. Pick the cleanest shot.
+3. **Location** — defaults to your account; verify it's the right city for buyer search.
+4. **Delivery** — `Local pickup` is fine; `Shipping` opens the listing to a wider audience.
+5. **Description** — paste from the draft. Marketplace strips most formatting; review the rendered preview.
+
+When live, copy the listing URL and run:
+
+```
+argo worker actions complete {{ action_id }} --note "fb live" \\
+  --result-json '{"listing_url": "<url>", "platform": "facebook_marketplace"}'
+```
+"""
 
 [actions.boost_listing]
 risk              = "medium"
@@ -170,6 +262,23 @@ requires_approval = true
 description       = "Mark an item sold on a platform — closes the listing to further offers."
 executor          = "human"
 platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+instruction_template = """
+# Mark sold — `{{ item_id }}` on `{{ platform }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Steps:
+1. Open the listing for `{{ item_id }}` on `{{ platform }}`.
+2. Mark it sold (not `delete`; mark-sold preserves history).
+3. Note the sale price + buyer username.
+
+When done:
+
+```
+argo worker actions complete {{ action_id }} --note "sold" \\
+  --result-json '{"sale_price": <num>, "buyer": "<username>"}'
+```
+"""
 
 [actions.reply_to_buyer]
 risk              = "high"
@@ -177,6 +286,29 @@ requires_approval = true
 description       = "Send a reply to a buyer's message. Touches another human; not reversible."
 executor          = "human"
 platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+instruction_template = """
+# Reply to buyer — `{{ item_id }}` on `{{ platform }}`
+
+⚠️ **HIGH RISK** — touches another human; cannot be undone.
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Reply (review BEFORE sending):
+
+> {{ payload.message }}
+
+Steps:
+1. Open the buyer's thread for `{{ item_id }}` on `{{ platform }}`.
+2. Paste the reply above; tweak tone if it feels generic.
+3. Send.
+
+When done:
+
+```
+argo worker actions complete {{ action_id }} --note "replied" \\
+  --result-json '{"buyer": "<username>", "message_sent": "<final-text>"}'
+```
+"""
 
 [actions.follow_up_buyer]
 risk              = "high"

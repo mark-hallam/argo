@@ -95,7 +95,9 @@ fn render_evidence_empty_state_placeholder_when_no_sources() {
 fn human_executor_writes_per_action_bundle_files_to_disk() {
     let r = rec("act-105", "post_listing", true);
     let cwd = tempfile::tempdir().expect("tempdir");
-    let bundle = HumanExecutor.execute(&r, cwd.path()).expect("execute");
+    let bundle = HumanExecutor::without_manifest()
+        .execute(&r, cwd.path())
+        .expect("execute");
     assert_eq!(
         bundle,
         cwd.path()
@@ -163,6 +165,136 @@ executor = "browser"
     let msg = err.to_string();
     assert!(msg.contains("not yet implemented"), "got: {msg}");
     assert!(msg.contains("browser"), "got: {msg}");
+}
+
+// ───────────────── template renderer (#732) ────────────
+
+#[test]
+fn render_with_template_substitutes_action_fields_and_payload_dotted_paths() {
+    let mut r = rec("act-200", "post_listing", true);
+    r.payload = serde_json::json!({"title": "Pro Skates", "price": 250});
+    let body = "title={{ payload.title }} | price=${{ payload.price }} | id={{ action_id }} | platform={{ platform }}";
+    let out = render_with_template(&r, body);
+    assert_eq!(
+        out,
+        "title=Pro Skates | price=$250 | id=act-200 | platform=ebay"
+    );
+}
+
+#[test]
+fn render_with_template_renders_unset_for_missing_keys() {
+    let mut r = rec("act-201", "verify_price", false);
+    r.platform = None;
+    r.item_id = None;
+    let body = "platform={{ platform }} item={{ item_id }} unknown={{ does_not_exist }}";
+    let out = render_with_template(&r, body);
+    assert_eq!(out, "platform=(unset) item=(unset) unknown=(unset)");
+}
+
+#[test]
+fn render_with_template_handles_unmatched_open_braces_safely() {
+    let r = rec("act-202", "verify_price", false);
+    let body = "no closer here {{ broken — verbatim";
+    let out = render_with_template(&r, body);
+    assert!(out.contains("no closer here"));
+    assert!(out.contains("{{"));
+}
+
+#[test]
+fn pick_template_prefers_per_platform_override_over_default() {
+    let manifest = argo_vertical::parse(
+        r#"
+schema_version = "1"
+
+[vertical]
+id = "fix"
+name = "fix"
+version = "0.0.1"
+
+[actions.post_listing]
+risk = "medium"
+requires_approval = true
+description = "x"
+executor = "human"
+instruction_template = "default body"
+
+[actions.post_listing.instruction_templates]
+ebay = "ebay-specific body"
+"#,
+    )
+    .expect("manifest parses");
+    let decl = manifest
+        .actions
+        .as_ref()
+        .and_then(|a| a.actions.get("post_listing"))
+        .expect("post_listing");
+    assert_eq!(
+        pick_template(decl, Some("ebay")),
+        Some("ebay-specific body")
+    );
+    assert_eq!(pick_template(decl, Some("gumtree")), Some("default body"));
+    assert_eq!(pick_template(decl, None), Some("default body"));
+}
+
+#[test]
+fn pick_template_returns_none_when_neither_default_nor_per_platform_set() {
+    let manifest = argo_vertical::parse(
+        r#"
+schema_version = "1"
+
+[vertical]
+id = "fix"
+name = "fix"
+version = "0.0.1"
+
+[actions.verify_price]
+risk = "low"
+requires_approval = false
+description = "x"
+executor = "human"
+"#,
+    )
+    .expect("manifest parses");
+    let decl = manifest
+        .actions
+        .as_ref()
+        .and_then(|a| a.actions.get("verify_price"))
+        .expect("verify_price");
+    assert_eq!(pick_template(decl, Some("ebay")), None);
+}
+
+#[test]
+fn human_executor_renders_template_when_manifest_provides_one() {
+    let manifest = argo_vertical::parse(
+        r#"
+schema_version = "1"
+
+[vertical]
+id = "fix"
+name = "fix"
+version = "0.0.1"
+
+[actions.post_listing]
+risk = "medium"
+requires_approval = true
+description = "x"
+executor = "human"
+instruction_template = "Title: {{ payload.title }}; Action: {{ action_id }}"
+"#,
+    )
+    .expect("manifest parses");
+    let decl = manifest
+        .actions
+        .as_ref()
+        .and_then(|a| a.actions.get("post_listing"))
+        .expect("post_listing");
+    let executor = HumanExecutor::new(decl.clone());
+    let mut r = rec("act-300", "post_listing", true);
+    r.payload = serde_json::json!({"title": "Hello"});
+    let cwd = tempfile::tempdir().expect("tempdir");
+    let bundle = executor.execute(&r, cwd.path()).expect("execute");
+    let instr = std::fs::read_to_string(bundle.join("instructions.md")).unwrap();
+    assert_eq!(instr, "Title: Hello; Action: act-300");
 }
 
 #[test]
