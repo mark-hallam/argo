@@ -22,6 +22,20 @@ pub enum WorkerCmd {
     /// originating job's vertical namespace.
     #[command(subcommand)]
     Actions(WorkerActionsCmd),
+    /// Print a one-shot SKYCOT health check across the workspace:
+    /// verticals loaded (with action-section status), action-ledger
+    /// counts by state, recent failures + blocked rows, and the
+    /// last-refresh time of the workspace ledger files. Operators
+    /// run this to answer "is the worker setup healthy?" without
+    /// scripting 5 commands together.
+    Doctor {
+        /// Filter the ledger view to a single vertical.
+        #[arg(long)]
+        vertical: Option<String>,
+        /// Emit JSON instead of the human-readable report.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

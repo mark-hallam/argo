@@ -182,6 +182,9 @@ fn default_risk() -> String {
 
 pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
     match cmd {
+        WorkerCmd::Doctor { vertical, json } => {
+            super::worker_doctor::run(vertical.as_deref(), json).await
+        }
         WorkerCmd::Actions(actions_cmd) => match actions_cmd {
             WorkerActionsCmd::List {
                 state,

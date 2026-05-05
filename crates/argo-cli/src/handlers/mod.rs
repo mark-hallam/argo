@@ -105,5 +105,6 @@ mod worker_actions_executor;
 mod worker_actions_render;
 mod worker_actions_transitions;
 mod worker_actions_type;
+mod worker_doctor;
 pub mod workspace;
 mod workspace_marketplace;
