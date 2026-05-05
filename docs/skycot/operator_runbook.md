@@ -322,6 +322,12 @@ adapts (different platform, different message, different price).
 
 ## Troubleshooting
 
+For the day-to-day "I ran approve but got an error" surface,
+the table below covers the common cases. For deeper failures
+(provider 503, worker crash, DB lock, retry exhaustion, stuck
+jobs), see **[`failure_modes.md`](failure_modes.md)** — full
+symptom / cause / recovery / prevention reference.
+
 | symptom                                        | likely cause                                                              | fix                                                  |
 |------------------------------------------------|---------------------------------------------------------------------------|------------------------------------------------------|
 | `approve` says "autonomous-safe"               | The action's `requires_approval = false` — no approval needed.            | Use `execute` directly.                              |
@@ -329,3 +335,7 @@ adapts (different platform, different message, different price).
 | `fail` says "illegal transition"               | Action isn't in `executing` state.                                         | Check `status`; only executing rows can fail.        |
 | `render` reports zeros for all categories      | Latest snapshot per action is in some non-displayed state (e.g. approved). | This is correct — `approved` isn't terminal yet.     |
 | `status` says "no action with action_id"       | Wrong id, or the id is from a different workspace.                        | Confirm via `list --json`; pwd should match the workspace. |
+| `retry` says "max_attempts = N and this would be #M"  | Retry policy capped per the manifest (#755).                       | Either fix upstream + force-retry, or queue a fresh job.    |
+| `[STOP: NEED_INFO transport error]` in artifacts | Provider 503 / timeout / rate-limit.                                    | See `failure_modes.md` § Provider failures.          |
+| Worker exited mid-step with no completed_jobs row | Crash / OOM / SIGKILL.                                                | See `failure_modes.md` § Worker crash mid-step.      |
+| `Error: storage error: database is locked`     | Two `argo` processes hit the DB concurrently.                             | See `failure_modes.md` § DB lock.                    |

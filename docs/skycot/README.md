@@ -93,7 +93,11 @@ task; see the `verticals/` directory + `argo vertical lint
    confidence audit: every shipped capability, what's locked in
    tests, what's intentionally out of v1 scope, and the
    pre-launch checklist.
-8. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
+8. **[Failure modes](failure_modes.md)** — what to do when X
+   breaks: provider 503s, worker crashes, DB lock, retry
+   exhaustion, stuck jobs. Symptom / cause / recovery /
+   prevention per category.
+9. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
    version, customer-facing.
 
 ## Design + invariants
