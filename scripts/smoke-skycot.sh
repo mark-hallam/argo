@@ -211,6 +211,30 @@ echo "$check_with_key" | grep -q "\[ok\]" || fail "setup --check stdout missing 
 echo "$check_with_key" | grep -q "ANTHROPIC_API_KEY" || fail "setup --check stdout missing detected key name" "$check_with_key"
 ok "setup --check OK path verified"
 
+heading "18. argo setup --check --require enforces strict-pair contract"
+# Locks the launch-checklist invariant from #764: with both
+# ANTHROPIC + OPENAI required but only ANTHROPIC set, --check
+# must exit non-zero AND name OPENAI_API_KEY in the stderr so
+# the operator can fix it. Then with both set, must exit 0.
+strict_one_only=$(env -u OPENAI_API_KEY -u GEMINI_API_KEY \
+  -u AWS_ACCESS_KEY_ID -u ELEVENLABS_API_KEY \
+  ANTHROPIC_API_KEY="sk-ant-smoke" \
+  "$ARGO_BIN" setup --check \
+    --require ANTHROPIC_API_KEY \
+    --require OPENAI_API_KEY 2>&1)
+strict_one_only_exit=$?
+[[ $strict_one_only_exit -ne 0 ]] || fail "strict-pair must fail when fallback missing" "$strict_one_only"
+echo "$strict_one_only" | grep -q "OPENAI_API_KEY" || fail "strict-pair FAIL must name missing var" "$strict_one_only"
+strict_both=$(env -u GEMINI_API_KEY -u AWS_ACCESS_KEY_ID -u ELEVENLABS_API_KEY \
+  ANTHROPIC_API_KEY="sk-ant-smoke" OPENAI_API_KEY="sk-smoke" \
+  "$ARGO_BIN" setup --check \
+    --require ANTHROPIC_API_KEY \
+    --require OPENAI_API_KEY 2>&1)
+strict_both_exit=$?
+[[ $strict_both_exit -eq 0 ]] || fail "strict-pair must pass when both set" "$strict_both"
+echo "$strict_both" | grep -q "all required keys loadable" || fail "strict-pair OK must confirm loadable" "$strict_both"
+ok "setup --check --require strict-pair contract verified"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"

@@ -333,3 +333,12 @@ customer."
 - `provider_keys.md` + `launch_readiness.md` updated to show
   the strict-pair invocation in the production-launch
   checklist. (#764)
+
+### Added — Smoke check #18 covers strict-pair `--require`
+
+- `./scripts/smoke-skycot.sh` grows from 17 → 18 checks.
+- Check #18 verifies the strict-pair contract from #764:
+  with `--require ANTHROPIC_API_KEY --require OPENAI_API_KEY`
+  + only `ANTHROPIC_API_KEY` set, `--check` exits non-zero
+  AND names `OPENAI_API_KEY` on stderr; with both set, exits
+  zero with `"all required keys loadable"`. (#765)
