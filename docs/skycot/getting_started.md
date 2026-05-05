@@ -29,6 +29,10 @@ configuration. You'll need an Anthropic or OpenAI API key for the
 worker to actually call an LLM — without keys, you can still run the
 mock provider for a deterministic dry-run.
 
+For production deployments (systemd / k8s Secret / Vault patterns,
+key rotation, what NOT to do), see
+[`provider_keys.md`](provider_keys.md).
+
 ## 2. Initialise a workspace
 
 ```bash

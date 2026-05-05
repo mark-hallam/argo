@@ -97,8 +97,12 @@ task; see the `verticals/` directory + `argo vertical lint
    breaks: provider 503s, worker crashes, DB lock, retry
    exhaustion, stuck jobs. Symptom / cause / recovery /
    prevention per category.
-9. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
-   version, customer-facing.
+9. **[Provider keys + secrets flow](provider_keys.md)** —
+   how to wire `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` for
+   local dev, systemd, k8s Secret, Vault. What you must
+   NOT do. Production launch checklist.
+10. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
+    version, customer-facing.
 
 ## Design + invariants
 
