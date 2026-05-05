@@ -313,4 +313,23 @@ customer."
 
 ## Unreleased
 
-(no changes since 0.1.1)
+### Added — `argo setup --check --require <ENV_VAR>` strict-pair mode
+
+- Repeatable `--require ENV_VAR` flag turns the inclusive-OR
+  contract ("at least one provider key set") into a strict-AND
+  contract ("every named var must be set + non-empty"). Used to
+  lock the launch-checklist invariant that BOTH primary AND
+  fallback provider keys must be loadable so the fallback
+  actually works on 503.
+- When multiple required vars are missing, every name appears
+  in the FAIL output so the operator can fix them all in one
+  shell-rc edit (not re-run after each export).
+- Whitespace-only env values count as missing (catches the
+  `EnvironmentFile=` typo where a var is declared but blank).
+- `--require` without `--check` returns a friendly error
+  rather than silently triggering the interactive walkthrough.
+- 5 new integration tests + the existing single-key contract
+  remains green.
+- `provider_keys.md` + `launch_readiness.md` updated to show
+  the strict-pair invocation in the production-launch
+  checklist. (#764)

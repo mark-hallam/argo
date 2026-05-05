@@ -42,9 +42,14 @@ const PROVIDERS: &[(&str, &str, &str)] = &[
     ),
 ];
 
-pub async fn run(check: bool) -> ArgoResult<()> {
+pub async fn run(check: bool, require: Vec<String>) -> ArgoResult<()> {
     if check {
-        return run_check();
+        return run_check(&require);
+    }
+    if !require.is_empty() {
+        return Err(ArgoError::Provider(
+            "--require has no effect without --check (it's a CI / launch-checklist flag)".into(),
+        ));
     }
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
@@ -124,7 +129,16 @@ fn detect_provider_keys() -> Vec<&'static str> {
 /// stderr includes the canonical resolution-order summary so an
 /// operator running this from a launch checklist sees both the
 /// gap AND the fix in one shot.
-fn run_check() -> ArgoResult<()> {
+///
+/// When `require` is non-empty, the probe demands every named
+/// var resolves to a non-empty string. Used to lock the
+/// "primary AND fallback" contract from the launch checklist:
+/// `argo setup --check --require ANTHROPIC_API_KEY --require
+/// OPENAI_API_KEY`.
+fn run_check(require: &[String]) -> ArgoResult<()> {
+    if !require.is_empty() {
+        return run_check_required(require);
+    }
     let detected = detect_provider_keys();
     if !detected.is_empty() {
         println!(
@@ -148,6 +162,44 @@ fn run_check() -> ArgoResult<()> {
     Err(ArgoError::Provider(
         "no provider API keys detected — see stderr for fix".into(),
     ))
+}
+
+/// `argo setup --check --require <var>...` — strict-pair mode.
+///
+/// Used for the launch-checklist contract that says "both your
+/// primary AND fallback provider keys must be loadable so the
+/// fallback actually works when the primary 503s." Reports
+/// every missing var (not just the first) so the operator can
+/// fix them all in one shell-rc edit.
+fn run_check_required(required: &[String]) -> ArgoResult<()> {
+    let missing: Vec<&String> = required
+        .iter()
+        .filter(|var| {
+            std::env::var(var.as_str())
+                .map(|v| v.trim().is_empty())
+                .unwrap_or(true)
+        })
+        .collect();
+    if missing.is_empty() {
+        println!(
+            "[ok] all required keys loadable from env: {}",
+            required.join(", ")
+        );
+        return Ok(());
+    }
+    eprintln!("[FAIL] required provider keys missing or empty:");
+    for var in &missing {
+        eprintln!("  - {var}");
+    }
+    eprintln!();
+    eprintln!("All --require vars must resolve to a non-empty value.");
+    eprintln!("See docs/skycot/provider_keys.md § Production launch checklist");
+    eprintln!("for why both primary AND fallback should be configured.");
+    Err(ArgoError::Provider(format!(
+        "{} required key{} missing — see stderr",
+        missing.len(),
+        if missing.len() == 1 { "" } else { "s" }
+    )))
 }
 
 fn prompt_for_provider() {

@@ -149,6 +149,16 @@ pub enum Command {
         /// `provider_keys.md` rotation runbook.
         #[arg(long)]
         check: bool,
+        /// Require this specific env var to be set (repeatable).
+        /// When provided alongside `--check`, the probe demands
+        /// every named var resolves to a non-empty value;
+        /// otherwise the existing "at least one" contract
+        /// applies. Use this when your vertical declares both a
+        /// primary AND a fallback provider — the launch
+        /// checklist in `provider_keys.md` says BOTH should be
+        /// loadable so the fallback actually works on 503.
+        #[arg(long = "require", value_name = "ENV_VAR")]
+        require: Vec<String>,
     },
     /// Vertical-template discovery surface (#650). Read-only —
     /// `list`, `show`, `validate`. Install / eval / run land in

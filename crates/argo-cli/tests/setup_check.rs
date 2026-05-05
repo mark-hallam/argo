@@ -117,3 +117,153 @@ fn cli_setup_check_accepts_either_anthropic_or_openai() {
         "stdout should mention OPENAI_API_KEY; got:\n{stdout}"
     );
 }
+
+#[test]
+fn cli_setup_check_require_pair_both_set_passes() {
+    // Locks the launch-checklist contract: with both
+    // ANTHROPIC + OPENAI required AND set, --check passes.
+    let home = tempfile::tempdir().unwrap();
+    let mut cmd = Command::new(argo_bin());
+    cmd.env("ARGO_HOME", home.path());
+    drop_provider_env(&mut cmd);
+    cmd.env("ANTHROPIC_API_KEY", "sk-ant-test");
+    cmd.env("OPENAI_API_KEY", "sk-test");
+    cmd.args([
+        "setup",
+        "--check",
+        "--require",
+        "ANTHROPIC_API_KEY",
+        "--require",
+        "OPENAI_API_KEY",
+    ]);
+    let out = cmd.output().expect("spawn");
+    assert!(
+        out.status.success(),
+        "both-required-and-set must pass; stderr={}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("all required keys loadable"),
+        "stdout should confirm all keys loadable; got:\n{stdout}"
+    );
+}
+
+#[test]
+fn cli_setup_check_require_pair_one_missing_fails_loudly() {
+    // Locks the failure mode: with both required but only
+    // ANTHROPIC set, --check must fail and name the missing
+    // var so the operator can fix it in one rc edit.
+    let home = tempfile::tempdir().unwrap();
+    let mut cmd = Command::new(argo_bin());
+    cmd.env("ARGO_HOME", home.path());
+    drop_provider_env(&mut cmd);
+    cmd.env("ANTHROPIC_API_KEY", "sk-ant-test");
+    cmd.args([
+        "setup",
+        "--check",
+        "--require",
+        "ANTHROPIC_API_KEY",
+        "--require",
+        "OPENAI_API_KEY",
+    ]);
+    let out = cmd.output().expect("spawn");
+    assert!(
+        !out.status.success(),
+        "missing required key must fail; stdout={}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("OPENAI_API_KEY"),
+        "stderr should name the missing var; got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("- ANTHROPIC_API_KEY"),
+        "stderr must NOT list ANTHROPIC as missing (it's set); got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("[FAIL]"),
+        "stderr should carry the FAIL marker; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn cli_setup_check_require_pair_lists_every_missing_not_just_first() {
+    // When BOTH required vars are missing, stderr must list
+    // BOTH so the operator fixes them in one shot — not
+    // re-running --check after each export.
+    let home = tempfile::tempdir().unwrap();
+    let mut cmd = Command::new(argo_bin());
+    cmd.env("ARGO_HOME", home.path());
+    drop_provider_env(&mut cmd);
+    cmd.args([
+        "setup",
+        "--check",
+        "--require",
+        "ANTHROPIC_API_KEY",
+        "--require",
+        "OPENAI_API_KEY",
+    ]);
+    let out = cmd.output().expect("spawn");
+    assert!(!out.status.success());
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("ANTHROPIC_API_KEY") && stderr.contains("OPENAI_API_KEY"),
+        "stderr should list both missing vars; got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("2 required keys missing"),
+        "stderr should pluralise correctly; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn cli_setup_check_require_treats_empty_string_as_missing() {
+    // An empty `OPENAI_API_KEY=""` passed via EnvironmentFile
+    // mistake must NOT count as set under --require.
+    let home = tempfile::tempdir().unwrap();
+    let mut cmd = Command::new(argo_bin());
+    cmd.env("ARGO_HOME", home.path());
+    drop_provider_env(&mut cmd);
+    cmd.env("ANTHROPIC_API_KEY", "sk-ant-test");
+    cmd.env("OPENAI_API_KEY", "   "); // whitespace-only
+    cmd.args([
+        "setup",
+        "--check",
+        "--require",
+        "ANTHROPIC_API_KEY",
+        "--require",
+        "OPENAI_API_KEY",
+    ]);
+    let out = cmd.output().expect("spawn");
+    assert!(
+        !out.status.success(),
+        "whitespace-only required var must fail; stdout={}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("OPENAI_API_KEY"),
+        "stderr should name the empty var; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn cli_setup_check_require_without_check_returns_friendly_error() {
+    // `--require` without `--check` is meaningless; surface
+    // that to the user instead of silently doing the
+    // interactive walkthrough.
+    let home = tempfile::tempdir().unwrap();
+    let mut cmd = Command::new(argo_bin());
+    cmd.env("ARGO_HOME", home.path());
+    drop_provider_env(&mut cmd);
+    cmd.args(["setup", "--require", "ANTHROPIC_API_KEY"]);
+    let out = cmd.output().expect("spawn");
+    assert!(!out.status.success());
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("--require has no effect without --check"),
+        "stderr should explain the misuse; got:\n{stderr}"
+    );
+}

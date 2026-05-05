@@ -234,9 +234,22 @@ operator monitors via `/metrics` + alerts.
 
 - [ ] Both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` (or your
       chosen pair) are loadable from the worker's process env.
+      Verify with the strict-pair flag:
+
+      ```bash
+      argo setup --check \
+        --require ANTHROPIC_API_KEY \
+        --require OPENAI_API_KEY
+      ```
+
+      Lists every missing var in one shot so you can fix them
+      all in a single shell-rc edit.
 - [ ] Keys are NOT in any committed file (`grep -rn "sk-ant-"
       .` returns nothing).
-- [ ] `argo setup --check` passes against the production env.
+- [ ] `argo setup --check` passes against the production env
+      (use the strict-pair form above when both primary +
+      fallback are configured; bare `--check` works for a
+      single-provider deployment).
 - [ ] At least one non-mock smoke job ran end-to-end and the
       stop_reason was not `need_info`.
 - [ ] Key rotation procedure tested at least once before

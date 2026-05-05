@@ -118,6 +118,9 @@ Before the first paying customer:
       (`OPENAI_API_KEY` by default) are loadable from the
       worker's process environment.
 - [ ] **`argo setup --check` passes** against the production env.
+      For deployments with primary + fallback providers,
+      verify both with the strict-pair flag:
+      `argo setup --check --require ANTHROPIC_API_KEY --require OPENAI_API_KEY`.
 - [ ] **Vertical lint clean** — `argo vertical lint <id>`
       against any custom verticals; fix warnings before they
       cause runtime confusion.
