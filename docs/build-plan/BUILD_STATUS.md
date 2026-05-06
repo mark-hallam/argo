@@ -91,7 +91,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-zendesk | codex | IN_REVIEW | #852 | PR opened: native Zendesk Support MCP connector crate with 7 tools, search-query passthrough, email/token/subdomain auth, approval markers, unit + wire coverage |
 | codex-setup-wizard-cli | codex | CLAIMED | — | claimed by codex |
 | codex-compliance-export-cli | codex | CLAIMED | — | claimed by codex |
-| claude-trajectory-replay-ui | claude | CLAIMED | — | claimed by claude |
+| claude-trajectory-replay-ui | claude | IN_REVIEW | #853 | PR opened — `V` opens replay overlay (R is taken by force-refresh); 3-pane layout; CU/MCP/Human steps render; arrow nav + clamp; 13 new tests; total argo-tui 106; autoplay + search-input + sixel/iTerm rendering deferred |
 | claude-code-execution-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::CodeExecution; Python 3.12 + Node 20 in E2B sandbox; time/memory limits; opt-in network/pkg-install; artifacts at /tmp/artifacts collected |
 | claude-worker-roster | claude | TODO | — | V1.3 multi-worker: Roster primitive (group of workers + shared policy + shared channels + shared budget); resolved_policy walks roster layer; `argo roster create/list/show/add-member/remove-member/delete`; multi-roster "most-restrictive wins" |
 | claude-spend-anomaly-alerts | claude | TODO | — | V1.1 reliability: hourly z-score on spend per worker per hour-of-day; |z|>4.0 inserts anomaly row + fires notify; `argo budget anomalies`; complementary to claude-anomaly-detector (action behavior) |
