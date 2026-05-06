@@ -16,6 +16,7 @@ mod actions;
 mod app;
 mod clipboard;
 mod input;
+mod input_dashboard;
 mod input_h_stack;
 mod input_helpers;
 mod input_replay;
@@ -23,6 +24,7 @@ mod live_event;
 mod overlay_text;
 mod overlays;
 mod overlays_budget;
+mod overlays_dashboard;
 mod overlays_h_stack;
 mod overlays_handoffs;
 mod overlays_replay;
@@ -34,3 +36,18 @@ mod viewer;
 
 pub use app::ViewerState;
 pub use viewer::run_session_viewer;
+
+/// Aux-overlay close-key dispatcher consolidating h_stack +
+/// replay + dashboard. Lives here (rather than in `input.rs`) so
+/// the event-loop file stays under the 500-LOC ceiling — same
+/// trick #853 used to combine h_stack + replay close handling.
+/// Returns `true` when the key was consumed by one of the aux
+/// overlays so the caller can `continue`.
+pub(crate) fn try_close_aux_overlay(
+    state: &mut crate::app::ViewerState,
+    code: crossterm::event::KeyCode,
+) -> bool {
+    crate::input_h_stack::try_close_h_stack_overlay(state, code)
+        || crate::input_replay::try_handle_replay_overlay(state, code)
+        || crate::input_dashboard::try_handle_dashboard_overlay(state, code)
+}

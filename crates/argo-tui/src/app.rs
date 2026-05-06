@@ -164,6 +164,9 @@ pub struct ViewerState {
     /// Trajectory replay overlay state when the overlay is open
     /// (entered with `R`). Stream `claude-trajectory-replay-ui`.
     pub replay_overlay: Option<crate::overlays_replay::ReplayState>,
+    /// Real-time dashboard overlay state when open (entered with
+    /// `D`). Stream `claude-tui-realtime-dashboard`.
+    pub dashboard_overlay: Option<crate::overlays_dashboard::DashboardState>,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -243,6 +246,7 @@ impl ViewerState {
             h_handoffs_overlay_scroll: 0,
             h_budget_overlay: None,
             replay_overlay: None,
+            dashboard_overlay: None,
             workspace_label: None,
         }
     }

@@ -859,6 +859,7 @@ name = "argo-tui"
 version = "0.0.1"
 dependencies = [
  "argo-agent-runner",
+ "argo-audit",
  "argo-memory",
  "argo-skill",
  "argo-store",

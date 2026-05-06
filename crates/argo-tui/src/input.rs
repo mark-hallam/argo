@@ -70,6 +70,7 @@ pub(crate) async fn run(
                     "toml",
                 ));
             }
+            crate::input_dashboard::refresh_dashboard(state, &store).await;
             last_refresh = std::time::Instant::now();
         }
         if !event::poll(Duration::from_millis(200))
@@ -205,9 +206,7 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            if crate::input_h_stack::try_close_h_stack_overlay(state, key.code)
-                || crate::input_replay::try_handle_replay_overlay(state, key.code)
-            { continue; }
+            if crate::try_close_aux_overlay(state, key.code) { continue; }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -364,6 +363,7 @@ pub(crate) async fn run(
                 k @ (KeyCode::Char('O') | KeyCode::Char('H') | KeyCode::Char('B'))
                     if crate::input_h_stack::try_open_h_stack_overlay(state, k).await => {}
                 KeyCode::Char('V') => crate::input_replay::open_replay_overlay(state),
+                KeyCode::Char('D') => crate::input_dashboard::open_dashboard_overlay(state),
                 KeyCode::Char('M') => {
                     // Load the active-memory rows across all 4
                     // canonical files. No workspace → empty

@@ -95,6 +95,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(replay) = state.replay_overlay.as_ref() {
         crate::overlays_replay::draw_replay(frame, area, replay);
     }
+    if let Some(dash) = state.dashboard_overlay.as_ref() {
+        crate::overlays_dashboard::draw_dashboard(frame, area, dash);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
