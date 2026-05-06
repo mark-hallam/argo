@@ -10,7 +10,8 @@ MCP server exposing Slack operations: `slack.post_message`,
 
 ## Files you may touch
 - `crates/argo-mcp-connector-slack/**` (NEW crate)
-- `Cargo.toml`
+- `Cargo.toml` (workspace member only — ONE line under `members = [...]`)
+- `Cargo.lock` (auto-updated by cargo)
 - `manifests/connectors/slack.toml`
 
 ## Files you must NOT touch

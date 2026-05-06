@@ -10,7 +10,8 @@ MCP server for Notion: `notion.search`, `notion.read_page`,
 
 ## Files you may touch
 - `crates/argo-mcp-connector-notion/**` (NEW)
-- `Cargo.toml`
+- `Cargo.toml` (workspace member only — ONE line under `members = [...]`)
+- `Cargo.lock` (auto-updated by cargo)
 - `manifests/connectors/notion.toml`
 
 ## Files you must NOT touch

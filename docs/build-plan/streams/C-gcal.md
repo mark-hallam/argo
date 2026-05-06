@@ -11,16 +11,21 @@ share the token store if convenient).
 
 ## Files you may touch
 - `crates/argo-mcp-connector-gcal/**` (NEW)
-- `Cargo.toml`
+- `Cargo.toml` (workspace member only — ONE line under `members = [...]`)
+- `Cargo.lock` (auto-updated by cargo)
 - `manifests/connectors/gcal.toml`
 
 ## Files you must NOT touch
 - Other connectors
+- `argo-store/**` — same v1 deferral as C-gmail
 
 ## Acceptance criteria
 - [ ] All 5 tools wired
-- [ ] OAuth via `oauth2` (share refresh logic with gmail if
-      possible — but keep crates separate)
+- [ ] OAuth via `oauth2`; refresh token from
+      `ARGO_GCAL_REFRESH_TOKEN` env var; access token cached
+      in `<cwd>/.argo/connectors/gcal/access_token.json` (same
+      v1 shape as C-gmail, separate file). v1.x swaps in a
+      shared keyring; do NOT build that here.
 - [ ] Integration test (`GCAL_TEST_TOKEN`)
 - [ ] Clippy clean
 - [ ] Every file < 500 LOC

@@ -11,7 +11,8 @@ HubSpot private-app token.
 
 ## Files you may touch
 - `crates/argo-mcp-connector-hubspot/**` (NEW)
-- `Cargo.toml`
+- `Cargo.toml` (workspace member only — ONE line under `members = [...]`)
+- `Cargo.lock` (auto-updated by cargo)
 - `manifests/connectors/hubspot.toml`
 
 ## Files you must NOT touch
