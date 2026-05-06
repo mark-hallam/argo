@@ -74,6 +74,28 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
+        Some(Command::Trajectory { cmd }) => match cmd {
+            cli::TrajectoryCmd::Export {
+                since,
+                until,
+                format,
+                filter,
+                include_screenshots,
+                gdpr_redact_emails,
+                output,
+                json,
+            } => handlers::trajectory_export::run(handlers::trajectory_export::ExportArgs {
+                since,
+                until,
+                format,
+                filter,
+                include_screenshots,
+                gdpr_redact_emails,
+                output,
+                json,
+            })
+            .await,
+        },
         Some(Command::Action { cmd }) => action_replay::run(cmd).await,
         Some(Command::Activity { cmd }) => handlers::activity_tail::run(cmd).await,
         Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,

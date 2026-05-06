@@ -36,6 +36,8 @@ pub mod cli_org_cmds;
 pub mod cli_skill_ab_cmds;
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
+#[path = "cli_trajectory_cmds.rs"]
+mod cli_trajectory_cmds;
 #[path = "cli_tenant_cmds.rs"]
 mod cli_tenant_cmds;
 #[path = "cli_vertical_cmds.rs"]
@@ -59,6 +61,7 @@ pub use cli_tenant_cmds::TenantCmd;
 pub use cli_work_cmds::WorkCmd;
 pub use cli_worker_cmds::WorkerCmd;
 pub use cli_workflow_cmds::WorkflowCmd;
+pub use cli_trajectory_cmds::TrajectoryCmd;
 
 use clap::{Parser, Subcommand};
 
@@ -181,6 +184,12 @@ pub enum Command {
     Workflow {
         #[command(subcommand)]
         cmd: WorkflowCmd,
+    },
+    /// Export action trajectories for fine-tuning data pipelines
+    /// (claude-trajectory-training-export).
+    Trajectory {
+        #[command(subcommand)]
+        cmd: TrajectoryCmd,
     },
     /// Action debugging tools that do not mutate the action ledger.
     Action {

@@ -99,6 +99,8 @@ pub mod steer;
 pub mod tenant;
 pub mod tools;
 pub mod trace;
+pub mod trajectory_export;
+mod trajectory_export_render;
 pub mod tui;
 pub mod vertical;
 pub mod vertical_attach;
