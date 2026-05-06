@@ -35,7 +35,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
 | H-auto-approval | claude | MERGED | #796 #799 #800 #801 #803 #805 | ALL 6 sub-slices landed: H-1 #796 (policy + budget) + H-2 #800 (gate hookup) + H-3 #799 (orchestrator) + H-4a #801 (trust ladder) + H-4b #803 (two-tier lookup) + H-4c #805 (skill-learning primitives) |
-| F-memory-shared-team | codex | CLAIMED | — | codex claimed in fresh worktree; unblocked false alarm — clean origin/main passes chain_result_propagation |
+| F-memory-shared-team | codex | IN_REVIEW | #819 | PR opened |
 | H-orchestrator-persist | codex | IN_REVIEW | #806 | PR opened |
 | H-spend-persistence | codex | MERGED | #809 | spend_today_for_worker + record_charge helpers; gate reads spend before evaluation + writes charge after AutoApprove; reuses H-1's worker_budget schema; 4 tests cover over-cap / at-cap / cross-worker / cross-day |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
