@@ -114,6 +114,16 @@ pub(crate) async fn maybe_auto_approve(
     if located.record.state != "pending" {
         return Ok(());
     }
+    // Autonomous-safe actions (manifest's `requires_approval = false`)
+    // bypass the gate entirely. The existing dispatch path advances
+    // them pending → executing directly without an approve step;
+    // calling `approve` here would error because `approve` rejects
+    // autonomous-safe rows ("use `execute` to advance directly").
+    // Regression caught by the chain_result_propagation integration
+    // test on a vertical with autonomous-safe verify_price.
+    if !located.record.requires_approval {
+        return Ok(());
+    }
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     let policy = load_workspace_policy(&cwd)?;
     let decl = manifest_decl_for(&located.record.action_type);
