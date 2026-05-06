@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 const IDENTITY_SCHEMA: &str = include_str!("../../../argo-store/migrations/12__worker_identity.sql");
+const FS_ROOT_SCHEMA: &str = include_str!("../../../argo-store/migrations/19__worker_fs_root.sql");
 
 #[derive(Debug, Clone, Serialize)]
 struct PersonaOut {
@@ -53,8 +54,11 @@ struct WorkerOut {
     memory_namespace: MemoryNsOut,
     auto_approval: serde_json::Value,
     channels: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fs_root: Option<String>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     vertical: &str,
     persona: &str,
@@ -62,6 +66,7 @@ pub async fn run(
     builder: Option<&str>,
     voice_preamble: Option<&str>,
     duty_specs: &[String],
+    fs_root: Option<&Path>,
     json: bool,
 ) -> ArgoResult<()> {
     let (store, tenant_id, cwd) = open_workspace_store().await?;
@@ -76,6 +81,7 @@ pub async fn run(
         builder,
         voice_preamble,
         &duties,
+        fs_root,
     )
     .await?;
     register_cron_duties(&cwd, tenant_id, &worker.id, &duties)?;
@@ -152,6 +158,28 @@ async fn ensure_identity_schema(store: &SessionStore) -> ArgoResult<()> {
             .map_err(|e| ArgoError::Provider(format!("identity schema: {e}")))?;
     }
     ensure_role_columns(store).await?;
+    ensure_worker_columns(store).await?;
+    Ok(())
+}
+
+async fn ensure_worker_columns(store: &SessionStore) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    if !columns.iter().any(|c| c == "fs_root") {
+        for stmt in FS_ROOT_SCHEMA.split_terminator(';') {
+            let sql = stmt.trim();
+            if sql.is_empty() {
+                continue;
+            }
+            sqlx::query(sql)
+                .execute(store.pool())
+                .await
+                .map_err(|e| ArgoError::Provider(format!("fs_root migration: {e}")))?;
+        }
+    }
     Ok(())
 }
 
@@ -188,6 +216,7 @@ async fn insert_worker(
     builder: Option<&str>,
     voice_preamble: Option<&str>,
     duties: &[DutyOut],
+    fs_root: Option<&Path>,
 ) -> ArgoResult<WorkerOut> {
     let worker_id = Uuid::now_v7().to_string();
     let persona_id = Uuid::now_v7().to_string();
@@ -235,7 +264,13 @@ async fn insert_worker(
         .await
         .map_err(|e| ArgoError::Provider(format!("insert role: {e}")))?;
 
-    sqlx::query("INSERT INTO worker VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    let fs_root_value = fs_root.map(|p| p.display().to_string());
+    sqlx::query(
+        "INSERT INTO worker (
+            id, tenant_id, vertical_id, persona_id, role_id,
+            memory_scope, auto_approval_json, channels_json, created_at, fs_root
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
         .bind(&worker_id)
         .bind(tenant_id.to_string())
         .bind(vertical)
@@ -245,6 +280,7 @@ async fn insert_worker(
         .bind(json_string(&serde_json::json!({"enabled": false}), "auto approval")?)
         .bind(json_string(&Vec::<serde_json::Value>::new(), "channels")?)
         .bind(now)
+        .bind(fs_root_value.as_deref())
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("insert worker: {e}")))?;
@@ -287,7 +323,7 @@ async fn load_worker(
 
 const WORKER_SELECT: &str = "SELECT
     w.id, w.tenant_id, w.vertical_id, w.memory_scope,
-    w.auto_approval_json, w.channels_json,
+    w.auto_approval_json, w.channels_json, w.fs_root,
     p.name, p.voice_preamble, p.avatar, p.bio, p.builder_attribution,
     p.provenance_chain_json,
     r.charter, r.kpis_json, r.escalation
@@ -343,6 +379,7 @@ fn worker_from_row(row: sqlx::sqlite::SqliteRow, duties: Vec<DutyOut>) -> ArgoRe
         },
         auto_approval: json_value(row.get("auto_approval_json"), "auto approval")?,
         channels: json_value(row.get("channels_json"), "channels")?,
+        fs_root: row.try_get("fs_root").ok().flatten(),
     })
 }
 
@@ -412,6 +449,9 @@ fn print_worker(worker: &WorkerOut, json: bool) -> ArgoResult<()> {
     println!("persona        {}", worker.persona.name);
     println!("voice          {}", worker.persona.voice_preamble);
     println!("charter        {}", worker.role.charter);
+    if let Some(ref fs_root) = worker.fs_root {
+        println!("fs_root        {}", fs_root);
+    }
     if !worker.role.duties.is_empty() {
         println!("duties");
         for duty in &worker.role.duties {

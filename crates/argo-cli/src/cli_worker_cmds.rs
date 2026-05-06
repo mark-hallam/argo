@@ -39,6 +39,11 @@ pub enum WorkerCmd {
         /// Cron-driven duty: `<cron>::<entry_action>::<description>`.
         #[arg(long = "duty")]
         duties: Vec<String>,
+        /// Per-worker filesystem-executor sandbox root. Defaults to
+        /// `/tmp/argo-fs/<worker_id>/` when omitted (V1.2 brief
+        /// `claude-filesystem-executor`).
+        #[arg(long = "fs-root")]
+        fs_root: Option<PathBuf>,
         /// Emit JSON instead of a human-readable summary.
         #[arg(long)]
         json: bool,

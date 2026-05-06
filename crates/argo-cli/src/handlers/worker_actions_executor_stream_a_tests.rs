@@ -188,6 +188,7 @@ fn resolve_executor_dispatches_each_kind_through_tagged_form() {
         ("mcp", ExecutorKind::Mcp),
         ("computer_use", ExecutorKind::ComputerUse),
         ("api", ExecutorKind::Api),
+        ("filesystem", ExecutorKind::Filesystem),
     ] {
         let toml = format!(
             r#"

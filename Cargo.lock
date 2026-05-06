@@ -191,6 +191,7 @@ dependencies = [
  "argo-cron",
  "argo-eval",
  "argo-executor-computer-use",
+ "argo-executor-filesystem",
  "argo-genesis",
  "argo-identity",
  "argo-marketplace",
@@ -331,6 +332,17 @@ dependencies = [
  "toml",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "argo-executor-filesystem"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

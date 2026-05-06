@@ -1,0 +1,17 @@
+[package]
+name = "argo-executor-filesystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo V1.2 — sandboxed Filesystem ExecutorKind (claude-filesystem-executor)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+argo-types = { path = "../argo-types" }
+
+[dev-dependencies]
+tempfile = "3"

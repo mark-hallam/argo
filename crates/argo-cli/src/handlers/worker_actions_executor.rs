@@ -26,7 +26,9 @@
 //! `argo_vertical::ExecutorDeclaration`.
 
 use super::worker_actions::ActionRecord;
-use super::worker_actions_executor_stubs::{ApiExecutor, ComputerUseExecutor, McpExecutor};
+use super::worker_actions_executor_stubs::{
+    ApiExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
+};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::ActionDeclaration;
 use std::path::{Path, PathBuf};
@@ -50,6 +52,9 @@ pub(crate) enum ExecutorKind {
     /// Calls a registered REST API binding directly. Wired by
     /// Stream H connectors that ship as `ApiExecutor` flavours.
     Api,
+    /// Sandboxed filesystem operations rooted at `worker.fs_root`.
+    /// Wired by `claude-filesystem-executor` (V1.2 capability).
+    Filesystem,
 }
 
 impl ExecutorKind {
@@ -62,9 +67,10 @@ impl ExecutorKind {
             "mcp" => Ok(Self::Mcp),
             "computer_use" => Ok(Self::ComputerUse),
             "api" => Ok(Self::Api),
+            "filesystem" => Ok(Self::Filesystem),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
-                 valid: human | mcp | computer_use | api"
+                 valid: human | mcp | computer_use | api | filesystem"
             ))),
         }
     }
@@ -157,6 +163,7 @@ pub(crate) fn resolve_executor(
             Box::new(ComputerUseExecutor::with_declaration(decl.clone()))
         }
         ExecutorKind::Api => Box::new(ApiExecutor::new()),
+        ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
     };
     Ok(exec)
 }
