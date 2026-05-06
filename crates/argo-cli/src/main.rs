@@ -75,6 +75,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Action { cmd }) => action_replay::run(cmd).await,
         Some(Command::Activity { cmd }) => handlers::activity_tail::run(cmd).await,
+        Some(Command::Gdpr { cmd }) => handlers::gdpr_delete::run(cmd).await,
         Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,
         Some(Command::Budget { cmd }) => handlers::budget::run(cmd).await,
         Some(Command::Eval { cmd }) => handlers::eval_run::run(cmd).await,

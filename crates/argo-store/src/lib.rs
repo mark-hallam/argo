@@ -1,18 +1,10 @@
 //! `argo-store` — SQLite + FTS5 session store with up/down migrations.
-//!
-//! See `docs/plan/argo-build-plan.md` §7.
-//!
-//! ```no_run
-//! # async fn run() -> argo_types::ArgoResult<()> {
-//! use argo_store::SessionStore;
-//! let store = SessionStore::open(":memory:").await?;
-//! store.migrate().await?;
-//! # Ok(()) }
-//! ```
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod forge_meta;
+/// GDPR erasure helpers.
+pub mod gdpr;
 mod grants;
 mod marketplace_meta;
 mod migrations;

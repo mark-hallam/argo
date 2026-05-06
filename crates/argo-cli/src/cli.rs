@@ -18,6 +18,8 @@ mod cli_forge_cmds;
 mod cli_gateway_cmds;
 #[path = "cli_genesis_cmds.rs"]
 mod cli_genesis_cmds;
+#[path = "cli_gdpr_cmds.rs"]
+mod cli_gdpr_cmds;
 #[path = "cli_memory_cmd.rs"]
 mod cli_memory_cmd;
 #[path = "cli_messages_cmds.rs"]
@@ -186,6 +188,10 @@ pub enum Command {
     Audit {
         #[command(subcommand)]
         cmd: AuditQueryCmd,
+    },
+    Gdpr {
+        #[command(subcommand)]
+        cmd: GdprCmd,
     },
     /// First-time interactive setup. Mirrors the
     /// `curl … | bash && argo setup` Hermes-style two-step
