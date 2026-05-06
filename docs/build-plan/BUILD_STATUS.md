@@ -38,6 +38,14 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-shared-team | codex | CLAIMED | — | codex claimed; follow-up: `MemoryNs::shared_team(tenant)` + author-stamped writes; deferred from H-3 PR #799 |
 | H-orchestrator-persist | codex | CLAIMED | — | claimed by codex |
 | H-spend-persistence | codex | CLAIMED | — | follow-up: wire H-2 gate to read today's spend + record charge after AutoApprove (currently passes SpendSnapshot::zero); deferred from H-2 PR #800 |
+| H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
+| H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
+| H-skill-library-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints `GET /skills` + `GET /skills/<name>` exposing the H-4b LayeredLookup (independent) |
+| H-budget-cli | codex | TODO | — | tier-2 follow-up: `argo budget show <worker_id>` + `argo budget recent` (waits on H-spend-persistence) |
+| H-doctor-extensions | codex | TODO | — | tier-2 follow-up: 4 new `argo doctor` checks for the H-stack (independent; degrades gracefully if persist tables missing) |
+| H-metrics | codex | TODO | — | tier-2 follow-up: Prometheus counters for auto-approval decisions + sessions + handoffs + evaluation latency histogram (independent) |
+| migration-consolidation-test | codex | TODO | — | tier-2 follow-up: integration test verifying the full migration chain applies cleanly on fresh DB (independent; high-leverage regression guard) |
+| demo-marketplace-seller-vertical | codex | TODO | — | tier-2 follow-up: full v1 demo vertical end-to-end (Genesis-shape manifest + 5-item inventory + auto_approval policy + eval seeds); pure content, no Rust |
 
 ---
 
