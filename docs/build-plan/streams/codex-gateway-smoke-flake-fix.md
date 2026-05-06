@@ -46,10 +46,22 @@ fixture chain.
 
 ## Files you may touch
 - BLANKET CLI ALLOWLIST applies
-- `crates/argo-gateway/tests/gateway_smoke.rs` —
-  narrowly: fixture / setup wiring only
-- `crates/argo-gateway/tests/gateway_smoke_writes.rs` —
-  narrowly: same
+- The actual smoke tests live in `crates/argo-cli/tests/`
+  (NOT `crates/argo-gateway/tests/` — corrected tick66):
+  - `crates/argo-cli/tests/gateway_smoke.rs` — narrowly:
+    fixture / setup wiring only
+  - `crates/argo-cli/tests/gateway_smoke_v2.rs` — same
+  - `crates/argo-cli/tests/gateway_smoke_writes.rs` — same
+  - `crates/argo-cli/tests/gateway_smoke_streaming.rs` —
+    same
+  - `crates/argo-cli/tests/gateway_smoke_admin.rs` — same
+  - `crates/argo-cli/tests/gateway_smoke_show.rs` — same
+- Also worth checking: `crates/argo-cli/tests/setup_wizard.rs`
+  + `crates/argo-cli/tests/setup_check.rs` if the env-leak
+  flake reported on `setup_steps::vertical_step_skips_empty_registry`
+  (tick66 codex-activity-feed-cli boundary note) overlaps
+  scope — that's an `ARGO_VERTICALS_DIR` env-isolation bug
+  that may share root cause with the schema-init issues
 - `crates/argo-gateway/src/lib.rs` — narrowly: ONLY if
   the root cause is a missing init step (e.g.
   `db.migrate()` not called on startup)
