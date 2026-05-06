@@ -34,7 +34,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
-| H-auto-approval | claude | CLAIMED | #796 (H-1) #799 (H-3) | H-1 ✓ #796 (policy + budget) + H-3 ✓ #799 (orchestrator: Session/Handoff/EscalationChain); H-2 gate hookup + H-4 skill-library still ahead |
+| H-auto-approval | claude | CLAIMED | #796 (H-1) #799 (H-3) #800 (H-2) | H-1 ✓ #796 (policy + budget) + H-3 ✓ #799 (orchestrator) + H-2 IN_REVIEW #800 (gate hookup before BLE / channel notify); H-4 skill-library still ahead |
 
 ---
 
