@@ -26,11 +26,11 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-gcal | codex | TODO | — | (waits on C-mcp-wire) |
 | C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
-| D-email | codex | IN_REVIEW | #780 | PR opened |
-| D-slack-approvals | codex | TODO | — | (waits on D-email trait) |
-| D-sms | codex | TODO | — | (waits on D-email trait) |
-| D-push | codex | TODO | — | (waits on D-email trait) |
-| D-webinbox | codex | TODO | — | (waits on D-email trait) |
+| D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
+| D-slack-approvals | codex | TODO | — | unblocked (D-email merged) |
+| D-sms | codex | TODO | — | unblocked (D-email merged) |
+| D-push | codex | TODO | — | unblocked (D-email merged) |
+| D-webinbox | codex | TODO | — | unblocked (D-email merged) |
 | E-identity | codex | CLAIMED | — | claimed by codex |
 | F-memory-layering | codex | TODO | — | (waits on E for MemoryNs) |
 | G-genesis | claude | TODO | — | (waits on A stable) |
