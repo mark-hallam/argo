@@ -14,14 +14,21 @@ Jira Cloud connector. Auth via email + API token + base URL
   transition routed through approval
 
 ## Files you may touch
-- `crates/argo-mcp/src/connectors/jira.rs` (NEW, ~450 LOC
-  cap)
-- `crates/argo-mcp/src/connectors/mod.rs` — narrowly: add
-  `jira` module
-- `crates/argo-cli/src/handlers/connector_jira.rs` (NEW)
-- `crates/argo-cli/src/cli_connector_cmds.rs` — narrowly:
-  `Jira` subcommand variant
-- BLANKET CLI ALLOWLIST applies
+
+NEW crate at `crates/argo-mcp-connector-jira/` mirroring the
+file layout of `argo-mcp-connector-slack`:
+- `crates/argo-mcp-connector-jira/Cargo.toml` (NEW)
+- `crates/argo-mcp-connector-jira/src/lib.rs` (NEW)
+- `crates/argo-mcp-connector-jira/src/main.rs` (NEW)
+- `crates/argo-mcp-connector-jira/src/auth.rs` (NEW)
+- `crates/argo-mcp-connector-jira/src/client.rs` (NEW)
+- `crates/argo-mcp-connector-jira/src/schemas.rs` (NEW)
+- `crates/argo-mcp-connector-jira/src/service.rs` (NEW)
+- `Cargo.toml` (workspace) — narrowly: add the new crate to
+  the `members` array
+
+NO CLI subcommand — connectors are invoked via the MCP
+manifest's `[mcp_servers]` section.
 
 ## Acceptance criteria
 - [ ] All 7 methods callable

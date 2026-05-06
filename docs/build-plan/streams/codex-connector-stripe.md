@@ -4,10 +4,11 @@
 
 ## Scope
 
-Native Stripe connector exposed as an MCP server. Standard
-shape: `argo connector stripe` runs the server; auth via
-`STRIPE_API_KEY` env; methods follow existing connector
-patterns (gmail, slack).
+Native Stripe connector exposed as an MCP server, following
+the existing per-connector-crate pattern (mirror layout of
+`argo-mcp-connector-gmail` / `argo-mcp-connector-slack`).
+Auth via `STRIPE_API_KEY`; methods follow existing connector
+shapes.
 
 - Methods: `list_customers`, `get_customer`, `create_charge`,
   `list_charges`, `refund_charge`, `create_invoice`,
@@ -17,14 +18,24 @@ patterns (gmail, slack).
 - Use `reqwest` with bearer token; reuse existing MCP scaffold
 
 ## Files you may touch
-- `crates/argo-mcp/src/connectors/stripe.rs` (NEW, ~400 LOC
-  cap)
-- `crates/argo-mcp/src/connectors/mod.rs` — narrowly: add
-  `stripe` module
-- `crates/argo-cli/src/handlers/connector_stripe.rs` (NEW)
-- `crates/argo-cli/src/cli_connector_cmds.rs` — narrowly:
-  `Stripe` subcommand variant
-- BLANKET CLI ALLOWLIST applies
+
+NEW crate at `crates/argo-mcp-connector-stripe/` mirroring
+the file layout of `argo-mcp-connector-slack`:
+- `crates/argo-mcp-connector-stripe/Cargo.toml` (NEW)
+- `crates/argo-mcp-connector-stripe/src/lib.rs` (NEW)
+- `crates/argo-mcp-connector-stripe/src/main.rs` (NEW)
+- `crates/argo-mcp-connector-stripe/src/auth.rs` (NEW)
+- `crates/argo-mcp-connector-stripe/src/client.rs` (NEW)
+- `crates/argo-mcp-connector-stripe/src/schemas.rs` (NEW)
+- `crates/argo-mcp-connector-stripe/src/service.rs` (NEW)
+- `Cargo.toml` (workspace) — narrowly: add the new crate to
+  the `members` array
+
+NO CLI subcommand needed — connectors are invoked via the
+MCP manifest's `[mcp_servers]` section, not via
+`argo connector ...` (that surface does not exist; existing
+gmail/slack/notion connectors all ship as standalone crates
+without a CLI subcommand).
 
 ## Acceptance criteria
 - [ ] All 7 methods callable via MCP wire

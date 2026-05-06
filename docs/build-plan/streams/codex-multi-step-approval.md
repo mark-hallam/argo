@@ -22,16 +22,26 @@ counts 1 signature; action only executes once N collected.
 
 ## Files you may touch
 - BLANKET CLI ALLOWLIST applies
-- `crates/argo-identity/src/worker_action.rs` — narrowly:
-  add `min_signatures` field
+- `crates/argo-identity/src/types.rs` — narrowly: add
+  `min_signatures: u8` field to ActionRecord (default 1)
+- `crates/argo-identity/src/auto_approval.rs` — narrowly:
+  signature-count check before AutoApprove returns
 - `crates/argo-store/migrations/<next>__action_signatures.sql`
   (NEW)
 - `crates/argo-store/src/action_signatures.rs` (NEW)
-- `crates/argo-runtime/src/auto_approval.rs` — narrowly:
-  signature-count check before approve
+- `crates/argo-cli/src/handlers/worker_actions_auto_approval.rs` —
+  narrowly: hold action in `pending_approval` until
+  signature count satisfied (sibling-file extension pattern)
 - `crates/argo-cli/src/handlers/worker_action_sigs.rs` (NEW)
 - `crates/argo-cli/src/cli_worker_cmds.rs` — narrowly: add
   `Sigs` subcommand variant
+
+The action schema lives in `argo-identity/src/types.rs`
+(NOT `worker_action.rs`); the auto-approval gate is in
+`argo-identity/src/auto_approval.rs` (NOT a nonexistent
+argo-runtime crate). Notify-channel reply paths that
+already mark approve/deny are reused — they should now
+INSERT a signature row instead of immediately approving.
 
 ## Acceptance criteria
 - [ ] `min_signatures` plumbed through emit→gate→execute

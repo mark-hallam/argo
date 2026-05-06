@@ -22,16 +22,22 @@ burning budget or doing damage.
 
 ## Files you may touch
 - BLANKET CLI ALLOWLIST applies
+- EXHAUSTIVE-MATCH amendment applies (CircuitState enum)
 - `crates/argo-identity/src/circuit.rs` (NEW)
-- `crates/argo-identity/src/lib.rs` — narrowly
+- `crates/argo-identity/src/lib.rs` — narrowly: re-export CircuitState
+- `crates/argo-identity/src/types.rs` — narrowly: add
+  `circuit_state: CircuitState` field to Worker struct
 - `crates/argo-store/migrations/<next>__worker_circuit_history.sql`
   (NEW)
 - `crates/argo-cli/src/handlers/worker_actions_dispatch.rs` —
   narrowly: ONE check before the auto-approval gate
 - `crates/argo-cli/src/handlers/worker_actions_transitions.rs` —
-  narrowly: bump counter on `fail`
+  narrowly: bump counter on `fail` / `escalation_exhausted`
+- `crates/argo-cli/src/handlers/worker_actions_auto_approval.rs` —
+  narrowly: trip-check during dispatch (sibling-file pattern)
 - `crates/argo-cli/src/cli_worker_cmds.rs` — narrowly: add
   `Resume` subcommand variant
+- `crates/argo-cli/src/handlers/worker_resume.rs` (NEW)
 
 ## Acceptance criteria
 - [ ] CircuitState enum + per-worker persistence

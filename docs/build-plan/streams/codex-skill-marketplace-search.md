@@ -16,11 +16,15 @@ description, version, last-published time.
 
 ## Files you may touch
 - BLANKET CLI ALLOWLIST applies
-- `crates/argo-skill-store/src/marketplace.rs` (NEW or
-  extend) — narrowly: add `search()` fn
+- `crates/argo-skill/src/marketplace.rs` (NEW) — search() fn
+  (the skill crate is `argo-skill`, NOT `argo-skill-store`)
+- `crates/argo-skill/src/lib.rs` — narrowly: re-export
 - `crates/argo-cli/src/handlers/skill_search.rs` (NEW)
-- `crates/argo-cli/src/cli_skill_cmds.rs` — narrowly:
-  `Search` subcommand variant
+- `crates/argo-cli/src/cli_skill_search_cmds.rs` (NEW —
+  sibling-file pattern alongside existing
+  `cli_skill_review_cmds.rs` + `cli_skill_conflicts_cmds.rs`)
+- `crates/argo-cli/src/cli_subcommands.rs` — narrowly: ONE
+  arm to register the new `Search` subcommand under `skill`
 - `crates/argo-cli/tests/cli_skill_search_smoke.rs` (NEW)
 
 ## Acceptance criteria

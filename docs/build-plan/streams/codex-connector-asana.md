@@ -13,14 +13,21 @@ Asana connector. PAT auth via `ASANA_PAT`.
   approval-gated
 
 ## Files you may touch
-- `crates/argo-mcp/src/connectors/asana.rs` (NEW, ~400 LOC
-  cap)
-- `crates/argo-mcp/src/connectors/mod.rs` — narrowly: add
-  `asana` module
-- `crates/argo-cli/src/handlers/connector_asana.rs` (NEW)
-- `crates/argo-cli/src/cli_connector_cmds.rs` — narrowly:
-  `Asana` subcommand variant
-- BLANKET CLI ALLOWLIST applies
+
+NEW crate at `crates/argo-mcp-connector-asana/` mirroring
+the file layout of `argo-mcp-connector-slack`:
+- `crates/argo-mcp-connector-asana/Cargo.toml` (NEW)
+- `crates/argo-mcp-connector-asana/src/lib.rs` (NEW)
+- `crates/argo-mcp-connector-asana/src/main.rs` (NEW)
+- `crates/argo-mcp-connector-asana/src/auth.rs` (NEW)
+- `crates/argo-mcp-connector-asana/src/client.rs` (NEW)
+- `crates/argo-mcp-connector-asana/src/schemas.rs` (NEW)
+- `crates/argo-mcp-connector-asana/src/service.rs` (NEW)
+- `Cargo.toml` (workspace) — narrowly: add the new crate to
+  the `members` array
+
+NO CLI subcommand — connectors are invoked via the MCP
+manifest's `[mcp_servers]` section.
 
 ## Acceptance criteria
 - [ ] All 8 methods callable
