@@ -76,7 +76,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-eval-streaming | claude | MERGED | #842 | `--stream off|simple|verbose` flag for `argo eval run`; per-fixture progress lines (Simple) + NDJSON (Verbose) + legacy batch (Off); 10 streaming tests; new argo-eval/src/streaming.rs (225 LOC) |
 | codex-circuit-breaker | codex | CLAIMED | — | claimed by codex |
 | codex-multi-step-approval | codex | BLOCKED | — | blocked: acceptance needs worker_actions.rs/worker_actions_transitions.rs/routes_channels.rs dispatch+approval changes, but brief may-touch omits them and worker_actions.rs is 512 LOC |
-| codex-connector-stripe | codex | TODO | — | V1.2 capability: brief amended (tick58) — connectors ship as new crates argo-mcp-connector-stripe (mirror gmail/slack layout); workspace Cargo.toml gets a new member; NO CLI subcommand needed (manifest [mcp_servers] invokes them) |
+| codex-connector-stripe | codex | CLAIMED | — | claimed by codex |
 | codex-connector-jira | codex | TODO | — | V1.2 capability: brief amended (tick58) — argo-mcp-connector-jira crate pattern (mirror gmail/slack layout) |
 | codex-connector-asana | codex | TODO | — | V1.2 capability: brief amended (tick58) — argo-mcp-connector-asana crate pattern (mirror gmail/slack layout) |
 | codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: brief amended (tick58) — skill code lives in crates/argo-skill (NOT argo-skill-store); CLI surface uses sibling-file pattern via new cli_skill_search_cmds.rs |
