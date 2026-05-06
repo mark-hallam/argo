@@ -14,6 +14,10 @@ mod migrations;
 mod models;
 mod session_meta;
 mod spend;
+/// Spend anomaly detector — Welford rolling stats per (worker,
+/// hour-of-day) + z-score check (Stream
+/// `claude-spend-anomaly-alerts`).
+pub mod spend_anomaly;
 mod stats;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;

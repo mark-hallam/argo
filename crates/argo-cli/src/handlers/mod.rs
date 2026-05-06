@@ -19,6 +19,7 @@ pub mod audit_replay;
 pub mod audit_report;
 pub mod audit_tool_errors;
 pub mod budget;
+pub mod budget_anomalies;
 pub mod chat;
 pub mod costs;
 pub mod costs_by_day;

@@ -36,6 +36,18 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
                 print!("{}", render_recent_text(&rows, worker.as_deref(), since));
             }
         }
+        BudgetCmd::Anomalies {
+            worker,
+            since,
+            limit,
+            json,
+        } => {
+            let since = parse_since(since.as_deref())?;
+            super::budget_anomalies::list(&store, worker.as_deref(), since, limit, json).await?;
+        }
+        BudgetCmd::AnomalyTick { json } => {
+            super::budget_anomalies::tick(&store, Utc::now(), json).await?;
+        }
     }
     Ok(())
 }
