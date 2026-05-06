@@ -28,6 +28,7 @@ mod routes_lists;
 mod routes_messages_rollups;
 mod routes_meta;
 mod routes_msgs;
+mod routes_orchestrator;
 mod routes_post;
 mod routes_post_admin;
 mod routes_post_forge;
@@ -345,9 +346,11 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                     );
                     let _ = stream.write_all(resp.as_bytes()).await;
                     let _ = stream.shutdown().await;
-                } else if let Some((status_line, body)) =
-                    routes_skills::dispatch_route(req, store.as_ref()).await
-                {
+                } else if let Some((status_line, body)) = routes_orchestrator::dispatch_route(req, store.as_ref()).await {
+                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+                    let _ = stream.write_all(resp.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                } else if let Some((status_line, body)) = routes_skills::dispatch_route(req, store.as_ref()).await {
                     let resp = format!(
                         "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
                         body.len(),
