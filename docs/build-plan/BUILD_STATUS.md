@@ -81,7 +81,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-jira | codex | IN_REVIEW | #845 | PR opened: native Jira Cloud MCP connector crate with 7 tools, JQL search passthrough, schema approval markers, unit + wire coverage |
 | codex-connector-asana | codex | MERGED | #846 | native Asana MCP connector crate (9 files, 735 LOC) — auth/client/lib/main/schemas/service split, 8 methods (workspaces/projects/tasks/get/create/update/complete/comment), ASANA_PAT bearer auth, mocked HTTP + stdio wire tests, approval marks correct (read=false, mutate=true) |
 | codex-skill-marketplace-search | codex | CLAIMED | — | claimed by codex |
-| claude-anomaly-detector | claude | CLAIMED | — | claimed by claude |
+| claude-anomaly-detector | claude | IN_REVIEW | #847 | PR opened — Welford baselines + z-score detection + `argo worker anomalies` CLI; 12 tests pass; TUI Z overlay + argo-runtime crate deferred (v1.x — actual runtime lives in argo-cli) |
 | claude-workflow-dag | claude | TODO | — | V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
 | claude-filesystem-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::Filesystem; sandboxed FS ops with path-traversal/symlink/size guards; per-worker fs_root |
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
