@@ -122,14 +122,9 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-trajectory-training-export | claude | MERGED | #870 | V2.0 self-improvement: `argo trajectory export --since/--until --format anthropic|openai|jsonl [--filter passed|all]`; walks .skycot/outputs/<job>/actions/<id>/ bundles; PII redaction integrated; for fine-tuning data pipelines. 1052 LOC across 8 files. Brief was swept tick100, reclaimed + delivered cleanly under endless-loop prompt.
 | codex-connector-clickup | codex | BLOCKED | — | package implementation pushed on branch; blocked because current main cargo build/clippy fails in argo-cli missing worker_actions_executor_code module declaration |
 | codex-tenant-cli-extensions | codex | CLAIMED | — | claimed by codex |
-<<<<<<< Updated upstream
 | codex-genesis-refine-cli | codex | CLAIMED | — | claimed by codex |
-| claude-memory-tool-wire | claude | CLAIMED | — | claimed by claude looping tab |
-=======
-| codex-genesis-refine-cli | codex | TODO | — | V1.x: `argo genesis refine <id>` re-refines existing verticals via LLM (reuses #812 prompt + safety judge); --dry-run + --no-judge + --max-iterations; persists versioned old vertical kept as <id>-v<n> |
 | claude-memory-tool-wire | claude | IN_REVIEW | #875 | PR opened — Memory tool wired through MemoryStore with vertical scoping. New builtin_tools_with_memory + Memory::new(store, ws, vertical_id); Default::default() preserves "not wired" back-compat for 15 existing call sites. Vertical-bound writes via append_for_vertical; UserProtected rows reject with --force hint. 12 new unit tests + 60/60 argo-tool + 30/30 argo-agent-runner pass. Boundary note: argo-cli broken on main (org-awareness commit f72a714 dropped 2 `mod` declarations from handlers/mod.rs — pub mod gdpr_delete + mod worker_actions_executor_code); fix is a 2-line restoration outside touch list. |
->>>>>>> Stashed changes
-| codex-connector-discord | codex | TODO | — | V1.2 capability: native Discord MCP connector (7 methods: list_guilds/channels/messages, get/send_message, add_reaction, list_members); DISCORD_BOT_TOKEN bot auth; mirror gmail/asana crate pattern |
+| codex-connector-discord | codex | CLAIMED | — | claimed by codex |
 | codex-vertical-archive-cli | codex | TODO | — | V1.x: `argo vertical archive/unarchive/delete <id>` symmetric to tenant-archive; --include-archived flag; delete --force only after archive; preserves audit chain via redaction |
 | codex-cost-by-skill-cli | codex | TODO | — | V1.x: `argo budget by-skill` top-N spend ranking + per-skill --history; joins worker_action/spend_ledger/skill; --json envelope; 4 unit tests + smoke |
 | codex-doctor-fix-cli | codex | TODO | — | V1.4: `argo doctor fix [--auto] [--issue <id>]` 3 categories (safe / confirmation / unsafe); audit-rowed per fix; safe set: missing dirs, stale lock, default policy template |
