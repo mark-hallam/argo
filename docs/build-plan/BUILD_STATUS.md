@@ -98,7 +98,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-gateway-smoke-flake-fix | codex | MERGED | #858 | hardened gateway smoke fixtures: TOCTOU port-handoff fix, isolated ARGO_HOME setup, gateway boot serialization, schema/lock retry; clear RCA in PR body; gateway_smoke + gateway_smoke_writes flakes RESOLVED. Tick-60 known-flakes list will be updated to remove these entries.
 | codex-connector-airtable | codex | MERGED | #856 | native Airtable MCP connector crate (8 files, 791 LOC); 7 methods (list_bases/tables/records, get/create/update/delete_record); PAT auth via AIRTABLE_PAT; filterByFormula passthrough on list_records; mirror gmail/asana crate pattern |
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
-| codex-activity-feed-cli | codex | CLAIMED | — | claimed by codex |
+| codex-activity-feed-cli | codex | TODO | — | UNCLAIMED tick76: claim 39min stale, no remote branch (likely crashed). V1.4 operator UX: `argo activity tail [--tenant --worker --since]` real-time audit feed; `argo activity since <duration>`; subscribes to AuditSink::subscribe() (#831); --json NDJSON; reconnect-on-break |
 | codex-gdpr-delete-cli | codex | TODO | — | UNCLAIMED tick77: claim 31min stale, no remote branch despite the user pasting tick-60 unstick instructions to the codex tab. Either the tab ignored the instruction or had silently crashed earlier. V2.1 governance brief: `argo gdpr delete --subject <email>` walks 6 surfaces; --dry-run default + --confirm with email retype; redaction (not deletion) preserves audit chain |
 
 ---
