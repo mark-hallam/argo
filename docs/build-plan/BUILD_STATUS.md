@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | CLAIMED | — | claimed by codex |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
+| H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
 | H-vertical-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
 | H-worker-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
 | H-genesis-list-templates | codex | CLAIMED | — | claimed by codex |
