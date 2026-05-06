@@ -163,29 +163,27 @@ async fn serve(
         if once { " (--once)" } else { "" },
     );
 
+    // #770 — install the SIGINT/SIGTERM watcher so `systemctl
+    // stop` / `kubectl delete pod` get a clean exit instead of
+    // SIGKILL ripping mid-step. Installed even in --once so the
+    // operator can Ctrl+C a one-shot run cleanly.
+    let shutdown = super::work_shutdown::install_shutdown_watcher();
+
     loop {
+        // Top-of-loop check: a signal during job processing flips
+        // the flag; we observe it here and exit before starting
+        // another job ("finish current step, then exit").
+        if shutdown.load(std::sync::atomic::Ordering::SeqCst) {
+            eprintln!("argo work: graceful shutdown");
+            return Ok(());
+        }
         // Each tick rebuilds the dedup set from disk → restart-safe.
         let entries = memory
             .list_for_vertical(workspace, MemoryFile::Memory, vertical_id)
             .await?;
-        let next = pick_next_pending_job(&entries);
-
-        match next {
+        match pick_next_pending_job(&entries) {
             Some(job) => {
-                process_job(
-                    &store_arc,
-                    &memory,
-                    tenant,
-                    workspace,
-                    vertical_id,
-                    provider,
-                    model,
-                    job,
-                    max_steps,
-                    max_tool_rounds,
-                    json_out,
-                )
-                .await?;
+                process_job(&store_arc, &memory, tenant, workspace, vertical_id, provider, model, job, max_steps, max_tool_rounds, json_out).await?;
             }
             None => {
                 if once {
@@ -195,16 +193,15 @@ async fn serve(
                 eprintln!("argo work: queue empty, sleeping {interval_seconds}s");
             }
         }
-
         if once {
             return Ok(());
         }
-
-        // Sleep with shutdown awareness — Ctrl-C exits cleanly.
+        // Signal during sleep wakes us up immediately rather
+        // than waiting the full interval.
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(interval_seconds)) => {}
-            _ = tokio::signal::ctrl_c() => {
-                eprintln!("\nargo work: SIGINT received, graceful shutdown");
+            _ = super::work_shutdown::wait_for_shutdown(&shutdown) => {
+                eprintln!("argo work: graceful shutdown");
                 return Ok(());
             }
         }

@@ -98,6 +98,7 @@ mod work_artifacts;
 mod work_emission;
 mod work_jobs;
 mod work_loop;
+mod work_shutdown;
 mod work_steps;
 pub mod worker_actions;
 mod worker_actions_dispatch;
