@@ -27,7 +27,14 @@ async fn seed_workspace(skills: &SkillStore) -> argo_types::SessionId {
     .await
     .unwrap();
     store
-        .create_session(tenant, ws, "mock", "mock", Some("review-test"), Some("alpha"))
+        .create_session(
+            tenant,
+            ws,
+            "mock",
+            "mock",
+            Some("review-test"),
+            Some("alpha"),
+        )
         .await
         .unwrap()
 }
@@ -43,7 +50,16 @@ fn skill_doc(name: &str) -> String {
 async fn list_pending_emits_count_zero_when_queue_empty() {
     let skills = fresh().await;
     // Should not error on an empty queue.
-    run(&skills, SkillReviewCmd::List { json: true }).await.unwrap();
+    run(
+        &skills,
+        SkillReviewCmd::List {
+            limit: None,
+            vertical: None,
+            json: true,
+        },
+    )
+    .await
+    .unwrap();
     let pending = skills.list_pending_review().await.unwrap();
     assert!(pending.is_empty());
 }
@@ -65,6 +81,25 @@ async fn list_pending_returns_proposed_skills() {
 }
 
 #[tokio::test]
+async fn show_pending_skill_by_id_succeeds() {
+    let skills = fresh().await;
+    let sid = seed_workspace(&skills).await;
+    let proposed = skills
+        .propose_for_review(&skill_doc("show_target"), sid, "alpha")
+        .await
+        .unwrap();
+    run(
+        &skills,
+        SkillReviewCmd::Show {
+            skill_id: proposed.id.0.to_string(),
+            json: true,
+        },
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn approve_promotes_pending_to_active_and_makes_visible() {
     let skills = fresh().await;
     let sid = seed_workspace(&skills).await;
@@ -77,6 +112,7 @@ async fn approve_promotes_pending_to_active_and_makes_visible() {
         &skills,
         SkillReviewCmd::Approve {
             skill_id: id_str.clone(),
+            note: None,
             json: true,
         },
     )
@@ -87,7 +123,10 @@ async fn approve_promotes_pending_to_active_and_makes_visible() {
     // Vertical-scoped lookup now sees the skill.
     let visible = skills.list_skills_for_vertical("alpha").await.unwrap();
     assert_eq!(visible.len(), 1);
-    assert_eq!(visible[0].lifecycle_state, argo_skill::LifecycleState::Active);
+    assert_eq!(
+        visible[0].lifecycle_state,
+        argo_skill::LifecycleState::Active
+    );
 }
 
 #[tokio::test]
@@ -102,6 +141,7 @@ async fn reject_marks_skill_rejected_and_keeps_it_invisible() {
         &skills,
         SkillReviewCmd::Reject {
             skill_id: proposed.id.0.to_string(),
+            note: None,
             json: true,
         },
     )
@@ -124,6 +164,7 @@ async fn approve_invalid_uuid_fails_loudly() {
         &skills,
         SkillReviewCmd::Approve {
             skill_id: "not-a-uuid".into(),
+            note: None,
             json: true,
         },
     )
@@ -140,6 +181,7 @@ async fn approve_unknown_skill_id_fails_loudly() {
         &skills,
         SkillReviewCmd::Approve {
             skill_id: ghost,
+            note: None,
             json: true,
         },
     )
@@ -160,6 +202,7 @@ async fn approve_emits_skill_approved_audit_row() {
         &skills,
         SkillReviewCmd::Approve {
             skill_id: proposed.id.0.to_string(),
+            note: Some("looks good".into()),
             json: true,
         },
     )
@@ -167,11 +210,10 @@ async fn approve_emits_skill_approved_audit_row() {
     .unwrap();
     let store = skills.store_arc();
     let rows = store.list_audit_for_session(sid).await.unwrap();
-    assert!(
-        rows.iter().any(|r| r.kind == "skill.approved"),
-        "expected skill.approved audit row, got: {:?}",
-        rows.iter().map(|r| r.kind.as_str()).collect::<Vec<_>>()
-    );
+    let approved = rows.iter().find(|r| r.kind == "skill.approved").unwrap();
+    let payload: serde_json::Value = serde_json::from_str(&approved.payload_json).unwrap();
+    assert_eq!(payload["note"], "looks good");
+    assert_eq!(payload["reviewed_by"], "cli");
 }
 
 #[tokio::test]
@@ -186,6 +228,7 @@ async fn reject_emits_skill_rejected_audit_row() {
         &skills,
         SkillReviewCmd::Reject {
             skill_id: proposed.id.0.to_string(),
+            note: None,
             json: true,
         },
     )

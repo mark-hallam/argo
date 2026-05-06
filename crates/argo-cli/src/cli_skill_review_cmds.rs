@@ -9,9 +9,24 @@ use clap::Subcommand;
 pub enum SkillReviewCmd {
     /// List skills awaiting human review (lifecycle_state =
     /// pending_review). Default text mode prints id/name/
-    /// vertical/learned-in/created-at; `--json` emits one
-    /// object per row.
+    /// vertical/learned-in/created-at; `--json` emits a
+    /// machine-readable envelope.
     List {
+        /// Truncate both persisted pending skills and memory-backed
+        /// candidates after filtering.
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Restrict the review queue to one vertical id.
+        #[arg(long)]
+        vertical: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one pending-review skill's body, trajectory,
+    /// provenance, and originating session.
+    Show {
+        /// The skill's id (UUID v7).
+        skill_id: String,
         #[arg(long)]
         json: bool,
     },
@@ -21,6 +36,9 @@ pub enum SkillReviewCmd {
     Approve {
         /// The skill's id (UUID v7).
         skill_id: String,
+        /// Optional reviewer note recorded in the audit row.
+        #[arg(long)]
+        note: Option<String>,
         #[arg(long)]
         json: bool,
     },
@@ -30,6 +48,9 @@ pub enum SkillReviewCmd {
     Reject {
         /// The skill's id.
         skill_id: String,
+        /// Optional reviewer note recorded in the audit row.
+        #[arg(long)]
+        note: Option<String>,
         #[arg(long)]
         json: bool,
     },
