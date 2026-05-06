@@ -127,7 +127,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-discord | codex | IN_REVIEW | #879 | PR opened: native Discord MCP connector with 7 REST tools, bot-token auth, approval-gated send/react, unit + stdio wire coverage; boundary note for pre-existing argo-cli test failures |
 | codex-vertical-archive-cli | codex | IN_REVIEW | #884 | PR opened: vertical archive/unarchive/delete CLI; migration renumbered to 24 after handoff-routing took 23; full argo-cli test caveat is current-main invalid demo vertical memory schemas outside brief |
 | codex-cost-by-skill-cli | codex | CLAIMED | — | claimed by codex |
-| codex-doctor-fix-cli | codex | TODO | — | V1.4: `argo doctor fix [--auto] [--issue <id>]` 3 categories (safe / confirmation / unsafe); audit-rowed per fix; safe set: missing dirs, stale lock, default policy template |
+| codex-doctor-fix-cli | codex | CLAIMED | — | claimed by codex |
 | claude-skill-quality-judge | claude | CLAIMED | — | claimed by claude looping tab |
 
 - status: claude-worker-self-exit after 3 PRs (reason: shipped #864/#870/#875; skill-quality-judge BLOCKED on cli_subcommands.rs 500-LOC ceiling — needs split refactor outside scope; iteration time degrading; remaining claude TODOs all touch the same ceiling or are large refactors. Fresh tab can pick up handoff-routing-rules / data-classification / quality-judge once cli_subcommands.rs is split.)
