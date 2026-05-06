@@ -21,9 +21,21 @@ pub(crate) fn resolve_verticals_dir() -> PathBuf {
 }
 
 pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
+    let _keep_legacy_list_handler = list;
     match cmd {
-        VerticalCmd::List { json } => list(json).await,
-        VerticalCmd::Show { id, json, format } => show(&id, json, &format).await,
+        VerticalCmd::List {
+            tenant,
+            source,
+            json,
+        } => super::vertical_list::run(tenant.as_deref(), &source, json).await,
+        VerticalCmd::Show { id, json, format } => {
+            if format == "markdown" {
+                show(&id, json, &format).await
+            } else {
+                super::vertical_show::show(&id, json || format == "json").await
+            }
+        }
+        VerticalCmd::Describe { id, json } => super::vertical_show::describe(&id, json).await,
         VerticalCmd::Validate { id, json } => validate(&id, json).await,
         VerticalCmd::Eval {
             id,

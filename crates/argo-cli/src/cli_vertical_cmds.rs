@@ -13,6 +13,15 @@ pub enum VerticalCmd {
     /// the path in `$ARGO_VERTICALS_DIR`). Prints id / name /
     /// version per row, plus any per-vertical load errors.
     List {
+        /// Optional tenant id to echo in discovery output. Local
+        /// vertical installation is workspace-scoped today; the
+        /// tenant flag is carried for operator scripts that pair
+        /// this with tenant-scoped worker/session commands.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Discovery source: workspace, library, or both.
+        #[arg(long, value_parser = ["workspace", "library", "both"], default_value = "both")]
+        source: String,
         /// Output as a single JSON object
         /// `{ok, loaded:[…], errors:[…]}`.
         #[arg(long)]
@@ -30,6 +39,15 @@ pub enum VerticalCmd {
         /// `--json` wins if both are passed.
         #[arg(long, default_value = "text")]
         format: String,
+    },
+    /// Render a one-paragraph summary of an installed vertical.
+    Describe {
+        /// The vertical's id (matches `[vertical].id` in
+        /// `vertical.toml`).
+        id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
     },
     /// Re-run the cross-reference validator on one vertical and
     /// exit non-zero on any error. Mirrors what the loader does
