@@ -20,11 +20,13 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod auto_approval;
+pub mod circuit;
 mod prompt;
 mod store;
 mod types;
 pub mod worker_budget;
 
+pub use circuit::CircuitState;
 pub use prompt::compose_system_prompt;
 pub use store::IdentityStore;
 pub use types::{

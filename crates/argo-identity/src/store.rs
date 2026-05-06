@@ -1,4 +1,4 @@
-use crate::{Duty, MemoryNs, MemoryScope, Persona, Role, VoiceProfile, Worker, WorkerId};
+use crate::{circuit, CircuitState, Duty, MemoryNs, MemoryScope, Persona, Role, VoiceProfile, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
@@ -192,7 +192,13 @@ impl<'a> IdentityStore<'a> {
         match row {
             Some(row) => {
                 let duties = self.load_duties(worker_id).await?;
-                Ok(Some(worker_from_row(row, duties)?))
+                let mut worker = worker_from_row(row, duties)?;
+                worker.circuit_state = circuit::state_for(
+                    self.store.pool(),
+                    &worker.id.to_string(),
+                )
+                .await?;
+                Ok(Some(worker))
             }
             None => Ok(None),
         }
@@ -342,6 +348,7 @@ fn worker_from_row(row: sqlx::sqlite::SqliteRow, duties: Vec<Duty>) -> ArgoResul
         persona,
         role,
         auto_approval: from_json(row.get("auto_approval_json"), "auto approval")?,
+        circuit_state: CircuitState::Closed,
         channels: from_json(row.get("channels_json"), "channels")?,
     })
 }

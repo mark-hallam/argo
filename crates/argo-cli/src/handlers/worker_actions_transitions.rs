@@ -38,6 +38,8 @@
 use super::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::vertical::resolve_verticals_dir;
 use crate::home::{db_path, ensure_dir, resolve_home};
+#[cfg(not(test))]
+use argo_identity::circuit;
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, WorkspaceId};
@@ -144,6 +146,41 @@ pub(crate) async fn open_workspace_memory() -> ArgoResult<(MemoryStore, Workspac
     let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
     let memory = MemoryStore::new(Arc::new(store));
     Ok((memory, workspace))
+}
+
+#[cfg(not(test))]
+async fn open_circuit_store() -> ArgoResult<SessionStore> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    Ok(store)
+}
+
+#[cfg(not(test))]
+async fn record_circuit_failure(rec: &ActionRecord, reason: &str) -> ArgoResult<()> {
+    let worker_id = super::worker_actions_auto_approval::worker_id_for_action(rec);
+    let store = open_circuit_store().await?;
+    circuit::record_failure(store.pool(), &worker_id, reason).await?;
+    Ok(())
+}
+
+#[cfg(test)]
+async fn record_circuit_failure(_: &ActionRecord, _: &str) -> ArgoResult<()> {
+    Ok(())
+}
+
+#[cfg(not(test))]
+async fn record_circuit_success(rec: &ActionRecord) -> ArgoResult<()> {
+    let worker_id = super::worker_actions_auto_approval::worker_id_for_action(rec);
+    let store = open_circuit_store().await?;
+    circuit::record_success(store.pool(), &worker_id).await?;
+    Ok(())
+}
+
+#[cfg(test)]
+async fn record_circuit_success(_: &ActionRecord) -> ArgoResult<()> {
+    Ok(())
 }
 
 /// Persist a state-transition row. Validates `current → next` via
@@ -284,6 +321,7 @@ pub(crate) async fn complete(
         rec.result = Some(payload);
     })
     .await?;
+    record_circuit_success(&completed).await?;
     // #771 + #778 — auto-emit any follow-up actions the
     // manifest declares for this action_type's
     // `on_complete_emit`. Pass the COMPLETED record (with the
@@ -320,10 +358,12 @@ pub(crate) async fn fail(
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no action with action_id '{action_id}'")))?;
     let reason_string = reason.to_string();
-    write_transition(memory, workspace, &located, ActionState::Failed, |rec| {
+    let failed = write_transition(memory, workspace, &located, ActionState::Failed, |rec| {
         rec.result = Some(serde_json::json!({ "failure": reason_string }));
     })
-    .await
+    .await?;
+    record_circuit_failure(&failed, reason).await?;
+    Ok(failed)
 }
 
 /// Cancel a `pending` or `approved` action. Records the

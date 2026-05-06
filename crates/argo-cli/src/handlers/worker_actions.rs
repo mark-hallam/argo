@@ -1,24 +1,4 @@
-//! Worker v3 execution-mode action ledger (#728).
-//!
-//! Actions are persisted as `worker_action` memory rows in the
-//! originating job's vertical namespace. Each row captures a
-//! complete snapshot of the action at the moment its state
-//! changed; the "current" state of an action is the latest row
-//! whose `action_id` matches.
-//!
-//! ## Safety boundary
-//!
-//! Per the SKYCOT mission: the worker may autonomously plan,
-//! draft, queue, and verify evidence; it must require human
-//! approval before any action that posts publicly, messages a
-//! buyer, spends money, changes a public price, or marks an
-//! item sold. `ActionType::requires_approval()` encodes that
-//! boundary in the type system so #730 / #731 can rely on it
-//! rather than re-deriving the rule.
-//!
-//! #728 scope: data model + read-side CLI (`list` / `show`).
-//! Worker emits actions in #729; approval CLI in #730;
-//! approval-gated action types + execution in #731.
+//! Worker v3 action ledger schema, read-side CLI, and dispatch.
 
 use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd, WorkerItemsCmd, WorkerPolicyCmd};
 use argo_identity::WorkerId;
@@ -183,6 +163,9 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         },
         WorkerCmd::Update { worker_id, auto_approval_json, json } => {
             super::worker_update::update_auto_approval(&worker_id, &auto_approval_json, json).await
+        }
+        WorkerCmd::Resume { worker_id, tenant, reason, json } => {
+            super::worker_resume::run(&worker_id, &tenant, reason.as_deref(), json).await
         }
         WorkerCmd::Doctor { vertical, json } => {
             super::worker_doctor::run(vertical.as_deref(), json).await

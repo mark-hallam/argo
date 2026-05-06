@@ -1,3 +1,4 @@
+use crate::CircuitState;
 use argo_types::TenantId;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -367,6 +368,9 @@ pub struct Worker {
     pub memory_namespace: MemoryNs,
     /// Auto-approval policy.
     pub auto_approval: AutoApprovalPolicy,
+    /// Dispatch circuit state. Defaults closed for older rows.
+    #[serde(default)]
+    pub circuit_state: CircuitState,
     /// Approval notification channels.
     pub channels: Vec<NotifyChannelRef>,
 }
@@ -396,6 +400,7 @@ impl Worker {
             role,
             memory_namespace: MemoryNs::new(tenant_id, id, MemoryScope::WorkerSelf),
             auto_approval: AutoApprovalPolicy::default(),
+            circuit_state: CircuitState::Closed,
             channels: Vec::new(),
         }
     }

@@ -121,6 +121,7 @@ pub mod worker_actions;
 #[allow(dead_code)]
 pub mod worker_create;
 pub mod worker_list;
+mod worker_resume;
 pub mod worker_update;
 mod worker_actions_auto_approval;
 mod worker_actions_dispatch;

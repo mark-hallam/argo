@@ -26,7 +26,7 @@ use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::auto_approval::{
     dollars_to_micros, evaluate, Decision, PendingAction, SpendSnapshot,
 };
-use argo_identity::{worker_budget, AutoApprovalPolicy};
+use argo_identity::{circuit, worker_budget, AutoApprovalPolicy, CircuitState};
 use argo_memory::MemoryStore;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, WorkspaceId};
@@ -109,6 +109,27 @@ pub(crate) fn block_to_error(action_id: &str, reason: &str) -> ArgoError {
     ArgoError::Provider(format!(
         "action {action_id} blocked by auto-approval policy: {reason}"
     ))
+}
+
+/// Refuse dispatch when the worker's circuit is open. Half-open
+/// is allowed through so the operator-resumed probe can run.
+pub(crate) async fn ensure_circuit_allows_dispatch(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    action_id: &str,
+) -> ArgoResult<()> {
+    let located = worker_actions_transitions::find_action(memory, workspace, action_id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no action with action_id '{action_id}'")))?;
+    let worker_id = worker_id_for_action(&located.record);
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let store = open_budget_store(&cwd).await?;
+    match circuit::state_for(store.pool(), &worker_id).await? {
+        CircuitState::Open { reason, .. } => Err(ArgoError::Provider(format!(
+            "circuit_open: worker {worker_id} paused: {reason}"
+        ))),
+        CircuitState::Closed | CircuitState::HalfOpen => Ok(()),
+    }
 }
 
 /// Run the auto-approval gate. Called by
@@ -218,7 +239,7 @@ fn estimated_cost_micros(decl: Option<&ActionDeclaration>) -> u64 {
         .unwrap_or(0)
 }
 
-fn worker_id_for_action(action: &ActionRecord) -> String {
+pub(crate) fn worker_id_for_action(action: &ActionRecord) -> String {
     action
         .payload
         .get("worker_id")

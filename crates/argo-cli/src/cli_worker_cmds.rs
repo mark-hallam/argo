@@ -86,6 +86,21 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Resume a worker whose circuit breaker is open. Moves it
+    /// to half-open so the next action is a supervised probe.
+    Resume {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Tenant id whose worker namespace should be resumed.
+        #[arg(long)]
+        tenant: String,
+        /// Operator note recorded in the circuit audit trail.
+        #[arg(long)]
+        reason: Option<String>,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Manage actions the worker has proposed / approved /
     /// executed. Backed by `worker_action` memory rows in the
     /// originating job's vertical namespace.
