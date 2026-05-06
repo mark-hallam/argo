@@ -4,6 +4,8 @@
 //! both files stay under the 500-LOC ceiling.
 #[path = "cli_memory_cmd.rs"]
 mod cli_memory_cmd;
+#[path = "cli_budget_cmds.rs"]
+mod cli_budget_cmds;
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
 #[path = "cli_forge_cmds.rs"]
@@ -26,6 +28,7 @@ pub(crate) mod cli_workspace_cmds;
 pub(crate) mod cli_work_cmds;
 #[path = "cli_worker_cmds.rs"]
 pub(crate) mod cli_worker_cmds;
+pub use cli_budget_cmds::*;
 pub use cli_genesis_cmds::*;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
@@ -195,6 +198,10 @@ pub enum Command {
     Costs {
         #[command(subcommand)]
         cmd: Option<CostsCmd>,
+    },
+    Budget {
+        #[command(subcommand)]
+        cmd: BudgetCmd,
     },
     Session {
         #[command(subcommand)]

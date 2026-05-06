@@ -12,6 +12,7 @@ mod audit_count;
 mod audit_helpers;
 mod audit_md;
 pub mod audit_tool_errors;
+pub mod budget;
 pub mod chat;
 pub mod costs;
 pub mod costs_by_day;
