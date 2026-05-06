@@ -51,7 +51,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-integration-test | claude | IN_REVIEW | #810 | PR opened — 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition all need plumbing the brief explicitly forbids touching) |
 | claude-genesis-llm-refinement | claude | IN_REVIEW | #812 | PR opened — opt-in --refine flag with Anthropic call + JSON schema validation + safety judge re-runs on refined actions; 9 unit tests offline |
 | claude-skill-success-metric | claude | IN_REVIEW | #813 | PR opened — SuccessMetric (confidence + trajectory_length + duration + final_state_score) + ProposalThreshold defaults (≥0.8 / ≤25 steps / ≤600s); CU executor computes from real trajectory; legacy f64 API preserved |
-| claude-worker-instance-policy | claude | TODO | — | replenish-2: per-worker auto_approval policy override; resolves worker → workspace → disabled-default; `argo worker update --auto-approval-json` flag |
+| claude-worker-instance-policy | claude | CLAIMED | — | claimed by claude |
 | claude-orchestrator-handoff-walker | claude | TODO | — | replenish-2: periodic tokio sweeper that walks EscalationChain on overdue Pending handoffs; chain exhaustion writes audit row + Session.Expired; the brief that makes the system genuinely autonomous |
 | claude-skycot-runbook | claude | TODO | — | replenish-2: customer-launch operator runbook (`docs/skycot/RUNBOOK.md`); 10 sections from install → first action → multi-worker handoff → audit; pure content, no Rust |
 
