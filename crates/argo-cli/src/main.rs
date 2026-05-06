@@ -81,6 +81,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
+        Some(Command::Roster { cmd }) => handlers::roster_list::run(cmd).await,
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Trajectory { cmd }) => match cmd {
             cli::TrajectoryCmd::Export {

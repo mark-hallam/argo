@@ -201,6 +201,7 @@ dependencies = [
  "argo-orchestrator",
  "argo-provider",
  "argo-routing",
+ "argo-sandbox",
  "argo-skill",
  "argo-store",
  "argo-telemetry",

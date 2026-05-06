@@ -440,10 +440,30 @@ impl Worker {
         &self,
         workspace_default: &AutoApprovalPolicy,
     ) -> AutoApprovalPolicy {
+        self.resolved_policy_with_rosters(&[], workspace_default)
+    }
+
+    /// Stream `claude-worker-roster` — resolution chain with the
+    /// roster layer wedged between worker and workspace defaults.
+    ///
+    /// 1. Worker's own `auto_approval` if `enabled`.
+    /// 2. Most-restrictive merge of the enabled `roster_policies`.
+    /// 3. `workspace_default`.
+    #[must_use]
+    pub fn resolved_policy_with_rosters(
+        &self,
+        roster_policies: &[AutoApprovalPolicy],
+        workspace_default: &AutoApprovalPolicy,
+    ) -> AutoApprovalPolicy {
         if self.auto_approval.enabled {
-            self.auto_approval.clone()
-        } else {
+            return self.auto_approval.clone();
+        }
+        let enabled: Vec<&AutoApprovalPolicy> =
+            roster_policies.iter().filter(|p| p.enabled).collect();
+        if enabled.is_empty() {
             workspace_default.clone()
+        } else {
+            AutoApprovalPolicy::most_restrictive(&enabled)
         }
     }
 }

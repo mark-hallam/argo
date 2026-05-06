@@ -1,7 +1,7 @@
 //! Tenant-scoped worker list/show commands.
 
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_identity::{AutoApprovalPolicy, IdentityStore, Worker, WorkerId};
+use argo_identity::{AutoApprovalPolicy, IdentityStore, Roster, RosterStore, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Utc};
@@ -9,6 +9,7 @@ use serde::Serialize;
 use sqlx::Row;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
@@ -39,6 +40,14 @@ struct ShowWorkerOut {
     created_at: i64,
     created_at_rfc3339: String,
     resolved_policy: AutoApprovalPolicy,
+    rosters: Vec<RosterLineage>,
+}
+
+#[derive(Debug, Serialize)]
+struct RosterLineage {
+    id: String,
+    name: String,
+    policy_enabled: bool,
 }
 
 pub async fn list(tenant: &str, persona: Option<&str>, json: bool) -> ArgoResult<()> {
@@ -111,14 +120,42 @@ async fn resolved_worker(tenant: &str, worker_id: &str) -> ArgoResult<ShowWorker
             ArgoError::Provider(format!("no worker '{worker_id}' for tenant '{tenant}'"))
         })?;
     let workspace_default = super::worker_actions_auto_approval::load_workspace_policy(&cwd)?;
-    let resolved_policy = worker.resolved_policy(&workspace_default);
+    let rosters = roster_lineage_for_worker(&store, tenant_id, worker_id).await?;
+    let roster_policies: Vec<AutoApprovalPolicy> =
+        rosters.iter().map(|r| r.policy.clone()).collect();
+    let resolved_policy =
+        worker.resolved_policy_with_rosters(&roster_policies, &workspace_default);
+    let lineage = rosters
+        .iter()
+        .map(|r| RosterLineage {
+            id: r.id.to_string(),
+            name: r.name.clone(),
+            policy_enabled: r.policy.enabled,
+        })
+        .collect();
     let created_at = created_at_for_worker(&store, tenant_id, worker_id).await?;
     Ok(ShowWorkerOut {
         worker,
         created_at,
         created_at_rfc3339: format_micros(created_at),
         resolved_policy,
+        rosters: lineage,
     })
+}
+
+async fn roster_lineage_for_worker(
+    _store: &SessionStore,
+    tenant: TenantId,
+    worker_id: WorkerId,
+) -> ArgoResult<Vec<Roster>> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let pool_store = Arc::new(SessionStore::open(db_path(&home)).await?);
+    pool_store.migrate().await?;
+    let rosters = RosterStore::new(pool_store);
+    rosters.ensure_schema().await?;
+    rosters.rosters_for_worker(tenant, worker_id).await
 }
 
 async fn open_store() -> ArgoResult<(SessionStore, PathBuf)> {

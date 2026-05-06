@@ -24,6 +24,7 @@ pub mod circuit;
 pub mod org;
 pub mod org_ingest;
 mod prompt;
+pub mod roster;
 mod store;
 mod types;
 pub mod worker_budget;
@@ -32,6 +33,7 @@ pub use circuit::CircuitState;
 pub use org::{IngestSummary, MemberKind, OrgMember, OrgStore, OrgUnit};
 pub use org_ingest::{OrgChartYaml, OrgMemberYaml, OrgUnitYaml};
 pub use prompt::compose_system_prompt;
+pub use roster::{Roster, RosterId, RosterStore};
 pub use store::IdentityStore;
 pub use types::{
     AutoApprovalPolicy, Duty, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role, VoiceProfile,

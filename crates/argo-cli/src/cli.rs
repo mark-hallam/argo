@@ -34,6 +34,8 @@ mod cli_skill_review_cmds;
 mod cli_skill_search_cmds;
 #[path = "cli_org_cmds.rs"]
 pub mod cli_org_cmds;
+#[path = "cli_roster_cmds.rs"]
+pub mod cli_roster_cmds;
 #[path = "cli_skill_ab_cmds.rs"]
 pub mod cli_skill_ab_cmds;
 #[path = "cli_subcommands.rs"]
@@ -179,6 +181,12 @@ pub enum Command {
     Org {
         #[command(subcommand)]
         cmd: cli_org_cmds::OrgCmd,
+    },
+    /// Worker rosters: group-level policy, channels, budget cap
+    /// (`claude-worker-roster`).
+    Roster {
+        #[command(subcommand)]
+        cmd: cli_roster_cmds::RosterCmd,
     },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +
