@@ -202,3 +202,76 @@ async fn rapid_writes_one_thousand_rows_verify_clean() {
     assert!(report.ok);
     assert_eq!(report.rows, 1_000);
 }
+
+#[tokio::test]
+async fn broadcast_subscribers_receive_writes_in_order() {
+    // Stream `claude-realtime-audit-stream`. Subscribers attached
+    // before any writes see every row in order.
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new(store.clone());
+    let mut rx = sink.subscribe();
+    assert_eq!(sink.subscriber_count(), 1);
+    for i in 0..5 {
+        sink.write(
+            Some(session),
+            AuditKind::AssistantMessage,
+            serde_json::json!({"i": i}),
+        )
+        .await
+        .unwrap();
+    }
+    let mut received = Vec::new();
+    for _ in 0..5 {
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
+            .await
+            .expect("recv timed out")
+            .expect("recv ok");
+        received.push(ev.payload.get("i").and_then(|v| v.as_u64()).unwrap());
+    }
+    assert_eq!(received, vec![0, 1, 2, 3, 4]);
+}
+
+#[tokio::test]
+async fn broadcast_subscribers_added_late_only_see_subsequent_writes() {
+    // Brief: live subscribers see new rows, not historical ones.
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new(store.clone());
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({"phase": "first"}),
+    )
+    .await
+    .unwrap();
+    let mut rx = sink.subscribe();
+    sink.write(
+        Some(session),
+        AuditKind::TurnEnd,
+        serde_json::json!({"phase": "second"}),
+    )
+    .await
+    .unwrap();
+    let ev = tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
+        .await
+        .expect("recv timed out")
+        .expect("recv ok");
+    assert_eq!(ev.payload.get("phase").and_then(|v| v.as_str()), Some("second"));
+}
+
+#[tokio::test]
+async fn broadcast_event_carries_kind_and_session_id() {
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new(store.clone());
+    let mut rx = sink.subscribe();
+    sink.write(
+        Some(session),
+        AuditKind::ToolCall,
+        serde_json::json!({"tool": "shell"}),
+    )
+    .await
+    .unwrap();
+    let ev = rx.recv().await.unwrap();
+    assert_eq!(ev.kind, "tool_call");
+    assert_eq!(ev.session_id, Some(session.0.to_string()));
+    assert!(ev.payload.get("tool").is_some());
+}

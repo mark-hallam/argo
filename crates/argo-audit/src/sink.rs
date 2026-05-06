@@ -25,9 +25,40 @@ fn chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
 }
 
 /// Append-only sink that writes to the §7 `audit_record` table.
+///
+/// As of Stream `claude-realtime-audit-stream`, the sink also
+/// fans newly-written rows out via a `tokio::sync::broadcast`
+/// channel so the gateway's `/audit/stream` endpoint can push
+/// them to live subscribers without polling. The on-disk write
+/// path is unchanged; the broadcast is best-effort (a slow
+/// subscriber gets dropped, never the writer).
 pub struct AuditSink {
     store: Arc<SessionStore>,
+    broadcast: tokio::sync::broadcast::Sender<AuditEvent>,
 }
+
+/// One row's worth of streaming-friendly metadata. Skips the
+/// chain hash + payload-bytes-canonical to keep the wire shape
+/// small; subscribers that need the full payload can re-fetch
+/// from the audit table by `id`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AuditEvent {
+    /// UUID of the audit row.
+    pub id: String,
+    /// Optional session id (UUID string) the row belongs to.
+    pub session_id: Option<String>,
+    /// Wire label of the audit kind (e.g. `tool_call`).
+    pub kind: String,
+    /// JSON payload as written to the table.
+    pub payload: serde_json::Value,
+    /// RFC-3339 timestamp.
+    pub created_at: String,
+}
+
+/// Default capacity for the broadcast channel. A slow subscriber
+/// that falls more than this many rows behind is dropped per
+/// the brief: "never block the audit-write path".
+pub const AUDIT_BROADCAST_CAPACITY: usize = 256;
 
 impl std::fmt::Debug for AuditSink {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -39,7 +70,24 @@ impl AuditSink {
     /// Build over an open session store.
     #[must_use]
     pub fn new(store: Arc<SessionStore>) -> Self {
-        Self { store }
+        let (tx, _rx) = tokio::sync::broadcast::channel(AUDIT_BROADCAST_CAPACITY);
+        Self { store, broadcast: tx }
+    }
+
+    /// Subscribe to live audit events. Returns a receiver that
+    /// yields every newly-written row from this point forward.
+    /// Closing the sender (via `Drop`) terminates the receiver.
+    /// Lagged subscribers see a `RecvError::Lagged(n)` they can
+    /// surface to the operator (or just close the connection).
+    #[must_use]
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<AuditEvent> {
+        self.broadcast.subscribe()
+    }
+
+    /// Test/diagnostic helper: number of live broadcast subscribers.
+    #[must_use]
+    pub fn subscriber_count(&self) -> usize {
+        self.broadcast.receiver_count()
     }
 
     /// Write one event.
@@ -54,6 +102,7 @@ impl AuditSink {
         let canonical = serde_json::to_string(&payload)
             .map_err(|e| ArgoError::Schema(format!("audit payload serialize: {e}")))?;
         let self_hash = chain_hash(&parent_hash, kind.label(), &canonical);
+        let now = Utc::now();
         sqlx::query(
             "INSERT INTO audit_record (id, session_id, kind, payload_json, \
              parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -64,10 +113,20 @@ impl AuditSink {
         .bind(canonical)
         .bind(parent_hash.as_slice())
         .bind(self_hash.as_slice())
-        .bind(Utc::now().timestamp_micros())
+        .bind(now.timestamp_micros())
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+        // Best-effort broadcast — `send` errors only when there
+        // are no live receivers, which is fine; subscribers will
+        // get rows written after they connect.
+        let _ = self.broadcast.send(AuditEvent {
+            id: id.to_string(),
+            session_id: session_id.map(|s| s.0.to_string()),
+            kind: kind.label().to_string(),
+            payload,
+            created_at: now.to_rfc3339(),
+        });
         Ok(())
     }
 

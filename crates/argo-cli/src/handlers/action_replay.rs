@@ -361,6 +361,7 @@ mod tests {
             schema_key: ActionRecord::SCHEMA_KEY.into(),
             action_id: action_id.into(),
             job_id: "job-replay".into(),
+            worker_id: argo_identity::WorkerId::nil(),
             item_id: Some("item-1".into()),
             action_type: "create_listing_draft".into(),
             risk_level: "low".into(),
