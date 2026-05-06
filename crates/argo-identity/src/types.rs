@@ -1,0 +1,381 @@
+use argo_types::TenantId;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
+use uuid::Uuid;
+
+/// Stable worker identity.
+///
+/// ```
+/// use argo_identity::WorkerId;
+/// let id = WorkerId::new();
+/// assert_eq!(id.0.get_version_num(), 7);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WorkerId(pub Uuid);
+
+impl WorkerId {
+    /// Generate a fresh UUIDv7 worker id.
+    ///
+    /// ```
+    /// use argo_identity::WorkerId;
+    /// assert_ne!(WorkerId::new().to_string(), "");
+    /// ```
+    #[must_use]
+    pub fn new() -> Self {
+        Self(Uuid::now_v7())
+    }
+}
+
+impl Default for WorkerId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl fmt::Display for WorkerId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl FromStr for WorkerId {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(s).map(Self)
+    }
+}
+
+/// Memory namespace scope for a worker.
+///
+/// ```
+/// use argo_identity::MemoryScope;
+/// assert_eq!(format!("{:?}", MemoryScope::WorkerSelf), "WorkerSelf");
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryScope {
+    /// Private memory owned by the worker instance.
+    WorkerSelf,
+    /// Memory shared by workers executing the same role.
+    Role,
+    /// Team-wide shared memory for handoffs.
+    SharedTeam,
+}
+
+impl MemoryScope {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::WorkerSelf => "worker_self",
+            Self::Role => "role",
+            Self::SharedTeam => "shared_team",
+        }
+    }
+
+    pub(crate) fn parse(s: &str) -> Option<Self> {
+        match s {
+            "worker_self" => Some(Self::WorkerSelf),
+            "role" => Some(Self::Role),
+            "shared_team" => Some(Self::SharedTeam),
+            _ => None,
+        }
+    }
+}
+
+/// Tenant-scoped memory namespace for every identity-aware query.
+///
+/// ```
+/// use argo_identity::{MemoryNs, MemoryScope, WorkerId};
+/// use argo_types::TenantId;
+///
+/// let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::WorkerSelf);
+/// assert_eq!(ns.scope, MemoryScope::WorkerSelf);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemoryNs {
+    /// Tenant boundary for the memory query.
+    pub tenant_id: TenantId,
+    /// Worker instance whose memory is being queried.
+    pub worker_id: WorkerId,
+    /// Scope inside the worker's memory namespace.
+    pub scope: MemoryScope,
+}
+
+impl MemoryNs {
+    /// Build a namespace from tenant, worker id, and scope.
+    ///
+    /// ```
+    /// use argo_identity::{MemoryNs, MemoryScope, WorkerId};
+    /// use argo_types::TenantId;
+    /// let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::Role);
+    /// assert_eq!(ns.scope, MemoryScope::Role);
+    /// ```
+    #[must_use]
+    pub fn new(tenant_id: TenantId, worker_id: WorkerId, scope: MemoryScope) -> Self {
+        Self {
+            tenant_id,
+            worker_id,
+            scope,
+        }
+    }
+
+    /// Stub memory context composer for Stream F to fill in.
+    ///
+    /// ```
+    /// use argo_identity::{MemoryNs, MemoryScope, WorkerId};
+    /// use argo_types::TenantId;
+    /// let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::SharedTeam);
+    /// assert_eq!(ns.compose_context(), "");
+    /// ```
+    #[must_use]
+    pub fn compose_context(&self) -> String {
+        String::new()
+    }
+}
+
+/// Public-facing voice profile for a persona.
+///
+/// ```
+/// use argo_identity::VoiceProfile;
+/// let voice = VoiceProfile { preamble: "Be concise.".into() };
+/// assert!(voice.preamble.contains("concise"));
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VoiceProfile {
+    /// System-prompt preamble that defines the worker's voice.
+    pub preamble: String,
+}
+
+/// Persona presented to humans.
+///
+/// ```
+/// use argo_identity::Persona;
+/// let persona = Persona::named("Maya", "operator@example.com");
+/// assert_eq!(persona.name, "Maya");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Persona {
+    /// Human-facing name.
+    pub name: String,
+    /// Voice and tone instructions.
+    pub voice_profile: VoiceProfile,
+    /// Optional avatar URL or asset id.
+    pub avatar: Option<String>,
+    /// Optional public biography.
+    pub bio: Option<String>,
+    /// Operator email, handle, or id that built the persona.
+    pub builder_attribution: String,
+    /// Skill ids that contributed to this persona over time.
+    pub provenance_chain: Vec<String>,
+}
+
+impl Persona {
+    /// Create a minimal named persona.
+    ///
+    /// ```
+    /// use argo_identity::Persona;
+    /// let persona = Persona::named("Maya", "builder");
+    /// assert!(persona.voice_profile.preamble.contains("Maya"));
+    /// ```
+    #[must_use]
+    pub fn named(name: impl Into<String>, builder_attribution: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            voice_profile: VoiceProfile {
+                preamble: format!("You are {name}, an autonomous SKYCOT worker."),
+            },
+            name,
+            avatar: None,
+            bio: None,
+            builder_attribution: builder_attribution.into(),
+            provenance_chain: Vec::new(),
+        }
+    }
+}
+
+/// A scheduled or callable duty assigned to a role.
+///
+/// ```
+/// use argo_identity::Duty;
+/// let duty = Duty::new("0 9 * * 1-5", "daily_check", "Check the inbox.");
+/// assert_eq!(duty.entry_action, "daily_check");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Duty {
+    /// Cron schedule that drives the duty.
+    pub cron: String,
+    /// Entry action invoked when the duty runs.
+    pub entry_action: String,
+    /// Human-readable duty description.
+    pub description: String,
+}
+
+impl Duty {
+    /// Create a cron-driven duty.
+    ///
+    /// ```
+    /// use argo_identity::Duty;
+    /// let duty = Duty::new("0 8 * * *", "brief", "Prepare a brief.");
+    /// assert_eq!(duty.cron, "0 8 * * *");
+    /// ```
+    #[must_use]
+    pub fn new(
+        cron: impl Into<String>,
+        entry_action: impl Into<String>,
+        description: impl Into<String>,
+    ) -> Self {
+        Self {
+            cron: cron.into(),
+            entry_action: entry_action.into(),
+            description: description.into(),
+        }
+    }
+}
+
+/// Delegated role: charter, duties, KPIs, and escalation path.
+///
+/// ```
+/// use argo_identity::Role;
+/// let role = Role::new("Follow up with approved leads.");
+/// assert!(role.duties.is_empty());
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Role {
+    /// Free-text operating charter.
+    pub charter: String,
+    /// Duties that can be scheduled or invoked.
+    pub duties: Vec<Duty>,
+    /// Key performance indicators.
+    pub kpis: Vec<String>,
+    /// Escalation path for blocked work.
+    pub escalation: Option<String>,
+}
+
+impl Role {
+    /// Create a role with no duties yet.
+    ///
+    /// ```
+    /// use argo_identity::Role;
+    /// let role = Role::new("Own qualified support triage.");
+    /// assert!(role.charter.starts_with("Own"));
+    /// ```
+    #[must_use]
+    pub fn new(charter: impl Into<String>) -> Self {
+        Self {
+            charter: charter.into(),
+            duties: Vec::new(),
+            kpis: Vec::new(),
+            escalation: None,
+        }
+    }
+}
+
+/// Auto-approval policy attached to a worker.
+///
+/// ```
+/// use argo_identity::AutoApprovalPolicy;
+/// assert!(!AutoApprovalPolicy::default().enabled);
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutoApprovalPolicy {
+    /// Whether auto-approval is enabled.
+    pub enabled: bool,
+    /// Optional per-action spend ceiling in USD micros.
+    pub max_usd_micros_per_action: Option<u64>,
+    /// Optional daily spend ceiling in USD micros.
+    pub daily_budget_usd_micros: Option<u64>,
+}
+
+/// Notification channel preference for approvals.
+///
+/// ```
+/// use argo_identity::NotifyChannelRef;
+/// let channel = NotifyChannelRef::new("email", "operator@example.com");
+/// assert_eq!(channel.channel, "email");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotifyChannelRef {
+    /// Channel adapter id, such as `email` or `slack`.
+    pub channel: String,
+    /// Adapter-specific destination.
+    pub target: String,
+    /// Optional risk level this channel handles.
+    pub risk_level: Option<String>,
+}
+
+impl NotifyChannelRef {
+    /// Create a channel target with no risk filter.
+    ///
+    /// ```
+    /// use argo_identity::NotifyChannelRef;
+    /// let channel = NotifyChannelRef::new("slack", "C123");
+    /// assert_eq!(channel.target, "C123");
+    /// ```
+    #[must_use]
+    pub fn new(channel: impl Into<String>, target: impl Into<String>) -> Self {
+        Self {
+            channel: channel.into(),
+            target: target.into(),
+            risk_level: None,
+        }
+    }
+}
+
+/// Runtime worker instance.
+///
+/// ```
+/// use argo_identity::{Persona, Role, Worker};
+/// use argo_types::TenantId;
+/// let worker = Worker::draft(TenantId::new(), "support", Persona::named("Ari", "op"), Role::new("Triage."));
+/// assert_eq!(worker.vertical_id, "support");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Worker {
+    /// Stable worker id.
+    pub id: WorkerId,
+    /// Tenant boundary.
+    pub tenant_id: TenantId,
+    /// Vertical template id this worker instantiates.
+    pub vertical_id: String,
+    /// Public persona.
+    pub persona: Persona,
+    /// Delegated role.
+    pub role: Role,
+    /// Worker memory namespace.
+    pub memory_namespace: MemoryNs,
+    /// Auto-approval policy.
+    pub auto_approval: AutoApprovalPolicy,
+    /// Approval notification channels.
+    pub channels: Vec<NotifyChannelRef>,
+}
+
+impl Worker {
+    /// Draft a worker with private memory and default approval settings.
+    ///
+    /// ```
+    /// use argo_identity::{Persona, Role, Worker};
+    /// use argo_types::TenantId;
+    /// let worker = Worker::draft(TenantId::new(), "gtm", Persona::named("Maya", "op"), Role::new("Sell."));
+    /// assert_eq!(worker.memory_namespace.worker_id, worker.id);
+    /// ```
+    #[must_use]
+    pub fn draft(
+        tenant_id: TenantId,
+        vertical_id: impl Into<String>,
+        persona: Persona,
+        role: Role,
+    ) -> Self {
+        let id = WorkerId::new();
+        Self {
+            id,
+            tenant_id,
+            vertical_id: vertical_id.into(),
+            persona,
+            role,
+            memory_namespace: MemoryNs::new(tenant_id, id, MemoryScope::WorkerSelf),
+            auto_approval: AutoApprovalPolicy::default(),
+            channels: Vec::new(),
+        }
+    }
+}

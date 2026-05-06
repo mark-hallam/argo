@@ -17,6 +17,46 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerCmd {
+    /// Create a persistent worker instance from a vertical
+    /// template, persona name, and delegated role charter.
+    Create {
+        /// Vertical template id to instantiate.
+        #[arg(long)]
+        vertical: String,
+        /// Public-facing persona name.
+        #[arg(long)]
+        persona: String,
+        /// Role charter delegated to this worker.
+        #[arg(long)]
+        charter: String,
+        /// Operator email or handle that built the worker.
+        #[arg(long)]
+        builder: Option<String>,
+        /// Override the default persona voice preamble.
+        #[arg(long)]
+        voice_preamble: Option<String>,
+        /// Cron-driven duty: `<cron>::<entry_action>::<description>`.
+        #[arg(long = "duty")]
+        duties: Vec<String>,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show persona, role, memory namespace, and duties for one
+    /// worker instance.
+    Show {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List worker instances for the current tenant/workspace.
+    List {
+        /// Emit JSON instead of a human-readable table.
+        #[arg(long)]
+        json: bool,
+    },
     /// Manage actions the worker has proposed / approved /
     /// executed. Backed by `worker_action` memory rows in the
     /// originating job's vertical namespace.
