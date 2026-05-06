@@ -26,7 +26,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-gcal | codex | TODO | — | (waits on C-mcp-wire) |
 | C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
-| D-email | codex | TODO | — | (no deps) |
+| D-email | codex | CLAIMED | — | (no deps) |
 | D-slack-approvals | codex | TODO | — | (waits on D-email trait) |
 | D-sms | codex | TODO | — | (waits on D-email trait) |
 | D-push | codex | TODO | — | (waits on D-email trait) |
