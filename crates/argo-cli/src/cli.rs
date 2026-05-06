@@ -8,6 +8,8 @@ mod cli_action_cmds;
 mod cli_audit_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
+#[path = "cli_eval_cmds.rs"]
+pub(crate) mod cli_eval_cmds;
 #[path = "cli_forge_cmds.rs"]
 mod cli_forge_cmds;
 #[path = "cli_gateway_cmds.rs"]
@@ -253,11 +255,10 @@ pub enum Command {
         #[arg(long)]
         session: Option<String>,
     },
-    /// Validate an eval task JSONL file (parses every row, reports
-    /// per-line errors + the metric histogram).
+    /// Validate eval JSONL, or run/list vertical eval fixtures.
     Eval {
         #[command(subcommand)]
-        cmd: EvalCmd,
+        cmd: cli_eval_cmds::EvalCmd,
     },
     /// Run one turn of the agent loop against a recorded session:
     /// loads the session's messages, calls the configured provider

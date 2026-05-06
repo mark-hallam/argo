@@ -26,7 +26,7 @@ pub mod cron;
 pub mod db;
 pub mod doctor;
 mod doctor_md;
-pub mod eval;
+pub mod eval_run;
 pub mod forge;
 mod forge_admin;
 pub mod forge_by_day;
