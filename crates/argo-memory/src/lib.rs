@@ -35,6 +35,7 @@ mod embedding;
 mod entry;
 mod layers;
 mod row;
+pub mod shared_team;
 mod skill_candidate;
 mod store;
 mod summary;
@@ -48,6 +49,7 @@ pub use context::ContextPack;
 pub use embedding::{EmbeddingProvider, Voyage3EmbeddingProvider};
 pub use entry::{MemoryEntry, MemoryFile, PrincipalOverride};
 pub use layers::{LayeredMemoryEntry, MemoryLayer, ScoredMemoryEntry};
+pub use shared_team::{shared_team, SharedEntry, SharedTeamNs};
 pub use skill_candidate::{
     parse_skill_candidate, SkillCandidate, SCHEMA_KEY_LEARNED_SKILL_CANDIDATE,
 };
