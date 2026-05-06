@@ -30,7 +30,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-slack-approvals | codex | IN_REVIEW | #783 | PR opened |
 | D-sms | codex | IN_REVIEW | #782 | PR opened |
 | D-push | codex | IN_REVIEW | #785 | PR opened |
-| D-webinbox | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
+| D-webinbox | codex | CLAIMED | — | claimed by codex |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | TODO | — | unblocked (E-identity merged) |
 | G-genesis | claude | TODO | — | unblocked (A stable) |
