@@ -122,7 +122,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-trajectory-training-export | claude | MERGED | #870 | V2.0 self-improvement: `argo trajectory export --since/--until --format anthropic|openai|jsonl [--filter passed|all]`; walks .skycot/outputs/<job>/actions/<id>/ bundles; PII redaction integrated; for fine-tuning data pipelines. 1052 LOC across 8 files. Brief was swept tick100, reclaimed + delivered cleanly under endless-loop prompt.
 | codex-connector-clickup | codex | BLOCKED | — | package implementation pushed on branch; blocked because current main cargo build/clippy fails in argo-cli missing worker_actions_executor_code module declaration |
 | codex-tenant-cli-extensions | codex | CLAIMED | — | claimed by codex |
-| codex-genesis-refine-cli | codex | TODO | — | V1.x: `argo genesis refine <id>` re-refines existing verticals via LLM (reuses #812 prompt + safety judge); --dry-run + --no-judge + --max-iterations; persists versioned old vertical kept as <id>-v<n> |
+| codex-genesis-refine-cli | codex | CLAIMED | — | claimed by codex |
 | claude-memory-tool-wire | claude | CLAIMED | — | claimed by claude looping tab |
 | codex-connector-discord | codex | TODO | — | V1.2 capability: native Discord MCP connector (7 methods: list_guilds/channels/messages, get/send_message, add_reaction, list_members); DISCORD_BOT_TOKEN bot auth; mirror gmail/asana crate pattern |
 | codex-vertical-archive-cli | codex | TODO | — | V1.x: `argo vertical archive/unarchive/delete <id>` symmetric to tenant-archive; --include-archived flag; delete --force only after archive; preserves audit chain via redaction |
