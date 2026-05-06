@@ -8,9 +8,11 @@ repository.workspace = true
 description = "Argo — multi-worker session orchestration: handoffs, escalation chains, shared work threads (Stream H-3 of H-auto-approval)."
 
 [dependencies]
+argo-audit = { path = "../argo-audit", version = "0.0.1" }
 argo-identity = { path = "../argo-identity", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
+async-trait = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

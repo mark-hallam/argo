@@ -33,8 +33,10 @@ mod escalation;
 mod handoff;
 pub mod persist;
 mod session;
+mod walker;
 
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
 pub use persist::OrchestratorStore;
 pub use session::{Session, SessionId, SessionStatus};
+pub use walker::{HandoffNotifier, HandoffWalker, SweepReport};

@@ -196,6 +196,7 @@ dependencies = [
  "argo-marketplace",
  "argo-mcp",
  "argo-memory",
+ "argo-orchestrator",
  "argo-provider",
  "argo-routing",
  "argo-skill",
@@ -572,9 +573,11 @@ dependencies = [
 name = "argo-orchestrator"
 version = "0.0.1"
 dependencies = [
+ "argo-audit",
  "argo-identity",
  "argo-store",
  "argo-types",
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",

@@ -8,6 +8,7 @@ mod lifecycle;
 mod metrics;
 mod metrics_actions;
 mod routes;
+mod sweepers;
 mod routes_audit;
 mod routes_audit_rollups;
 pub(crate) mod routes_catalog;
@@ -198,6 +199,9 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
             None
         }
     };
+    let _sweeper = store
+        .as_ref()
+        .map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
 
     // PID file. If one already exists with a live PID, refuse to
     // start. If it exists but the process is gone, overwrite.
