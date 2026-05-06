@@ -31,7 +31,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-sms | codex | TODO | — | (waits on D-email trait) |
 | D-push | codex | TODO | — | (waits on D-email trait) |
 | D-webinbox | codex | TODO | — | (waits on D-email trait) |
-| E-identity | codex | CLAIMED | — | (no deps) |
+| E-identity | codex | BLOCKED | — | reason="CLI wiring requires editing handlers/worker_actions.rs and handlers/mod.rs outside may-touch list" |
 | F-memory-layering | codex | TODO | — | (waits on E for MemoryNs) |
 | G-genesis | claude | TODO | — | (waits on A stable) |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
