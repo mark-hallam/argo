@@ -74,7 +74,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
 | claude-eval-streaming | claude | MERGED | #842 | `--stream off|simple|verbose` flag for `argo eval run`; per-fixture progress lines (Simple) + NDJSON (Verbose) + legacy batch (Off); 10 streaming tests; new argo-eval/src/streaming.rs (225 LOC) |
-| codex-circuit-breaker | codex | TODO | — | V1.1 reliability: brief amended (tick58) — may-touch now includes argo-identity/src/types.rs (Worker) + worker_actions_auto_approval.rs (sibling-file pattern); EXHAUSTIVE-MATCH applies for CircuitState |
+| codex-circuit-breaker | codex | CLAIMED | — | claimed by codex |
 | codex-multi-step-approval | codex | TODO | — | V1.1 reliability: brief amended (tick58) — action schema lives in argo-identity/src/types.rs; gate is argo-identity/src/auto_approval.rs (NOT argo-runtime); sibling-file extension via worker_actions_auto_approval.rs |
 | codex-connector-stripe | codex | TODO | — | V1.2 capability: brief amended (tick58) — connectors ship as new crates argo-mcp-connector-stripe (mirror gmail/slack layout); workspace Cargo.toml gets a new member; NO CLI subcommand needed (manifest [mcp_servers] invokes them) |
 | codex-connector-jira | codex | TODO | — | V1.2 capability: brief amended (tick58) — argo-mcp-connector-jira crate pattern (mirror gmail/slack layout) |
