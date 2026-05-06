@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | MERGED | #833 | `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | BLOCKED | — | needs `handlers/memory.rs` exhaustiveness arm, but brief forbids any other handler |
+| H-shared-team-cli | codex | TODO | — | unblocked v3 by tick-45 EXHAUSTIVE-MATCH amendment (see top): handlers/memory.rs may-touch the exhaustive match, narrowly: only the new SharedTeam arm |
 | H-vertical-list-cli | codex | MERGED | #834 | `argo vertical list/show/describe` for installed verticals |
 | H-worker-list-cli | codex | CLAIMED | — | claimed by codex |
 | H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
@@ -66,12 +66,12 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-test-step-completion | claude | MERGED | #832 | flipped 3 SKIPped steps to real assertions: worker_action JSON round-trip / StubNotifier capture / pending→executing→completed memory-row chain; **v1 demo gate now GREEN (9/9)** |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
-| H-eval-runner-cli | codex | BLOCKED | — | cargo test fails existing order-dependent gateway tests outside brief; failing tests pass in isolation |
+| H-eval-runner-cli | codex | TODO | — | unblocked: failing tests are pre-existing flakes (order-dependent gateway tests) outside this brief's scope. Acceptance: codex's OWN tests pass in isolation; full `cargo test` flakes NOT blocking |
 | H-tenant-cli | codex | CLAIMED | — | claimed by codex |
-| H-handoff-cancel | codex | BLOCKED | — | `Cancelled` variant requires `handlers/gateway/routes_orchestrator.rs` exhaustive status match update outside may-touch |
-| H-skill-export-import | codex | BLOCKED | — | `argo skill export/import` requires root `SkillCmd` in `cli_subcommands.rs`, but brief only allows `cli_skill_review_cmds.rs` |
+| H-handoff-cancel | codex | TODO | — | unblocked by tick-45 EXHAUSTIVE-MATCH amendment: routes_orchestrator.rs may-touch the exhaustive HandoffStatus match, narrowly: only the new Cancelled arm |
+| H-skill-export-import | codex | TODO | — | unblocked: brief amended — may-touch += `crates/argo-cli/src/cli_subcommands.rs` (narrowly: ADD Export/Import variants to existing SkillCmd enum). Plus tests/<name>.rs as per BLANKET CLI ALLOWLIST |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
-| claude-audit-replay | claude | IN_REVIEW | #836 | PR opened — `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests pass |
+| claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | CLAIMED | — | claimed by claude |
 | claude-eval-streaming | claude | TODO | — | replenish-claude3: streaming per-fixture progress for `argo eval run` |
 
@@ -117,6 +117,23 @@ briefs without per-brief amendments.
 This applies retroactively to any BLOCKED brief flagging
 "dispatch file outside allowlist" — codex may resume those
 briefs in fresh worktrees on origin/main.
+
+## Tick 45 amendment: exhaustive-match propagation
+
+When a brief adds a new enum variant (e.g.
+`HandoffStatus::Cancelled`, `MemoryCmd::SharedTeam`),
+Rust's exhaustiveness check forces every existing `match`
+on that enum across the workspace to handle the new arm.
+Those adjacent files are AUTOMATICALLY may-touch under
+strict scope: ONLY the new arm (usually one line; use
+`_ => ...` if no bespoke handling is needed).
+
+Specifically: `gateway/routes_orchestrator.rs`,
+`handlers/memory.rs`, `worker_actions.rs`, and any other
+handler that pattern-matches on the enum being extended
+is may-touch — only the new arm; do not refactor.
+
+Default action: fix the exhaustive match in place.
 
 ---
 
