@@ -89,7 +89,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-demo-multi-vertical | claude | TODO | — | V2.2 demo verticals: customer-support + sales-sdr + marketing-intern verticals; charter + skills + Genesis archetype + demo script + e2e smoke |
 | codex-connector-salesforce | codex | CLAIMED | — | claimed by codex |
 | codex-connector-zendesk | codex | CLAIMED | — | claimed by codex |
-| codex-setup-wizard-cli | codex | TODO | — | V1.4 operator UX: `argo setup` interactive wizard — 7-step checklist (doctor, workspace, vertical, worker, channel, archetype, audit); --non-interactive + --json modes |
+| codex-setup-wizard-cli | codex | CLAIMED | — | claimed by codex |
 | codex-compliance-export-cli | codex | TODO | — | V1.1 reliability: `argo audit export --since/--until --format ndjson|csv|tarball`; chain-integrity check; --gdpr-redact-emails; tarball includes manifest+README+ndjson |
 | claude-trajectory-replay-ui | claude | TODO | — | V1.1 reliability: TUI overlay key R for trajectory replay — left action list / right per-step content (CU screenshot or MCP/Human); Space autoplay + arrow step + /search; sibling-file overlays_replay.rs |
 | claude-code-execution-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::CodeExecution; Python 3.12 + Node 20 in E2B sandbox; time/memory limits; opt-in network/pkg-install; artifacts at /tmp/artifacts collected |
