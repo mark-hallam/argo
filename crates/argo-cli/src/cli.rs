@@ -26,6 +26,8 @@ mod cli_skill_conflicts_cmds;
 mod cli_skill_review_cmds;
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
+#[path = "cli_tenant_cmds.rs"]
+mod cli_tenant_cmds;
 #[path = "cli_vertical_cmds.rs"]
 mod cli_vertical_cmds;
 #[path = "cli_work_cmds.rs"]
@@ -40,6 +42,7 @@ pub use cli_budget_cmds::*;
 pub use cli_genesis_cmds::*;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
+pub use cli_tenant_cmds::TenantCmd;
 pub use cli_work_cmds::WorkCmd;
 pub use cli_worker_cmds::WorkerCmd;
 
@@ -146,6 +149,10 @@ pub enum Command {
     Worker {
         #[command(subcommand)]
         cmd: WorkerCmd,
+    },
+    Tenant {
+        #[command(subcommand)]
+        cmd: TenantCmd,
     },
     /// Action debugging tools that do not mutate the action ledger.
     Action {

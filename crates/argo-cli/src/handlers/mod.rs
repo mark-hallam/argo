@@ -85,6 +85,7 @@ pub mod skill_conflicts;
 pub mod skill_review;
 mod skill_review_candidates;
 pub mod steer;
+pub mod tenant;
 pub mod tools;
 pub mod trace;
 pub mod tui;
