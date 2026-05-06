@@ -68,7 +68,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
 | H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
 | H-tenant-cli | codex | CLAIMED | — | claimed by codex |
-| H-handoff-cancel | codex | CLAIMED | — | claimed by codex |
+| H-handoff-cancel | codex | BLOCKED | — | baseline cargo build fails on merged claude-audit-replay outside brief: `AuditQueryCmd` lacks `Replay` variant |
 | H-skill-export-import | codex | TODO | — | unblocked: brief amended — may-touch += `crates/argo-cli/src/cli_subcommands.rs` (narrowly: ADD Export/Import variants to existing SkillCmd enum). Plus tests/<name>.rs as per BLANKET CLI ALLOWLIST |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
