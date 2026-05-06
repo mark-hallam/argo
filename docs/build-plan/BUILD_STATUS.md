@@ -72,7 +72,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-skill-export-import | codex | TODO | — | unblocked: brief amended — may-touch += `crates/argo-cli/src/cli_subcommands.rs` (narrowly: ADD Export/Import variants to existing SkillCmd enum). Plus tests/<name>.rs as per BLANKET CLI ALLOWLIST |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
-| claude-skill-conflict-resolution | claude | CLAIMED | — | claimed by claude |
+| claude-skill-conflict-resolution | claude | IN_REVIEW | #838 | PR opened — argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; ARGO_SKILL_LIBRARY_DB env wires the library tier; 7 tests pass; drive-by main fix (AuditQueryCmd::Replay variant restored) |
 | claude-eval-streaming | claude | TODO | — | replenish-claude3: streaming per-fixture progress for `argo eval run` |
 
 ---
