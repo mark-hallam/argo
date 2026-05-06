@@ -1,5 +1,15 @@
 # Build status — live ledger
 
+> **CONDUCTOR HARD RULE (load-bearing, do not drift):** check queue
+> depth at the START of every tick. If `codex` TODO count ≤ 8 OR
+> `claude` TODO count ≤ 8, fire queue replenishment IMMEDIATELY
+> (Step 8 of PROTOCOL_LOOP_PROMPT.md, brainstorm 3-5 new briefs from
+> BUILD_PLAN_V11.md / MISSION.md gaps / PR-body deferrals / git log)
+> BEFORE touching merges. Workers stand down if queue runs dry.
+> Target depth after replenishment: 12-16 total briefs, weighted
+> ~50/50 codex/claude. **Skipping this rule has happened twice this
+> session and is not acceptable.**
+
 **Updated by every agent on every state transition.** Always
 read from origin/main; never trust a stale local copy.
 

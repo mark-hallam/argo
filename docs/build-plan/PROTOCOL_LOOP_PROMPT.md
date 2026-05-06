@@ -44,6 +44,13 @@ now" and turns un-shipped bullets into briefs. See `PROTOCOL.md`
 ```
 5m Conductor tick for the <PROJECT_NICKNAME> swarm. Run this exact sequence:
 
+0. **MANDATORY QUEUE-DEPTH CHECK FIRST.** Before reading PRs or doing any merge work:
+   codex_todo = `grep -cE '^\| .* \| codex \| TODO ' <PLAN_DIR>/BUILD_STATUS.md`
+   claude_todo = `grep -cE '^\| .* \| claude \| TODO ' <PLAN_DIR>/BUILD_STATUS.md`
+   If EITHER is ≤8, fire Step 8 (queue replenishment) NOW before continuing to Step 1.
+   This rule is load-bearing — workers stand down if queue runs dry. The conductor must
+   not skip this check, even when "nothing else looks pressing."
+
 1. cd <REPO_PATH> && git checkout main && git pull --ff-only origin main 2>&1 | tail -3
 
 2. git log --oneline origin/main -8  (see what landed since last tick)
