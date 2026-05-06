@@ -61,15 +61,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Audit { cmd }) => handlers::audit::run(cmd).await,
         Some(Command::Setup { check, require }) => handlers::setup::run(check, require).await,
         Some(Command::Vertical { cmd }) => handlers::vertical::run(cmd).await,
-        Some(Command::Genesis { cmd }) => match cmd {
-            cli::GenesisCmd::Create {
-                charter,
-                persona,
-                output,
-                json,
-                refine,
-            } => handlers::genesis::create(&charter, &persona, &output, json, refine),
-        },
+        Some(Command::Genesis { cmd }) => handlers::genesis::run(cmd),
         Some(Command::Messages { cmd }) => handlers::messages::run(cmd).await,
         Some(Command::Cron { cmd }) => handlers::cron::run(cmd).await,
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,

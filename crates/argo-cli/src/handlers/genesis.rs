@@ -6,9 +6,136 @@
 //! brief. The pipeline itself + the safety judge live in
 //! `argo-genesis`.
 
+use crate::cli::GenesisCmd;
+use argo_genesis::archetype::{list_archetypes, show_archetype};
 use argo_genesis::{plan, refine, refine_plan, write_vertical, GenesisPlan, RefineConfig};
 use argo_types::{ArgoError, ArgoResult};
+use serde::Serialize;
 use std::path::Path;
+
+#[derive(Debug, Serialize)]
+struct Suggestion {
+    name: String,
+    slug: String,
+    confidence: f64,
+    matched_keywords: Vec<String>,
+}
+
+pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
+    match cmd {
+        GenesisCmd::ListArchetypes { json } => list_archetypes_cmd(json),
+        GenesisCmd::ShowArchetype { name, json } => show_archetype_cmd(&name, json),
+        GenesisCmd::Suggest { charter, json } => suggest_cmd(&charter, json),
+        GenesisCmd::Create {
+            charter,
+            persona,
+            output,
+            json,
+            refine,
+        } => create(&charter, &persona, &output, json, refine),
+    }
+}
+
+fn list_archetypes_cmd(json: bool) -> ArgoResult<()> {
+    let rows = list_archetypes();
+    if json {
+        print_json(&serde_json::json!({"archetypes": rows}));
+        return Ok(());
+    }
+    println!("name                      actions sensitive description");
+    for a in rows {
+        println!(
+            "{:<25} {:>7} {:>9} {}",
+            a.name, a.base_action_count, a.sensitive_verb_count, a.description
+        );
+    }
+    Ok(())
+}
+
+fn show_archetype_cmd(name: &str, json: bool) -> ArgoResult<()> {
+    let meta = show_archetype(name).ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "genesis archetype '{name}' not found; run `argo genesis list-archetypes`"
+        ))
+    })?;
+    if json {
+        print_json(&meta);
+        return Ok(());
+    }
+    println!("{} ({})", meta.name, meta.slug);
+    println!("{}", meta.description);
+    println!("persona traits: {}", meta.default_persona_traits.join(", "));
+    println!("recommended channels: {}", meta.recommended_channels.join(", "));
+    println!("actions:");
+    for action in meta.seed_actions {
+        println!(
+            "  {:<24} risk={:<6} approval={:<5} {}",
+            action.name, action.risk, action.requires_approval, action.description
+        );
+    }
+    Ok(())
+}
+
+fn suggest_cmd(charter: &str, json: bool) -> ArgoResult<()> {
+    if charter.trim().is_empty() {
+        return Err(ArgoError::Provider("charter is empty".into()));
+    }
+    let matches = suggest_archetypes(charter);
+    if json {
+        print_json(&serde_json::json!({"charter": charter, "matches": matches}));
+        return Ok(());
+    }
+    println!("name                      confidence matched_keywords");
+    for m in matches {
+        println!(
+            "{:<25} {:>10.3} {}",
+            m.name,
+            m.confidence,
+            m.matched_keywords.join(", ")
+        );
+    }
+    Ok(())
+}
+
+fn suggest_archetypes(charter: &str) -> Vec<Suggestion> {
+    let lowered = charter.to_lowercase();
+    let mut scored: Vec<_> = list_archetypes()
+        .into_iter()
+        .map(|a| {
+            let matched: Vec<String> = a
+                .keywords
+                .iter()
+                .filter(|kw| lowered.matches(&kw.to_lowercase()).count() > 0)
+                .cloned()
+                .collect();
+            let score = matched.len();
+            (a, matched, score)
+        })
+        .collect();
+    let total = scored.iter().map(|(_, _, score)| *score).sum::<usize>();
+    scored.sort_by(|(a, _, sa), (b, _, sb)| sb.cmp(sa).then_with(|| a.name.cmp(&b.name)));
+    scored
+        .into_iter()
+        .take(3)
+        .map(|(a, matched, score)| Suggestion {
+            name: a.name,
+            slug: a.slug,
+            confidence: if total == 0 {
+                0.0
+            } else {
+                score as f64 / total as f64
+            },
+            matched_keywords: matched,
+        })
+        .collect()
+}
+
+fn print_json<T: Serialize>(value: &T) {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".into())
+    );
+}
 
 /// Run `argo genesis create --charter ... --persona ... --output ...`.
 /// Returns the resolved plan + the absolute output dir; the

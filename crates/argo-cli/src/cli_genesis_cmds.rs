@@ -11,6 +11,29 @@ use std::path::PathBuf;
 
 #[derive(Subcommand, Debug)]
 pub enum GenesisCmd {
+    /// List the built-in Genesis archetypes operators can start from.
+    ListArchetypes {
+        /// Emit a single JSON object instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one archetype's action vocabulary, persona traits, and channels.
+    ShowArchetype {
+        /// Archetype label or slug, e.g. `Marketing Intern` or `marketing_intern`.
+        name: String,
+        /// Emit a single JSON object instead of text.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Preview the top archetype matches for a charter without writing files.
+    Suggest {
+        /// Plain-English role charter to classify.
+        #[arg(long)]
+        charter: String,
+        /// Emit a single JSON object instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
     /// Generate a vertical from a plain-English charter. Runs
     /// the archetype classifier, assembles the manifest,
     /// auto-fixes sensitive actions to require approval, runs
