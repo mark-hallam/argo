@@ -30,6 +30,12 @@ unlock.
   declaration in those files.
 - `crates/argo-vertical/src/lib.rs` — narrowly scoped: add the
   re-export for the new section.
+- `crates/argo-agent-runner/Cargo.toml` — narrowly scoped: add
+  ONE dependency line for `argo-mcp` (path = `"../argo-mcp"`)
+  + any small transitive deps the embedded client needs. Do
+  not edit other dep entries.
+- `crates/argo-vertical/Cargo.toml` — narrowly scoped: ditto
+  if needed for the new section's serde derives.
 
 ## Files you must NOT touch
 - `crates/argo-cli/**` (executor dispatch is Stream A)
