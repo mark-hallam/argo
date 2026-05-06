@@ -35,7 +35,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
 | H-auto-approval | claude | MERGED | #796 #799 #800 #801 #803 #805 | ALL 6 sub-slices landed: H-1 #796 (policy + budget) + H-2 #800 (gate hookup) + H-3 #799 (orchestrator) + H-4a #801 (trust ladder) + H-4b #803 (two-tier lookup) + H-4c #805 (skill-learning primitives) |
-| F-memory-shared-team | codex | CLAIMED | — | codex claimed; follow-up: `MemoryNs::shared_team(tenant)` + author-stamped writes; deferred from H-3 PR #799 |
+| F-memory-shared-team | codex | BLOCKED | — | full cargo test fails in argo-cli chain_result_propagation outside this brief's file boundary |
 | H-orchestrator-persist | codex | CLAIMED | — | claimed by codex |
 | H-spend-persistence | codex | CLAIMED | — | follow-up: wire H-2 gate to read today's spend + record charge after AutoApprove (currently passes SpendSnapshot::zero); deferred from H-2 PR #800 |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
