@@ -74,6 +74,18 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
 | claude-eval-streaming | claude | IN_REVIEW | #842 | PR opened — `--stream off|simple|verbose` flag for `argo eval run`; per-fixture progress lines (Simple) + NDJSON (Verbose) + legacy batch (Off); 10 streaming tests + 20 total argo-eval tests pass |
+| codex-circuit-breaker | codex | TODO | — | V1.1 reliability: auto-pause worker on N consecutive fails; CircuitState enum + worker_circuit_history table + `argo worker resume`; threshold env-overridable |
+| codex-multi-step-approval | codex | TODO | — | V1.1 reliability: N-of-M approval signing for high-risk actions; min_signatures field + signature table; gate refuses execute until N collected |
+| codex-connector-stripe | codex | TODO | — | V1.2 capability: native Stripe MCP connector (7 methods); STRIPE_API_KEY auth; charge/refund approval-gated |
+| codex-connector-jira | codex | TODO | — | V1.2 capability: native Jira Cloud MCP connector (7 methods); email + token + base URL auth |
+| codex-connector-asana | codex | TODO | — | V1.2 capability: native Asana MCP connector (8 methods); ASANA_PAT auth |
+| codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: `argo skill search <query>` cross-tenant OCI registry search; --trust-min/--tenant/--limit/--json |
+| claude-anomaly-detector | claude | TODO | — | V1.1 reliability: per-(worker, action_kind) Welford running stats + z-score; insert anomaly events when |z|>threshold; CLI + TUI Z overlay |
+| claude-workflow-dag | claude | TODO | — | V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
+| claude-filesystem-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::Filesystem; sandboxed FS ops with path-traversal/symlink/size guards; per-worker fs_root |
+| claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
+| claude-org-awareness | claude | TODO | — | V1.3 multi-worker: Org/Unit/Member/Alias primitives + manager-chain escalation; `argo org tree/member/reports-to/ingest` |
+| claude-demo-multi-vertical | claude | TODO | — | V2.2 demo verticals: customer-support + sales-sdr + marketing-intern verticals; charter + skills + Genesis archetype + demo script + e2e smoke |
 
 ---
 
@@ -117,6 +129,25 @@ briefs without per-brief amendments.
 This applies retroactively to any BLOCKED brief flagging
 "dispatch file outside allowlist" — codex may resume those
 briefs in fresh worktrees on origin/main.
+
+## Tick 57 amendment: BUILD_PLAN_V11 (beyond v1 demo)
+
+V1 demo gate is GREEN (9/9). The 12 rows added to the queue
+this tick (`codex-circuit-breaker` through
+`claude-demo-multi-vertical`) are the highest-impact-now
+slice of the strategic plan in
+[`BUILD_PLAN_V11.md`](BUILD_PLAN_V11.md), which sequences
+work from v1.1 (production hardening) through v2.2 (more
+demo verticals).
+
+The conductor's standing replenishment loop (Step 8 of the
+loop prompt) continues to fire whenever either queue dips
+≤3 — drawing from BUILD_PLAN_V11.md + recent PR-body
+deferrals + git-log direction + MISSION.md gaps.
+
+The stop condition is unchanged: every brief MERGED AND
+e2e-test green. When fully drained, append a `Plan
+complete` note below.
 
 ## Tick 45 amendment: exhaustive-match propagation
 
