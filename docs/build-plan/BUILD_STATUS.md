@@ -44,7 +44,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-budget-cli | codex | TODO | — | tier-2 follow-up: `argo budget show <worker_id>` + `argo budget recent` (waits on H-spend-persistence) |
 | H-doctor-extensions | codex | IN_REVIEW | #808 | PR opened |
 | H-metrics | codex | BLOCKED | — | prometheus dep not in workspace and /metrics route is forbidden; cannot satisfy registry scrape acceptance within allowed files |
-| migration-consolidation-test | codex | CLAIMED | — | claimed by codex |
+| migration-consolidation-test | codex | IN_REVIEW | #811 | PR open |
 | demo-marketplace-seller-vertical | codex | CLAIMED | — | claimed by codex |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
