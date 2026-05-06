@@ -123,6 +123,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-clickup | codex | TODO | — | V1.2 capability: native ClickUp MCP connector (8 methods: list_workspaces/spaces/lists/tasks, get/create/update_task, add_comment); CLICKUP_TOKEN bearer; mirror gmail/asana crate pattern |
 | codex-tenant-cli-extensions | codex | TODO | — | V1.x: extend `argo tenant` with rename/archive/transfer; soft-delete via archived_at col; transfer audit-logged; `--include-archived` flag for list; --json envelope |
 | codex-genesis-refine-cli | codex | TODO | — | V1.x: `argo genesis refine <id>` re-refines existing verticals via LLM (reuses #812 prompt + safety judge); --dry-run + --no-judge + --max-iterations; persists versioned old vertical kept as <id>-v<n> |
+| claude-memory-tool-wire | claude | TODO | — | re-evaluation of stale PR #775 (`claude/memory-tool-wiring`, cut before #788 + 13 other commits) — wires `memory.list/read/write` through MemoryStore with vertical-scope correctness fix (writes via `append_for_vertical` when session bound); approach validated, re-implementing on fresh main; operator may close #775 once this lands |
 
 ---
 
