@@ -30,8 +30,9 @@ unset, read from credentials.toml. New helper
 - `crates/argo-cli/src/cli_cred_cmds.rs` (NEW)
 - `crates/argo-cli/src/cli_subcommands.rs` — narrowly: register
   `Cred` subcommand
-- `crates/argo-workspace/src/cred.rs` (NEW)
-- `crates/argo-workspace/src/lib.rs` — narrowly: re-export
+- `crates/argo-config/src/cred.rs` (NEW — `argo-config` is the existing
+  config crate; tick58 amendment applies, no new crate needed)
+- `crates/argo-config/src/lib.rs` — narrowly: re-export
 - `crates/argo-cli/tests/cred_smoke.rs` (NEW)
 
 ## Acceptance criteria
