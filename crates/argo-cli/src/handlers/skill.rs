@@ -25,6 +25,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             name_contains,
             lock,
             body_contains,
+            quality_min,
         } => {
             list(
                 &skills,
@@ -36,6 +37,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
                 name_contains.as_deref(),
                 lock.as_deref(),
                 body_contains.as_deref(),
+                quality_min,
             )
             .await
         }
@@ -86,6 +88,32 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::AbTest(args) => super::skill_ab::ab_test(args).await,
         SkillCmd::AbStatus(args) => super::skill_ab::ab_status(args).await,
         SkillCmd::AbPromote(args) => super::skill_ab::ab_promote(args).await,
+        SkillCmd::Quality { name, json } => super::skill_quality::run(&name, json).await,
+        SkillCmd::QualityList {
+            threshold,
+            worst,
+            json,
+        } => super::skill_quality_list::run(threshold, worst, json).await,
+        SkillCmd::QualityRecompute {
+            name,
+            all,
+            success_rate,
+            avg_latency_ms,
+            retry_count,
+            p99_latency_ms,
+            json,
+        } => {
+            super::skill_quality_recompute::run(
+                name.as_deref(),
+                all,
+                success_rate,
+                avg_latency_ms,
+                retry_count,
+                p99_latency_ms,
+                json,
+            )
+            .await
+        }
     }
 }
 
@@ -226,6 +254,7 @@ async fn list(
     name_contains: Option<&str>,
     lock: Option<&str>,
     body_contains: Option<&str>,
+    quality_min: Option<u8>,
 ) -> ArgoResult<()> {
     let lock_filter = match lock {
         None => None,
@@ -243,6 +272,13 @@ async fn list(
     } else {
         skills.list_active().await?
     };
+    let quality_map = if quality_min.is_some() {
+        let qstore = argo_skill::SkillQualityStore::new(skills.store_arc());
+        qstore.ensure_schema().await?;
+        qstore.latest_by_skill().await?
+    } else {
+        std::collections::HashMap::new()
+    };
     let needle = name_contains.map(str::to_lowercase);
     let body_needle = body_contains.map(str::to_lowercase);
     active.retain(|s| {
@@ -257,6 +293,12 @@ async fn list(
         match lock_filter {
             Some(want) if s.frontmatter.lock != want => return false,
             _ => {}
+        }
+        if let Some(min) = quality_min {
+            match quality_map.get(&s.id.0.to_string()) {
+                Some(score) if *score >= min => {}
+                _ => return false,
+            }
         }
         true
     });

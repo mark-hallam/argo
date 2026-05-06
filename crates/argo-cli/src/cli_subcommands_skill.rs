@@ -38,6 +38,11 @@ pub enum SkillCmd {
         /// Mirrors `?body-contains=…`.
         #[arg(long)]
         body_contains: Option<String>,
+        /// Filter to skills whose latest quality score is at
+        /// least this value (`0..=100`). Skills with no score
+        /// row are excluded from the filtered list.
+        #[arg(long)]
+        quality_min: Option<u8>,
     },
     /// Print just the count of active skills. Default: one int
     /// per line; `--json` emits `{count}`.
@@ -132,5 +137,57 @@ pub enum SkillCmd {
     },
     Unlock {
         name: String,
+    },
+    /// Show the latest quality score (0..=100) + inputs for one
+    /// skill (`claude-skill-quality-judge`).
+    Quality {
+        /// Skill name (active version is used).
+        name: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List every scored skill, worst first. `--threshold` keeps
+    /// rows with score ≤ threshold; `--worst` keeps only the
+    /// lowest-scoring N.
+    QualityList {
+        /// Optional ceiling — only rows with `score <=
+        /// threshold` are emitted.
+        #[arg(long)]
+        threshold: Option<u8>,
+        /// Truncate to the lowest-scoring N rows.
+        #[arg(long)]
+        worst: Option<u32>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Force a recompute of the quality score from operator-
+    /// provided inputs. Use `--all` to recompute every active
+    /// skill (uses defaults for the inputs — primarily a
+    /// scheduler stand-in until the background tick lands).
+    QualityRecompute {
+        /// Skill name to recompute. Required unless `--all`.
+        #[arg(required_unless_present = "all")]
+        name: Option<String>,
+        /// Recompute every active skill.
+        #[arg(long, conflicts_with = "name")]
+        all: bool,
+        /// Operator-provided success rate (0.0..=1.0). Defaults
+        /// to 1.0 when omitted.
+        #[arg(long)]
+        success_rate: Option<f64>,
+        /// Operator-provided mean latency in milliseconds.
+        #[arg(long)]
+        avg_latency_ms: Option<f64>,
+        /// Operator-provided retry count.
+        #[arg(long)]
+        retry_count: Option<u32>,
+        /// Operator-provided p99 latency in milliseconds.
+        #[arg(long)]
+        p99_latency_ms: Option<f64>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
