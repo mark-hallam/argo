@@ -265,6 +265,25 @@ pub enum WorkerActionsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Cancel a pending or approved action (Stream
+    /// `claude-action-cancel-flow`). Records the operator + note
+    /// into `result.cancellation`. Refused for executing /
+    /// completed / failed / blocked actions — those are terminal
+    /// from cancel's standpoint. Cancelled is itself terminal.
+    Cancel {
+        /// `action_id` (UUIDv7) of the pending or approved action.
+        action_id: String,
+        /// Operator identifier recorded into the cancellation
+        /// payload. Defaults to `$USER` when omitted.
+        #[arg(long)]
+        cancelled_by: Option<String>,
+        /// Optional free-form note recorded alongside the
+        /// cancellation timestamp.
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Show the full state-row history for one action — every
     /// `worker_action` row that shares the `action_id`, in
     /// time order. Useful to audit who approved when.

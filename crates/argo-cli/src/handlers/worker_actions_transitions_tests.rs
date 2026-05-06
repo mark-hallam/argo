@@ -254,3 +254,67 @@ fn count_retry_chain_ignores_non_retry_evidence_urls() {
     let n = crate::handlers::worker_actions_dispatch::count_retry_chain(&r);
     assert_eq!(n, 1);
 }
+
+// Stream `claude-action-cancel-flow` — verifies the `Cancelled`
+// state transitions land only from `Pending` / `Approved`.
+
+#[tokio::test]
+async fn cancel_pending_writes_cancelled_row() {
+    let (memory, ws) = open_test_memory().await;
+    let rec = pending_record("a-cancel-pending", true);
+    seed(&memory, ws, &rec).await;
+    let cancelled = cancel(&memory, ws, "a-cancel-pending", "operator", Some("changed mind"))
+        .await
+        .unwrap();
+    assert_eq!(cancelled.state, "cancelled");
+    let payload = cancelled.result.expect("cancellation payload");
+    let cancellation = payload.get("cancellation").expect("cancellation key");
+    assert_eq!(
+        cancellation.get("cancelled_by").and_then(|v| v.as_str()),
+        Some("operator")
+    );
+    assert_eq!(
+        cancellation.get("note").and_then(|v| v.as_str()),
+        Some("changed mind")
+    );
+}
+
+#[tokio::test]
+async fn cancel_approved_writes_cancelled_row() {
+    let (memory, ws) = open_test_memory().await;
+    let rec = pending_record("a-cancel-approved", true);
+    seed(&memory, ws, &rec).await;
+    approve(&memory, ws, "a-cancel-approved", "ops", None)
+        .await
+        .unwrap();
+    let cancelled = cancel(&memory, ws, "a-cancel-approved", "ops", None)
+        .await
+        .unwrap();
+    assert_eq!(cancelled.state, "cancelled");
+}
+
+#[tokio::test]
+async fn cancel_rejects_executing_actions() {
+    let (memory, ws) = open_test_memory().await;
+    let rec = pending_record("a-cancel-exec", false);
+    seed(&memory, ws, &rec).await;
+    execute(&memory, ws, "a-cancel-exec").await.unwrap();
+    let err = cancel(&memory, ws, "a-cancel-exec", "ops", None)
+        .await
+        .unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("illegal transition") && msg.contains("cancelled"),
+        "expected illegal-transition error, got: {msg}"
+    );
+}
+
+#[test]
+fn cancelled_is_terminal() {
+    use crate::handlers::worker_actions::ActionState;
+    assert!(ActionState::Cancelled.is_terminal());
+    assert!(!ActionState::Cancelled.can_transition_to(ActionState::Pending));
+    assert!(!ActionState::Pending.can_transition_to(ActionState::Completed));
+    assert!(ActionState::Pending.can_transition_to(ActionState::Cancelled));
+    assert!(ActionState::Approved.can_transition_to(ActionState::Cancelled));
+}

@@ -209,6 +209,20 @@ pub(crate) async fn fail(action_id: &str, reason: &str, json: bool) -> ArgoResul
     Ok(())
 }
 
+pub(crate) async fn cancel(
+    action_id: &str,
+    cancelled_by: Option<&str>,
+    note: Option<&str>,
+    json: bool,
+) -> ArgoResult<()> {
+    let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let by = default_approver(cancelled_by);
+    let rec = worker_actions_transitions::cancel(&memory, ws, action_id, &by, note).await?;
+    print_record(&rec, json);
+    auto_refresh_ledger(&memory, ws).await;
+    Ok(())
+}
+
 pub(crate) async fn status(action_id: &str, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     let history = worker_actions_transitions::full_history(&memory, ws, action_id).await?;

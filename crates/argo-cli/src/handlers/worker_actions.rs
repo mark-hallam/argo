@@ -61,6 +61,11 @@ pub(crate) enum ActionState {
     Completed,
     Failed,
     Blocked,
+    /// Operator cancelled before execution. Terminal. Reachable
+    /// from `Pending` or `Approved` only — once an action is
+    /// `Executing`, only `Completed` / `Failed` are valid (Stream
+    /// `claude-action-cancel-flow`).
+    Cancelled,
 }
 
 #[allow(dead_code)]
@@ -73,6 +78,7 @@ impl ActionState {
             ActionState::Completed => "completed",
             ActionState::Failed => "failed",
             ActionState::Blocked => "blocked",
+            ActionState::Cancelled => "cancelled",
         }
     }
 
@@ -84,33 +90,31 @@ impl ActionState {
             "completed" => Some(Self::Completed),
             "failed" => Some(Self::Failed),
             "blocked" => Some(Self::Blocked),
+            "cancelled" => Some(Self::Cancelled),
             _ => None,
         }
     }
 
-    /// Terminal states never transition further. `failed` is
-    /// terminal for THIS action — operators retry by creating a
-    /// new action that references the failed one in `evidence`.
+    /// Terminal states never transition further.
     pub(crate) fn is_terminal(&self) -> bool {
-        matches!(self, Self::Completed | Self::Failed | Self::Blocked)
+        matches!(
+            self,
+            Self::Completed | Self::Failed | Self::Blocked | Self::Cancelled
+        )
     }
 
-    /// Whether `self → next` is a legal transition. Pure state-
-    /// state predicate — does NOT enforce approval gating.
-    /// Approval gating is enforced upstream by the `execute`
-    /// transition handler against the row's `requires_approval`
-    /// field (the manifest classification stamped at emission
-    /// time). Keeping the two concerns separate means the state
-    /// machine stays a pure invariant of the action lifecycle.
+    /// Whether `self → next` is a legal transition.
     pub(crate) fn can_transition_to(&self, next: ActionState) -> bool {
         use ActionState::*;
         matches!(
             (*self, next),
             (Pending, Approved)
                 | (Pending, Blocked)
+                | (Pending, Cancelled)
                 | (Pending, Executing) // autonomous-safe path
                 | (Approved, Executing)
                 | (Approved, Completed)
+                | (Approved, Cancelled)
                 | (Executing, Completed)
                 | (Executing, Failed)
         )
@@ -274,6 +278,20 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 reason,
                 json,
             } => super::worker_actions_dispatch::fail(&action_id, &reason, json).await,
+            WorkerActionsCmd::Cancel {
+                action_id,
+                cancelled_by,
+                note,
+                json,
+            } => {
+                super::worker_actions_dispatch::cancel(
+                    &action_id,
+                    cancelled_by.as_deref(),
+                    note.as_deref(),
+                    json,
+                )
+                .await
+            }
             WorkerActionsCmd::Status { action_id, json } => {
                 super::worker_actions_dispatch::status(&action_id, json).await
             }

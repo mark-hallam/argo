@@ -326,6 +326,34 @@ pub(crate) async fn fail(
     .await
 }
 
+/// Cancel a `pending` or `approved` action. Records the
+/// operator + optional note into `result.cancellation`. Refused
+/// for other states (Stream `claude-action-cancel-flow`).
+pub(crate) async fn cancel(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    action_id: &str,
+    cancelled_by: &str,
+    note: Option<&str>,
+) -> ArgoResult<ActionRecord> {
+    let located = find_action(memory, workspace, action_id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no action with action_id '{action_id}'")))?;
+    let cancelled_by = cancelled_by.to_string();
+    let note = note.map(str::to_string);
+    write_transition(memory, workspace, &located, ActionState::Cancelled, |rec| {
+        let mut payload = serde_json::json!({
+            "cancelled_by": cancelled_by,
+            "cancelled_at": chrono::Utc::now().to_rfc3339(),
+        });
+        if let Some(n) = note {
+            payload["note"] = serde_json::Value::String(n);
+        }
+        rec.result = Some(serde_json::json!({ "cancellation": payload }));
+    })
+    .await
+}
+
 #[cfg(test)]
 #[path = "worker_actions_transitions_tests.rs"]
 mod tests;
