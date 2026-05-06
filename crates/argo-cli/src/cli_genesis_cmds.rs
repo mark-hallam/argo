@@ -87,4 +87,33 @@ pub enum GenesisCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Walk the operator through a 6-prompt Q&A then generate a
+    /// vertical from the answers. Stream
+    /// `claude-genesis-charter-conversation`. Use
+    /// `--non-interactive <yaml>` to feed pre-recorded answers
+    /// (CI-friendly) and `--refine` to also run the LLM
+    /// refinement pass. The final vertical lands at `--output`,
+    /// the same as `argo genesis create`.
+    Interactive {
+        /// Output directory for the generated vertical. Genesis
+        /// refuses to clobber a non-empty dir.
+        #[arg(long)]
+        output: PathBuf,
+        /// Skip stdin prompting; load answers from a YAML file
+        /// shaped like `CharterDialogue` (see
+        /// `argo-genesis::charter_dialogue`).
+        #[arg(long, value_name = "YAML")]
+        non_interactive: Option<PathBuf>,
+        /// Emit a single JSON envelope summarising the dialogue
+        /// and resulting vertical instead of the human-readable
+        /// post-create report.
+        #[arg(long)]
+        json: bool,
+        /// Run the LLM refinement pass on the rendered charter.
+        /// Same contract as `argo genesis create --refine`:
+        /// requires `ANTHROPIC_API_KEY` and falls back silently
+        /// to the deterministic plan on transient API failures.
+        #[arg(long)]
+        refine: bool,
+    },
 }

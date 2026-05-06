@@ -43,6 +43,12 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
         } => {
             super::genesis_refine::run(&vertical_id, judge, no_judge, max_iterations, dry_run, json)
         }
+        GenesisCmd::Interactive {
+            output,
+            non_interactive,
+            json,
+            refine,
+        } => super::genesis_interactive::run(non_interactive, &output, json, refine),
     }
 }
 

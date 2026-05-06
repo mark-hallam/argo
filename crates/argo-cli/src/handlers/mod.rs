@@ -45,6 +45,8 @@ mod forge_subject;
 pub mod gateway;
 pub mod gateway_probe;
 pub mod genesis;
+pub mod genesis_interactive;
+pub mod genesis_interactive_qa;
 pub mod genesis_refine;
 pub mod handoff_rules_add;
 pub mod handoff_rules_list;
