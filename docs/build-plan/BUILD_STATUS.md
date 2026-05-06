@@ -29,7 +29,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
 | D-sms | codex | MERGED | #782 | Twilio SMS approval channel + HMAC token decision route |
-| D-push | codex | TODO | — | unblocked: use branch `codex-D-push-v2` (the original `codex-D-push` ref is preserved on the closed #785; v2 must rebase fresh on main + reuse `argo-channels/src/lib.rs` + `routes_channels.rs` per current shape) |
+| D-push | codex | CLAIMED | — | claimed by codex; use branch `codex-D-push-v2` |
 | D-webinbox | codex | IN_REVIEW | #789 | PR opened |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
