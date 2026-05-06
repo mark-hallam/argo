@@ -1,0 +1,37 @@
+id = "gmail"
+display_name = "Gmail"
+transport = "stdio"
+command = "argo-mcp-connector-gmail"
+
+required_env = [
+  "ARGO_GMAIL_CLIENT_ID",
+  "ARGO_GMAIL_CLIENT_SECRET",
+  "ARGO_GMAIL_REFRESH_TOKEN",
+]
+
+token_cache = ".argo/connectors/gmail/access_token.json"
+oauth_scopes = [
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.compose",
+]
+
+[[tools]]
+name = "gmail.search"
+description = "Search Gmail messages."
+
+[[tools]]
+name = "gmail.read"
+description = "Read a Gmail message."
+
+[[tools]]
+name = "gmail.draft"
+description = "Create a Gmail draft."
+
+[[tools]]
+name = "gmail.send"
+description = "Send a Gmail message."
+
+[[tools]]
+name = "gmail.label"
+description = "Add or remove labels on a Gmail message."
