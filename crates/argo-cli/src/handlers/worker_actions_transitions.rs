@@ -48,6 +48,7 @@ use std::sync::Arc;
 /// vertical_id its memory rows live under. Knowing the
 /// vertical is required to write the next state-row back into
 /// the correct namespace.
+#[derive(Clone)]
 pub(crate) struct LocatedAction {
     pub record: ActionRecord,
     pub vertical_id: String,
@@ -283,11 +284,24 @@ pub(crate) async fn complete(
         rec.result = Some(payload);
     })
     .await?;
-    // #771 — auto-emit any follow-up actions the manifest
-    // declares for this action_type's `on_complete_emit`. Errors
-    // are logged + swallowed so a follow-up failure cannot
-    // undo the operator's `complete` transition.
-    super::worker_actions_followup::emit_on_complete_followups(memory, workspace, &located).await;
+    // #771 + #778 — auto-emit any follow-up actions the
+    // manifest declares for this action_type's
+    // `on_complete_emit`. Pass the COMPLETED record (with the
+    // operator's result populated) so the chain payload
+    // propagation in #777 sees the operator's verdict — not
+    // the stale pre-completion snapshot from `find_action`.
+    // Errors are logged + swallowed so a follow-up failure
+    // cannot undo the operator's `complete` transition.
+    let completed_source = LocatedAction {
+        record: completed.clone(),
+        vertical_id: located.vertical_id.clone(),
+    };
+    super::worker_actions_followup::emit_on_complete_followups(
+        memory,
+        workspace,
+        &completed_source,
+    )
+    .await;
     Ok(completed)
 }
 

@@ -213,10 +213,45 @@ fn fresh_workspace_for_chain() -> (tempfile::TempDir, tempfile::TempDir) {
 }
 
 /// Walk the next pending action of the given action_type
-/// through `complete` (using `execute` first if the row is
-/// still in `pending`). Returns the completed row's
-/// `action_id` so the caller can chain assertions.
-fn execute_and_complete_next(home: &Path, work: &Path, action_type: &str) -> String {
+/// through `execute` then `complete`, including the supplied
+/// result-json if any. Returns the completed row's `action_id`
+/// so the caller can chain assertions.
+///
+/// `result_json` lets a test assert end-to-end that the
+/// operator's completion-time output flows into the next
+/// chain link's payload (#778). When `None`, only `--note` is
+/// recorded — the source action's `result` is just `{summary}`.
+fn execute_and_complete_next_with(
+    home: &Path,
+    work: &Path,
+    action_type: &str,
+    result_json: Option<&str>,
+) -> String {
+    let action_id = execute_pending_returning_id(home, work, action_type);
+    let mut args: Vec<String> = vec![
+        "worker".into(),
+        "actions".into(),
+        "complete".into(),
+        action_id.clone(),
+        "--note".into(),
+        format!("smoke complete {action_type}"),
+        "--json".into(),
+    ];
+    if let Some(rj) = result_json {
+        args.push("--result-json".into());
+        args.push(rj.into());
+    }
+    let args_ref: Vec<&str> = args.iter().map(String::as_str).collect();
+    let complete = run_argo(home, work, &args_ref);
+    assert!(
+        complete.status.success(),
+        "complete {action_id}: {}",
+        String::from_utf8_lossy(&complete.stderr)
+    );
+    action_id
+}
+
+fn execute_pending_returning_id(home: &Path, work: &Path, action_type: &str) -> String {
     let list = run_argo(
         home,
         work,
@@ -255,25 +290,15 @@ fn execute_and_complete_next(home: &Path, work: &Path, action_type: &str) -> Str
         "execute {action_id}: {}",
         String::from_utf8_lossy(&exec.stderr)
     );
-    let complete = run_argo(
-        home,
-        work,
-        &[
-            "worker",
-            "actions",
-            "complete",
-            &action_id,
-            "--note",
-            &format!("smoke complete {action_type}"),
-            "--json",
-        ],
-    );
-    assert!(
-        complete.status.success(),
-        "complete {action_id}: {}",
-        String::from_utf8_lossy(&complete.stderr)
-    );
     action_id
+}
+
+/// Walk the next pending action through `execute → complete`
+/// with no result-json (only `--note`). Thin wrapper around
+/// `execute_and_complete_next_with` for readability in tests
+/// that don't care about result-key propagation.
+fn execute_and_complete_next(home: &Path, work: &Path, action_type: &str) -> String {
+    execute_and_complete_next_with(home, work, action_type, None)
 }
 
 /// Find the most recent row of the given (action_type,
@@ -453,3 +478,4 @@ fn pre_sale_chain_fires_through_the_binary() {
         "boost_listing must NOT auto-emit anywhere in the chain; got rows: {boost_rows:?}"
     );
 }
+
