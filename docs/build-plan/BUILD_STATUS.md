@@ -60,12 +60,20 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-genesis-llm-refinement | claude | MERGED | #812 | opt-in --refine flag with Anthropic call + JSON schema validation + safety judge re-runs on refined actions; 9 unit tests offline |
 | claude-skill-success-metric | claude | MERGED | #813 | SuccessMetric (confidence + trajectory_length + duration + final_state_score) + ProposalThreshold defaults (≥0.8 / ≤25 steps / ≤600s); CU executor computes from real trajectory; legacy f64 API preserved |
 | claude-worker-instance-policy | claude | MERGED | #815 | Worker::resolved_policy(workspace_default) + argo worker update --auto-approval-json; gate hookup deferred (waits on claude-action-record-identity-plumbing for worker_id on ActionRecord) |
-| claude-orchestrator-handoff-walker | claude | IN_REVIEW | #825 | PR opened — HandoffWalker::sweep_once + tokio sweeper at gateway boot; SchemeRoutingNotifier (mailto:/slack:/sms:/expo: → channel ids); 12 tests pass; the brief that makes the system genuinely autonomous |
+| claude-orchestrator-handoff-walker | claude | MERGED | #825 | HandoffWalker::sweep_once + tokio sweeper at gateway boot; SchemeRoutingNotifier; 12 tests; makes orchestrator genuinely autonomous |
 | claude-skycot-runbook | claude | MERGED | #816 | 944-line operator runbook (`docs/skycot/RUNBOOK.md`) covering all 10 brief sections: install → bootstrap → genesis → approvals → first action → skill learning → handoff → audit → next steps |
-| claude-action-record-identity-plumbing | claude | IN_REVIEW | #829 | PR opened — ActionRecord.worker_id (serde-defaulted to WorkerId::nil()), emit_actions_from_text gains worker_id param, 31 ActionRecord literals + 7 emit calls patched; FOUNDATIONAL — unblocks claude-e2e-test-step-completion + claude-worker-instance-policy gate hookup |
+| claude-action-record-identity-plumbing | claude | MERGED | #829 | ActionRecord.worker_id threaded through 19 files; emit_actions_from_text gains worker_id param; FOUNDATIONAL — unblocks e2e-test-step-completion + worker-instance-policy gate hookup |
 | claude-e2e-test-step-completion | claude | TODO | — | replenish-3: flip the 3 SKIPped steps in #810 to real assertions once identity plumbing lands; flips v1 demo gate from yellow (6/9) → green (9/9) |
-| claude-marketplace-vertical-publish | claude | IN_REVIEW | #821 | PR opened — `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle in argo-marketplace; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
+| claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | CLAIMED | — | claimed by claude |
+| H-eval-runner-cli | codex | TODO | — | replenish-codex3: `argo eval run --vertical <id> [--score]` runs eval seed against worker pipeline |
+| H-tenant-cli | codex | TODO | — | replenish-codex3: `argo tenant list/info/create` for tenant management |
+| H-handoff-cancel | codex | TODO | — | replenish-codex3: `argo handoff cancel <id>` operator override + Cancelled lifecycle variant |
+| H-skill-export-import | codex | TODO | — | replenish-codex3: `argo skill export/import` for offline skill distribution |
+| claude-action-cancel-flow | claude | TODO | — | replenish-claude3: `Cancelled` state in V3 action lifecycle + `argo worker actions cancel` CLI |
+| claude-audit-replay | claude | TODO | — | replenish-claude3: `argo audit replay <session_id>` walks chain in seq order; pretty/raw formats |
+| claude-skill-conflict-resolution | claude | TODO | — | replenish-claude3: workspace-vs-library skill conflicts UI: list/show diff/resolve |
+| claude-eval-streaming | claude | TODO | — | replenish-claude3: streaming per-fixture progress for `argo eval run` |
 
 ---
 
