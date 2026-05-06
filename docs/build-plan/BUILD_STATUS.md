@@ -21,7 +21,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | A-executor-trait | claude | MERGED | #784 | Executor trait + manifest enum + 4 impl shape; B/C/G unblocked |
 | B-computer-use-executor | claude | MERGED | #787 | CU executor + E2B sandbox + Anthropic CU loop + marketplace_browser profile |
 | C-mcp-wire | codex | MERGED | #788 | dispatch_one routes MCP tools via per-server connection pool; manifest [mcp_servers] section + integration test landed; 5 connector briefs unblocked |
-| C-gmail | codex | TODO | — | unblocked: brief now allows Cargo.lock + defers argo-store keyring to v1.x; for v1 use env `ARGO_GMAIL_REFRESH_TOKEN` + access-token cache file in `<cwd>/.argo/connectors/gmail/` |
+| C-gmail | codex | CLAIMED | — | claimed by codex |
 | C-slack | codex | CLAIMED | — | claimed by codex |
 | C-gcal | codex | CLAIMED | — | claimed by codex |
 | C-hubspot | codex | IN_REVIEW | #792 | PR opened |
