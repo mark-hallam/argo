@@ -18,6 +18,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     let workspace = cwd_workspace(&store).await?;
     let memory = MemoryStore::new(Arc::clone(&store));
     match cmd {
+        MemoryCmd::SharedTeam { cmd } => super::memory_shared_team::run(&memory, cmd).await,
         MemoryCmd::List {
             json,
             format,

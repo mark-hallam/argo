@@ -42,6 +42,7 @@ pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
 pub use cli_budget_cmds::*;
 pub use cli_genesis_cmds::*;
+pub use cli_memory_cmd::SharedTeamCmd;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
 pub use cli_tenant_cmds::TenantCmd;

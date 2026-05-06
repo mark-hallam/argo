@@ -6,6 +6,11 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum MemoryCmd {
+    /// Inspect and seed tenant-scoped shared-team memory.
+    SharedTeam {
+        #[command(subcommand)]
+        cmd: SharedTeamCmd,
+    },
     List {
         /// Output as JSON (one object per entry) for scripting.
         /// Equivalent to `--format json`.
@@ -109,5 +114,48 @@ pub enum MemoryCmd {
     },
     Unlock {
         entry: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SharedTeamCmd {
+    /// List recent shared-team entries for one tenant.
+    List {
+        /// Tenant id (UUID).
+        #[arg(long)]
+        tenant: String,
+        /// Maximum number of newest rows to return.
+        #[arg(long)]
+        limit: Option<u32>,
+        /// Emit JSON instead of a human-readable table.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Write an operator-seeded shared-team entry.
+    Write {
+        /// Tenant id (UUID).
+        #[arg(long)]
+        tenant: String,
+        /// Worker id credited as the author.
+        #[arg(long)]
+        author: String,
+        /// Entry content.
+        #[arg(long)]
+        content: String,
+        /// Emit JSON instead of a human-readable acknowledgement.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Search shared-team entries with a case-insensitive regex.
+    Grep {
+        /// Tenant id (UUID).
+        #[arg(long)]
+        tenant: String,
+        /// Regex pattern to match against entry content.
+        #[arg(long)]
+        pattern: String,
+        /// Emit JSON instead of a human-readable table.
+        #[arg(long)]
+        json: bool,
     },
 }

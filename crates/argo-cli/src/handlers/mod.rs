@@ -44,6 +44,7 @@ pub mod health;
 pub mod judge;
 pub mod mcp;
 pub mod memory;
+pub mod memory_shared_team;
 pub mod messages;
 pub mod messages_by_day;
 pub mod messages_by_day_by_role;
