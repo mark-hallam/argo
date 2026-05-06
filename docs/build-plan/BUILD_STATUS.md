@@ -66,7 +66,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-test-step-completion | claude | MERGED | #832 | flipped 3 SKIPped steps to real assertions: worker_action JSON round-trip / StubNotifier capture / pending→executing→completed memory-row chain; **v1 demo gate now GREEN (9/9)** |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
-| H-eval-runner-cli | codex | TODO | — | unblocked: failing tests are pre-existing flakes (order-dependent gateway tests) outside this brief's scope. Acceptance: codex's OWN tests pass in isolation; full `cargo test` flakes NOT blocking |
+| H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
 | H-tenant-cli | codex | CLAIMED | — | claimed by codex |
 | H-handoff-cancel | codex | TODO | — | unblocked by tick-45 EXHAUSTIVE-MATCH amendment: routes_orchestrator.rs may-touch the exhaustive HandoffStatus match, narrowly: only the new Cancelled arm |
 | H-skill-export-import | codex | TODO | — | unblocked: brief amended — may-touch += `crates/argo-cli/src/cli_subcommands.rs` (narrowly: ADD Export/Import variants to existing SkillCmd enum). Plus tests/<name>.rs as per BLANKET CLI ALLOWLIST |
