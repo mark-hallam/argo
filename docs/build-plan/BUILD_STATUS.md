@@ -71,7 +71,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-handoff-cancel | codex | TODO | — | replenish-codex3: `argo handoff cancel <id>` operator override + Cancelled lifecycle variant |
 | H-skill-export-import | codex | TODO | — | replenish-codex3: `argo skill export/import` for offline skill distribution |
 | claude-action-cancel-flow | claude | IN_REVIEW | #835 | PR opened — ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests pass (4 unit + 2 integration); pending/approved → cancelled allowed, executing rejected |
-| claude-audit-replay | claude | TODO | — | replenish-claude3: `argo audit replay <session_id>` walks chain in seq order; pretty/raw formats |
+| claude-audit-replay | claude | CLAIMED | — | claimed by claude |
 | claude-skill-conflict-resolution | claude | TODO | — | replenish-claude3: workspace-vs-library skill conflicts UI: list/show diff/resolve |
 | claude-eval-streaming | claude | TODO | — | replenish-claude3: streaming per-fixture progress for `argo eval run` |
 
