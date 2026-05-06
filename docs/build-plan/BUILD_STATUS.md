@@ -28,7 +28,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
-| D-sms | codex | IN_REVIEW | #782 | PR opened |
+| D-sms | codex | MERGED | #782 | Twilio SMS approval channel + HMAC token decision route |
 | D-push | codex | IN_REVIEW | #785 | PR opened |
 | D-webinbox | codex | CLAIMED | — | claimed by codex |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
