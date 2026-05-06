@@ -163,7 +163,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-vertical-finance-ar | claude | TODO | — | V2.2 demo verticals (4th): Accounts Receivable demo — AR worker reviews invoices, sends 7/14/30-day reminders via gmail, escalates at 45d, logs Stripe payment events, weekly aging report via document-creation-executor. Touches gmail+stripe+documents (broad capability proof) |
 | codex-skill-quality-judge-cli | codex | TODO | — | V2.0 self-improvement (CLI surface): `argo skill quality/quality-list/quality-trend/quality-recompute` + ASCII sparkline of 30-day score history; `--quality-min` filter on `argo skill list`; companion to claude-skill-quality-judge architectural brief |
 | claude-error-recovery-suggestions | claude | TODO | — | V1.4: `argo recover <session-id>` LLM-assisted post-mortem — walks audit chain, calls Anthropic with brief+manifest+chain+failure, returns structured suggestions (likely cause + 3 ranked fixes + command snippets); cached per (session, chain-hash); advisory only (no auto-apply) |
-| claude-cli-subcommands-split | claude | CLAIMED | — | claimed by claude looping tab
+| claude-cli-subcommands-split | claude | TODO | — | UNCLAIMED tick118: claim 50min stale, no remote (past tick-115 amendment 45-min threshold). V1.x architectural prep (blocking claude-skill-quality-judge): split crates/argo-cli/src/cli_subcommands.rs (currently exactly at 500 LOC invariant) into focused sibling files; pure refactor + public-API stable; mirror successful claude-worker-actions-split #851 pattern |
 
 ---
 
