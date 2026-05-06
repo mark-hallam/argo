@@ -631,6 +631,121 @@ That's it. The swarm is live.
 
 ---
 
+## Phase 2 — beyond the v1 demo gate
+
+The protocol described above bootstrapped on a finite plan: 22
+seed briefs → v1 demo gate. As of tick 57, that gate is **GREEN**
+(9/9 e2e steps passing; ~800+ PRs landed since the seed run; the
+green capstone landed at PR #832, `claude-e2e-test-step-completion`).
+The swarm did not stop. This section captures the shape of the
+protocol on the other side of the v1 gate — when the loop is no
+longer racing toward a fixed finish line, but is the standing
+substrate for the long-arc product mission.
+
+### BUILD_PLAN_V11 — the strategic plan beyond v1
+
+At tick 57 the conductor authored `BUILD_PLAN_V11.md` alongside
+`BUILD_STATUS.md`. Where BUILD_STATUS.md is the live ledger
+(rows + state transitions, edited every tick), BUILD_PLAN_V11.md
+is the **strategic horizon** — the multi-month phasing of work
+between "v1 demo green" and the full mission claims.
+
+It does three things:
+
+1. **Recapitulates the mission claims** as load-bearing bullets
+   (real teammates · platform-built workers · shared skills
+   library · self-learning skills · persistent memory ·
+   multi-channel approvals).
+2. **Names the 7 gaps** between v1's demo-real implementation
+   and a production-real platform (reliability · capability
+   breadth · operator visibility · multi-worker orchestration ·
+   self-improvement · org awareness · demo verticals).
+3. **Phases the work** into seven labelled stages:
+
+```
+v1.1  Production hardening   (reliability the operator can trust)
+v1.2  Capability breadth     ("any PC/Mac task")
+v1.3  Multi-worker DAGs      (teams of workers)
+v1.4  Operator UX            (non-terminal operators)
+v2.0  Self-improvement       (workers actually get better)
+v2.1  Governance             (enterprise + regulated)
+v2.2  Demo verticals         (prove >1 use case)
+```
+
+### The Step-8 source list, post-v1
+
+Queue replenishment (Step 8 of the conductor tick) was originally
+sourced from `MISSION.md`, recent PR-body deferrals, the v1-demo
+gap list, and `git log -100`. After tick 57, it adds a fifth
+source:
+
+5. **`BUILD_PLAN_V11.md` phased plan** — when either TODO queue
+   dips ≤3, the conductor reads the phase that matches "what's
+   active right now" (initially v1.1; later v1.2+v1.3 in
+   parallel) and turns one or two un-shipped bullets into briefs.
+
+The trigger and stop-condition are unchanged. The replenishment
+loop is the same one. Only the idea sources are richer.
+
+### Sequencing rules between phases
+
+The phases are **not** strictly serial. The plan-V11 sequencing
+rules:
+
+- **v1.1 first.** Reliability is the precondition for everything
+  else. Without operator trust, capability and breadth do not
+  matter.
+- **v1.2 and v1.3 run in parallel.** More executor kinds + more
+  connectors is additive and orthogonal to multi-worker
+  orchestration.
+- **v1.4 is a long tail.** Operator UX work is large and
+  ongoing; start with the high-impact piece (web dashboard)
+  early, let the rest land incrementally.
+- **v2.0 and v2.1 wait on v1.1 stable.** Self-improvement and
+  governance assume the production-reliability foundation is
+  solid.
+- **v2.2 (more demo verticals) is the customer signal.** Each
+  new vertical is one more data point for the platform claim
+  "any role."
+
+### What does NOT change post-v1
+
+- **The stop condition.** Still "every brief MERGED **and** the
+  e2e gate is green." The gate stays the production-readiness
+  oracle. New briefs land → new e2e steps land alongside them →
+  the gate keeps the bar.
+- **The conductor tick shape.** Same 9 steps, same 5-minute
+  cadence. Step 8 just has a richer list to draw from.
+- **The four state machines.** Brief lifecycle, conductor tick,
+  worker tick, unblock dance — all unchanged.
+- **The roles.** Conductor still doesn't write feature code.
+  Workers still stop after one PR. Human still escalation-only.
+- **The artifacts.** BUILD_STATUS.md still the ledger.
+  Briefs still in `streams/`. CONTRIBUTING_AGENT.md still the
+  worker-side rules.
+
+The protocol survives the v1-to-v2 transition unchanged in
+shape; only the queue-source list grows.
+
+### Phase 2 in flight (snapshot, tick 58)
+
+12 mission-gap briefs queued in `streams/` straight off
+BUILD_PLAN_V11 (6 codex + 6 claude). Spread across:
+
+- **v1.1 reliability** — circuit-breaker, multi-step-approval,
+  anomaly-detector
+- **v1.2 capability** — stripe / jira / asana connectors,
+  skill-marketplace-search, filesystem-executor
+- **v1.3 multi-worker** — workflow-dag, org-awareness
+- **v2.0 self-improve** — skill-versioning-ab-test
+- **v2.2 demo verticals** — multi-vertical bundle
+
+Standard replenishment cadence resumes once these clear. The
+swarm is now self-sustaining indefinitely against the strategic
+plan.
+
+---
+
 ## Sizing and pacing
 
 A rough rule of thumb from the SKYCOT run:
@@ -654,3 +769,32 @@ If the swarm stalls (no merges in two consecutive ticks, no open
 PRs, multiple BLOCKED rows): the conductor or human should cut a
 new tighter brief or split a fat one. The swarm runs on a steady
 diet of small briefs; starve it and it dies.
+
+---
+
+## Appendix — Brief authoring discipline
+
+A lesson from tick 58: **always ground the may-touch list in the
+real codebase before publishing a brief.**
+
+Tick 57's first batch of 6 codex briefs ALL came back BLOCKED
+because the file paths were imagined rather than verified. The
+brief said `argo-runtime/`, but the crate is `argo-identity/`.
+The brief said `argo-mcp/src/connectors/`, but each connector is
+a separate `argo-mcp-connector-<name>` crate. The brief said
+`argo-skill-store`, but the crate is just `argo-skill`. Six
+workers wasted six claim cycles unblocking the same kind of
+mistake. The briefs were re-amended at tick 58 with corrected
+paths.
+
+The fix is one shell command before publishing:
+
+```
+find crates -name '*.rs' | grep <thing>     # or
+fd <thing> crates/                          # or
+rg -l <symbol>
+```
+
+If you can't name the file with a `find`, you can't name it in
+the may-touch list. Workers will hit it and BLOCK. Better to
+spend 30 seconds verifying than to ship 6 dead briefs.

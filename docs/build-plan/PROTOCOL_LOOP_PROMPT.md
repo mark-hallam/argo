@@ -32,6 +32,13 @@ decisions, can include integration tests. When the conductor
 brainstorms new briefs at step 8, it picks the sizing flavor based
 on which queue is short.
 
+**Post-v1 idea sources for step 8**: once the v1 demo gate is green,
+queue replenishment also draws from `BUILD_PLAN_V11.md` (the phased
+plan from v1.1 production hardening through v2.2 demo verticals).
+The conductor reads the phase that matches "what's active right
+now" and turns un-shipped bullets into briefs. See `PROTOCOL.md`
+"Phase 2 — beyond the v1 demo gate" for the full source list.
+
 ---
 
 ```
@@ -59,13 +66,19 @@ on which queue is short.
 8. Queue replenishment:
    a. codex_todo = grep -c "| codex |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
       claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
-   b. If codex_todo <= 3: brainstorm 3-5 NEW codex-sized briefs from MISSION + recent
-      PR-body deferrals + v1 gaps + git log -100. Each brief follows PROTOCOL_BRIEF_TEMPLATE.md.
-      Sizing: 200-1200 LOC, narrow may-touch, single-crate focus.
+   b. If codex_todo <= 3: brainstorm 3-5 NEW codex-sized briefs. Idea sources, in priority
+      order: MISSION.md gaps, BUILD_PLAN_V11.md phased plan (the v1.x / v2.x stage that's
+      currently active), recent PR-body "deferred to follow-up" sections, v1 demo gaps, and
+      git log -100. Each brief follows PROTOCOL_BRIEF_TEMPLATE.md. Sizing: 200-1200 LOC,
+      narrow may-touch, single-crate focus.
    c. If claude_todo <= 3: same for claude. Sizing: 300-2000 LOC, multi-crate OK,
       architectural decisions OK, integration tests welcome.
-   d. Push ONE commit per replenishment: "briefs: replenish <owner> queue (<id1>, <id2>, ...)".
-   e. Skip if both above 3.
+   d. **Brief authoring discipline (tick-58 lesson)**: before publishing a brief, ground
+      the may-touch list in the real codebase. Run `find crates -name '*.rs' | grep <thing>`
+      or `rg -l <symbol>` to verify every file path exists. Imagined paths cause BLOCKED
+      claims — 30 seconds of verification beats six dead briefs.
+   e. Push ONE commit per replenishment: "briefs: replenish <owner> queue (<id1>, <id2>, ...)".
+   f. Skip if both above 3.
 
 9. If everything is in flight and there's nothing to do, report back briefly with
    "swarm healthy, X PRs in review, Y briefs claimed, Z merged, codex_todo=A, claude_todo=B"
