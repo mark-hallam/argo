@@ -31,7 +31,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-sms | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export sms module" |
 | D-push | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export push module" |
 | D-webinbox | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export webinbox module" |
-| E-identity | codex | CLAIMED | — | claimed by codex |
+| E-identity | codex | IN_REVIEW | #781 | PR opened |
 | F-memory-layering | codex | TODO | — | (waits on E for MemoryNs) |
 | G-genesis | claude | TODO | — | (waits on A stable) |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
