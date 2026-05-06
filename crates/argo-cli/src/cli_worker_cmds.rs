@@ -14,6 +14,7 @@
 //! so an `executing` action can't be re-approved, etc.
 
 use clap::Subcommand;
+use std::path::PathBuf;
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerCmd {
@@ -42,21 +43,34 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Show persona, role, memory namespace, and duties for one
-    /// worker instance.
+    /// Show the full worker identity plus the resolved policy for
+    /// one tenant-scoped worker instance.
     Show {
         /// Worker id (UUIDv7).
         worker_id: String,
+        /// Tenant id whose worker namespace should be queried.
+        #[arg(long)]
+        tenant: String,
         /// Emit JSON instead of a human-readable summary.
         #[arg(long)]
         json: bool,
     },
-    /// List worker instances for the current tenant/workspace.
+    /// List worker instances for one tenant, optionally filtered
+    /// by persona name.
     List {
+        /// Tenant id whose worker namespace should be queried.
+        #[arg(long)]
+        tenant: String,
+        /// Filter to workers whose persona name exactly matches.
+        #[arg(long)]
+        persona: Option<String>,
         /// Emit JSON instead of a human-readable table.
         #[arg(long)]
         json: bool,
     },
+    /// Inspect resolved worker auto-approval policy documents.
+    #[command(subcommand)]
+    Policy(WorkerPolicyCmd),
     /// Update an existing worker's auto-approval policy from a
     /// JSON file (Stream `claude-worker-instance-policy`). The
     /// file must deserialise into `argo_identity::AutoApprovalPolicy`;
@@ -67,7 +81,7 @@ pub enum WorkerCmd {
         worker_id: String,
         /// Path to a JSON `AutoApprovalPolicy` document.
         #[arg(long = "auto-approval-json")]
-        auto_approval_json: std::path::PathBuf,
+        auto_approval_json: PathBuf,
         /// Emit JSON instead of a human-readable summary.
         #[arg(long)]
         json: bool,
@@ -95,6 +109,21 @@ pub enum WorkerCmd {
         #[arg(long)]
         vertical: Option<String>,
         /// Emit JSON instead of the human-readable report.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WorkerPolicyCmd {
+    /// Print the resolved AutoApprovalPolicy JSON for one worker.
+    Show {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Tenant id whose worker namespace should be queried.
+        #[arg(long)]
+        tenant: String,
+        /// Emit JSON. Accepted for symmetry with every worker subcommand.
         #[arg(long)]
         json: bool,
     },

@@ -6,18 +6,6 @@
 //! changed; the "current" state of an action is the latest row
 //! whose `action_id` matches.
 //!
-//! ## State machine
-//!
-//! ```text
-//!   pending ──→ approved ──→ executing ──→ completed
-//!     │           │              │           ▲
-//!     │           └──────────────┴───────────┘   (synchronous shortcut)
-//!     │                                ↓
-//!     │                              failed
-//!     ↓
-//!   blocked  (terminal)
-//! ```
-//!
 //! ## Safety boundary
 //!
 //! Per the SKYCOT mission: the worker may autonomously plan,
@@ -32,7 +20,7 @@
 //! Worker emits actions in #729; approval CLI in #730;
 //! approval-gated action types + execution in #731.
 
-use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd, WorkerItemsCmd};
+use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd, WorkerItemsCmd, WorkerPolicyCmd};
 use crate::handlers::vertical::resolve_verticals_dir;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::WorkerId;
@@ -188,8 +176,11 @@ fn default_risk() -> String { "low".to_string() }
 pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
     match cmd {
         WorkerCmd::Create { vertical, persona, charter, builder, voice_preamble, duties, json } => super::worker_create::run(&vertical, &persona, &charter, builder.as_deref(), voice_preamble.as_deref(), &duties, json).await,
-        WorkerCmd::Show { worker_id, json } => super::worker_create::show(&worker_id, json).await,
-        WorkerCmd::List { json } => super::worker_create::list(json).await,
+        WorkerCmd::Show { worker_id, tenant, json } => super::worker_list::show(&tenant, &worker_id, json).await,
+        WorkerCmd::List { tenant, persona, json } => super::worker_list::list(&tenant, persona.as_deref(), json).await,
+        WorkerCmd::Policy(policy_cmd) => match policy_cmd {
+            WorkerPolicyCmd::Show { worker_id, tenant, json } => super::worker_list::policy_show(&tenant, &worker_id, json).await,
+        },
         WorkerCmd::Update { worker_id, auto_approval_json, json } => {
             super::worker_update::update_auto_approval(&worker_id, &auto_approval_json, json).await
         }
