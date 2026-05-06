@@ -40,6 +40,7 @@ members = [
   "crates/argo-mcp-connector-jira",
   "crates/argo-mcp-connector-notion",
   "crates/argo-mcp-connector-gmail",
+  "crates/argo-mcp-connector-asana",
   "crates/argo-orchestrator",
   "mcp-servers/voice",
   "mcp-servers/browser",
