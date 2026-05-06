@@ -49,11 +49,16 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
 | claude-e2e-integration-test | claude | IN_REVIEW | #810 | PR opened — 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition all need plumbing the brief explicitly forbids touching) |
-| claude-genesis-llm-refinement | claude | IN_REVIEW | #812 | PR opened — opt-in --refine flag with Anthropic call + JSON schema validation + safety judge re-runs on refined actions; 9 unit tests offline |
-| claude-skill-success-metric | claude | IN_REVIEW | #813 | PR opened — SuccessMetric (confidence + trajectory_length + duration + final_state_score) + ProposalThreshold defaults (≥0.8 / ≤25 steps / ≤600s); CU executor computes from real trajectory; legacy f64 API preserved |
+| claude-genesis-llm-refinement | claude | MERGED | #812 | opt-in --refine flag with Anthropic call + JSON schema validation + safety judge re-runs on refined actions; 9 unit tests offline |
+| claude-skill-success-metric | claude | MERGED | #813 | SuccessMetric (confidence + trajectory_length + duration + final_state_score) + ProposalThreshold defaults (≥0.8 / ≤25 steps / ≤600s); CU executor computes from real trajectory; legacy f64 API preserved |
 | claude-worker-instance-policy | claude | CLAIMED | — | claimed by claude |
+| claude-e2e-integration-test | claude | MERGED | #810 | 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition all need plumbing — see claude-action-record-identity-plumbing + claude-e2e-test-step-completion follow-up briefs) |
 | claude-orchestrator-handoff-walker | claude | TODO | — | replenish-2: periodic tokio sweeper that walks EscalationChain on overdue Pending handoffs; chain exhaustion writes audit row + Session.Expired; the brief that makes the system genuinely autonomous |
 | claude-skycot-runbook | claude | TODO | — | replenish-2: customer-launch operator runbook (`docs/skycot/RUNBOOK.md`); 10 sections from install → first action → multi-worker handoff → audit; pure content, no Rust |
+| claude-action-record-identity-plumbing | claude | TODO | — | replenish-3: thread `worker_id: WorkerId` through ActionRecord + every emit/dispatch/transition seam; FOUNDATIONAL for the 3 SKIPs in #810 + the worker-instance-policy follow-through |
+| claude-e2e-test-step-completion | claude | TODO | — | replenish-3: flip the 3 SKIPped steps in #810 to real assertions once identity plumbing lands; flips v1 demo gate from yellow (6/9) → green (9/9) |
+| claude-marketplace-vertical-publish | claude | TODO | — | replenish-3: `argo vertical publish/pull` for OCI marketplace; makes H-4b's library tier USEFUL by having a way to populate it; sigstore optional |
+| claude-realtime-audit-stream | claude | TODO | — | replenish-3: `GET /audit/stream` WebSocket on gateway; live row push with kind/worker filters + heartbeat; pairs with skycot-runbook's observability section |
 
 ---
 
