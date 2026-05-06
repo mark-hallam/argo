@@ -65,7 +65,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-action-record-identity-plumbing | claude | IN_REVIEW | #829 | PR opened — ActionRecord.worker_id (serde-defaulted to WorkerId::nil()), emit_actions_from_text gains worker_id param, 31 ActionRecord literals + 7 emit calls patched; FOUNDATIONAL — unblocks claude-e2e-test-step-completion + claude-worker-instance-policy gate hookup |
 | claude-e2e-test-step-completion | claude | TODO | — | replenish-3: flip the 3 SKIPped steps in #810 to real assertions once identity plumbing lands; flips v1 demo gate from yellow (6/9) → green (9/9) |
 | claude-marketplace-vertical-publish | claude | IN_REVIEW | #821 | PR opened — `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle in argo-marketplace; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
-| claude-realtime-audit-stream | claude | TODO | — | replenish-3: `GET /audit/stream` WebSocket on gateway; live row push with kind/worker filters + heartbeat; pairs with skycot-runbook's observability section |
+| claude-realtime-audit-stream | claude | CLAIMED | — | claimed by claude |
 
 ---
 
