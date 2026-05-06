@@ -29,12 +29,12 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
 | D-sms | codex | MERGED | #782 | Twilio SMS approval channel + HMAC token decision route |
-| D-push | codex | IN_REVIEW | #798 | PR opened |
+| D-push | codex | MERGED | #798 | PushApprovalChannel via Expo (APNs/FCM); device registration + deep-link decision route; integration test gated on EXPO_TEST_TOKEN |
 | D-webinbox | codex | MERGED | (in 7c9f156) | webinbox files landed in tick 5 via commit 7c9f156 (status update inadvertently swept up codex's WIP); #789 closed as redundant — content identical to main; full inbox HTML + WS push + manifest live |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
-| H-auto-approval | claude | CLAIMED | #796 (H-1 MERGED) | H-1 MERGED (#796 — policy evaluator + worker_budget ledger + time windows + migration); H-2 gate hookup + H-3 orchestrator + H-4 skill-library still ahead |
+| H-auto-approval | claude | CLAIMED | #796 (H-1) #799 (H-3) | H-1 ✓ #796 (policy + budget) + H-3 ✓ #799 (orchestrator: Session/Handoff/EscalationChain); H-2 gate hookup + H-4 skill-library still ahead |
 
 ---
 
