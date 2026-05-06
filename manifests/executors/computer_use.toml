@@ -1,0 +1,23 @@
+# Computer-use executor profiles (Stream B `#B-computer-use-executor`).
+#
+# Each [profiles.<name>] block configures one sandbox flavour the
+# executor can pick. The action manifest references the profile by
+# name in `executor = { kind = "computer_use", profile = "<name>" }`.
+#
+# v1 ships exactly one profile: `marketplace_browser`. Adding a
+# new profile is a TOML edit + re-deploy — no Rust change.
+
+[profiles.marketplace_browser]
+sandbox_template = "skycot/marketplace-browser:latest"
+description = "Chromium-only sandbox for marketplace listings (FB Marketplace, eBay, Gumtree). No desktop apps, no shell."
+url_whitelist = [
+  "https://www.facebook.com/marketplace",
+  "https://www.ebay.com",
+  "https://www.gumtree.com",
+]
+max_tokens_per_action = 150000
+max_wallclock_seconds = 600
+max_steps = 50
+screen_width = 1280
+screen_height = 800
+model = "claude-opus-4-7"

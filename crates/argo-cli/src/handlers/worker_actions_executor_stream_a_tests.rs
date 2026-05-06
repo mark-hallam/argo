@@ -243,7 +243,16 @@ executor = { kind = "mcp", server = "gmail", tool = "drafts.send" }
 }
 
 #[test]
-fn computer_use_stub_dispatch_returns_useful_not_implemented_error() {
+fn computer_use_dispatch_surfaces_missing_env_when_unconfigured() {
+    // Stream B `#B-computer-use-executor` made `ComputerUseExecutor`
+    // a real impl that delegates to `argo-executor-computer-use`.
+    // Without `E2B_API_KEY` / `ANTHROPIC_API_KEY` in the env it
+    // returns a clear "not configured" error pointing at the
+    // env vars (rather than the old "not yet implemented" stub
+    // text Stream A shipped). This test covers the
+    // unconfigured-workspace path.
+    let prev_e2b = std::env::var("E2B_API_KEY").ok();
+    std::env::remove_var("E2B_API_KEY");
     let manifest = argo_vertical::parse(
         r#"
 schema_version = "1"
@@ -266,13 +275,16 @@ executor = { kind = "computer_use", profile = "marketplace_browser" }
     let cwd = tempfile::tempdir().expect("tempdir");
     let err = exec
         .dispatch(&r, cwd.path())
-        .expect_err("computer_use stub must fail at dispatch time");
+        .expect_err("computer_use without env keys must fail at dispatch time");
     let msg = err.to_string();
-    assert!(msg.contains("not yet implemented"), "got: {msg}");
-    assert!(msg.contains("computer_use"), "got: {msg}");
+    if let Some(v) = prev_e2b {
+        std::env::set_var("E2B_API_KEY", v);
+    }
+    assert!(msg.contains("not configured"), "got: {msg}");
+    assert!(msg.contains("E2B_API_KEY"), "got: {msg}");
     assert!(
-        msg.contains("B-computer-use-executor"),
-        "msg should reference brief: {msg}"
+        msg.contains("ANTHROPIC_API_KEY"),
+        "expected env-var instruction: {msg}"
     );
 }
 

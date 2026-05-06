@@ -1,25 +1,28 @@
-//! Placeholder `Executor` impls for the executor families that
-//! land in later streams. Stream A (#A-executor-trait) keeps
+//! Stub + real `Executor` impls for the executor families that
+//! aren't `Human`. Stream A (#A-executor-trait) keeps
 //! `worker_actions_executor.rs` under the per-file 500-LOC
 //! budget by holding only the trait + `HumanExecutor` there;
-//! the three not-yet-implemented stubs live here.
+//! sibling impls live here.
 //!
-//! Each stub returns a `not yet implemented` error pointing at
-//! the brief that wires the real impl. The operator sees the
-//! gap immediately if a manifest declares one of these executor
-//! kinds; nothing dispatches silently.
+//! Status as of Stream B `#B-computer-use-executor`:
 //!
-//! - `McpExecutor` → wired by Stream `#C-mcp-wire` (calls a
-//!   registered MCP server's tool).
-//! - `ComputerUseExecutor` → wired by Stream
-//!   `#B-computer-use-executor` (Anthropic CU loop in an E2B
-//!   Firecracker sandbox).
-//! - `ApiExecutor` → wired by the connector flavours used by
-//!   Stream H's auto-approval + orchestrator integration.
+//! - `McpExecutor` → still a stub; wired by Stream
+//!   `#C-mcp-wire`.
+//! - `ComputerUseExecutor` → real impl, delegates to
+//!   `argo-executor-computer-use` (Stream B). Falls back to a
+//!   clear error when `E2B_API_KEY` / `ANTHROPIC_API_KEY`
+//!   aren't set so unconfigured workspaces surface the gap
+//!   rather than crash.
+//! - `ApiExecutor` → still a stub; wired by Stream H connector
+//!   flavours.
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
+use argo_executor_computer_use::{
+    ComputerUseExecutor as CuExecutorImpl, CuConfig, Outcome, ProfileRegistry, RunRequest,
+};
 use argo_types::{ArgoError, ArgoResult};
+use argo_vertical::ActionDeclaration;
 use std::path::Path;
 
 /// Placeholder for the MCP executor that Stream `#C-mcp-wire`
@@ -47,14 +50,22 @@ impl Executor for McpExecutor {
     }
 }
 
-/// Placeholder for the computer-use executor wired by Stream
-/// `#B-computer-use-executor`. Drives a Firecracker microVM via
-/// the Anthropic computer-use loop.
-pub(crate) struct ComputerUseExecutor;
+/// Real computer-use executor wired by Stream B
+/// `#B-computer-use-executor`. Carries the action's manifest
+/// declaration so dispatch can read `profile`, `budget_usd`, and
+/// the per-action description into the system prompt.
+pub(crate) struct ComputerUseExecutor {
+    declaration: Option<ActionDeclaration>,
+}
 
 impl ComputerUseExecutor {
-    pub(crate) fn new() -> Self {
-        Self
+    /// Constructor used by `resolve_executor` in Stream A —
+    /// passes through the action's manifest declaration so we
+    /// can read profile + budget + description.
+    pub(crate) fn with_declaration(decl: ActionDeclaration) -> Self {
+        Self {
+            declaration: Some(decl),
+        }
     }
 }
 
@@ -62,15 +73,143 @@ impl Executor for ComputerUseExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::ComputerUse
     }
-    fn dispatch(&self, _action: &ActionRecord, _cwd: &Path) -> ArgoResult<ActionOutcome> {
-        Err(ArgoError::Provider(
-            "executor `computer_use` is not yet implemented; \
-             track docs/build-plan/streams/B-computer-use-executor.md \
-             (Stream B ships the E2B sandbox + Anthropic CU loop; \
-             this stub swaps out when that lands)"
-                .into(),
-        ))
+
+    fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
+        // Build a CuConfig + ComputerUseExecutor from env. If
+        // the keys aren't set, the operator sees a clear error
+        // pointing at the env vars rather than a generic
+        // network failure later.
+        let config = CuConfig::from_env().map_err(|e| {
+            ArgoError::Provider(format!(
+                "computer-use executor not configured: {e}; set E2B_API_KEY \
+                 and ANTHROPIC_API_KEY in your environment to enable this kind"
+            ))
+        })?;
+        // Profile registry: prefer the workspace's
+        // `manifests/executors/computer_use.toml`; fall back to
+        // the built-in `marketplace_browser` profile.
+        let mut registry = ProfileRegistry::load_from_path(&config.profiles_path)
+            .map_err(|e| ArgoError::Provider(e.to_string()))?;
+        if registry.is_empty() {
+            registry = ProfileRegistry::with_builtin_marketplace_browser();
+        }
+        let cu = CuExecutorImpl::new(config, registry);
+
+        let decl = self.declaration.as_ref().ok_or_else(|| {
+            ArgoError::Provider(
+                "ComputerUseExecutor needs an ActionDeclaration; \
+                 dispatch was called from a path that didn't carry one"
+                    .into(),
+            )
+        })?;
+        let profile_name = decl
+            .executor
+            .profile()
+            .unwrap_or("marketplace_browser")
+            .to_string();
+        let budget_usd = decl.executor.budget_usd();
+        let bundle_dir = cwd
+            .join(".skycot")
+            .join("outputs")
+            .join(&action.job_id)
+            .join("actions")
+            .join(&action.action_id);
+
+        let req = RunRequest {
+            action_id: action.action_id.clone(),
+            job_id: action.job_id.clone(),
+            // TODO(stream-E-thread-through): tenant + persona
+            // come from the worker context once Stream E's
+            // identity primitives are threaded through
+            // ActionRecord. Until then we use stable sentinels
+            // so the pool key is deterministic per action_type.
+            tenant_id: "default-tenant".into(),
+            persona_id: "default-persona".into(),
+            profile_name,
+            system_prompt: build_system_prompt(action, decl),
+            budget_usd,
+            bundle_dir: Some(bundle_dir),
+        };
+
+        let outcome = run_blocking(cu, req)?;
+        Ok(map_outcome(outcome))
     }
+}
+
+/// Bridge sync `Executor::dispatch` to the async `cu.run`. We're
+/// always inside a tokio runtime here (the cli is async); we use
+/// `block_in_place` to allow the loop to run without panicking.
+fn run_blocking(cu: CuExecutorImpl, req: RunRequest) -> ArgoResult<Outcome> {
+    let handle = tokio::runtime::Handle::try_current().map_err(|e| {
+        ArgoError::Provider(format!(
+            "computer-use executor needs a tokio runtime to run; got: {e}"
+        ))
+    })?;
+    let outcome = tokio::task::block_in_place(|| handle.block_on(cu.run(req)));
+    outcome.map_err(Into::into)
+}
+
+fn map_outcome(o: Outcome) -> ActionOutcome {
+    match o {
+        Outcome::Completed {
+            result,
+            bundle_dir,
+            budget,
+        } => ActionOutcome::Completed {
+            bundle_path: bundle_dir,
+            result_json: serde_json::json!({
+                "outcome": "completed",
+                "final_text": result.final_text,
+                "actions_taken": result.actions_taken,
+                "tokens_used": result.tokens_used,
+                "budget": budget,
+            }),
+        },
+        Outcome::HumanHandoff {
+            reason,
+            bundle_dir,
+            budget,
+        } => {
+            // Print the handoff reason so the operator sees why
+            // the loop bailed without having to crack open the
+            // bundle's browser.jsonl.
+            eprintln!(
+                "argo worker: WARN — computer-use loop handed off to human: {reason} \
+                 (budget: {} steps, {} tokens, {}s)",
+                budget.steps_used, budget.tokens_used, budget.wallclock_seconds_used
+            );
+            ActionOutcome::HumanHandoff {
+                bundle_path: bundle_dir,
+            }
+        }
+    }
+}
+
+/// Synthesise the operator-facing system prompt the CU loop
+/// uses. Pulls the action's description, payload, and the
+/// declared profile's URL whitelist into a single block.
+fn build_system_prompt(action: &ActionRecord, decl: &ActionDeclaration) -> String {
+    let payload_pretty =
+        serde_json::to_string_pretty(&action.payload).unwrap_or_else(|_| "{}".to_string());
+    let platform = action.platform.as_deref().unwrap_or("(unspecified)");
+    format!(
+        "You are operating a sandboxed browser to carry out one Skycot action.\n\n\
+         Action: `{action_type}` on `{platform}` (item `{item_id}`)\n\
+         Description: {description}\n\n\
+         Payload (JSON):\n{payload_pretty}\n\n\
+         Use the `computer` tool to navigate, click, type, and scroll. When the action \
+         is complete, emit `stop_success` with the final URL or confirmation text. \
+         If you can't complete the action (login wall, captcha, missing field), emit \
+         `stop_failure` with a one-line reason.",
+        action_type = action.action_type,
+        platform = platform,
+        item_id = action.item_id.as_deref().unwrap_or("(none)"),
+        description = if decl.description.is_empty() {
+            "(no description in manifest)"
+        } else {
+            decl.description.as_str()
+        },
+    )
 }
 
 /// Placeholder for the REST API executor wired by Stream H

@@ -153,7 +153,9 @@ pub(crate) fn resolve_executor(
     let exec: Box<dyn Executor> = match kind {
         ExecutorKind::Human => Box::new(HumanExecutor::new(decl.clone())),
         ExecutorKind::Mcp => Box::new(McpExecutor::new()),
-        ExecutorKind::ComputerUse => Box::new(ComputerUseExecutor::new()),
+        ExecutorKind::ComputerUse => {
+            Box::new(ComputerUseExecutor::with_declaration(decl.clone()))
+        }
         ExecutorKind::Api => Box::new(ApiExecutor::new()),
     };
     Ok(exec)
