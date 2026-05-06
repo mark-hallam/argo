@@ -46,6 +46,7 @@ members = [
   "crates/argo-mcp-connector-airtable",
   "crates/argo-mcp-connector-salesforce",
   "crates/argo-mcp-connector-stripe",
+  "crates/argo-mcp-connector-monday",
   "crates/argo-orchestrator",
   "crates/argo-workflow",
   "mcp-servers/voice",

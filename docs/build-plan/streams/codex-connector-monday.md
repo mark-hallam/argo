@@ -22,11 +22,11 @@ NEW crate at `crates/argo-mcp-connector-monday/` mirroring
 NO CLI subcommand.
 
 ## Acceptance criteria
-- [ ] All 7 methods callable
-- [ ] API-token bearer auth
-- [ ] Approval-gate marks correct
-- [ ] 4 unit tests + 1 wire test
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] All 7 methods callable
+- [x] API-token bearer auth
+- [x] Approval-gate marks correct
+- [x] 4 unit tests + 1 wire test
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `codex-connector-monday`
