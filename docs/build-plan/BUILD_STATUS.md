@@ -23,7 +23,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-mcp-wire | codex | MERGED | #788 | dispatch_one routes MCP tools via per-server connection pool; manifest [mcp_servers] section + integration test landed; 5 connector briefs unblocked |
 | C-gmail | codex | CLAIMED | — | claimed by codex |
 | C-slack | codex | CLAIMED | — | claimed by codex |
-| C-gcal | codex | CLAIMED | — | claimed by codex |
+| C-gcal | codex | IN_REVIEW | #791 | PR opened |
 | C-hubspot | codex | IN_REVIEW | #792 | PR opened |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
