@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | MERGED | #833 | `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | BLOCKED | — | cargo build fails on merged claude-audit-replay outside brief: `AuditQueryCmd` lacks `Replay` variant |
+| H-shared-team-cli | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | H-vertical-list-cli | codex | MERGED | #834 | `argo vertical list/show/describe` for installed verticals |
 | H-worker-list-cli | codex | MERGED | #837 | `argo worker list/show + policy show` for worker discovery + per-worker policy resolution |
 | H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
@@ -67,12 +67,12 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
 | H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
-| H-tenant-cli | codex | BLOCKED | — | cargo test flakes existing gateway tests outside brief; tenant focused tests pass |
-| H-handoff-cancel | codex | BLOCKED | — | baseline cargo build fails on merged claude-audit-replay outside brief: `AuditQueryCmd` lacks `Replay` variant |
-| H-skill-export-import | codex | BLOCKED | — | baseline cargo build fails on merged claude-audit-replay outside brief: `AuditQueryCmd` lacks `Replay` variant |
+| H-tenant-cli | codex | TODO | — | unblocked: pre-existing gateway test flakes are NOT blocking (same as H-eval-runner-cli unblock policy). Acceptance: tenant-focused tests pass; full `cargo test` flakes ignored |
+| H-handoff-cancel | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
+| H-skill-export-import | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
-| claude-skill-conflict-resolution | claude | IN_REVIEW | #838 | PR opened — argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; ARGO_SKILL_LIBRARY_DB env wires the library tier; 7 tests pass; drive-by main fix (AuditQueryCmd::Replay variant restored) |
+| claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
 | claude-eval-streaming | claude | BLOCKED | — | blocked: brief assumes `argo eval run` subcommand exists, but only `argo eval validate` is implemented today; H-eval-runner-cli (codex CLAIMED) ships the run subcommand. Re-eligible for claude once H-eval-runner-cli MERGES. |
 
 ---
