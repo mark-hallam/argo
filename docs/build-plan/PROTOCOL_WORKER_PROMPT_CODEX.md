@@ -16,11 +16,32 @@ RULE 2 — the ledger is the source of truth, not your memory. At the start of e
 
 RULE 3 — if a brief you're about to claim is already MERGED on main, do NOT re-implement it. That is the auto-compaction-amnesia trap. Pick a different row. If multiple of your "candidate" briefs look already-merged, you may have lost context — exit cleanly and tell me.
 
-RULE 4 — hard 5-PR exit cap. After your 5th successfully-shipped PR (status committed as IN_REVIEW on main), STOP regardless of queue state. A fresh tab will pick up from there. This bounds context drift.
+RULE 4 — loop until you can't safely loop anymore. There is NO fixed PR cap. You loop endlessly while three things hold: (a) queue has claimable TODO rows, (b) your context-awareness is intact, (c) iterations complete in a reasonable time. The mission is throughput — keep shipping.
+
+Stop conditions (any one ends the loop cleanly):
+1. Queue is empty after a fresh `git pull` (no claimable TODO rows for your owner family).
+2. SELF-DEGRADATION DETECTED — see indicators below. If you spot 2+ in a single iteration, exit.
+3. Auto-compaction fires unexpectedly (Claude Code prints a compaction notice you didn't manually trigger). Your context just got rewritten by the system; trust it less than ever. Exit and let a fresh tab continue.
+4. The same operation fails twice for unclear reasons (e.g. `git push` worked last iteration, now hangs for no reason). Probably your environment, not the brief — exit and let the operator diagnose.
+
+Self-degradation indicators (vigilance signals):
+- You can't recall the last 2 PR numbers YOU opened in this session
+- You're considering claiming a brief that's MERGED on main (the auto-compaction-amnesia trap)
+- An operation/test that passed in your previous iteration is now failing for reasons you can't explain
+- Iteration N is taking >2× the wall-clock of iteration N-1 with a similarly-sized brief
+- You catch yourself searching for context that should be in your recent memory
+
+1 indicator firing = continue, but tighten up: re-pull main aggressively, /compact eagerly, re-read these rules.
+2+ indicators in one iteration = STOP. Don't try to push through; you're degraded.
+
+Graceful exit protocol:
+- Make a final commit to BUILD_STATUS.md with a note in the LATEST status row (or as its own commit on origin/main): `status: <claude|codex>-worker-self-exit after N PRs (reason: <one-line>)`
+- Tell me how many PRs you shipped this session, which briefs are now MERGED / IN_REVIEW / BLOCKED at exit, and what triggered the exit.
+- Then exit cleanly. A fresh tab spawned via the same prompt will continue from where you left off.
 
 Run this loop:
 
-ITERATION (repeat for each brief, max 5 times):
+ITERATION (repeat as long as the loop conditions hold):
 
 1. cd ~/code/argo && git checkout main && git pull --ff-only origin main
 
@@ -68,14 +89,14 @@ Deviations: [none / describe]"
 9. cd back to ~/code/argo (NOT the worktree). Edit BUILD_STATUS.md → set the row to IN_REVIEW with the PR number.
    git commit -m "status: <brief-id> in review (#<num>)" && git push origin main
 
-10. Increment your PR counter. If counter == 5, stop here and tell me the loop has hit its 5-PR cap; spawn a fresh tab to continue. Otherwise:
+10. Track your PR count internally for self-monitoring (note: there's NO fixed cap). Run a quick self-check: can you recall the last 2 PR numbers you opened (this one + the previous one if any)? If no, that's a self-degradation indicator (RULE 4) — note it.
 
-11. Run /compact to summarize this iteration's history before starting the next one. This caps context growth — without it, by iteration 4-5 you'll auto-compact and lose state.
+11. Run /compact to summarize this iteration's history before starting the next one. Do this every iteration; without it, context grows ~30K tokens/iteration and auto-compaction will fire eventually.
 
-12. Loop back to step 1. The next iteration starts with a fresh `git pull` so your view of the ledger is always current.
+12. Re-check stop conditions (RULE 4). If any fired, follow the graceful exit protocol. Otherwise loop back to step 1. The next iteration starts with a fresh `git pull` — the ledger on origin/main is your source of truth, not your memory.
 
 Hard rules:
-- Loop until queue is empty OR you've shipped 5 PRs OR you hit a wall you can't unblock.
+- Loop endlessly while queue has work AND your context is healthy. NO fixed PR cap. The mission is throughput. Self-degradation detection (RULE 4) is the safety net, not an iteration counter.
 - NEVER edit files outside the current brief's "may touch" list. New files in covered directories OK; unlisted file edits are a boundary violation.
 - NEVER modify briefs assigned to the OTHER agent family (don't touch `streams/<id>.md` files where the brief's owner is the other family — only edit your own brief's file if scope clarification is needed mid-flight, and only narrowly).
 - NEVER force-push to main. Force-push to your own feature branch (--force-with-lease) is OK only after a clean rebase onto current main.

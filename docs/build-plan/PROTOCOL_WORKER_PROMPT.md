@@ -30,16 +30,16 @@ For the actual paste-ready text see
 7. Run cargo build / clippy / test (skip pre-existing flakes per tick-60)
 8. Push branch + open PR with acceptance ticked + Boundary note if any
 9. Update BUILD_STATUS.md row to IN_REVIEW with PR number
-10. Hard exit at 5 PRs shipped from this tab
+10. Self-monitor for degradation indicators (no fixed cap)
 11. /compact to cap context
-12. Loop back to step 1
+12. Re-check stop conditions; loop back to step 1 if healthy
 
 The 4 critical hard rules at the top of each paste-ready file:
 
 - Pre-existing flakes don't block (tick-60 amendment)
 - Ledger is source of truth, not memory
 - Don't re-implement an already-merged brief (auto-compaction trap)
-- Hard 5-PR cap per tab
+- Loop endlessly with self-degradation detection (no fixed PR cap)
 
 ```
 You are a worker tab in the SKYCOT swarm. Implement ONE brief, open a PR, then stop. Do not loop.
@@ -101,37 +101,45 @@ Hard rules:
 - If you can't even claim a row (e.g. queue empty, or everything has unmerged predecessors), stop and tell me.
 ```
 
-## Why workers loop (with bounded context)
+## Why workers loop endlessly (with smart self-degradation detection)
 
-Tick-82 update: workers now loop, but with three guardrails to
-prevent the failure modes that earlier killed the no-loop debate:
+Tick-89 update (final design): there is no fixed PR cap. Workers
+loop until they can't safely loop anymore. The mission is
+throughput — keep shipping.
+
+**Earlier history:**
+- Original design: stop after 1 PR (sledgehammer; wasted operator effort)
+- Tick-82 design: stop after 5 PRs (still a sledgehammer; arbitrary cap)
+- Tick-89 design: loop endlessly with self-degradation detection (this)
+
+The 5-PR cap was insurance against three failure modes:
+stale-state amnesia, /compact drift, auto-compaction wiping
+context. But the existing rules already cover these:
 
 1. **Ledger is source of truth, not memory.** Every iteration
    re-pulls main and re-reads BUILD_STATUS.md from disk. Stale
-   internal recall is never trusted. Solves the
-   "duplicate-implementation" failure mode that bit the v1 build.
+   internal recall is never trusted.
 
-2. **`/compact` between iterations.** Caps context growth at
-   ~10K tokens per iteration instead of 30K. With this, a tab
-   can ship 5+ PRs before Claude Code's auto-compaction would
-   otherwise kick in and wipe critical state.
+2. **`/compact` between iterations.** Bounds context growth.
 
-3. **Hard 5-PR exit cap.** After the 5th successfully-shipped
-   PR, the tab cleanly exits regardless of queue state. Bounds
-   `/compact` drift at a known-clean restart point. The user
-   spawns a fresh tab to continue.
+3. **Don't reimplement merged briefs.** Defensive rule against
+   the auto-compaction-amnesia trap.
 
-Plus a defensive rule: if a tab is about to claim a brief that's
-already MERGED on main (matching brief id), it must NOT
-re-implement — that's the auto-compaction-amnesia trap. It picks
-a different row instead.
+4. **Self-degradation detection.** The tab self-monitors for
+   indicators of context drift (can't recall recent PR numbers,
+   considering already-merged claims, iteration time blowing
+   up, mystery test failures, auto-compaction firing
+   unprompted). 2+ indicators in one iteration = exit cleanly.
 
-Earlier "stop after 1 PR" rule was a sledgehammer for two real
-problems (stale state, context bloat); the new design solves
-both surgically. The tradeoff: looping tabs require more
-careful self-monitoring than stop-once tabs. Workers should
-re-read these rules at the START of every iteration, not just
-the first.
+5. **Graceful exit protocol.** When the tab does exit (queue
+   empty, degradation detected, hard error), it commits a
+   self-exit note to BUILD_STATUS.md so the operator knows
+   what happened. A fresh tab spawned with the same prompt
+   continues from there.
+
+The tradeoff: workers must self-monitor every iteration. The
+hard rules now appear at the top of each prompt as 4 numbered
+RULES, with re-read-on-every-iteration explicitly required.
 
 ## Spinning up multiple workers
 
