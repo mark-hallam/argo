@@ -40,7 +40,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-spend-persistence | codex | CLAIMED | — | follow-up: wire H-2 gate to read today's spend + record charge after AutoApprove (currently passes SpendSnapshot::zero); deferred from H-2 PR #800 |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
 | H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
-| H-skill-library-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints `GET /skills` + `GET /skills/<name>` exposing the H-4b LayeredLookup (independent) |
+| H-skill-library-routes | codex | CLAIMED | — | claimed by codex; tier-2 follow-up: gateway HTTP endpoints `GET /skills` + `GET /skills/<name>` exposing the H-4b LayeredLookup (independent) |
 | H-budget-cli | codex | TODO | — | tier-2 follow-up: `argo budget show <worker_id>` + `argo budget recent` (waits on H-spend-persistence) |
 | H-doctor-extensions | codex | TODO | — | tier-2 follow-up: 4 new `argo doctor` checks for the H-stack (independent; degrades gracefully if persist tables missing) |
 | H-metrics | codex | TODO | — | tier-2 follow-up: Prometheus counters for auto-approval decisions + sessions + handoffs + evaluation latency histogram (independent) |
