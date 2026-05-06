@@ -99,7 +99,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-airtable | codex | IN_REVIEW | #856 | PR opened: native Airtable MCP connector with 7 tools, PAT auth, filterByFormula passthrough, approval markers, unit + wire coverage |
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
 | codex-activity-feed-cli | codex | CLAIMED | — | claimed by codex |
-| codex-gdpr-delete-cli | codex | TODO | — | V2.1 governance: `argo gdpr delete --subject <email>` walks 6 surfaces (memory/audit/skills/channels/workers/sessions) with --dry-run default + --confirm-with-email-retype; redaction (not deletion) preserves audit chain; --bundle-out tarball for proof-of-deletion |
+| codex-gdpr-delete-cli | codex | CLAIMED | — | claimed by codex |
 
 ---
 
