@@ -12,6 +12,8 @@ mod cli_audit_cmds;
 mod cli_budget_cmds;
 #[path = "cli_doctor_cmds.rs"]
 mod cli_doctor_cmds;
+#[path = "cli_feedback_cmds.rs"]
+mod cli_feedback_cmds;
 #[path = "cli_eval_cmds.rs"]
 pub(crate) mod cli_eval_cmds;
 #[path = "cli_forge_cmds.rs"]
@@ -68,6 +70,7 @@ pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
 pub use cli_budget_cmds::*;
 pub use cli_doctor_cmds::DoctorCmd;
+pub use cli_feedback_cmds::FeedbackCmd;
 pub use cli_genesis_cmds::*;
 pub use cli_memory_cmd::SharedTeamCmd;
 pub use cli_session_cmds::*;
@@ -375,6 +378,14 @@ pub enum Command {
     Tools {
         #[command(subcommand)]
         cmd: Option<ToolsCmd>,
+    },
+    /// Operator-supplied thumbs up/down per action (Stream
+    /// `claude-operator-feedback-channel`). Feeds the
+    /// skill-learning loop as a strong-positive / strong-negative
+    /// signal alongside the heuristic success metric.
+    Feedback {
+        #[command(subcommand)]
+        cmd: FeedbackCmd,
     },
     /// Diagnose configuration / sandbox / port issues.
     Doctor {

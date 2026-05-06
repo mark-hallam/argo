@@ -22,6 +22,7 @@
 
 pub mod ab_test;
 pub mod conflicts;
+pub mod feedback;
 pub mod learn;
 pub mod library;
 pub mod marketplace;
@@ -37,6 +38,7 @@ pub mod version;
 #[cfg(test)]
 mod tests;
 
+pub use feedback::{should_propose_with_feedback, FeedbackVote};
 pub use learn::{should_propose, SkillCandidate, DEFAULT_SUCCESS_THRESHOLD};
 pub use success_metric::{
     should_propose_metric, ProposalThreshold, SuccessMetric,

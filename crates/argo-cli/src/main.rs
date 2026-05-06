@@ -39,6 +39,34 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         }
         Some(Command::Agents { cmd }) => handlers::agents::run(cmd),
         Some(Command::Gateway { cmd }) => handlers::gateway::run(cmd).await,
+        Some(Command::Feedback { cmd }) => match cmd {
+            cli::FeedbackCmd::Up {
+                action_id,
+                comment,
+                worker,
+                json,
+            } => handlers::feedback_up::run(&action_id, comment.as_deref(), worker.as_deref(), json)
+                .await,
+            cli::FeedbackCmd::Down {
+                action_id,
+                comment,
+                worker,
+                json,
+            } => handlers::feedback_down::run(
+                &action_id,
+                comment.as_deref(),
+                worker.as_deref(),
+                json,
+            )
+            .await,
+            cli::FeedbackCmd::List {
+                worker,
+                vote,
+                limit,
+                json,
+            } => handlers::feedback_list::run(worker.as_deref(), vote.as_deref(), limit, json)
+                .await,
+        },
         Some(Command::Doctor {
             cmd: Some(cli::DoctorCmd::Watch { interval, clear }),
             ..

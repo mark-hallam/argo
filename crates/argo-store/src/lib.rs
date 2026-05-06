@@ -3,6 +3,8 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod anomaly;
+/// Operator feedback (Stream `claude-operator-feedback-channel`).
+pub mod feedback;
 mod forge_meta;
 /// GDPR erasure helpers.
 pub mod gdpr;
