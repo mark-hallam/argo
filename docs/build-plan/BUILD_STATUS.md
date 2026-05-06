@@ -32,7 +32,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-push | codex | BLOCKED | — | exact branch codex-D-push already exists as stale entangled branch; no force/delete allowed |
 | D-webinbox | codex | CLAIMED | — | claimed by codex |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
-| F-memory-layering | codex | IN_REVIEW | #786 | 3-layer memory + sqlite-vec/Voyage-3 PR open |
+| F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | CLAIMED | — | claimed by claude |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
 
