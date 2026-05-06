@@ -24,6 +24,7 @@ mod parse;
 mod skill;
 mod store;
 mod store_vertical;
+pub mod trust;
 
 #[cfg(test)]
 mod tests;
@@ -31,3 +32,4 @@ mod tests;
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
 pub use store::SkillStore;
+pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
