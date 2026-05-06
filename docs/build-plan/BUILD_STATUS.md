@@ -19,7 +19,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 |---|---|---|---|---|
 | 0-ci-cleanup | (in landing PR) | TODO | — | (not yet started) |
 | A-executor-trait | claude | MERGED | #784 | Executor trait + manifest enum + 4 impl shape; B/C/G unblocked |
-| B-computer-use-executor | claude | CLAIMED | — | claimed by claude |
+| B-computer-use-executor | claude | MERGED | #787 | CU executor + E2B sandbox + Anthropic CU loop + marketplace_browser profile |
 | C-mcp-wire | codex | CLAIMED | — | claimed by codex |
 | C-gmail | codex | TODO | — | (waits on C-mcp-wire) |
 | C-slack | codex | TODO | — | (waits on C-mcp-wire) |
