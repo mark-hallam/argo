@@ -18,9 +18,9 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | Brief | Owner | Status | PR | Last update |
 |---|---|---|---|---|
 | 0-ci-cleanup | (in landing PR) | TODO | — | (not yet started) |
-| A-executor-trait | claude | IN_REVIEW | #784 | PR opened |
-| B-computer-use-executor | claude | TODO | — | (waits on A) |
-| C-mcp-wire | codex | TODO | — | (waits on A) |
+| A-executor-trait | claude | MERGED | #784 | Executor trait + manifest enum + 4 impl shape; B/C/G unblocked |
+| B-computer-use-executor | claude | TODO | — | unblocked (A merged) |
+| C-mcp-wire | codex | TODO | — | unblocked (A merged) |
 | C-gmail | codex | TODO | — | (waits on C-mcp-wire) |
 | C-slack | codex | TODO | — | (waits on C-mcp-wire) |
 | C-gcal | codex | TODO | — | (waits on C-mcp-wire) |
@@ -33,7 +33,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-webinbox | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | TODO | — | unblocked (E-identity merged) |
-| G-genesis | claude | TODO | — | (waits on A stable) |
+| G-genesis | claude | TODO | — | unblocked (A stable) |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
 
 ---
