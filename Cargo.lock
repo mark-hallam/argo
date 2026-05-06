@@ -490,6 +490,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-notion"
+version = "0.0.1"
+dependencies = [
+ "argo-mcp",
+ "async-trait",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "urlencoding",
+]
+
+[[package]]
 name = "argo-mcp-connector-slack"
 version = "0.0.1"
 dependencies = [

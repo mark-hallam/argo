@@ -1,0 +1,18 @@
+id = "notion"
+name = "Notion MCP connector"
+transport = "stdio"
+command = "argo-mcp-connector-notion"
+
+auth = "notion_integration_token"
+env = [
+  "NOTION_INTEGRATION_TOKEN",
+  "NOTION_VERSION",
+]
+
+tools = [
+  "notion.search",
+  "notion.read_page",
+  "notion.create_page",
+  "notion.append_block",
+  "notion.update_database",
+]
