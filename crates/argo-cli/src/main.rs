@@ -3,6 +3,8 @@
 //! See `docs/plan/argo-build-plan.md` §19 for the full command tree.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+#[path = "handlers/action_replay.rs"]
+mod action_replay;
 mod cli;
 mod handlers;
 mod home;
@@ -44,9 +46,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             model,
             title,
             vertical,
-        }) => {
-            handlers::new::run(&provider, &model, title.as_deref(), vertical.as_deref()).await
-        }
+        }) => handlers::new::run(&provider, &model, title.as_deref(), vertical.as_deref()).await,
         Some(Command::Resume { id }) => handlers::resume::run(&id).await,
         Some(Command::Chat {
             id,
@@ -54,16 +54,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             stream,
             interactive,
             max_tool_rounds,
-        }) => {
-            handlers::chat::run(
-                &id,
-                user.as_deref(),
-                stream,
-                interactive,
-                max_tool_rounds,
-            )
-            .await
-        }
+        }) => handlers::chat::run(&id, user.as_deref(), stream, interactive, max_tool_rounds).await,
         Some(Command::Steer { session_id, text }) => handlers::steer::run(&session_id, &text).await,
         Some(Command::Db { cmd }) => handlers::db::run(cmd).await,
         Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,
@@ -83,6 +74,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Cron { cmd }) => handlers::cron::run(cmd).await,
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
+        Some(Command::Action { cmd }) => action_replay::run(cmd).await,
         Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,
         Some(Command::Budget { cmd }) => handlers::budget::run(cmd).await,
         Some(Command::Eval { cmd }) => handlers::eval::run(cmd).await,

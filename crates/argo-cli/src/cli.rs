@@ -2,32 +2,35 @@
 //! `Cli` + `Command` enums live here; per-family `Subcommand` enums
 //! are extracted to `cli_subcommands.rs` (re-exported below) so
 //! both files stay under the 500-LOC ceiling.
-#[path = "cli_memory_cmd.rs"]
-mod cli_memory_cmd;
+#[path = "cli_action_cmds.rs"]
+mod cli_action_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
-#[path = "cli_subcommands.rs"]
-mod cli_subcommands;
 #[path = "cli_forge_cmds.rs"]
 mod cli_forge_cmds;
 #[path = "cli_gateway_cmds.rs"]
 mod cli_gateway_cmds;
-#[path = "cli_messages_cmds.rs"]
-mod cli_messages_cmds;
-#[path = "cli_vertical_cmds.rs"]
-mod cli_vertical_cmds;
 #[path = "cli_genesis_cmds.rs"]
 mod cli_genesis_cmds;
+#[path = "cli_memory_cmd.rs"]
+mod cli_memory_cmd;
+#[path = "cli_messages_cmds.rs"]
+mod cli_messages_cmds;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
 #[path = "cli_skill_review_cmds.rs"]
 mod cli_skill_review_cmds;
-#[path = "cli_workspace_cmds.rs"]
-pub(crate) mod cli_workspace_cmds;
+#[path = "cli_subcommands.rs"]
+mod cli_subcommands;
+#[path = "cli_vertical_cmds.rs"]
+mod cli_vertical_cmds;
 #[path = "cli_work_cmds.rs"]
 pub(crate) mod cli_work_cmds;
 #[path = "cli_worker_cmds.rs"]
 pub(crate) mod cli_worker_cmds;
+#[path = "cli_workspace_cmds.rs"]
+pub(crate) mod cli_workspace_cmds;
+pub use cli_action_cmds::*;
 pub use cli_budget_cmds::*;
 pub use cli_genesis_cmds::*;
 pub use cli_session_cmds::*;
@@ -138,6 +141,11 @@ pub enum Command {
     Worker {
         #[command(subcommand)]
         cmd: WorkerCmd,
+    },
+    /// Action debugging tools that do not mutate the action ledger.
+    Action {
+        #[command(subcommand)]
+        cmd: ActionCmd,
     },
     Audit {
         #[command(subcommand)]
