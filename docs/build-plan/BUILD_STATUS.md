@@ -38,21 +38,21 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-shared-team | codex | MERGED | #819 | `MemoryNs::shared_team(tenant)` + author-stamped writes; cross-tenant isolation; new shared_team.rs (232 LOC) + migration 15 |
 | H-orchestrator-persist | codex | MERGED | #806 | sqlite persistence for Session + Handoff types; OrchestratorStore CRUD + migration 16; lifecycle invariants enforced; 6 unit tests + cross-tenant isolation |
 | H-spend-persistence | codex | MERGED | #809 | spend_today_for_worker + record_charge helpers; gate reads spend before evaluation + writes charge after AutoApprove; reuses H-1's worker_budget schema; 4 tests cover over-cap / at-cap / cross-worker / cross-day |
-| H-orchestrator-cli | codex | IN_REVIEW | #824 | PR opened |
-| H-orchestrator-routes | codex | IN_REVIEW | #827 | PR opened |
+| H-orchestrator-cli | codex | MERGED | #824 | `argo session start/list/show` + `argo handoff list/show`; --tenant required + --json |
+| H-orchestrator-routes | codex | MERGED | #827 | gateway HTTP endpoints for sessions + handoffs; routes_orchestrator.rs (411 LOC) |
 | H-skill-library-routes | codex | MERGED | #817 | gateway HTTP endpoints `GET /skills?risk=...` + `GET /skills/<name>` exposing the H-4b LayeredLookup; workspace overrides library on duplicates; 400 on invalid risk |
 | H-budget-cli | codex | MERGED | #820 | `argo budget show <worker_id>` + `argo budget recent` CLI; spend_today_for_worker + spend_this_month rollups + remaining-headroom calc; --json on every list/show |
 | H-doctor-extensions | codex | MERGED | #808 | 4 new `argo doctor` checks for the H-stack: workspace policy presence + bare-enabled WARN, worker_budget table reachable, session/handoff tables (MISSING-friendly), notify-channel manifests; 9 unit tests + JSON envelope extension |
 | H-metrics | codex | DEFERRED-v1.x | — | DEFERRED to v1.x: the existing `/metrics` handler manually constructs output rather than reading from Prometheus's `default_registry()`, so the sibling-file pattern can't expose new counters without refactoring `metrics.rs` (already 545 LOC; refactor exceeds the brief's scope). Operator-value of Prometheus counters for v1 demo is low; deferring. v1.x will refactor metrics.rs to gather from default_registry() and re-enable this brief. Codex: do NOT claim. |
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
-| H-skill-review-cli | codex | IN_REVIEW | #823 | PR opened |
+| H-skill-review-cli | codex | MERGED | #823 | `argo skill review list/show/approve/reject`; --vertical filter + --json |
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
-| H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
-| H-channel-health-checks | codex | IN_REVIEW | #828 | PR opened |
-| H-shared-team-cli | codex | BLOCKED | — | blocked: allowlist omits handlers/memory.rs dispatch needed to wire the new SharedTeam subcommand |
-| H-vertical-list-cli | codex | BLOCKED | — | blocked: assert_cmd integration test requires dev-dependency/test file not present in allowlist |
-| H-worker-list-cli | codex | BLOCKED | — | blocked: brief allowlist names nonexistent handlers/worker.rs and omits worker_actions.rs dispatch needed to wire subcommands |
+| H-audit-query-extensions | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
+| H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
+| H-shared-team-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
+| H-vertical-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
+| H-worker-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
 | H-genesis-list-templates | codex | CLAIMED | — | claimed by codex |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | MERGED | #822 | 3 ratatui overlays (O sessions / H handoffs / B budget) reading via gateway HTTP; renders "Gateway unreachable" cleanly while H-orchestrator-routes pending; 14 new tests (9 snapshot + 5 input) |
