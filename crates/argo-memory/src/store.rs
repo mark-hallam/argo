@@ -26,6 +26,11 @@ impl MemoryStore {
         Self { store }
     }
 
+    /// Raw SQLite pool for sibling modules that own specialized queries.
+    pub(crate) fn pool(&self) -> &sqlx::Pool<sqlx::Sqlite> {
+        self.store.pool()
+    }
+
     /// Append a brand-new entry for `file`. Use [`Self::supersede`] to
     /// replace an existing entry — that path enforces lock semantics.
     pub async fn append(
@@ -35,6 +40,7 @@ impl MemoryStore {
         body: String,
         learned_in: Option<SessionId>,
     ) -> ArgoResult<MemoryEntry> {
+        self.ensure_layer_schema().await?;
         let id = Uuid::now_v7();
         let learned_at = Utc::now();
         let hash = sha256(&body);
@@ -80,6 +86,7 @@ impl MemoryStore {
         learned_in: Option<SessionId>,
         vertical_id: &str,
     ) -> ArgoResult<MemoryEntry> {
+        self.ensure_layer_schema().await?;
         let id = Uuid::now_v7();
         let learned_at = Utc::now();
         let hash = sha256(&body);
@@ -123,6 +130,7 @@ impl MemoryStore {
         file: MemoryFile,
         vertical_id: &str,
     ) -> ArgoResult<Vec<MemoryEntry>> {
+        self.ensure_layer_schema().await?;
         let rows = sqlx::query_as::<
             _,
             (
@@ -154,7 +162,19 @@ impl MemoryStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("memory list_for_vertical: {e}")))?;
         let mut out = Vec::with_capacity(rows.len());
-        for (id_b, ws_b, _file_str, body, learned_in_b, learned_at, superseded_b, hash_b, lock_str, vert) in rows {
+        for (
+            id_b,
+            ws_b,
+            _file_str,
+            body,
+            learned_in_b,
+            learned_at,
+            superseded_b,
+            hash_b,
+            lock_str,
+            vert,
+        ) in rows
+        {
             let id = Uuid::from_slice(&id_b)
                 .map_err(|e| ArgoError::Provider(format!("parse memory.id: {e}")))?;
             let workspace_id = WorkspaceId(
@@ -316,6 +336,7 @@ impl MemoryStore {
         workspace_id: WorkspaceId,
         file: MemoryFile,
     ) -> ArgoResult<Vec<MemoryEntry>> {
+        self.ensure_layer_schema().await?;
         let rows = sqlx::query_as::<_, RawEntry>(
             "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
              m.learned_at, m.superseded_by, m.hash, l.lock, m.vertical_id \
@@ -331,13 +352,9 @@ impl MemoryStore {
         rows.into_iter().map(MemoryEntry::try_from).collect()
     }
 
-    /// Fetch a single entry by id (active or superseded).
-    /// Walk the supersede chain starting from `entry_id`. Returns
-    /// the entries oldest-first (i.e. starting with the row whose
-    /// `superseded_by` points at the root, walking forward to the
-    /// active head). Used by `GET /memory/<id>/versions` to surface
-    /// the full chain to gateway clients.
+    /// Fetch the full version chain for an entry, oldest-first.
     pub async fn versions_for_entry(&self, entry_id: Uuid) -> ArgoResult<Vec<MemoryEntry>> {
+        self.ensure_layer_schema().await?;
         let head = self.get(entry_id).await?;
         let rows = sqlx::query_as::<_, RawEntry>(
             "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
@@ -356,6 +373,7 @@ impl MemoryStore {
 
     /// Fetch a single entry by id (active or superseded).
     pub async fn get(&self, entry_id: Uuid) -> ArgoResult<MemoryEntry> {
+        self.ensure_layer_schema().await?;
         let row = sqlx::query_as::<_, RawEntry>(
             "SELECT m.id, m.workspace_id, m.file, m.body, m.learned_in, \
              m.learned_at, m.superseded_by, m.hash, l.lock, m.vertical_id \

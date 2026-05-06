@@ -30,15 +30,29 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod context;
+mod embedding;
 mod entry;
+mod layers;
+mod row;
 mod skill_candidate;
 mod store;
+mod summary;
 
+#[cfg(test)]
+mod layer_tests;
 #[cfg(test)]
 mod tests;
 
+pub use context::ContextPack;
+pub use embedding::{EmbeddingProvider, Voyage3EmbeddingProvider};
 pub use entry::{MemoryEntry, MemoryFile, PrincipalOverride};
+pub use layers::{LayeredMemoryEntry, MemoryLayer, ScoredMemoryEntry};
 pub use skill_candidate::{
     parse_skill_candidate, SkillCandidate, SCHEMA_KEY_LEARNED_SKILL_CANDIDATE,
 };
 pub use store::MemoryStore;
+pub use summary::{
+    HaikuSummaryProvider, MemorySummaryProvider, MonthlySummaryReport, YearMonth,
+    NIGHTLY_SUMMARY_CRON,
+};

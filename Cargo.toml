@@ -72,6 +72,7 @@ fs2 = "0.4"
 ratatui = "0.28"
 crossterm = "0.28"
 futures = { version = "0.3", default-features = false, features = ["std"] }
+sqlite-vec = "0.1.9"
 # YAML frontmatter for skills (§14.2).
 serde_yaml = "0.9"
 # AWS Bedrock — sigv4 auth, eventstream streaming. Pulled in by argo-provider's
