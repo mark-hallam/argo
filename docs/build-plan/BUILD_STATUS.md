@@ -87,7 +87,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
 | claude-org-awareness | claude | TODO | — | V1.3 multi-worker: Org/Unit/Member/Alias primitives + manager-chain escalation; `argo org tree/member/reports-to/ingest` |
 | claude-demo-multi-vertical | claude | TODO | — | V2.2 demo verticals: customer-support + sales-sdr + marketing-intern verticals; charter + skills + Genesis archetype + demo script + e2e smoke |
-| codex-connector-salesforce | codex | TODO | — | V1.2 capability: native Salesforce MCP connector (7 methods); OAuth client-credentials + token cache; SOQL passthrough on `query`; mirror gmail/slack crate pattern |
+| codex-connector-salesforce | codex | CLAIMED | — | claimed by codex |
 | codex-connector-zendesk | codex | TODO | — | V1.2 capability: native Zendesk MCP connector (7 methods); email + token + subdomain auth; mirror gmail/slack crate pattern |
 | codex-setup-wizard-cli | codex | TODO | — | V1.4 operator UX: `argo setup` interactive wizard — 7-step checklist (doctor, workspace, vertical, worker, channel, archetype, audit); --non-interactive + --json modes |
 | codex-compliance-export-cli | codex | TODO | — | V1.1 reliability: `argo audit export --since/--until --format ndjson|csv|tarball`; chain-integrity check; --gdpr-redact-emails; tarball includes manifest+README+ndjson |
