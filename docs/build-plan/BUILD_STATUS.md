@@ -68,7 +68,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
 | H-eval-runner-cli | codex | IN_REVIEW | #840 | PR opened |
 | H-tenant-cli | codex | MERGED | #839 | `argo tenant list/info/create` for tenant management |
-| H-handoff-cancel | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
+| H-handoff-cancel | codex | CLAIMED | — | claimed by codex |
 | H-skill-export-import | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
