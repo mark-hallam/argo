@@ -110,7 +110,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
 | codex-activity-feed-cli | codex | MERGED | #860 | `argo activity tail [--tenant --worker --since]` real-time audit feed; `argo activity since <duration>`; subscribes to AuditSink::subscribe(); --json NDJSON envelope; reconnect-on-break; 4 unit + 1 CLI smoke test; 695 LOC in 8 files
 | codex-gdpr-delete-cli | codex | CLAIMED | — | claimed by codex |
-| codex-connector-linear | codex | TODO | — | V1.2 capability: native Linear MCP connector (7 methods: list_teams/list_issues/get/create/update/comment/list_workflows); GraphQL filter passthrough on list_issues; LINEAR_API_KEY bearer; mirror gmail/asana crate pattern |
+| codex-connector-linear | codex | CLAIMED | — | claimed by codex |
 | codex-connector-monday | codex | TODO | — | V1.2 capability: native Monday.com MCP connector (7 methods: list_boards/items/get/create/update_status/add_update/list_groups); MONDAY_API_TOKEN bearer; mirror crate pattern |
 | codex-connector-pagerduty | codex | TODO | — | V1.2 capability: native PagerDuty MCP connector (7 methods: list_incidents/get/create/ack/resolve/list_services/list_oncalls); PAGERDUTY_API_KEY bearer; mirror crate pattern |
 | codex-connector-fireflies | codex | TODO | — | V1.2 capability: native Fireflies.ai MCP connector for meeting transcripts (5 read-only methods: list_meetings/get/get_transcript/search/list_users); FIREFLIES_API_KEY bearer; all autonomous-safe |
