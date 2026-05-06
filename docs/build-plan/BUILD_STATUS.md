@@ -34,7 +34,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
-| H-auto-approval | claude | CLAIMED | #796 #799 #800 #801 #803 | H-1 ✓ #796 + H-2 ✓ #800 + H-3 ✓ #799 + H-4a ✓ #801 + H-4b ✓ #803 (two-tier lookup); only H-4c skill-learning loop remains |
+| H-auto-approval | claude | CLAIMED | #796 #799 #800 #801 #803 #805 | H-1 ✓ #796 + H-2 ✓ #800 + H-3 ✓ #799 + H-4a ✓ #801 + H-4b ✓ #803 + H-4c IN_REVIEW #805 (CU skill-learning primitives); pending H-4c merge for H-auto-approval to be fully MERGED |
 
 ---
 
