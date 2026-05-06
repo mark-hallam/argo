@@ -71,6 +71,15 @@ pub struct TaskNode {
     /// `depends_on` into the edge list during validation.
     #[serde(default)]
     pub depends_on: Vec<String>,
+    /// Optional whole-workflow idempotency key (Stream
+    /// `claude-checkpoint-resume`). When set, the executor
+    /// looks the key up in the checkpoint store before
+    /// invoking the runner — a hit reuses the cached output
+    /// without re-executing the task. Mainly for skipping
+    /// expensive LLM calls on retry. Distinct task ids may
+    /// share a key (e.g. "summarise-2026-Q1-deals").
+    #[serde(default)]
+    pub cache_key: Option<String>,
 }
 
 /// One edge between tasks. The parser may synthesise edges from
@@ -287,6 +296,7 @@ mod tests {
             inputs: BTreeMap::new(),
             outputs: BTreeMap::new(),
             depends_on: deps.iter().map(|s| s.to_string()).collect(),
+            cache_key: None,
         }
     }
 

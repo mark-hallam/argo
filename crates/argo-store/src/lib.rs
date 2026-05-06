@@ -12,6 +12,8 @@ mod models;
 mod session_meta;
 mod spend;
 mod stats;
+/// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
+pub mod workflow_checkpoint;
 mod workspace;
 
 pub use grants::SessionGrant;

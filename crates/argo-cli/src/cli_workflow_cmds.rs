@@ -46,4 +46,36 @@ pub enum WorkflowCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Resume a previously-checkpointed workflow run. Replays
+    /// `workflow_checkpoint` rows to restore prior outputs and
+    /// runs only the still-pending tasks.
+    Resume {
+        /// Workflow run id (UUIDv7) returned by `run`.
+        run_id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List every checkpoint persisted for one workflow run, in
+    /// seq order.
+    Checkpoints {
+        /// Workflow run id.
+        run_id: String,
+        /// Output as a single JSON array.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Drop every checkpoint row strictly above `--to-checkpoint`
+    /// for one run. Subsequent `argo workflow resume` will pick
+    /// up from the rolled-back point.
+    Rollback {
+        /// Workflow run id.
+        run_id: String,
+        /// Target seq to roll back to (rows with seq > target are dropped).
+        #[arg(long = "to-checkpoint")]
+        to_checkpoint: i64,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
 }

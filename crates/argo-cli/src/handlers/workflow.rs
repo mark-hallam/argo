@@ -34,6 +34,15 @@ pub async fn run(cmd: WorkflowCmd) -> ArgoResult<()> {
         }
         WorkflowCmd::Status { run_id, json } => status(&run_id, json).await,
         WorkflowCmd::ListRuns { limit, json } => list_runs(limit, json).await,
+        WorkflowCmd::Resume { run_id, json } => super::workflow_resume::run(&run_id, json).await,
+        WorkflowCmd::Checkpoints { run_id, json } => {
+            super::workflow_checkpoints::run(&run_id, json).await
+        }
+        WorkflowCmd::Rollback {
+            run_id,
+            to_checkpoint,
+            json,
+        } => super::workflow_rollback::run(&run_id, to_checkpoint, json).await,
     }
 }
 
@@ -92,10 +101,14 @@ async fn run_workflow(path: &std::path::Path, dry_run: bool, json: bool) -> Argo
         .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
     let store = open_store().await?;
     ensure_workflow_schema(&store).await?;
+    super::workflow_checkpoint::ensure_schema(&store)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("checkpoint schema: {e}")))?;
+    let ckpt_store = super::workflow_checkpoint::SqliteCheckpointStore::new(Arc::clone(&store));
     let request = ExecutionRequest::new(workflow.clone());
     let started_at = Utc::now();
     let report = exec
-        .execute(request)
+        .execute_with_checkpoints(request, &ckpt_store)
         .await
         .map_err(|e| ArgoError::Provider(format!("execute: {e}")))?;
     let finished_at = Utc::now();
@@ -206,7 +219,7 @@ async fn list_runs(limit: u32, json: bool) -> ArgoResult<()> {
     Ok(())
 }
 
-async fn open_store() -> ArgoResult<Arc<SessionStore>> {
+pub(super) async fn open_store() -> ArgoResult<Arc<SessionStore>> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -215,7 +228,7 @@ async fn open_store() -> ArgoResult<Arc<SessionStore>> {
     Ok(Arc::new(store))
 }
 
-async fn ensure_workflow_schema(store: &SessionStore) -> ArgoResult<()> {
+pub(super) async fn ensure_workflow_schema(store: &SessionStore) -> ArgoResult<()> {
     for stmt in SCHEMA_SQL.split_terminator(';') {
         let sql = stmt.trim();
         if sql.is_empty() {

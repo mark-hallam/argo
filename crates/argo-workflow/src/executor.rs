@@ -5,6 +5,7 @@
 //! The runner is an async trait so production callers can plug
 //! in real worker dispatch (Session-per-task per the brief);
 //! tests use [`MockRunner`].
+use crate::checkpoint::CheckpointError;
 use crate::dag::{TaskNode, Trigger, Workflow, WorkflowId};
 use crate::expr::{resolve_inputs, ExprError};
 use async_trait::async_trait;
@@ -87,12 +88,17 @@ pub enum ExecutionError {
         /// Underlying expr error.
         error: ExprError,
     },
+    /// Checkpoint backend returned an error mid-run. Treated
+    /// as fatal — silently swallowing it would defeat the
+    /// point of resume.
+    #[error("checkpoint: {0}")]
+    Checkpoint(#[from] CheckpointError),
 }
 
 /// Request handed to [`Executor::execute`].
 pub struct ExecutionRequest {
-    workflow: Workflow,
-    workflow_id: WorkflowId,
+    pub(crate) workflow: Workflow,
+    pub(crate) workflow_id: WorkflowId,
 }
 
 impl ExecutionRequest {
@@ -131,7 +137,7 @@ pub trait TaskRunner: Send + Sync {
 /// Walks a workflow's tasks in topological order via the
 /// [`TaskRunner`]; propagates outputs into downstream inputs.
 pub struct Executor<R: TaskRunner> {
-    runner: R,
+    pub(crate) runner: R,
 }
 
 impl<R: TaskRunner> Executor<R> {
@@ -223,6 +229,7 @@ impl<R: TaskRunner> Executor<R> {
             ok: ok && no_failures,
         })
     }
+
 }
 
 /// Test-only runner that echoes inputs back as outputs. The
@@ -291,6 +298,7 @@ mod tests {
             inputs: BTreeMap::new(),
             outputs: BTreeMap::new(),
             depends_on: deps.iter().map(|s| s.to_string()).collect(),
+            cache_key: None,
         }
     }
 

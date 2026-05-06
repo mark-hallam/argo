@@ -46,11 +46,14 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod checkpoint;
 mod dag;
 mod executor;
+mod executor_checkpoint;
 mod expr;
 mod yaml;
 
+pub use checkpoint::{Checkpoint, CheckpointError, CheckpointStore, InMemoryCheckpointStore};
 pub use dag::{Edge, TaskNode, Trigger, ValidationError, Workflow, WorkflowId};
 pub use executor::{
     DryRunPlan, ExecutionRequest, ExecutionReport, Executor, MockRunner, TaskOutcome, TaskRunner,
