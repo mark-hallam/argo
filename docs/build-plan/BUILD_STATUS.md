@@ -21,7 +21,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | A-executor-trait | claude | MERGED | #784 | Executor trait + manifest enum + 4 impl shape; B/C/G unblocked |
 | B-computer-use-executor | claude | MERGED | #787 | CU executor + E2B sandbox + Anthropic CU loop + marketplace_browser profile |
 | C-mcp-wire | codex | MERGED | #788 | dispatch_one routes MCP tools via per-server connection pool; manifest [mcp_servers] section + integration test landed; 5 connector briefs unblocked |
-| C-gmail | codex | CLAIMED | — | claimed by codex |
+| C-gmail | codex | IN_REVIEW | #795 | PR opened |
 | C-slack | codex | MERGED | #793 | post / list / read / dm / search via SLACK_BOT_TOKEN; integration test gated |
 | C-gcal | codex | MERGED | #791 | list / create / update / suggest_time / respond + OAuth refresh + access-token cache |
 | C-hubspot | codex | MERGED | #792 | contacts / deals / activity / pipeline + private-app token |
