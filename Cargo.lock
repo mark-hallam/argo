@@ -490,6 +490,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-slack"
+version = "0.0.1"
+dependencies = [
+ "argo-mcp",
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "argo-mcp-voice"
 version = "0.0.1"
 dependencies = [
