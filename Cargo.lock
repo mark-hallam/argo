@@ -522,6 +522,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-jira"
+version = "0.0.1"
+dependencies = [
+ "argo-mcp",
+ "argo-types",
+ "async-trait",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "argo-mcp-connector-notion"
 version = "0.0.1"
 dependencies = [

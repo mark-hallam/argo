@@ -128,6 +128,7 @@ mod worker_actions_executor_stubs;
 mod worker_actions_followup;
 mod worker_actions_items;
 mod worker_actions_list;
+mod worker_actions_query;
 mod worker_actions_render;
 mod worker_actions_transitions;
 mod worker_actions_type;
