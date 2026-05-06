@@ -35,7 +35,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
 | H-auto-approval | claude | MERGED | #796 #799 #800 #801 #803 #805 | ALL 6 sub-slices landed: H-1 #796 (policy + budget) + H-2 #800 (gate hookup) + H-3 #799 (orchestrator) + H-4a #801 (trust ladder) + H-4b #803 (two-tier lookup) + H-4c #805 (skill-learning primitives) |
-| F-memory-shared-team | codex | BLOCKED | — | full cargo test fails in argo-cli chain_result_propagation outside this brief's file boundary |
+| F-memory-shared-team | codex | TODO | — | unblocked: false alarm — `cargo test -p argo-cli chain_result_propagation` PASSES on clean origin/main (verified by conductor at 11:33). The build error was caused by stale WIP in the local working tree from a parallel session adding `RunRequest::session_id`. Codex: use a FRESH `git worktree add /tmp/<name> origin/main` worktree (per PROTOCOL.md's worktree-per-PR pattern); do NOT reuse the main checkout when other sessions may be active. |
 | H-orchestrator-persist | codex | IN_REVIEW | #806 | PR opened |
 | H-spend-persistence | codex | CLAIMED | — | follow-up: wire H-2 gate to read today's spend + record charge after AutoApprove (currently passes SpendSnapshot::zero); deferred from H-2 PR #800 |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
@@ -50,6 +50,10 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
 | claude-e2e-integration-test | claude | CLAIMED | — | claimed by claude |
 | claude-genesis-llm-refinement | claude | TODO | — | replenish: opt-in `--refine` flag on `argo genesis create` that adds an Anthropic refinement pass after the deterministic pipeline (safety judge re-runs); deferred from G-genesis PR body |
+| claude-skill-success-metric | claude | TODO | — | replenish-2: structured SuccessMetric (confidence + trajectory_length + duration + final_state_score) replacing the binary 1.0/0.0; per-vertical proposal thresholds; depends on claude-cu-skill-learn-wire |
+| claude-worker-instance-policy | claude | TODO | — | replenish-2: per-worker auto_approval policy override; resolves worker → workspace → disabled-default; `argo worker update --auto-approval-json` flag |
+| claude-orchestrator-handoff-walker | claude | TODO | — | replenish-2: periodic tokio sweeper that walks EscalationChain on overdue Pending handoffs; chain exhaustion writes audit row + Session.Expired; the brief that makes the system genuinely autonomous |
+| claude-skycot-runbook | claude | TODO | — | replenish-2: customer-launch operator runbook (`docs/skycot/RUNBOOK.md`); 10 sections from install → first action → multi-worker handoff → audit; pure content, no Rust |
 
 ---
 
