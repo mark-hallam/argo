@@ -23,6 +23,13 @@ unlock.
 - `crates/argo-tool/src/registry.rs` (tool registry)
 - `crates/argo-mcp/src/client.rs` (any tweaks needed to make
   the client embeddable)
+- `crates/argo-vertical/src/manifest.rs` and/or sibling
+  `manifest_*.rs` files — narrowly scoped: add a NEW
+  `McpServersSection` (struct + re-export) for the
+  `[mcp_servers]` section. Do NOT modify any existing
+  declaration in those files.
+- `crates/argo-vertical/src/lib.rs` — narrowly scoped: add the
+  re-export for the new section.
 
 ## Files you must NOT touch
 - `crates/argo-cli/**` (executor dispatch is Stream A)
