@@ -252,6 +252,44 @@ Default action: fix the exhaustive match in place.
 
 ---
 
+## Tick 115 amendment: claim-collision defenses
+
+Three collision patterns observed and codified:
+
+1. **Auto-compaction-amnesia** — a tab finishes a brief, gets
+   auto-compacted, comes back not knowing its own work shipped,
+   re-implements the same brief. **Defense**: worker prompts
+   now include a PRE-PUSH FLIGHT CHECK (step 8) — re-pull main
+   + grep BUILD_STATUS for the brief-id before pushing the
+   feature branch. If MERGED → graceful exit. Stops 90% of
+   duplicate-PR situations.
+
+2. **False-positive stale-sweep + late recovery** — conductor
+   sweeps a 30-min CLAIMED row to TODO, fresh tab claims, but
+   the original tab was alive in slow build/test, eventually
+   pushes a PR → conflict. **Defense**: stale-sweep threshold
+   bumped from 30 min to **45 min**. Big briefs (architectural,
+   multi-crate) legitimately need 30+ min for cargo build +
+   test + clippy; 45-min threshold reduces false positives.
+
+3. **Simultaneous next-claim race** — two tabs finish
+   near-concurrently, claim the same next-TODO row, race
+   resolved by first-push-wins. **Defenses**:
+   (a) Worker prompts now include ITERATION JITTER (step 12) —
+   sleep random 5-30s before next claim, spreads tabs out.
+   (b) RACE-LOST HANDLING (step 3) is more explicit: pull,
+   re-read ledger, claim a DIFFERENT row (never retry the
+   same one).
+
+**Conductor habit (tick 115)**: when manually opening a PR for
+a stalled worker (worker pushed branch but didn't `gh pr create`),
+add a note to the BUILD_STATUS row: "conductor-opened; original
+tab should self-exit on next ledger re-read". This way the
+original tab's RULE 3 check (don't reimplement merged briefs)
+fires correctly post-compaction.
+
+---
+
 ## Known dependencies
 
 ```

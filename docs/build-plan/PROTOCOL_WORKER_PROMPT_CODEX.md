@@ -53,7 +53,12 @@ ITERATION (repeat as long as the loop conditions hold):
 
 3. Claim the row: edit BUILD_STATUS.md to set that row's status to CLAIMED.
    git commit -m "status: claim <brief-id>" && git push origin main
-   If push fails (someone else won the race), pull and pick a different row.
+   RACE-LOST HANDLING: If push fails (non-fast-forward), do this exact dance:
+     a. git pull --ff-only origin main  (NOT git pull —rebase; clean ff only)
+     b. Re-read BUILD_STATUS.md from disk (don't trust memory)
+     c. Pick a DIFFERENT TODO row — never retry the same row you just lost
+     d. Claim the new row + push
+   If push fails AGAIN: you may be in a degraded state; exit cleanly per RULE 4.
 
 4. Read docs/build-plan/streams/<brief-id>.md. This is the spec.
 
@@ -72,7 +77,16 @@ ITERATION (repeat as long as the loop conditions hold):
    3-ATTEMPT FAIL RULE: if clippy or tests fail and you cannot fix it in 3 attempts (3 distinct edit-then-rerun cycles), stop trying. Mark the brief BLOCKED in BUILD_STATUS.md with a one-line reason ("clippy: <error>" or "test: <test_id> failing with <error>"), commit + push, and loop to step 1 to pick a different TODO row. Do NOT thrash forever on one brief.
    Re-read RULE 1 at the top of this prompt before deciding to mark BLOCKED. Pre-existing flakes outside your may-touch list = push with a Boundary note, not BLOCKED.
 
-8. git push -u origin codex-<brief-id>
+8. PRE-PUSH FLIGHT CHECK (added tick115 — race-collision defense):
+   Before pushing your feature branch, do this in the main checkout (not the worktree):
+     a. git fetch origin main
+     b. grep for your brief-id in docs/build-plan/BUILD_STATUS.md
+     c. If your brief is now MERGED on main (not CLAIMED-by-you): another tab beat you to it.
+        Do NOT push. Run graceful exit (RULE 4 protocol). Your work is duplicate.
+     d. If your brief is still CLAIMED by you (the expected state): proceed to push.
+   This 10-second check prevents 90% of duplicate-PR situations caused by auto-compaction-amnesia or sweep-then-recovery.
+
+   git push -u origin codex-<brief-id>
    If push fails because main moved during your implementation: cd to your worktree, `git fetch origin main && git rebase origin/main`, resolve any conflicts strictly within your may-touch list, retry the push. Do NOT force-push to main; --force-with-lease on YOUR feature branch is acceptable after a rebase.
    gh pr create --title "<brief PR title>" --body "Brief: docs/build-plan/streams/<brief-id>.md
 
@@ -93,7 +107,9 @@ Deviations: [none / describe]"
 
 11. Run /compact to summarize this iteration's history before starting the next one. Do this every iteration; without it, context grows ~30K tokens/iteration and auto-compaction will fire eventually.
 
-12. Re-check stop conditions (RULE 4). If any fired, follow the graceful exit protocol. Otherwise loop back to step 1. The next iteration starts with a fresh `git pull` — the ledger on origin/main is your source of truth, not your memory.
+12. ITERATION JITTER (added tick115 — collision spreading): before looping back to step 1, sleep a random 5-30 seconds. This prevents simultaneous-finishing tabs from dog-piling on the same next-TODO row. Implementation: sleep $((RANDOM % 26 + 5)) (bash) or equivalent.
+
+13. Re-check stop conditions (RULE 4). If any fired, follow the graceful exit protocol. Otherwise loop back to step 1. The next iteration starts with a fresh `git pull` — the ledger on origin/main is your source of truth, not your memory.
 
 Hard rules:
 - Loop endlessly while queue has work AND your context is healthy. NO fixed PR cap. The mission is throughput. Self-degradation detection (RULE 4) is the safety net, not an iteration counter.
