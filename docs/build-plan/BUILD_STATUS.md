@@ -68,7 +68,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
 | H-eval-runner-cli | codex | MERGED | #840 | `argo eval run --vertical <id>` runs eval seed against worker pipeline; unblocks claude-eval-streaming |
 | H-tenant-cli | codex | MERGED | #839 | `argo tenant list/info/create` for tenant management |
-| H-handoff-cancel | codex | CLAIMED | — | claimed by codex |
+| H-handoff-cancel | codex | IN_REVIEW | #843 | PR open: orchestrator handoff cancel + Cancelled lifecycle |
 | H-skill-export-import | codex | BLOCKED | — | blocked: brief scope requires `argo skill export/import`, but may-touch only `cli_skill_review_cmds.rs` which can only wire `argo skill review ...`; correct wiring needs `cli_subcommands.rs` outside boundary |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
