@@ -124,6 +124,12 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-tenant-cli-extensions | codex | TODO | — | V1.x: extend `argo tenant` with rename/archive/transfer; soft-delete via archived_at col; transfer audit-logged; `--include-archived` flag for list; --json envelope |
 | codex-genesis-refine-cli | codex | TODO | — | V1.x: `argo genesis refine <id>` re-refines existing verticals via LLM (reuses #812 prompt + safety judge); --dry-run + --no-judge + --max-iterations; persists versioned old vertical kept as <id>-v<n> |
 | claude-memory-tool-wire | claude | TODO | — | re-evaluation of stale PR #775 (`claude/memory-tool-wiring`, cut before #788 + 13 other commits) — wires `memory.list/read/write` through MemoryStore with vertical-scope correctness fix (writes via `append_for_vertical` when session bound); approach validated, re-implementing on fresh main; operator may close #775 once this lands |
+| codex-connector-discord | codex | TODO | — | V1.2 capability: native Discord MCP connector (7 methods: list_guilds/channels/messages, get/send_message, add_reaction, list_members); DISCORD_BOT_TOKEN bot auth; mirror gmail/asana crate pattern |
+| codex-vertical-archive-cli | codex | TODO | — | V1.x: `argo vertical archive/unarchive/delete <id>` symmetric to tenant-archive; --include-archived flag; delete --force only after archive; preserves audit chain via redaction |
+| codex-cost-by-skill-cli | codex | TODO | — | V1.x: `argo budget by-skill` top-N spend ranking + per-skill --history; joins worker_action/spend_ledger/skill; --json envelope; 4 unit tests + smoke |
+| codex-doctor-fix-cli | codex | TODO | — | V1.4: `argo doctor fix [--auto] [--issue <id>]` 3 categories (safe / confirmation / unsafe); audit-rowed per fix; safe set: missing dirs, stale lock, default policy template |
+| claude-skill-quality-judge | claude | TODO | — | V2.0 self-improvement: per-skill 0-100 quality score (success_rate + latency + retry_count + p99); skill_quality_score table; nightly recompute tick; `argo skill quality/quality-list/quality-recompute`; --quality-min filter on skill list |
+| claude-handoff-routing-rules | claude | TODO | — | V1.3 multi-worker: declarative HandoffRoutingRule DSL (YAML/TOML — when/then with skill_match/role_match/round_robin/specific_worker); HandoffWalker consults rules before explicit target; `argo handoff rules list/show/add/remove/test` |
 
 ---
 
