@@ -26,6 +26,7 @@
 //! `argo_vertical::ExecutorDeclaration`.
 
 use super::worker_actions::ActionRecord;
+use super::worker_actions_executor_code::CodeExecutor;
 use super::worker_actions_executor_stubs::{
     ApiExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
 };
@@ -55,6 +56,9 @@ pub(crate) enum ExecutorKind {
     /// Sandboxed filesystem operations rooted at `worker.fs_root`.
     /// Wired by `claude-filesystem-executor` (V1.2 capability).
     Filesystem,
+    /// Sandboxed Python / Node code execution. Wired by
+    /// `claude-code-execution-executor` (V1.2 capability).
+    CodeExecution,
 }
 
 impl ExecutorKind {
@@ -68,9 +72,10 @@ impl ExecutorKind {
             "computer_use" => Ok(Self::ComputerUse),
             "api" => Ok(Self::Api),
             "filesystem" => Ok(Self::Filesystem),
+            "code_execution" => Ok(Self::CodeExecution),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
-                 valid: human | mcp | computer_use | api | filesystem"
+                 valid: human | mcp | computer_use | api | filesystem | code_execution"
             ))),
         }
     }
@@ -164,6 +169,7 @@ pub(crate) fn resolve_executor(
         }
         ExecutorKind::Api => Box::new(ApiExecutor::new()),
         ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
+        ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
     };
     Ok(exec)
 }
