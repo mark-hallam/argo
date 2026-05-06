@@ -92,6 +92,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if let Some(panel) = state.h_budget_overlay.as_ref() {
         crate::overlays_budget::draw_budget(frame, area, panel);
     }
+    if let Some(replay) = state.replay_overlay.as_ref() {
+        crate::overlays_replay::draw_replay(frame, area, replay);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
