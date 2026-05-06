@@ -4,6 +4,8 @@
 //! both files stay under the 500-LOC ceiling.
 #[path = "cli_action_cmds.rs"]
 mod cli_action_cmds;
+#[path = "cli_audit_cmds.rs"]
+mod cli_audit_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
 #[path = "cli_forge_cmds.rs"]
@@ -31,6 +33,7 @@ pub(crate) mod cli_worker_cmds;
 #[path = "cli_workspace_cmds.rs"]
 pub(crate) mod cli_workspace_cmds;
 pub use cli_action_cmds::*;
+pub use cli_audit_cmds::AuditQueryCmd;
 pub use cli_budget_cmds::*;
 pub use cli_genesis_cmds::*;
 pub use cli_session_cmds::*;
@@ -149,7 +152,7 @@ pub enum Command {
     },
     Audit {
         #[command(subcommand)]
-        cmd: AuditCmd,
+        cmd: AuditQueryCmd,
     },
     /// First-time interactive setup. Mirrors the
     /// `curl … | bash && argo setup` Hermes-style two-step

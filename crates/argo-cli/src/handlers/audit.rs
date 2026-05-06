@@ -1,5 +1,5 @@
 //! `argo audit` — chain inspection / verification / export.
-use crate::cli::AuditCmd;
+use crate::cli::AuditQueryCmd as AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{export_ndjson, rows_for_session, tail_rows, verify_all, verify_session};
 use argo_store::SessionStore;
@@ -265,6 +265,31 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 }
             }
             Ok(())
+        }
+        AuditCmd::Query {
+            decision,
+            worker,
+            session,
+            escalation,
+            since,
+            until,
+            limit,
+            json,
+        } => {
+            super::audit_query::run(
+                &store,
+                super::audit_query::QueryArgs {
+                    decision,
+                    worker,
+                    session,
+                    escalation,
+                    since,
+                    until,
+                    limit,
+                    json,
+                },
+            )
+            .await
         }
         AuditCmd::Export {
             format,
