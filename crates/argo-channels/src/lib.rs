@@ -19,6 +19,7 @@
 
 pub mod email;
 pub mod manifest;
+pub mod slack;
 pub mod token;
 
 use async_trait::async_trait;

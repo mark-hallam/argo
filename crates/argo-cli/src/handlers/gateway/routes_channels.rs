@@ -20,9 +20,18 @@ struct TokenClaims {
 pub(super) fn is_email_webhook(req: &str) -> bool {
     req.starts_with("POST /channels/email/webhook ")
         || req.starts_with("POST /channels/email/webhook?")
+        || is_slack_webhook(req)
+}
+
+fn is_slack_webhook(req: &str) -> bool {
+    req.starts_with("POST /channels/slack/webhook ")
+        || req.starts_with("POST /channels/slack/webhook?")
 }
 
 pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) {
+    if is_slack_webhook(req) {
+        return slack_webhook_response(req).await;
+    }
     let Ok(secret) = std::env::var("ARGO_CHANNEL_HMAC_SECRET") else {
         return server_error("missing ARGO_CHANNEL_HMAC_SECRET");
     };
@@ -49,13 +58,54 @@ pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) 
     };
     let actor = actor_from_payload(&parsed);
     let note = note_from_payload(&parsed);
-    match settle(&claims, &actor, note.as_deref()).await {
+    match settle(&claims, &actor, note.as_deref(), "email").await {
         Ok(v) => ("200 OK", v),
         Err(e) => server_error(&e.to_string()),
     }
 }
 
-async fn settle(claims: &TokenClaims, actor: &str, note: Option<&str>) -> ArgoResult<String> {
+async fn slack_webhook_response(req: &str) -> (&'static str, String) {
+    let Ok(signing_secret) = std::env::var("SLACK_APPROVALS_SIGNING_SECRET") else {
+        return server_error("missing SLACK_APPROVALS_SIGNING_SECRET");
+    };
+    let Ok(hmac_secret) = std::env::var("ARGO_CHANNEL_HMAC_SECRET") else {
+        return server_error("missing ARGO_CHANNEL_HMAC_SECRET");
+    };
+    let body = super::body_from_request(req);
+    let Some(sig) = header_value(req, "X-Slack-Signature") else {
+        return unauthorized("missing X-Slack-Signature");
+    };
+    let Some(ts) = header_value(req, "X-Slack-Request-Timestamp") else {
+        return unauthorized("missing X-Slack-Request-Timestamp");
+    };
+    if !verify_slack_signature(body, ts, sig, &signing_secret) {
+        return unauthorized("invalid X-Slack-Signature");
+    }
+    let parsed = match slack_payload(body) {
+        Ok(v) => v,
+        Err(e) => return bad_request(&e),
+    };
+    let Some(token) = slack_action_token(&parsed) else {
+        return bad_request("missing Slack action token");
+    };
+    let claims = match verify_token(&token, &hmac_secret) {
+        Ok(c) => c,
+        Err(e) => return unauthorized(&e),
+    };
+    let actor = slack_actor(&parsed);
+    let note = slack_note(&parsed);
+    match settle(&claims, &actor, note.as_deref(), "slack").await {
+        Ok(v) => ("200 OK", v),
+        Err(e) => server_error(&e.to_string()),
+    }
+}
+
+async fn settle(
+    claims: &TokenClaims,
+    actor: &str,
+    note: Option<&str>,
+    source: &str,
+) -> ArgoResult<String> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     let located = worker_actions_transitions::find_action(&memory, ws, &claims.approval_id)
         .await?
@@ -96,7 +146,7 @@ async fn settle(claims: &TokenClaims, actor: &str, note: Option<&str>) -> ArgoRe
             .to_string())
         }
         Decision::Reject => {
-            let rec = reject_action(&memory, ws, &located, actor, note).await?;
+            let rec = reject_action(&memory, ws, &located, actor, note, source).await?;
             Ok(serde_json::json!({
                 "ok": true,
                 "approval_id": rec.action_id,
@@ -115,6 +165,7 @@ async fn reject_action(
     located: &worker_actions_transitions::LocatedAction,
     actor: &str,
     note: Option<&str>,
+    source: &str,
 ) -> ArgoResult<ActionRecord> {
     let now = chrono::Utc::now().to_rfc3339();
     let mut next = located.record.clone();
@@ -122,10 +173,10 @@ async fn reject_action(
     next.created_at = now.clone();
     next.approved_by = Some(actor.to_string());
     next.approved_at = Some(now);
-    next.blocked_reason = Some(format!("rejected by {actor} via email"));
+    next.blocked_reason = Some(format!("rejected by {actor} via {source}"));
     next.result = Some(serde_json::json!({
         "decision": "reject",
-        "source": "email",
+        "source": source,
         "note": note,
     }));
     let body = serde_json::to_string(&next)
@@ -164,6 +215,89 @@ fn header_value<'a>(req: &'a str, name: &str) -> Option<&'a str> {
         }
     }
     None
+}
+
+fn slack_payload(body: &str) -> Result<Value, String> {
+    let raw = form_value(body, "payload").unwrap_or_else(|| body.to_string());
+    serde_json::from_str::<Value>(&raw).map_err(|e| format!("parse Slack payload: {e}"))
+}
+
+fn slack_action_token(v: &Value) -> Option<String> {
+    v.get("actions")?
+        .as_array()?
+        .first()?
+        .get("value")?
+        .as_str()
+        .map(str::to_string)
+}
+
+fn slack_actor(v: &Value) -> String {
+    v.get("user")
+        .and_then(|u| u.get("id"))
+        .and_then(|x| x.as_str())
+        .or_else(|| v.get("user")?.get("username").and_then(|x| x.as_str()))
+        .unwrap_or("slack-operator")
+        .to_string()
+}
+
+fn slack_note(v: &Value) -> Option<String> {
+    v.get("actions")?
+        .as_array()?
+        .first()?
+        .get("action_id")?
+        .as_str()
+        .map(str::to_string)
+}
+
+fn verify_slack_signature(body: &str, ts: &str, sig: &str, secret: &str) -> bool {
+    let Ok(ts_num) = ts.parse::<i64>() else {
+        return false;
+    };
+    if (chrono::Utc::now().timestamp() - ts_num).abs() > 300 {
+        return false;
+    }
+    let base = format!("v0:{ts}:{body}");
+    let expected = format!("v0={}", hmac_hex(base.as_bytes(), secret.as_bytes()));
+    constant_time_eq(expected.as_bytes(), sig.trim().as_bytes())
+}
+
+fn form_value(body: &str, key: &str) -> Option<String> {
+    for kv in body.split('&') {
+        let (k, v) = kv.split_once('=')?;
+        if percent_decode(k).as_deref() == Some(key) {
+            return percent_decode(v);
+        }
+    }
+    None
+}
+
+fn percent_decode(s: &str) -> Option<String> {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => out.push(b' '),
+            b'%' if i + 2 < bytes.len() => {
+                let hi = hex_val(bytes[i + 1])?;
+                let lo = hex_val(bytes[i + 2])?;
+                out.push((hi << 4) | lo);
+                i += 2;
+            }
+            b => out.push(b),
+        }
+        i += 1;
+    }
+    String::from_utf8(out).ok()
+}
+
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
+    }
 }
 
 fn actor_from_payload(v: &Value) -> String {
@@ -339,5 +473,27 @@ mod tests {
         let token = format!("act.approve.{exp}.{sig}");
         let claims = verify_token(&token, "secret").expect("claims");
         assert_eq!(claims.approval_id, "act");
+    }
+
+    #[test]
+    fn parses_slack_interactivity_payload() {
+        let body = "payload=%7B%22user%22%3A%7B%22id%22%3A%22U1%22%7D%2C%22actions%22%3A%5B%7B%22action_id%22%3A%22approve%22%2C%22value%22%3A%22act.approve.999.sig%22%7D%5D%7D";
+        let parsed = slack_payload(body).expect("payload");
+        assert_eq!(slack_actor(&parsed), "U1");
+        assert_eq!(
+            slack_action_token(&parsed),
+            Some("act.approve.999.sig".into())
+        );
+    }
+
+    #[test]
+    fn verifies_slack_signature() {
+        let ts = chrono::Utc::now().timestamp().to_string();
+        let body = "payload=ok";
+        let sig = format!(
+            "v0={}",
+            hmac_hex(format!("v0:{ts}:{body}").as_bytes(), b"secret")
+        );
+        assert!(verify_slack_signature(body, &ts, &sig, "secret"));
     }
 }

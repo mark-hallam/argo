@@ -1,0 +1,19 @@
+[channel]
+id = "slack"
+provider = "slack"
+bot_token_env = "SLACK_APPROVALS_BOT_TOKEN"
+signing_secret_env = "SLACK_APPROVALS_SIGNING_SECRET"
+webhook_path = "/channels/slack/webhook"
+endpoint = "https://slack.com/api/chat.postMessage"
+
+[hmac]
+secret_env = "ARGO_CHANNEL_HMAC_SECRET"
+token_ttl_seconds = 86400
+
+[operator.default]
+workspace_id = "T00000000"
+channel_id = "C00000000"
+user_id = ""
+
+[action.high_risk.approval]
+channels = ["slack"]
