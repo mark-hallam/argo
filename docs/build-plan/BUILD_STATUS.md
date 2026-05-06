@@ -51,7 +51,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-audit-query-extensions | codex | IN_REVIEW | #833 | H-stack audit query filters |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
 | H-shared-team-cli | codex | TODO | — | unblocked v2: handlers/memory.rs fully may-touch for any extension needed (match arms, helpers, exhaustiveness). The BLANKET CLI ALLOWLIST already covers cli.rs + main.rs + handlers/mod.rs |
-| H-vertical-list-cli | codex | CLAIMED | — | claimed by codex |
+| H-vertical-list-cli | codex | IN_REVIEW | #834 | PR opened |
 | H-worker-list-cli | codex | TODO | — | unblocked v3: existing file is `handlers/worker_actions.rs` (NOT handlers/worker.rs). Brief amended: handlers/worker_actions.rs is fully may-touch for new dispatch arms + WorkerCmd extensions; new sibling handlers/worker_list.rs (NEW) for the list/show implementation |
 | H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
