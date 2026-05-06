@@ -11,19 +11,36 @@ separates them.
 
 ## Files you may touch
 - `crates/argo-identity/**` (NEW)
-- `Cargo.toml`
+- `Cargo.toml` (workspace member only)
 - `crates/argo-store/migrations/<next>__worker_identity.sql`
   (NEW migration adding tables)
-- `crates/argo-cli/src/cli_worker_cmds.rs` (extend with
-  `argo worker create / show / list` for the identity layer —
-  reuses the existing `worker` subcommand namespace)
-- `crates/argo-cli/src/handlers/worker_create.rs` (NEW)
+- `crates/argo-cli/src/cli_worker_cmds.rs` (extend `WorkerCmd`
+  enum with new `Create / Show / List` variants — do not
+  modify existing `Actions`, `Items`, `Doctor` variants)
+- `crates/argo-cli/src/handlers/worker_create.rs` (NEW handler
+  module)
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly scoped:
+  add ONE line `pub mod worker_create;` (or
+  `mod worker_create;` if pub is not needed). Do not modify
+  any other declarations.
+- `crates/argo-cli/src/handlers/worker_actions.rs` — narrowly
+  scoped: add new arms to the `match cmd { ... }` dispatcher
+  for the new `WorkerCmd::Create | Show | List` variants,
+  routing them to `worker_create::run / show / list`. Do not
+  modify any existing arms or any function in this file
+  outside the dispatcher's match block.
 
 ## Files you must NOT touch
 - `crates/argo-vertical/**` (templates stay as-is)
 - `Executor` trait
 - `argo-channels`
 - Any other stream's files
+- Any function in `worker_actions.rs` other than the
+  dispatcher match block (e.g. do not touch `find_action`,
+  helper functions, etc.)
+- Any other file in `crates/argo-cli/src/handlers/` other
+  than `mod.rs` (one-line add) and the new
+  `worker_create.rs`
 
 ## Acceptance criteria
 - [ ] Types: `Worker { id, tenant_id, vertical_id, persona,
