@@ -50,10 +50,10 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | CLAIMED | — | claimed by codex |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | BLOCKED | — | adding MemoryCmd variant requires touching handlers/memory.rs exhaustiveness, but brief forbids any other handler |
+| H-shared-team-cli | codex | TODO | — | unblocked v2: handlers/memory.rs fully may-touch for any extension needed (match arms, helpers, exhaustiveness). The BLANKET CLI ALLOWLIST already covers cli.rs + main.rs + handlers/mod.rs |
 | H-vertical-list-cli | codex | CLAIMED | — | claimed by codex |
-| H-worker-list-cli | codex | BLOCKED | — | brief names missing handlers/worker.rs; required WorkerCmd changes need worker_actions.rs dispatch outside may-touch |
-| H-genesis-list-templates | codex | IN_REVIEW | #830 | PR opened |
+| H-worker-list-cli | codex | TODO | — | unblocked v3: existing file is `handlers/worker_actions.rs` (NOT handlers/worker.rs). Brief amended: handlers/worker_actions.rs is fully may-touch for new dispatch arms + WorkerCmd extensions; new sibling handlers/worker_list.rs (NEW) for the list/show implementation |
+| H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | MERGED | #822 | 3 ratatui overlays (O sessions / H handoffs / B budget) reading via gateway HTTP; renders "Gateway unreachable" cleanly while H-orchestrator-routes pending; 14 new tests (9 snapshot + 5 input) |
 | claude-e2e-integration-test | claude | MERGED | #810 | 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition — see claude-action-record-identity-plumbing + claude-e2e-test-step-completion follow-ups) |
