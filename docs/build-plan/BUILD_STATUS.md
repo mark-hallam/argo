@@ -77,7 +77,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-circuit-breaker | codex | BLOCKED | — | blocked: brief requires Worker::circuit_state but may-touch omits crates/argo-identity/src/types.rs where Worker is defined |
 | codex-multi-step-approval | codex | BLOCKED | — | blocked: brief references nonexistent crates/argo-identity/src/worker_action.rs and crates/argo-runtime/src/auto_approval.rs; actual action schema/gate live outside may-touch |
 | codex-connector-stripe | codex | BLOCKED | — | blocked: brief targets nonexistent argo-mcp connectors module and cli_connector_cmds; existing connector pattern uses separate argo-mcp-connector-* crates outside may-touch |
-| codex-connector-jira | codex | CLAIMED | — | claimed by codex |
+| codex-connector-jira | codex | BLOCKED | — | blocked: brief targets nonexistent argo-mcp connectors module and cli_connector_cmds; existing connector pattern uses separate argo-mcp-connector-* crates outside may-touch |
 | codex-connector-asana | codex | TODO | — | V1.2 capability: native Asana MCP connector (8 methods); ASANA_PAT auth |
 | codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: `argo skill search <query>` cross-tenant OCI registry search; --trust-min/--tenant/--limit/--json |
 | claude-anomaly-detector | claude | TODO | — | V1.1 reliability: per-(worker, action_kind) Welford running stats + z-score; insert anomaly events when |z|>threshold; CLI + TUI Z overlay |
