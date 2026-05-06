@@ -43,7 +43,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-skill-library-routes | codex | MERGED | #817 | gateway HTTP endpoints `GET /skills?risk=...` + `GET /skills/<name>` exposing the H-4b LayeredLookup; workspace overrides library on duplicates; 400 on invalid risk |
 | H-budget-cli | codex | CLAIMED | — | claimed by codex |
 | H-doctor-extensions | codex | MERGED | #808 | 4 new `argo doctor` checks for the H-stack: workspace policy presence + bare-enabled WARN, worker_budget table reachable, session/handoff tables (MISSING-friendly), notify-channel manifests; 9 unit tests + JSON envelope extension |
-| H-metrics | codex | CLAIMED | — | claimed by codex |
+| H-metrics | codex | BLOCKED | - | blocked: metrics scrape needs forbidden route/dependency scope; handler over 500 LOC |
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | TODO | — | replenish-codex: `argo skill review list/show/approve/reject` for pending_review lifecycle; the OPERATOR-FACING half of the skill-learning loop |
