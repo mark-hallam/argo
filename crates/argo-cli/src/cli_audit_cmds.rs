@@ -197,4 +197,21 @@ pub enum AuditQueryCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Replay one session's audit chain in seq order for incident
+    /// investigation (Stream `claude-audit-replay`). `pretty`
+    /// (default) prints one-line headlines per row; `raw` emits
+    /// NDJSON for piping into `jq`.
+    Replay {
+        /// Session id (UUID) to replay.
+        session_id: String,
+        /// Lower bound on `seq` (inclusive).
+        #[arg(long)]
+        from_seq: Option<i64>,
+        /// Upper bound (inclusive) on `created_at` as RFC-3339.
+        #[arg(long)]
+        until: Option<String>,
+        /// Output format: `pretty` (default) or `raw` (NDJSON).
+        #[arg(long, default_value = "pretty")]
+        format: String,
+    },
 }

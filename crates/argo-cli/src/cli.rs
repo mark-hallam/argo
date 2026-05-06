@@ -20,6 +20,8 @@ mod cli_memory_cmd;
 mod cli_messages_cmds;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
+#[path = "cli_skill_conflicts_cmds.rs"]
+mod cli_skill_conflicts_cmds;
 #[path = "cli_skill_review_cmds.rs"]
 mod cli_skill_review_cmds;
 #[path = "cli_subcommands.rs"]

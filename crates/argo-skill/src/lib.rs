@@ -20,6 +20,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod conflicts;
 pub mod learn;
 pub mod library;
 mod parse;
@@ -36,6 +37,7 @@ pub use learn::{should_propose, SkillCandidate, DEFAULT_SUCCESS_THRESHOLD};
 pub use success_metric::{
     should_propose_metric, ProposalThreshold, SuccessMetric,
 };
+pub use conflicts::{detect_conflicts, parse_keep_flag, render_diff, SkillConflict};
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};

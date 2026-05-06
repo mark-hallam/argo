@@ -213,6 +213,13 @@ pub enum SkillCmd {
         #[command(subcommand)]
         cmd: SkillReviewCmd,
     },
+    /// Inspect + resolve workspace ↔ library skill name
+    /// collisions surfaced by the H-4b layered lookup
+    /// (Stream `claude-skill-conflict-resolution`).
+    Conflicts {
+        #[command(subcommand)]
+        cmd: SkillConflictsCmd,
+    },
     /// Append a hint to the active skill's body and supersede it
     /// with a fresh version. Manual mutator — the score-driven
     /// version (run bench, accept only when the new score wins)
@@ -499,5 +506,6 @@ pub use super::cli_workspace_cmds::{CostsCmd, DbCmd, WorkspaceCmd};
 
 // `SkillReviewCmd` (#684) lives in `cli_skill_review_cmds.rs`
 // to keep this file under the 500-LOC budget.
+pub use super::cli_skill_conflicts_cmds::SkillConflictsCmd;
 pub use super::cli_skill_review_cmds::SkillReviewCmd;
 

@@ -81,6 +81,7 @@ mod session_turns;
 mod session_watch;
 pub mod setup;
 pub mod skill;
+pub mod skill_conflicts;
 pub mod skill_review;
 mod skill_review_candidates;
 pub mod steer;
