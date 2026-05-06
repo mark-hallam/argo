@@ -69,6 +69,28 @@ pub enum WorkerItemsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Show the full action history for one item, in time order.
+    /// Unlike `actions list --item-id <id>` (which shows the
+    /// latest snapshot per action), `items show` walks every
+    /// `worker_action` memory row tagged with the given
+    /// `item_id` so the operator can audit who approved what,
+    /// when it executed, and what the result was. Designed for
+    /// "why is skates-A still in inventory?" forensics.
+    Show {
+        /// The `item_id` to inspect. Exact-match against the
+        /// `item_id` field stamped at emission time.
+        item_id: String,
+        /// Filter to a single vertical's namespace. When the
+        /// same item_id exists under multiple verticals (rare
+        /// but possible), required to disambiguate.
+        #[arg(long)]
+        vertical: Option<String>,
+        /// Emit JSON (full row dump) instead of the human-
+        /// readable timeline. JSON output is one object per row
+        /// in chronological order.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

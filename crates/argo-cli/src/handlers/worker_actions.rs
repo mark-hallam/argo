@@ -189,6 +189,9 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             WorkerItemsCmd::List { vertical, state, limit, json } => {
                 super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await
             }
+            WorkerItemsCmd::Show { item_id, vertical, json } => {
+                super::worker_actions_items::show(&item_id, vertical.as_deref(), json).await
+            }
         },
         WorkerCmd::Actions(actions_cmd) => match actions_cmd {
             WorkerActionsCmd::List {
