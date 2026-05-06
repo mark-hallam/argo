@@ -35,6 +35,9 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
 | H-auto-approval | claude | CLAIMED | #796 #799 #800 #801 #803 #805 | H-1 ✓ #796 + H-2 ✓ #800 + H-3 ✓ #799 + H-4a ✓ #801 + H-4b ✓ #803 + H-4c IN_REVIEW #805 (CU skill-learning primitives); pending H-4c merge for H-auto-approval to be fully MERGED |
+| F-memory-shared-team | codex | TODO | — | follow-up: `MemoryNs::shared_team(tenant)` + author-stamped writes; deferred from H-3 PR #799 |
+| H-orchestrator-persist | codex | TODO | — | follow-up: sqlite persistence for Session + Handoff types; migration + repository methods; deferred from H-3 |
+| H-spend-persistence | codex | TODO | — | follow-up: wire H-2 gate to read today's spend + record charge after AutoApprove (currently passes SpendSnapshot::zero); deferred from H-2 PR #800 |
 
 ---
 
