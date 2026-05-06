@@ -34,6 +34,8 @@ mod cli_subcommands;
 mod cli_tenant_cmds;
 #[path = "cli_vertical_cmds.rs"]
 mod cli_vertical_cmds;
+#[path = "cli_workflow_cmds.rs"]
+mod cli_workflow_cmds;
 #[path = "cli_work_cmds.rs"]
 pub(crate) mod cli_work_cmds;
 #[path = "cli_worker_cmds.rs"]
@@ -50,6 +52,7 @@ pub use cli_subcommands::*;
 pub use cli_tenant_cmds::TenantCmd;
 pub use cli_work_cmds::WorkCmd;
 pub use cli_worker_cmds::WorkerCmd;
+pub use cli_workflow_cmds::WorkflowCmd;
 
 use clap::{Parser, Subcommand};
 
@@ -158,6 +161,14 @@ pub enum Command {
     Tenant {
         #[command(subcommand)]
         cmd: TenantCmd,
+    },
+    /// Declarative DAG workflows across multiple workers (Stream
+    /// `claude-workflow-dag`). YAML schema describing tasks +
+    /// edges; runs each task as a Session with output binding
+    /// from upstream tasks.
+    Workflow {
+        #[command(subcommand)]
+        cmd: WorkflowCmd,
     },
     /// Action debugging tools that do not mutate the action ledger.
     Action {
