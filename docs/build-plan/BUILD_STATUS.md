@@ -22,7 +22,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | B-computer-use-executor | claude | MERGED | #787 | CU executor + E2B sandbox + Anthropic CU loop + marketplace_browser profile |
 | C-mcp-wire | codex | MERGED | #788 | dispatch_one routes MCP tools via per-server connection pool; manifest [mcp_servers] section + integration test landed; 5 connector briefs unblocked |
 | C-gmail | codex | CLAIMED | — | claimed by codex |
-| C-slack | codex | CLAIMED | — | claimed by codex |
+| C-slack | codex | IN_REVIEW | #793 | PR opened |
 | C-gcal | codex | IN_REVIEW | #791 | PR opened |
 | C-hubspot | codex | IN_REVIEW | #792 | PR opened |
 | C-notion | codex | CLAIMED | — | claimed by codex |
