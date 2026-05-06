@@ -135,6 +135,7 @@ mod worker_actions_dispatch;
 pub(crate) mod worker_actions_emit;
 mod worker_actions_emit_plan;
 mod worker_actions_executor;
+mod worker_actions_executor_code;
 mod worker_actions_executor_stubs;
 mod worker_actions_followup;
 mod worker_actions_items;
