@@ -87,6 +87,14 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
 | claude-org-awareness | claude | TODO | — | V1.3 multi-worker: Org/Unit/Member/Alias primitives + manager-chain escalation; `argo org tree/member/reports-to/ingest` |
 | claude-demo-multi-vertical | claude | TODO | — | V2.2 demo verticals: customer-support + sales-sdr + marketing-intern verticals; charter + skills + Genesis archetype + demo script + e2e smoke |
+| codex-connector-salesforce | codex | TODO | — | V1.2 capability: native Salesforce MCP connector (7 methods); OAuth client-credentials + token cache; SOQL passthrough on `query`; mirror gmail/slack crate pattern |
+| codex-connector-zendesk | codex | TODO | — | V1.2 capability: native Zendesk MCP connector (7 methods); email + token + subdomain auth; mirror gmail/slack crate pattern |
+| codex-setup-wizard-cli | codex | TODO | — | V1.4 operator UX: `argo setup` interactive wizard — 7-step checklist (doctor, workspace, vertical, worker, channel, archetype, audit); --non-interactive + --json modes |
+| codex-compliance-export-cli | codex | TODO | — | V1.1 reliability: `argo audit export --since/--until --format ndjson|csv|tarball`; chain-integrity check; --gdpr-redact-emails; tarball includes manifest+README+ndjson |
+| claude-trajectory-replay-ui | claude | TODO | — | V1.1 reliability: TUI overlay key R for trajectory replay — left action list / right per-step content (CU screenshot or MCP/Human); Space autoplay + arrow step + /search; sibling-file overlays_replay.rs |
+| claude-code-execution-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::CodeExecution; Python 3.12 + Node 20 in E2B sandbox; time/memory limits; opt-in network/pkg-install; artifacts at /tmp/artifacts collected |
+| claude-worker-roster | claude | TODO | — | V1.3 multi-worker: Roster primitive (group of workers + shared policy + shared channels + shared budget); resolved_policy walks roster layer; `argo roster create/list/show/add-member/remove-member/delete`; multi-roster "most-restrictive wins" |
+| claude-spend-anomaly-alerts | claude | TODO | — | V1.1 reliability: hourly z-score on spend per worker per hour-of-day; |z|>4.0 inserts anomaly row + fires notify; `argo budget anomalies`; complementary to claude-anomaly-detector (action behavior) |
 
 ---
 
@@ -143,8 +151,14 @@ demo verticals).
 
 The conductor's standing replenishment loop (Step 8 of the
 loop prompt) continues to fire whenever either queue dips
-≤3 — drawing from BUILD_PLAN_V11.md + recent PR-body
-deferrals + git-log direction + MISSION.md gaps.
+≤8 (raised from the original ≤3 at tick 59 — the lower
+threshold risked workers running out of work between
+ticks since codex tabs poll on 60s intervals and can
+drain ~3 briefs in a single tick window). Replenishment
+draws from BUILD_PLAN_V11.md + recent PR-body deferrals +
+git-log direction + MISSION.md gaps. Target queue depth
+after replenishment: 12-16 briefs total, weighted ~50/50
+codex/claude to keep both worker pools busy.
 
 The stop condition is unchanged: every brief MERGED AND
 e2e-test green. When fully drained, append a `Plan

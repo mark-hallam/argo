@@ -118,7 +118,7 @@ Every tick the conductor runs the same numbered loop. See
 6. Continue any conductor-owned in-progress work (rare)
 7. For each BLOCKED row: investigate, expand may-touch, split, or
    escalate
-8. Queue replenishment: count owner.TODO; if either ≤3 brainstorm
+8. Queue replenishment: count owner.TODO; if either ≤8 brainstorm
    3-5 new briefs and push as one commit per owner. See
    "Queue replenishment" below for details.
 9. If nothing to do, report briefly + end the tick
@@ -277,7 +277,7 @@ pushed them as a single commit. The queue refilled in one tick.
         ▼
 count(owner.TODO)
         │
-        ├── ≤ 3  → brainstorm + write 3-5 briefs → push one commit
+        ├── ≤ 8  → brainstorm + write 3-5 briefs → push one commit
         └── > 3  → skip
 ```
 
@@ -289,7 +289,10 @@ claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
 ```
 
 and fires the replenishment branch for each owner whose count is
-≤3. Both queues above 3 → the step is a no-op.
+≤8. Both queues above 8 → the step is a no-op. (Tick 59 raised
+this threshold from the original ≤3 — workers can drain ~3 briefs
+in a single tick window, so ≤3 risked workers running out of
+queued work between ticks; ≤8 keeps both pools busy.)
 
 ### Idea sources
 
@@ -680,7 +683,7 @@ gap list, and `git log -100`. After tick 57, it adds a fifth
 source:
 
 5. **`BUILD_PLAN_V11.md` phased plan** — when either TODO queue
-   dips ≤3, the conductor reads the phase that matches "what's
+   dips ≤8, the conductor reads the phase that matches "what's
    active right now" (initially v1.1; later v1.2+v1.3 in
    parallel) and turns one or two un-shipped bullets into briefs.
 
