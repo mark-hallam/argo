@@ -149,11 +149,13 @@ mod work_loop;
 mod work_shutdown;
 mod work_steps;
 pub mod worker_actions;
+pub mod worker_anomalies;
 #[allow(dead_code)]
 pub mod worker_create;
 pub mod worker_list;
 mod worker_resume;
 pub mod worker_update;
+mod worker_actions_anomaly;
 mod worker_actions_auto_approval;
 mod worker_actions_dispatch;
 pub(crate) mod worker_actions_emit;

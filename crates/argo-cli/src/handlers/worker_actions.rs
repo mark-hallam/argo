@@ -170,6 +170,14 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         WorkerCmd::Doctor { vertical, json } => {
             super::worker_doctor::run(vertical.as_deref(), json).await
         }
+        WorkerCmd::Anomalies {
+            worker_id,
+            since_minutes,
+            limit,
+            json,
+        } => {
+            super::worker_anomalies::run(&worker_id, since_minutes, limit, json).await
+        }
         WorkerCmd::Items(items_cmd) => match items_cmd {
             WorkerItemsCmd::List { vertical, state, limit, json } => {
                 super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await

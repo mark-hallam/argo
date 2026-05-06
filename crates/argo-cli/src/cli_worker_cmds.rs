@@ -132,6 +132,27 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List recent behaviour anomaly events for one worker
+    /// (Stream `claude-anomaly-detector`). Each row shows
+    /// `dimension / observed / z-score` so the operator can
+    /// spot drift the circuit breaker doesn't see (subtler
+    /// latency spikes, retry-count creep, etc.).
+    Anomalies {
+        /// Worker id (UUIDv7 or `nil` for the platform-default
+        /// worker that runs unbound work).
+        worker_id: String,
+        /// Filter to events observed within this many recent
+        /// minutes. When unset, returns the most-recent N rows.
+        #[arg(long)]
+        since_minutes: Option<i64>,
+        /// Cap the number of rows printed. Default 100 (max 1000).
+        #[arg(long)]
+        limit: Option<u32>,
+        /// Emit JSON-lines (one event per row) instead of a
+        /// human-readable table.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

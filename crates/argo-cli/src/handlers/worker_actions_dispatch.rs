@@ -194,13 +194,19 @@ pub(crate) async fn complete(
     result_json: Option<&str>,
     json: bool,
 ) -> ArgoResult<()> {
-    let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let (memory, ws, store) =
+        worker_actions_transitions::open_workspace_memory_with_store().await?;
     let rec =
         worker_actions_transitions::complete(&memory, ws, action_id, note, result_json).await?;
+    if let Err(e) = check_action_anomaly(&store, &rec).await {
+        eprintln!("argo worker actions complete: anomaly check failed: {e}");
+    }
     print_record(&rec, json);
     auto_refresh_ledger(&memory, ws).await;
     Ok(())
 }
+
+use super::worker_actions_anomaly::check_action_anomaly;
 
 pub(crate) async fn fail(action_id: &str, reason: &str, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;

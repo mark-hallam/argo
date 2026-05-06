@@ -133,6 +133,16 @@ pub(crate) async fn full_history(
 /// the session store, resolves the canonical workspace, returns a
 /// `(MemoryStore, WorkspaceId)` pair ready to use.
 pub(crate) async fn open_workspace_memory() -> ArgoResult<(MemoryStore, WorkspaceId)> {
+    let (memory, workspace, _store) = open_workspace_memory_with_store().await?;
+    Ok((memory, workspace))
+}
+
+/// Variant that also returns the underlying [`Arc<SessionStore>`]
+/// — used by the anomaly-detector hook in `complete()` so the
+/// post-transition pool is reachable for Welford updates +
+/// event inserts.
+pub(crate) async fn open_workspace_memory_with_store(
+) -> ArgoResult<(MemoryStore, WorkspaceId, Arc<SessionStore>)> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -144,8 +154,9 @@ pub(crate) async fn open_workspace_memory() -> ArgoResult<(MemoryStore, Workspac
         .unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;
-    let memory = MemoryStore::new(Arc::new(store));
-    Ok((memory, workspace))
+    let store_arc = Arc::new(store);
+    let memory = MemoryStore::new(Arc::clone(&store_arc));
+    Ok((memory, workspace, store_arc))
 }
 
 #[cfg(not(test))]
