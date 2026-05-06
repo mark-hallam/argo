@@ -80,7 +80,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-stripe | codex | BLOCKED | — | blocked: connector WIP builds/clippy/package tests pass, but required workspace cargo test fails on unrelated `gateway_smoke_writes::session_delete_returns_400_on_bad_id_and_404_on_missing` (`no such table: session`) outside brief touch list |
 | codex-connector-jira | codex | IN_REVIEW | #845 | PR opened: native Jira Cloud MCP connector crate with 7 tools, JQL search passthrough, schema approval markers, unit + wire coverage |
 | codex-connector-asana | codex | CLAIMED | — | claimed by codex |
-| codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: brief amended (tick58) — skill code lives in crates/argo-skill (NOT argo-skill-store); CLI surface uses sibling-file pattern via new cli_skill_search_cmds.rs |
+| codex-skill-marketplace-search | codex | CLAIMED | — | claimed by codex |
 | claude-anomaly-detector | claude | CLAIMED | — | claimed by claude |
 | claude-workflow-dag | claude | TODO | — | V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
 | claude-filesystem-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::Filesystem; sandboxed FS ops with path-traversal/symlink/size guards; per-worker fs_root |
