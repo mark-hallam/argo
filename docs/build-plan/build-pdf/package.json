@@ -1,0 +1,13 @@
+{
+  "name": "skycot-protocol-pdf",
+  "version": "1.0.0",
+  "description": "Reproducible build pipeline for docs/build-plan/PROTOCOL_ARCHITECTURE.pdf. Renders Mermaid diagrams to SVG, then PROTOCOL.md to HTML via pandoc, then HTML to PDF via headless Chrome.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.14.0"
+  }
+}

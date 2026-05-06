@@ -1,0 +1,40 @@
+flowchart TD
+    Human["Human Operator<br/><i>escalation only</i>"]
+    Conductor["Conductor<br/><i>one Claude tab, 5-min cron</i><br/><b>no codegen</b>"]
+    Ledger[("BUILD_STATUS.md<br/><i>live ledger on origin/main</i><br/><b>lock-free</b>")]
+
+    W1["Worker 1<br/><i>claude</i>"]
+    W2["Worker 2<br/><i>codex</i>"]
+    W3["Worker 3<br/><i>codex</i>"]
+    W4["Worker 4<br/><i>codex</i>"]
+    W5["Worker 5<br/><i>claude</i>"]
+
+    Main[(origin/main)]
+
+    Human -.->|"escalate"| Conductor
+    Conductor -->|"reads + merges"| Ledger
+    Ledger -->|"claim rows"| W1
+    Ledger -->|"claim rows"| W2
+    Ledger -->|"claim rows"| W3
+    Ledger -->|"claim rows"| W4
+    Ledger -->|"claim rows"| W5
+
+    W1 -->|"PR per row"| Main
+    W2 -->|"PR per row"| Main
+    W3 -->|"PR per row"| Main
+    W4 -->|"PR per row"| Main
+    W5 -->|"PR per row"| Main
+
+    Conductor -.->|"squash-merge"| Main
+
+    classDef human fill:#fff4e6,stroke:#e69138,stroke-width:2px,color:#000
+    classDef conductor fill:#e1f0ff,stroke:#1c6ec4,stroke-width:2px,color:#000
+    classDef ledger fill:#fff9c4,stroke:#c2a200,stroke-width:2px,color:#000
+    classDef worker fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000
+    classDef main fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#000
+
+    class Human human
+    class Conductor conductor
+    class Ledger ledger
+    class W1,W2,W3,W4,W5 worker
+    class Main main

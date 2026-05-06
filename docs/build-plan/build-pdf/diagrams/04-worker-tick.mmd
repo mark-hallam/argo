@@ -1,0 +1,22 @@
+flowchart TB
+    Start(["worker tab opens"]):::start
+
+    Start --> claim
+    claim["<b>CLAIM PHASE</b> &mdash; first-push-wins<br/>1. git pull main &nbsp;·&nbsp; 2. cat ledger &nbsp;·&nbsp; 3. find first matching TODO row<br/>4. row → CLAIMED &nbsp;·&nbsp; 5. commit + push"]:::phase
+    claim --> claimQ{"5. push won?"}:::decision
+    claimQ -->|"no &mdash; race lost"| claim
+
+    claimQ -->|"yes"| impl
+    impl["<b>IMPLEMENT PHASE</b> &mdash; on a worktree<br/>6. read brief &nbsp;·&nbsp; 7. git worktree add /tmp/&lt;brief&gt; &nbsp;·&nbsp; 8. checkout -b<br/>9. implement (stay in may-touch) &nbsp;·&nbsp; 10. cargo build / clippy / test &nbsp;·&nbsp; verify LOC budget"]:::phase
+    impl --> implQ{"10. all green?"}:::decision
+    implQ -->|"no &mdash; stuck"| Block[\"row → BLOCKED with reason &mdash; STOP"\]:::block
+
+    implQ -->|"yes"| review
+    review["<b>REVIEW PHASE</b> &mdash; open PR &amp; stop<br/>11. push branch &nbsp;·&nbsp; 12. gh pr create (brief title + acceptance)<br/>13. row → IN_REVIEW + PR num &nbsp;·&nbsp; 14. commit + push"]:::phase
+    review --> stop(["15. STOP &nbsp;&mdash;&nbsp; conductor merges &nbsp;·&nbsp; fresh tab does next brief"]):::finish
+
+    classDef start fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef phase fill:#f5f5f5,stroke:#1c6ec4,stroke-width:1.5px,color:#000
+    classDef decision fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef block fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
+    classDef finish fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000

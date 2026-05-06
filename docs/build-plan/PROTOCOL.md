@@ -17,32 +17,7 @@ The companion artifacts:
 
 ## Mental model
 
-```
-                    HUMAN OPERATOR
-                    (escalation only)
-                          │
-                  ┌───────┴────────┐
-                  │   CONDUCTOR    │  one Claude tab, 5-min cron
-                  │  (no codegen)  │
-                  └───────┬────────┘
-                          │  reads + merges
-                  ┌───────┴────────┐
-                  │ BUILD_STATUS.md│  the live ledger on origin/main
-                  │ (lock-free)    │  every agent reads + commits
-                  └───────┬────────┘
-                          │  claim rows
-        ┌─────────┬───────┼────────┬─────────┐
-        ▼         ▼       ▼        ▼         ▼
-   ┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐
-   │worker 1││worker 2││worker 3││worker 4││worker 5│   N tabs of
-   │(claude)││(codex) ││(codex) ││(codex) ││(claude)│   Claude/Codex
-   └────────┘└────────┘└────────┘└────────┘└────────┘   on worktrees
-        │         │       │        │         │
-        └─────────┴───────┴────────┴─────────┘
-                          │  one PR per row
-                          ▼
-                       origin/main
-```
+![Figure 1 — Architecture: human operator, conductor, the BUILD_STATUS.md ledger on origin/main, N workers (mixed Claude + Codex) opening PRs, conductor merges back to main.](build-pdf/diagrams/01-architecture.svg)
 
 Three roles:
 
@@ -77,14 +52,7 @@ wins; losers pull and pick a different row.
 
 ### 1. Brief lifecycle
 
-```
-   TODO ──claim──► CLAIMED ──open PR──► IN_REVIEW ──merge──► MERGED
-                      │                     │
-                      └───hit a wall────────┘
-                              │
-                              ▼
-                           BLOCKED ──conductor unblocks──► TODO
-```
+![Figure 2 — Brief state machine: TODO → CLAIMED → IN_REVIEW → MERGED, with a BLOCKED side-state that the conductor unblocks back into TODO.](build-pdf/diagrams/02-brief-lifecycle.svg)
 
 A row in BUILD_STATUS.md is in exactly one of these states:
 
@@ -104,6 +72,10 @@ loses the race, pull and pick a different row.
 
 Every tick the conductor runs the same numbered loop. See
 `PROTOCOL_LOOP_PROMPT.md` for the exact prompt.
+
+![Figure 3 — The conductor's 9-step tick. Pulls main, reviews open PRs, merges clean ones, unblocks BLOCKED rows, replenishes the queue when shallow, ends the tick.](build-pdf/diagrams/03-conductor-tick.svg)
+
+In text:
 
 ```
 1. cd <repo> && git checkout main && git pull --ff-only
@@ -137,6 +109,10 @@ Two rules that matter:
   tick before reading or committing anything.
 
 ### 3. Worker tick
+
+![Figure 4 — Worker tick (15 steps). Claim a TODO row via first-push-wins, implement on a worktree, open a PR, mark IN_REVIEW, then STOP. The conductor merges.](build-pdf/diagrams/04-worker-tick.svg)
+
+In text:
 
 ```
 1. git checkout main && git pull --ff-only
@@ -217,6 +193,8 @@ That worker pulls, sees the row is now CLAIMED by the other, and
 picks a different row. No mutex, no service, no state machine
 beyond `git push`. We hit this race ~5 times in 60 minutes of swarm.
 Cost: one extra pull per loser. Free correctness.
+
+![Figure 5 — Two workers race for the same row. The first push to origin/main wins; the second's non-fast-forward rejection prompts a pull-and-retry on a different row. Git's existing fast-forward protocol IS the lock.](build-pdf/diagrams/05-race.svg)
 
 **The file partition + per-brief may-touch list prevents most
 conflicts.** Each brief lists "files you may touch" and "files you

@@ -1,0 +1,13 @@
+# mermaid-cli installs hundreds of MB of node_modules; not committed.
+# Re-run `npm install` from this directory to restore.
+node_modules/
+package-lock.json
+
+# Built SVG diagrams ARE committed (the PDF references them; they
+# also serve as a fallback when the PDF is regenerated without
+# re-rendering all of them).
+# diagrams/*.svg
+
+# Pyc / cache.
+__pycache__/
+*.pyc

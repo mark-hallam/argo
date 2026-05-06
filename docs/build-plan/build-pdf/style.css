@@ -1,0 +1,236 @@
+/* SKYCOT PROTOCOL_ARCHITECTURE.pdf — print stylesheet
+   Pipeline: PROTOCOL.md → pandoc HTML → headless Chrome → PDF.
+   Target: A4, ~18-25 pages, embedded SVG diagrams. */
+
+@page {
+  size: A4;
+  margin: 22mm 18mm 22mm 18mm;
+}
+
+html {
+  font-size: 10.5pt;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+    "Segoe UI", Helvetica, Arial, sans-serif;
+  color: #1a1a1a;
+  line-height: 1.5;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Document title block */
+h1 {
+  font-size: 22pt;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 0.4em;
+  border-bottom: 2px solid #1c6ec4;
+  padding-bottom: 0.3em;
+  page-break-after: avoid;
+}
+
+h2 {
+  font-size: 16pt;
+  font-weight: 600;
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+  color: #1c6ec4;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 13pt;
+  font-weight: 600;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+  color: #2e3338;
+  page-break-after: avoid;
+}
+
+h4 {
+  font-size: 11pt;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.3em;
+  color: #2e3338;
+  page-break-after: avoid;
+}
+
+p {
+  margin: 0 0 0.7em 0;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+a {
+  color: #1c6ec4;
+  text-decoration: none;
+}
+
+ul, ol {
+  margin: 0.4em 0 0.8em 0;
+  padding-left: 1.6em;
+}
+
+li {
+  margin-bottom: 0.2em;
+}
+
+li > p {
+  margin-bottom: 0.3em;
+}
+
+/* Inline code + code blocks */
+code {
+  font-family: "SF Mono", "Menlo", "Consolas", "Monaco", monospace;
+  font-size: 9pt;
+  background-color: #f3f4f6;
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #1c2833;
+}
+
+pre {
+  background-color: #f7f8fa;
+  border: 1px solid #dfe3e8;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 0.6em 0;
+  font-size: 8.5pt;
+  line-height: 1.4;
+  overflow-x: auto;
+  page-break-inside: avoid;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  border-radius: 0;
+}
+
+/* Block quotes */
+blockquote {
+  margin: 0.6em 0;
+  padding: 0.4em 0.9em;
+  border-left: 3px solid #1c6ec4;
+  background-color: #f5faff;
+  color: #2e3338;
+  font-style: italic;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 9pt;
+  width: 100%;
+  page-break-inside: avoid;
+}
+
+th {
+  background-color: #f0f4f8;
+  border: 1px solid #c7ced4;
+  padding: 6px 9px;
+  text-align: left;
+  font-weight: 600;
+}
+
+td {
+  border: 1px solid #d8dde2;
+  padding: 5px 9px;
+  vertical-align: top;
+}
+
+tr:nth-child(even) td {
+  background-color: #fafbfc;
+}
+
+/* Horizontal rules — use them as soft section dividers */
+hr {
+  border: none;
+  border-top: 1px solid #d0d5d9;
+  margin: 1.4em 0;
+}
+
+/* SVG diagrams from Mermaid */
+img,
+svg,
+embed,
+object {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.8em auto;
+  page-break-inside: avoid;
+}
+
+figure {
+  margin: 0.8em 0;
+  page-break-inside: avoid;
+  text-align: center;
+}
+
+figure img,
+figure svg {
+  max-width: 100%;
+  height: auto;
+}
+
+figcaption {
+  font-size: 9pt;
+  color: #5b6168;
+  font-style: italic;
+  margin-top: 0.4em;
+  text-align: center;
+}
+
+/* Diagram-block container so we can scope sizing */
+.diagram {
+  margin: 1em 0;
+  text-align: center;
+  page-break-inside: avoid;
+}
+
+.diagram img {
+  max-width: 100%;
+  max-height: 720px;
+}
+
+.diagram svg {
+  max-width: 100%;
+  max-height: 720px;
+  width: auto;
+  height: auto;
+}
+
+.diagram-caption {
+  font-size: 9pt;
+  color: #5b6168;
+  font-style: italic;
+  margin-top: 0.3em;
+  text-align: center;
+}
+
+/* Print-tweaks */
+@media print {
+  h1, h2, h3, h4 {
+    page-break-after: avoid;
+  }
+  pre, table, figure, .diagram, blockquote {
+    page-break-inside: avoid;
+  }
+}
+
+/* Cover page (first H1) */
+.cover {
+  text-align: center;
+  margin-top: 18em;
+  page-break-after: always;
+}

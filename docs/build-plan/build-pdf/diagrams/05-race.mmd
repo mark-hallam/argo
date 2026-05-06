@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    participant W1 as Worker A<br/>(claude tab)
+    participant Git as origin/main<br/>BUILD_STATUS.md
+    participant W2 as Worker B<br/>(codex tab)
+
+    Note over W1,W2: Both pull main and read row X as TODO
+
+    W1->>Git: git pull --ff-only
+    W2->>Git: git pull --ff-only
+
+    Note over W1: row X = TODO
+    Note over W2: row X = TODO
+
+    par Both edit row X to CLAIMED
+        W1->>W1: edit BUILD_STATUS.md<br/>row X = CLAIMED
+        W2->>W2: edit BUILD_STATUS.md<br/>row X = CLAIMED
+    end
+
+    W1->>Git: git push origin main
+    Note over Git: ✓ first push wins
+    Git-->>W1: ok — row X is yours
+
+    W2->>Git: git push origin main
+    Note over Git: ✗ rejected<br/>not fast-forward
+    Git-->>W2: error — non-FF
+
+    W2->>Git: git pull --ff-only
+    Note over W2: row X now CLAIMED by A<br/>pick a different row
+
+    W2->>W2: scan ledger<br/>find row Y = TODO
+    W2->>Git: edit row Y → CLAIMED<br/>git push
+    Note over Git: ✓ push wins
+    Git-->>W2: ok — row Y is yours
+
+    Note over W1,W2: zero coordination cost<br/>no mutex, no service<br/>git push IS the lock

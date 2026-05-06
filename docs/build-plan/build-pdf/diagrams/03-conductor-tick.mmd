@@ -1,0 +1,44 @@
+flowchart TD
+    Start(["Tick fires<br/>5-min cron"]):::start --> Phase1
+    subgraph Phase1 ["Phase 1 — observe"]
+        direction LR
+        P1["1. git pull<br/>--ff-only main"]:::step --> P2["2. git log<br/>origin/main -8"]:::step
+        P2 --> P3["3. gh pr list<br/>--state open"]:::step
+        P3 --> P4["4. cat<br/>BUILD_STATUS.md"]:::step
+    end
+
+    Phase1 --> Phase2
+    subgraph Phase2 ["Phase 2 — review &amp; merge"]
+        direction LR
+        R1[/"5. open<br/>PR?"/]:::decision -->|"yes"| R2["diff &amp;<br/>verify"]:::step
+        R2 --> R3{"clean?"}:::decision
+        R3 -->|"yes"| R4["squash-merge<br/>row → MERGED"]:::merge
+        R3 -->|"no"| R5["pr comment<br/>specific issue"]:::step
+        R1 -->|"no"| R6((" "))
+        R4 --> R6
+        R5 --> R6
+    end
+
+    Phase2 --> Phase3
+    subgraph Phase3 ["Phase 3 — unblock"]
+        direction LR
+        U1["6. continue<br/>own work"]:::step --> U2[/"7. BLOCKED<br/>row?"/]:::decision
+        U2 -->|"yes"| U3["expand may-touch<br/>/ split / escalate"]:::step
+        U2 -->|"no"| U4((" "))
+        U3 --> U4
+    end
+
+    Phase3 --> Phase4
+    subgraph Phase4 ["Phase 4 — replenish &amp; close"]
+        direction LR
+        Q1[/"8. owner.TODO<br/>≤ 8?"/]:::decision -->|"yes"| Q2["brainstorm 3-5 briefs<br/>(MISSION + V11 + git log)"]:::step
+        Q2 --> Q3["1 commit:<br/>briefs: replenish"]:::step
+        Q1 -->|"no"| Q4["9. report<br/>&amp; end tick"]:::finish
+        Q3 --> Q4
+    end
+
+    classDef start fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef step fill:#f5f5f5,stroke:#616161,stroke-width:1px,color:#000
+    classDef decision fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef merge fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef finish fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000

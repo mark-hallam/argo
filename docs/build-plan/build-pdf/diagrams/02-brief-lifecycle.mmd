@@ -1,0 +1,10 @@
+stateDiagram-v2
+    direction LR
+    [*] --> TODO: brief authored
+    TODO --> CLAIMED: worker claims
+    CLAIMED --> IN_REVIEW: worker opens PR
+    IN_REVIEW --> MERGED: conductor squash-merge
+    CLAIMED --> BLOCKED: worker hits a wall
+    IN_REVIEW --> BLOCKED: review issues
+    BLOCKED --> TODO: conductor unblocks
+    MERGED --> [*]
