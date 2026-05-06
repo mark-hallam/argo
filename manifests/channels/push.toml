@@ -1,0 +1,19 @@
+[channel]
+id = "push"
+provider = "expo"
+expo_access_token_env = "EXPO_ACCESS_TOKEN"
+device_registry_path_env = "ARGO_PUSH_DEVICES_PATH"
+device_registration_path = "/channels/push/devices"
+decision_path = "/channels/push/decision"
+endpoint = "https://exp.host/--/api/v2/push/send"
+deep_link_template = "argo://inbox/approval/{{token}}"
+
+[hmac]
+secret_env = "ARGO_CHANNEL_HMAC_SECRET"
+token_ttl_seconds = 86400
+
+[operator.devices]
+# operator_id = ["ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"]
+
+[action.example.approval]
+channels = ["push"]

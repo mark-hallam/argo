@@ -22,6 +22,7 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
         || req.starts_with("POST /channels/email/webhook?")
         || is_slack_webhook(req)
         || is_webinbox(req)
+        || is_push(req)
 }
 
 fn is_slack_webhook(req: &str) -> bool {
@@ -33,12 +34,17 @@ fn is_webinbox(req: &str) -> bool {
     ["GET /inbox ", "GET /inbox?", "GET /inbox/ws ", "GET /inbox/ws?", "POST /inbox/approve/", "POST /inbox/reject/"].iter().any(|p| req.starts_with(p))
 }
 
+fn is_push(req: &str) -> bool { req.starts_with("POST /channels/push/devices ") || req.starts_with("POST /channels/push/devices?") || req.starts_with("POST /channels/push/decision/") }
+
 pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) {
     if is_slack_webhook(req) {
         return slack_webhook_response(req).await;
     }
     if is_webinbox(req) {
         return webinbox_response(req).await;
+    }
+    if is_push(req) {
+        return push_response(req).await;
     }
     let secret = match hmac_secret() {
         Ok(s) => s,
@@ -116,6 +122,21 @@ async fn webinbox_response(req: &str) -> (&'static str, String) {
     };
     inbox_decide(&operator, &id, decision).await
 }
+async fn push_response(req: &str) -> (&'static str, String) {
+    if req.starts_with("POST /channels/push/devices ") || req.starts_with("POST /channels/push/devices?") {
+        let mut v: Value = match serde_json::from_str(super::body_from_request(req)) { Ok(v) => v, Err(e) => return bad_request(&format!("parse push device JSON: {e}")) };
+        for k in ["operator_id", "expo_push_token", "platform"] {
+            if v.get(k).and_then(Value::as_str).is_none_or(|s| s.trim().is_empty()) { return bad_request(&format!("missing push device {k}")); }
+        }
+        v["registered_at"] = json!(chrono::Utc::now().to_rfc3339());
+        return match append_push_device(&v) { Ok(()) => ("200 OK", json!({"ok":true,"registered":true}).to_string()), Err(e) => server_error(&e) };
+    }
+    let Some((token, requested)) = push_decision(req) else { return bad_request("unsupported push route"); };
+    let secret = match hmac_secret() { Ok(s) => s, Err(e) => return server_error(&e) };
+    let mut claims = match verify_token(&token, &secret) { Ok(c) => c, Err(e) => return unauthorized(&e) };
+    if let Some(d) = requested { claims.decision = d; }
+    match settle(&claims, "push-operator", Some("push approval"), "push").await { Ok(v) => ("200 OK", v), Err(e) => server_error(&e.to_string()) }
+}
 
 async fn inbox_page(operator: &str) -> (&'static str, String) {
     let rows = match pending_rows(operator).await { Ok(r) => r, Err(e) => return server_error(&e.to_string()) };
@@ -189,6 +210,23 @@ fn operator_from_auth(req: &str) -> Result<String, (&'static str, String)> {
 
 fn inbox_path() -> PathBuf {
     std::env::var_os("ARGO_WEBINBOX_PATH").map(PathBuf::from).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join(".skycot/webinbox.jsonl"))
+}
+
+fn push_devices_path() -> PathBuf { std::env::var_os("ARGO_PUSH_DEVICES_PATH").map(PathBuf::from).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join(".skycot/push_devices.jsonl")) }
+
+fn append_push_device(v: &Value) -> Result<(), String> {
+    let path = push_devices_path();
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent).map_err(|e| format!("create push devices dir: {e}"))?; }
+    let line = serde_json::to_string(v).map_err(|e| format!("serialize push device: {e}"))?;
+    let mut file = std::fs::OpenOptions::new().create(true).append(true).open(&path).map_err(|e| format!("open push devices {}: {e}", path.display()))?;
+    std::io::Write::write_all(&mut file, format!("{line}\n").as_bytes()).map_err(|e| format!("write push device: {e}"))
+}
+
+fn push_decision(req: &str) -> Option<(String, Option<Decision>)> {
+    let target = req.strip_prefix("POST /channels/push/decision/")?.split_once(' ').map_or(req, |(p, _)| p);
+    let (token, query) = target.split_once('?').unwrap_or((target, ""));
+    let decision = query.split('&').filter_map(|kv| kv.split_once('=')).find_map(|(k, v)| (percent_decode(k).as_deref() == Some("d")).then(|| percent_decode(v)).flatten()).and_then(|v| match v.as_str() { "approve" => Some(Decision::Approve), "reject" => Some(Decision::Reject), _ => None });
+    Some((percent_decode(token)?, decision))
 }
 
 fn load_rows() -> Result<Vec<InboxRow>, String> {
@@ -417,15 +455,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    const VERTICAL: &str = "gtm-engineer";
-
     fn set_verticals_dir() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .expect("workspace root")
-            .to_path_buf();
-        std::env::set_var("ARGO_VERTICALS_DIR", root.join("verticals"));
+        std::env::set_var("ARGO_VERTICALS_DIR", PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().and_then(|p| p.parent()).expect("workspace root").join("verticals"));
     }
 
     fn record(id: &str) -> ActionRecord {
@@ -442,22 +473,11 @@ mod tests {
         set_verticals_dir();
         let (memory, ws) = worker_actions_transitions::open_workspace_memory().await.unwrap();
         let rec = record("act-web");
-        memory.append_for_vertical(ws, MemoryFile::Memory, serde_json::to_string(&rec).unwrap(), None, VERTICAL).await.unwrap();
+        memory.append_for_vertical(ws, MemoryFile::Memory, serde_json::to_string(&rec).unwrap(), None, "gtm-engineer").await.unwrap();
         let exp = chrono::Utc::now().timestamp() + 60;
         let approve = format!("act-web.approve.{exp}.{}", hmac_hex(format!("act-web|approve|{exp}").as_bytes(), b"secret"));
         let reject = format!("act-web.reject.{exp}.{}", hmac_hex(format!("act-web|reject|{exp}").as_bytes(), b"secret"));
-        append_inbox_row(&InboxRow {
-            operator_id: "op-1".into(),
-            approval_id: "act-web".into(),
-            action_id: "act-web".into(),
-            risk_level: "high".into(),
-            prompt_body: "Approve listing?".into(),
-            approve_url: format!("http://gw/decision?token={approve}"),
-            reject_url: format!("http://gw/decision?token={reject}"),
-            expiry: chrono::Utc::now().to_rfc3339(),
-            enqueued_at: chrono::Utc::now().to_rfc3339(),
-        })
-        .unwrap();
+        append_inbox_row(&InboxRow { operator_id: "op-1".into(), approval_id: "act-web".into(), action_id: "act-web".into(), risk_level: "high".into(), prompt_body: "Approve listing?".into(), approve_url: format!("http://gw/decision?token={approve}"), reject_url: format!("http://gw/decision?token={reject}"), expiry: chrono::Utc::now().to_rfc3339(), enqueued_at: chrono::Utc::now().to_rfc3339() }).unwrap();
         let auth = "Authorization: Bearer op-1";
         let (_, html) = webinbox_response(&format!("GET /inbox HTTP/1.1\r\n{auth}\r\n\r\n")).await;
         assert!(html.contains("Approve listing?"));

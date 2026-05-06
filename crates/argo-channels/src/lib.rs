@@ -19,6 +19,7 @@
 
 pub mod email;
 pub mod manifest;
+pub mod push;
 pub mod slack;
 pub mod token;
 pub mod webinbox;
