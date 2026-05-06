@@ -113,7 +113,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-linear | codex | MERGED | #865 | native Linear MCP connector crate (8 files, 787 LOC); 7 methods (list_teams/list_issues/get/create/update/comment/list_workflows); GraphQL filter passthrough on list_issues; LINEAR_API_KEY bearer auth; mirror gmail/asana crate pattern
 | codex-connector-monday | codex | CLAIMED | — | claimed by codex |
 | codex-connector-pagerduty | codex | CLAIMED | — | claimed by codex |
-| codex-connector-fireflies | codex | TODO | — | V1.2 capability: native Fireflies.ai MCP connector for meeting transcripts (5 read-only methods: list_meetings/get/get_transcript/search/list_users); FIREFLIES_API_KEY bearer; all autonomous-safe |
+| codex-connector-fireflies | codex | CLAIMED | — | claimed by codex |
 | codex-audit-report-cli | codex | TODO | — | V2.1 governance: `argo audit report --since/--until --format markdown|html [--output]` with 6 sections (summary stats, channel breakdown, top spenders, pending queue, chain integrity, known flakes); extends compliance-export-cli with executive-friendly output |
 | codex-doctor-watch-cli | codex | TODO | — | V1.4 operator UX: `argo doctor watch [--interval --clear]` continuous health dashboard; reuses argo doctor --json envelope; 30s default interval; --clear for curses-style redraw, append-mode for piping |
 | claude-policy-as-code | claude | TODO | — | V2.1 governance: declarative org policies in YAML at workspace/policies/*.yaml; applies_to + rules (action_kind / require_signatures / quiet_hours / spend_cap); resolution chain action→worker→roster→workspace→default; `argo policy list/show/validate/apply` |
