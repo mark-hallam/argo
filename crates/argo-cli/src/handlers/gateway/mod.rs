@@ -11,6 +11,7 @@ mod routes;
 mod routes_audit;
 mod routes_audit_rollups;
 pub(crate) mod routes_catalog;
+mod routes_channels;
 mod routes_costs_by_day;
 mod routes_counts;
 mod routes_cron;
@@ -257,6 +258,7 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
     eprintln!("  POST /sessions/<uuid>/title  → rename ({{title}}; empty clears)");
     eprintln!("  POST /sessions/<uuid>/end    → mark a session ended (stamps ended_at)");
     eprintln!("  POST /sessions/<uuid>/replay/stream → chunked-NDJSON stream of replay events");
+    eprintln!("  POST /channels/email/webhook → Postmark inbound approval webhook");
     eprintln!("  GET  /skills   → active skills (?include-superseded=true for full history)");
     eprintln!("  GET  /skills/<name> → one skill view (full body + frontmatter)");
     eprintln!("  GET  /skills/<name>/versions → supersede chain for that name");
@@ -328,6 +330,15 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                 } else if metrics::is_metrics_request(req) {
                     let bytes = metrics::http_response(store.as_ref()).await;
                     let _ = stream.write_all(&bytes).await;
+                    let _ = stream.shutdown().await;
+                } else if routes_channels::is_email_webhook(req) {
+                    let (status_line, body) = routes_channels::email_webhook_response(req).await;
+                    let resp = format!(
+                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(resp.as_bytes()).await;
                     let _ = stream.shutdown().await;
                 } else {
                     let (status_line, body) = routes::dispatch_route(req, store.as_ref()).await;

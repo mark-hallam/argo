@@ -161,6 +161,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-channels"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "hex",
+ "hmac 0.12.1",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "toml",
+ "tracing",
+]
+
+[[package]]
 name = "argo-cli"
 version = "0.0.1"
 dependencies = [

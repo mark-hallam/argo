@@ -1,0 +1,22 @@
+[channel]
+id = "email"
+provider = "postmark"
+postmark_token_env = "POSTMARK_SERVER_TOKEN"
+from_address_env = "ARGO_CHANNEL_EMAIL_FROM"
+subject_template = "[{{risk_level}}] Approval needed: {{action_id}}"
+webhook_path = "/channels/email/webhook"
+endpoint = "https://api.postmarkapp.com/email"
+
+[hmac]
+secret_env = "ARGO_CHANNEL_HMAC_SECRET"
+token_ttl_seconds = 86400
+
+[operator.quiet_hours]
+enabled = true
+start = "18:00"
+end = "08:00"
+timezone_offset_minutes = 600
+days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+[action.example.approval]
+channels = ["email"]
