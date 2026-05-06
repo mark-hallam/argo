@@ -191,6 +191,7 @@ dependencies = [
  "argo-cron",
  "argo-eval",
  "argo-executor-computer-use",
+ "argo-genesis",
  "argo-marketplace",
  "argo-mcp",
  "argo-memory",
@@ -355,6 +356,23 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "argo-genesis"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "argo-vertical",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "toml",
  "tracing",
 ]
 

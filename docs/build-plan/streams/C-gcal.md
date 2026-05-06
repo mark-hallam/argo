@@ -11,7 +11,8 @@ share the token store if convenient).
 
 ## Files you may touch
 - `crates/argo-mcp-connector-gcal/**` (NEW)
-- `Cargo.toml` (workspace member only — ONE line under `members = [...]`)
+- `Cargo.toml` (workspace member only — narrowly scoped: ONE
+  line under `members = [...]`)
 - `Cargo.lock` (auto-updated by cargo)
 - `manifests/connectors/gcal.toml`
 

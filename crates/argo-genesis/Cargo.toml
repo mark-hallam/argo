@@ -1,0 +1,23 @@
+[package]
+name = "argo-genesis"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo Stream G — charter → vertical generator (Genesis pipeline) with safety judge"
+
+[dependencies]
+chrono = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+argo-types = { path = "../argo-types" }
+argo-vertical = { path = "../argo-vertical" }
+
+[dev-dependencies]
+tempfile = "3"

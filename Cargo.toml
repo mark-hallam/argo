@@ -32,6 +32,7 @@ members = [
   "crates/argo-identity",
   "crates/argo-vertical",
   "crates/argo-executor-computer-use",
+  "crates/argo-genesis",
   "mcp-servers/voice",
   "mcp-servers/browser",
 ]

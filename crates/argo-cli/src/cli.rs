@@ -14,6 +14,8 @@ mod cli_gateway_cmds;
 mod cli_messages_cmds;
 #[path = "cli_vertical_cmds.rs"]
 mod cli_vertical_cmds;
+#[path = "cli_genesis_cmds.rs"]
+mod cli_genesis_cmds;
 #[path = "cli_session_cmds.rs"]
 mod cli_session_cmds;
 #[path = "cli_skill_review_cmds.rs"]
@@ -24,6 +26,7 @@ pub(crate) mod cli_workspace_cmds;
 pub(crate) mod cli_work_cmds;
 #[path = "cli_worker_cmds.rs"]
 pub(crate) mod cli_worker_cmds;
+pub use cli_genesis_cmds::*;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
 pub use cli_work_cmds::WorkCmd;
@@ -166,6 +169,14 @@ pub enum Command {
     Vertical {
         #[command(subcommand)]
         cmd: VerticalCmd,
+    },
+    /// Charter → vertical generator (#G-genesis). Operator
+    /// describes a role in plain English; Genesis emits a
+    /// complete `verticals/<id>/` tree with safety judge
+    /// guarantees on every action.
+    Genesis {
+        #[command(subcommand)]
+        cmd: GenesisCmd,
     },
     /// Workspace-wide message rollups. Mirrors the gateway's
     /// `/messages/*` family.
