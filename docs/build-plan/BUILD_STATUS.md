@@ -74,7 +74,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
 | claude-eval-streaming | claude | MERGED | #842 | `--stream off|simple|verbose` flag for `argo eval run`; per-fixture progress lines (Simple) + NDJSON (Verbose) + legacy batch (Off); 10 streaming tests; new argo-eval/src/streaming.rs (225 LOC) |
-| codex-circuit-breaker | codex | CLAIMED | — | claimed by codex |
+| codex-circuit-breaker | codex | BLOCKED | — | blocked: brief requires Worker::circuit_state but may-touch omits crates/argo-identity/src/types.rs where Worker is defined |
 | codex-multi-step-approval | codex | TODO | — | V1.1 reliability: N-of-M approval signing for high-risk actions; min_signatures field + signature table; gate refuses execute until N collected |
 | codex-connector-stripe | codex | TODO | — | V1.2 capability: native Stripe MCP connector (7 methods); STRIPE_API_KEY auth; charge/refund approval-gated |
 | codex-connector-jira | codex | TODO | — | V1.2 capability: native Jira Cloud MCP connector (7 methods); email + token + base URL auth |
