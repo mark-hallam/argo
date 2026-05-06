@@ -317,6 +317,29 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             )
             .await
         }
+        AuditCmd::Report {
+            format,
+            output,
+            since,
+            until,
+            worker_id,
+            tenant,
+            json,
+        } => {
+            super::audit_report::run(
+                &store,
+                super::audit_report::ReportArgs {
+                    format,
+                    output,
+                    since,
+                    until,
+                    worker_id,
+                    tenant,
+                    json,
+                },
+            )
+            .await
+        }
         AuditCmd::Breaks { json } => print_breaks(json).await,
         AuditCmd::Count {
             kind,

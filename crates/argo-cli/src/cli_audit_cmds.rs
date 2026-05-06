@@ -115,6 +115,30 @@ pub enum AuditQueryCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Render a human-readable compliance summary report.
+    Report {
+        /// Output format: markdown or html.
+        #[arg(long, default_value = "markdown")]
+        format: String,
+        /// Write report to a path instead of stdout.
+        #[arg(long)]
+        output: Option<String>,
+        /// Lower created-at bound: YYYY-MM-DD or RFC3339.
+        #[arg(long)]
+        since: Option<String>,
+        /// Upper created-at bound: YYYY-MM-DD or RFC3339.
+        #[arg(long)]
+        until: Option<String>,
+        /// Filter by payload worker id.
+        #[arg(long)]
+        worker_id: Option<String>,
+        /// Filter by tenant id.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Emit a JSON summary envelope.
+        #[arg(long)]
+        json: bool,
+    },
     /// Print just the chain-break rows (`{seq, kind, reason}`).
     /// Mirrors `GET /audit/breaks` (#406). One row per line in the
     /// default view, or a single JSON array with `--json`.

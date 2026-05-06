@@ -30,12 +30,12 @@ useful for board-level / executive review.
 - `crates/argo-cli/tests/audit_report_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] `markdown` format renders all 6 sections
-- [ ] `html` format produces valid standalone HTML
-- [ ] `--output` writes to file; absent → stdout
-- [ ] `--json` envelope (universal convention)
-- [ ] 4 unit tests + 1 smoke
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] `markdown` format renders all 6 sections
+- [x] `html` format produces valid standalone HTML
+- [x] `--output` writes to file; absent → stdout
+- [x] `--json` envelope (universal convention)
+- [x] 4 unit tests + 1 smoke
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `codex-audit-report-cli`
