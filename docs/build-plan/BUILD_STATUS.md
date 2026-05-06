@@ -24,7 +24,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-gmail | codex | BLOCKED | — | needs Cargo.lock allowlist + argo-store keyring API for OAuth token persistence |
 | C-slack | codex | CLAIMED | — | claimed by codex |
 | C-gcal | codex | CLAIMED | — | claimed by codex |
-| C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
+| C-hubspot | codex | CLAIMED | — | claimed by codex |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
