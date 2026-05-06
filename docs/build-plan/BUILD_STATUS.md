@@ -99,7 +99,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-airtable | codex | MERGED | #856 | native Airtable MCP connector crate (8 files, 791 LOC); 7 methods (list_bases/tables/records, get/create/update/delete_record); PAT auth via AIRTABLE_PAT; filterByFormula passthrough on list_records; mirror gmail/asana crate pattern |
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
 | codex-activity-feed-cli | codex | CLAIMED | — | claimed by codex |
-| codex-gdpr-delete-cli | codex | CLAIMED | — | claimed by codex |
+| codex-gdpr-delete-cli | codex | TODO | — | UNCLAIMED tick68: claim 30min stale, no remote branch (probably crashed codex tab). V2.1 governance: `argo gdpr delete --subject <email>` walks 6 surfaces (memory/audit/skills/channels/workers/sessions) with --dry-run default + --confirm-with-email-retype; redaction (not deletion) preserves audit chain; --bundle-out tarball for proof-of-deletion |
 
 ---
 
