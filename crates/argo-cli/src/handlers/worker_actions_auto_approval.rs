@@ -22,14 +22,17 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_transitions;
+use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::auto_approval::{
     dollars_to_micros, evaluate, Decision, PendingAction, SpendSnapshot,
 };
-use argo_identity::AutoApprovalPolicy;
+use argo_identity::{worker_budget, AutoApprovalPolicy};
 use argo_memory::MemoryStore;
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use argo_vertical::ActionDeclaration;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
+use sqlx::{Pool, Sqlite};
 use std::path::Path;
 
 /// Default location of the workspace-level policy file. Resolved
@@ -62,11 +65,22 @@ pub(crate) fn load_workspace_policy(cwd: &Path) -> ArgoResult<AutoApprovalPolicy
 /// Run the policy on a pending action. Pure wrapper around
 /// `argo_identity::auto_approval::evaluate` + the cli-side
 /// `PendingAction` constructor.
+#[cfg(test)]
 pub(crate) fn decide(
     policy: &AutoApprovalPolicy,
     action: &ActionRecord,
     decl: Option<&ActionDeclaration>,
     spend: SpendSnapshot,
+) -> Decision {
+    decide_at(policy, action, decl, spend, Utc::now())
+}
+
+fn decide_at(
+    policy: &AutoApprovalPolicy,
+    action: &ActionRecord,
+    decl: Option<&ActionDeclaration>,
+    spend: SpendSnapshot,
+    now: DateTime<Utc>,
 ) -> Decision {
     let estimated_usd_micros = decl
         .and_then(|d| d.executor.budget_usd())
@@ -77,7 +91,7 @@ pub(crate) fn decide(
         estimated_usd_micros,
         action_type: action.action_type.as_str(),
     };
-    evaluate(policy, &pending, spend, Utc::now())
+    evaluate(policy, &pending, spend, now)
 }
 
 /// Render a stable `approved_by` token for the audit row when
@@ -127,21 +141,97 @@ pub(crate) async fn maybe_auto_approve(
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     let policy = load_workspace_policy(&cwd)?;
     let decl = manifest_decl_for(&located.record.action_type);
-    // v1 SpendSnapshot is zero — H-3 wires the budget ledger
-    // reads in once the SqlitePool plumbing is threaded
-    // through dispatch.
-    let decision = decide(&policy, &located.record, decl.as_ref(), SpendSnapshot::zero());
-    match decision {
-        Decision::AutoApprove { reason } => {
-            let approver = auto_approver_token(&reason);
-            let note = format!("auto-approved: {reason}");
-            worker_actions_transitions::approve(memory, workspace, action_id, &approver, Some(&note))
-                .await?;
-            Ok(())
-        }
-        Decision::Ask { .. } => Ok(()),
-        Decision::Block { reason } => Err(block_to_error(action_id, &reason)),
+    let store = open_budget_store(&cwd).await?;
+    maybe_auto_approve_with_pool(
+        memory,
+        workspace,
+        action_id,
+        &located.record,
+        decl.as_ref(),
+        &policy,
+        store.pool(),
+        Utc::now(),
+    )
+    .await?;
+    Ok(())
+}
+
+async fn open_budget_store(cwd: &Path) -> ArgoResult<SessionStore> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home)).await?;
+    store.migrate().await?;
+    Ok(store)
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn maybe_auto_approve_with_pool(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    action_id: &str,
+    action: &ActionRecord,
+    decl: Option<&ActionDeclaration>,
+    policy: &AutoApprovalPolicy,
+    pool: &Pool<Sqlite>,
+    now: DateTime<Utc>,
+) -> ArgoResult<Decision> {
+    if !action.requires_approval {
+        return Ok(decide_at(policy, action, decl, SpendSnapshot::zero(), now));
     }
+    let worker_id = worker_id_for_action(action);
+    let today_usd_micros = worker_budget::spend_today_for_worker(pool, &worker_id, now).await?;
+    let spend = SpendSnapshot {
+        today_usd_micros,
+        this_month_usd_micros: 0,
+    };
+    let decision = decide_at(policy, action, decl, spend, now);
+    match &decision {
+        Decision::AutoApprove { reason } => {
+            let approver = auto_approver_token(reason);
+            let note = format!("auto-approved: {reason}");
+            worker_actions_transitions::approve(
+                memory,
+                workspace,
+                action_id,
+                &approver,
+                Some(&note),
+            )
+            .await?;
+            worker_budget::record_charge(
+                pool,
+                action_id,
+                &worker_id,
+                estimated_cost_micros(decl),
+                now,
+            )
+            .await?;
+            Ok(decision)
+        }
+        Decision::Ask { .. } => Ok(decision),
+        Decision::Block { reason } => Err(block_to_error(action_id, reason)),
+    }
+}
+
+fn estimated_cost_micros(decl: Option<&ActionDeclaration>) -> u64 {
+    decl.and_then(|d| d.executor.budget_usd())
+        .map(dollars_to_micros)
+        .unwrap_or(0)
+}
+
+fn worker_id_for_action(action: &ActionRecord) -> String {
+    action
+        .payload
+        .get("worker_id")
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| {
+            action
+                .payload
+                .get("worker")
+                .and_then(|worker| worker.get("id"))
+                .and_then(serde_json::Value::as_str)
+        })
+        .unwrap_or(&action.job_id)
+        .to_string()
 }
 
 /// Look up the action's manifest declaration. Used to read the

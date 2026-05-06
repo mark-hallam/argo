@@ -13,8 +13,10 @@
 //! the evaluator stay hermetic and don't need a database.
 
 use crate::auto_approval::SpendSnapshot;
+use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::{Row, SqlitePool};
 use std::collections::BTreeMap;
 
 /// One charge entry — a single action's recorded spend.
@@ -29,6 +31,118 @@ pub struct BudgetCharge {
     pub usd_micros: u64,
     /// When the charge fired (UTC).
     pub at: DateTime<Utc>,
+}
+
+const FALLBACK_TENANT_ID: [u8; 16] = [0; 16];
+const WORKER_BUDGET_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/14__worker_budget.sql");
+
+/// Sum today's persisted spend for one worker.
+///
+/// ```no_run
+/// # async fn demo(pool: &sqlx::SqlitePool) -> argo_types::ArgoResult<()> {
+/// use argo_identity::worker_budget::spend_today_for_worker;
+/// let total = spend_today_for_worker(pool, "worker-1", chrono::Utc::now()).await?;
+/// assert_eq!(total, 0);
+/// # Ok(()) }
+/// ```
+pub async fn spend_today_for_worker(
+    pool: &SqlitePool,
+    worker_id: &str,
+    now: DateTime<Utc>,
+) -> ArgoResult<u64> {
+    ensure_schema(pool).await?;
+    let tenant_id = tenant_id_for_worker(pool, worker_id).await?;
+    let start = today_start_utc(now).timestamp();
+    let total: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(usd_micros), 0) FROM worker_budget \
+         WHERE tenant_id = ? AND worker_id = ? AND charged_at >= ?",
+    )
+    .bind(tenant_id.as_slice())
+    .bind(worker_id)
+    .bind(start)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("worker budget spend today: {e}")))?;
+    Ok(u64::try_from(total).unwrap_or(0))
+}
+
+/// Persist one action charge for a worker.
+///
+/// ```no_run
+/// # async fn demo(pool: &sqlx::SqlitePool) -> argo_types::ArgoResult<()> {
+/// use argo_identity::worker_budget::record_charge;
+/// record_charge(pool, "act-1", "worker-1", 500_000, chrono::Utc::now()).await?;
+/// # Ok(()) }
+/// ```
+pub async fn record_charge(
+    pool: &SqlitePool,
+    action_id: &str,
+    worker_id: &str,
+    amount_usd_micros: u64,
+    created_at: DateTime<Utc>,
+) -> ArgoResult<()> {
+    ensure_schema(pool).await?;
+    let tenant_id = tenant_id_for_worker(pool, worker_id).await?;
+    sqlx::query(
+        "INSERT INTO worker_budget \
+         (tenant_id, worker_id, action_id, usd_micros, charged_at) \
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(tenant_id.as_slice())
+    .bind(worker_id)
+    .bind(action_id)
+    .bind(i64::try_from(amount_usd_micros).unwrap_or(i64::MAX))
+    .bind(created_at.timestamp())
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("worker budget record charge: {e}")))?;
+    Ok(())
+}
+
+fn today_start_utc(now: DateTime<Utc>) -> DateTime<Utc> {
+    let Some(naive) = now.date_naive().and_hms_opt(0, 0, 0) else {
+        return now;
+    };
+    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
+}
+
+async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
+    for stmt in WORKER_BUDGET_SCHEMA.split_terminator(';') {
+        let sql = stmt.trim();
+        if sql.is_empty() {
+            continue;
+        }
+        sqlx::query(sql)
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("worker budget schema: {e}")))?;
+    }
+    Ok(())
+}
+
+async fn tenant_id_for_worker(pool: &SqlitePool, worker_id: &str) -> ArgoResult<Vec<u8>> {
+    if !worker_table_exists(pool).await? {
+        return Ok(FALLBACK_TENANT_ID.to_vec());
+    }
+    let row = sqlx::query("SELECT tenant_id FROM worker WHERE id = ? LIMIT 1")
+        .bind(worker_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker budget tenant lookup: {e}")))?;
+    Ok(row
+        .map(|r| r.get::<Vec<u8>, _>("tenant_id"))
+        .unwrap_or_else(|| FALLBACK_TENANT_ID.to_vec()))
+}
+
+async fn worker_table_exists(pool: &SqlitePool) -> ArgoResult<bool> {
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'worker'",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("worker table lookup: {e}")))?;
+    Ok(count > 0)
 }
 
 /// In-memory budget ledger keyed by worker id (the
