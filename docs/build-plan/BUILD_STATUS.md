@@ -98,7 +98,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-gateway-smoke-flake-fix | codex | CLAIMED | — | claimed by codex |
 | codex-connector-airtable | codex | MERGED | #856 | native Airtable MCP connector crate (8 files, 791 LOC); 7 methods (list_bases/tables/records, get/create/update/delete_record); PAT auth via AIRTABLE_PAT; filterByFormula passthrough on list_records; mirror gmail/asana crate pattern |
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
-| codex-activity-feed-cli | codex | CLAIMED | — | claimed by codex |
+| codex-activity-feed-cli | codex | BLOCKED | — | blocked: implementation/targeted tests/build/clippy pass, but required workspace cargo test fails in pre-existing `setup_steps::vertical_step_skips_empty_registry` due ARGO_VERTICALS_DIR env leak outside brief touch list |
 | codex-gdpr-delete-cli | codex | CLAIMED | — | claimed by codex |
 
 ---
