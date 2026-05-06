@@ -1,15 +1,25 @@
 # PROTOCOL_WORKER_PROMPT — paste into a fresh worker tab
 
 The companion to `PROTOCOL_LOOP_PROMPT.md` (which the conductor
-runs on a 5-min cron). This prompt makes a Claude or Codex tab
-act as a **worker**: claim ONE brief from the ledger, implement
-it on a worktree, open a PR, then stop. Workers do NOT loop —
-the conductor merges and a fresh tab picks up the next brief.
+runs on a 5-min cron). This doc explains the worker pattern;
+the actual paste-ready prompts live in two sibling files so you
+don't have to edit anything before pasting:
 
-## Worker prompt (Claude variant)
+- **Claude tabs:** [`PROTOCOL_WORKER_PROMPT_CLAUDE.md`](PROTOCOL_WORKER_PROMPT_CLAUDE.md)
+- **Codex tabs:** [`PROTOCOL_WORKER_PROMPT_CODEX.md`](PROTOCOL_WORKER_PROMPT_CODEX.md)
 
-Paste verbatim into a fresh Claude Code tab. For a Codex tab,
-replace `claude` with `codex` in steps 2 and 5.
+The two files are identical except for two lines:
+- step 2's `owner == claude` vs `owner == codex` filter
+- step 5's `claude-<brief-id>` vs `codex-<brief-id>` branch prefix
+
+The branch prefix gives the conductor at-a-glance provenance on
+every PR. Don't deviate.
+
+## Worker prompt (reference copy — Claude variant shown)
+
+The same content is in `PROTOCOL_WORKER_PROMPT_CLAUDE.md`. Use
+the sibling file when actually pasting; this copy is for reading
+the protocol inline.
 
 ```
 You are a worker tab in the SKYCOT swarm. Implement ONE brief, open a PR, then stop. Do not loop.
@@ -70,15 +80,6 @@ Hard rules:
 - If you hit a wall: edit BUILD_STATUS.md → status BLOCKED with a clear reason, commit + push, then stop. The conductor will unblock you next tick.
 - If you can't even claim a row (e.g. queue empty, or everything has unmerged predecessors), stop and tell me.
 ```
-
-## Codex variant
-
-Same prompt, two replacements:
-- Step 2: `owner == codex` (not `owner == claude`)
-- Step 5: `git checkout -b codex-<brief-id>` (not `claude-<brief-id>`)
-
-The branch prefix is what gives the conductor at-a-glance
-provenance on every PR. Don't deviate.
 
 ## Why workers don't loop
 
