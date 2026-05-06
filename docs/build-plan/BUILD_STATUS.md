@@ -47,7 +47,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | CLAIMED | - | claimed by codex |
-| H-action-replay | codex | TODO | — | replenish-codex: `argo action replay <id>` debugging tool — re-runs completed action against fresh executor; writes sibling replay-bundle |
+| H-action-replay | codex | CLAIMED | — | claimed by codex |
 | H-audit-query-extensions | codex | TODO | — | replenish-codex: `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
 | H-channel-health-checks | codex | TODO | — | replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
