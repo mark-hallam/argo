@@ -95,7 +95,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-code-execution-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::CodeExecution; Python 3.12 + Node 20 in E2B sandbox; time/memory limits; opt-in network/pkg-install; artifacts at /tmp/artifacts collected |
 | claude-worker-roster | claude | TODO | — | V1.3 multi-worker: Roster primitive (group of workers + shared policy + shared channels + shared budget); resolved_policy walks roster layer; `argo roster create/list/show/add-member/remove-member/delete`; multi-roster "most-restrictive wins" |
 | claude-spend-anomaly-alerts | claude | TODO | — | V1.1 reliability: hourly z-score on spend per worker per hour-of-day; |z|>4.0 inserts anomaly row + fires notify; `argo budget anomalies`; complementary to claude-anomaly-detector (action behavior) |
-| codex-gateway-smoke-flake-fix | codex | TODO | — | V1.1 reliability: investigate + fix the pre-existing gateway_smoke + gateway_smoke_writes flakes (`no such table: session`, schema init order, listener timing); restores `cargo test --workspace` clean; update tick-60 amendment list as fixes land |
+| codex-gateway-smoke-flake-fix | codex | CLAIMED | — | claimed by codex |
 
 ---
 
