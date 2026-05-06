@@ -1,0 +1,17 @@
+[package]
+name = "argo-orchestrator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo — multi-worker session orchestration: handoffs, escalation chains, shared work threads (Stream H-3 of H-auto-approval)."
+
+[dependencies]
+argo-identity = { path = "../argo-identity", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
