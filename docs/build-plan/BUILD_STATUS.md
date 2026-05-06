@@ -78,7 +78,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-multi-step-approval | codex | BLOCKED | — | blocked: brief references nonexistent crates/argo-identity/src/worker_action.rs and crates/argo-runtime/src/auto_approval.rs; actual action schema/gate live outside may-touch |
 | codex-connector-stripe | codex | BLOCKED | — | blocked: brief targets nonexistent argo-mcp connectors module and cli_connector_cmds; existing connector pattern uses separate argo-mcp-connector-* crates outside may-touch |
 | codex-connector-jira | codex | BLOCKED | — | blocked: brief targets nonexistent argo-mcp connectors module and cli_connector_cmds; existing connector pattern uses separate argo-mcp-connector-* crates outside may-touch |
-| codex-connector-asana | codex | TODO | — | V1.2 capability: native Asana MCP connector (8 methods); ASANA_PAT auth |
+| codex-connector-asana | codex | CLAIMED | — | claimed by codex |
 | codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: `argo skill search <query>` cross-tenant OCI registry search; --trust-min/--tenant/--limit/--json |
 | claude-anomaly-detector | claude | TODO | — | V1.1 reliability: per-(worker, action_kind) Welford running stats + z-score; insert anomaly events when |z|>threshold; CLI + TUI Z overlay |
 | claude-workflow-dag | claude | TODO | — | V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
