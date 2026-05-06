@@ -40,12 +40,16 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-spend-persistence | codex | MERGED | #809 | spend_today_for_worker + record_charge helpers; gate reads spend before evaluation + writes charge after AutoApprove; reuses H-1's worker_budget schema; 4 tests cover over-cap / at-cap / cross-worker / cross-day |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
 | H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
-| H-skill-library-routes | codex | IN_REVIEW | #817 | PR open |
+| H-skill-library-routes | codex | MERGED | #817 | gateway HTTP endpoints `GET /skills?risk=...` + `GET /skills/<name>` exposing the H-4b LayeredLookup; workspace overrides library on duplicates; 400 on invalid risk |
 | H-budget-cli | codex | CLAIMED | — | claimed by codex |
 | H-doctor-extensions | codex | MERGED | #808 | 4 new `argo doctor` checks for the H-stack: workspace policy presence + bare-enabled WARN, worker_budget table reachable, session/handoff tables (MISSING-friendly), notify-channel manifests; 9 unit tests + JSON envelope extension |
 | H-metrics | codex | TODO | — | unblocked: brief expanded — codex MAY add `prometheus = "0.13"` to root `Cargo.toml` workspace.dependencies AND touch the `/metrics` route handler (`crates/argo-cli/src/handlers/gateway/routes_metrics.rs` or wherever) IF needed to register the new counters. Keep changes minimal: only register the new counters, do NOT modify existing metric definitions. The brief's "must NOT touch existing metric definitions" still applies. |
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
-| demo-marketplace-seller-vertical | codex | IN_REVIEW | #818 | PR opened |
+| demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
+| H-skill-review-cli | codex | TODO | — | replenish-codex: `argo skill review list/show/approve/reject` for pending_review lifecycle; the OPERATOR-FACING half of the skill-learning loop |
+| H-action-replay | codex | TODO | — | replenish-codex: `argo action replay <id>` debugging tool — re-runs completed action against fresh executor; writes sibling replay-bundle |
+| H-audit-query-extensions | codex | TODO | — | replenish-codex: `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
+| H-channel-health-checks | codex | TODO | — | replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
 | claude-e2e-integration-test | claude | MERGED | #810 | 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition — see claude-action-record-identity-plumbing + claude-e2e-test-step-completion follow-ups) |
@@ -53,7 +57,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-skill-success-metric | claude | MERGED | #813 | SuccessMetric (confidence + trajectory_length + duration + final_state_score) + ProposalThreshold defaults (≥0.8 / ≤25 steps / ≤600s); CU executor computes from real trajectory; legacy f64 API preserved |
 | claude-worker-instance-policy | claude | MERGED | #815 | Worker::resolved_policy(workspace_default) + argo worker update --auto-approval-json; gate hookup deferred (waits on claude-action-record-identity-plumbing for worker_id on ActionRecord) |
 | claude-orchestrator-handoff-walker | claude | TODO | — | replenish-2: periodic tokio sweeper that walks EscalationChain on overdue Pending handoffs; chain exhaustion writes audit row + Session.Expired; the brief that makes the system genuinely autonomous |
-| claude-skycot-runbook | claude | IN_REVIEW | #816 | PR opened — 944-line operator runbook covering all 10 brief sections (install → bootstrap → genesis → approvals → first action → skill learning → handoff → audit → next steps) |
+| claude-skycot-runbook | claude | MERGED | #816 | 944-line operator runbook (`docs/skycot/RUNBOOK.md`) covering all 10 brief sections: install → bootstrap → genesis → approvals → first action → skill learning → handoff → audit → next steps |
 | claude-action-record-identity-plumbing | claude | TODO | — | replenish-3: thread `worker_id: WorkerId` through ActionRecord + every emit/dispatch/transition seam; FOUNDATIONAL for the 3 SKIPs in #810 + the worker-instance-policy follow-through |
 | claude-e2e-test-step-completion | claude | TODO | — | replenish-3: flip the 3 SKIPped steps in #810 to real assertions once identity plumbing lands; flips v1 demo gate from yellow (6/9) → green (9/9) |
 | claude-marketplace-vertical-publish | claude | CLAIMED | — | claimed by claude |
