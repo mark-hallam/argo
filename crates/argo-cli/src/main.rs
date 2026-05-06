@@ -68,6 +68,11 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 .await,
         },
         Some(Command::Doctor {
+            cmd: Some(cli::DoctorCmd::Fix { auto, issue, json: fix_json }),
+            json,
+            ..
+        }) => handlers::doctor_fix::run(auto, issue.as_deref(), json || fix_json).await,
+        Some(Command::Doctor {
             cmd: Some(cli::DoctorCmd::Watch { interval, clear }),
             ..
         }) => handlers::doctor_watch::run(&interval, clear).await,
