@@ -321,11 +321,22 @@ fn parse_action_body(body: &str) -> Option<ProposedAction> {
 /// is downgraded to `state = "blocked"` rather than `"pending"`.
 /// The operator sees the gap in the ledger; the model never
 /// gets to claim approval-readiness on top of weak research.
+///
+/// Sold-item gate (#769): when `sold_items` contains the
+/// emitted action's `item_id`, the emission is downgraded to
+/// `state = "blocked"` regardless of approval / evidence,
+/// EXCEPT for `action_type = "mark_item_sold"` itself (a
+/// redundant mark-sold for an already-sold item is a no-op,
+/// not a contract violation). This stops a long-running worker
+/// from drafting new listings, posting them, or replying to
+/// non-existent buyers for items the operator has already
+/// closed out via a completed `mark_item_sold` row.
 pub(crate) fn emit_actions_from_text(
     vertical: &argo_vertical::VerticalManifest,
     job_id: &str,
     assistant_text: &str,
     evidence_sufficient: bool,
+    sold_items: &std::collections::HashSet<String>,
 ) -> Vec<ActionRecord> {
     extract_action_proposals(assistant_text)
         .into_iter()
@@ -340,6 +351,23 @@ pub(crate) fn emit_actions_from_text(
                 evidence: p.evidence,
             };
             let mut rec = build_emission(&inputs);
+            // Sold-item gate runs FIRST so the blocked_reason is
+            // accurate even when evidence is also insufficient.
+            // Skips `mark_item_sold` itself (idempotent no-op).
+            let item_is_sold = rec
+                .item_id
+                .as_deref()
+                .is_some_and(|id| sold_items.contains(id));
+            if item_is_sold && rec.action_type != "mark_item_sold" && rec.state != "blocked" {
+                rec.state = "blocked".to_string();
+                rec.blocked_reason = Some(format!(
+                    "item `{}` already marked sold — refusing new {} emission. \
+                     Inventory is closed; the worker should not act on sold items.",
+                    rec.item_id.as_deref().unwrap_or("?"),
+                    rec.action_type,
+                ));
+                return rec;
+            }
             if !evidence_sufficient && rec.requires_approval && rec.state == "pending" {
                 rec.state = "blocked".to_string();
                 rec.blocked_reason = Some(
@@ -385,106 +413,10 @@ pub(crate) async fn persist_action_record(
     Ok(())
 }
 
-/// Render the `execution_plan.md` artifact alongside the rest
-/// of the per-job bundle. Groups emitted actions by state with
-/// the operator's reading order:
-///
-///   1. **Pending approval** — the queue the human reviews next
-///   2. **Pending (autonomous)** — safe-autonomous actions ready
-///      to run without approval
-///   3. **Blocked** — undeclared action_types or evidence-gated
-///      approval-gated emissions, with the `blocked_reason` so
-///      the operator sees the gap
-///
-/// When the worker emitted no actions, returns a clear empty-
-/// state placeholder rather than an empty file. The renderer is
-/// pure — takes a slice of records, returns a string — so it's
-/// trivial to unit-test alongside the orchestrator.
-pub(crate) fn render_execution_plan(records: &[super::worker_actions::ActionRecord]) -> String {
-    if records.is_empty() {
-        return "# Execution plan\n\n_(no actions emitted this run)_\n".to_string();
-    }
-    let mut pending_approval: Vec<&super::worker_actions::ActionRecord> = Vec::new();
-    let mut pending_safe: Vec<&super::worker_actions::ActionRecord> = Vec::new();
-    let mut blocked: Vec<&super::worker_actions::ActionRecord> = Vec::new();
-    for r in records {
-        match (r.state.as_str(), r.requires_approval) {
-            ("pending", true) => pending_approval.push(r),
-            ("pending", false) => pending_safe.push(r),
-            ("blocked", _) => blocked.push(r),
-            _ => {} // approved/executing/completed/failed not seen at emission time
-        }
-    }
-
-    let mut out = String::from("# Execution plan\n\n");
-    out.push_str(&format!(
-        "Emitted {} action(s) — {} pending approval, {} \
-         autonomous-safe, {} blocked.\n\n",
-        records.len(),
-        pending_approval.len(),
-        pending_safe.len(),
-        blocked.len(),
-    ));
-
-    if !pending_approval.is_empty() {
-        out.push_str("## Pending approval\n\n");
-        out.push_str(
-            "These actions require an explicit `argo worker actions approve <id>` \
-             before they advance.\n\n",
-        );
-        for r in &pending_approval {
-            out.push_str(&render_action_line(r));
-        }
-        out.push('\n');
-    }
-
-    if !pending_safe.is_empty() {
-        out.push_str("## Pending (autonomous-safe)\n\n");
-        out.push_str(
-            "Autonomous-safe actions — the worker may advance these without \
-             operator approval per the bound vertical's manifest.\n\n",
-        );
-        for r in &pending_safe {
-            out.push_str(&render_action_line(r));
-        }
-        out.push('\n');
-    }
-
-    if !blocked.is_empty() {
-        out.push_str("## Blocked\n\n");
-        out.push_str(
-            "These emissions were rejected by the OS — undeclared action types \
-             or approval-gated emissions on top of insufficient research evidence. \
-             The operator must address the cause before re-emitting.\n\n",
-        );
-        for r in &blocked {
-            out.push_str(&render_action_line(r));
-            if let Some(reason) = r.blocked_reason.as_deref() {
-                out.push_str(&format!("    - reason: {reason}\n"));
-            }
-        }
-        out.push('\n');
-    }
-
-    out
-}
-
-fn render_action_line(r: &super::worker_actions::ActionRecord) -> String {
-    let platform = r
-        .platform
-        .as_deref()
-        .map(|p| format!(" · platform `{p}`"))
-        .unwrap_or_default();
-    let item = r
-        .item_id
-        .as_deref()
-        .map(|i| format!(" · item `{i}`"))
-        .unwrap_or_default();
-    format!(
-        "- `{}` — `{}` (risk: {}){platform}{item}\n",
-        r.action_id, r.action_type, r.risk_level,
-    )
-}
+// Renderer extracted to `worker_actions_emit_plan.rs` (#769)
+// to keep this file under the 500-LOC budget. Re-exported here
+// so callers + tests keep the same import path.
+pub(crate) use super::worker_actions_emit_plan::render_execution_plan;
 
 #[cfg(test)]
 #[path = "worker_actions_emit_tests.rs"]

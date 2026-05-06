@@ -22,9 +22,11 @@
 use super::vertical::resolve_verticals_dir;
 use super::work_artifacts::ArtifactOutput;
 use super::worker_actions_emit;
+use super::worker_actions_items;
 use super::worker_actions_render;
 use argo_memory::MemoryStore;
 use argo_types::WorkspaceId;
+use std::collections::HashSet;
 
 /// Walk every assistant message text, hand each to the action-
 /// emission orchestrator, persist every emitted record as a
@@ -53,6 +55,27 @@ pub(crate) async fn emit_and_persist_actions(
         return 0;
     };
     let manifest = &loaded.manifest;
+    // #769: snapshot the sold-items set ONCE per emission pass.
+    // Walking the ledger per assistant_text would re-read the
+    // same memory rows; one snapshot for the duration of the
+    // pass is correct because mark_item_sold rows can only land
+    // via operator action, which doesn't race with the worker.
+    let sold_items: HashSet<String> = match worker_actions_items::compute_sold_items(
+        memory,
+        workspace,
+        vertical_id,
+    )
+    .await
+    {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "argo work: warning — sold-items snapshot failed for `{vertical_id}`: {e}; \
+                 emission gate inactive for this pass"
+            );
+            HashSet::new()
+        }
+    };
     let mut all_records = Vec::new();
     for text in &artifact.assistant_texts {
         let records = worker_actions_emit::emit_actions_from_text(
@@ -60,6 +83,7 @@ pub(crate) async fn emit_and_persist_actions(
             job_id,
             text,
             artifact.evidence_sufficient,
+            &sold_items,
         );
         for rec in records {
             if let Err(e) =

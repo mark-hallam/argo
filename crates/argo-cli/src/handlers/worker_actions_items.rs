@@ -20,8 +20,8 @@ use crate::handlers::worker_actions::ActionRecord;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
-use std::collections::{BTreeMap, HashMap};
+use argo_types::{ArgoError, ArgoResult, WorkspaceId};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 /// Per-item rollup. Serialised verbatim to JSON via serde.
@@ -303,6 +303,43 @@ pub(crate) async fn aggregate(vertical: Option<&str>) -> ArgoResult<Vec<ItemSumm
 
     let tuples: Vec<(String, ActionRecord)> = latest.into_values().collect();
     Ok(rollup_items(tuples))
+}
+
+/// Compute the set of item_ids that are "sold" within the given
+/// vertical's namespace, where "sold" means: at least one
+/// `mark_item_sold` action has reached `completed` state in the
+/// memory store. Used by the emission gate (#769) to refuse new
+/// emissions for inventory the operator has already closed.
+///
+/// Walks the memory store directly for efficiency — does NOT
+/// need the full per-item rollup. Caller already has the
+/// (memory, workspace, vertical_id) trio (typically from the
+/// worker's pre-emission glue in `work_emission.rs`), so this
+/// avoids re-opening the store from cwd.
+pub(crate) async fn compute_sold_items(
+    memory: &MemoryStore,
+    workspace: WorkspaceId,
+    vertical_id: &str,
+) -> ArgoResult<HashSet<String>> {
+    let entries = memory
+        .list_for_vertical(workspace, MemoryFile::Memory, vertical_id)
+        .await?;
+    let mut sold: HashSet<String> = HashSet::new();
+    for e in entries {
+        let Ok(rec) = serde_json::from_str::<ActionRecord>(&e.body) else {
+            continue;
+        };
+        if rec.schema_key != ActionRecord::SCHEMA_KEY {
+            continue;
+        }
+        if rec.action_type != "mark_item_sold" || rec.state != "completed" {
+            continue;
+        }
+        if let Some(item_id) = rec.item_id {
+            sold.insert(item_id);
+        }
+    }
+    Ok(sold)
 }
 
 /// Pure aggregator. Takes the (vertical, latest-snapshot row)
