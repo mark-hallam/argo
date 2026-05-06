@@ -87,7 +87,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
 | claude-org-awareness | claude | TODO | — | V1.3 multi-worker: Org/Unit/Member/Alias primitives + manager-chain escalation; `argo org tree/member/reports-to/ingest` |
 | claude-demo-multi-vertical | claude | TODO | — | V2.2 demo verticals: customer-support + sales-sdr + marketing-intern verticals; charter + skills + Genesis archetype + demo script + e2e smoke |
-| codex-connector-salesforce | codex | CLAIMED | — | claimed by codex |
+| codex-connector-salesforce | codex | IN_REVIEW | #850 | PR opened: native Salesforce MCP connector crate with 7 tools, OAuth client-credentials cache, SOQL passthrough, approval markers, unit + wire coverage |
 | codex-connector-zendesk | codex | CLAIMED | — | claimed by codex |
 | codex-setup-wizard-cli | codex | CLAIMED | — | claimed by codex |
 | codex-compliance-export-cli | codex | TODO | — | V1.1 reliability: `argo audit export --since/--until --format ndjson|csv|tarball`; chain-integrity check; --gdpr-redact-emails; tarball includes manifest+README+ndjson |
