@@ -1,0 +1,101 @@
+# PROTOCOL_LOOP_PROMPT — the conductor-tick prompt
+
+Paste the prompt below into `/loop 5m <prompt>` on the project repo.
+This drives the conductor tab. See `PROTOCOL.md` for the full
+architecture and `CONTRIBUTING_AGENT.md` for the worker-side rules.
+
+How to run:
+
+1. Substitute the four placeholders in angle brackets:
+   - `<REPO_PATH>` — absolute path to the repo (e.g.
+     `/Users/me/code/myproject`).
+   - `<PLAN_DIR>` — relative path of the plan directory inside the
+     repo (e.g. `docs/build-plan`).
+   - `<WORKER_BRANCH_PREFIXES>` — comma-list of branch prefixes the
+     swarm uses (e.g. `claude-,codex-`).
+   - `<PROJECT_NICKNAME>` — what to call the swarm in the report
+     (e.g. `SKYCOT 14-day v1`).
+2. Open ONE Claude tab on `<REPO_PATH>`. This tab will be the
+   conductor for the duration of the run.
+3. Run `/loop 5m <paste the prompt below>`.
+4. Cancel the loop when every brief in BUILD_STATUS.md is MERGED
+   AND the v1 demo gate is green, or by Ctrl-C / human intervention.
+
+The lines flagged `[PROJECT-SPECIFIC]` are the ones you'll change
+per project. Every other line is reusable verbatim.
+
+**Note on step 8 (queue replenishment)**: the prompt differentiates
+codex vs claude brief sizing. Codex briefs are smaller (200–1200
+LOC), single-crate, mechanical, narrow may-touch. Claude briefs are
+larger (300–2000 LOC), can span crates, can make architectural
+decisions, can include integration tests. When the conductor
+brainstorms new briefs at step 8, it picks the sizing flavor based
+on which queue is short.
+
+---
+
+```
+5m Conductor tick for the <PROJECT_NICKNAME> swarm. Run this exact sequence:
+
+1. cd <REPO_PATH> && git checkout main && git pull --ff-only origin main 2>&1 | tail -3
+
+2. git log --oneline origin/main -8  (see what landed since last tick)
+
+3. gh pr list --state open --json number,title,headRefName,author,createdAt 2>&1  (see open PRs)
+
+4. cat <PLAN_DIR>/BUILD_STATUS.md | head -60  (see queue state)
+
+5. For any NEW open PR from a <WORKER_BRANCH_PREFIXES> branch I haven't reviewed yet:
+   - gh pr diff <num> --color never | head -300 (skim the diff)
+   - Verify against the brief's acceptance checklist (file boundaries, LOC, clippy/test passing as claimed)
+   - If clean: gh pr merge <num> --squash --delete-branch, then update BUILD_STATUS.md row to MERGED with PR num, commit "status: <brief-id> merged (#<num>)", push to main
+   - If issues: gh pr comment <num> --body "<specific issue>", note in BUILD_STATUS.md
+   - Track which PRs I've already reviewed across ticks (use git log to see my own merge commits)
+
+6. Continue any in-progress claude-owned Stream work I'm building. Pick the first claude-owned TODO row whose predecessors are all MERGED.
+
+7. If a brief has been BLOCKED, investigate the reason and decide: expand its may-touch list (small fix in BUILD_STATUS.md + brief), or split into sub-briefs, or escalate to the human operator.
+
+8. Queue replenishment:
+   a. codex_todo = grep -c "| codex |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
+      claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
+   b. If codex_todo <= 3: brainstorm 3-5 NEW codex-sized briefs from MISSION + recent
+      PR-body deferrals + v1 gaps + git log -100. Each brief follows PROTOCOL_BRIEF_TEMPLATE.md.
+      Sizing: 200-1200 LOC, narrow may-touch, single-crate focus.
+   c. If claude_todo <= 3: same for claude. Sizing: 300-2000 LOC, multi-crate OK,
+      architectural decisions OK, integration tests welcome.
+   d. Push ONE commit per replenishment: "briefs: replenish <owner> queue (<id1>, <id2>, ...)".
+   e. Skip if both above 3.
+
+9. If everything is in flight and there's nothing to do, report back briefly with
+   "swarm healthy, X PRs in review, Y briefs claimed, Z merged, codex_todo=A, claude_todo=B"
+   and end the tick.
+
+Do not stop the loop. Cancel only when the user asks to stop OR when every brief in BUILD_STATUS.md is MERGED AND the v1 demo gate is green.
+```
+
+---
+
+## Notes
+
+- The 5-minute interval is a default. For larger swarms (8+ workers)
+  drop to 3 minutes. For sleepier projects (1–2 workers, hand-paced)
+  raise to 10 minutes or run unscheduled.
+- `head -8` on the git log and `head -300` on the diff are tuned for
+  Claude's context budget per tick. Bump if you want deeper review.
+- The conductor reports "nothing to do" cleanly — that's the
+  expected state on most ticks. Don't fight it.
+- If the conductor tab itself crashes / loses state, restart the
+  loop in a fresh tab. The ledger on origin/main IS the state; the
+  conductor's local memory is disposable.
+- Step 8 (queue replenishment) is what keeps the swarm fed
+  indefinitely. Without it, the loop runs out of work as soon as
+  the seed briefs all merge. The trigger is simple: count TODO
+  rows per owner, fire if either is ≤3, write 3–5 new briefs in
+  one commit. See `PROTOCOL.md` "Queue replenishment" for the
+  idea sources, sizing rules, and stop condition.
+- Hard rules every tick (carry over from earlier protocol revisions):
+  always run from `<REPO_PATH>` on the main branch after a fresh
+  `git pull --ff-only`; never `git commit -am` (always stage explicit
+  files); never force-push to main; never modify a worker's branch
+  except via squash-merge or close.

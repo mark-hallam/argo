@@ -55,6 +55,7 @@ async fn cu_navigates_example_com_and_captures_outcome() {
             .into(),
         budget_usd: Some(0.50),
         bundle_dir: Some(bundle.clone()),
+        session_id: None,
     };
 
     let outcome = exec

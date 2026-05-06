@@ -22,8 +22,11 @@ use crate::e2b::{E2bClient, Sandbox};
 use crate::pool::{PoolKey, SandboxPool};
 use crate::profile::{Profile, ProfileRegistry};
 use crate::CuError;
+use argo_skill::SkillStore;
+use argo_types::SessionId;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Top-level executor. Cloneable — internals are `Arc`-shared so
 /// the same instance can drive concurrent dispatches across
@@ -34,6 +37,19 @@ pub struct ComputerUseExecutor {
     anthropic_template: AnthropicClientTemplate,
     pool: SandboxPool,
     profiles: ProfileRegistry,
+    /// Optional skill-learning hook (Stream
+    /// `claude-cu-skill-learn-wire`).
+    ///
+    /// When set, a successful run proposes a `SkillCandidate`
+    /// through `SkillStore::propose_for_review` so a human can
+    /// approve the learned skill before it goes live. Errors are
+    /// logged + swallowed: a learning-loop failure never fails
+    /// the action.
+    skill_store: Option<Arc<SkillStore>>,
+    /// Per-action threshold above which a successful trajectory
+    /// is worth proposing as a learned skill. Caller can override
+    /// via [`ComputerUseExecutor::with_skill_threshold`].
+    skill_threshold: f64,
 }
 
 /// Template for building per-profile Anthropic clients (each
@@ -79,7 +95,28 @@ impl ComputerUseExecutor {
             },
             pool,
             profiles,
+            skill_store: None,
+            skill_threshold: crate::learn::DEFAULT_THRESHOLD,
         }
+    }
+
+    /// Attach a skill-learning hook. When set, a successful CU
+    /// run proposes a `SkillCandidate` for human review via
+    /// `SkillStore::propose_for_review`. Failures are logged +
+    /// swallowed so the action's outcome is unaffected.
+    #[must_use]
+    pub fn with_skill_store(mut self, store: Arc<SkillStore>) -> Self {
+        self.skill_store = Some(store);
+        self
+    }
+
+    /// Override the per-action skill-proposal threshold. Default
+    /// is [`crate::learn::DEFAULT_THRESHOLD`] (0.8). Used by
+    /// tenants who want a stricter/looser bar.
+    #[must_use]
+    pub fn with_skill_threshold(mut self, threshold: f64) -> Self {
+        self.skill_threshold = threshold;
+        self
     }
 
     /// Convenience: build from env + load the profiles
@@ -136,7 +173,7 @@ impl ComputerUseExecutor {
 
         let outcome = self.run_loop(&req, &profile, &sandbox, &audit, &mut tracker).await;
         self.pool.release(&pool_key).await;
-        outcome.map(|o| match o {
+        let final_outcome = outcome.map(|o| match o {
             LoopExit::Success(result) => Outcome::Completed {
                 result,
                 bundle_dir,
@@ -147,7 +184,25 @@ impl ComputerUseExecutor {
                 bundle_dir,
                 budget: tracker.snapshot(),
             },
-        })
+        });
+        // Stream `claude-cu-skill-learn-wire`: if the run
+        // succeeded + a skill store is attached + a session id
+        // is plumbed through, propose a `SkillCandidate` for
+        // human review. Errors are logged + swallowed inside the
+        // helper so they never fail the action.
+        if let (Ok(ref outcome_ref), Some(store), Some(session)) =
+            (&final_outcome, &self.skill_store, req.session_id)
+        {
+            let _ = crate::learn::maybe_propose(
+                Some(store.as_ref()),
+                &req,
+                outcome_ref,
+                session,
+                self.skill_threshold,
+            )
+            .await;
+        }
+        final_outcome
     }
 
     async fn run_loop(
@@ -301,6 +356,13 @@ pub struct RunRequest {
     /// tempdir). When `None`, defaults to
     /// `.skycot/outputs/<job_id>/actions/<action_id>/`.
     pub bundle_dir: Option<PathBuf>,
+    /// Optional session id used by the skill-learning hook
+    /// (Stream `claude-cu-skill-learn-wire`). Plumbed in at
+    /// dispatch time so a learned-skill proposal carries the
+    /// originating session in its `learned:<short>` provenance.
+    /// When `None`, the learning hook still runs but skips
+    /// the propose call (no session = no audit chain).
+    pub session_id: Option<SessionId>,
 }
 
 impl RunRequest {
@@ -317,6 +379,7 @@ impl RunRequest {
             system_prompt: "Navigate to example.com and find the first link.".into(),
             budget_usd: Some(0.10),
             bundle_dir: None,
+            session_id: None,
         }
     }
 }
@@ -410,6 +473,7 @@ mod tests {
             system_prompt: "x".into(),
             budget_usd: None,
             bundle_dir: None,
+            session_id: None,
         };
         let dir = default_bundle_dir(&r);
         assert!(dir.ends_with(".skycot/outputs/job-9/actions/act-7"));

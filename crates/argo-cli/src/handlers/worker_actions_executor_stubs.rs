@@ -129,6 +129,13 @@ impl Executor for ComputerUseExecutor {
             system_prompt: build_system_prompt(action, decl),
             budget_usd,
             bundle_dir: Some(bundle_dir),
+            // session_id plumbed through by the worker daemon
+            // once Stream H-orchestrator-persist threads identity
+            // through dispatch; today's cli surface doesn't carry
+            // a session id, so the skill-learning loop is a no-op
+            // here. The cu executor still runs cleanly; only the
+            // optional propose call is skipped.
+            session_id: None,
         };
 
         let outcome = run_blocking(cu, req)?;

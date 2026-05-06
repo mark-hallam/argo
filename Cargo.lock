@@ -315,6 +315,7 @@ dependencies = [
 name = "argo-executor-computer-use"
 version = "0.0.1"
 dependencies = [
+ "argo-skill",
  "argo-types",
  "async-trait",
  "chrono",
@@ -326,6 +327,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
