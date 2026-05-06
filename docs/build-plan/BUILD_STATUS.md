@@ -35,7 +35,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-layering | codex | MERGED | #786 | 3-layer memory + sqlite-vec/Voyage-3 landed; H now closer to ready |
 | G-genesis | claude | MERGED | #790 | charter → vertical generator + safety judge + 12-archetype classifier landed; deterministic offline pipeline (LLM refinement is v1.x) |
 | H-auto-approval | claude | MERGED | #796 #799 #800 #801 #803 #805 | ALL 6 sub-slices landed: H-1 #796 (policy + budget) + H-2 #800 (gate hookup) + H-3 #799 (orchestrator) + H-4a #801 (trust ladder) + H-4b #803 (two-tier lookup) + H-4c #805 (skill-learning primitives) |
-| F-memory-shared-team | codex | IN_REVIEW | #819 | PR opened |
+| F-memory-shared-team | codex | MERGED | #819 | `MemoryNs::shared_team(tenant)` + author-stamped writes; cross-tenant isolation; new shared_team.rs (232 LOC) + migration 15 |
 | H-orchestrator-persist | codex | IN_REVIEW | #806 | PR opened |
 | H-spend-persistence | codex | MERGED | #809 | spend_today_for_worker + record_charge helpers; gate reads spend before evaluation + writes charge after AutoApprove; reuses H-1's worker_budget schema; 4 tests cover over-cap / at-cap / cross-worker / cross-day |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
@@ -43,7 +43,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-skill-library-routes | codex | MERGED | #817 | gateway HTTP endpoints `GET /skills?risk=...` + `GET /skills/<name>` exposing the H-4b LayeredLookup; workspace overrides library on duplicates; 400 on invalid risk |
 | H-budget-cli | codex | IN_REVIEW | #820 | PR open |
 | H-doctor-extensions | codex | MERGED | #808 | 4 new `argo doctor` checks for the H-stack: workspace policy presence + bare-enabled WARN, worker_budget table reachable, session/handoff tables (MISSING-friendly), notify-channel manifests; 9 unit tests + JSON envelope extension |
-| H-metrics | codex | BLOCKED | - | blocked: metrics scrape needs forbidden route/dependency scope; handler over 500 LOC |
+| H-metrics | codex | TODO | — | unblocked v2: existing `crates/argo-cli/src/handlers/gateway/metrics.rs` is already 545 LOC (pre-existing budget violation — leave it alone). Use the SIBLING-FILE pattern: NEW `metrics_h_stack.rs` registers the new counters into the GLOBAL Prometheus registry (`prometheus::default_registry()`); the existing /metrics handler reads from that registry, so new counters surface automatically without touching the existing file. Brief amended: may-touch = `metrics_h_stack.rs` (NEW) + `gateway/mod.rs` (ONE line `pub mod metrics_h_stack;`) + `Cargo.toml` (workspace `prometheus = "0.13"`). DO NOT modify `metrics.rs` or `metrics_actions.rs`. |
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | CLAIMED | - | claimed by codex |
