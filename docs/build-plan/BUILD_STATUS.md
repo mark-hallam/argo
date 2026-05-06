@@ -89,7 +89,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-demo-multi-vertical | claude | TODO | — | V2.2 demo verticals: customer-support + sales-sdr + marketing-intern verticals; charter + skills + Genesis archetype + demo script + e2e smoke |
 | codex-connector-salesforce | codex | IN_REVIEW | #850 | PR opened: native Salesforce MCP connector crate with 7 tools, OAuth client-credentials cache, SOQL passthrough, approval markers, unit + wire coverage |
 | codex-connector-zendesk | codex | IN_REVIEW | #852 | PR opened: native Zendesk Support MCP connector crate with 7 tools, search-query passthrough, email/token/subdomain auth, approval markers, unit + wire coverage |
-| codex-setup-wizard-cli | codex | CLAIMED | — | claimed by codex |
+| codex-setup-wizard-cli | codex | IN_REVIEW | #854 | PR opened: 7-step setup wizard with --non-interactive, JSON envelope, checklist rendering, unit + CLI smoke coverage |
 | codex-compliance-export-cli | codex | CLAIMED | — | claimed by codex |
 | claude-trajectory-replay-ui | claude | IN_REVIEW | #853 | PR opened — `V` opens replay overlay (R is taken by force-refresh); 3-pane layout; CU/MCP/Human steps render; arrow nav + clamp; 13 new tests; total argo-tui 106; autoplay + search-input + sixel/iTerm rendering deferred |
 | claude-code-execution-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::CodeExecution; Python 3.12 + Node 20 in E2B sandbox; time/memory limits; opt-in network/pkg-install; artifacts at /tmp/artifacts collected |
