@@ -31,7 +31,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-sms | codex | TODO | — | (waits on D-email trait) |
 | D-push | codex | TODO | — | (waits on D-email trait) |
 | D-webinbox | codex | TODO | — | (waits on D-email trait) |
-| E-identity | codex | TODO | — | unblocked: brief now allows narrow edits to handlers/worker_actions.rs (dispatcher arms only) + handlers/mod.rs (one-line module add). Re-read brief. |
+| E-identity | codex | CLAIMED | — | claimed by codex |
 | F-memory-layering | codex | TODO | — | (waits on E for MemoryNs) |
 | G-genesis | claude | TODO | — | (waits on A stable) |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
