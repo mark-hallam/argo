@@ -28,6 +28,7 @@
 mod event;
 mod export;
 mod gap;
+mod replay;
 mod sink;
 mod verify;
 
@@ -39,5 +40,6 @@ pub use export::{
     export_ndjson, rows_for_session, tail_rows, tail_rows_filtered, ExportedRow, TailFilters,
 };
 pub use gap::{detect_policy_denials, CapabilityGap, GapKind};
+pub use replay::{filter_rows as filter_replay_rows, render as render_replay, ReplayFormat};
 pub use sink::{compute_chain_hash, AuditEvent, AuditSink, AUDIT_BROADCAST_CAPACITY};
 pub use verify::{verify_all, verify_session, ChainBreak, VerifyReport};

@@ -398,6 +398,12 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
         AuditCmd::ByDayByKind { days, json } => {
             super::audit_by_day_by_kind::run(days, json).await
         }
+        AuditCmd::Replay {
+            session_id,
+            from_seq,
+            until,
+            format,
+        } => super::audit_replay::run(&session_id, from_seq, until.as_deref(), &format).await,
     }
 }
 
