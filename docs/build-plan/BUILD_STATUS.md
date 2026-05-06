@@ -48,7 +48,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | MERGED | #823 | `argo skill review list/show/approve/reject`; --vertical filter + --json |
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
-| H-audit-query-extensions | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
+| H-audit-query-extensions | codex | CLAIMED | — | claimed by codex |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
 | H-shared-team-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
 | H-vertical-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
