@@ -197,6 +197,10 @@ pub enum SkillCmd {
     },
     /// Search the cross-tenant OCI skill registry.
     Search(super::cli_skill_search_cmds::SkillSearchCmd),
+    Versions(super::cli_skill_ab_cmds::SkillVersionsCmd),
+    AbTest(super::cli_skill_ab_cmds::SkillAbTestCmd),
+    AbStatus(super::cli_skill_ab_cmds::SkillAbStatusCmd),
+    AbPromote(super::cli_skill_ab_cmds::SkillAbPromoteCmd),
     /// Drive the learned-skill review gate (#681 lifecycle):
     /// list pending proposals + approve / reject them. Without
     /// this surface the lifecycle gate is theoretical — agents

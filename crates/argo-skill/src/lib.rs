@@ -20,6 +20,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod ab_test;
 pub mod conflicts;
 pub mod learn;
 pub mod library;
@@ -30,6 +31,7 @@ mod store;
 mod store_vertical;
 pub mod success_metric;
 pub mod trust;
+pub mod version;
 
 #[cfg(test)]
 mod tests;
@@ -45,3 +47,9 @@ pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
 pub use store::SkillStore;
 pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
+pub use ab_test::{
+    create_run, ensure_ab_schema, get_run, maybe_complete, promote, record_outcome,
+    select_variant, significance, variant_counts, AbTestRun, RunStatus, Significance,
+    Variant, VariantCounts, CHI_SQUARE_CRIT_DF1_ALPHA_05, DEFAULT_MIN_SAMPLES_PER_VARIANT,
+};
+pub use version::{find_version, list_versions, SkillVersion};

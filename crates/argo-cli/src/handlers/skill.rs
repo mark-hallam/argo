@@ -82,6 +82,10 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             &new_version,
         )
         .await,
+        SkillCmd::Versions(args) => super::skill_ab::versions(args).await,
+        SkillCmd::AbTest(args) => super::skill_ab::ab_test(args).await,
+        SkillCmd::AbStatus(args) => super::skill_ab::ab_status(args).await,
+        SkillCmd::AbPromote(args) => super::skill_ab::ab_promote(args).await,
     }
 }
 

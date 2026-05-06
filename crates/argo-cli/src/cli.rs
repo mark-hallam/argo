@@ -30,6 +30,8 @@ mod cli_skill_conflicts_cmds;
 mod cli_skill_review_cmds;
 #[path = "cli_skill_search_cmds.rs"]
 mod cli_skill_search_cmds;
+#[path = "cli_skill_ab_cmds.rs"]
+pub mod cli_skill_ab_cmds;
 #[path = "cli_subcommands.rs"]
 mod cli_subcommands;
 #[path = "cli_tenant_cmds.rs"]

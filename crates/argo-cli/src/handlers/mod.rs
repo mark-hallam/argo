@@ -87,6 +87,7 @@ pub mod setup;
 pub mod setup_render;
 pub mod setup_steps;
 pub mod skill;
+pub mod skill_ab;
 pub mod skill_conflicts;
 pub mod skill_export;
 pub mod skill_import;
