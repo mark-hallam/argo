@@ -43,6 +43,7 @@ mod routes_session_skills;
 mod routes_session_stats;
 mod routes_sessions_rollups;
 mod routes_skill_refine;
+mod routes_skills;
 mod routes_skills_show;
 mod routes_top;
 mod routes_verticals;
@@ -333,6 +334,16 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                     let _ = stream.shutdown().await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
+                    let resp = format!(
+                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(resp.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                } else if let Some((status_line, body)) =
+                    routes_skills::dispatch_route(req, store.as_ref()).await
+                {
                     let resp = format!(
                         "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
                         body.len(),
