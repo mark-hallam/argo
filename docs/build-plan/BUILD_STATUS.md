@@ -100,6 +100,16 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
 | codex-activity-feed-cli | codex | MERGED | #860 | `argo activity tail [--tenant --worker --since]` real-time audit feed; `argo activity since <duration>`; subscribes to AuditSink::subscribe(); --json NDJSON envelope; reconnect-on-break; 4 unit + 1 CLI smoke test; 695 LOC in 8 files
 | codex-gdpr-delete-cli | codex | CLAIMED | — | claimed by codex |
+| codex-connector-linear | codex | TODO | — | V1.2 capability: native Linear MCP connector (7 methods: list_teams/list_issues/get/create/update/comment/list_workflows); GraphQL filter passthrough on list_issues; LINEAR_API_KEY bearer; mirror gmail/asana crate pattern |
+| codex-connector-monday | codex | TODO | — | V1.2 capability: native Monday.com MCP connector (7 methods: list_boards/items/get/create/update_status/add_update/list_groups); MONDAY_API_TOKEN bearer; mirror crate pattern |
+| codex-connector-pagerduty | codex | TODO | — | V1.2 capability: native PagerDuty MCP connector (7 methods: list_incidents/get/create/ack/resolve/list_services/list_oncalls); PAGERDUTY_API_KEY bearer; mirror crate pattern |
+| codex-connector-fireflies | codex | TODO | — | V1.2 capability: native Fireflies.ai MCP connector for meeting transcripts (5 read-only methods: list_meetings/get/get_transcript/search/list_users); FIREFLIES_API_KEY bearer; all autonomous-safe |
+| codex-audit-report-cli | codex | TODO | — | V2.1 governance: `argo audit report --since/--until --format markdown|html [--output]` with 6 sections (summary stats, channel breakdown, top spenders, pending queue, chain integrity, known flakes); extends compliance-export-cli with executive-friendly output |
+| codex-doctor-watch-cli | codex | TODO | — | V1.4 operator UX: `argo doctor watch [--interval --clear]` continuous health dashboard; reuses argo doctor --json envelope; 30s default interval; --clear for curses-style redraw, append-mode for piping |
+| claude-policy-as-code | claude | TODO | — | V2.1 governance: declarative org policies in YAML at workspace/policies/*.yaml; applies_to + rules (action_kind / require_signatures / quiet_hours / spend_cap); resolution chain action→worker→roster→workspace→default; `argo policy list/show/validate/apply` |
+| claude-data-classification | claude | TODO | — | V2.1 governance: DataClass enum (Pii/Phi/Financial/Secret/Public/Untagged) + tag table; memory writes accept class param; per-class retention + redaction rules in workspace config; `argo classify <kind>:<id> <class>` + list + rules |
+| claude-checkpoint-resume | claude | TODO | — | V1.3 multi-worker: argo-workflow checkpoint+resume — per-task output persisted to workflow_checkpoint table; on-startup scan resumes pending; cache_key idempotency skips re-execution; `argo workflow resume/checkpoints/rollback` |
+| claude-trajectory-training-export | claude | TODO | — | V2.0 self-improvement: `argo trajectory export --since/--until --format anthropic|openai|jsonl [--filter passed|all] [--include-screenshots]`; PII redaction integrated; for fine-tuning data pipelines |
 
 ---
 
