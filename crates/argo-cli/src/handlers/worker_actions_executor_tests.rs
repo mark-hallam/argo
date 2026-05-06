@@ -3,13 +3,17 @@
 //! plus end-to-end-ish HumanExecutor coverage that writes a
 //! tempdir and reads back what landed.
 //!
+//! Stream A's executor-trait + parsing + stubs coverage lives
+//! in the sibling file `worker_actions_executor_stream_a_tests.rs`
+//! to keep per-file LOC under the 500-line budget.
+//!
 //! Loaded via `#[cfg(test)] #[path = ...] mod tests;` from
 //! `worker_actions_executor.rs`.
 
 use super::*;
 use crate::handlers::worker_actions::ActionRecord;
 
-fn rec(action_id: &str, action_type: &str, requires_approval: bool) -> ActionRecord {
+pub(super) fn rec(action_id: &str, action_type: &str, requires_approval: bool) -> ActionRecord {
     ActionRecord {
         schema_key: ActionRecord::SCHEMA_KEY.to_string(),
         action_id: action_id.to_string(),
@@ -39,6 +43,18 @@ fn rec(action_id: &str, action_type: &str, requires_approval: bool) -> ActionRec
         ],
         blocked_reason: None,
         created_at: "2026-05-05T12:00:00Z".to_string(),
+    }
+}
+
+/// Helper: extract bundle path from the HumanHandoff outcome
+/// (panics if anything else; HumanExecutor must always return
+/// HumanHandoff).
+pub(super) fn human_bundle(outcome: ActionOutcome) -> std::path::PathBuf {
+    match outcome {
+        ActionOutcome::HumanHandoff { bundle_path } => bundle_path,
+        ActionOutcome::Completed { .. } => {
+            panic!("HumanExecutor must return HumanHandoff, not Completed")
+        }
     }
 }
 
@@ -95,9 +111,10 @@ fn render_evidence_empty_state_placeholder_when_no_sources() {
 fn human_executor_writes_per_action_bundle_files_to_disk() {
     let r = rec("act-105", "post_listing", true);
     let cwd = tempfile::tempdir().expect("tempdir");
-    let bundle = HumanExecutor::without_manifest()
-        .execute(&r, cwd.path())
-        .expect("execute");
+    let outcome = HumanExecutor::without_manifest()
+        .dispatch(&r, cwd.path())
+        .expect("dispatch");
+    let bundle = human_bundle(outcome);
     assert_eq!(
         bundle,
         cwd.path()
@@ -136,12 +153,12 @@ executor = "human"
 "#,
     )
     .expect("manifest parses");
-    let resolved = resolve_executor(&manifest, "verify_price");
-    assert!(resolved.is_ok(), "human executor must resolve");
+    let resolved = resolve_executor(&manifest, "verify_price").expect("human resolves");
+    assert_eq!(resolved.kind(), ExecutorKind::Human);
 }
 
 #[test]
-fn resolve_executor_rejects_unknown_executor() {
+fn resolve_executor_rejects_unknown_executor_kind() {
     let manifest = argo_vertical::parse(
         r#"
 schema_version = "1"
@@ -160,10 +177,10 @@ executor = "browser"
     )
     .expect("manifest parses");
     let err = resolve_executor(&manifest, "post_listing")
-        .err()
-        .expect("browser should be unimplemented in v1");
+        .map(|_| ())
+        .expect_err("'browser' is not a valid executor kind");
     let msg = err.to_string();
-    assert!(msg.contains("not yet implemented"), "got: {msg}");
+    assert!(msg.contains("unknown executor kind"), "got: {msg}");
     assert!(msg.contains("browser"), "got: {msg}");
 }
 
@@ -292,7 +309,8 @@ instruction_template = "Title: {{ payload.title }}; Action: {{ action_id }}"
     let mut r = rec("act-300", "post_listing", true);
     r.payload = serde_json::json!({"title": "Hello"});
     let cwd = tempfile::tempdir().expect("tempdir");
-    let bundle = executor.execute(&r, cwd.path()).expect("execute");
+    let outcome = executor.dispatch(&r, cwd.path()).expect("dispatch");
+    let bundle = human_bundle(outcome);
     let instr = std::fs::read_to_string(bundle.join("instructions.md")).unwrap();
     assert_eq!(instr, "Title: Hello; Action: act-300");
 }
@@ -311,7 +329,7 @@ version = "0.0.1"
     )
     .expect("manifest parses");
     let err = resolve_executor(&manifest, "verify_price")
-        .err()
-        .expect("undeclared types must error");
+        .map(|_| ())
+        .expect_err("undeclared types must error");
     assert!(err.to_string().contains("no [actions]"));
 }

@@ -99,6 +99,10 @@ pub use manifest::{
     SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection, VerticalIdentity,
     VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
 };
+// Stream A (#A-executor-trait) executor-decl schema. Re-exported
+// directly from `manifest_actions` since they're not consumed by
+// `manifest.rs` itself.
+pub use manifest_actions::{ExecutorDeclaration, ExecutorTagged};
 pub use memory_schema::{
     parse_memory_schema, validate_memory_schema, MemoryEntry, MemorySchema, MEMORY_SCHEMA_VERSION,
 };

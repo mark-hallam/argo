@@ -1,68 +1,162 @@
-//! Worker v3 execution-mode executors (#731).
+//! Worker v3 execution-mode executors (#731 + Stream A
+//! `#A-executor-trait`).
 //!
 //! Layer between `argo worker actions execute <id>` (which
-//! advances state) and the eventual carry-out of an action. The
-//! design doc §7 calls for a trait so #732+ can layer on
-//! browser, API, or marketplace-SDK executors without touching
-//! the OS state machine.
+//! advances state) and the eventual carry-out of an action.
 //!
-//! v1 ships a single executor: `HumanExecutor`. Its job is NOT
-//! to carry out the action — that's done by a human, offline.
-//! Instead it materialises a per-action artifact bundle under
+//! Today's fully-wired impl is `HumanExecutor` — it materialises
+//! a per-action artifact bundle under
 //! `.skycot/outputs/<job_id>/actions/<action_id>/` so the
-//! operator has everything they need (the action's payload,
-//! cited evidence, a structured JSON copy) on disk.
+//! operator has everything they need (payload, cited evidence,
+//! a structured JSON copy) on disk; the operator carries the
+//! action out offline and runs `argo worker actions complete
+//! <id>` when finished.
 //!
-//! The trait stays small + future-friendly: an executor is a
-//! function from (`ActionRecord`, `cwd`) → `Result<()>`. Future
-//! executors (e.g. `BrowserExecutor` driving a real marketplace
-//! UI) will share the same surface, called by the same dispatch
-//! shim, but with side-effects in the world rather than just on
-//! disk.
+//! Stream A adds three placeholder impls (`McpExecutor`,
+//! `ComputerUseExecutor`, `ApiExecutor` in
+//! `worker_actions_executor_stubs`) that return clean
+//! not-yet-implemented errors pointing at the brief that swaps
+//! each stub for a real impl. As Streams B / C / H land, those
+//! stubs become real without reshaping the dispatch shim.
 //!
-//! Concretely an "executor" decision is taken by inspecting the
-//! manifest's `[actions.<name>].executor` declaration. v1 only
-//! recognises `executor = "human"`. Anything else returns an
-//! error so the operator sees the gap rather than the OS
-//! silently no-op'ing.
+//! The manifest's `[actions.<name>].executor` declaration picks
+//! the impl. Both the legacy string form (`executor = "human"`)
+//! and the tagged-table form (`executor = { kind = "...",
+//! profile = "...", budget_usd = 0.50 }`) parse — see
+//! `argo_vertical::ExecutorDeclaration`.
 
 use super::worker_actions::ActionRecord;
+use super::worker_actions_executor_stubs::{ApiExecutor, ComputerUseExecutor, McpExecutor};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::ActionDeclaration;
 use std::path::{Path, PathBuf};
 
-/// Executor abstraction. v1 has a single implementor
-/// (`HumanExecutor`) but the trait stays around so #732+ can
-/// add browser / API / marketplace-SDK executors without
-/// reshaping the dispatch shim.
+/// Stable identifier for which executor family handles an
+/// action. Each variant maps to one `Executor` impl.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ExecutorKind {
+    /// Renders an artifact bundle on disk; the operator carries
+    /// the action out offline and runs `argo worker actions
+    /// complete <id>` when finished. Today's only fully-wired
+    /// executor.
+    Human,
+    /// Calls a registered MCP server's tool (gmail, slack, etc.).
+    /// Wired by Stream `#C-mcp-wire`.
+    Mcp,
+    /// Runs the Anthropic computer-use loop in an `argo-sandbox`
+    /// (E2B Firecracker microVM). Wired by Stream
+    /// `#B-computer-use-executor`.
+    ComputerUse,
+    /// Calls a registered REST API binding directly. Wired by
+    /// Stream H connectors that ship as `ApiExecutor` flavours.
+    Api,
+}
+
+impl ExecutorKind {
+    /// Parse from the manifest-level kind string. Mirrors the
+    /// legacy `executor = "..."` form and the tagged
+    /// `kind = "..."` form.
+    fn parse(s: &str) -> ArgoResult<Self> {
+        match s {
+            "human" => Ok(Self::Human),
+            "mcp" => Ok(Self::Mcp),
+            "computer_use" => Ok(Self::ComputerUse),
+            "api" => Ok(Self::Api),
+            other => Err(ArgoError::Provider(format!(
+                "unknown executor kind '{other}' — \
+                 valid: human | mcp | computer_use | api"
+            ))),
+        }
+    }
+}
+
+/// Outcome returned from an `Executor::dispatch` call. The
+/// dispatch shim uses the variant to decide whether to leave the
+/// action at `executing` (HumanHandoff) or auto-complete with the
+/// embedded result (Completed).
+#[derive(Debug)]
+pub(crate) enum ActionOutcome {
+    /// The executor rendered a per-action bundle to disk; the
+    /// human operator will do the work offline and run
+    /// `argo worker actions complete <id> --result-json '...'`
+    /// when finished. The ledger row stays at `executing`.
+    HumanHandoff { bundle_path: PathBuf },
+    /// The executor did the work end-to-end. The dispatch shim
+    /// auto-completes the action: writes a fresh
+    /// `executing → completed` row stamped with the embedded
+    /// `result_json`. The chain follow-up emitter (#777/#778)
+    /// fires off this auto-completion the same way it does for
+    /// operator-driven completions.
+    #[allow(dead_code)] // wired in Stream B / Stream C; unused by HumanExecutor today
+    Completed {
+        bundle_path: PathBuf,
+        result_json: serde_json::Value,
+    },
+}
+
+/// Per-action pre-flight info. Today purely descriptive; Stream
+/// H will read the `kind` to decide whether the action can clear
+/// auto-approval. Implementors that override `preflight` may
+/// fill the struct with the executor's own kind; the default
+/// impl in `Executor::preflight` builds one from `kind()`.
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // consumed by Stream H auto-approval; default-built today
+pub(crate) struct Preflight {
+    pub kind: ExecutorKind,
+}
+
+/// Executor abstraction. Today's fully-wired impl is
+/// `HumanExecutor`; the three placeholder impls (`McpExecutor`,
+/// `ComputerUseExecutor`, `ApiExecutor`) live in
+/// `worker_actions_executor_stubs.rs` and return a clean
+/// not-yet-implemented error from `dispatch()` until Streams B /
+/// C / H wire each.
 ///
 /// Implementors run AFTER the state transition has been
 /// persisted (the row is already `executing`), so the
-/// implementor's job is purely to do (or prep) the work, not
-/// to validate state.
+/// implementor's job is purely to do (or prep) the work, not to
+/// validate state.
 pub(crate) trait Executor {
-    /// Carry out (or prep) the action. Return the path to the
-    /// per-action artifact bundle so the dispatch shim can
-    /// surface it in CLI output.
-    fn execute(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<PathBuf>;
+    /// Stable kind tag for this executor. Used by Stream H's
+    /// auto-approval policy (per-kind budget rules) and by tests
+    /// that round-trip the trait.
+    fn kind(&self) -> ExecutorKind;
+
+    /// Optional pre-flight validation. Default: pass-through.
+    /// Implementors override when they need resource checks
+    /// (token quota, sandbox quota, declared MCP server
+    /// availability) BEFORE the executing-state row is written.
+    /// A returned error halts dispatch with no side effect on
+    /// the ledger.
+    #[allow(dead_code)] // wired by Stream B / Stream C; default impl is fine for Human
+    fn preflight(&self, _action: &ActionRecord) -> ArgoResult<Preflight> {
+        Ok(Preflight { kind: self.kind() })
+    }
+
+    /// Carry out (or prep) the action. Returns an
+    /// `ActionOutcome` the dispatch shim uses to decide whether
+    /// to leave the row at `executing` or auto-complete it.
+    fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome>;
 }
 
 /// Resolve the executor declared by the manifest for this
-/// action_type. Returns the boxed trait object so dispatch
-/// stays generic. Errors when the manifest doesn't declare an
-/// executor (or declares one v1 doesn't implement).
+/// action_type. Returns the boxed trait object so dispatch stays
+/// generic. The placeholder impls (`Mcp` / `ComputerUse` / `Api`)
+/// resolve cleanly here — they fail at `dispatch()` time with a
+/// useful error so the operator sees the gap.
 pub(crate) fn resolve_executor(
     vertical: &argo_vertical::VerticalManifest,
     action_type: &str,
 ) -> ArgoResult<Box<dyn Executor>> {
     let decl = lookup_action(vertical, action_type)?;
-    match decl.executor.as_str() {
-        "human" => Ok(Box::new(HumanExecutor::new(decl.clone()))),
-        other => Err(ArgoError::Provider(format!(
-            "executor '{other}' for action_type '{action_type}' is not yet implemented; \
-             v1 supports `executor = \"human\"` only (browser/API land in later PRs)"
-        ))),
-    }
+    let kind = ExecutorKind::parse(decl.executor.kind_str())?;
+    let exec: Box<dyn Executor> = match kind {
+        ExecutorKind::Human => Box::new(HumanExecutor::new(decl.clone())),
+        ExecutorKind::Mcp => Box::new(McpExecutor::new()),
+        ExecutorKind::ComputerUse => Box::new(ComputerUseExecutor::new()),
+        ExecutorKind::Api => Box::new(ApiExecutor::new()),
+    };
+    Ok(exec)
 }
 
 /// Shared lookup so resolve_executor + the test helpers don't
@@ -108,9 +202,9 @@ impl HumanExecutor {
 
     /// Constructor used by `dispatch::invoke_executor_for` when
     /// it needs an executor without a manifest in hand (the
-    /// existing call site already proves the action is
-    /// declared, so this path stays conservative — falls back
-    /// to the generic dump).
+    /// existing call site already proves the action is declared,
+    /// so this path stays conservative — falls back to the
+    /// generic dump).
     #[allow(dead_code)]
     pub(crate) fn without_manifest() -> Self {
         Self { declaration: None }
@@ -118,7 +212,11 @@ impl HumanExecutor {
 }
 
 impl Executor for HumanExecutor {
-    fn execute(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<PathBuf> {
+    fn kind(&self) -> ExecutorKind {
+        ExecutorKind::Human
+    }
+
+    fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
         let dir = cwd
             .join(".skycot")
             .join("outputs")
@@ -146,7 +244,7 @@ impl Executor for HumanExecutor {
             &dir.join("action.json"),
             &serde_json::to_string_pretty(action).unwrap_or_else(|_| "{}".into()),
         )?;
-        Ok(dir)
+        Ok(ActionOutcome::HumanHandoff { bundle_path: dir })
     }
 }
 
@@ -334,4 +432,8 @@ fn write(path: &Path, body: &str) -> ArgoResult<()> {
 
 #[cfg(test)]
 #[path = "worker_actions_executor_tests.rs"]
-mod tests;
+pub(super) mod worker_actions_executor_tests;
+
+#[cfg(test)]
+#[path = "worker_actions_executor_stream_a_tests.rs"]
+mod stream_a_tests;

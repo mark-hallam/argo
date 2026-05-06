@@ -112,15 +112,31 @@ pub(crate) async fn approve_batch(
 
 pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
-    // 1. Advance state pending/approved → executing.
     let rec = worker_actions_transitions::execute(&memory, ws, action_id).await?;
-    // 2. Resolve the executor declared by the manifest. v1 only
-    //    supports `executor = "human"` — anything else is a hard
-    //    error so the operator sees the gap. Future executors
-    //    (browser, marketplace SDK) plug in here.
-    let bundle_path = invoke_executor_for(&rec).await?;
+    let (final_rec, bundle_path) = match invoke_executor_for(&rec).await? {
+        worker_actions_executor::ActionOutcome::HumanHandoff { bundle_path } => (rec, bundle_path),
+        // Auto-complete path (#A-executor-trait): the executor
+        // did the work end-to-end, so write a fresh
+        // `executing → completed` row.
+        worker_actions_executor::ActionOutcome::Completed {
+            bundle_path,
+            result_json,
+        } => {
+            let result_str = serde_json::to_string(&result_json).unwrap_or_else(|_| "{}".into());
+            let auto_note = format!("auto-completed by executor for `{}`", rec.action_type);
+            let completed = worker_actions_transitions::complete(
+                &memory,
+                ws,
+                action_id,
+                Some(&auto_note),
+                Some(&result_str),
+            )
+            .await?;
+            (completed, bundle_path)
+        }
+    };
     if json {
-        let mut payload = serde_json::to_value(&rec).unwrap_or(serde_json::json!({}));
+        let mut payload = serde_json::to_value(&final_rec).unwrap_or(serde_json::json!({}));
         if let Some(map) = payload.as_object_mut() {
             map.insert(
                 "execution_bundle_path".to_string(),
@@ -132,23 +148,21 @@ pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
             serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
         );
     } else {
-        print_record(&rec, false);
+        print_record(&final_rec, false);
         println!("  bundle       {}", bundle_path.display());
     }
     auto_refresh_ledger(&memory, ws).await;
     Ok(())
 }
 
-/// Hand an executing action to whichever executor its manifest
-/// declares. Lifted out of `execute` so the file stays small +
-/// testable. Returns the path to the per-action artifact bundle.
-async fn invoke_executor_for(rec: &ActionRecord) -> ArgoResult<std::path::PathBuf> {
+/// Find the manifest that owns this action and dispatch to its
+/// declared executor. `ActionOutcome` decides at the call site
+/// whether to leave the row at `executing` or auto-complete.
+async fn invoke_executor_for(
+    rec: &ActionRecord,
+) -> ArgoResult<worker_actions_executor::ActionOutcome> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-    // Find the manifest that owns this action. We don't have
-    // vertical_id on the ActionRecord directly; walk the
-    // registry's action declarations looking for one that
-    // declares this action_type.
     let manifest = registry
         .list()
         .find_map(|(_, loaded)| {
@@ -167,7 +181,7 @@ async fn invoke_executor_for(rec: &ActionRecord) -> ArgoResult<std::path::PathBu
         })?;
     let executor = worker_actions_executor::resolve_executor(manifest, &rec.action_type)?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
-    executor.execute(rec, &cwd)
+    executor.dispatch(rec, &cwd)
 }
 
 pub(crate) async fn complete(
