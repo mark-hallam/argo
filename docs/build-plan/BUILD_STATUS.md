@@ -96,7 +96,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-worker-roster | claude | TODO | — | V1.3 multi-worker: Roster primitive (group of workers + shared policy + shared channels + shared budget); resolved_policy walks roster layer; `argo roster create/list/show/add-member/remove-member/delete`; multi-roster "most-restrictive wins" |
 | claude-spend-anomaly-alerts | claude | TODO | — | V1.1 reliability: hourly z-score on spend per worker per hour-of-day; |z|>4.0 inserts anomaly row + fires notify; `argo budget anomalies`; complementary to claude-anomaly-detector (action behavior) |
 | codex-gateway-smoke-flake-fix | codex | CLAIMED | — | claimed by codex |
-| codex-connector-airtable | codex | CLAIMED | — | claimed by codex |
+| codex-connector-airtable | codex | IN_REVIEW | #856 | PR opened: native Airtable MCP connector with 7 tools, PAT auth, filterByFormula passthrough, approval markers, unit + wire coverage |
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
 | codex-activity-feed-cli | codex | CLAIMED | — | claimed by codex |
 | codex-gdpr-delete-cli | codex | TODO | — | V2.1 governance: `argo gdpr delete --subject <email>` walks 6 surfaces (memory/audit/skills/channels/workers/sessions) with --dry-run default + --confirm-with-email-retype; redaction (not deletion) preserves audit chain; --bundle-out tarball for proof-of-deletion |
