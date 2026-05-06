@@ -26,12 +26,16 @@ mod parse;
 mod skill;
 mod store;
 mod store_vertical;
+pub mod success_metric;
 pub mod trust;
 
 #[cfg(test)]
 mod tests;
 
 pub use learn::{should_propose, SkillCandidate, DEFAULT_SUCCESS_THRESHOLD};
+pub use success_metric::{
+    should_propose_metric, ProposalThreshold, SuccessMetric,
+};
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};

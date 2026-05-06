@@ -62,6 +62,7 @@ pub mod executor;
 pub mod learn;
 pub mod pool;
 pub mod profile;
+pub mod success_metric;
 
 pub use config::CuConfig;
 pub use error::CuError;
