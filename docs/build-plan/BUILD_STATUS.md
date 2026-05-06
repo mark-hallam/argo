@@ -38,7 +38,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | F-memory-shared-team | codex | MERGED | #819 | `MemoryNs::shared_team(tenant)` + author-stamped writes; cross-tenant isolation; new shared_team.rs (232 LOC) + migration 15 |
 | H-orchestrator-persist | codex | MERGED | #806 | sqlite persistence for Session + Handoff types; OrchestratorStore CRUD + migration 16; lifecycle invariants enforced; 6 unit tests + cross-tenant isolation |
 | H-spend-persistence | codex | MERGED | #809 | spend_today_for_worker + record_charge helpers; gate reads spend before evaluation + writes charge after AutoApprove; reuses H-1's worker_budget schema; 4 tests cover over-cap / at-cap / cross-worker / cross-day |
-| H-orchestrator-cli | codex | TODO | — | reverted from stale CLAIM: codex claimed >50min ago with no remote branch; conductor releasing for next agent. Brief still in unblock state — `--tenant <id>` flag required + narrow argo-orchestrator extension allowed |
+| H-orchestrator-cli | codex | IN_REVIEW | #824 | PR opened |
 | H-orchestrator-routes | codex | TODO | — | unblocked: brief amended — `crates/argo-cli/Cargo.toml` is now may-touch (narrowly: ONE line `argo-orchestrator = { path = "../argo-orchestrator", version = "0.0.1" }` under `[dependencies]`). Plus `Cargo.lock` (auto-updated). Everything else in the brief stands. |
 | H-skill-library-routes | codex | MERGED | #817 | gateway HTTP endpoints `GET /skills?risk=...` + `GET /skills/<name>` exposing the H-4b LayeredLookup; workspace overrides library on duplicates; 400 on invalid risk |
 | H-budget-cli | codex | MERGED | #820 | `argo budget show <worker_id>` + `argo budget recent` CLI; spend_today_for_worker + spend_this_month rollups + remaining-headroom calc; --json on every list/show |
