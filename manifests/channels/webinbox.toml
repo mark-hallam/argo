@@ -1,0 +1,17 @@
+[channel]
+id = "webinbox"
+provider = "argo-webinbox"
+inbox_path_env = "ARGO_WEBINBOX_PATH"
+web_path = "/inbox"
+websocket_path = "/inbox/ws"
+
+[auth]
+bearer_token_env = "ARGO_WEBINBOX_BEARER_TOKEN"
+operator_id_env = "ARGO_WEBINBOX_OPERATOR_ID"
+
+[hmac]
+secret_env = "ARGO_CHANNEL_HMAC_SECRET"
+token_ttl_seconds = 86400
+
+[action.high_risk.approval]
+channels = ["webinbox"]

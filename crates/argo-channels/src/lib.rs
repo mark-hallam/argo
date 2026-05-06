@@ -20,8 +20,8 @@
 pub mod email;
 pub mod manifest;
 pub mod slack;
-pub mod sms;
 pub mod token;
+pub mod webinbox;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
