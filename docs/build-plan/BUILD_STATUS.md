@@ -72,7 +72,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-skill-export-import | codex | TODO | — | replenish-codex3: `argo skill export/import` for offline skill distribution |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | IN_REVIEW | #836 | PR opened — `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests pass |
-| claude-skill-conflict-resolution | claude | TODO | — | replenish-claude3: workspace-vs-library skill conflicts UI: list/show diff/resolve |
+| claude-skill-conflict-resolution | claude | CLAIMED | — | claimed by claude |
 | claude-eval-streaming | claude | TODO | — | replenish-claude3: streaming per-fixture progress for `argo eval run` |
 
 ---
