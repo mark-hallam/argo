@@ -53,7 +53,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
 | H-vertical-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
 | H-worker-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
-| H-genesis-list-templates | codex | CLAIMED | — | claimed by codex |
+| H-genesis-list-templates | codex | IN_REVIEW | #830 | PR opened |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | MERGED | #822 | 3 ratatui overlays (O sessions / H handoffs / B budget) reading via gateway HTTP; renders "Gateway unreachable" cleanly while H-orchestrator-routes pending; 14 new tests (9 snapshot + 5 input) |
 | claude-e2e-integration-test | claude | MERGED | #810 | 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition — see claude-action-record-identity-plumbing + claude-e2e-test-step-completion follow-ups) |
