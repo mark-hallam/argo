@@ -66,7 +66,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-test-step-completion | claude | TODO | — | replenish-3: flip the 3 SKIPped steps in #810 to real assertions once identity plumbing lands; flips v1 demo gate from yellow (6/9) → green (9/9) |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | CLAIMED | — | claimed by claude |
-| H-eval-runner-cli | codex | TODO | — | replenish-codex3: `argo eval run --vertical <id> [--score]` runs eval seed against worker pipeline |
+| H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
 | H-tenant-cli | codex | TODO | — | replenish-codex3: `argo tenant list/info/create` for tenant management |
 | H-handoff-cancel | codex | TODO | — | replenish-codex3: `argo handoff cancel <id>` operator override + Cancelled lifecycle variant |
 | H-skill-export-import | codex | TODO | — | replenish-codex3: `argo skill export/import` for offline skill distribution |
