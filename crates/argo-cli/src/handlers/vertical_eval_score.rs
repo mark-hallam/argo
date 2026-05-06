@@ -375,11 +375,16 @@ async fn live_judge_for_suite(
     suite_body: &str,
     actuals: Option<&ActualsMap>,
 ) -> ArgoResult<Vec<Option<JudgeVerdict>>> {
+    // Cross-family dispatch (#701b): pick the right backend based on
+    // the manifest's `[provider].family`. Pre-#701b this hard-coded
+    // the Anthropic builder and 400'd for any other family at the
+    // dispatcher; now OpenAI Compatible / OpenAI Responses / Bedrock
+    // all work, with per-family temperature + max_tokens policy.
     let backend =
-        super::vertical_eval_judge_live::build_anthropic_backend(provider, model)?;
+        super::vertical_eval_judge_live::build_judge_backend(provider, model).await?;
     let inputs = collect_fixture_inputs(suite_body, actuals);
     Ok(super::vertical_eval_judge_live::judge_all_fixtures(
-        &backend,
+        backend.as_ref(),
         &score.fixtures,
         &inputs,
     )

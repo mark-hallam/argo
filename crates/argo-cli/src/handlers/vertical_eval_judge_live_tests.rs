@@ -4,6 +4,7 @@
 #![cfg(test)]
 
 use super::*;
+use argo_types::ArgoError;
 use argo_vertical::{score_fixture, FixtureScore};
 use std::sync::Mutex;
 
@@ -299,4 +300,31 @@ fn build_anthropic_backend_errors_clearly_when_manifest_missing() {
         msg.contains("manifests/providers"),
         "{msg}"
     );
+}
+
+// ---- multi-provider dispatch (#701b) ---------------------------
+
+#[tokio::test]
+async fn build_judge_backend_errors_clearly_when_manifest_missing() {
+    // The async cross-family dispatcher must surface the same
+    // operator-actionable error as the per-family builders when
+    // the manifest is absent: name the provider id + the
+    // expected path. Symmetric to the Anthropic-only builder
+    // test above so a future refactor can't quietly drop the
+    // diagnostic.
+    let result = build_judge_backend(
+        "definitely-not-a-real-provider-id-99999",
+        "any-model",
+    )
+    .await;
+    let err = match result {
+        Ok(_) => panic!("missing manifest must fail"),
+        Err(e) => e,
+    };
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("definitely-not-a-real-provider-id-99999"),
+        "{msg}"
+    );
+    assert!(msg.contains("manifests/providers"), "{msg}");
 }
