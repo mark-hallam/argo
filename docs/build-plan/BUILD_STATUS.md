@@ -32,7 +32,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-push | codex | TODO | — | re-claim from fresh main; #785 closed (entangled conflicts) |
 | D-webinbox | codex | CLAIMED | — | claimed by codex |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
-| F-memory-layering | codex | CLAIMED | — | claimed by codex |
+| F-memory-layering | codex | IN_REVIEW | #786 | 3-layer memory + sqlite-vec/Voyage-3 PR open |
 | G-genesis | claude | TODO | — | unblocked (A stable) |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
 
