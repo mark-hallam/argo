@@ -47,10 +47,12 @@ ITERATION (repeat for each brief, max 5 times):
    - EXHAUSTIVE-MATCH amendment: if you add an enum variant, you MAY touch any existing match across the workspace, but ONLY the new arm.
 
 7. Run: cargo build && cargo clippy --workspace --all-targets -- -D warnings && cargo test
-   Tick the acceptance boxes in the brief.
-   Re-read RULE 1 above before deciding to mark BLOCKED. Pre-existing flakes outside your may-touch list = push with a Boundary note, not BLOCKED.
+   Tick the acceptance boxes in the brief. The acceptance-criteria checklist in each brief is NON-NEGOTIABLE — do NOT open a PR until every box is ticked. If a box can't be ticked because of an external blocker, mark the row BLOCKED instead of opening a half-pregnant PR.
+   3-ATTEMPT FAIL RULE: if clippy or tests fail and you cannot fix it in 3 attempts (3 distinct edit-then-rerun cycles), stop trying. Mark the brief BLOCKED in BUILD_STATUS.md with a one-line reason ("clippy: <error>" or "test: <test_id> failing with <error>"), commit + push, and loop to step 1 to pick a different TODO row. Do NOT thrash forever on one brief.
+   Re-read RULE 1 at the top of this prompt before deciding to mark BLOCKED. Pre-existing flakes outside your may-touch list = push with a Boundary note, not BLOCKED.
 
 8. git push -u origin codex-<brief-id>
+   If push fails because main moved during your implementation: cd to your worktree, `git fetch origin main && git rebase origin/main`, resolve any conflicts strictly within your may-touch list, retry the push. Do NOT force-push to main; --force-with-lease on YOUR feature branch is acceptable after a rebase.
    gh pr create --title "<brief PR title>" --body "Brief: docs/build-plan/streams/<brief-id>.md
 
 Acceptance checklist:
@@ -74,7 +76,13 @@ Deviations: [none / describe]"
 
 Hard rules:
 - Loop until queue is empty OR you've shipped 5 PRs OR you hit a wall you can't unblock.
-- Never rebase or force-push main.
-- If you hit a wall on a specific brief: edit BUILD_STATUS.md → that row's status BLOCKED with a clear reason, commit + push, then loop to step 1 to pick the NEXT brief (don't stop the whole tab over one bad brief; just skip it).
+- NEVER edit files outside the current brief's "may touch" list. New files in covered directories OK; unlisted file edits are a boundary violation.
+- NEVER modify briefs assigned to the OTHER agent family (don't touch `streams/<id>.md` files where the brief's owner is the other family — only edit your own brief's file if scope clarification is needed mid-flight, and only narrowly).
+- NEVER force-push to main. Force-push to your own feature branch (--force-with-lease) is OK only after a clean rebase onto current main.
+- NEVER delete other agents' branches (no `git push origin --delete` on any branch you didn't author).
+- 3-attempt fail rule (see step 7): if clippy or tests fail and you can't fix in 3 distinct edit-then-rerun cycles, mark the brief BLOCKED with a one-line reason and pick a different TODO row.
+- If git push fails because main moved: pull main again, rebase your branch, retry. Don't give up on push.
+- Acceptance checklist is non-negotiable: don't open a PR until every box is ticked.
+- If you hit a wall on a specific brief: edit BUILD_STATUS.md → that row's status BLOCKED with a clear reason, commit + push, then loop to step 1 to pick the NEXT brief. Don't stop the whole tab over one bad brief; just skip it.
 - If you can't claim ANY row (queue empty, all blocked, all dependencies unmerged), stop and tell me.
 - Between iterations, the git ledger on origin/main is your source of truth. Your internal memory is suspect after 1-2 iterations.
