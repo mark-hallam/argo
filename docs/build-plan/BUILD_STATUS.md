@@ -53,7 +53,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-shared-team-cli | codex | BLOCKED | — | blocked: allowlist omits handlers/memory.rs dispatch needed to wire the new SharedTeam subcommand |
 | H-vertical-list-cli | codex | BLOCKED | — | blocked: assert_cmd integration test requires dev-dependency/test file not present in allowlist |
 | H-worker-list-cli | codex | BLOCKED | — | blocked: brief allowlist names nonexistent handlers/worker.rs and omits worker_actions.rs dispatch needed to wire subcommands |
-| H-genesis-list-templates | codex | CLAIMED | — | claimed by codex |
+| H-genesis-list-templates | codex | BLOCKED | — | blocked: adding GenesisCmd variants requires main.rs dispatch update, but main.rs is outside the allowlist |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | MERGED | #822 | 3 ratatui overlays (O sessions / H handoffs / B budget) reading via gateway HTTP; renders "Gateway unreachable" cleanly while H-orchestrator-routes pending; 14 new tests (9 snapshot + 5 input) |
 | claude-e2e-integration-test | claude | MERGED | #810 | 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition — see claude-action-record-identity-plumbing + claude-e2e-test-step-completion follow-ups) |
