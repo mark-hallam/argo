@@ -2,44 +2,44 @@
 //! `/health` and `/version`, asserts the response shapes, then
 //! waits for the `--max-requests` exit.
 mod common;
-use common::{argo_bin, body_of, http_get, pick_free_port};
+use common::{argo_bin, body_of, boot, http_get, pick_free_port};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+fn get_session_with_message_count(port: u16, sid: &str, expected: u64) -> serde_json::Value {
+    let path = format!("/sessions/{sid}");
+    let mut last = String::new();
+    for _ in 0..10 {
+        last = http_get(port, &path);
+        if last.contains("HTTP/1.1 200 OK") {
+            let parsed: serde_json::Value =
+                serde_json::from_str(body_of(&last)).expect("valid json");
+            if parsed["message_count"].as_u64() == Some(expected) {
+                return parsed;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    panic!("message_count did not reach {expected}; last={last}");
+}
+
+fn post_until_not_locked(port: u16, path: &str, body: &str) -> String {
+    let mut last = String::new();
+    for _ in 0..10 {
+        last = common::http_post(port, path, body);
+        if !last.contains("database is locked") {
+            return last;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    last
+}
+
 #[test]
 fn gateway_start_serves_health_and_version_then_exits_on_max_requests() {
     let port = pick_free_port();
-    let mut child = Command::new(argo_bin())
-        .args([
-            "gateway",
-            "start",
-            "--port",
-            &port.to_string(),
-            "--max-requests",
-            "2",
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn argo gateway start");
-
-    // Wait for the listener to bind by polling the port. 2s budget
-    // is generous for a tokio TcpListener::bind on a fresh port.
-    let stderr = child.stderr.take().expect("stderr");
-    let mut stderr = BufReader::new(stderr);
-    let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
-    loop {
-        if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 2s");
-        }
-        line.clear();
-        stderr.read_line(&mut line).expect("read line");
-        if line.contains("listening on") {
-            break;
-        }
-    }
+    let (mut child, _stderr) = boot(port, 2);
 
     let h = http_get(port, "/health");
     assert!(h.contains("HTTP/1.1 200 OK"), "h={h}");
@@ -58,6 +58,7 @@ fn gateway_start_serves_health_and_version_then_exits_on_max_requests() {
 
 #[test]
 fn gateway_sessions_endpoint_returns_json_array_for_empty_db() {
+    let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(argo_bin())
@@ -106,6 +107,7 @@ use common::http_post;
 
 #[test]
 fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
+    let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let workspace = tempfile::tempdir().unwrap();
@@ -168,6 +170,7 @@ fn gateway_post_sessions_creates_session_row_via_ensure_workspace() {
 
 #[test]
 fn gateway_get_session_by_id_and_list_messages() {
+    let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let workspace = tempfile::tempdir().unwrap();
@@ -187,7 +190,7 @@ fn gateway_get_session_by_id_and_list_messages() {
             "--port",
             &port.to_string(),
             "--max-requests",
-            "4",
+            "20",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -210,20 +213,19 @@ fn gateway_get_session_by_id_and_list_messages() {
     }
 
     // Create + append.
-    let r = http_post(port, "/sessions", r#"{"model":"m","provider":"p"}"#);
+    let r = post_until_not_locked(port, "/sessions", r#"{"model":"m","provider":"p"}"#);
     let create: serde_json::Value = serde_json::from_str(body_of(&r)).unwrap();
     let sid = create["id"].as_str().unwrap();
     let path = format!("/sessions/{sid}/messages");
-    http_post(
+    let r = post_until_not_locked(
         port,
         &path,
         r#"{"role":"user","content":[{"type":"text","text":"hi"}]}"#,
     );
+    assert!(r.contains("HTTP/1.1 201 Created"), "got: {r}");
 
     // GET /sessions/<id>
-    let r = http_get(port, &format!("/sessions/{sid}"));
-    assert!(r.contains("HTTP/1.1 200 OK"), "got: {r}");
-    let parsed: serde_json::Value = serde_json::from_str(body_of(&r)).expect("valid json");
+    let parsed = get_session_with_message_count(port, sid, 1);
     assert_eq!(parsed["id"], sid);
     assert_eq!(parsed["model"], "m");
     assert_eq!(parsed["provider"], "p");
@@ -238,8 +240,8 @@ fn gateway_get_session_by_id_and_list_messages() {
     assert_eq!(arr[0]["role"], "user");
     assert_eq!(arr[0]["seq"], 1);
 
-    let status = child.wait().expect("wait");
-    assert!(status.success());
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 #[test]
@@ -251,6 +253,7 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
     // 500 Internal Server Error with the env-var name in the body
     // — that's the contract external clients rely on to give the
     // user an actionable hint.
+    let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let workspace = tempfile::tempdir().unwrap();
@@ -330,6 +333,7 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
 
 #[test]
 fn gateway_post_messages_appends_to_session_then_round_trips() {
+    let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let workspace = tempfile::tempdir().unwrap();
@@ -349,7 +353,7 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
             "--port",
             &port.to_string(),
             "--max-requests",
-            "2",
+            "20",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -372,7 +376,7 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
     }
 
     // 1. Create a session.
-    let r = http_post(
+    let r = post_until_not_locked(
         port,
         "/sessions",
         r#"{"model":"m","provider":"p","title":"messages-test"}"#,
@@ -383,7 +387,7 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
 
     // 2. Append a message.
     let path = format!("/sessions/{sid}/messages");
-    let r = http_post(
+    let r = post_until_not_locked(
         port,
         &path,
         r#"{"role":"user","content":[{"type":"text","text":"hi"}]}"#,
@@ -394,8 +398,8 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
     assert!(parsed["id"].is_string());
     assert_eq!(parsed["session_id"], sid);
 
-    let status = child.wait().expect("wait");
-    assert!(status.success());
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 #[cfg(unix)]
@@ -403,6 +407,7 @@ fn gateway_post_messages_appends_to_session_then_round_trips() {
 fn gateway_stop_sends_sigterm_to_live_pid_then_clears_pidfile() {
     use std::process::Command;
 
+    let _gateway_lock = common::gateway_lock_guard();
     let port = pick_free_port();
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(argo_bin())

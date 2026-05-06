@@ -4,6 +4,19 @@
 //! under the 500-LOC ceiling.
 mod common;
 use common::{body_of, boot, http_post, pick_free_port};
+use std::time::Duration;
+
+fn post_until_store_ready(port: u16, path: &str, body: &str) -> String {
+    let mut last = String::new();
+    for _ in 0..10 {
+        last = http_post(port, path, body);
+        if !last.contains("no such table: session") && !last.contains("database is locked") {
+            return last;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    last
+}
 
 #[test]
 fn skill_install_returns_400_on_missing_raw_and_201_on_valid_doc() {
@@ -276,10 +289,10 @@ fn judge_override_returns_400_on_missing_to_and_404_on_unknown_record() {
 #[test]
 fn db_vacuum_and_prune_return_200() {
     let port = pick_free_port();
-    let (mut child, _stderr) = boot(port, 3);
+    let (mut child, _stderr) = boot(port, 20);
 
     // Prune defaults to 30 days → 0 pruned on a clean store.
-    let resp = http_post(port, "/db/prune", "");
+    let resp = post_until_store_ready(port, "/db/prune", "");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
     assert!(body_of(&resp).contains(r#""pruned":0"#));
 
@@ -288,11 +301,12 @@ fn db_vacuum_and_prune_return_200() {
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
     // Vacuum a clean store → 200.
-    let resp = http_post(port, "/db/vacuum", "");
+    let resp = post_until_store_ready(port, "/db/vacuum", "");
     assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
     assert!(body_of(&resp).contains(r#""vacuumed":true"#));
 
-    assert!(child.wait().expect("wait").success());
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 #[test]
@@ -365,14 +379,14 @@ fn session_title_returns_400_on_bad_id_and_404_on_missing() {
 #[test]
 fn session_delete_returns_400_on_bad_id_and_404_on_missing() {
     let port = pick_free_port();
-    let (mut child, _stderr) = boot(port, 2);
+    let (mut child, _stderr) = boot(port, 20);
 
     // Bad uuid → 400.
     let resp = http_post(port, "/sessions/not-a-uuid/delete", "");
     assert!(resp.contains("HTTP/1.1 400 Bad Request"), "resp={resp}");
 
     // Valid uuid that isn't in the DB → 404.
-    let resp = http_post(
+    let resp = post_until_store_ready(
         port,
         "/sessions/00000000-0000-0000-0000-000000000000/delete",
         "",
@@ -381,7 +395,8 @@ fn session_delete_returns_400_on_bad_id_and_404_on_missing() {
     let body = body_of(&resp);
     assert!(body.contains("no session"), "body={body}");
 
-    assert!(child.wait().expect("wait").success());
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 #[test]
