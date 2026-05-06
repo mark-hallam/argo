@@ -67,6 +67,7 @@ pub mod messages_recent;
 pub mod model;
 pub mod new;
 pub mod plugin;
+pub mod policy_handlers;
 pub mod provider;
 pub mod resume;
 pub mod roster_add_member;

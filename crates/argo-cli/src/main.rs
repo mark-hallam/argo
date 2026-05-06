@@ -82,6 +82,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
         Some(Command::Roster { cmd }) => handlers::roster_list::run(cmd).await,
+        Some(Command::Policy { cmd }) => handlers::policy_handlers::run(cmd).await,
         Some(Command::HandoffRules { cmd }) => handlers::handoff_rules_list::run(cmd).await,
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Trajectory { cmd }) => match cmd {

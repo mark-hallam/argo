@@ -23,6 +23,7 @@ pub mod auto_approval;
 pub mod circuit;
 pub mod org;
 pub mod org_ingest;
+pub mod policy;
 mod prompt;
 pub mod roster;
 mod store;

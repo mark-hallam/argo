@@ -160,7 +160,27 @@ pub(crate) async fn maybe_auto_approve(
         return Ok(());
     }
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
-    let policy = load_workspace_policy(&cwd)?;
+    let workspace_policy = load_workspace_policy(&cwd)?;
+    // Stream `claude-policy-as-code` — layer workspace policy
+    // files over the explicit AutoApprovalPolicy. Soft-fails on
+    // corrupt YAML so a single bad file never breaks dispatch
+    // (the operator-facing CLI surface ships errors loudly via
+    // `argo policy validate`). Role + tenant context aren't yet
+    // threaded through the gate — wildcard selectors
+    // (`Tenant: '*'`) catch all workers for v1; per-worker
+    // selectors land in a v1.x follow-up that adds the worker
+    // lookup before `decide_at`.
+    let policy_files =
+        argo_identity::policy::load_policy_dir(&cwd.join(crate::handlers::policy_handlers::POLICY_DIR))
+            .unwrap_or_default();
+    let effective = argo_identity::policy::resolve_effective_policy(
+        &workspace_policy,
+        &policy_files,
+        "",
+        "",
+        &located.record.action_type,
+    );
+    let policy = effective.auto_approval;
     let decl = manifest_decl_for(&located.record.action_type);
     let store = open_budget_store(&cwd).await?;
     maybe_auto_approve_with_pool(

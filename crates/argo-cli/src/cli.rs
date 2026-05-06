@@ -36,6 +36,8 @@ mod cli_skill_search_cmds;
 pub mod cli_handoff_cmds;
 #[path = "cli_org_cmds.rs"]
 pub mod cli_org_cmds;
+#[path = "cli_policy_cmds.rs"]
+pub mod cli_policy_cmds;
 #[path = "cli_roster_cmds.rs"]
 pub mod cli_roster_cmds;
 #[path = "cli_skill_ab_cmds.rs"]
@@ -195,6 +197,15 @@ pub enum Command {
     Roster {
         #[command(subcommand)]
         cmd: cli_roster_cmds::RosterCmd,
+    },
+    /// Declarative org policies (Stream `claude-policy-as-code`):
+    /// list, show, validate, apply YAML files at
+    /// `<workspace>/policies/<name>.yaml` that constrain the
+    /// auto-approval gate via the resolution chain
+    /// action → worker → roster → workspace-file → default.
+    Policy {
+        #[command(subcommand)]
+        cmd: cli_policy_cmds::PolicyCmd,
     },
     /// Declarative handoff routing rules
     /// (`claude-handoff-routing-rules`).
