@@ -94,6 +94,8 @@ mod vertical_eval_judge_live;
 mod vertical_eval_score;
 pub mod vertical_install;
 pub mod vertical_lint;
+pub mod vertical_publish;
+pub mod vertical_pull;
 pub mod vertical_run;
 pub mod vertical_workflow;
 pub mod work;

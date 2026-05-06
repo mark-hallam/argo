@@ -199,6 +199,64 @@ pub enum VerticalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Publish an installed vertical to an OCI registry as a
+    /// versioned artifact (Stream
+    /// `claude-marketplace-vertical-publish`). Packs every file
+    /// under `verticals/<id>/` into a deterministic tar via
+    /// `argo_marketplace::build_vertical_bundle`, then pushes to
+    /// the registry. The deterministic tar means re-publishing the
+    /// same on-disk state yields the same digest, so receivers can
+    /// verify pulls byte-for-byte.
+    Publish {
+        /// The vertical's id.
+        id: String,
+        /// OCI registry base URL (e.g. `https://ghcr.io` or
+        /// `http://localhost:5000`).
+        #[arg(long)]
+        registry: String,
+        /// Tag to publish under. Defaults to the vertical's
+        /// `[vertical].version` when omitted.
+        #[arg(long)]
+        tag: Option<String>,
+        /// Optional org/namespace prefix on the registry side
+        /// (e.g. `argo-agents` → `<host>/argo-agents/<id>:<tag>`).
+        /// When omitted, the bare vertical id is used as the repo.
+        #[arg(long)]
+        repo_org: Option<String>,
+        /// Optional bearer token for auth. Most registries also
+        /// accept anonymous public pushes for testing.
+        #[arg(long)]
+        auth_token: Option<String>,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Pull a vertical from an OCI registry into the local
+    /// discovery dir (Stream
+    /// `claude-marketplace-vertical-publish`). Verifies the tar's
+    /// sha256 against the manifest's declared digest BEFORE writing
+    /// any file — refuses to extract tampered bundles. Refuses if
+    /// a vertical with the same id already exists locally; pass
+    /// `--rename <new-id>` to pull under a different local id.
+    Pull {
+        /// OCI reference, e.g.
+        /// `ghcr.io/argo-agents/marketplace-seller:1.0.0`.
+        reference: String,
+        /// Override the registry HTTPS base. When omitted, derived
+        /// from the reference (HTTP for `localhost`/`127.0.0.1`,
+        /// HTTPS otherwise).
+        #[arg(long)]
+        registry: Option<String>,
+        /// Pull under a different local id when one already exists.
+        #[arg(long)]
+        rename: Option<String>,
+        /// Optional bearer token for auth.
+        #[arg(long)]
+        auth_token: Option<String>,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
     /// One-shot "from zero to running vertical" composite (#669).
     /// Creates a fresh session bound to the vertical, attaches
     /// every skill the manifest declares, then runs the named

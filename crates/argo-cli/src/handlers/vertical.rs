@@ -93,6 +93,40 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
             )
             .await
         }
+        VerticalCmd::Publish {
+            id,
+            registry,
+            tag,
+            repo_org,
+            auth_token,
+            json,
+        } => {
+            super::vertical_publish::run(
+                &id,
+                &registry,
+                tag.as_deref(),
+                repo_org.as_deref(),
+                auth_token.as_deref(),
+                json,
+            )
+            .await
+        }
+        VerticalCmd::Pull {
+            reference,
+            registry,
+            rename,
+            auth_token,
+            json,
+        } => {
+            super::vertical_pull::run(
+                &reference,
+                registry.as_deref(),
+                rename.as_deref(),
+                auth_token.as_deref(),
+                json,
+            )
+            .await
+        }
     }
 }
 
