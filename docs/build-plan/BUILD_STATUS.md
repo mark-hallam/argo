@@ -125,7 +125,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-genesis-refine-cli | codex | CLAIMED | — | claimed by codex |
 | claude-memory-tool-wire | claude | IN_REVIEW | #875 | PR opened — Memory tool wired through MemoryStore with vertical scoping. New builtin_tools_with_memory + Memory::new(store, ws, vertical_id); Default::default() preserves "not wired" back-compat for 15 existing call sites. Vertical-bound writes via append_for_vertical; UserProtected rows reject with --force hint. 12 new unit tests + 60/60 argo-tool + 30/30 argo-agent-runner pass. Boundary note: argo-cli broken on main (org-awareness commit f72a714 dropped 2 `mod` declarations from handlers/mod.rs — pub mod gdpr_delete + mod worker_actions_executor_code); fix is a 2-line restoration outside touch list. |
 | codex-connector-discord | codex | CLAIMED | — | claimed by codex |
-| codex-vertical-archive-cli | codex | TODO | — | V1.x: `argo vertical archive/unarchive/delete <id>` symmetric to tenant-archive; --include-archived flag; delete --force only after archive; preserves audit chain via redaction |
+| codex-vertical-archive-cli | codex | CLAIMED | — | claimed by codex |
 | codex-cost-by-skill-cli | codex | TODO | — | V1.x: `argo budget by-skill` top-N spend ranking + per-skill --history; joins worker_action/spend_ledger/skill; --json envelope; 4 unit tests + smoke |
 | codex-doctor-fix-cli | codex | TODO | — | V1.4: `argo doctor fix [--auto] [--issue <id>]` 3 categories (safe / confirmation / unsafe); audit-rowed per fix; safe set: missing dirs, stale lock, default policy template |
 | claude-skill-quality-judge | claude | CLAIMED | — | claimed by claude looping tab |
