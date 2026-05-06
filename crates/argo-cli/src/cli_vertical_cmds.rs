@@ -22,8 +22,41 @@ pub enum VerticalCmd {
         /// Discovery source: workspace, library, or both.
         #[arg(long, value_parser = ["workspace", "library", "both"], default_value = "both")]
         source: String,
+        /// Include soft-archived verticals in the listing.
+        #[arg(long)]
+        include_archived: bool,
         /// Output as a single JSON object
         /// `{ok, loaded:[…], errors:[…]}`.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Soft-delete a vertical so it no longer appears in default
+    /// listings and cannot bind new sessions or workers.
+    Archive {
+        /// The vertical's id.
+        id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Re-activate a previously archived vertical.
+    Unarchive {
+        /// The vertical's id.
+        id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Permanently remove an archived vertical from disk.
+    Delete {
+        /// The vertical's id.
+        id: String,
+        /// Confirm permanent deletion. The vertical must already
+        /// be archived so existing audit/session rows remain the
+        /// record of prior work.
+        #[arg(long)]
+        force: bool,
+        /// Output as a single JSON object.
         #[arg(long)]
         json: bool,
     },

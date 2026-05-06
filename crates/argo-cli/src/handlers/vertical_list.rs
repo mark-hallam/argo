@@ -3,6 +3,7 @@ use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{load_dir, LoadedVertical};
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 const NO_LIBRARY: &str = "no library configured (library vertical catalogue is planned for v1.x)";
@@ -19,6 +20,7 @@ struct ListOutput<'a> {
     ok: bool,
     tenant: Option<&'a str>,
     source: &'static str,
+    include_archived: bool,
     loaded: Vec<ListRow>,
     errors: Vec<ListError>,
     messages: Vec<String>,
@@ -32,6 +34,7 @@ struct ListRow {
     action_count: usize,
     source: &'static str,
     last_modified: Option<String>,
+    archived_at: Option<i64>,
     root: String,
 }
 
@@ -41,16 +44,33 @@ struct ListError {
     error: String,
 }
 
-pub async fn run(tenant: Option<&str>, source: &str, json: bool) -> ArgoResult<()> {
+pub async fn run(
+    tenant: Option<&str>,
+    source: &str,
+    include_archived: bool,
+    json: bool,
+) -> ArgoResult<()> {
     let source = parse_source(source)?;
     let mut rows = Vec::new();
     let mut errors = Vec::new();
     let mut messages = Vec::new();
     let workspace_dir = resolve_verticals_dir();
+    let archived = if matches!(source, Source::Workspace | Source::Both) {
+        super::vertical_archive::archived_map_for_default_store().await?
+    } else {
+        BTreeMap::new()
+    };
 
     if matches!(source, Source::Workspace | Source::Both) {
         let (registry, load_errors) = load_dir(&workspace_dir)?;
-        rows.extend(registry.list().map(|(id, v)| list_row(id, v)));
+        rows.extend(registry.list().filter_map(|(id, v)| {
+            let archived_at = archived.get(id).copied();
+            if archived_at.is_some() && !include_archived {
+                None
+            } else {
+                Some(list_row(id, v, archived_at))
+            }
+        }));
         errors.extend(load_errors.into_iter().map(|e| ListError {
             dir: e.dir.display().to_string(),
             error: e.error.to_string(),
@@ -66,6 +86,7 @@ pub async fn run(tenant: Option<&str>, source: &str, json: bool) -> ArgoResult<(
             ok: errors.is_empty(),
             tenant,
             source: source.as_str(),
+            include_archived,
             loaded: rows,
             errors,
             messages,
@@ -132,7 +153,7 @@ impl Source {
     }
 }
 
-fn list_row(id: &str, v: &LoadedVertical) -> ListRow {
+fn list_row(id: &str, v: &LoadedVertical, archived_at: Option<i64>) -> ListRow {
     let m = &v.manifest;
     ListRow {
         id: id.to_string(),
@@ -145,6 +166,7 @@ fn list_row(id: &str, v: &LoadedVertical) -> ListRow {
         action_count: m.actions.as_ref().map_or(0, |a| a.actions.len()),
         source: "workspace",
         last_modified: last_modified(&v.root),
+        archived_at,
         root: v.root.display().to_string(),
     }
 }

@@ -26,8 +26,16 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
         VerticalCmd::List {
             tenant,
             source,
+            include_archived,
             json,
-        } => super::vertical_list::run(tenant.as_deref(), &source, json).await,
+        } => {
+            super::vertical_list::run(tenant.as_deref(), &source, include_archived, json).await
+        }
+        VerticalCmd::Archive { id, json } => super::vertical_archive::run(&id, json).await,
+        VerticalCmd::Unarchive { id, json } => super::vertical_unarchive::run(&id, json).await,
+        VerticalCmd::Delete { id, force, json } => {
+            super::vertical_delete::run(&id, force, json).await
+        }
         VerticalCmd::Show { id, json, format } => {
             if format == "markdown" {
                 show(&id, json, &format).await
