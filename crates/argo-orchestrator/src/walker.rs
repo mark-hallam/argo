@@ -40,6 +40,7 @@
 use crate::escalation::{EscalationChain, EscalationStep};
 use crate::handoff::{Handoff, HandoffStatus};
 use crate::persist::OrchestratorStore;
+use crate::routing::{RoutingContext, RoutingEngine};
 use crate::session::{SessionId, SessionStatus};
 use argo_audit::compute_chain_hash;
 use argo_identity::WorkerId;
@@ -88,6 +89,10 @@ pub struct HandoffWalker {
     /// handoff's deadline is honoured if the payload encodes one;
     /// otherwise this constant applies.
     default_deadline_secs: i64,
+    /// Optional routing engine consulted before chain advance.
+    /// `None` (the default) preserves pre-routing-rules behaviour
+    /// — the chain's next target wins unconditionally.
+    routing_engine: Option<RoutingEngine>,
 }
 
 impl HandoffWalker {
@@ -106,6 +111,7 @@ impl HandoffWalker {
             pool,
             notifier,
             default_deadline_secs: 60 * 60, // 1 hour
+            routing_engine: None,
         }
     }
 
@@ -114,6 +120,16 @@ impl HandoffWalker {
     #[must_use]
     pub fn with_default_deadline(mut self, secs: i64) -> Self {
         self.default_deadline_secs = secs;
+        self
+    }
+
+    /// Attach a [`RoutingEngine`] consulted before the static
+    /// escalation chain's next target. When the engine returns
+    /// `Some(EscalationStep::Worker(w))`, the walker re-emits the
+    /// handoff to `w` instead of the chain's pick.
+    #[must_use]
+    pub fn with_routing_engine(mut self, engine: RoutingEngine) -> Self {
+        self.routing_engine = Some(engine);
         self
     }
 
@@ -155,7 +171,10 @@ impl HandoffWalker {
         };
         match next_step {
             EscalationStep::Worker(next_worker) => {
-                self.advance_to_worker(&row, &chain, next_index, *next_worker, now)
+                let target = self
+                    .routing_override(&row.handoff.expected_outcome, now)
+                    .unwrap_or(*next_worker);
+                self.advance_to_worker(&row, &chain, next_index, target, now)
                     .await?;
                 report.re_handed_off += 1;
             }
@@ -219,6 +238,23 @@ impl HandoffWalker {
             .update_session_status(row.tenant_id, &row.handoff.session_id, SessionStatus::Expired)
             .await?;
         Ok(())
+    }
+
+    /// Consult the routing engine. Returns `Some(worker)` when a
+    /// rule fires with a `SpecificWorker` / `RoundRobin` target.
+    /// The walker only re-routes to workers — `Human` selectors
+    /// are not currently supported and fall through to the chain.
+    fn routing_override(
+        &self,
+        expected_outcome: &str,
+        now: DateTime<Utc>,
+    ) -> Option<WorkerId> {
+        let engine = self.routing_engine.as_ref()?;
+        let ctx = RoutingContext::new(now, expected_outcome);
+        match engine.route(&ctx)? {
+            EscalationStep::Worker(w) => Some(w),
+            EscalationStep::Human(_) => None,
+        }
     }
 
     fn summarize(&self, h: &Handoff) -> String {

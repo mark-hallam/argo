@@ -320,3 +320,74 @@ async fn second_sweep_is_idempotent() {
     assert_eq!(r2.expired, 0);
     assert_eq!(r2.chain_exhausted, 0);
 }
+
+#[tokio::test]
+async fn routing_rule_overrides_chain_target_on_re_handoff() {
+    use crate::routing::{HandoffRoutingRule, RoutingEngine, TargetSelector, WhenClause};
+    let (repo, _audit, pool, tenant) = fixture().await;
+    let session = insert_session(&repo, tenant, "review-flow").await;
+    let from = WorkerId::new();
+    let chain_pick = WorkerId::new();
+    let rule_pick = WorkerId::new();
+    let chain = vec![
+        format!("worker:{from}"),
+        format!("worker:{chain_pick}"),
+        "human:ops@acmeco.com".into(),
+    ];
+    let now = Utc::now();
+    let h = make_handoff(
+        &session,
+        from,
+        EscalationStep::Worker(from),
+        chain,
+        0,
+        now - Duration::seconds(60),
+    );
+    repo.insert_handoff(tenant, &h).await.unwrap();
+
+    let engine = RoutingEngine::new(vec![HandoffRoutingRule::new(
+        "verify-route",
+        WhenClause {
+            expected_outcome_contains: Some("verify".into()),
+            ..Default::default()
+        },
+        TargetSelector::SpecificWorker(rule_pick),
+        1,
+    )]);
+
+    let walker = HandoffWalker::new(
+        Arc::clone(&repo),
+        pool.clone(),
+        Arc::new(RecordingNotifier::new()),
+    )
+    .with_routing_engine(engine);
+
+    let report = walker.sweep_once(now).await.unwrap();
+    assert_eq!(report.re_handed_off, 1);
+
+    let session_handoffs = repo
+        .list_handoffs_for_session(tenant, &session.id)
+        .await
+        .unwrap();
+    let new_pending: Vec<&Handoff> = session_handoffs
+        .iter()
+        .filter(|h| matches!(h.status, HandoffStatus::Pending))
+        .collect();
+    assert_eq!(new_pending.len(), 1);
+    let target = new_pending[0]
+        .payload
+        .get("user_payload")
+        .map(|_| ()) // touch to ensure payload preserved
+        .map(|()| true)
+        .unwrap_or(false);
+    assert!(target);
+    // The new handoff's `to` field should encode the rule's pick.
+    let to_field = match &new_pending[0].to {
+        EscalationStep::Worker(w) => *w,
+        EscalationStep::Human(_) => panic!("expected worker re-handoff, got human"),
+    };
+    assert_eq!(
+        to_field, rule_pick,
+        "routing rule should override chain target ({chain_pick})"
+    );
+}

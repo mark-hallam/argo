@@ -32,11 +32,16 @@
 mod escalation;
 mod handoff;
 pub mod persist;
+pub mod routing;
 mod session;
 mod walker;
 
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
 pub use persist::OrchestratorStore;
+pub use routing::{
+    HandoffRoutingRule, RoutingContext, RoutingEngine, RoutingRuleStore, RuleId, TargetSelector,
+    WhenClause,
+};
 pub use session::{Session, SessionId, SessionStatus};
 pub use walker::{HandoffNotifier, HandoffWalker, SweepReport};

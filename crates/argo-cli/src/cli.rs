@@ -32,6 +32,8 @@ mod cli_skill_conflicts_cmds;
 mod cli_skill_review_cmds;
 #[path = "cli_skill_search_cmds.rs"]
 mod cli_skill_search_cmds;
+#[path = "cli_handoff_cmds.rs"]
+pub mod cli_handoff_cmds;
 #[path = "cli_org_cmds.rs"]
 pub mod cli_org_cmds;
 #[path = "cli_roster_cmds.rs"]
@@ -193,6 +195,12 @@ pub enum Command {
     Roster {
         #[command(subcommand)]
         cmd: cli_roster_cmds::RosterCmd,
+    },
+    /// Declarative handoff routing rules
+    /// (`claude-handoff-routing-rules`).
+    HandoffRules {
+        #[command(subcommand)]
+        cmd: cli_handoff_cmds::HandoffRulesCmd,
     },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +
