@@ -45,10 +45,14 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod runner;
+mod streaming;
 mod task;
 
 #[cfg(test)]
 mod tests;
 
 pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
+pub use streaming::{
+    format_simple_line, format_summary_line, format_verbose_line, StreamMode,
+};
 pub use task::{load_jsonl, EvalMetric, EvalTask};

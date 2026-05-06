@@ -6,7 +6,10 @@
 //! the existing vertical judge rules so CI gets stable pass/fail
 //! output without provider credentials.
 use crate::cli::cli_eval_cmds::EvalCmd;
-use argo_eval::{load_jsonl, EvalMetric};
+use argo_eval::{
+    format_simple_line, format_summary_line, format_verbose_line, load_jsonl, EvalMetric,
+    StreamMode,
+};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{judge_fixture, score_fixture, FixtureStatus, JudgePolicy, LoadedVertical};
 use serde_json::{json, Value};
@@ -21,8 +24,16 @@ pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
             vertical,
             score,
             limit,
+            stream,
             json,
-        } => run_vertical(&vertical, score, limit, json),
+        } => {
+            let mode = StreamMode::parse(&stream).ok_or_else(|| {
+                ArgoError::Provider(format!(
+                    "--stream '{stream}' must be one of: off, simple, verbose"
+                ))
+            })?;
+            run_vertical(&vertical, score, limit, mode, json)
+        }
     }
 }
 
@@ -88,17 +99,35 @@ fn list(id: &str, json_out: bool) -> ArgoResult<()> {
     Ok(())
 }
 
-fn run_vertical(id: &str, scored: bool, limit: Option<usize>, json_out: bool) -> ArgoResult<()> {
+fn run_vertical(
+    id: &str,
+    scored: bool,
+    limit: Option<usize>,
+    mode: StreamMode,
+    json_out: bool,
+) -> ArgoResult<()> {
     let (_registry, loaded) = load_vertical(id)?;
     let mut fixtures = collect_fixtures(&loaded)?;
     if let Some(n) = limit {
         fixtures.truncate(n);
     }
+    // `--json` collects all rows for the final envelope; per-fixture
+    // streaming lines would interleave with the envelope and confuse
+    // pipe consumers. Force `Off` when `--json` is set.
+    let effective_mode = if json_out { StreamMode::Off } else { mode };
+    let total = fixtures.len();
 
-    let mut rows: Vec<Value> = Vec::with_capacity(fixtures.len());
+    if effective_mode == StreamMode::Off && !json_out {
+        // Historical batch human header — kept for the legacy
+        // `--stream off` path.
+        println!("vertical '{id}': eval run");
+    }
+
+    let mut rows: Vec<Value> = Vec::with_capacity(total);
     let mut passed = 0_usize;
     let mut failed = 0_usize;
-    for fixture in fixtures {
+    let started = std::time::Instant::now();
+    for (i, fixture) in fixtures.into_iter().enumerate() {
         let actual = dry_run_actual(&fixture.expected);
         let mut row = fixture.raw.clone();
         if let Some(obj) = row.as_object_mut() {
@@ -132,9 +161,11 @@ fn run_vertical(id: &str, scored: bool, limit: Option<usize>, json_out: bool) ->
         } else {
             failed += 1;
         }
+        emit_streaming_line(effective_mode, i + 1, total, &fixture.id, fixture_passed, &result);
         rows.push(result);
     }
 
+    let total_ms = started.elapsed().as_millis() as u64;
     let summary = json!({
         "total": rows.len(),
         "passed": passed,
@@ -149,8 +180,8 @@ fn run_vertical(id: &str, scored: bool, limit: Option<usize>, json_out: bool) ->
             "summary": summary,
             "fixtures": rows,
         }))?;
-    } else {
-        println!("vertical '{id}': eval run");
+    } else if effective_mode == StreamMode::Off {
+        // Legacy batch printer: per-row PASS/FAIL list + summary.
         for row in &rows {
             let marker = if row["passed"].as_bool().unwrap_or(false) {
                 "PASS"
@@ -164,6 +195,11 @@ fn run_vertical(id: &str, scored: bool, limit: Option<usize>, json_out: bool) ->
             );
         }
         println!("summary: {passed}/{} passed", rows.len());
+    } else {
+        let line = format_summary_line(effective_mode, passed, failed, Some(total_ms));
+        if !line.is_empty() {
+            println!("{line}");
+        }
     }
 
     if failed > 0 {
@@ -172,6 +208,35 @@ fn run_vertical(id: &str, scored: bool, limit: Option<usize>, json_out: bool) ->
         )));
     }
     Ok(())
+}
+
+fn emit_streaming_line(
+    mode: StreamMode,
+    idx: usize,
+    total: usize,
+    id: &str,
+    passed: bool,
+    result: &Value,
+) {
+    if !mode.streams_per_fixture() {
+        return;
+    }
+    match mode {
+        StreamMode::Simple => {
+            let line = format_simple_line(idx, total, id, passed, None, None);
+            println!("{line}");
+        }
+        StreamMode::Verbose => {
+            let extra = json!({
+                "suite": result.get("suite"),
+                "line": result.get("line"),
+                "input": result.get("input"),
+            });
+            let line = format_verbose_line(idx, total, id, passed, extra);
+            println!("{line}");
+        }
+        StreamMode::Off => {}
+    }
 }
 
 fn load_vertical(id: &str) -> ArgoResult<(argo_vertical::Registry, LoadedVertical)> {
