@@ -49,7 +49,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
 | claude-e2e-integration-test | claude | IN_REVIEW | #810 | PR opened — 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition all need plumbing the brief explicitly forbids touching) |
-| claude-genesis-llm-refinement | claude | TODO | — | replenish: opt-in `--refine` flag on `argo genesis create` that adds an Anthropic refinement pass after the deterministic pipeline (safety judge re-runs); deferred from G-genesis PR body |
+| claude-genesis-llm-refinement | claude | CLAIMED | — | claimed by claude |
 | claude-skill-success-metric | claude | TODO | — | replenish-2: structured SuccessMetric (confidence + trajectory_length + duration + final_state_score) replacing the binary 1.0/0.0; per-vertical proposal thresholds; depends on claude-cu-skill-learn-wire |
 | claude-worker-instance-policy | claude | TODO | — | replenish-2: per-worker auto_approval policy override; resolves worker → workspace → disabled-default; `argo worker update --auto-approval-json` flag |
 | claude-orchestrator-handoff-walker | claude | TODO | — | replenish-2: periodic tokio sweeper that walks EscalationChain on overdue Pending handoffs; chain exhaustion writes audit row + Session.Expired; the brief that makes the system genuinely autonomous |
