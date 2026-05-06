@@ -112,7 +112,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-gdpr-delete-cli | codex | CLAIMED | — | claimed by codex |
 | codex-connector-linear | codex | IN_REVIEW | #865 | PR opened: native Linear MCP connector with 7 GraphQL tools, bearer API-key auth, filter passthrough, approval-gate schema markers, unit + stdio wire coverage |
 | codex-connector-monday | codex | CLAIMED | — | claimed by codex |
-| codex-connector-pagerduty | codex | TODO | — | V1.2 capability: native PagerDuty MCP connector (7 methods: list_incidents/get/create/ack/resolve/list_services/list_oncalls); PAGERDUTY_API_KEY bearer; mirror crate pattern |
+| codex-connector-pagerduty | codex | CLAIMED | — | claimed by codex |
 | codex-connector-fireflies | codex | TODO | — | V1.2 capability: native Fireflies.ai MCP connector for meeting transcripts (5 read-only methods: list_meetings/get/get_transcript/search/list_users); FIREFLIES_API_KEY bearer; all autonomous-safe |
 | codex-audit-report-cli | codex | TODO | — | V2.1 governance: `argo audit report --since/--until --format markdown|html [--output]` with 6 sections (summary stats, channel breakdown, top spenders, pending queue, chain integrity, known flakes); extends compliance-export-cli with executive-friendly output |
 | codex-doctor-watch-cli | codex | TODO | — | V1.4 operator UX: `argo doctor watch [--interval --clear]` continuous health dashboard; reuses argo doctor --json envelope; 30s default interval; --clear for curses-style redraw, append-mode for piping |
