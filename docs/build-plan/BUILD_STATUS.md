@@ -27,7 +27,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
-| D-slack-approvals | codex | CLAIMED | — | claimed by codex |
+| D-slack-approvals | codex | IN_REVIEW | #783 | PR opened |
 | D-sms | codex | IN_REVIEW | #782 | PR opened |
 | D-push | codex | CLAIMED | — | claimed by codex |
 | D-webinbox | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
