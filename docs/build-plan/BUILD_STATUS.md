@@ -56,7 +56,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-skycot-runbook | claude | IN_REVIEW | #816 | PR opened — 944-line operator runbook covering all 10 brief sections (install → bootstrap → genesis → approvals → first action → skill learning → handoff → audit → next steps) |
 | claude-action-record-identity-plumbing | claude | TODO | — | replenish-3: thread `worker_id: WorkerId` through ActionRecord + every emit/dispatch/transition seam; FOUNDATIONAL for the 3 SKIPs in #810 + the worker-instance-policy follow-through |
 | claude-e2e-test-step-completion | claude | TODO | — | replenish-3: flip the 3 SKIPped steps in #810 to real assertions once identity plumbing lands; flips v1 demo gate from yellow (6/9) → green (9/9) |
-| claude-marketplace-vertical-publish | claude | TODO | — | replenish-3: `argo vertical publish/pull` for OCI marketplace; makes H-4b's library tier USEFUL by having a way to populate it; sigstore optional |
+| claude-marketplace-vertical-publish | claude | CLAIMED | — | claimed by claude |
 | claude-realtime-audit-stream | claude | TODO | — | replenish-3: `GET /audit/stream` WebSocket on gateway; live row push with kind/worker filters + heartbeat; pairs with skycot-runbook's observability section |
 
 ---
