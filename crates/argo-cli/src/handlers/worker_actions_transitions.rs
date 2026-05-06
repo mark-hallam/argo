@@ -270,7 +270,7 @@ pub(crate) async fn complete(
     };
     let now = chrono::Utc::now().to_rfc3339();
     let note = note.map(String::from);
-    write_transition(memory, workspace, &located, ActionState::Completed, |rec| {
+    let completed = write_transition(memory, workspace, &located, ActionState::Completed, |rec| {
         rec.executed_at.get_or_insert(now);
         let mut payload = parsed_result.unwrap_or_else(|| serde_json::json!({}));
         if let Some(n) = note {
@@ -282,7 +282,13 @@ pub(crate) async fn complete(
         }
         rec.result = Some(payload);
     })
-    .await
+    .await?;
+    // #771 — auto-emit any follow-up actions the manifest
+    // declares for this action_type's `on_complete_emit`. Errors
+    // are logged + swallowed so a follow-up failure cannot
+    // undo the operator's `complete` transition.
+    super::worker_actions_followup::emit_on_complete_followups(memory, workspace, &located).await;
+    Ok(completed)
 }
 
 /// `executing → failed`. Records the operator-supplied reason

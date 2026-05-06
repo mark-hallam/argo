@@ -108,6 +108,26 @@ pub struct ActionDeclaration {
     /// retry handler logs a WARN-level breadcrumb when they do.
     #[serde(default)]
     pub retry: Option<RetryPolicy>,
+    /// Action types to auto-emit when this action transitions
+    /// to `completed` (#771). Each entry is the canonical
+    /// action_type name as declared elsewhere in `[actions]`;
+    /// undeclared types still go through the OS classifier so
+    /// they land `blocked` rather than crashing.
+    ///
+    /// Used to wire a multi-day workflow declaratively:
+    /// `post_listing` complete → emit `boost_listing`; or
+    /// `mark_item_sold` complete → emit `follow_up_buyer`.
+    /// The follow-up inherits `item_id` and `platform` from the
+    /// source action and references the source action_id in its
+    /// `evidence` chain. Each follow-up runs through the full
+    /// emission gate (manifest classification, evidence gate,
+    /// sold-item gate) so the safety boundary is unchanged.
+    ///
+    /// Empty vec / absent = no auto-emission. v1 emits
+    /// follow-ups synchronously on completion; time-delayed
+    /// follow-ups are a future extension.
+    #[serde(default)]
+    pub on_complete_emit: Vec<String>,
 }
 
 /// Retry policy declared per-action in the manifest (#755).
