@@ -54,6 +54,14 @@ pub async fn run(skills: &SkillStore, cmd: SkillReviewCmd) -> ArgoResult<()> {
             .await
         }
         SkillReviewCmd::Promote { memory_id, json } => promote(skills, &memory_id, json).await,
+        SkillReviewCmd::Export {
+            skill_id,
+            output,
+            format,
+        } => super::skill_export::run(skills, &skill_id, &output, &format).await,
+        SkillReviewCmd::Import { path, lock } => {
+            super::skill_import::run(skills, &path, lock.as_deref()).await
+        }
     }
 }
 

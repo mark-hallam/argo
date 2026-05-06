@@ -70,4 +70,23 @@ pub enum SkillReviewCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Export a stored skill to an offline distribution file.
+    Export {
+        /// The skill's id (UUID v7).
+        skill_id: String,
+        /// Destination file path.
+        #[arg(long)]
+        output: String,
+        /// Output format: md (default), toml, or json.
+        #[arg(long, default_value = "md")]
+        format: String,
+    },
+    /// Import a skill distribution file into the local skill store.
+    Import {
+        /// Path to a md, toml, or json skill distribution.
+        path: String,
+        /// Optional lock override: none, content_locked, or user_protected.
+        #[arg(long)]
+        lock: Option<String>,
+    },
 }
