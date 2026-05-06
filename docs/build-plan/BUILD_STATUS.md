@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | MERGED | #833 | `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | TODO | — | unblocked v3 by tick-45 EXHAUSTIVE-MATCH amendment (see top): handlers/memory.rs may-touch the exhaustive match, narrowly: only the new SharedTeam arm |
+| H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
 | H-vertical-list-cli | codex | MERGED | #834 | `argo vertical list/show/describe` for installed verticals |
 | H-worker-list-cli | codex | CLAIMED | — | claimed by codex |
 | H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
