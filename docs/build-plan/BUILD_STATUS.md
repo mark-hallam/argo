@@ -126,7 +126,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-memory-tool-wire | claude | MERGED | #875 | wires memory.list/read/write through MemoryStore w/ vertical scoping; 539 LOC; replaces stale PR #775; vertical-bound writes via append_for_vertical (correctness fix); no uuid dep added; back-compat preserved for builtin_tools(cwd) call sites
 | codex-connector-discord | codex | IN_REVIEW | #879 | PR opened: native Discord MCP connector with 7 REST tools, bot-token auth, approval-gated send/react, unit + stdio wire coverage; boundary note for pre-existing argo-cli test failures |
 | codex-vertical-archive-cli | codex | CLAIMED | — | claimed by codex |
-| codex-cost-by-skill-cli | codex | TODO | — | V1.x: `argo budget by-skill` top-N spend ranking + per-skill --history; joins worker_action/spend_ledger/skill; --json envelope; 4 unit tests + smoke |
+| codex-cost-by-skill-cli | codex | CLAIMED | — | claimed by codex |
 | codex-doctor-fix-cli | codex | TODO | — | V1.4: `argo doctor fix [--auto] [--issue <id>]` 3 categories (safe / confirmation / unsafe); audit-rowed per fix; safe set: missing dirs, stale lock, default policy template |
 | claude-skill-quality-judge | claude | DEFERRED-blocked-by | claude-cli-subcommands-split | DEFERRED at tick107: cli_subcommands.rs is exactly at 500-LOC invariant; new SkillCmd::Quality arm needs +1 line that the file can't accept. Prerequisite: claude-cli-subcommands-split (queued below) — same pattern as claude-worker-actions-split #851. After split lands, this brief resumes unchanged. V2.0 self-improvement work itself is sound; just blocked on architectural prep. |
 
