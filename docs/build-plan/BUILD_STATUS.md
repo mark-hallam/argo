@@ -49,7 +49,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-skill-review-cli | codex | IN_REVIEW | #823 | PR opened |
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
-| H-channel-health-checks | codex | CLAIMED | — | claimed by codex; replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
+| H-channel-health-checks | codex | IN_REVIEW | #828 | PR opened |
 | H-shared-team-cli | codex | BLOCKED | — | blocked: allowlist omits handlers/memory.rs dispatch needed to wire the new SharedTeam subcommand |
 | H-vertical-list-cli | codex | BLOCKED | — | blocked: assert_cmd integration test requires dev-dependency/test file not present in allowlist |
 | H-worker-list-cli | codex | BLOCKED | — | blocked: brief allowlist names nonexistent handlers/worker.rs and omits worker_actions.rs dispatch needed to wire subcommands |
