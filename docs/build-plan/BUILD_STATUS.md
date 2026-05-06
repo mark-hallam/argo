@@ -46,7 +46,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-metrics | codex | TODO | — | unblocked v2: existing `crates/argo-cli/src/handlers/gateway/metrics.rs` is already 545 LOC (pre-existing budget violation — leave it alone). Use the SIBLING-FILE pattern: NEW `metrics_h_stack.rs` registers the new counters into the GLOBAL Prometheus registry (`prometheus::default_registry()`); the existing /metrics handler reads from that registry, so new counters surface automatically without touching the existing file. Brief amended: may-touch = `metrics_h_stack.rs` (NEW) + `gateway/mod.rs` (ONE line `pub mod metrics_h_stack;`) + `Cargo.toml` (workspace `prometheus = "0.13"`). DO NOT modify `metrics.rs` or `metrics_actions.rs`. |
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
-| H-skill-review-cli | codex | CLAIMED | - | claimed by codex |
+| H-skill-review-cli | codex | BLOCKED | - | blocked: brief allowlist names missing cli_skill_cmds.rs; clap enum/test files required |
 | H-action-replay | codex | CLAIMED | — | claimed by codex |
 | H-audit-query-extensions | codex | TODO | — | replenish-codex: `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
 | H-channel-health-checks | codex | TODO | — | replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
