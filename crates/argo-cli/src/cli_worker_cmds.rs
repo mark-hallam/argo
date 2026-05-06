@@ -56,6 +56,15 @@ pub enum WorkerActionsCmd {
         /// When omitted, walks every loaded vertical.
         #[arg(long)]
         vertical: Option<String>,
+        /// Filter by `item_id` — the inventory tag stamped onto
+        /// each action at emission time. Lets the operator scope
+        /// a long-running multi-day worker to "what's happened
+        /// for skate-pair-A" without mentally diffing the full
+        /// ledger. Matches actions whose `item_id` field equals
+        /// the given string exactly; rows with no `item_id` are
+        /// excluded.
+        #[arg(long)]
+        item_id: Option<String>,
         /// Filter by `action_type` (e.g. `post_listing`,
         /// `verify_price`). Matches the canonical name; see
         /// `handlers::worker_actions::ActionType` for the full

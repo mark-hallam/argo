@@ -190,6 +190,7 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 state,
                 job_id,
                 vertical,
+                item_id,
                 action_type,
                 platform,
                 limit,
@@ -199,6 +200,7 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                     &state,
                     job_id.as_deref(),
                     vertical.as_deref(),
+                    item_id.as_deref(),
                     action_type.as_deref(),
                     platform.as_deref(),
                     limit,
@@ -279,22 +281,21 @@ async fn list(
     state_filter: &str,
     job_id: Option<&str>,
     vertical: Option<&str>,
+    item_id_filter: Option<&str>,
     action_type_filter: Option<&str>,
     platform_filter: Option<&str>,
     limit: usize,
     json_out: bool,
 ) -> ArgoResult<()> {
     let actions = collect_latest_actions(vertical).await?;
-    let mut rows: Vec<ActionRecord> = actions
-        .into_iter()
-        .filter(|a| match state_filter {
-            "all" => true,
-            other => a.state == other,
-        })
-        .filter(|a| job_id.is_none_or(|j| a.job_id == j))
-        .filter(|a| action_type_filter.is_none_or(|t| a.action_type == t))
-        .filter(|a| platform_filter.is_none_or(|p| a.platform.as_deref() == Some(p)))
-        .collect();
+    let mut rows = super::worker_actions_list::apply_list_filters(
+        actions,
+        state_filter,
+        job_id,
+        item_id_filter,
+        action_type_filter,
+        platform_filter,
+    );
     // Sort newest-first by created_at — operators want recent
     // first; ties broken by action_id for determinism.
     rows.sort_by(|a, b| {
