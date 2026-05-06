@@ -45,6 +45,7 @@ mod forge_subject;
 pub mod gateway;
 pub mod gateway_probe;
 pub mod genesis;
+pub mod genesis_refine;
 pub mod health;
 pub mod judge;
 pub mod mcp;

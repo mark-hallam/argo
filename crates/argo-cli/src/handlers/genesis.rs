@@ -33,6 +33,16 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
             json,
             refine,
         } => create(&charter, &persona, &output, json, refine),
+        GenesisCmd::Refine {
+            vertical_id,
+            judge,
+            no_judge,
+            max_iterations,
+            dry_run,
+            json,
+        } => {
+            super::genesis_refine::run(&vertical_id, judge, no_judge, max_iterations, dry_run, json)
+        }
     }
 }
 
@@ -65,7 +75,10 @@ fn show_archetype_cmd(name: &str, json: bool) -> ArgoResult<()> {
     println!("{} ({})", meta.name, meta.slug);
     println!("{}", meta.description);
     println!("persona traits: {}", meta.default_persona_traits.join(", "));
-    println!("recommended channels: {}", meta.recommended_channels.join(", "));
+    println!(
+        "recommended channels: {}",
+        meta.recommended_channels.join(", ")
+    );
     println!("actions:");
     for action in meta.seed_actions {
         println!(
@@ -177,14 +190,10 @@ pub(crate) fn create(
 /// and drives it via `tokio::task::block_in_place` — the cli is
 /// always inside a tokio runtime here (same sync→async bridge
 /// the cu executor uses).
-fn run_refinement(
-    plan: GenesisPlan,
-    config: RefineConfig,
-) -> ArgoResult<GenesisPlan> {
+fn run_refinement(plan: GenesisPlan, config: RefineConfig) -> ArgoResult<GenesisPlan> {
     let caller = refine::http::ReqwestCaller::new(config).map_err(ArgoError::from)?;
-    let handle = tokio::runtime::Handle::try_current().map_err(|e| {
-        ArgoError::Provider(format!("genesis --refine needs a tokio runtime: {e}"))
-    })?;
+    let handle = tokio::runtime::Handle::try_current()
+        .map_err(|e| ArgoError::Provider(format!("genesis --refine needs a tokio runtime: {e}")))?;
     let refined = tokio::task::block_in_place(|| handle.block_on(refine_plan(plan, &caller)));
     refined.map_err(ArgoError::from)
 }
@@ -274,8 +283,8 @@ mod tests {
     fn create_errors_on_invalid_persona() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("doesnt-matter");
-        let err = create("be my marketing intern", "maya@", &out, false, false)
-            .expect_err("bad persona");
+        let err =
+            create("be my marketing intern", "maya@", &out, false, false).expect_err("bad persona");
         assert!(err.to_string().contains("invalid persona"), "got: {err}");
     }
 }

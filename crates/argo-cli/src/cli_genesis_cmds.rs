@@ -67,4 +67,24 @@ pub enum GenesisCmd {
         #[arg(long)]
         refine: bool,
     },
+    /// Re-run the Genesis LLM refinement pass against an existing vertical.
+    Refine {
+        /// Existing vertical id discoverable via ARGO_VERTICALS_DIR or ./verticals.
+        vertical_id: String,
+        /// Explicitly run the safety judge after each refinement iteration.
+        #[arg(long, conflicts_with = "no_judge")]
+        judge: bool,
+        /// Skip the safety judge re-run after refinement.
+        #[arg(long = "no-judge", conflicts_with = "judge")]
+        no_judge: bool,
+        /// Maximum LLM refinement iterations to run.
+        #[arg(long, default_value_t = 1)]
+        max_iterations: usize,
+        /// Print the manifest diff without writing files.
+        #[arg(long)]
+        dry_run: bool,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
 }

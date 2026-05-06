@@ -60,6 +60,7 @@ mod manifest_mcp;
 mod memory_schema;
 mod registry;
 mod validator;
+mod version;
 mod workflow;
 
 use std::path::PathBuf;
@@ -109,6 +110,7 @@ pub use memory_schema::{
 };
 pub use registry::{LoadedVertical, Registry};
 pub use validator::validate;
+pub use version::{archive_existing_vertical, next_version_dir};
 pub use workflow::{
     parse_workflow, validate_workflow, Workflow, WorkflowHeader, WorkflowStep,
     WORKFLOW_SCHEMA_VERSION,
