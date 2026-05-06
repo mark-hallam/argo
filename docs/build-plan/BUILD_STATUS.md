@@ -82,7 +82,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-asana | codex | MERGED | #846 | native Asana MCP connector crate (9 files, 735 LOC) — auth/client/lib/main/schemas/service split, 8 methods (workspaces/projects/tasks/get/create/update/complete/comment), ASANA_PAT bearer auth, mocked HTTP + stdio wire tests, approval marks correct (read=false, mutate=true) |
 | codex-skill-marketplace-search | codex | MERGED | #849 | `argo skill search <query>` cross-tenant skill search over mocked OCI manifest index; --trust-min/--tenant/--limit/--json filters; 4 unit + 1 CLI smoke test; new cli_skill_search_cmds.rs sibling-file pattern |
 | claude-anomaly-detector | claude | IN_REVIEW | #847 | PR opened — Welford baselines + z-score detection + `argo worker anomalies` CLI; 12 tests; CONFLICT after tick63 merge wave: needs rebase (post-#851 worker_actions.rs split) + migration renumber 17→18 (#848 took 17). Conductor commented with rebase instructions. |
-| claude-workflow-dag | claude | TODO | — | UNCLAIMED tick72: claim 32min stale, no remote branch (probably crashed claude tab). V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
+| claude-workflow-dag | claude | IN_REVIEW | #857 | PR opened — sweep was premature, build-time delay not a crash. New `argo-workflow` crate (DAG/executor/expr/yaml) + `argo workflow validate/run/status/list-runs` + migration 18 (`workflow_run`). 27 unit + 2 integration + 1 doc-test green; clippy clean; all files under 500 LOC. |
 | claude-filesystem-executor | claude | TODO | — | UNCLAIMED tick72: claim 31min stale, no remote branch (probably crashed claude tab). V1.2 capability: new ExecutorKind::Filesystem; sandboxed FS ops with path-traversal/symlink/size guards; per-worker fs_root |
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
 | claude-org-awareness | claude | TODO | — | V1.3 multi-worker: Org/Unit/Member/Alias primitives + manager-chain escalation; `argo org tree/member/reports-to/ingest` |
@@ -99,7 +99,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-airtable | codex | MERGED | #856 | native Airtable MCP connector crate (8 files, 791 LOC); 7 methods (list_bases/tables/records, get/create/update/delete_record); PAT auth via AIRTABLE_PAT; filterByFormula passthrough on list_records; mirror gmail/asana crate pattern |
 | codex-worker-portrait-cli | codex | TODO | — | waiting on claude-anomaly-detector merge; then render worker portrait markdown/json summary |
 | codex-activity-feed-cli | codex | CLAIMED | — | claimed by codex |
-| codex-gdpr-delete-cli | codex | BLOCKED | — | cargo test -p argo-cli fails in pre-existing setup/gateway env-leak tests outside brief touch list; GDPR unit+smoke and workspace clippy pass |
+| codex-gdpr-delete-cli | codex | CLAIMED | — | UNBLOCKED tick74: implementation is complete (GDPR unit+smoke+clippy pass). The blocking failure (`setup_steps::vertical_step_skips_empty_registry`, gateway_smoke env-leak flakes) is the EXACT case tick-60 amendment was written for — pre-existing, outside may-touch, reproduces on clean main. Codex tab: PUSH the PR with a Boundary note in the body listing the exact failing test ids; do NOT mark this row BLOCKED again. The conductor reviews against the BRIEF's acceptance checklist; pre-existing flakes are conductor-acknowledged risk. |
 
 ---
 

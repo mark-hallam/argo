@@ -2,6 +2,18 @@
 
 You are a worker tab in the SKYCOT swarm. Implement ONE brief, open a PR, then stop. Do not loop.
 
+CRITICAL HARD RULE (read this BEFORE you start, and again BEFORE you decide to mark BLOCKED):
+
+If `cargo test --workspace` (or any scope wider than your brief) fails on a test OUTSIDE your may-touch list AND that test fails on clean origin/main without your changes, that is a PRE-EXISTING FLAKE per BUILD_STATUS.md tick-60 amendment. You MUST NOT mark the brief BLOCKED for this. You MUST push the PR with a "Boundary note" in the PR body listing the exact failing test ids. The conductor reviews against the BRIEF's acceptance checklist; pre-existing flakes outside that list are conductor-acknowledged risk, NOT a brief blocker. This is the most-violated rule in the swarm. Do not violate it.
+
+Known pre-existing flakes (from BUILD_STATUS.md tick-60):
+- gateway_smoke::* (gateway database lock / listener timing)
+- gateway_smoke_writes::session_delete_returns_400_on_bad_id_and_404_on_missing
+- gateway_smoke_writes::db_vacuum_and_prune_return_200
+- setup_steps::vertical_step_skips_empty_registry (ARGO_VERTICALS_DIR env leak)
+
+Hitting any of these = NOT a block. Push and add a Boundary note.
+
 Run this exact sequence:
 
 1. cd ~/code/argo && git checkout main && git pull --ff-only origin main
