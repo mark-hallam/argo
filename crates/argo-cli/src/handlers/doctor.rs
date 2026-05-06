@@ -6,6 +6,8 @@ use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
+#[path = "doctor_channels.rs"]
+mod doctor_channels;
 #[path = "doctor_h_stack.rs"]
 mod doctor_h_stack;
 
@@ -83,6 +85,7 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     print_gateway(&payload["gateway"]);
     print_routes(&payload["routes"]);
     doctor_h_stack::print_text(&payload["auto_approval"]);
+    print_channels(&payload["channels"]);
     Ok(())
 }
 
@@ -91,6 +94,16 @@ fn print_routes(v: &serde_json::Value) {
     let get = v["get"].as_u64().unwrap_or(0);
     let post = v["post"].as_u64().unwrap_or(0);
     println!("  routes:     {total} endpoints ({get} GET, {post} POST)");
+}
+
+fn print_channels(v: &serde_json::Value) {
+    println!("  Channels:");
+    for key in ["email", "slack", "sms", "push"] {
+        let item = &v[key];
+        let status = item["status"].as_str().unwrap_or("ERROR");
+        let detail = item["detail"].as_str().unwrap_or("unavailable");
+        println!("    {key}: {status} - {detail}");
+    }
 }
 
 fn print_audit(v: &serde_json::Value) {
@@ -145,6 +158,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let gateway = gateway_status(&home);
     let routes = routes_count();
     let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
+    let channels = doctor_channels::collect().await;
     Ok(serde_json::json!({
         "cwd": cwd.display().to_string(),
         "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
@@ -160,6 +174,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "gateway": gateway,
         "routes": routes,
         "auto_approval": auto_approval,
+        "channels": channels,
     }))
 }
 
