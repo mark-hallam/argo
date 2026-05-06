@@ -28,7 +28,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export slack module" |
-| D-sms | codex | CLAIMED | — | claimed by codex |
+| D-sms | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export sms module" |
 | D-push | codex | TODO | — | unblocked (D-email merged) |
 | D-webinbox | codex | TODO | — | unblocked (D-email merged) |
 | E-identity | codex | CLAIMED | — | claimed by codex |
