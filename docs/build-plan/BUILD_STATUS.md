@@ -115,7 +115,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-pagerduty | codex | IN_REVIEW | #867 | PR opened: native PagerDuty MCP connector crate with 7 REST tools, Token auth, approval-gated create/ack/resolve, unit + stdio wire coverage; branch merged current main and is mergeable |
 | codex-connector-fireflies | codex | CLAIMED | — | claimed by codex |
 | codex-audit-report-cli | codex | CLAIMED | — | claimed by codex |
-| codex-doctor-watch-cli | codex | TODO | — | V1.4 operator UX: `argo doctor watch [--interval --clear]` continuous health dashboard; reuses argo doctor --json envelope; 30s default interval; --clear for curses-style redraw, append-mode for piping |
+| codex-doctor-watch-cli | codex | CLAIMED | — | claimed by codex |
 | claude-policy-as-code | claude | TODO | — | V2.1 governance: declarative org policies in YAML at workspace/policies/*.yaml; applies_to + rules (action_kind / require_signatures / quiet_hours / spend_cap); resolution chain action→worker→roster→workspace→default; `argo policy list/show/validate/apply` |
 | claude-data-classification | claude | TODO | — | V2.1 governance: DataClass enum (Pii/Phi/Financial/Secret/Public/Untagged) + tag table; memory writes accept class param; per-class retention + redaction rules in workspace config; `argo classify <kind>:<id> <class>` + list + rules |
 | claude-checkpoint-resume | claude | TODO | — | V1.3 multi-worker: argo-workflow checkpoint+resume — per-task output persisted to workflow_checkpoint table; on-startup scan resumes pending; cache_key idempotency skips re-execution; `argo workflow resume/checkpoints/rollback` |
