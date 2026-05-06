@@ -37,7 +37,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-auto-approval | claude | MERGED | #796 #799 #800 #801 #803 #805 | ALL 6 sub-slices landed: H-1 #796 (policy + budget) + H-2 #800 (gate hookup) + H-3 #799 (orchestrator) + H-4a #801 (trust ladder) + H-4b #803 (two-tier lookup) + H-4c #805 (skill-learning primitives) |
 | F-memory-shared-team | codex | CLAIMED | — | codex claimed in fresh worktree; unblocked false alarm — clean origin/main passes chain_result_propagation |
 | H-orchestrator-persist | codex | IN_REVIEW | #806 | PR opened |
-| H-spend-persistence | codex | CLAIMED | — | follow-up: wire H-2 gate to read today's spend + record charge after AutoApprove (currently passes SpendSnapshot::zero); deferred from H-2 PR #800 |
+| H-spend-persistence | codex | IN_REVIEW | #809 | PR opened |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
 | H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
 | H-skill-library-routes | codex | BLOCKED | — | full cargo test fails in argo-cli chain_result_propagation outside this brief's file boundary |
