@@ -566,6 +566,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-orchestrator"
+version = "0.0.1"
+dependencies = [
+ "argo-identity",
+ "argo-types",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "argo-plugin"
 version = "0.0.1"
 dependencies = [
