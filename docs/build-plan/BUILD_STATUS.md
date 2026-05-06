@@ -113,7 +113,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-linear | codex | MERGED | #865 | native Linear MCP connector crate (8 files, 787 LOC); 7 methods (list_teams/list_issues/get/create/update/comment/list_workflows); GraphQL filter passthrough on list_issues; LINEAR_API_KEY bearer auth; mirror gmail/asana crate pattern
 | codex-connector-monday | codex | MERGED | #868 | native Monday.com MCP connector crate (10 files, 839 LOC); 7 methods (list_boards/items/get/create/update_status/add_update/list_groups); API-token bearer; mirror crate pattern
 | codex-connector-pagerduty | codex | IN_REVIEW | #867 | PR opened: native PagerDuty MCP connector crate with 7 REST tools, Token auth, approval-gated create/ack/resolve, unit + stdio wire coverage; branch merged current main and is mergeable |
-| codex-connector-fireflies | codex | CLAIMED | — | claimed by codex |
+| codex-connector-fireflies | codex | IN_REVIEW | #871 | PR opened: native Fireflies.ai MCP connector with 5 read-only GraphQL tools, bearer API-key auth, keyword search passthrough, unit + stdio wire coverage |
 | codex-audit-report-cli | codex | CLAIMED | — | claimed by codex |
 | codex-doctor-watch-cli | codex | CLAIMED | — | claimed by codex |
 | claude-policy-as-code | claude | TODO | — | V2.1 governance: declarative org policies in YAML at workspace/policies/*.yaml; applies_to + rules (action_kind / require_signatures / quiet_hours / spend_cap); resolution chain action→worker→roster→workspace→default; `argo policy list/show/validate/apply` |
