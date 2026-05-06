@@ -121,12 +121,23 @@ requires_approval = false
 description       = "Draft a marketplace listing (title + body + tags) without posting it."
 executor          = "human"
 platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+# After the operator confirms the draft is ready (`complete`),
+# auto-emit the next step: build the photo list. Both sides of
+# the chain are autonomous-safe so no approval gate fires; the
+# operator just sees a fresh `request_photos` row pending in
+# the ledger.
+on_complete_emit  = ["request_photos"]
 
 [actions.verify_price]
 risk              = "low"
 requires_approval = false
 description       = "Cross-check a proposed price against live retail / comp data via web_search + web_extract."
 executor          = "human"
+# Once the operator has confirmed the price is in band, queue
+# the actual listing draft. Autonomous-safe → autonomous-safe
+# so no approval gate fires; the next `request_photos` chain
+# kicks in once the operator completes the draft.
+on_complete_emit  = ["create_listing_draft"]
 instruction_template = """
 # Verify price for `{{ item_id }}`
 
@@ -159,6 +170,13 @@ risk              = "low"
 requires_approval = false
 description       = "Produce a list of photos the operator must supply before listing can post."
 executor          = "human"
+# Once the operator has the photo list ready (and presumably
+# the photos themselves), queue the public-facing post_listing
+# step. post_listing is approval-gated → the follow-up lands
+# `pending` requiring an explicit operator approve before any
+# real listing goes live. The chain stops here for the
+# pre-sale phase: no auto boost, no auto buyer-reply.
+on_complete_emit  = ["post_listing"]
 
 # Approval-gated — touches money / public surfaces / buyers.
 # Worker may emit these as `pending` but cannot execute them
@@ -260,6 +278,12 @@ requires_approval = true
 description       = "Change the public price on a posted listing."
 executor          = "human"
 platforms         = ["facebook_marketplace", "ebay", "gumtree"]
+# A price update typically goes hand-in-hand with a relist (the
+# old listing's algorithmic position is lost). Auto-emit the
+# relist as a `pending` (approval-gated) row so the operator
+# sees both moves queued together; they can approve / drop the
+# relist independently.
+on_complete_emit  = ["relist_item"]
 
 [actions.relist_item]
 risk              = "medium"

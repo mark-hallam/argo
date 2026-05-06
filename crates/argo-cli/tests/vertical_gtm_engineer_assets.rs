@@ -192,13 +192,26 @@ fn gtm_engineer_eval_suite_has_ten_required_fixtures() {
     let (registry, _) = argo_vertical::load_dir(dir).unwrap();
     let v = registry.get("gtm-engineer").unwrap();
     let eval = v.manifest.evaluation.as_ref().expect("[evaluation]");
-    assert_eq!(
-        eval.suites.len(),
-        1,
-        "spec calls for exactly one suite (gtm_engineer_core.jsonl); got: {:?}",
-        eval.suites
+    // The original spec called for exactly gtm_engineer_core.jsonl.
+    // Worker v3 (#759) added a second suite alongside
+    // (worker_v3_emission.jsonl) — that's allowed; this test
+    // still locks the core suite being present with the original
+    // 10 fixtures.
+    assert!(
+        !eval.suites.is_empty(),
+        "[evaluation].suites must declare at least gtm_engineer_core.jsonl"
     );
-    let suite_path = v.root.join(&eval.suites[0]);
+    let core_suite = eval
+        .suites
+        .iter()
+        .find(|s| s.ends_with("gtm_engineer_core.jsonl"))
+        .unwrap_or_else(|| {
+            panic!(
+                "gtm_engineer_core.jsonl must be in the declared suites; got: {:?}",
+                eval.suites
+            )
+        });
+    let suite_path = v.root.join(core_suite);
     let body = std::fs::read_to_string(&suite_path)
         .unwrap_or_else(|e| panic!("eval suite unreadable at {}: {e}", suite_path.display()));
     let lines: Vec<&str> = body.lines().filter(|l| !l.trim().is_empty()).collect();

@@ -101,7 +101,13 @@ task; see the `verticals/` directory + `argo vertical lint
    how to wire `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` for
    local dev, systemd, k8s Secret, Vault. What you must
    NOT do. Production launch checklist.
-10. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
+10. **[Skate-selling proof run](skate_selling_proof_run.md)** —
+    operator manual for the first real-world commercial run:
+    starting a job, running the worker over days, listing
+    item status, walking actions through approve/execute/
+    complete, marking sold, recovering after restart,
+    inspecting the audit trail.
+11. **[Changelog](CHANGELOG.md)** — release notes per SKYCOT
     version, customer-facing.
 
 ## Design + invariants
