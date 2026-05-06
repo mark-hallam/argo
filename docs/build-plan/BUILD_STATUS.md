@@ -70,7 +70,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-tenant-cli | codex | TODO | — | replenish-codex3: `argo tenant list/info/create` for tenant management |
 | H-handoff-cancel | codex | TODO | — | replenish-codex3: `argo handoff cancel <id>` operator override + Cancelled lifecycle variant |
 | H-skill-export-import | codex | TODO | — | replenish-codex3: `argo skill export/import` for offline skill distribution |
-| claude-action-cancel-flow | claude | TODO | — | replenish-claude3: `Cancelled` state in V3 action lifecycle + `argo worker actions cancel` CLI |
+| claude-action-cancel-flow | claude | CLAIMED | — | claimed by claude |
 | claude-audit-replay | claude | TODO | — | replenish-claude3: `argo audit replay <session_id>` walks chain in seq order; pretty/raw formats |
 | claude-skill-conflict-resolution | claude | TODO | — | replenish-claude3: workspace-vs-library skill conflicts UI: list/show diff/resolve |
 | claude-eval-streaming | claude | TODO | — | replenish-claude3: streaming per-fixture progress for `argo eval run` |
