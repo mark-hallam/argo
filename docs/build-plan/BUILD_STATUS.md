@@ -82,7 +82,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-asana | codex | MERGED | #846 | native Asana MCP connector crate (9 files, 735 LOC) — auth/client/lib/main/schemas/service split, 8 methods (workspaces/projects/tasks/get/create/update/complete/comment), ASANA_PAT bearer auth, mocked HTTP + stdio wire tests, approval marks correct (read=false, mutate=true) |
 | codex-skill-marketplace-search | codex | MERGED | #849 | `argo skill search <query>` cross-tenant skill search over mocked OCI manifest index; --trust-min/--tenant/--limit/--json filters; 4 unit + 1 CLI smoke test; new cli_skill_search_cmds.rs sibling-file pattern |
 | claude-anomaly-detector | claude | IN_REVIEW | #847 | PR opened — Welford baselines + z-score detection + `argo worker anomalies` CLI; 12 tests; CONFLICT after tick63 merge wave: needs rebase (post-#851 worker_actions.rs split) + migration renumber 17→18 (#848 took 17). Conductor commented with rebase instructions. |
-| claude-workflow-dag | claude | TODO | — | V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
+| claude-workflow-dag | claude | CLAIMED | — | claimed by claude |
 | claude-filesystem-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::Filesystem; sandboxed FS ops with path-traversal/symlink/size guards; per-worker fs_root |
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
 | claude-org-awareness | claude | TODO | — | V1.3 multi-worker: Org/Unit/Member/Alias primitives + manager-chain escalation; `argo org tree/member/reports-to/ingest` |
