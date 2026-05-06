@@ -90,7 +90,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-salesforce | codex | IN_REVIEW | #850 | PR opened: native Salesforce MCP connector crate with 7 tools, OAuth client-credentials cache, SOQL passthrough, approval markers, unit + wire coverage |
 | codex-connector-zendesk | codex | CLAIMED | — | claimed by codex |
 | codex-setup-wizard-cli | codex | CLAIMED | — | claimed by codex |
-| codex-compliance-export-cli | codex | TODO | — | V1.1 reliability: `argo audit export --since/--until --format ndjson|csv|tarball`; chain-integrity check; --gdpr-redact-emails; tarball includes manifest+README+ndjson |
+| codex-compliance-export-cli | codex | CLAIMED | — | claimed by codex |
 | claude-trajectory-replay-ui | claude | TODO | — | V1.1 reliability: TUI overlay key R for trajectory replay — left action list / right per-step content (CU screenshot or MCP/Human); Space autoplay + arrow step + /search; sibling-file overlays_replay.rs |
 | claude-code-execution-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::CodeExecution; Python 3.12 + Node 20 in E2B sandbox; time/memory limits; opt-in network/pkg-install; artifacts at /tmp/artifacts collected |
 | claude-worker-roster | claude | TODO | — | V1.3 multi-worker: Roster primitive (group of workers + shared policy + shared channels + shared budget); resolved_policy walks roster layer; `argo roster create/list/show/add-member/remove-member/delete`; multi-roster "most-restrictive wins" |
