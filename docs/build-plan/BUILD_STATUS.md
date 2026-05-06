@@ -51,7 +51,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-audit-query-extensions | codex | CLAIMED | — | claimed by codex |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
 | H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
-| H-vertical-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
+| H-vertical-list-cli | codex | CLAIMED | — | claimed by codex |
 | H-worker-list-cli | codex | TODO | — | unblocked by BLANKET CLI ALLOWLIST. Resume in fresh worktree |
 | H-genesis-list-templates | codex | IN_REVIEW | #830 | PR opened |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
