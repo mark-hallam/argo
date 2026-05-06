@@ -76,7 +76,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-eval-streaming | claude | MERGED | #842 | `--stream off|simple|verbose` flag for `argo eval run`; per-fixture progress lines (Simple) + NDJSON (Verbose) + legacy batch (Off); 10 streaming tests; new argo-eval/src/streaming.rs (225 LOC) |
 | codex-circuit-breaker | codex | BLOCKED | — | blocked: brief requires Worker::circuit_state but may-touch omits crates/argo-identity/src/types.rs where Worker is defined |
 | codex-multi-step-approval | codex | BLOCKED | — | blocked: brief references nonexistent crates/argo-identity/src/worker_action.rs and crates/argo-runtime/src/auto_approval.rs; actual action schema/gate live outside may-touch |
-| codex-connector-stripe | codex | TODO | — | V1.2 capability: native Stripe MCP connector (7 methods); STRIPE_API_KEY auth; charge/refund approval-gated |
+| codex-connector-stripe | codex | CLAIMED | — | claimed by codex |
 | codex-connector-jira | codex | TODO | — | V1.2 capability: native Jira Cloud MCP connector (7 methods); email + token + base URL auth |
 | codex-connector-asana | codex | TODO | — | V1.2 capability: native Asana MCP connector (8 methods); ASANA_PAT auth |
 | codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: `argo skill search <query>` cross-tenant OCI registry search; --trust-min/--tenant/--limit/--json |
