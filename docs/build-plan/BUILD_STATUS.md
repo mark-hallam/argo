@@ -25,7 +25,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-slack | codex | IN_REVIEW | #793 | PR opened |
 | C-gcal | codex | IN_REVIEW | #791 | PR opened |
 | C-hubspot | codex | IN_REVIEW | #792 | PR opened |
-| C-notion | codex | CLAIMED | — | claimed by codex |
+| C-notion | codex | IN_REVIEW | #794 | PR opened |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
 | D-sms | codex | MERGED | #782 | Twilio SMS approval channel + HMAC token decision route |
