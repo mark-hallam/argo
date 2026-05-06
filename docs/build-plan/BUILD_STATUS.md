@@ -46,7 +46,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-metrics | codex | TODO | — | tier-2 follow-up: Prometheus counters for auto-approval decisions + sessions + handoffs + evaluation latency histogram (independent) |
 | migration-consolidation-test | codex | TODO | — | tier-2 follow-up: integration test verifying the full migration chain applies cleanly on fresh DB (independent; high-leverage regression guard) |
 | demo-marketplace-seller-vertical | codex | TODO | — | tier-2 follow-up: full v1 demo vertical end-to-end (Genesis-shape manifest + 5-item inventory + auto_approval policy + eval seeds); pure content, no Rust |
-| claude-cu-skill-learn-wire | claude | CLAIMED | — | claimed by claude |
+| claude-cu-skill-learn-wire | claude | IN_REVIEW | #807 | PR opened — CU success → SkillCandidate → propose_for_review with optional SkillStore + session_id plumbing |
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
 | claude-e2e-integration-test | claude | TODO | — | replenish: end-to-end integration test exercising Genesis → V3 ledger → auto-approval gate → channel notify → executor → audit; the v1 demo gate |
 | claude-genesis-llm-refinement | claude | TODO | — | replenish: opt-in `--refine` flag on `argo genesis create` that adds an Anthropic refinement pass after the deterministic pipeline (safety judge re-runs); deferred from G-genesis PR body |
