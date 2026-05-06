@@ -67,7 +67,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
 | H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
-| H-tenant-cli | codex | CLAIMED | — | claimed by codex |
+| H-tenant-cli | codex | BLOCKED | — | cargo test flakes existing gateway tests outside brief; tenant focused tests pass |
 | H-handoff-cancel | codex | BLOCKED | — | baseline cargo build fails on merged claude-audit-replay outside brief: `AuditQueryCmd` lacks `Replay` variant |
 | H-skill-export-import | codex | BLOCKED | — | baseline cargo build fails on merged claude-audit-replay outside brief: `AuditQueryCmd` lacks `Replay` variant |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
