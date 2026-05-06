@@ -47,7 +47,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | IN_REVIEW | #823 | PR opened |
-| H-action-replay | codex | BLOCKED | — | blocked: acceptance requires integration test but brief allowlist omits any test file |
+| H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
 | H-channel-health-checks | codex | CLAIMED | — | claimed by codex; replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | H-shared-team-cli | codex | BLOCKED | — | blocked: allowlist omits handlers/memory.rs dispatch needed to wire the new SharedTeam subcommand |
