@@ -51,7 +51,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
 | H-channel-health-checks | codex | CLAIMED | — | claimed by codex; replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | H-shared-team-cli | codex | BLOCKED | — | blocked: allowlist omits handlers/memory.rs dispatch needed to wire the new SharedTeam subcommand |
-| H-vertical-list-cli | codex | CLAIMED | — | claimed by codex |
+| H-vertical-list-cli | codex | BLOCKED | — | blocked: assert_cmd integration test requires dev-dependency/test file not present in allowlist |
 | H-worker-list-cli | codex | TODO | — | replenish-codex2: `argo worker list/show + policy show` for worker discovery + per-worker policy resolution (#815) |
 | H-genesis-list-templates | codex | TODO | — | replenish-codex2: `argo genesis list-archetypes/show-archetype/suggest` exposing G-genesis's 12 archetypes via CLI for operator discovery |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
