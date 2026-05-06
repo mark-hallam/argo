@@ -180,6 +180,13 @@ pub enum Command {
         /// `provider_keys.md` rotation runbook.
         #[arg(long)]
         check: bool,
+        /// Run the setup wizard without prompts. Intended for CI
+        /// and scripted bootstrap flows.
+        #[arg(long)]
+        non_interactive: bool,
+        /// Emit `{steps, ready}` as JSON instead of the checklist table.
+        #[arg(long)]
+        json: bool,
         /// Require this specific env var to be set (repeatable).
         /// When provided alongside `--check`, the probe demands
         /// every named var resolves to a non-empty value;

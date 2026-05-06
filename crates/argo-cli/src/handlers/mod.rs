@@ -81,6 +81,8 @@ mod session_transcript;
 mod session_turns;
 mod session_watch;
 pub mod setup;
+pub mod setup_render;
+pub mod setup_steps;
 pub mod skill;
 pub mod skill_conflicts;
 pub mod skill_export;
