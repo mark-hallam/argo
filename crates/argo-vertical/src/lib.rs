@@ -56,6 +56,7 @@ mod isolation;
 mod loader;
 mod manifest;
 mod manifest_actions;
+mod manifest_mcp;
 mod memory_schema;
 mod registry;
 mod validator;
@@ -95,9 +96,9 @@ pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};
 pub use manifest::{
     parse, ActionDeclaration, ActionRiskLevel, ActionsSection, EscalationSection,
-    EvaluationSection, GatewaySection, MemorySection, ProviderSection, RetryPolicy, RoleSection,
-    SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection, VerticalIdentity,
-    VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
+    EvaluationSection, GatewaySection, McpServerDeclaration, McpServersSection, MemorySection,
+    ProviderSection, RetryPolicy, RoleSection, SkillsSection, SuccessMetricsSection, ToolsSection,
+    TuiSection, VerticalIdentity, VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
 };
 // Stream A (#A-executor-trait) executor-decl schema. Re-exported
 // directly from `manifest_actions` since they're not consumed by

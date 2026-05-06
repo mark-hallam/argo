@@ -38,6 +38,8 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod dispatch;
+#[cfg(test)]
+mod dispatch_tests;
 mod helpers;
 mod transport;
 mod turn;

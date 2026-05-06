@@ -116,6 +116,7 @@ version = "0.0.1"
 dependencies = [
  "argo-audit",
  "argo-capability",
+ "argo-mcp",
  "argo-provider",
  "argo-skill",
  "argo-store",

@@ -68,6 +68,9 @@ pub struct VerticalManifest {
     /// emission is opt-in per vertical).
     #[serde(default)]
     pub actions: Option<ActionsSection>,
+    /// Optional MCP server declarations workers may call.
+    #[serde(default)]
+    pub mcp_servers: Option<McpServersSection>,
     /// Optional gateway exposure.
     #[serde(default)]
     pub gateway: Option<GatewaySection>,
@@ -242,6 +245,7 @@ pub struct EvaluationSection {
 pub use crate::manifest_actions::{
     ActionDeclaration, ActionRiskLevel, ActionsSection, RetryPolicy,
 };
+pub use crate::manifest_mcp::{McpServerDeclaration, McpServersSection};
 
 /// `[gateway]` — public HTTP endpoints to mount when the vertical
 /// is loaded. Wired by Phase 2.

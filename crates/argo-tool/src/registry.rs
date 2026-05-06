@@ -3,8 +3,9 @@
 use crate::tool::{Tool, ToolContext, ToolSchema};
 use argo_capability::CapabilityEngine;
 use argo_types::{ArgoError, ArgoResult, Capability, ToolCallResult};
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::any::Any;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::{Arc, Mutex};
 
 /// In-process registry of named tools.
 ///
@@ -23,6 +24,21 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn Tool>>,
+    mcp: Arc<Mutex<McpRegistryState>>,
+    mcp_pool: Option<Arc<dyn Any + Send + Sync>>,
+}
+
+#[derive(Default)]
+struct McpRegistryState {
+    servers: BTreeMap<String, serde_json::Value>,
+    discovered: BTreeSet<String>,
+    tools: BTreeMap<String, McpToolRegistration>,
+}
+
+#[derive(Clone)]
+struct McpToolRegistration {
+    server_name: String,
+    schema: ToolSchema,
 }
 
 impl std::fmt::Debug for ToolRegistry {
@@ -30,6 +46,7 @@ impl std::fmt::Debug for ToolRegistry {
         f.debug_struct("ToolRegistry")
             .field("count", &self.tools.len())
             .field("names", &self.tools.keys().collect::<Vec<_>>())
+            .field("mcp_servers", &self.mcp_servers().len())
             .finish()
     }
 }
@@ -52,6 +69,96 @@ impl ToolRegistry {
         self.tools.get(name).cloned()
     }
 
+    /// Register an MCP server transport by manifest name.
+    ///
+    /// Tool schemas are discovered lazily by the agent runner on
+    /// first MCP use. Builtin tools keep precedence: when a
+    /// discovered MCP tool collides with an in-core name, the MCP
+    /// schema is ignored.
+    pub fn register_mcp_server(&mut self, name: impl Into<String>, transport: serde_json::Value) {
+        let name = name.into();
+        self.mcp
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .servers
+            .insert(name, transport);
+    }
+
+    /// Attach per-turn MCP connection state owned by the agent runner.
+    pub fn set_mcp_pool(&mut self, pool: Arc<dyn Any + Send + Sync>) {
+        self.mcp_pool = Some(pool);
+    }
+
+    /// Retrieve the attached MCP connection state.
+    #[must_use]
+    pub fn mcp_pool(&self) -> Option<Arc<dyn Any + Send + Sync>> {
+        self.mcp_pool.clone()
+    }
+
+    /// MCP servers registered in this registry.
+    #[must_use]
+    pub fn mcp_servers(&self) -> Vec<(String, serde_json::Value)> {
+        self.mcp
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .servers
+            .iter()
+            .map(|(name, transport)| (name.clone(), transport.clone()))
+            .collect()
+    }
+
+    /// MCP servers whose tools have not been discovered yet.
+    #[must_use]
+    pub fn undiscovered_mcp_servers(&self) -> Vec<(String, serde_json::Value)> {
+        let g = self
+            .mcp
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        g.servers
+            .iter()
+            .filter(|(name, _)| !g.discovered.contains(*name))
+            .map(|(name, transport)| (name.clone(), transport.clone()))
+            .collect()
+    }
+
+    /// Record schemas discovered from one MCP server.
+    pub fn record_mcp_tools(&self, server_name: &str, schemas: Vec<ToolSchema>) {
+        let mut g = self
+            .mcp
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        g.discovered.insert(server_name.to_string());
+        for schema in schemas {
+            if self.tools.contains_key(&schema.name) {
+                tracing::warn!(
+                    server = server_name,
+                    tool = schema.name,
+                    "MCP tool shadows builtin; keeping builtin"
+                );
+                continue;
+            }
+            g.tools.insert(
+                schema.name.clone(),
+                McpToolRegistration {
+                    server_name: server_name.to_string(),
+                    schema,
+                },
+            );
+        }
+    }
+
+    /// Lookup the MCP server transport for a discovered tool.
+    #[must_use]
+    pub fn mcp_route(&self, tool_name: &str) -> Option<(String, serde_json::Value)> {
+        let g = self
+            .mcp
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let entry = g.tools.get(tool_name)?;
+        let transport = g.servers.get(&entry.server_name)?.clone();
+        Some((entry.server_name.clone(), transport))
+    }
+
     /// All registered tool names (sorted for stable output).
     #[must_use]
     pub fn names(&self) -> Vec<&str> {
@@ -63,9 +170,14 @@ impl ToolRegistry {
     /// Schemas for every registered tool, sorted by name.
     #[must_use]
     pub fn schemas(&self) -> Vec<ToolSchema> {
-        let mut entries: Vec<(&String, &Arc<dyn Tool>)> = self.tools.iter().collect();
-        entries.sort_by(|a, b| a.0.cmp(b.0));
-        entries.into_iter().map(|(_, t)| t.schema()).collect()
+        let mut schemas: Vec<ToolSchema> = self.tools.values().map(|t| t.schema()).collect();
+        let mcp = self
+            .mcp
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        schemas.extend(mcp.tools.values().map(|t| t.schema.clone()));
+        schemas.sort_by(|a, b| a.name.cmp(&b.name));
+        schemas
     }
 
     /// Dispatch a call: capability check → invoke → return result.
