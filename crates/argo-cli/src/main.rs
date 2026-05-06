@@ -95,6 +95,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Provider { cmd }) => handlers::provider::run(cmd).await,
         Some(Command::Route { cmd }) => handlers::route::run(cmd).await,
         Some(Command::Session { cmd }) => handlers::session::run(cmd).await,
+        Some(Command::Handoff { cmd }) => handlers::session::run_handoff(cmd).await,
         Some(Command::Skill { cmd }) => handlers::skill::run(cmd).await,
         Some(Command::Trace { turn, session }) => handlers::trace::run(turn, session).await,
         Some(Command::Tui) => handlers::tui::run().await,

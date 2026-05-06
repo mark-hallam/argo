@@ -1,14 +1,16 @@
-//! `argo session` — list / diff / bisect / replay (offline ops
-//! only; the live `replay` against a different model lives with
-//! the daemon binding).
-use crate::cli::SessionCmd;
+use crate::cli::{HandoffCmd, SessionCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_identity::WorkerId;
+use argo_orchestrator::{EscalationStep, Handoff, HandoffId, HandoffStatus, OrchestratorStore, Session};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
-
+use argo_types::{ArgoError, ArgoResult, SessionId as StoreSessionId, TenantId};
+use std::str::FromStr;
+use std::sync::Arc;
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
+        SessionCmd::Start { tenant, title, json } => start_orchestrator_session(tenant.as_deref(), &title, json).await,
         SessionCmd::List {
+            tenant,
             limit,
             json,
             format,
@@ -23,6 +25,9 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             sort_by,
             vertical,
         } => {
+            if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
+                return list_orchestrator_sessions(tenant.as_deref(), &status, limit, json).await;
+            }
             list_sessions(
                 limit,
                 json,
@@ -40,7 +45,15 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SessionCmd::Show { id, json, format } => {
+        SessionCmd::Show {
+            id,
+            tenant,
+            json,
+            format,
+        } => {
+            if tenant.is_some() || std::env::var_os("ARGO_DEFAULT_TENANT").is_some() {
+                return show_orchestrator_session(tenant.as_deref(), &id, json).await;
+            }
             super::session_show::show_session(&id, json, &format).await
         }
         SessionCmd::Transcript { id, json } => {
@@ -245,86 +258,179 @@ pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
         }
     }
 }
-
+pub async fn run_handoff(cmd: HandoffCmd) -> ArgoResult<()> {
+    match cmd {
+        HandoffCmd::List { tenant, session, status, worker, limit, json } => list_handoffs(tenant.as_deref(), session.as_deref(), status.as_deref(), worker.as_deref(), limit, json).await,
+        HandoffCmd::Show { id, tenant, json } => show_handoff(tenant.as_deref(), &id, json).await,
+    }
+}
+async fn start_orchestrator_session(
+    tenant: Option<&str>,
+    title: &str,
+    json: bool,
+) -> ArgoResult<()> {
+    let tenant = tenant_id(tenant)?;
+    let repo = orchestrator_repo().await?;
+    let session = Session::new(tenant, title);
+    repo.insert_session(&session).await?;
+    print_json_or_text(json, &session, || session.id.to_string())
+}
+async fn list_orchestrator_sessions(tenant: Option<&str>, status: &str, limit: u32, json: bool) -> ArgoResult<()> {
+    let tenant = tenant_id(tenant)?;
+    let repo = orchestrator_repo().await?;
+    if !matches!(status, "all" | "active") {
+        return Err(ArgoError::Provider("current persist API can list only active orchestrator sessions".into()));
+    }
+    let mut out = repo.list_active_sessions(tenant).await?;
+    out.truncate(usize::try_from(limit.clamp(1, 500)).unwrap_or(25));
+    if json {
+        println!("{}", serde_json::to_string(&out).unwrap_or_default())
+    } else {
+        for row in &out {
+            println!("{}\t{:?}\t{}", row.id, row.status, row.title);
+        }
+    }
+    Ok(())
+}
+async fn show_orchestrator_session(tenant: Option<&str>, id: &str, json: bool) -> ArgoResult<()> {
+    let tenant = tenant_id(tenant)?;
+    let repo = orchestrator_repo().await?;
+    let sid = argo_orchestrator::SessionId::from_string(id.to_string());
+    let Some(session) = repo.find_session(tenant, &sid).await? else {
+        return Err(ArgoError::Provider(format!("no orchestrator session {id}")));
+    };
+    let handoffs = repo.list_handoffs_for_session(tenant, &sid).await?;
+    let pending: Vec<_> = handoffs
+        .into_iter()
+        .filter(|h| h.status == HandoffStatus::Pending)
+        .map(|h| handoff_json(&h))
+        .collect();
+    let body = serde_json::json!({"session":session,"participants":session.participants,"pending_handoffs":pending});
+    if json {
+        println!("{}", serde_json::to_string(&body).unwrap_or_default());
+    } else {
+        println!(
+            "{}\t{:?}\t{}\t{} pending",
+            session.id,
+            session.status,
+            session.title,
+            body["pending_handoffs"].as_array().map_or(0, Vec::len)
+        );
+    }
+    Ok(())
+}
+async fn list_handoffs(
+    tenant: Option<&str>,
+    session: Option<&str>,
+    status: Option<&str>,
+    worker: Option<&str>,
+    limit: u32,
+    json: bool,
+) -> ArgoResult<()> {
+    let tenant = tenant_id(tenant)?;
+    let repo = orchestrator_repo().await?;
+    let wanted = status.map(parse_handoff_status).transpose()?;
+    let mut out = if let Some(s) = session {
+        repo.list_handoffs_for_session(tenant, &argo_orchestrator::SessionId::from_string(s.to_string())).await?
+    } else if let Some(w) = worker {
+        repo.list_pending_handoffs_for_worker(tenant, WorkerId::from_str(w).map_err(|e| ArgoError::Provider(format!("invalid worker id '{w}': {e}")))?).await?
+    } else {
+        return Err(ArgoError::Provider("handoff list requires --session or --worker".into()));
+    };
+    if let Some(w) = worker {
+        out.retain(|h| worker_matches(h, w));
+    }
+    if let Some(s) = wanted {
+        out.retain(|h| h.status == s);
+    }
+    out.truncate(usize::try_from(limit.clamp(1, 500)).unwrap_or(25));
+    if json {
+        let arr: Vec<_> = out.iter().map(handoff_json).collect();
+        println!("{}", serde_json::to_string(&arr).unwrap_or_default());
+    } else {
+        for row in &out {
+            println!("{}\t{:?}\t{}", row.id, row.status, row.expected_outcome);
+        }
+    }
+    Ok(())
+}
+async fn show_handoff(tenant: Option<&str>, id: &str, json: bool) -> ArgoResult<()> {
+    let tenant = tenant_id(tenant)?;
+    let repo = orchestrator_repo().await?;
+    let hid = HandoffId::from_string(id.to_string());
+    let Some(handoff) = repo.find_handoff(tenant, &hid).await? else {
+        return Err(ArgoError::Provider(format!("no handoff {id}")));
+    };
+    if json {
+        println!("{}", serde_json::to_string(&handoff_json(&handoff)).unwrap_or_default());
+    } else {
+        println!("{}\t{:?}\t{}", handoff.id, handoff.status, handoff.expected_outcome);
+    }
+    Ok(())
+}
+async fn orchestrator_repo() -> ArgoResult<OrchestratorStore> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
+    store.migrate().await?;
+    let repo = OrchestratorStore::new(store);
+    repo.ensure_schema().await?;
+    Ok(repo)
+}
+fn tenant_id(raw: Option<&str>) -> ArgoResult<TenantId> {
+    let raw = raw.map(ToOwned::to_owned).or_else(|| std::env::var("ARGO_DEFAULT_TENANT").ok())
+        .ok_or_else(|| ArgoError::Provider("missing --tenant (or ARGO_DEFAULT_TENANT)".into()))?;
+    uuid::Uuid::parse_str(&raw).map(TenantId).map_err(|e| ArgoError::Provider(format!("invalid tenant id '{raw}': {e}")))
+}
+fn parse_handoff_status(raw: &str) -> ArgoResult<HandoffStatus> {
+    match raw {
+        "pending" => Ok(HandoffStatus::Pending),
+        "acknowledged" => Ok(HandoffStatus::Acknowledged),
+        "settled" => Ok(HandoffStatus::Settled),
+        "expired" => Ok(HandoffStatus::Expired),
+        other => Err(ArgoError::Provider(format!("invalid handoff status '{other}'"))),
+    }
+}
+fn worker_matches(h: &Handoff, raw: &str) -> bool {
+    h.from.to_string() == raw || matches!(&h.to, EscalationStep::Worker(id) if id.to_string() == raw)
+}
+fn handoff_json(h: &Handoff) -> serde_json::Value {
+    let to = match &h.to {
+        EscalationStep::Worker(id) => serde_json::json!({"kind":"worker","worker_id":id.to_string()}),
+        EscalationStep::Human(addr) => serde_json::json!({"kind":"human","addr":addr}),
+    };
+    serde_json::json!({"id":h.id.to_string(),"session_id":h.session_id.to_string(),"from":h.from.to_string(),"to":to,"expected_outcome":h.expected_outcome,"payload":h.payload,"status":handoff_status_label(h.status),"created_at":h.created_at.to_rfc3339(),"deadline":h.deadline.map(|d| d.to_rfc3339())})
+}
+fn handoff_status_label(s: HandoffStatus) -> &'static str {
+    match s { HandoffStatus::Pending => "pending", HandoffStatus::Acknowledged => "acknowledged", HandoffStatus::Settled => "settled", HandoffStatus::Expired => "expired" }
+}
+fn print_json_or_text<T: serde::Serialize>(json: bool, value: &T, text: impl FnOnce() -> String) -> ArgoResult<()> {
+    if json { println!("{}", serde_json::to_string(value).unwrap_or_default()); } else { println!("{}", text()); }
+    Ok(())
+}
 use super::session_diff::diff_sessions;
-
-/// `argo session reopen <id>` — clears `ended_at` back to NULL.
-/// Inverse of `argo session end`. Idempotent.
 async fn reopen_session(raw: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let store = SessionStore::open(&db_path(&home)).await?;
-    store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
-    let n = store.reopen_session(SessionId(id)).await?;
-    if n == 0 {
-        println!("(session {raw} not found)");
-    } else {
-        println!("reopened {raw}");
-    }
+    let store = legacy_store().await?;
+    let n = store.reopen_session(store_id(raw)?).await?;
+    println!("{}", if n == 0 { format!("(session {raw} not found)") } else { format!("reopened {raw}") });
     Ok(())
 }
-
-/// `argo session title <id> <new> | --clear` — set or clear a
-/// session's title. `--clear` writes SQL NULL; `<new>` is
-/// trimmed and an empty trim clears too. Mirrors the gateway's
-/// `POST /sessions/<id>/title`.
 async fn set_title(raw: &str, new: Option<&str>, clear: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let store = SessionStore::open(&db_path(&home)).await?;
-    store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let store = legacy_store().await?;
     let title = if clear { "" } else { new.unwrap_or("") };
-    let n = store.set_session_title(SessionId(id), title).await?;
-    if n == 0 {
-        println!("(session {raw} not found)");
-    } else if clear || title.trim().is_empty() {
-        println!("cleared title on {raw}");
-    } else {
-        println!("set title on {raw} to {title:?}");
-    }
+    let n = store.set_session_title(store_id(raw)?, title).await?;
+    println!("{}", if n == 0 { format!("(session {raw} not found)") } else if clear || title.trim().is_empty() { format!("cleared title on {raw}") } else { format!("set title on {raw} to {title:?}") });
     Ok(())
 }
-
-/// `argo session end <id>` — stamps `ended_at` on the session
-/// row. Idempotent; ending an already-ended session is a no-op.
 async fn end_session(raw: &str) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let store = SessionStore::open(&db_path(&home)).await?;
-    store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
-    let n = store.end_session(SessionId(id)).await?;
-    if n == 0 {
-        println!("(session {raw} already ended or not found)");
-    } else {
-        println!("ended {raw}");
-    }
+    let store = legacy_store().await?;
+    let n = store.end_session(store_id(raw)?).await?;
+    println!("{}", if n == 0 { format!("(session {raw} already ended or not found)") } else { format!("ended {raw}") });
     Ok(())
 }
-
-/// `argo session end-all [--older-than-minutes N]` — bulk-end
-/// open sessions. Without the filter, every open session
-/// (ended_at IS NULL) is ended; with the filter, only sessions
-/// whose started_at is older than N minutes ago. Mirrors the
-/// gateway's POST /sessions/end-all (#438).
 async fn end_all(older_than_minutes: Option<i64>) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let store = SessionStore::open(&db_path(&home)).await?;
-    store.migrate().await?;
+    let store = legacy_store().await?;
     let rows = store.list_all_sessions(10_000).await?;
     let cutoff = older_than_minutes
         .map(|m| chrono::Utc::now() - chrono::Duration::minutes(m));
@@ -337,28 +443,19 @@ async fn end_all(older_than_minutes: Option<i64>) -> ArgoResult<()> {
             None => true,
         })
     {
-        if let Ok(n) = store.end_session(SessionId(s.id.0)).await {
+        if let Ok(n) = store.end_session(StoreSessionId(s.id.0)).await {
             ended += n;
         }
     }
     println!("ended {ended} session(s)");
     Ok(())
 }
-
 async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let home = resolve_home(&cwd)?;
-    ensure_dir(&home)?;
-    let db = db_path(&home);
-    let store = SessionStore::open(&db).await?;
-    store.migrate().await?;
-    let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+    let store = legacy_store().await?;
+    let id = store_id(raw)?;
     if !force {
-        // Show what we're about to delete; refuse without --force.
         let header = store
-            .get_session(SessionId(id))
+            .get_session(id)
             .await?
             .ok_or_else(|| ArgoError::Provider(format!("no session {raw} (already deleted?)")))?;
         return Err(ArgoError::Provider(format!(
@@ -368,13 +465,35 @@ async fn delete_session(raw: &str, force: bool) -> ArgoResult<()> {
             header.model
         )));
     }
-    let n = store.delete_session(SessionId(id)).await?;
-    if n == 0 {
-        println!("(no session {raw} — nothing deleted)");
-    } else {
-        println!("deleted {raw} ({n} session row + cascaded children)");
-    }
+    let n = store.delete_session(id).await?;
+    println!("{}", if n == 0 { format!("(no session {raw} - nothing deleted)") } else { format!("deleted {raw} ({n} session row + cascaded children)") });
     Ok(())
 }
-
+async fn legacy_store() -> ArgoResult<SessionStore> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(&db_path(&home)).await?;
+    store.migrate().await?;
+    Ok(store)
+}
+fn store_id(raw: &str) -> ArgoResult<StoreSessionId> {
+    uuid::Uuid::parse_str(raw).map(StoreSessionId).map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))
+}
 use super::session_list::{count_sessions, list_sessions};
+#[cfg(test)]
+mod orchestrator_cli_tests {
+    use super::*;
+    #[tokio::test]
+    async fn in_memory_handoff_json_shape_round_trips() {
+        let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap(); let repo = OrchestratorStore::new(store); repo.ensure_schema().await.unwrap();
+        let tenant = TenantId::new();
+        let session = Session::new(tenant, "demo");
+        repo.insert_session(&session).await.unwrap();
+        let h = Handoff::new(session.id.clone(), WorkerId::new(), EscalationStep::Worker(WorkerId::new()), "finish demo", serde_json::json!({"case":"demo"}));
+        repo.insert_handoff(tenant, &h).await.unwrap();
+        let rows = repo.list_handoffs_for_session(tenant, &session.id).await.unwrap(); let v = handoff_json(&rows[0]);
+        assert_eq!(v["status"], "pending"); assert_eq!(v["to"]["kind"], "worker"); assert_eq!(v["payload"]["case"], "demo");
+    }
+}

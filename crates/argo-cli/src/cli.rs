@@ -207,6 +207,10 @@ pub enum Command {
         #[command(subcommand)]
         cmd: SessionCmd,
     },
+    Handoff {
+        #[command(subcommand)]
+        cmd: HandoffCmd,
+    },
     Forge {
         #[command(subcommand)]
         cmd: ForgeCmd,
