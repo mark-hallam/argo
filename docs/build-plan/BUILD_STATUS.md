@@ -55,7 +55,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-worker-list-cli | codex | TODO | — | replenish-codex2: `argo worker list/show + policy show` for worker discovery + per-worker policy resolution (#815) |
 | H-genesis-list-templates | codex | TODO | — | replenish-codex2: `argo genesis list-archetypes/show-archetype/suggest` exposing G-genesis's 12 archetypes via CLI for operator discovery |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
-| claude-tui-h-stack-panels | claude | CLAIMED | — | claimed by claude |
+| claude-tui-h-stack-panels | claude | IN_REVIEW | #822 | PR opened — 3 ratatui overlays (O sessions / H handoffs / B budget) reading via gateway HTTP; renders "Gateway unreachable" cleanly while H-orchestrator-routes is BLOCKED; 14 new tests (9 snapshot + 5 input) |
 | claude-e2e-integration-test | claude | MERGED | #810 | 6/9 steps execute end-to-end; 3 SKIPPED with TODO comments (action emit + channel notify + transition — see claude-action-record-identity-plumbing + claude-e2e-test-step-completion follow-ups) |
 | claude-genesis-llm-refinement | claude | MERGED | #812 | opt-in --refine flag with Anthropic call + JSON schema validation + safety judge re-runs on refined actions; 9 unit tests offline |
 | claude-skill-success-metric | claude | MERGED | #813 | SuccessMetric (confidence + trajectory_length + duration + final_state_score) + ProposalThreshold defaults (≥0.8 / ≤25 steps / ≤600s); CU executor computes from real trajectory; legacy f64 API preserved |
