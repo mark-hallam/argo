@@ -10,6 +10,7 @@
 //! budget.
 
 use super::worker_actions::ActionRecord;
+use super::worker_actions_auto_approval;
 use super::worker_actions_emit;
 use super::worker_actions_executor;
 use super::worker_actions_render;
@@ -112,6 +113,9 @@ pub(crate) async fn approve_batch(
 
 pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    // Stream H-2: auto-approval gate runs first so an
+    // auto-approved action gets a real `approve()` audit row.
+    worker_actions_auto_approval::maybe_auto_approve(&memory, ws, action_id).await?;
     let rec = worker_actions_transitions::execute(&memory, ws, action_id).await?;
     let (final_rec, bundle_path) = match invoke_executor_for(&rec).await? {
         worker_actions_executor::ActionOutcome::HumanHandoff { bundle_path } => (rec, bundle_path),
@@ -156,8 +160,7 @@ pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
 }
 
 /// Find the manifest that owns this action and dispatch to its
-/// declared executor. `ActionOutcome` decides at the call site
-/// whether to leave the row at `executing` or auto-complete.
+/// declared executor.
 async fn invoke_executor_for(
     rec: &ActionRecord,
 ) -> ArgoResult<worker_actions_executor::ActionOutcome> {
@@ -440,13 +443,9 @@ pub(crate) fn count_retry_chain(rec: &super::worker_actions::ActionRecord) -> u3
 }
 
 /// Auto-refresh hook fired after every successful transition so
-/// the operator's review surface (`.skycot/{approval_queue,
-/// completed_actions, blocked_actions}.md`) stays current
-/// without manual `argo worker actions render` calls (#735).
-///
-/// Failure is logged + swallowed — the transition itself already
-/// landed; the ledger files are a derived projection that can
-/// always be rebuilt from `argo worker actions render`.
+/// the operator's review surface stays current (#735). Failures
+/// are logged + swallowed since the ledger files are a derived
+/// projection rebuildable via `argo worker actions render`.
 async fn auto_refresh_ledger(memory: &MemoryStore, workspace: WorkspaceId) {
     if let Err(e) = refresh_workspace_ledger(memory, workspace, None).await {
         eprintln!("argo worker: warning — workspace ledger auto-refresh failed: {e}");

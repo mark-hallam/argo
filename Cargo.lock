@@ -192,6 +192,7 @@ dependencies = [
  "argo-eval",
  "argo-executor-computer-use",
  "argo-genesis",
+ "argo-identity",
  "argo-marketplace",
  "argo-mcp",
  "argo-memory",
