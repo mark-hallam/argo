@@ -69,7 +69,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-eval-runner-cli | codex | MERGED | #840 | `argo eval run --vertical <id>` runs eval seed against worker pipeline; unblocks claude-eval-streaming |
 | H-tenant-cli | codex | MERGED | #839 | `argo tenant list/info/create` for tenant management |
 | H-handoff-cancel | codex | CLAIMED | — | claimed by codex |
-| H-skill-export-import | codex | CLAIMED | — | claimed by codex |
+| H-skill-export-import | codex | BLOCKED | — | blocked: brief scope requires `argo skill export/import`, but may-touch only `cli_skill_review_cmds.rs` which can only wire `argo skill review ...`; correct wiring needs `cli_subcommands.rs` outside boundary |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
