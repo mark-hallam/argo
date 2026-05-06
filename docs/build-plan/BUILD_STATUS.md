@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | BLOCKED | — | blocked: acceptance requires integration test but brief allowlist omits any test file |
 | H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
 | H-channel-health-checks | codex | CLAIMED | — | claimed by codex; replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
-| H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
+| H-shared-team-cli | codex | BLOCKED | — | blocked: allowlist omits handlers/memory.rs dispatch needed to wire the new SharedTeam subcommand |
 | H-vertical-list-cli | codex | TODO | — | replenish-codex2: `argo vertical list/show/describe` for installed verticals; pairs with publish/pull (#821) |
 | H-worker-list-cli | codex | TODO | — | replenish-codex2: `argo worker list/show + policy show` for worker discovery + per-worker policy resolution (#815) |
 | H-genesis-list-templates | codex | TODO | — | replenish-codex2: `argo genesis list-archetypes/show-archetype/suggest` exposing G-genesis's 12 archetypes via CLI for operator discovery |
