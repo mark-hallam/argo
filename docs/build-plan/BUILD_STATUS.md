@@ -73,7 +73,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
-| claude-eval-streaming | claude | TODO | — | unblocked: H-eval-runner-cli (#840) merged; `argo eval run` subcommand now exists. Resume in fresh worktree |
+| claude-eval-streaming | claude | CLAIMED | — | claimed by claude |
 
 ---
 
