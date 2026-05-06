@@ -234,3 +234,7 @@ When marking BLOCKED, append a short reason:
 
 When the queue is fully MERGED, append a `Plan complete` note
 here with the date and a link to the v1 demo recording.
+
+## Worker self-exits
+
+- status: codex-worker-self-exit after 0 PRs (reason: no claimable codex TODO rows; codex-worker-portrait-cli waits on claude-anomaly-detector, codex-gdpr-delete-cli already CLAIMED)
