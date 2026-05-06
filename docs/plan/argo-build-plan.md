@@ -4,9 +4,9 @@
 **Working title:** A better Hermes Agent
 **Version:** v0.2 (incorporates 14 user-validated amendments + Argo Forge + time-travel debug + workspace marketplace)
 **Date:** April 29, 2026
-**Owner:** Mark Hallam (Acmeco)
+**Owner:** Skycot
 **Audience:** Coding agents, contributors
-**License target:** MIT
+**License:** Proprietary — all rights reserved
 **Companion docs:** `argo-day-0-kickoff.md`, `argo-vs-hermes-gap-analysis.md`
 
 > "Working software is the only measure of progress." Every section ends in **Acceptance** — falsifiable, machine-checkable definition of done. No exceptions.

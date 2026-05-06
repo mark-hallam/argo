@@ -108,4 +108,4 @@ export ARGO_WHISPER_MODEL=~/.argo/ggml-base.en.bin
 
 ## License
 
-MIT. See `LICENSE`.
+Proprietary — all rights reserved. See `LICENSE`.
