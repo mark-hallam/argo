@@ -57,6 +57,21 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Update an existing worker's auto-approval policy from a
+    /// JSON file (Stream `claude-worker-instance-policy`). The
+    /// file must deserialise into `argo_identity::AutoApprovalPolicy`;
+    /// when the worker's policy is `enabled = true`, it overrides
+    /// the workspace default at gate time.
+    Update {
+        /// Worker id (UUIDv7) to update.
+        worker_id: String,
+        /// Path to a JSON `AutoApprovalPolicy` document.
+        #[arg(long = "auto-approval-json")]
+        auto_approval_json: std::path::PathBuf,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Manage actions the worker has proposed / approved /
     /// executed. Backed by `worker_action` memory rows in the
     /// originating job's vertical namespace.

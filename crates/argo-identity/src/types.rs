@@ -399,4 +399,46 @@ impl Worker {
             channels: Vec::new(),
         }
     }
+
+    /// Stream `claude-worker-instance-policy` — resolve the
+    /// per-action [`AutoApprovalPolicy`] this worker should be
+    /// gated against.
+    ///
+    /// Resolution order:
+    ///
+    /// 1. Worker's own `auto_approval` if `enabled`.
+    /// 2. Workspace default passed in.
+    /// 3. Disabled default (Ask everything; the H-1 evaluator
+    ///    handles the fallback semantics).
+    ///
+    /// "Empty / default policy" = treat as not-configured. The
+    /// brief calls this out: a worker with `enabled = false`
+    /// falls through to the workspace default.
+    ///
+    /// ```
+    /// use argo_identity::{AutoApprovalPolicy, Persona, Role, Worker};
+    /// use argo_types::TenantId;
+    /// let mut worker = Worker::draft(TenantId::new(), "gtm",
+    ///     Persona::named("Maya", "op"), Role::new("Sell."));
+    /// // Disabled worker → workspace default applies.
+    /// let workspace_enabled = AutoApprovalPolicy { enabled: true, ..Default::default() };
+    /// assert!(worker.resolved_policy(&workspace_enabled).enabled);
+    /// // Enable on the worker → worker policy overrides.
+    /// worker.auto_approval.enabled = true;
+    /// worker.auto_approval.daily_budget_usd_micros = Some(50_000);
+    /// let workspace_disabled = AutoApprovalPolicy::default();
+    /// let resolved = worker.resolved_policy(&workspace_disabled);
+    /// assert_eq!(resolved.daily_budget_usd_micros, Some(50_000));
+    /// ```
+    #[must_use]
+    pub fn resolved_policy(
+        &self,
+        workspace_default: &AutoApprovalPolicy,
+    ) -> AutoApprovalPolicy {
+        if self.auto_approval.enabled {
+            self.auto_approval.clone()
+        } else {
+            workspace_default.clone()
+        }
+    }
 }
