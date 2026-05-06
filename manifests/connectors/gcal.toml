@@ -1,0 +1,26 @@
+id = "gcal"
+name = "Google Calendar MCP connector"
+transport = "stdio"
+command = "argo-mcp-connector-gcal"
+
+oauth_provider = "google"
+oauth_scopes = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.freebusy",
+]
+
+env = [
+  "GCAL_ACCESS_TOKEN",
+  "ARGO_GCAL_REFRESH_TOKEN",
+  "ARGO_GCAL_CLIENT_ID",
+  "ARGO_GCAL_CLIENT_SECRET",
+  "GCAL_CALENDAR_ID",
+]
+
+tools = [
+  "gcal.list_events",
+  "gcal.create_event",
+  "gcal.update_event",
+  "gcal.suggest_time",
+  "gcal.respond_to_invite",
+]
