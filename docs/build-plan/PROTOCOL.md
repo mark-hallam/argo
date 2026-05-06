@@ -359,6 +359,32 @@ the next tick.
 
 These are real bugs from the SKYCOT run. Expect them on any swarm.
 
+### Codex self-blocks on a pre-existing flake (tick 60)
+
+A worker tab implementing brief X runs `cargo test --workspace`,
+hits a failing test in suite Y that has nothing to do with X,
+and marks the brief BLOCKED out of conscientiousness. The flake
+has been on `origin/main` for weeks; the brief implementation is
+clean.
+
+**Recovery rule:** A brief is NOT blocked by a workspace test
+failure if BOTH of the following hold:
+
+1. The failing test is outside the brief's may-touch list.
+2. The failure reproduces on a clean `origin/main` checkout
+   without the brief's changes.
+
+If both hold, the worker should push the PR with a "Boundary
+note" identifying the pre-existing flake by exact test id.
+The conductor reviews against the BRIEF's acceptance checklist
+— pre-existing flakes outside that list are conductor-
+acknowledged risk, not a brief blocker.
+
+A separate brief tracks each known flake's root cause fix.
+The `BUILD_STATUS.md` tick-60 amendment maintains the live
+list of known pre-existing flakes; entries get removed as fix
+PRs land.
+
 ### Two parallel agents claimed the same row
 
 `status: claim C-mcp-wire` appears 5 times in the log (`a87db42`,
