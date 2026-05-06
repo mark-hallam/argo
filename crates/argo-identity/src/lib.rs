@@ -21,12 +21,16 @@
 
 pub mod auto_approval;
 pub mod circuit;
+pub mod org;
+pub mod org_ingest;
 mod prompt;
 mod store;
 mod types;
 pub mod worker_budget;
 
 pub use circuit::CircuitState;
+pub use org::{IngestSummary, MemberKind, OrgMember, OrgStore, OrgUnit};
+pub use org_ingest::{OrgChartYaml, OrgMemberYaml, OrgUnitYaml};
 pub use prompt::compose_system_prompt;
 pub use store::IdentityStore;
 pub use types::{

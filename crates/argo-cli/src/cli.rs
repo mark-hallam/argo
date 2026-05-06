@@ -18,8 +18,6 @@ mod cli_forge_cmds;
 mod cli_gateway_cmds;
 #[path = "cli_genesis_cmds.rs"]
 mod cli_genesis_cmds;
-#[path = "cli_gdpr_cmds.rs"]
-mod cli_gdpr_cmds;
 #[path = "cli_memory_cmd.rs"]
 mod cli_memory_cmd;
 #[path = "cli_messages_cmds.rs"]
@@ -32,6 +30,8 @@ mod cli_skill_conflicts_cmds;
 mod cli_skill_review_cmds;
 #[path = "cli_skill_search_cmds.rs"]
 mod cli_skill_search_cmds;
+#[path = "cli_org_cmds.rs"]
+pub mod cli_org_cmds;
 #[path = "cli_skill_ab_cmds.rs"]
 pub mod cli_skill_ab_cmds;
 #[path = "cli_subcommands.rs"]
@@ -168,6 +168,12 @@ pub enum Command {
         #[command(subcommand)]
         cmd: TenantCmd,
     },
+    /// Org chart, addressable names, manager chain
+    /// (`claude-org-awareness`).
+    Org {
+        #[command(subcommand)]
+        cmd: cli_org_cmds::OrgCmd,
+    },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +
     /// edges; runs each task as a Session with output binding
@@ -188,10 +194,6 @@ pub enum Command {
     Audit {
         #[command(subcommand)]
         cmd: AuditQueryCmd,
-    },
-    Gdpr {
-        #[command(subcommand)]
-        cmd: GdprCmd,
     },
     /// First-time interactive setup. Mirrors the
     /// `curl … | bash && argo setup` Hermes-style two-step
