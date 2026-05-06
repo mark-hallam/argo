@@ -23,6 +23,7 @@
 pub mod conflicts;
 pub mod learn;
 pub mod library;
+pub mod marketplace;
 mod parse;
 mod skill;
 mod store;
@@ -39,6 +40,7 @@ pub use success_metric::{
 };
 pub use conflicts::{detect_conflicts, parse_keep_flag, render_diff, SkillConflict};
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
+pub use marketplace::{parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
 pub use store::SkillStore;

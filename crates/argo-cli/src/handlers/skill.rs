@@ -59,6 +59,13 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             refine(&skills, &name, &hint, new_version.as_deref()).await
         }
         SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
+        SkillCmd::Search(args) => super::skill_search::run(
+            &args.query,
+            args.trust_min.as_deref(),
+            args.tenant.as_deref(),
+            args.limit,
+            args.json,
+        ),
         SkillCmd::Conflicts { cmd } => super::skill_conflicts::run(&skills, cmd).await,
         SkillCmd::Create {
             name,

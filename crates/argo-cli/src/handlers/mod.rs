@@ -86,6 +86,7 @@ pub mod skill_conflicts;
 pub mod skill_export;
 pub mod skill_import;
 pub mod skill_review;
+pub mod skill_search;
 mod skill_review_candidates;
 pub mod steer;
 pub mod tenant;

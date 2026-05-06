@@ -1,7 +1,3 @@
-//! Per-family clap `Subcommand` enums. Hoisted out of `cli.rs`
-//! to keep both files under the 500-LOC ceiling. Re-exported
-//! wholesale by `cli.rs` so handler imports (`use crate::cli::FooCmd;`)
-//! continue to work unchanged.
 use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
@@ -36,12 +32,7 @@ pub enum AgentsCmd {
     Delete { name: String },
 }
 
-// `GatewayCmd` was extracted to cli_gateway_cmds.rs (#631)
-// when this file went over the 500-LOC budget. Re-exported by
-// the wildcard glob in cli.rs so callers don't need to know
-// the new path.
 pub use super::cli_gateway_cmds::GatewayCmd;
-// Same pattern for VerticalCmd (#650).
 pub use super::cli_vertical_cmds::VerticalCmd;
 
 #[derive(Subcommand, Debug)]
@@ -204,6 +195,8 @@ pub enum SkillCmd {
         #[arg(long = "new-version", default_value = "0.1")]
         new_version: String,
     },
+    /// Search the cross-tenant OCI skill registry.
+    Search(super::cli_skill_search_cmds::SkillSearchCmd),
     /// Drive the learned-skill review gate (#681 lifecycle):
     /// list pending proposals + approve / reject them. Without
     /// this surface the lifecycle gate is theoretical — agents
@@ -248,8 +241,6 @@ pub enum SkillCmd {
     },
 }
 
-// MemoryCmd moved to `cli_memory_cmd.rs` to keep this file
-// under the 500-LOC budget. Re-exported below.
 pub use super::cli_memory_cmd::MemoryCmd;
 
 #[derive(Subcommand, Debug)]
@@ -498,14 +489,8 @@ pub enum AuditCmd {
     },
 }
 
-// WorkspaceCmd / DbCmd / CostsCmd live in
-// `super::cli_workspace_cmds` to keep this file under the
-// 500-LOC budget. Re-exported via `cli.rs` so callers don't
-// need to know the new path.
 pub use super::cli_workspace_cmds::{CostsCmd, DbCmd, WorkspaceCmd};
 
-// `SkillReviewCmd` (#684) lives in `cli_skill_review_cmds.rs`
-// to keep this file under the 500-LOC budget.
 pub use super::cli_skill_conflicts_cmds::SkillConflictsCmd;
 pub use super::cli_skill_review_cmds::SkillReviewCmd;
 
