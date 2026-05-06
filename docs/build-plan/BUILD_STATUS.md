@@ -49,7 +49,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-skill-review-cli | codex | IN_REVIEW | #823 | PR opened |
 | H-action-replay | codex | BLOCKED | — | blocked: acceptance requires integration test but brief allowlist omits any test file |
 | H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
-| H-channel-health-checks | codex | TODO | — | replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
+| H-channel-health-checks | codex | CLAIMED | — | claimed by codex; replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | H-shared-team-cli | codex | TODO | — | replenish-codex2: `argo memory shared-team list/write/grep` for inspecting tenant-shared memory namespace (#819) |
 | H-vertical-list-cli | codex | TODO | — | replenish-codex2: `argo vertical list/show/describe` for installed verticals; pairs with publish/pull (#821) |
 | H-worker-list-cli | codex | TODO | — | replenish-codex2: `argo worker list/show + policy show` for worker discovery + per-worker policy resolution (#815) |
