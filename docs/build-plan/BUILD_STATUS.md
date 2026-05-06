@@ -27,7 +27,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
-| D-slack-approvals | codex | TODO | — | unblocked (D-email merged) |
+| D-slack-approvals | codex | CLAIMED | — | claimed by codex |
 | D-sms | codex | TODO | — | unblocked (D-email merged) |
 | D-push | codex | TODO | — | unblocked (D-email merged) |
 | D-webinbox | codex | TODO | — | unblocked (D-email merged) |
