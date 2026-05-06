@@ -20,7 +20,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | 0-ci-cleanup | (in landing PR) | TODO | — | (not yet started) |
 | A-executor-trait | claude | MERGED | #784 | Executor trait + manifest enum + 4 impl shape; B/C/G unblocked |
 | B-computer-use-executor | claude | CLAIMED | — | claimed by claude |
-| C-mcp-wire | codex | BLOCKED | — | reason="Cargo.lock update required but outside may-touch" |
+| C-mcp-wire | codex | TODO | — | unblocked: Cargo.lock now in may-touch |
 | C-gmail | codex | TODO | — | (waits on C-mcp-wire) |
 | C-slack | codex | TODO | — | (waits on C-mcp-wire) |
 | C-gcal | codex | TODO | — | (waits on C-mcp-wire) |

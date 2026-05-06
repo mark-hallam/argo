@@ -77,3 +77,6 @@ unlock.
   the same name): builtin wins, log a warning.
 - `dispatch.rs:dispatch_one()` is where the existing 8 builtin
   tools route. Extend it; don't replace.
+
+- `Cargo.lock` — auto-updated by cargo when adding the
+  argo-mcp dep; commit the lockfile change.
