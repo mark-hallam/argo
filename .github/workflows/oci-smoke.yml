@@ -11,18 +11,10 @@ name: OCI Marketplace Smoke
 # Skipped automatically when GHCR_PAT is unset (forks, dependabot
 # runs, etc.) — the smoke test is best-effort, not a hard gate.
 
+# Auto-trigger disabled while billing is blocked. Manual dispatch
+# only. Original triggers (push, schedule) are commented above.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'crates/argo-marketplace/**'
-      - 'crates/argo-cli/src/handlers/workspace*'
-      - '.github/workflows/oci-smoke.yml'
-  schedule:
-    # Run nightly so a slow upstream regression in oci-distribution
-    # gets caught within 24h.
-    - cron: '17 6 * * *'
 
 jobs:
   oci-roundtrip:

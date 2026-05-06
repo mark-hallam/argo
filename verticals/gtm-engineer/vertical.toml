@@ -14,7 +14,7 @@ persona       = "prompts/persona.md"
 
 [provider]
 default   = "anthropic/claude-sonnet-4-6"
-fallback  = "openai/gpt-5.5"
+fallback  = "openai/gpt-4o"
 cost_tier = "balanced"
 
 # Safety boundary — DRAFT-ONLY. The deny list is the real lock

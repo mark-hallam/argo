@@ -1,8 +1,12 @@
 name: Docs
+# Auto-trigger disabled while billing is blocked. Manual dispatch
+# only. Original trigger:
+#   on:
+#     push:
+#       branches: [main]
+#       paths: ['docs/**']
+#     workflow_dispatch:
 on:
-  push:
-    branches: [main]
-    paths: ['docs/**']
   workflow_dispatch:
 
 jobs:

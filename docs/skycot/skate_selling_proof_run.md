@@ -81,7 +81,7 @@ argo worker doctor --vertical gtm-engineer
 # emit a verify_price action proposing a target price.
 argo work add \
   --vertical gtm-engineer \
-  --prompt "Sell a 2019 used Yeti Tundra 65 cooler. Item id: skates-A. Target price: $250." \
+  --prompt "Sell a pair of USD Aeon 60 inline skates, brand new in box, EU 41-42. Item id: skates-A. Target price: AUD \$549." \
   --json
 ```
 

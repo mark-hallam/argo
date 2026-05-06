@@ -1,0 +1,104 @@
+# Build status — live ledger
+
+**Updated by every agent on every state transition.** Always
+read from origin/main; never trust a stale local copy.
+
+Status values: `TODO` (claim me) · `CLAIMED` (someone is
+working) · `IN_REVIEW` (PR open) · `MERGED` (on main) ·
+`BLOCKED` (needs unblock).
+
+When you claim or update a row, commit BUILD_STATUS.md with
+message `status: <action> <brief-id>` (e.g. `status: claim
+C-gmail`, `status: C-gmail in review (#812)`).
+
+---
+
+## Active queue
+
+| Brief | Owner | Status | PR | Last update |
+|---|---|---|---|---|
+| 0-ci-cleanup | (in landing PR) | TODO | — | (not yet started) |
+| A-executor-trait | claude | TODO | — | (not yet started) |
+| B-computer-use-executor | claude | TODO | — | (waits on A) |
+| C-mcp-wire | codex | TODO | — | (waits on A) |
+| C-gmail | codex | TODO | — | (waits on C-mcp-wire) |
+| C-slack | codex | TODO | — | (waits on C-mcp-wire) |
+| C-gcal | codex | TODO | — | (waits on C-mcp-wire) |
+| C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
+| C-notion | codex | TODO | — | (waits on C-mcp-wire) |
+| D-email | codex | TODO | — | (no deps) |
+| D-slack-approvals | codex | TODO | — | (waits on D-email trait) |
+| D-sms | codex | TODO | — | (waits on D-email trait) |
+| D-push | codex | TODO | — | (waits on D-email trait) |
+| D-webinbox | codex | TODO | — | (waits on D-email trait) |
+| E-identity | codex | TODO | — | (no deps) |
+| F-memory-layering | codex | TODO | — | (waits on E for MemoryNs) |
+| G-genesis | claude | TODO | — | (waits on A stable) |
+| H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
+
+---
+
+## Picking your next brief
+
+Codex picks the first row where:
+- `owner == codex`
+- `status == TODO`
+- All "waits on" predecessors have `status == MERGED`
+
+Claude picks the first row where:
+- `owner == claude`
+- `status == TODO`
+- All "waits on" predecessors have `status == MERGED`
+
+If multiple agents try to claim the same row, the one whose
+commit lands first on main wins. The losers will see the row is
+already CLAIMED on their next pull and pick a different one.
+
+---
+
+## Known dependencies
+
+```
+A-executor-trait
+    ├── B-computer-use-executor
+    ├── C-mcp-wire
+    │       ├── C-gmail
+    │       ├── C-slack
+    │       ├── C-gcal
+    │       ├── C-hubspot
+    │       └── C-notion
+    └── G-genesis (after A stable)
+
+D-email
+    ├── D-slack-approvals
+    ├── D-sms
+    ├── D-push
+    └── D-webinbox
+
+E-identity
+    └── F-memory-layering
+
+H-auto-approval
+    ← A, D-email, E-identity, F-memory-layering all MERGED
+```
+
+The "waits on" column above encodes this graph. A row with
+`MERGED` predecessors is ready to claim.
+
+---
+
+## Blocked rows
+
+(none currently)
+
+When marking BLOCKED, append a short reason:
+`status=BLOCKED reason="cargo clippy fails on field X; need Stream Z first"`.
+
+---
+
+## Done rows
+
+(none currently)
+
+When the queue is fully MERGED, append a `Plan complete` note
+here with the date and a link to the v1 demo recording.
