@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | IN_REVIEW | #833 | H-stack audit query filters |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | TODO | — | unblocked v2: handlers/memory.rs fully may-touch for any extension needed (match arms, helpers, exhaustiveness). The BLANKET CLI ALLOWLIST already covers cli.rs + main.rs + handlers/mod.rs |
+| H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
 | H-vertical-list-cli | codex | IN_REVIEW | #834 | PR opened |
 | H-worker-list-cli | codex | TODO | — | unblocked v3: existing file is `handlers/worker_actions.rs` (NOT handlers/worker.rs). Brief amended: handlers/worker_actions.rs is fully may-touch for new dispatch arms + WorkerCmd extensions; new sibling handlers/worker_list.rs (NEW) for the list/show implementation |
 | H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
