@@ -32,7 +32,7 @@
 //! Worker emits actions in #729; approval CLI in #730;
 //! approval-gated action types + execution in #731.
 
-use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd};
+use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd, WorkerItemsCmd};
 use crate::handlers::vertical::resolve_verticals_dir;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_memory::{MemoryFile, MemoryStore};
@@ -185,6 +185,11 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         WorkerCmd::Doctor { vertical, json } => {
             super::worker_doctor::run(vertical.as_deref(), json).await
         }
+        WorkerCmd::Items(items_cmd) => match items_cmd {
+            WorkerItemsCmd::List { vertical, state, limit, json } => {
+                super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await
+            }
+        },
         WorkerCmd::Actions(actions_cmd) => match actions_cmd {
             WorkerActionsCmd::List {
                 state,

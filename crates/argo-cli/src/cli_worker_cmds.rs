@@ -22,6 +22,13 @@ pub enum WorkerCmd {
     /// originating job's vertical namespace.
     #[command(subcommand)]
     Actions(WorkerActionsCmd),
+    /// Inventory view: aggregated per-`item_id` summary derived
+    /// from the action ledger. Operators running a multi-day
+    /// worker (e.g. selling skates) use this to answer "what's
+    /// in inventory, what's sold, what needs my attention?" in
+    /// one shot. Read-only — never writes to the ledger.
+    #[command(subcommand)]
+    Items(WorkerItemsCmd),
     /// Print a one-shot SKYCOT health check across the workspace:
     /// verticals loaded (with action-section status), action-ledger
     /// counts by state, recent failures + blocked rows, and the
@@ -33,6 +40,32 @@ pub enum WorkerCmd {
         #[arg(long)]
         vertical: Option<String>,
         /// Emit JSON instead of the human-readable report.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WorkerItemsCmd {
+    /// List every `item_id` the worker has ever touched in the
+    /// action ledger, with per-item rollups: sold / active state,
+    /// total actions, count per action-state, latest activity.
+    /// Operator's "what's in inventory?" view.
+    List {
+        /// Filter to a single vertical's namespace.
+        #[arg(long)]
+        vertical: Option<String>,
+        /// Filter by sold status. `sold` shows items with a
+        /// completed `mark_item_sold` row. `active` shows items
+        /// with no completed mark_item_sold (i.e. still in
+        /// inventory). `all` (default) shows both.
+        #[arg(long, default_value = "all")]
+        state: String,
+        /// Cap the number of rows printed. Default 50.
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+        /// Emit JSON-lines (one row per item) instead of a
+        /// human-readable table.
         #[arg(long)]
         json: bool,
     },
