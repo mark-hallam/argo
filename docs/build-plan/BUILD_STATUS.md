@@ -50,7 +50,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-action-replay | codex | MERGED | #826 | `argo action replay <id>` debug replay landed; human dry-run/bundle flow + computer_use hook; tests cover replay bundle + dry-run |
 | H-audit-query-extensions | codex | MERGED | #833 | `argo audit query` filters --decision/--worker/--session/--escalation for H-stack debugging |
 | H-channel-health-checks | codex | MERGED | #828 | NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); doctor_channels.rs (315 LOC) + 5s timeout per check |
-| H-shared-team-cli | codex | CLAIMED | — | claimed by codex |
+| H-shared-team-cli | codex | TODO | — | reverted from stale CLAIM (30+min, no remote branch); EXHAUSTIVE-MATCH amendment + BLANKET CLI ALLOWLIST apply |
 | H-vertical-list-cli | codex | MERGED | #834 | `argo vertical list/show/describe` for installed verticals |
 | H-worker-list-cli | codex | MERGED | #837 | `argo worker list/show + policy show` for worker discovery + per-worker policy resolution |
 | H-genesis-list-templates | codex | MERGED | #830 | `argo genesis list-archetypes/show-archetype/suggest` exposing the 12 archetypes via CLI |
@@ -66,8 +66,8 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-test-step-completion | claude | MERGED | #832 | flipped 3 SKIPped steps to real assertions: worker_action JSON round-trip / StubNotifier capture / pending→executing→completed memory-row chain; **v1 demo gate now GREEN (9/9)** |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
-| H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
-| H-tenant-cli | codex | CLAIMED | — | claimed by codex |
+| H-eval-runner-cli | codex | TODO | — | reverted from stale CLAIM (30+min, no remote branch); flaky-test policy applies (ignore pre-existing gateway flakes) |
+| H-tenant-cli | codex | TODO | — | reverted from stale CLAIM (30+min, no remote branch); flaky-test policy applies |
 | H-handoff-cancel | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | H-skill-export-import | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
