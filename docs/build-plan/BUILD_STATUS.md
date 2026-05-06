@@ -66,14 +66,14 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-test-step-completion | claude | MERGED | #832 | flipped 3 SKIPped steps to real assertions: worker_action JSON round-trip / StubNotifier capture / pending→executing→completed memory-row chain; **v1 demo gate now GREEN (9/9)** |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
-| H-eval-runner-cli | codex | IN_REVIEW | #840 | PR opened |
+| H-eval-runner-cli | codex | MERGED | #840 | `argo eval run --vertical <id>` runs eval seed against worker pipeline; unblocks claude-eval-streaming |
 | H-tenant-cli | codex | MERGED | #839 | `argo tenant list/info/create` for tenant management |
 | H-handoff-cancel | codex | CLAIMED | — | claimed by codex |
 | H-skill-export-import | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | MERGED | #836 | `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests |
 | claude-skill-conflict-resolution | claude | MERGED | #838 | argo-skill::conflicts (detect/render_diff) + `argo skill conflicts list/show/resolve` CLI; 7 tests; drive-by fix: AuditQueryCmd::Replay variant restored (unblocked 4 BLOCKs) |
-| claude-eval-streaming | claude | BLOCKED | — | blocked: brief assumes `argo eval run` subcommand exists, but only `argo eval validate` is implemented today; H-eval-runner-cli (codex CLAIMED) ships the run subcommand. Re-eligible for claude once H-eval-runner-cli MERGES. |
+| claude-eval-streaming | claude | TODO | — | unblocked: H-eval-runner-cli (#840) merged; `argo eval run` subcommand now exists. Resume in fresh worktree |
 
 ---
 
