@@ -240,7 +240,7 @@ fn complete_emits_followup_with_inherited_item_and_evidence_chain() {
     assert_eq!(evidence.len(), 1, "follow-up evidence should reference the source");
     assert_eq!(
         evidence[0].as_str().unwrap_or(""),
-        format!("argo://action/{verify_id}"),
+        format!("argo://chain/{verify_id}"),
         "follow-up evidence URL should be the source action"
     );
     // boost_listing is approval-gated → follow-up lands `pending`.

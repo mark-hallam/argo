@@ -279,10 +279,10 @@ fn execute_and_complete_next(home: &Path, work: &Path, action_type: &str) -> Str
 /// Find the most recent row of the given (action_type,
 /// state) combination and return its `evidence` list. The
 /// chain's follow-ups always reference the source action via
-/// `argo://action/<id>` in `evidence`, so this lets the test
-/// distinguish chain-emitted rows from any other rows the
-/// mock provider produced (e.g. the mock initially emits a
-/// `post_listing` that lands `blocked` under mock evidence).
+/// `argo://chain/<id>` in `evidence` (#774), so this lets the
+/// test distinguish chain-emitted rows from any other rows
+/// the mock provider produced (e.g. the mock initially emits
+/// a `post_listing` that lands `blocked` under mock evidence).
 fn latest_row_evidence(
     home: &Path,
     work: &Path,
@@ -373,7 +373,7 @@ fn pre_sale_chain_fires_through_the_binary() {
     let draft_evidence =
         latest_row_evidence(home.path(), work.path(), "create_listing_draft", "pending");
     assert!(
-        draft_evidence.contains(&format!("argo://action/{verify_id}")),
+        draft_evidence.contains(&format!("argo://chain/{verify_id}")),
         "create_listing_draft follow-up must reference verify_price `{verify_id}` in evidence; \
          got: {draft_evidence:?}"
     );
@@ -383,7 +383,7 @@ fn pre_sale_chain_fires_through_the_binary() {
     let photos_evidence =
         latest_row_evidence(home.path(), work.path(), "request_photos", "pending");
     assert!(
-        photos_evidence.contains(&format!("argo://action/{draft_id}")),
+        photos_evidence.contains(&format!("argo://chain/{draft_id}")),
         "request_photos follow-up must reference create_listing_draft `{draft_id}`"
     );
 
@@ -397,7 +397,7 @@ fn pre_sale_chain_fires_through_the_binary() {
     let photos_id = execute_and_complete_next(home.path(), work.path(), "request_photos");
     let post_evidence = latest_row_evidence(home.path(), work.path(), "post_listing", "pending");
     assert!(
-        post_evidence.contains(&format!("argo://action/{photos_id}")),
+        post_evidence.contains(&format!("argo://chain/{photos_id}")),
         "post_listing chain row must reference request_photos `{photos_id}`; got: {post_evidence:?}"
     );
     let list = run_argo(

@@ -106,21 +106,79 @@ pub(crate) async fn emit_on_complete_followups(
     }
 }
 
+/// Build a fresh follow-up `ActionRecord` from a completed
+/// source action.
+///
+/// Two real-proof-run fixes are wired in here (#774):
+///
+/// 1. **Payload propagation.** The follow-up inherits the
+///    source's payload merged with its result (result keys win
+///    on collision). Without this, an instruction template that
+///    references `{{ payload.title }}` or `{{ payload.price }}`
+///    on a chain-emitted `post_listing` renders blank — the
+///    operator can't see what to post. The merge means each
+///    chain link accumulates context from earlier links: by the
+///    time `post_listing` lands, its payload has the verify_price
+///    proposal, the operator's accepted price (verify_price
+///    result), and the create_listing_draft / request_photos
+///    fields the operator wrote into result-json along the way.
+///    Operator-supplied result fields (the verdict) override
+///    earlier payload fields (the original proposal) so the
+///    chain reflects the operator's overrides, not the model's
+///    initial guess.
+///
+/// 2. **Evidence URL scheme.** Chain-source URLs use
+///    `argo://chain/<id>` (not `argo://action/<id>`) so the
+///    retry-chain counter (#755) doesn't conflate "this is a
+///    follow-up of a completed source" with "this is a retry
+///    of a failed source." Without the rename, every
+///    chain-emitted action looked like it had already used one
+///    retry attempt — burning the manifest's retry budget on
+///    fresh actions. The retry path keeps `argo://action/<id>`;
+///    the chain path uses the new scheme. Both surface in the
+///    operator-facing `argo worker actions show` evidence list.
 fn build_followup_record(
     manifest: &argo_vertical::VerticalManifest,
     source: &LocatedAction,
     follow_up_type: &str,
 ) -> ActionRecord {
+    let payload = merged_chain_payload(&source.record);
     let inputs = ActionEmissionInputs {
         vertical: manifest,
         job_id: &source.record.job_id,
         action_type: follow_up_type,
-        payload: serde_json::json!({}),
+        payload,
         item_id: source.record.item_id.as_deref(),
         platform: source.record.platform.as_deref(),
-        evidence: vec![format!("argo://action/{}", source.record.action_id)],
+        evidence: vec![format!("argo://chain/{}", source.record.action_id)],
     };
     build_emission(&inputs)
+}
+
+/// Merge the source action's `payload` with its `result`,
+/// returning a JSON object suitable to use as a follow-up's
+/// payload. Result keys win on conflict so the operator's
+/// completion-time overrides take precedence over the original
+/// model proposal.
+///
+/// Non-object payloads / results degrade gracefully: a
+/// non-object source payload becomes an empty object, and a
+/// non-object source result is dropped. The follow-up always
+/// gets a JSON object back.
+pub(crate) fn merged_chain_payload(source: &ActionRecord) -> serde_json::Value {
+    let mut payload = match source.payload.clone() {
+        serde_json::Value::Object(_) => source.payload.clone(),
+        _ => serde_json::json!({}),
+    };
+    if let (Some(payload_obj), Some(result_obj)) = (
+        payload.as_object_mut(),
+        source.result.as_ref().and_then(|r| r.as_object()),
+    ) {
+        for (k, v) in result_obj {
+            payload_obj.insert(k.clone(), v.clone());
+        }
+    }
+    payload
 }
 
 /// Apply the sold-item gate to a freshly-built follow-up. Same

@@ -74,12 +74,13 @@ fn build_followup_inherits_item_and_platform_and_references_source() {
     assert_eq!(rec.item_id.as_deref(), Some("skates-A"));
     assert_eq!(rec.platform.as_deref(), Some("ebay"));
     // The follow-up's evidence chain references the source via
-    // the canonical argo://action/<id> URL so the operator can
-    // trace the lineage in `argo worker actions show`.
+    // the `argo://chain/<id>` URL — distinct from the retry
+    // path's `argo://action/<id>` so the retry counter (#755)
+    // doesn't conflate chain follow-ups with retries (#774).
     assert_eq!(
         rec.evidence,
-        vec!["argo://action/src-1".to_string()],
-        "follow-up must reference the source action in evidence"
+        vec!["argo://chain/src-1".to_string()],
+        "follow-up evidence must use the chain URL scheme"
     );
     // Manifest classification carries through — boost_listing is
     // approval-gated, so the follow-up lands `pending` awaiting
@@ -87,6 +88,106 @@ fn build_followup_inherits_item_and_platform_and_references_source() {
     assert_eq!(rec.state, "pending");
     assert!(rec.requires_approval);
     assert_eq!(rec.risk_level, "medium");
+}
+
+#[test]
+fn build_followup_inherits_source_payload_into_followup_payload() {
+    // Lock the #774 contract: the source action's `payload`
+    // fields flow through to the follow-up's `payload` so
+    // instruction templates referencing `{{ payload.X }}` on
+    // a chain-emitted action don't render blank.
+    let manifest = fixture_manifest();
+    let mut source_record = make_source_record();
+    source_record.payload = json!({
+        "title": "USD Aeon 60 — Brand New",
+        "price": 549,
+        "item_name": "USD Aeon 60 Richie Eisler"
+    });
+    let source = LocatedAction {
+        record: source_record,
+        vertical_id: "fix".to_string(),
+    };
+    let rec = build_followup_record(&manifest, &source, "boost_listing");
+    assert_eq!(rec.payload["title"], "USD Aeon 60 — Brand New");
+    assert_eq!(rec.payload["price"], 549);
+    assert_eq!(rec.payload["item_name"], "USD Aeon 60 Richie Eisler");
+}
+
+#[test]
+fn build_followup_result_keys_win_over_payload_keys_on_conflict() {
+    // The operator's completion-time verdict (the source's
+    // `result`) overrides the model's original proposal (the
+    // source's `payload`). Locks the merge precedence rule so
+    // an `accepted_price` in the operator's result-json wins
+    // over a `proposed_price` the model wrote at emission time
+    // — the chain reflects the operator's overrides, not the
+    // initial guess.
+    let manifest = fixture_manifest();
+    let mut source_record = make_source_record();
+    source_record.payload = json!({"price": 600, "title": "tentative"});
+    source_record.result = Some(json!({
+        "price": 549,
+        "verdict": "accepted",
+    }));
+    let source = LocatedAction {
+        record: source_record,
+        vertical_id: "fix".to_string(),
+    };
+    let rec = build_followup_record(&manifest, &source, "boost_listing");
+    // Result wins on `price`.
+    assert_eq!(rec.payload["price"], 549);
+    // Payload-only key flows through unchanged.
+    assert_eq!(rec.payload["title"], "tentative");
+    // Result-only key flows through.
+    assert_eq!(rec.payload["verdict"], "accepted");
+}
+
+#[test]
+fn build_followup_with_no_source_result_uses_only_source_payload() {
+    let manifest = fixture_manifest();
+    let mut source_record = make_source_record();
+    source_record.payload = json!({"foo": 1, "bar": "two"});
+    source_record.result = None;
+    let source = LocatedAction {
+        record: source_record,
+        vertical_id: "fix".to_string(),
+    };
+    let rec = build_followup_record(&manifest, &source, "boost_listing");
+    assert_eq!(rec.payload["foo"], 1);
+    assert_eq!(rec.payload["bar"], "two");
+}
+
+#[test]
+fn build_followup_with_no_source_payload_or_result_emits_empty_payload_object() {
+    // Defensive: a source with no payload AND no result still
+    // produces a valid (empty) JSON object for the follow-up's
+    // payload. Templates that reference unknown fields render
+    // blank rather than panicking on a non-object.
+    let manifest = fixture_manifest();
+    let mut source_record = make_source_record();
+    source_record.payload = json!({});
+    source_record.result = None;
+    let source = LocatedAction {
+        record: source_record,
+        vertical_id: "fix".to_string(),
+    };
+    let rec = build_followup_record(&manifest, &source, "boost_listing");
+    assert!(rec.payload.is_object());
+    assert!(rec.payload.as_object().unwrap().is_empty());
+}
+
+#[test]
+fn merged_chain_payload_handles_non_object_payload_gracefully() {
+    // Direct test of the helper: a defensive guard turns a
+    // non-object source payload into an empty object before
+    // merging, so the helper can never produce a non-object
+    // value that breaks downstream serde.
+    let mut source = make_source_record();
+    source.payload = json!("just a string"); // not an object
+    source.result = Some(json!({"verdict": "ok"}));
+    let merged = merged_chain_payload(&source);
+    assert!(merged.is_object());
+    assert_eq!(merged["verdict"], "ok");
 }
 
 #[test]
