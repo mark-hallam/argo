@@ -25,7 +25,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-slack | codex | MERGED | #793 | post / list / read / dm / search via SLACK_BOT_TOKEN; integration test gated |
 | C-gcal | codex | MERGED | #791 | list / create / update / suggest_time / respond + OAuth refresh + access-token cache |
 | C-hubspot | codex | MERGED | #792 | contacts / deals / activity / pipeline + private-app token |
-| C-notion | codex | IN_REVIEW | #794 | PR opened |
+| C-notion | codex | MERGED | #794 | search / read_page / create_page / append_block / update_database via NOTION_INTEGRATION_TOKEN |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
 | D-sms | codex | MERGED | #782 | Twilio SMS approval channel + HMAC token decision route |
