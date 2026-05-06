@@ -31,3 +31,23 @@ pub use types::{
     AutoApprovalPolicy, Duty, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role, VoiceProfile,
     Worker, WorkerId,
 };
+
+impl WorkerId {
+    /// All-zero `WorkerId` sentinel — used as the v1 platform-default
+    /// worker (the platform-shipped Worker every workspace gets at
+    /// first init) and as a placeholder in tests / pre-#810 action
+    /// rows.
+    ///
+    /// Defined here in `lib.rs` rather than `types.rs` because the
+    /// brief restricting changes to `types.rs` carved this seam to
+    /// keep the type definition fixed.
+    ///
+    /// ```
+    /// use argo_identity::WorkerId;
+    /// assert_eq!(WorkerId::nil().to_string(), "00000000-0000-0000-0000-000000000000");
+    /// ```
+    #[must_use]
+    pub fn nil() -> Self {
+        Self(uuid::Uuid::nil())
+    }
+}

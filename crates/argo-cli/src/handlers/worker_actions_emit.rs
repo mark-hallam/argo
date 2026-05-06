@@ -45,6 +45,12 @@ pub(crate) enum ApprovalCategory {
 pub(crate) struct ActionEmissionInputs<'a> {
     pub vertical: &'a argo_vertical::VerticalManifest,
     pub job_id: &'a str,
+    /// Stable id of the worker that emitted the action (Stream
+    /// `claude-action-record-identity-plumbing`). Callers without
+    /// a worker-bound context (legacy / test fixtures) pass
+    /// `WorkerId::nil()` and downstream consumers know to treat
+    /// the row as belonging to the v1 platform-default worker.
+    pub worker_id: argo_identity::WorkerId,
     pub action_type: &'a str,
     pub payload: Value,
     pub item_id: Option<&'a str>,
@@ -150,6 +156,7 @@ pub(crate) fn build_emission(inputs: &ActionEmissionInputs<'_>) -> ActionRecord 
         schema_key: ActionRecord::SCHEMA_KEY.to_string(),
         action_id,
         job_id: inputs.job_id.to_string(),
+        worker_id: inputs.worker_id,
         item_id: inputs.item_id.map(String::from),
         action_type: inputs.action_type.to_string(),
         risk_level,
@@ -183,6 +190,7 @@ fn forbidden_record(
         schema_key: ActionRecord::SCHEMA_KEY.to_string(),
         action_id: action_id.to_string(),
         job_id: job_id.to_string(),
+        worker_id: argo_identity::WorkerId::nil(),
         item_id: item_id.map(String::from),
         action_type: action_type.to_string(),
         risk_level: "low".to_string(),
@@ -334,6 +342,7 @@ fn parse_action_body(body: &str) -> Option<ProposedAction> {
 pub(crate) fn emit_actions_from_text(
     vertical: &argo_vertical::VerticalManifest,
     job_id: &str,
+    worker_id: argo_identity::WorkerId,
     assistant_text: &str,
     evidence_sufficient: bool,
     sold_items: &std::collections::HashSet<String>,
@@ -344,6 +353,7 @@ pub(crate) fn emit_actions_from_text(
             let inputs = ActionEmissionInputs {
                 vertical,
                 job_id,
+                worker_id,
                 action_type: &p.action_type,
                 payload: p.payload,
                 item_id: p.item_id.as_deref(),

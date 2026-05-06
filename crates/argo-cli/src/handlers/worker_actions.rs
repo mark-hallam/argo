@@ -35,6 +35,7 @@
 use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd, WorkerItemsCmd};
 use crate::handlers::vertical::resolve_verticals_dir;
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_identity::WorkerId;
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
@@ -135,6 +136,8 @@ pub(crate) struct ActionRecord {
     pub schema_key: String,
     pub action_id: String,
     pub job_id: String,
+    #[serde(default = "WorkerId::nil")]
+    pub worker_id: WorkerId,
     #[serde(default)]
     pub item_id: Option<String>,
     pub action_type: String,
@@ -174,9 +177,7 @@ impl ActionRecord {
     pub(crate) const SCHEMA_KEY: &'static str = "worker_action";
 }
 
-fn default_risk() -> String {
-    "low".to_string()
-}
+fn default_risk() -> String { "low".to_string() }
 
 // ───────────────────────── CLI ───────────────────────────
 

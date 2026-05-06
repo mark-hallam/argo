@@ -460,7 +460,7 @@ mod tests {
     }
 
     fn record(id: &str) -> ActionRecord {
-        ActionRecord { schema_key: ActionRecord::SCHEMA_KEY.into(), action_id: id.into(), job_id: "job-1".into(), item_id: None, action_type: "post_listing".into(), risk_level: "high".into(), requires_approval: true, state: "pending".into(), payload: json!({}), approved_by: None, approved_at: None, executed_at: None, platform: None, result: None, evidence: Vec::new(), blocked_reason: None, created_at: chrono::Utc::now().to_rfc3339() }
+        ActionRecord { schema_key: ActionRecord::SCHEMA_KEY.into(), action_id: id.into(), job_id: "job-1".into(), worker_id: argo_identity::WorkerId::nil(), item_id: None, action_type: "post_listing".into(), risk_level: "high".into(), requires_approval: true, state: "pending".into(), payload: json!({}), approved_by: None, approved_at: None, executed_at: None, platform: None, result: None, evidence: Vec::new(), blocked_reason: None, created_at: chrono::Utc::now().to_rfc3339() }
     }
 
     #[tokio::test]

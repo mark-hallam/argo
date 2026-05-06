@@ -16,6 +16,7 @@ fn rec(action_id: &str, risk: &str, requires_approval: bool) -> ActionRecord {
         schema_key: ActionRecord::SCHEMA_KEY.to_string(),
         action_id: action_id.into(),
         job_id: "job-1".into(),
+        worker_id: argo_identity::WorkerId::nil(),
         item_id: None,
         action_type: "test_action".into(),
         risk_level: risk.into(),

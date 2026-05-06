@@ -146,6 +146,7 @@ fn build_followup_record(
     let inputs = ActionEmissionInputs {
         vertical: manifest,
         job_id: &source.record.job_id,
+        worker_id: source.record.worker_id,
         action_type: follow_up_type,
         payload,
         item_id: source.record.item_id.as_deref(),

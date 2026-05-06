@@ -18,6 +18,7 @@ pub(super) fn rec(action_id: &str, action_type: &str, requires_approval: bool) -
         schema_key: ActionRecord::SCHEMA_KEY.to_string(),
         action_id: action_id.to_string(),
         job_id: "job-7".to_string(),
+        worker_id: argo_identity::WorkerId::nil(),
         item_id: Some("skates-110".to_string()),
         action_type: action_type.to_string(),
         risk_level: "medium".to_string(),

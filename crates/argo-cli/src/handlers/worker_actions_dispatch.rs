@@ -393,6 +393,7 @@ pub(crate) async fn retry(action_id: &str, force: bool, json: bool) -> ArgoResul
     let inputs = worker_actions_emit::ActionEmissionInputs {
         vertical: &loaded.manifest,
         job_id: &located.record.job_id,
+        worker_id: located.record.worker_id,
         action_type: &located.record.action_type,
         payload: located.record.payload.clone(),
         item_id: located.record.item_id.as_deref(),

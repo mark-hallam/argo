@@ -120,6 +120,7 @@ fn action_record_round_trips_through_json_with_defaults() {
         schema_key: ActionRecord::SCHEMA_KEY.into(),
         action_id: "019df-test".into(),
         job_id: "019df-job".into(),
+        worker_id: argo_identity::WorkerId::nil(),
         item_id: Some("skates-110mm".into()),
         action_type: ActionType::CreateListingDraft.as_str().into(),
         risk_level: "low".into(),
@@ -271,6 +272,7 @@ fn build_emission_stamps_risk_and_requires_approval_from_manifest() {
     let inputs = ActionEmissionInputs {
         vertical: &v,
         job_id: "job-1",
+        worker_id: argo_identity::WorkerId::nil(),
         action_type: "post_listing",
         payload: serde_json::json!({"title": "x"}),
         item_id: Some("item-1"),
@@ -294,6 +296,7 @@ fn build_emission_for_safe_autonomous_lands_pending_low_no_approval() {
     let inputs = ActionEmissionInputs {
         vertical: &v,
         job_id: "job-1",
+        worker_id: argo_identity::WorkerId::nil(),
         action_type: "verify_price",
         payload: serde_json::json!({"target": 250}),
         item_id: None,
@@ -313,6 +316,7 @@ fn build_emission_for_high_risk_action_stamps_high_and_requires_approval() {
     let inputs = ActionEmissionInputs {
         vertical: &v,
         job_id: "job-1",
+        worker_id: argo_identity::WorkerId::nil(),
         action_type: "reply_to_buyer",
         payload: serde_json::json!({"message": "hi"}),
         item_id: None,
@@ -334,6 +338,7 @@ fn build_emission_for_undeclared_action_lands_blocked_with_reason() {
     let inputs = ActionEmissionInputs {
         vertical: &v,
         job_id: "job-1",
+        worker_id: argo_identity::WorkerId::nil(),
         action_type: "drain_bank_account",
         payload: serde_json::json!({"amount": 99999}),
         item_id: None,

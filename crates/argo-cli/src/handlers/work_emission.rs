@@ -78,9 +78,14 @@ pub(crate) async fn emit_and_persist_actions(
     };
     let mut all_records = Vec::new();
     for text in &artifact.assistant_texts {
+        // The work runtime is the platform-default worker context;
+        // explicit per-worker binding (Stream
+        // `claude-worker-instance-policy` follow-up) lands when the
+        // runtime carries a `WorkerId` through the queue header.
         let records = worker_actions_emit::emit_actions_from_text(
             manifest,
             job_id,
+            argo_identity::WorkerId::nil(),
             text,
             artifact.evidence_sufficient,
             &sold_items,

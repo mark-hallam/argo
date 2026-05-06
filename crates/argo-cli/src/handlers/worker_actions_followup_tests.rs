@@ -12,6 +12,7 @@ fn make_source_record() -> ActionRecord {
         schema_key: ActionRecord::SCHEMA_KEY.to_string(),
         action_id: "src-1".to_string(),
         job_id: "job-1".to_string(),
+        worker_id: argo_identity::WorkerId::nil(),
         item_id: Some("skates-A".to_string()),
         action_type: "post_listing".to_string(),
         risk_level: "medium".to_string(),
