@@ -80,7 +80,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-connector-jira | codex | TODO | — | V1.2 capability: brief amended (tick58) — argo-mcp-connector-jira crate pattern (mirror gmail/slack layout) |
 | codex-connector-asana | codex | TODO | — | V1.2 capability: brief amended (tick58) — argo-mcp-connector-asana crate pattern (mirror gmail/slack layout) |
 | codex-skill-marketplace-search | codex | TODO | — | V1.2 capability: brief amended (tick58) — skill code lives in crates/argo-skill (NOT argo-skill-store); CLI surface uses sibling-file pattern via new cli_skill_search_cmds.rs |
-| claude-anomaly-detector | claude | TODO | — | V1.1 reliability: per-(worker, action_kind) Welford running stats + z-score; insert anomaly events when |z|>threshold; CLI + TUI Z overlay |
+| claude-anomaly-detector | claude | CLAIMED | — | claimed by claude |
 | claude-workflow-dag | claude | TODO | — | V1.3 multi-worker: declarative YAML DAG of tasks across workers; new argo-workflow crate + executor; `argo workflow run/status/list-runs` |
 | claude-filesystem-executor | claude | TODO | — | V1.2 capability: new ExecutorKind::Filesystem; sandboxed FS ops with path-traversal/symlink/size guards; per-worker fs_root |
 | claude-skill-versioning-ab-test | claude | TODO | — | V2.0 self-improvement: skill_version table + 50/50 A/B run + chi-square significance + auto-promote winner; `argo skill ab-test/ab-status/ab-promote` |
