@@ -35,5 +35,13 @@ pub enum GenesisCmd {
         /// post-create report.
         #[arg(long)]
         json: bool,
+        /// Stream `claude-genesis-llm-refinement` — opt-in LLM
+        /// refinement pass on top of the deterministic pipeline.
+        /// Requires `ANTHROPIC_API_KEY`. The safety judge re-runs
+        /// on every action the model proposes; refinement
+        /// failures fall back silently to the deterministic
+        /// output with a `tracing::warn!`.
+        #[arg(long)]
+        refine: bool,
     },
 }

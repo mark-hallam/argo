@@ -6,24 +6,60 @@
 //! brief. The pipeline itself + the safety judge live in
 //! `argo-genesis`.
 
-use argo_genesis::{plan, write_vertical, GenesisPlan};
+use argo_genesis::{plan, refine, refine_plan, write_vertical, GenesisPlan, RefineConfig};
 use argo_types::{ArgoError, ArgoResult};
 use std::path::Path;
 
 /// Run `argo genesis create --charter ... --persona ... --output ...`.
 /// Returns the resolved plan + the absolute output dir; the
 /// caller prints whichever shape the operator asked for.
+///
+/// When `refine` is `true`, the deterministic plan goes through
+/// the LLM refinement pass (Stream `claude-genesis-llm-refinement`).
+/// We surface a missing `ANTHROPIC_API_KEY` at startup BEFORE the
+/// deterministic pipeline runs so the operator sees the gap
+/// without writing a half-baked vertical.
 pub(crate) fn create(
     charter: &str,
     persona: &str,
     output: &Path,
     json: bool,
+    refine_flag: bool,
 ) -> ArgoResult<()> {
+    // Early validation: when --refine is on, the API key MUST be
+    // present before we do any work.
+    let refine_config = if refine_flag {
+        Some(RefineConfig::from_env().map_err(ArgoError::from)?)
+    } else {
+        None
+    };
     let plan = plan(charter, persona).map_err(ArgoError::from)?;
+    let plan = match refine_config {
+        Some(cfg) => run_refinement(plan, cfg)?,
+        None => plan,
+    };
     let abs_output = output.to_path_buf();
     write_vertical(&plan, &abs_output).map_err(ArgoError::from)?;
     print_plan(&plan, &abs_output, json);
     Ok(())
+}
+
+/// Run the LLM refinement pass on the deterministic plan.
+///
+/// Builds the production [`refine::http::ReqwestCaller`] inline
+/// and drives it via `tokio::task::block_in_place` — the cli is
+/// always inside a tokio runtime here (same sync→async bridge
+/// the cu executor uses).
+fn run_refinement(
+    plan: GenesisPlan,
+    config: RefineConfig,
+) -> ArgoResult<GenesisPlan> {
+    let caller = refine::http::ReqwestCaller::new(config).map_err(ArgoError::from)?;
+    let handle = tokio::runtime::Handle::try_current().map_err(|e| {
+        ArgoError::Provider(format!("genesis --refine needs a tokio runtime: {e}"))
+    })?;
+    let refined = tokio::task::block_in_place(|| handle.block_on(refine_plan(plan, &caller)));
+    refined.map_err(ArgoError::from)
 }
 
 fn print_plan(plan: &GenesisPlan, output: &Path, json: bool) {
@@ -84,6 +120,7 @@ mod tests {
             "maya",
             &out,
             true,
+            false,
         )
         .expect("create succeeds");
         for relpath in [
@@ -102,7 +139,7 @@ mod tests {
     fn create_errors_on_empty_charter() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("doesnt-matter");
-        let err = create("   ", "maya", &out, false).expect_err("empty charter");
+        let err = create("   ", "maya", &out, false, false).expect_err("empty charter");
         assert!(err.to_string().contains("charter is empty"), "got: {err}");
     }
 
@@ -110,7 +147,7 @@ mod tests {
     fn create_errors_on_invalid_persona() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("doesnt-matter");
-        let err = create("be my marketing intern", "maya@", &out, false)
+        let err = create("be my marketing intern", "maya@", &out, false, false)
             .expect_err("bad persona");
         assert!(err.to_string().contains("invalid persona"), "got: {err}");
     }

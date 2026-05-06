@@ -40,11 +40,13 @@ pub mod error;
 pub mod manifest_writer;
 pub mod pipeline;
 pub mod prompt_writer;
+pub mod refine;
 pub mod safety_judge;
 pub mod worker_config;
 
 pub use archetype::{classify_charter, Archetype};
 pub use error::GenesisError;
 pub use pipeline::{plan, write_vertical, GenesisPlan};
+pub use refine::{refine_plan, AnthropicCaller, RefineConfig, RefinementResponse};
 pub use safety_judge::{judge as run_safety_judge, SENSITIVE_VERBS};
 pub use worker_config::{WorkerConfig, DRY_RUN_HOURS};

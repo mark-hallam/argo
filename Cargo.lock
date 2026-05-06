@@ -368,6 +368,7 @@ version = "0.0.1"
 dependencies = [
  "argo-types",
  "argo-vertical",
+ "async-trait",
  "chrono",
  "reqwest 0.12.28",
  "serde",
