@@ -8,6 +8,8 @@ mod cli_action_cmds;
 mod cli_activity_cmds;
 #[path = "cli_audit_cmds.rs"]
 mod cli_audit_cmds;
+#[path = "cli_classify_cmds.rs"]
+mod cli_classify_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
 #[path = "cli_doctor_cmds.rs"]
@@ -386,6 +388,15 @@ pub enum Command {
     Feedback {
         #[command(subcommand)]
         cmd: FeedbackCmd,
+    },
+    /// Tag records (memory rows, audit payloads, action params)
+    /// with data classes (Stream `claude-data-classification`):
+    /// `pii` / `phi` / `financial` / `secret` / `public` /
+    /// `untagged`. Drives per-class retention windows and
+    /// audit-export redaction.
+    Classify {
+        #[command(subcommand)]
+        cmd: ClassifyCmd,
     },
     /// Diagnose configuration / sandbox / port issues.
     Doctor {

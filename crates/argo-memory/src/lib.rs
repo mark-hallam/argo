@@ -58,3 +58,44 @@ pub use summary::{
     HaikuSummaryProvider, MemorySummaryProvider, MonthlySummaryReport, YearMonth,
     NIGHTLY_SUMMARY_CRON,
 };
+
+/// Append a memory entry, then classify it via
+/// [`argo_store::classification`] in one shot (Stream
+/// `claude-data-classification`). When `class` is `None` this is
+/// just a regular [`MemoryStore::append`] — the tag insert is
+/// skipped. Errors during the classification insert are returned
+/// without rolling back the append (the entry exists, the tag
+/// didn't); the caller may retry the tag via
+/// `argo classify <kind>:<id> <class>` if it matters.
+///
+/// Takes `Arc<SessionStore>` so this function can reach the raw
+/// sqlite pool for the classification insert without widening
+/// `MemoryStore`'s public API. Internally it constructs a
+/// short-lived `MemoryStore` for the append.
+///
+/// `tagged_by` is optional — pass the worker / operator id when
+/// known, `None` for system-emitted writes.
+pub async fn append_with_class(
+    store: std::sync::Arc<argo_store::SessionStore>,
+    workspace_id: argo_types::WorkspaceId,
+    file: MemoryFile,
+    body: String,
+    learned_in: Option<argo_types::SessionId>,
+    class: Option<argo_identity::DataClass>,
+    tagged_by: Option<&str>,
+) -> argo_types::ArgoResult<MemoryEntry> {
+    let pool_handle = store.pool().clone();
+    let memory = MemoryStore::new(store);
+    let entry = memory.append(workspace_id, file, body, learned_in).await?;
+    if let Some(c) = class {
+        argo_store::classification::insert_tag(
+            &pool_handle,
+            "memory_entry",
+            &entry.id.to_string(),
+            c.as_str(),
+            tagged_by,
+        )
+        .await?;
+    }
+    Ok(entry)
+}

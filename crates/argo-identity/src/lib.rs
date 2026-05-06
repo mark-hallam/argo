@@ -21,6 +21,7 @@
 
 pub mod auto_approval;
 pub mod circuit;
+pub mod classification;
 pub mod org;
 pub mod org_ingest;
 pub mod policy;
@@ -31,6 +32,7 @@ mod types;
 pub mod worker_budget;
 
 pub use circuit::CircuitState;
+pub use classification::{ClassRule, ClassificationRules, DataClass};
 pub use org::{IngestSummary, MemberKind, OrgMember, OrgStore, OrgUnit};
 pub use org_ingest::{OrgChartYaml, OrgMemberYaml, OrgUnitYaml};
 pub use prompt::compose_system_prompt;

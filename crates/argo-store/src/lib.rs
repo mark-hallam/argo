@@ -3,6 +3,8 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod anomaly;
+/// Data classification tags (Stream `claude-data-classification`).
+pub mod classification;
 /// Operator feedback (Stream `claude-operator-feedback-channel`).
 pub mod feedback;
 mod forge_meta;

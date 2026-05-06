@@ -67,6 +67,31 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             } => handlers::feedback_list::run(worker.as_deref(), vote.as_deref(), limit, json)
                 .await,
         },
+        Some(Command::Classify { cmd }) => match cmd {
+            cli::ClassifyCmd::Set {
+                target,
+                class,
+                by,
+                json,
+            } => handlers::classify_set::run(&target, &class, by.as_deref(), json).await,
+            cli::ClassifyCmd::List {
+                class,
+                kind,
+                worker,
+                expired,
+                limit,
+                json,
+            } => handlers::classify_list::run(
+                class.as_deref(),
+                kind.as_deref(),
+                worker.as_deref(),
+                expired,
+                limit,
+                json,
+            )
+            .await,
+            cli::ClassifyCmd::Rules { json } => handlers::classify_rules::run(json).await,
+        },
         Some(Command::Doctor {
             cmd: Some(cli::DoctorCmd::Fix { auto, issue, json: fix_json }),
             json,
