@@ -48,7 +48,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | IN_REVIEW | #823 | PR opened |
 | H-action-replay | codex | BLOCKED | — | blocked: acceptance requires integration test but brief allowlist omits any test file |
-| H-audit-query-extensions | codex | CLAIMED | — | claimed by codex; unblocked: brief filenames corrected — `AuditCmd` enum lives in `crates/argo-cli/src/cli_subcommands.rs` (line ~303); per-filter handlers follow `audit_by_*.rs` convention. Brief amended: may-touch = `cli_subcommands.rs` (narrowly: ADD new flags to existing AuditCmd variants OR a new `Query { ... }` variant) + NEW `crates/argo-cli/src/handlers/audit_by_h_filters.rs` for the filter logic + `handlers/mod.rs` (ONE line). Do NOT modify existing `audit_by_*.rs` files. |
+| H-audit-query-extensions | codex | BLOCKED | — | blocked: amended allowlist omits audit dispatcher and integration-test file needed for required filters |
 | H-channel-health-checks | codex | TODO | — | replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | H-shared-team-cli | codex | TODO | — | replenish-codex2: `argo memory shared-team list/write/grep` for inspecting tenant-shared memory namespace (#819) |
 | H-vertical-list-cli | codex | TODO | — | replenish-codex2: `argo vertical list/show/describe` for installed verticals; pairs with publish/pull (#821) |
