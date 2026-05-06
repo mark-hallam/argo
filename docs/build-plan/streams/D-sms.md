@@ -10,6 +10,8 @@ reject link (HMAC-signed); operator clicks → gateway
 Reserved for high-risk actions (per manifest).
 
 ## Files you may touch
+- `crates/argo-channels/src/lib.rs` — narrowly scoped: add ONE
+  line `pub mod sms;` (or `mod sms;`). No other edits.
 - `crates/argo-channels/src/sms.rs` (NEW file)
 - `crates/argo-cli/src/handlers/gateway/routes_channels.rs`
   (extend with `GET /channels/sms/decision/<token>`)

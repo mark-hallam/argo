@@ -12,6 +12,8 @@ inbox; mobile app is a separate v1.x deliverable, but the push
 infrastructure lands now).
 
 ## Files you may touch
+- `crates/argo-channels/src/lib.rs` — narrowly scoped: add ONE
+  line `pub mod push;` (or `mod push;`). No other edits.
 - `crates/argo-channels/src/push.rs` (NEW)
 - `crates/argo-cli/src/handlers/gateway/routes_channels.rs`
   (`POST /channels/push/devices` for device registration;

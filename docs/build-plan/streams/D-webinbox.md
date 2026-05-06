@@ -16,6 +16,8 @@ Good enough for operators-not-at-a-terminal in v1; will be
 replaced by the proper SPA later.
 
 ## Files you may touch
+- `crates/argo-channels/src/lib.rs` — narrowly scoped: add ONE
+  line `pub mod webinbox;` (or `mod webinbox;`). No other edits.
 - `crates/argo-channels/src/webinbox.rs` (NEW)
 - `crates/argo-cli/src/handlers/gateway/routes_channels.rs`
   (extend: `GET /inbox`, `POST /inbox/approve/<id>`,

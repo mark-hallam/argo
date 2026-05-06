@@ -16,6 +16,8 @@ its work. This channel impl handles the operator's approval
 flow.
 
 ## Files you may touch
+- `crates/argo-channels/src/lib.rs` — narrowly scoped: add ONE
+  line `pub mod slack;` (or `mod slack;`). No other edits.
 - `crates/argo-channels/src/slack.rs` (NEW file in the existing
   crate)
 - `crates/argo-cli/src/handlers/gateway/routes_channels.rs`

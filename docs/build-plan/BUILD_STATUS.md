@@ -27,10 +27,10 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-hubspot | codex | TODO | — | (waits on C-mcp-wire) |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
-| D-slack-approvals | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export slack module" |
-| D-sms | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export sms module" |
-| D-push | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export push module" |
-| D-webinbox | codex | BLOCKED | — | reason="allowlist omits crates/argo-channels/src/lib.rs needed to export webinbox module" |
+| D-slack-approvals | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
+| D-sms | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
+| D-push | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
+| D-webinbox | codex | TODO | — | unblocked: lib.rs added to may-touch (one-line module add) |
 | E-identity | codex | IN_REVIEW | #781 | PR opened |
 | F-memory-layering | codex | TODO | — | (waits on E for MemoryNs) |
 | G-genesis | claude | TODO | — | (waits on A stable) |
