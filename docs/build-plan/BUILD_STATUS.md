@@ -29,7 +29,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
 | D-sms | codex | MERGED | #782 | Twilio SMS approval channel + HMAC token decision route |
-| D-push | codex | CLAIMED | — | claimed by codex |
+| D-push | codex | BLOCKED | — | exact branch codex-D-push already exists as stale entangled branch; no force/delete allowed |
 | D-webinbox | codex | CLAIMED | — | claimed by codex |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | IN_REVIEW | #786 | 3-layer memory + sqlite-vec/Voyage-3 PR open |
