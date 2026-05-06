@@ -40,10 +40,10 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-spend-persistence | codex | IN_REVIEW | #809 | PR opened |
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
 | H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
-| H-skill-library-routes | codex | BLOCKED | — | full cargo test fails in argo-cli chain_result_propagation outside this brief's file boundary |
+| H-skill-library-routes | codex | TODO | — | unblocked by #814 (H-2 autonomous-safe regression fix); chain_result_propagation now passes on main; resume in fresh worktree |
 | H-budget-cli | codex | TODO | — | tier-2 follow-up: `argo budget show <worker_id>` + `argo budget recent` (waits on H-spend-persistence) |
-| H-doctor-extensions | codex | IN_REVIEW | #808 | PR opened |
-| H-metrics | codex | BLOCKED | — | prometheus dep not in workspace and /metrics route is forbidden; cannot satisfy registry scrape acceptance within allowed files |
+| H-doctor-extensions | codex | MERGED | #808 | 4 new `argo doctor` checks for the H-stack: workspace policy presence + bare-enabled WARN, worker_budget table reachable, session/handoff tables (MISSING-friendly), notify-channel manifests; 9 unit tests + JSON envelope extension |
+| H-metrics | codex | TODO | — | unblocked: brief expanded — codex MAY add `prometheus = "0.13"` to root `Cargo.toml` workspace.dependencies AND touch the `/metrics` route handler (`crates/argo-cli/src/handlers/gateway/routes_metrics.rs` or wherever) IF needed to register the new counters. Keep changes minimal: only register the new counters, do NOT modify existing metric definitions. The brief's "must NOT touch existing metric definitions" still applies. |
 | migration-consolidation-test | codex | IN_REVIEW | #811 | PR open |
 | demo-marketplace-seller-vertical | codex | CLAIMED | — | claimed by codex |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
