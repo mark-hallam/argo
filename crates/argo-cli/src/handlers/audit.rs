@@ -1,10 +1,9 @@
 //! `argo audit` — chain inspection / verification / export.
 use crate::cli::AuditQueryCmd as AuditCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::{export_ndjson, rows_for_session, tail_rows, verify_all, verify_session};
+use argo_audit::{rows_for_session, tail_rows, verify_all, verify_session};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
-use std::io::{BufWriter, Write};
 use std::sync::Arc;
 
 pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
@@ -132,9 +131,8 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             let cutoff = since_minutes
                 .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
             if let Some(raw) = session {
-                let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
-                    ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
-                })?;
+                let id = uuid::Uuid::parse_str(&raw)
+                    .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
                 let mut rows = rows_for_session(&store, SessionId(id)).await?;
                 if let Some(allowed) = &kind_filter {
                     rows.retain(|r| allowed.contains(r.kind.as_str()));
@@ -146,9 +144,8 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 match pick {
                     "json" => {
                         for r in &rows {
-                            let line = serde_json::to_string(r).map_err(|e| {
-                                ArgoError::Provider(format!("serialize row: {e}"))
-                            })?;
+                            let line = serde_json::to_string(r)
+                                .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
                             println!("{line}");
                         }
                         return Ok(());
@@ -293,80 +290,32 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
         }
         AuditCmd::Export {
             format,
-            out,
+            bundle_out,
+            since,
+            until,
+            worker_id,
+            tenant,
             session,
             since_minutes,
+            gdpr_redact_emails,
+            json,
         } => {
-            if format != "ndjson" {
-                return Err(ArgoError::Provider(format!(
-                    "unsupported audit export format '{format}' (only 'ndjson' for now)"
-                )));
-            }
-            let mut writer: Box<dyn Write> = match out.as_deref() {
-                Some(path) => {
-                    let f = std::fs::File::create(path)
-                        .map_err(|e| ArgoError::Provider(format!("create {path}: {e}")))?;
-                    Box::new(BufWriter::new(f))
-                }
-                None => Box::new(BufWriter::new(std::io::stdout())),
-            };
-            let cutoff = since_minutes
-                .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
-            let n = if let Some(raw) = session {
-                let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
-                    ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
-                })?;
-                let mut rows = rows_for_session(&store, SessionId(id)).await?;
-                if let Some(c) = cutoff {
-                    rows.retain(|r| r.created_at_micros >= c);
-                }
-                for row in &rows {
-                    let line = serde_json::to_string(row)
-                        .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
-                    writer
-                        .write_all(line.as_bytes())
-                        .and_then(|()| writer.write_all(b"\n"))
-                        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
-                }
-                rows.len()
-            } else if let Some(c) = cutoff {
-                let mut count = 0_usize;
-                export_ndjson(&store, |row| {
-                    if row.created_at_micros < c {
-                        return Ok(());
-                    }
-                    count += 1;
-                    let line = serde_json::to_string(row)
-                        .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
-                    writer
-                        .write_all(line.as_bytes())
-                        .and_then(|()| writer.write_all(b"\n"))
-                        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
-                    Ok(())
-                })
-                .await?;
-                count
-            } else {
-                export_ndjson(&store, |row| {
-                    let line = serde_json::to_string(row)
-                        .map_err(|e| ArgoError::Provider(format!("serialize row: {e}")))?;
-                    writer
-                        .write_all(line.as_bytes())
-                        .and_then(|()| writer.write_all(b"\n"))
-                        .map_err(|e| ArgoError::Provider(format!("write: {e}")))?;
-                    Ok(())
-                })
-                .await?
-            };
-            writer
-                .flush()
-                .map_err(|e| ArgoError::Provider(format!("flush: {e}")))?;
-            // Only print the summary if we wrote to a file (stdout
-            // already has the rows).
-            if out.is_some() {
-                eprintln!("audit export: wrote {n} rows");
-            }
-            Ok(())
+            super::audit_export::run(
+                &store,
+                super::audit_export::ExportArgs {
+                    format,
+                    bundle_out,
+                    worker_id,
+                    tenant,
+                    session,
+                    since,
+                    until,
+                    since_minutes,
+                    gdpr_redact_emails,
+                    json,
+                },
+            )
+            .await
         }
         AuditCmd::Breaks { json } => print_breaks(json).await,
         AuditCmd::Count {
@@ -375,12 +324,14 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             session,
             json,
         } => print_count(kind, since_minutes, session, json).await,
-        AuditCmd::ByKind { since_minutes, json } => {
-            super::audit_by_kind::run(since_minutes, json).await
-        }
-        AuditCmd::ByVertical { since_minutes, json } => {
-            super::audit_by_vertical::run(since_minutes, json).await
-        }
+        AuditCmd::ByKind {
+            since_minutes,
+            json,
+        } => super::audit_by_kind::run(since_minutes, json).await,
+        AuditCmd::ByVertical {
+            since_minutes,
+            json,
+        } => super::audit_by_vertical::run(since_minutes, json).await,
         AuditCmd::ByDay { days, json } => super::audit_by_day::run(days, json).await,
         AuditCmd::BySession {
             limit,
@@ -395,9 +346,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             since_minutes,
             json,
         } => super::audit_tool_errors::run(since_minutes, json).await,
-        AuditCmd::ByDayByKind { days, json } => {
-            super::audit_by_day_by_kind::run(days, json).await
-        }
+        AuditCmd::ByDayByKind { days, json } => super::audit_by_day_by_kind::run(days, json).await,
         AuditCmd::Replay {
             session_id,
             from_seq,

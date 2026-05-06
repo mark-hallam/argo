@@ -81,21 +81,39 @@ pub enum AuditQueryCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    /// Stream the audit log to ndjson. Defaults to stdout; pass
-    /// `--out <path>` to write to a file. Pass `--session <id>` to
-    /// scope the export to one session, or `--since-minutes <N>`
-    /// to scope to recent rows.
+    /// Export audit rows for compliance review.
     Export {
+        /// Output format: ndjson, csv, or tarball.
         #[arg(long, default_value = "ndjson")]
         format: String,
+        /// Write output to a path instead of stdout.
+        #[arg(long = "bundle-out", alias = "out")]
+        bundle_out: Option<String>,
+        /// Lower created-at bound: YYYY-MM-DD or RFC3339.
         #[arg(long)]
-        out: Option<String>,
+        since: Option<String>,
+        /// Upper created-at bound: YYYY-MM-DD or RFC3339.
+        #[arg(long)]
+        until: Option<String>,
+        /// Filter by payload worker id.
+        #[arg(long)]
+        worker_id: Option<String>,
+        /// Filter by tenant id.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Legacy session filter retained for incident drill-downs.
         #[arg(long)]
         session: Option<String>,
         /// Filter to rows created within this many recent minutes.
         /// Combined with `--session` if both are set.
         #[arg(long)]
         since_minutes: Option<i64>,
+        /// Replace emails in payloads with deterministic placeholders.
+        #[arg(long)]
+        gdpr_redact_emails: bool,
+        /// Emit a JSON summary envelope instead of records.
+        #[arg(long)]
+        json: bool,
     },
     /// Print just the chain-break rows (`{seq, kind, reason}`).
     /// Mirrors `GET /audit/breaks` (#406). One row per line in the
