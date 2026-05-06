@@ -17,9 +17,29 @@ every PR. Don't deviate.
 
 ## Worker prompt (reference copy — Claude variant shown)
 
-The same content is in `PROTOCOL_WORKER_PROMPT_CLAUDE.md`. Use
-the sibling file when actually pasting; this copy is for reading
-the protocol inline.
+For the actual paste-ready text see
+`PROTOCOL_WORKER_PROMPT_CLAUDE.md` and
+`PROTOCOL_WORKER_PROMPT_CODEX.md`. The summary shape:
+
+1. cd to repo, pull main fresh
+2. Re-read BUILD_STATUS.md (do not trust memory)
+3. Find first owner-matching TODO row, claim it
+4. Read the brief from streams/<brief-id>.md
+5. Worktree-add to /tmp/<brief-id>, branch claude- or codex-<brief-id>
+6. Implement, respecting may-touch + LOC budget + amendments
+7. Run cargo build / clippy / test (skip pre-existing flakes per tick-60)
+8. Push branch + open PR with acceptance ticked + Boundary note if any
+9. Update BUILD_STATUS.md row to IN_REVIEW with PR number
+10. Hard exit at 5 PRs shipped from this tab
+11. /compact to cap context
+12. Loop back to step 1
+
+The 4 critical hard rules at the top of each paste-ready file:
+
+- Pre-existing flakes don't block (tick-60 amendment)
+- Ledger is source of truth, not memory
+- Don't re-implement an already-merged brief (auto-compaction trap)
+- Hard 5-PR cap per tab
 
 ```
 You are a worker tab in the SKYCOT swarm. Implement ONE brief, open a PR, then stop. Do not loop.
@@ -81,17 +101,37 @@ Hard rules:
 - If you can't even claim a row (e.g. queue empty, or everything has unmerged predecessors), stop and tell me.
 ```
 
-## Why workers don't loop
+## Why workers loop (with bounded context)
 
-A worker tab that claims a second row from the same context has
-seen its own first claim and merge — it has a stale view of
-what's mergeable, what's blocked, what just landed. The
-conductor's job is to maintain that global view; the worker's
-job is to do one thing well and stop. Letting workers loop
-caused two duplicate-implementation incidents during the v1
-build (see PROTOCOL.md "Anti-patterns we hit and how we
-recovered" — the H-1 sub-slice double-implementation). One PR
-per tab, then stop.
+Tick-82 update: workers now loop, but with three guardrails to
+prevent the failure modes that earlier killed the no-loop debate:
+
+1. **Ledger is source of truth, not memory.** Every iteration
+   re-pulls main and re-reads BUILD_STATUS.md from disk. Stale
+   internal recall is never trusted. Solves the
+   "duplicate-implementation" failure mode that bit the v1 build.
+
+2. **`/compact` between iterations.** Caps context growth at
+   ~10K tokens per iteration instead of 30K. With this, a tab
+   can ship 5+ PRs before Claude Code's auto-compaction would
+   otherwise kick in and wipe critical state.
+
+3. **Hard 5-PR exit cap.** After the 5th successfully-shipped
+   PR, the tab cleanly exits regardless of queue state. Bounds
+   `/compact` drift at a known-clean restart point. The user
+   spawns a fresh tab to continue.
+
+Plus a defensive rule: if a tab is about to claim a brief that's
+already MERGED on main (matching brief id), it must NOT
+re-implement — that's the auto-compaction-amnesia trap. It picks
+a different row instead.
+
+Earlier "stop after 1 PR" rule was a sledgehammer for two real
+problems (stale state, context bloat); the new design solves
+both surgically. The tradeoff: looping tabs require more
+careful self-monitoring than stop-once tabs. Workers should
+re-read these rules at the START of every iteration, not just
+the first.
 
 ## Spinning up multiple workers
 
