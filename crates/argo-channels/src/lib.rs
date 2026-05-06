@@ -18,6 +18,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod email;
+pub mod imessage;
 pub mod manifest;
 pub mod push;
 pub mod slack;

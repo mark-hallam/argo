@@ -153,6 +153,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-bluebubbles-client"
+version = "0.0.1"
+dependencies = [
+ "hex",
+ "hmac 0.12.1",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 1.0.69",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "argo-capability"
 version = "0.0.1"
 dependencies = [
@@ -166,6 +181,7 @@ dependencies = [
 name = "argo-channels"
 version = "0.0.1"
 dependencies = [
+ "argo-bluebubbles-client",
  "async-trait",
  "chrono",
  "hex",
@@ -570,6 +586,19 @@ dependencies = [
  "argo-types",
  "async-trait",
  "reqwest 0.12.28",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "argo-mcp-connector-imessage"
+version = "0.0.1"
+dependencies = [
+ "argo-bluebubbles-client",
+ "argo-mcp",
+ "argo-types",
+ "async-trait",
+ "serde",
  "serde_json",
  "tokio",
 ]

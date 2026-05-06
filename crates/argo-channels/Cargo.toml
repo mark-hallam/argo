@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo notification channels and approval transport"
 
 [dependencies]
+argo-bluebubbles-client = { path = "../argo-bluebubbles-client", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 hex = { workspace = true }
