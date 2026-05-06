@@ -66,7 +66,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-e2e-test-step-completion | claude | MERGED | #832 | flipped 3 SKIPped steps to real assertions: worker_action JSON round-trip / StubNotifier capture / pending→executing→completed memory-row chain; **v1 demo gate now GREEN (9/9)** |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
 | claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
-| H-eval-runner-cli | codex | TODO | — | reverted from stale CLAIM (30+min, no remote branch); flaky-test policy applies (ignore pre-existing gateway flakes) |
+| H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
 | H-tenant-cli | codex | IN_REVIEW | #839 | PR opened; flaky-test policy applies |
 | H-handoff-cancel | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
 | H-skill-export-import | codex | TODO | — | unblocked: AuditQueryCmd::Replay restored in #838; baseline cargo build clean. Resume in fresh worktree |
