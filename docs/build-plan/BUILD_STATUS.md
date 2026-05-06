@@ -24,7 +24,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | C-gmail | codex | TODO | — | unblocked: brief now allows Cargo.lock + defers argo-store keyring to v1.x; for v1 use env `ARGO_GMAIL_REFRESH_TOKEN` + access-token cache file in `<cwd>/.argo/connectors/gmail/` |
 | C-slack | codex | CLAIMED | — | claimed by codex |
 | C-gcal | codex | CLAIMED | — | claimed by codex |
-| C-hubspot | codex | CLAIMED | — | claimed by codex |
+| C-hubspot | codex | IN_REVIEW | #792 | PR opened |
 | C-notion | codex | TODO | — | (waits on C-mcp-wire) |
 | D-email | codex | MERGED | #780 | NotifyChannel trait + EmailChannel landed; predecessors unblocked |
 | D-slack-approvals | codex | MERGED | #783 | Block Kit buttons + HMAC-signed webhook |
