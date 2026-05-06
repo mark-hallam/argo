@@ -16,6 +16,9 @@ use uuid::Uuid;
 struct TenantSummary {
     id: String,
     name: Option<String>,
+    owner_email: Option<String>,
+    archived_at: Option<i64>,
+    archived_at_rfc3339: Option<String>,
     workspace_count: i64,
     worker_count: i64,
     session_count: i64,
@@ -60,15 +63,23 @@ struct SessionSummary {
 
 pub async fn run(cmd: TenantCmd) -> ArgoResult<()> {
     match cmd {
-        TenantCmd::List { json } => list(json).await,
+        TenantCmd::List {
+            include_archived,
+            json,
+        } => list(include_archived, json).await,
         TenantCmd::Info { id, json } => info(&id, json).await,
         TenantCmd::Create { name, json } => create(&name, json).await,
+        TenantCmd::Rename { id, to, json } => super::tenant_rename::run(&id, &to, json).await,
+        TenantCmd::Archive { id, json } => super::tenant_archive::run(&id, json).await,
+        TenantCmd::Transfer { id, owner, json } => {
+            super::tenant_transfer::run(&id, &owner, json).await
+        }
     }
 }
 
-async fn list(json: bool) -> ArgoResult<()> {
+async fn list(include_archived: bool, json: bool) -> ArgoResult<()> {
     let (store, _) = open_store().await?;
-    let rows = tenant_ids(&store).await?;
+    let rows = tenant_ids(&store, include_archived).await?;
     let mut out = Vec::with_capacity(rows.len());
     for tenant in rows {
         out.push(summary(&store, tenant).await?);
@@ -146,10 +157,11 @@ async fn open_store() -> ArgoResult<(SessionStore, PathBuf)> {
     let store = SessionStore::open(db_path(&home)).await?;
     store.migrate().await?;
     IdentityStore::new(&store).ensure_schema().await?;
+    super::tenant_archive::ensure_tenant_lifecycle_schema(&store).await?;
     Ok((store, cwd))
 }
 
-async fn tenant_ids(store: &SessionStore) -> ArgoResult<Vec<TenantId>> {
+async fn tenant_ids(store: &SessionStore, include_archived: bool) -> ArgoResult<Vec<TenantId>> {
     let mut out = BTreeMap::new();
     collect_blob_tenants(store, "SELECT DISTINCT tenant_id FROM workspace", &mut out).await?;
     collect_blob_tenants(store, "SELECT DISTINCT tenant_id FROM session", &mut out).await?;
@@ -162,7 +174,17 @@ async fn tenant_ids(store: &SessionStore) -> ArgoResult<Vec<TenantId>> {
         let tenant = parse_tenant(&raw)?;
         out.insert(tenant.to_string(), tenant);
     }
-    Ok(out.into_values().collect())
+    let tenants = out.into_values();
+    if include_archived {
+        return Ok(tenants.collect());
+    }
+    let mut visible = Vec::new();
+    for tenant in tenants {
+        if tenant_lifecycle(store, tenant).await?.archived_at.is_none() {
+            visible.push(tenant);
+        }
+    }
+    Ok(visible)
 }
 
 async fn collect_blob_tenants(
@@ -187,15 +209,46 @@ async fn summary(store: &SessionStore, tenant: TenantId) -> ArgoResult<TenantSum
     let session_count = count_blob(store, "session", tenant).await?;
     let worker_count = count_text(store, "worker", tenant).await?;
     let last_action_at = last_action_at(store, tenant).await?;
+    let lifecycle = tenant_lifecycle(store, tenant).await?;
     Ok(TenantSummary {
         id: tenant.to_string(),
         name: tenant_name(store, tenant).await?,
+        owner_email: lifecycle.owner_email,
+        archived_at: lifecycle.archived_at,
+        archived_at_rfc3339: lifecycle.archived_at.and_then(format_micros),
         workspace_count,
         worker_count,
         session_count,
         last_action_at,
         last_action_at_rfc3339: last_action_at.and_then(format_micros),
     })
+}
+
+#[derive(Debug)]
+struct TenantLifecycle {
+    owner_email: Option<String>,
+    archived_at: Option<i64>,
+}
+
+async fn tenant_lifecycle(store: &SessionStore, tenant: TenantId) -> ArgoResult<TenantLifecycle> {
+    let row = sqlx::query(
+        "SELECT owner_email, archived_at FROM workspace \
+         WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1",
+    )
+    .bind(tenant.0.as_bytes().as_slice())
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("tenant lifecycle: {e}")))?;
+    Ok(row.map_or(
+        TenantLifecycle {
+            owner_email: None,
+            archived_at: None,
+        },
+        |row| TenantLifecycle {
+            owner_email: row.get("owner_email"),
+            archived_at: row.get("archived_at"),
+        },
+    ))
 }
 
 async fn tenant_name(store: &SessionStore, tenant: TenantId) -> ArgoResult<Option<String>> {
@@ -329,14 +382,16 @@ fn print_tenant_table(rows: &[TenantSummary]) {
         return;
     }
     println!(
-        "{:<36}  {:<20}  workspaces  workers  sessions  last_action",
-        "tenant_id", "name"
+        "{:<36}  {:<20}  {:<24}  {:<20}  workspaces  workers  sessions  last_action",
+        "tenant_id", "name", "owner", "archived"
     );
     for row in rows {
         println!(
-            "{:<36}  {:<20}  {:>10}  {:>7}  {:>8}  {}",
+            "{:<36}  {:<20}  {:<24}  {:<20}  {:>10}  {:>7}  {:>8}  {}",
             row.id,
             truncate(row.name.as_deref().unwrap_or(""), 20),
+            truncate(row.owner_email.as_deref().unwrap_or(""), 24),
+            row.archived_at_rfc3339.as_deref().unwrap_or("-"),
             row.workspace_count,
             row.worker_count,
             row.session_count,
