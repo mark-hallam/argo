@@ -10,6 +10,8 @@ mod cli_activity_cmds;
 mod cli_audit_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
+#[path = "cli_doctor_cmds.rs"]
+mod cli_doctor_cmds;
 #[path = "cli_eval_cmds.rs"]
 pub(crate) mod cli_eval_cmds;
 #[path = "cli_forge_cmds.rs"]
@@ -53,6 +55,7 @@ pub(crate) mod cli_workspace_cmds;
 pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
 pub use cli_budget_cmds::*;
+pub use cli_doctor_cmds::DoctorCmd;
 pub use cli_genesis_cmds::*;
 pub use cli_memory_cmd::SharedTeamCmd;
 pub use cli_session_cmds::*;
@@ -342,6 +345,8 @@ pub enum Command {
     },
     /// Diagnose configuration / sandbox / port issues.
     Doctor {
+        #[command(subcommand)]
+        cmd: Option<DoctorCmd>,
         /// Emit a single JSON object with all the checks. Default
         /// is the human-readable text report. Equivalent to
         /// `--format json`.

@@ -39,7 +39,15 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         }
         Some(Command::Agents { cmd }) => handlers::agents::run(cmd),
         Some(Command::Gateway { cmd }) => handlers::gateway::run(cmd).await,
-        Some(Command::Doctor { json, format }) => handlers::doctor::run(json, &format).await,
+        Some(Command::Doctor {
+            cmd: Some(cli::DoctorCmd::Watch { interval, clear }),
+            ..
+        }) => handlers::doctor_watch::run(&interval, clear).await,
+        Some(Command::Doctor {
+            cmd: None,
+            json,
+            format,
+        }) => handlers::doctor::run(json, &format).await,
         Some(Command::Health { json, format }) => handlers::health::run(json, &format).await,
         Some(Command::New {
             provider,
