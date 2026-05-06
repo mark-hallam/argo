@@ -20,6 +20,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod library;
 mod parse;
 mod skill;
 mod store;
@@ -29,6 +30,7 @@ pub mod trust;
 #[cfg(test)]
 mod tests;
 
+pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
 pub use store::SkillStore;
