@@ -34,6 +34,7 @@ members = [
   "crates/argo-executor-computer-use",
   "crates/argo-genesis",
   "crates/argo-mcp-connector-gcal",
+  "crates/argo-mcp-connector-hubspot",
   "mcp-servers/voice",
   "mcp-servers/browser",
 ]

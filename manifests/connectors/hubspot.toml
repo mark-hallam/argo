@@ -1,0 +1,27 @@
+id = "hubspot"
+display_name = "HubSpot CRM"
+transport = "stdio"
+command = "argo-mcp-connector-hubspot"
+token_env = "HUBSPOT_PRIVATE_APP_TOKEN"
+
+required_env = ["HUBSPOT_PRIVATE_APP_TOKEN"]
+
+[[tools]]
+name = "hubspot.search_contacts"
+description = "Search HubSpot contacts."
+
+[[tools]]
+name = "hubspot.create_contact"
+description = "Create a HubSpot contact."
+
+[[tools]]
+name = "hubspot.create_deal"
+description = "Create a HubSpot deal."
+
+[[tools]]
+name = "hubspot.log_activity"
+description = "Log a HubSpot note activity."
+
+[[tools]]
+name = "hubspot.get_pipeline"
+description = "List or fetch HubSpot CRM pipelines."
