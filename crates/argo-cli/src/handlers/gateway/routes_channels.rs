@@ -21,6 +21,7 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
     req.starts_with("POST /channels/email/webhook ")
         || req.starts_with("POST /channels/email/webhook?")
         || is_slack_webhook(req)
+        || is_sms_decision(req)
 }
 
 fn is_slack_webhook(req: &str) -> bool {
@@ -28,9 +29,17 @@ fn is_slack_webhook(req: &str) -> bool {
         || req.starts_with("POST /channels/slack/webhook?")
 }
 
+fn is_sms_decision(req: &str) -> bool {
+    req.starts_with("GET /channels/sms/decision/")
+        || req.starts_with("GET /channels/sms/decision?")
+}
+
 pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) {
     if is_slack_webhook(req) {
         return slack_webhook_response(req).await;
+    }
+    if is_sms_decision(req) {
+        return sms_decision_response(req).await;
     }
     let Ok(secret) = std::env::var("ARGO_CHANNEL_HMAC_SECRET") else {
         return server_error("missing ARGO_CHANNEL_HMAC_SECRET");
@@ -95,6 +104,26 @@ async fn slack_webhook_response(req: &str) -> (&'static str, String) {
     let actor = slack_actor(&parsed);
     let note = slack_note(&parsed);
     match settle(&claims, &actor, note.as_deref(), "slack").await {
+        Ok(v) => ("200 OK", v),
+        Err(e) => server_error(&e.to_string()),
+    }
+}
+
+async fn sms_decision_response(req: &str) -> (&'static str, String) {
+    let Ok(secret) = std::env::var("ARGO_CHANNEL_HMAC_SECRET") else {
+        return server_error("missing ARGO_CHANNEL_HMAC_SECRET");
+    };
+    if secret.is_empty() {
+        return server_error("ARGO_CHANNEL_HMAC_SECRET must not be empty");
+    }
+    let Some(token) = extract_sms_token(req) else {
+        return bad_request("missing approval token");
+    };
+    let claims = match verify_token(&token, &secret) {
+        Ok(c) => c,
+        Err(e) => return unauthorized(&e),
+    };
+    match settle(&claims, "sms-operator", None, "sms").await {
         Ok(v) => ("200 OK", v),
         Err(e) => server_error(&e.to_string()),
     }
@@ -321,6 +350,24 @@ fn extract_token(req: &str, payload: &Value) -> Option<String> {
         .or_else(|| text_token(payload))
 }
 
+fn extract_sms_token(req: &str) -> Option<String> {
+    sms_path_token(req).or_else(|| {
+        let path = req.strip_prefix("GET ")?;
+        let (target, _) = path.split_once(' ')?;
+        let (_, query) = target.split_once('?')?;
+        query
+            .split('&')
+            .find_map(|kv| kv.strip_prefix("token=").map(clean_token))
+    })
+}
+
+fn sms_path_token(req: &str) -> Option<String> {
+    let path = req.strip_prefix("GET /channels/sms/decision/")?;
+    let (target, _) = path.split_once(' ')?;
+    let token = target.split_once('?').map(|(t, _)| t).unwrap_or(target);
+    Some(clean_token(token))
+}
+
 fn request_query_token(req: &str) -> Option<String> {
     let path = req.strip_prefix("POST ")?;
     let (target, _) = path.split_once(' ')?;
@@ -463,6 +510,21 @@ mod tests {
             extract_token("POST /channels/email/webhook HTTP/1.1\r\n\r\n{}", &payload),
             Some("act.approve.999.sig".to_string())
         );
+    }
+
+    #[test]
+    fn extracts_sms_token_from_decision_path() {
+        assert_eq!(
+            extract_sms_token("GET /channels/sms/decision/act.reject.999.sig HTTP/1.1\r\n\r\n"),
+            Some("act.reject.999.sig".to_string())
+        );
+    }
+
+    #[test]
+    fn detects_sms_decision_route() {
+        assert!(is_email_webhook(
+            "GET /channels/sms/decision/act.approve.999.sig HTTP/1.1\r\n\r\n"
+        ));
     }
 
     #[test]

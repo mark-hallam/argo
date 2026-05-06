@@ -1,0 +1,19 @@
+[channel]
+id = "sms"
+provider = "twilio"
+account_sid_env = "TWILIO_ACCOUNT_SID"
+auth_token_env = "TWILIO_AUTH_TOKEN"
+from_number_env = "TWILIO_FROM_NUMBER"
+decision_path = "/channels/sms/decision"
+endpoint_template = "https://api.twilio.com/2010-04-01/Accounts/{{account_sid}}/Messages.json"
+
+[hmac]
+secret_env = "ARGO_CHANNEL_HMAC_SECRET"
+token_ttl_seconds = 86400
+
+[operator.phone_numbers]
+# operator_id = "+15555550123"
+
+[action.example_high_risk.approval]
+channels = ["sms"]
+risk = "high"
