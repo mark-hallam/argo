@@ -122,7 +122,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-trajectory-training-export | claude | MERGED | #870 | V2.0 self-improvement: `argo trajectory export --since/--until --format anthropic|openai|jsonl [--filter passed|all]`; walks .skycot/outputs/<job>/actions/<id>/ bundles; PII redaction integrated; for fine-tuning data pipelines. 1052 LOC across 8 files. Brief was swept tick100, reclaimed + delivered cleanly under endless-loop prompt.
 | codex-connector-clickup | codex | TODO | — | UNBLOCKED tick107: blocker (main broken on missing worker_actions_executor_code) was fixed by conductor commit c395b61. V1.2 capability: native ClickUp MCP connector (8 methods); CLICKUP_TOKEN bearer; mirror gmail/asana crate pattern. Codex tab can resume; branch may already exist on remote |
 | codex-tenant-cli-extensions | codex | CLAIMED | — | claimed by codex |
-| codex-genesis-refine-cli | codex | CLAIMED | — | claimed by codex |
+| codex-genesis-refine-cli | codex | MERGED | #876 | V1.x: `argo genesis refine <id>` re-refines existing verticals via LLM (reuses #812 prompt + safety judge); 575 LOC across 7 files; --dry-run + --no-judge + --max-iterations; persists versioned old vertical kept as <id>-v<n>; new argo-vertical::version helpers. Conductor opened the PR — worker pushed branch but stalled before gh pr create
 | claude-memory-tool-wire | claude | MERGED | #875 | wires memory.list/read/write through MemoryStore w/ vertical scoping; 539 LOC; replaces stale PR #775; vertical-bound writes via append_for_vertical (correctness fix); no uuid dep added; back-compat preserved for builtin_tools(cwd) call sites
 | codex-connector-discord | codex | CLAIMED | — | claimed by codex |
 | codex-vertical-archive-cli | codex | CLAIMED | — | claimed by codex |
