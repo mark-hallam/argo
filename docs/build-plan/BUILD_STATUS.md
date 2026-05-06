@@ -121,7 +121,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-checkpoint-resume | claude | TODO | — | V1.3 multi-worker: argo-workflow checkpoint+resume — per-task output persisted to workflow_checkpoint table; on-startup scan resumes pending; cache_key idempotency skips re-execution; `argo workflow resume/checkpoints/rollback` |
 | claude-trajectory-training-export | claude | MERGED | #870 | V2.0 self-improvement: `argo trajectory export --since/--until --format anthropic|openai|jsonl [--filter passed|all]`; walks .skycot/outputs/<job>/actions/<id>/ bundles; PII redaction integrated; for fine-tuning data pipelines. 1052 LOC across 8 files. Brief was swept tick100, reclaimed + delivered cleanly under endless-loop prompt.
 | codex-connector-clickup | codex | CLAIMED | — | claimed by codex |
-| codex-tenant-cli-extensions | codex | TODO | — | V1.x: extend `argo tenant` with rename/archive/transfer; soft-delete via archived_at col; transfer audit-logged; `--include-archived` flag for list; --json envelope |
+| codex-tenant-cli-extensions | codex | CLAIMED | — | claimed by codex |
 | codex-genesis-refine-cli | codex | TODO | — | V1.x: `argo genesis refine <id>` re-refines existing verticals via LLM (reuses #812 prompt + safety judge); --dry-run + --no-judge + --max-iterations; persists versioned old vertical kept as <id>-v<n> |
 | claude-memory-tool-wire | claude | CLAIMED | — | claimed by claude looping tab |
 | codex-connector-discord | codex | TODO | — | V1.2 capability: native Discord MCP connector (7 methods: list_guilds/channels/messages, get/send_message, add_reaction, list_members); DISCORD_BOT_TOKEN bot auth; mirror gmail/asana crate pattern |
