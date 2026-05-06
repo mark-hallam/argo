@@ -19,9 +19,11 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod auto_approval;
 mod prompt;
 mod store;
 mod types;
+pub mod worker_budget;
 
 pub use prompt::compose_system_prompt;
 pub use store::IdentityStore;

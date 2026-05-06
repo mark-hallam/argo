@@ -273,6 +273,14 @@ impl Role {
 
 /// Auto-approval policy attached to a worker.
 ///
+/// The Stream H-1 evaluator in [`crate::auto_approval::evaluate`]
+/// consumes this + a [`crate::auto_approval::SpendSnapshot`] + a
+/// `PendingAction` and returns a decision for the dispatch gate.
+///
+/// All fields beyond `enabled` are optional and additive — older
+/// persisted values still deserialise (serde `default`s on every
+/// new field).
+///
 /// ```
 /// use argo_identity::AutoApprovalPolicy;
 /// assert!(!AutoApprovalPolicy::default().enabled);
@@ -282,9 +290,22 @@ pub struct AutoApprovalPolicy {
     /// Whether auto-approval is enabled.
     pub enabled: bool,
     /// Optional per-action spend ceiling in USD micros.
+    #[serde(default)]
     pub max_usd_micros_per_action: Option<u64>,
     /// Optional daily spend ceiling in USD micros.
+    #[serde(default)]
     pub daily_budget_usd_micros: Option<u64>,
+    /// Allowed time windows. Empty = no time-based restriction.
+    /// Outside the windows the evaluator returns
+    /// [`crate::auto_approval::Decision::Ask`].
+    #[serde(default)]
+    pub time_windows: Vec<crate::auto_approval::TimeWindow>,
+    /// Wake-rules: action types that bypass the time-window
+    /// guard because they're urgent (e.g. `page_oncall`,
+    /// `escalate_ticket`). The evaluator skips the window check
+    /// when the pending action_type matches.
+    #[serde(default)]
+    pub wake_action_types: Vec<String>,
 }
 
 /// Notification channel preference for approvals.
