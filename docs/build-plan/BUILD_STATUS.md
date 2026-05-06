@@ -87,6 +87,31 @@ already CLAIMED on their next pull and pick a different one.
 
 ---
 
+## Blanket CLI allowlist (tick 32 amendment)
+
+Repeated BLOCKs from may-touch lists that allow a NEW file
+but forbid the EXISTING dispatch wiring. Going forward, every
+CLI-extension brief MAY also touch:
+
+- `crates/argo-cli/src/cli.rs` — narrowly: ONE arm in the
+  Command enum + ONE dispatch arm
+- `crates/argo-cli/src/main.rs` — narrowly: ONE handler call
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly: ONE
+  `pub mod <name>;` line
+- `crates/argo-cli/tests/<name>.rs` — NEW integration test file
+- `crates/argo-cli/Cargo.toml` — ONE line for any new path
+  dep on a sibling crate
+
+Strict scope still applies: ONE arm/line per file. Don't
+refactor unrelated logic. The blanket unblocks tier-2 CLI
+briefs without per-brief amendments.
+
+This applies retroactively to any BLOCKED brief flagging
+"dispatch file outside allowlist" — codex may resume those
+briefs in fresh worktrees on origin/main.
+
+---
+
 ## Known dependencies
 
 ```
