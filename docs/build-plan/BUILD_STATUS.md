@@ -65,7 +65,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-action-record-identity-plumbing | claude | MERGED | #829 | ActionRecord.worker_id threaded through 19 files; emit_actions_from_text gains worker_id param; FOUNDATIONAL — unblocks e2e-test-step-completion + worker-instance-policy gate hookup |
 | claude-e2e-test-step-completion | claude | CLAIMED | — | claimed by claude |
 | claude-marketplace-vertical-publish | claude | MERGED | #821 | `argo vertical publish/pull` via OCI; build_vertical_bundle + unpack_vertical_bundle; hermetic round-trip + tamper-reject tests; --rename for conflict resolution |
-| claude-realtime-audit-stream | claude | IN_REVIEW | #831 | PR opened — AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests pass; heartbeat deferred (waits on real WS transport adoption) |
+| claude-realtime-audit-stream | claude | MERGED | #831 | AuditSink::subscribe() broadcast channel + GET /audit/stream snapshot route with kind/worker filters + bearer auth; 13 tests; heartbeat deferred to v1.x WS transport |
 | H-eval-runner-cli | codex | CLAIMED | — | claimed by codex |
 | H-tenant-cli | codex | TODO | — | replenish-codex3: `argo tenant list/info/create` for tenant management |
 | H-handoff-cancel | codex | TODO | — | replenish-codex3: `argo handoff cancel <id>` operator override + Cancelled lifecycle variant |
