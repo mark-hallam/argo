@@ -33,7 +33,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | D-webinbox | codex | CLAIMED | — | claimed by codex |
 | E-identity | codex | MERGED | #781 | Worker/Persona/Role primitives + sqlite migration landed |
 | F-memory-layering | codex | IN_REVIEW | #786 | 3-layer memory + sqlite-vec/Voyage-3 PR open |
-| G-genesis | claude | TODO | — | unblocked (A stable) |
+| G-genesis | claude | CLAIMED | — | claimed by claude |
 | H-auto-approval | claude | TODO | — | (waits on A, D, E, F) |
 
 ---
