@@ -1,0 +1,17 @@
+schema_version = "1"
+
+[[scope]]
+id          = "competitors"
+description = "Configured competitor domain list + last-scan digests."
+
+[[scope]]
+id          = "brand_mentions"
+description = "Brand-mention rows with sentiment + source URL. Append-only; the weekly summary reads from here."
+
+[[scope]]
+id          = "drafts"
+description = "Draft social posts / blog posts / newsletters waiting on operator approval."
+
+[[scope]]
+id          = "weekly_summaries"
+description = "Internal weekly digest rows. The operator reads these to stay current on brand + competitor activity."

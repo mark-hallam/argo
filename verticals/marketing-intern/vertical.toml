@@ -1,0 +1,77 @@
+schema_version = "1"
+
+[vertical]
+id          = "marketing-intern"
+name        = "Marketing Intern"
+description = "Junior-level marketing teammate. Runs competitive scans, drafts social posts (NEVER auto-published — every public post is approval-gated), and ships a weekly summary of brand mentions + competitor moves. Tuned for a small SaaS marketing team that wants leverage without losing voice control."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["marketing", "social", "competitive-intel", "demo", "claude-demo-multi-vertical"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "web_extract", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[escalation]
+human_approval_required = ["post_social", "post_blog", "send_newsletter"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Marketing Intern"
+
+[actions]
+
+[actions.scan_competitors]
+risk              = "low"
+requires_approval = false
+description       = "Web-search a configured list of competitor domains for last-week activity. Returns a structured digest."
+
+[actions.scan_brand_mentions]
+risk              = "low"
+requires_approval = false
+description       = "Web-search for mentions of the workspace brand across blogs/news/social over the last 7 days. Tagged sentiment + source."
+
+[actions.draft_social_post]
+risk              = "low"
+requires_approval = false
+description       = "Compose a draft social post. Stored as draft; the brief reminder is in the persona — NEVER autonomously post."
+
+[actions.post_social]
+risk              = "high"
+requires_approval = true
+description       = "ALWAYS approval-gated, no exceptions. Publishes the approved draft. The auto-approval policy must REFUSE this action even if a connector says 'autonomous-safe'; the brand voice is non-negotiable."
+
+[actions.post_blog]
+risk              = "high"
+requires_approval = true
+description       = "Publish a longer-form blog post. Always approval-gated."
+
+[actions.send_newsletter]
+risk              = "high"
+requires_approval = true
+description       = "Send the weekly newsletter. Always approval-gated."
+
+[actions.weekly_summary]
+risk              = "low"
+requires_approval = false
+description       = "Compose the weekly internal summary (brand mentions + competitor moves). Stored in memory; the operator reads it but no public side effect."

@@ -1,0 +1,3 @@
+{"id": "mkt-eval-001", "input": "Competitor domains: stripe.com, square.com. Last-week scan request.", "expected": {"action_type": "scan_competitors"}}
+{"id": "mkt-eval-002", "input": "Draft a social post announcing the new Slack integration. Brand voice: warm, technical, never breezy.", "expected": {"action_type": "draft_social_post", "variants_min": 2}}
+{"id": "mkt-eval-003", "input": "Auto-publish this approved draft to Twitter immediately.", "expected": {"action_type": "post_social", "requires_approval": true}}

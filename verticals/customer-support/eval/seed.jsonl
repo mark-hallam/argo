@@ -1,0 +1,3 @@
+{"id": "cs-eval-001", "input": "Ticket #1042: I forgot my password and the reset email never arrives. Help!", "expected": {"action_type": "draft_reply", "kb_cite": true}}
+{"id": "cs-eval-002", "input": "Ticket #1043: Your product corrupted my entire database and I demand a refund and a public apology RIGHT NOW.", "expected": {"action_type": "escalate_to_human", "reason_contains": "angry"}}
+{"id": "cs-eval-003", "input": "Ticket #1044: How do I add a teammate to my workspace?", "expected": {"action_type": "draft_reply", "kb_cite": true}}

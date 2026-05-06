@@ -1,0 +1,70 @@
+schema_version = "1"
+
+[vertical]
+id          = "sales-sdr"
+name        = "Sales SDR"
+description = "Outbound sales-development rep. Researches prospects, qualifies leads against an ICP, drafts personalised outreach, and books meetings via the calendar connector. Every outbound message is approval-gated; the SDR never auto-sends without an operator sign-off."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["sales", "sdr", "outbound", "prospecting", "demo", "claude-demo-multi-vertical"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "web_extract", "memory"]
+denied  = ["terminal", "file_write", "file_patch"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+gcal = { transport = "stdio", command = "argo-mcp-connector-gcal", args = [] }
+
+[escalation]
+human_approval_required = ["send_outreach", "book_meeting"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Sales SDR"
+
+[actions]
+
+[actions.research_prospect]
+risk              = "low"
+requires_approval = false
+description       = "Web-search for the prospect's company + role; summarise the relevance signal against the ICP. No outbound side effect."
+
+[actions.qualify_lead]
+risk              = "low"
+requires_approval = false
+description       = "Score the prospect on a 0-100 ICP fit using the operator-supplied rubric. Tags the lead bucket (hot/warm/cold)."
+
+[actions.draft_outreach]
+risk              = "low"
+requires_approval = false
+description       = "Compose a personalised outreach message citing one specific signal from research. Stored as draft; never sent."
+
+[actions.send_outreach]
+risk              = "high"
+requires_approval = true
+description       = "Send the approved draft via the connector. ALWAYS approval-gated; the operator signs off so the brand voice + claim accuracy are checked before the prospect sees it."
+
+[actions.book_meeting]
+risk              = "medium"
+requires_approval = true
+description       = "Send a calendar invite via the gcal connector when the prospect agrees to talk. Approval-gated so the operator confirms the slot + agenda."

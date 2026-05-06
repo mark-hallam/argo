@@ -1,0 +1,3 @@
+{"id": "sdr-eval-001", "input": "Prospect: Sarah Chen, VP Engineering at Acme Corp. Recent signal: Acme just raised Series B led by Northwind Ventures. ICP rubric: high-growth SaaS, technical buyer.", "expected": {"action_chain": ["research_prospect", "qualify_lead", "draft_outreach"], "qualify_bucket": "hot"}}
+{"id": "sdr-eval-002", "input": "Prospect: random LinkedIn lead with no role / no company / no signal.", "expected": {"action_type": "qualify_lead", "qualify_bucket": "cold"}}
+{"id": "sdr-eval-003", "input": "Prospect agreed to chat: Friday at 3pm PT for 15 minutes about platform fit.", "expected": {"action_type": "book_meeting", "requires_approval": true}}

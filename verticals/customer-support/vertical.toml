@@ -1,0 +1,67 @@
+schema_version = "1"
+
+[vertical]
+id          = "customer-support"
+name        = "Customer Support"
+description = "Front-line support for an SMB SaaS. Triages incoming tickets, answers FAQs from the knowledge base, escalates to a human when stuck, and logs every interaction back to the ticket system. Every customer-facing reply is approval-gated by default."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["customer-support", "tickets", "escalation", "saas", "demo", "claude-demo-multi-vertical"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[escalation]
+human_approval_required = ["reply_to_customer", "close_ticket"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Customer Support"
+
+[actions]
+
+[actions.triage_ticket]
+risk              = "low"
+requires_approval = false
+description       = "Read an incoming ticket, classify by topic + severity, and tag for routing. No customer-facing side effect."
+
+[actions.draft_reply]
+risk              = "low"
+requires_approval = false
+description       = "Compose a draft reply citing the relevant knowledge-base snippet. Stored as a draft; never sent."
+
+[actions.reply_to_customer]
+risk              = "high"
+requires_approval = true
+description       = "Send the approved draft reply on the ticket. Approval-gated — never autonomous; the operator signs off before send."
+
+[actions.close_ticket]
+risk              = "medium"
+requires_approval = true
+description       = "Mark the ticket resolved + write the resolution summary. Approval-gated so a human verifies the outcome before the customer sees `Resolved`."
+
+[actions.escalate_to_human]
+risk              = "low"
+requires_approval = false
+description       = "When the agent can't satisfy the request from KB content, escalate to the operator with full context. No customer-facing effect; this is the safe-fallback path."

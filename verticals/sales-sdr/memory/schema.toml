@@ -1,0 +1,17 @@
+schema_version = "1"
+
+[[scope]]
+id          = "prospects"
+description = "One row per researched prospect. Carries the relevance signal + qualification score + bucket."
+
+[[scope]]
+id          = "icp_rubric"
+description = "The operator-supplied ICP scoring rubric. Loaded once per workspace from `argo memory write`."
+
+[[scope]]
+id          = "drafts"
+description = "Outreach drafts staged for operator approval. One row per `draft_outreach` action."
+
+[[scope]]
+id          = "meetings"
+description = "Booked meetings + their gcal event ids. Updated on `book_meeting` approval."

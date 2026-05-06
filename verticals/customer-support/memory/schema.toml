@@ -1,0 +1,17 @@
+schema_version = "1"
+
+[[scope]]
+id          = "tickets"
+description = "One row per incoming ticket the agent has seen. Carries topic + severity tags from triage and the eventual disposition."
+
+[[scope]]
+id          = "kb"
+description = "Knowledge-base snippets the agent cites in drafts. Populated by `argo memory write` from the operator's product docs."
+
+[[scope]]
+id          = "drafts"
+description = "Reply drafts staged for operator approval. One row per `draft_reply` action."
+
+[[scope]]
+id          = "escalations"
+description = "Tickets handed off to the operator. Captures why the agent escalated so the operator can refine the KB."
