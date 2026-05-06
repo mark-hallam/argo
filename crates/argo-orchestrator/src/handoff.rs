@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::escalation::EscalationStep;
 use crate::session::SessionId;
+use argo_types::{ArgoError, ArgoResult};
 
 /// Globally-unique handoff identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -61,6 +62,8 @@ pub enum HandoffStatus {
     Settled,
     /// Deadline passed without the receiver acting.
     Expired,
+    /// Operator cancelled before completion.
+    Cancelled,
 }
 
 /// A persisted handoff between two participants of a session.
@@ -158,6 +161,15 @@ impl Handoff {
         }
     }
 
+    /// Mark `Cancelled`. Only Pending/Acknowledged can be cancelled.
+    pub fn cancel(&mut self) -> ArgoResult<()> {
+        match self.status {
+            HandoffStatus::Pending | HandoffStatus::Acknowledged => { self.status = HandoffStatus::Cancelled; Ok(()) }
+            HandoffStatus::Cancelled => Ok(()),
+            HandoffStatus::Settled | HandoffStatus::Expired => Err(ArgoError::Invariant("invalid handoff status transition")),
+        }
+    }
+
     /// `true` iff `deadline` is set and has passed.
     #[must_use]
     pub fn is_overdue(&self, now: DateTime<Utc>) -> bool {
@@ -229,6 +241,27 @@ mod tests {
         h.expire();
         h.settle();
         assert_eq!(h.status, HandoffStatus::Expired);
+    }
+
+    #[test]
+    fn cancel_from_pending_or_acknowledged() {
+        let mut h = handoff();
+        h.cancel().unwrap();
+        assert_eq!(h.status, HandoffStatus::Cancelled);
+        let mut h = handoff();
+        h.acknowledge();
+        h.cancel().unwrap();
+        assert_eq!(h.status, HandoffStatus::Cancelled);
+    }
+
+    #[test]
+    fn cancel_rejects_settled_or_expired() {
+        let mut h = handoff();
+        h.settle();
+        assert!(h.cancel().is_err());
+        let mut h = handoff();
+        h.expire();
+        assert!(h.cancel().is_err());
     }
 
     #[test]

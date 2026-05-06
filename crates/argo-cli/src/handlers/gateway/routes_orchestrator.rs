@@ -298,6 +298,7 @@ fn handoff_status(s: HandoffStatus) -> &'static str {
         HandoffStatus::Acknowledged => "acknowledged",
         HandoffStatus::Settled => "settled",
         HandoffStatus::Expired => "expired",
+        HandoffStatus::Cancelled => "cancelled",
     }
 }
 

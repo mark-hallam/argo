@@ -262,6 +262,7 @@ pub async fn run_handoff(cmd: HandoffCmd) -> ArgoResult<()> {
     match cmd {
         HandoffCmd::List { tenant, session, status, worker, limit, json } => list_handoffs(tenant.as_deref(), session.as_deref(), status.as_deref(), worker.as_deref(), limit, json).await,
         HandoffCmd::Show { id, tenant, json } => show_handoff(tenant.as_deref(), &id, json).await,
+        HandoffCmd::Cancel { id, tenant, note, json } => cancel_handoff(tenant.as_deref(), &id, note.as_deref(), json).await,
     }
 }
 async fn start_orchestrator_session(
@@ -355,17 +356,14 @@ async fn list_handoffs(
     Ok(())
 }
 async fn show_handoff(tenant: Option<&str>, id: &str, json: bool) -> ArgoResult<()> {
-    let tenant = tenant_id(tenant)?;
-    let repo = orchestrator_repo().await?;
-    let hid = HandoffId::from_string(id.to_string());
-    let Some(handoff) = repo.find_handoff(tenant, &hid).await? else {
-        return Err(ArgoError::Provider(format!("no handoff {id}")));
-    };
-    if json {
-        println!("{}", serde_json::to_string(&handoff_json(&handoff)).unwrap_or_default());
-    } else {
-        println!("{}\t{:?}\t{}", handoff.id, handoff.status, handoff.expected_outcome);
-    }
+    let tenant = tenant_id(tenant)?; let repo = orchestrator_repo().await?; let hid = HandoffId::from_string(id.to_string());
+    let Some(handoff) = repo.find_handoff(tenant, &hid).await? else { return Err(ArgoError::Provider(format!("no handoff {id}"))); };
+    if json { println!("{}", serde_json::to_string(&handoff_json(&handoff)).unwrap_or_default()); } else { println!("{}	{:?}	{}", handoff.id, handoff.status, handoff.expected_outcome); }
+    Ok(())
+}
+async fn cancel_handoff(tenant: Option<&str>, id: &str, note: Option<&str>, json: bool) -> ArgoResult<()> {
+    let tenant = tenant_id(tenant)?; let repo = orchestrator_repo().await?; let hid = HandoffId::from_string(id.to_string()); let handoff = repo.cancel_handoff(tenant, &hid, note).await?;
+    if json { println!("{}", serde_json::to_string(&handoff_json(&handoff)).unwrap_or_default()); } else { println!("{}	{}	{}", handoff.id, handoff_status_label(handoff.status), handoff.expected_outcome); }
     Ok(())
 }
 async fn orchestrator_repo() -> ArgoResult<OrchestratorStore> {
@@ -389,6 +387,7 @@ fn parse_handoff_status(raw: &str) -> ArgoResult<HandoffStatus> {
         "acknowledged" => Ok(HandoffStatus::Acknowledged),
         "settled" => Ok(HandoffStatus::Settled),
         "expired" => Ok(HandoffStatus::Expired),
+        "cancelled" => Ok(HandoffStatus::Cancelled),
         other => Err(ArgoError::Provider(format!("invalid handoff status '{other}'"))),
     }
 }
@@ -403,7 +402,7 @@ fn handoff_json(h: &Handoff) -> serde_json::Value {
     serde_json::json!({"id":h.id.to_string(),"session_id":h.session_id.to_string(),"from":h.from.to_string(),"to":to,"expected_outcome":h.expected_outcome,"payload":h.payload,"status":handoff_status_label(h.status),"created_at":h.created_at.to_rfc3339(),"deadline":h.deadline.map(|d| d.to_rfc3339())})
 }
 fn handoff_status_label(s: HandoffStatus) -> &'static str {
-    match s { HandoffStatus::Pending => "pending", HandoffStatus::Acknowledged => "acknowledged", HandoffStatus::Settled => "settled", HandoffStatus::Expired => "expired" }
+    match s { HandoffStatus::Pending => "pending", HandoffStatus::Acknowledged => "acknowledged", HandoffStatus::Settled => "settled", HandoffStatus::Expired => "expired", HandoffStatus::Cancelled => "cancelled" }
 }
 fn print_json_or_text<T: serde::Serialize>(json: bool, value: &T, text: impl FnOnce() -> String) -> ArgoResult<()> {
     if json { println!("{}", serde_json::to_string(value).unwrap_or_default()); } else { println!("{}", text()); }
@@ -491,9 +490,7 @@ mod orchestrator_cli_tests {
         let tenant = TenantId::new();
         let session = Session::new(tenant, "demo");
         repo.insert_session(&session).await.unwrap();
-        let h = Handoff::new(session.id.clone(), WorkerId::new(), EscalationStep::Worker(WorkerId::new()), "finish demo", serde_json::json!({"case":"demo"}));
-        repo.insert_handoff(tenant, &h).await.unwrap();
-        let rows = repo.list_handoffs_for_session(tenant, &session.id).await.unwrap(); let v = handoff_json(&rows[0]);
+        let h = Handoff::new(session.id.clone(), WorkerId::new(), EscalationStep::Worker(WorkerId::new()), "finish demo", serde_json::json!({"case":"demo"})); repo.insert_handoff(tenant, &h).await.unwrap(); let rows = repo.list_handoffs_for_session(tenant, &session.id).await.unwrap(); let v = handoff_json(&rows[0]);
         assert_eq!(v["status"], "pending"); assert_eq!(v["to"]["kind"], "worker"); assert_eq!(v["payload"]["case"], "demo");
     }
 }

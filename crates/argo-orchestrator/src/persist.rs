@@ -296,27 +296,17 @@ impl OrchestratorStore {
     }
 
     /// Update a handoff lifecycle status.
-    pub async fn update_handoff_status(
-        &self,
-        tenant_id: TenantId,
-        handoff_id: &HandoffId,
-        status: HandoffStatus,
-    ) -> ArgoResult<()> {
-        let current = self
-            .find_handoff(tenant_id, handoff_id)
-            .await?
-            .ok_or_else(|| ArgoError::Schema("handoff not found".into()))?
-            .status;
-        if !handoff_transition_allowed(current, status) {
-            return Err(ArgoError::Invariant("invalid handoff status transition"));
-        }
-        sqlx::query("UPDATE handoff SET status = ? WHERE id = ?")
-            .bind(handoff_status_label(status))
-            .bind(handoff_id.as_str())
-            .execute(self.store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("update handoff status: {e}")))?;
-        Ok(())
+    pub async fn update_handoff_status(&self, tenant_id: TenantId, handoff_id: &HandoffId, status: HandoffStatus) -> ArgoResult<()> {
+        let current = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?.status;
+        if !handoff_transition_allowed(current, status) { return Err(ArgoError::Invariant("invalid handoff status transition")); }
+        sqlx::query("UPDATE handoff SET status = ? WHERE id = ?").bind(handoff_status_label(status)).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("update handoff status: {e}")))?; Ok(())
+    }
+
+    /// Cancel a pending or acknowledged handoff and append its audit row.
+    pub async fn cancel_handoff(&self, tenant_id: TenantId, handoff_id: &HandoffId, note: Option<&str>) -> ArgoResult<Handoff> {
+        let mut handoff = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?; handoff.cancel()?;
+        if let Some(note) = note.map(str::trim).filter(|n| !n.is_empty()) { let mut payload = handoff.payload.as_object().cloned().unwrap_or_default(); payload.insert("cancel_note".into(), serde_json::Value::String(note.to_string())); handoff.payload = serde_json::Value::Object(payload); }
+        sqlx::query("UPDATE handoff SET status = ?, payload = ? WHERE id = ?").bind(handoff_status_label(handoff.status)).bind(to_json(&handoff.payload, "handoff.payload")?).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("cancel handoff: {e}")))?; write_handoff_cancelled_audit(self.store.pool(), &handoff, note).await?; Ok(handoff)
     }
 }
 
@@ -374,10 +364,10 @@ async fn column_exists(pool: &sqlx::Pool<sqlx::Sqlite>, table: &str, column: &st
 
 fn session_status_label(s: SessionStatus) -> &'static str { match s { SessionStatus::Active => "active", SessionStatus::Resolved => "resolved", SessionStatus::Cancelled => "cancelled", SessionStatus::Expired => "expired" } }
 fn parse_session_status(s: &str) -> ArgoResult<SessionStatus> { match s { "active" => Ok(SessionStatus::Active), "resolved" => Ok(SessionStatus::Resolved), "cancelled" => Ok(SessionStatus::Cancelled), "expired" => Ok(SessionStatus::Expired), other => Err(ArgoError::Schema(format!("session.status: {other}"))) } }
-fn handoff_status_label(s: HandoffStatus) -> &'static str { match s { HandoffStatus::Pending => "pending", HandoffStatus::Acknowledged => "acknowledged", HandoffStatus::Settled => "settled", HandoffStatus::Expired => "expired" } }
-fn parse_handoff_status(s: &str) -> ArgoResult<HandoffStatus> { match s { "pending" => Ok(HandoffStatus::Pending), "acknowledged" => Ok(HandoffStatus::Acknowledged), "settled" => Ok(HandoffStatus::Settled), "expired" => Ok(HandoffStatus::Expired), other => Err(ArgoError::Schema(format!("handoff.status: {other}"))) } }
+fn handoff_status_label(s: HandoffStatus) -> &'static str { match s { HandoffStatus::Pending => "pending", HandoffStatus::Acknowledged => "acknowledged", HandoffStatus::Settled => "settled", HandoffStatus::Expired => "expired", HandoffStatus::Cancelled => "cancelled" } }
+fn parse_handoff_status(s: &str) -> ArgoResult<HandoffStatus> { match s { "pending" => Ok(HandoffStatus::Pending), "acknowledged" => Ok(HandoffStatus::Acknowledged), "settled" => Ok(HandoffStatus::Settled), "expired" => Ok(HandoffStatus::Expired), "cancelled" => Ok(HandoffStatus::Cancelled), other => Err(ArgoError::Schema(format!("handoff.status: {other}"))) } }
 fn session_transition_allowed(current: SessionStatus, next: SessionStatus) -> bool { matches!(current, SessionStatus::Active) || current == next }
-fn handoff_transition_allowed(current: HandoffStatus, next: HandoffStatus) -> bool { matches!((current, next), (HandoffStatus::Pending, _) | (HandoffStatus::Acknowledged, HandoffStatus::Acknowledged | HandoffStatus::Settled) | (HandoffStatus::Settled, HandoffStatus::Settled) | (HandoffStatus::Expired, HandoffStatus::Expired)) }
+fn handoff_transition_allowed(current: HandoffStatus, next: HandoffStatus) -> bool { matches!((current, next), (HandoffStatus::Pending, _) | (HandoffStatus::Acknowledged, HandoffStatus::Acknowledged | HandoffStatus::Settled | HandoffStatus::Cancelled) | (HandoffStatus::Settled, HandoffStatus::Settled) | (HandoffStatus::Expired, HandoffStatus::Expired) | (HandoffStatus::Cancelled, HandoffStatus::Cancelled)) }
 fn step_json(s: &EscalationStep) -> ArgoResult<String> { match s { EscalationStep::Worker(id) => to_json(&serde_json::json!({"kind":"worker","worker_id":id.to_string()}), "handoff.to"), EscalationStep::Human(addr) => to_json(&serde_json::json!({"kind":"human","addr":addr}), "handoff.to") } }
 fn step_from_json(json: &str) -> ArgoResult<EscalationStep> {
     let v: serde_json::Value = from_json(json, "handoff.to")?;
@@ -387,6 +377,11 @@ fn step_from_json(json: &str) -> ArgoResult<EscalationStep> {
         _ => Err(ArgoError::Schema("handoff.to kind unknown".into())),
     }
 }
+async fn write_handoff_cancelled_audit(pool: &sqlx::Pool<sqlx::Sqlite>, h: &Handoff, note: Option<&str>) -> ArgoResult<()> {
+    let kind = "handoff_cancelled"; let payload = serde_json::json!({"action":"cancel","handoff_id":h.id.as_str(),"session_id":h.session_id.as_str(),"status":"cancelled","note":note}); let canonical = serde_json::to_string(&payload).map_err(|e| ArgoError::Schema(format!("audit payload: {e}")))?; let sid = Uuid::parse_str(h.session_id.as_str()).map_err(|e| ArgoError::Schema(format!("handoff.session_id: {e}")))?; let parent = last_session_hash(pool, &sid).await?; let hash = argo_audit::compute_chain_hash(&parent, kind, &canonical); let id = Uuid::now_v7();
+    sqlx::query("INSERT INTO audit_record (id, session_id, kind, payload_json, parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(id.as_bytes().as_slice()).bind(sid.as_bytes().as_slice()).bind(kind).bind(canonical).bind(parent.as_slice()).bind(hash.as_slice()).bind(Utc::now().timestamp_micros()).execute(pool).await.map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?; Ok(())
+}
+async fn last_session_hash(pool: &sqlx::Pool<sqlx::Sqlite>, sid: &Uuid) -> ArgoResult<[u8; 32]> { let row: Option<Vec<u8>> = sqlx::query_scalar("SELECT self_hash FROM audit_record WHERE session_id = ? ORDER BY seq DESC LIMIT 1").bind(sid.as_bytes().as_slice()).fetch_optional(pool).await.map_err(|e| ArgoError::Provider(format!("audit last_hash: {e}")))?; let mut buf = [0u8; 32]; if let Some(bytes) = row { if bytes.len() == 32 { buf.copy_from_slice(&bytes); } } Ok(buf) }
 fn participants_json(ps: &[WorkerId]) -> ArgoResult<String> { to_json(&ps.iter().map(ToString::to_string).collect::<Vec<_>>(), "session.participants") }
 fn parse_participants(json: &str) -> ArgoResult<Vec<WorkerId>> {
     from_json::<Vec<String>>(json, "session.participants")?.into_iter()
@@ -408,15 +403,7 @@ mod tests {
 
     async fn repo() -> OrchestratorStore { let store = Arc::new(SessionStore::open(":memory:").await.unwrap()); store.migrate().await.unwrap(); let repo = OrchestratorStore::new(store); repo.ensure_schema().await.unwrap(); repo.ensure_schema().await.unwrap(); repo }
     async fn inserted(repo: &OrchestratorStore, tenant: TenantId, title: &str) -> Session { let s = Session::new(tenant, title); repo.insert_session(&s).await.unwrap(); s }
-    fn handoff(session: &Session, from: WorkerId, to: WorkerId) -> Handoff {
-        Handoff::new(
-            session.id.clone(),
-            from,
-            EscalationStep::Worker(to),
-            "finish the customer handoff",
-            serde_json::json!({"case": "aeon"}),
-        )
-    }
+    fn handoff(session: &Session, from: WorkerId, to: WorkerId) -> Handoff { Handoff::new(session.id.clone(), from, EscalationStep::Worker(to), "finish the customer handoff", serde_json::json!({"case": "aeon"})) }
 
     #[tokio::test]
     async fn round_trip_session_and_two_handoffs() {

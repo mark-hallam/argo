@@ -333,6 +333,7 @@ pub enum HandoffCmd {
         #[arg(long)]
         json: bool,
     },
+    Cancel { id: String, #[arg(long)] tenant: Option<String>, #[arg(long)] note: Option<String>, #[arg(long)] json: bool },
 }
 
 // `MessagesCmd` was extracted to cli_messages_cmds.rs (#624)
