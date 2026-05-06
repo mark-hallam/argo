@@ -6,6 +6,9 @@ use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
+#[path = "doctor_h_stack.rs"]
+mod doctor_h_stack;
+
 pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     let payload = collect().await?;
     let pick = if json { "json" } else { format };
@@ -79,6 +82,7 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     print_creds(&payload["creds"]);
     print_gateway(&payload["gateway"]);
     print_routes(&payload["routes"]);
+    doctor_h_stack::print_text(&payload["auto_approval"]);
     Ok(())
 }
 
@@ -140,6 +144,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let creds = creds_status();
     let gateway = gateway_status(&home);
     let routes = routes_count();
+    let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
     Ok(serde_json::json!({
         "cwd": cwd.display().to_string(),
         "argo_toml": {"path": toml.display().to_string(), "ok": toml_ok},
@@ -154,6 +159,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "creds": creds,
         "gateway": gateway,
         "routes": routes,
+        "auto_approval": auto_approval,
     }))
 }
 
