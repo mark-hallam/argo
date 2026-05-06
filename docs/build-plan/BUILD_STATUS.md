@@ -69,7 +69,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-eval-runner-cli | codex | BLOCKED | — | cargo test fails existing order-dependent gateway tests outside brief; failing tests pass in isolation |
 | H-tenant-cli | codex | CLAIMED | — | claimed by codex |
 | H-handoff-cancel | codex | BLOCKED | — | `Cancelled` variant requires `handlers/gateway/routes_orchestrator.rs` exhaustive status match update outside may-touch |
-| H-skill-export-import | codex | CLAIMED | — | claimed by codex |
+| H-skill-export-import | codex | BLOCKED | — | `argo skill export/import` requires root `SkillCmd` in `cli_subcommands.rs`, but brief only allows `cli_skill_review_cmds.rs` |
 | claude-action-cancel-flow | claude | MERGED | #835 | ActionState::Cancelled (terminal) + cancel() transition handler + `argo worker actions cancel` CLI; 6 tests; pending/approved → cancelled allowed, executing rejected |
 | claude-audit-replay | claude | IN_REVIEW | #836 | PR opened — `argo audit replay <session>` walks chain in seq order; pretty (default) + raw NDJSON formats; --from-seq + --until filters; 10 tests pass |
 | claude-skill-conflict-resolution | claude | CLAIMED | — | claimed by claude |
