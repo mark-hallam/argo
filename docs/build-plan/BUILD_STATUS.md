@@ -48,7 +48,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | demo-marketplace-seller-vertical | codex | MERGED | #818 | full demo vertical: vertical.toml + persona/system prompts + memory schema + eval seeds + 5-item skate inventory.json + workspace auto_approval.toml; ready for v1 demo |
 | H-skill-review-cli | codex | BLOCKED | - | blocked: brief allowlist names missing cli_skill_cmds.rs; clap enum/test files required |
 | H-action-replay | codex | CLAIMED | — | claimed by codex |
-| H-audit-query-extensions | codex | CLAIMED | — | claimed by codex |
+| H-audit-query-extensions | codex | BLOCKED | - | blocked: brief names missing audit query/CLI files; live command requires non-allowed files |
 | H-channel-health-checks | codex | TODO | — | replenish-codex: `argo doctor` NotifyChannel connectivity pings (Postmark/Slack/Twilio/Expo); HEAD/GET only, never sends real notifications |
 | claude-cu-skill-learn-wire | claude | MERGED | #807 | CU success → maybe_propose → SkillCandidate via H-4c → SkillStore::propose_for_review; new bridge module + 10 unit tests; learning-loop errors swallow + log so the action never fails |
 | claude-tui-h-stack-panels | claude | TODO | — | replenish: 3 new ratatui overlays (sessions / handoffs / budget); waits on H-orchestrator-persist for content but degrades cleanly without |
