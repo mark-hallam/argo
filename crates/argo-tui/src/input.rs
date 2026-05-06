@@ -205,6 +205,9 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            if crate::input_h_stack::try_close_h_stack_overlay(state, key.code) {
+                continue;
+            }
             // Pending-delete confirm: 'y' fires the delete, any
             // other key cancels.
             if state.pending_delete.is_some() {
@@ -358,6 +361,8 @@ pub(crate) async fn run(
                         .unwrap_or_default();
                     state.tool_errors_overlay = Some(rows);
                 }
+                k @ (KeyCode::Char('O') | KeyCode::Char('H') | KeyCode::Char('B'))
+                    if crate::input_h_stack::try_open_h_stack_overlay(state, k).await => {}
                 KeyCode::Char('M') => {
                     // Load the active-memory rows across all 4
                     // canonical files. No workspace → empty
@@ -492,8 +497,3 @@ pub(crate) async fn run(
         }
     }
 }
-
-// All the helper fns previously here moved to
-// `super::input_helpers` to keep this file under the 500-LOC
-// budget. They're imported via `use super::input_helpers::…`
-// at the top of this file.

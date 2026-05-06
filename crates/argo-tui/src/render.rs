@@ -73,6 +73,25 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
             state.tool_errors_overlay_scroll,
         );
     }
+    if let Some(panel) = state.h_sessions_overlay.as_ref() {
+        crate::overlays_sessions::draw_sessions(
+            frame,
+            area,
+            panel,
+            state.h_sessions_overlay_scroll,
+        );
+    }
+    if let Some(panel) = state.h_handoffs_overlay.as_ref() {
+        crate::overlays_handoffs::draw_handoffs(
+            frame,
+            area,
+            panel,
+            state.h_handoffs_overlay_scroll,
+        );
+    }
+    if let Some(panel) = state.h_budget_overlay.as_ref() {
+        crate::overlays_budget::draw_budget(frame, area, panel);
+    }
 }
 
 fn draw_composer(frame: &mut Frame<'_>, area: Rect, state: &ViewerState) {
@@ -412,3 +431,7 @@ fn short_id(s: &str) -> String {
 #[cfg(test)]
 #[path = "render_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "render_h_stack_tests.rs"]
+mod h_stack_tests;

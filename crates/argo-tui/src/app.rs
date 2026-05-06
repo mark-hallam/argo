@@ -145,6 +145,22 @@ pub struct ViewerState {
     pub tool_errors_overlay: Option<Vec<(String, i64)>>,
     /// Scroll offset (in rows) into the tool-errors overlay.
     pub tool_errors_overlay_scroll: usize,
+    /// Orchestrator-sessions panel state when the overlay is open
+    /// (entered with `O`). Reads from `GET /orchestrator/sessions`
+    /// — until H-orchestrator-routes lands the panel renders an
+    /// "Gateway unreachable" hint cleanly.
+    pub h_sessions_overlay: Option<crate::overlays_h_stack::PanelState>,
+    /// Scroll offset (in rows) into the orchestrator-sessions overlay.
+    pub h_sessions_overlay_scroll: usize,
+    /// Orchestrator-handoffs panel state when the overlay is open
+    /// (entered with `H`). Reads from
+    /// `GET /orchestrator/handoffs?status=pending`.
+    pub h_handoffs_overlay: Option<crate::overlays_h_stack::PanelState>,
+    /// Scroll offset (in rows) into the orchestrator-handoffs overlay.
+    pub h_handoffs_overlay_scroll: usize,
+    /// Budget summary panel state when the overlay is open
+    /// (entered with `B`). Reads from `GET /budget/summary`.
+    pub h_budget_overlay: Option<crate::overlays_h_stack::PanelState>,
     /// Name of the workspace this TUI session is viewing. Set
     /// once at startup via `SessionStore::first_workspace_name`.
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
@@ -218,6 +234,11 @@ impl ViewerState {
             tools_overlay_scroll: 0,
             tool_errors_overlay: None,
             tool_errors_overlay_scroll: 0,
+            h_sessions_overlay: None,
+            h_sessions_overlay_scroll: 0,
+            h_handoffs_overlay: None,
+            h_handoffs_overlay_scroll: 0,
+            h_budget_overlay: None,
             workspace_label: None,
         }
     }
