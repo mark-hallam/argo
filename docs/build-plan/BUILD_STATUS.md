@@ -18,7 +18,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | Brief | Owner | Status | PR | Last update |
 |---|---|---|---|---|
 | 0-ci-cleanup | (in landing PR) | TODO | — | (not yet started) |
-| A-executor-trait | claude | TODO | — | (not yet started) |
+| A-executor-trait | claude | CLAIMED | — | claimed by claude |
 | B-computer-use-executor | claude | TODO | — | (waits on A) |
 | C-mcp-wire | codex | TODO | — | (waits on A) |
 | C-gmail | codex | TODO | — | (waits on C-mcp-wire) |
