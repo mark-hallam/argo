@@ -41,7 +41,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-orchestrator-cli | codex | TODO | — | tier-2 follow-up: `argo session start/list/show` + `argo handoff list/show` subcommands (waits on H-orchestrator-persist) |
 | H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
 | H-skill-library-routes | codex | MERGED | #817 | gateway HTTP endpoints `GET /skills?risk=...` + `GET /skills/<name>` exposing the H-4b LayeredLookup; workspace overrides library on duplicates; 400 on invalid risk |
-| H-budget-cli | codex | CLAIMED | — | claimed by codex |
+| H-budget-cli | codex | IN_REVIEW | #820 | PR open |
 | H-doctor-extensions | codex | MERGED | #808 | 4 new `argo doctor` checks for the H-stack: workspace policy presence + bare-enabled WARN, worker_budget table reachable, session/handoff tables (MISSING-friendly), notify-channel manifests; 9 unit tests + JSON envelope extension |
 | H-metrics | codex | BLOCKED | - | blocked: metrics scrape needs forbidden route/dependency scope; handler over 500 LOC |
 | migration-consolidation-test | codex | MERGED | #811 | integration test verifying full migration chain applies cleanly on fresh DB; H-stack tables checked with skip-when-missing fallback |
