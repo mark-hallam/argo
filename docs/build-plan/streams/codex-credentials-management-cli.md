@@ -35,6 +35,26 @@ unset, read from credentials.toml. New helper
 - `crates/argo-config/src/lib.rs` — narrowly: re-export
 - `crates/argo-cli/tests/cred_smoke.rs` (NEW)
 
+### Scope-clarification amendment (tick137 — unblock)
+
+The brief said "existing env-var-reading code gets a fallback". Codex
+correctly noted those readers are not in the may-touch list. **Resolved
+by descope, not expansion**: the fallback wiring is moved to a follow-up
+brief `codex-credentials-fallback-wiring` (queued separately).
+
+This brief now ships ONLY:
+- `argo cred set/list/clear/clear-all/export/import` CLI surface
+- `argo-config::cred::get(key)` helper that reads credentials.toml
+  first, falls back to env::var
+
+Workers continue reading env vars directly until the follow-up brief
+threads `argo-config::cred::get(key)` through them. v1 unaffected:
+operators set env vars as before, OR use `argo cred set` AND export
+to shell. Choice; no breakage either way.
+
+The follow-up brief is mechanical and small (each reader is one line:
+`std::env::var("X")?` → `argo_config::cred::get("X")?`).
+
 ## Acceptance criteria
 - [ ] All 5 subcommands work end-to-end
 - [ ] credentials.toml has file mode 0600
