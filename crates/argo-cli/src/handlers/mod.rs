@@ -1,5 +1,7 @@
 //! Subcommand handlers — each one wires a clap subcommand to the
 //! corresponding library primitive.
+pub mod activity_since;
+pub mod activity_tail;
 pub mod agents;
 pub mod audit;
 pub mod audit_by_day;

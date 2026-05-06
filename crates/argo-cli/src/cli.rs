@@ -4,6 +4,8 @@
 //! both files stay under the 500-LOC ceiling.
 #[path = "cli_action_cmds.rs"]
 mod cli_action_cmds;
+#[path = "cli_activity_cmds.rs"]
+mod cli_activity_cmds;
 #[path = "cli_audit_cmds.rs"]
 mod cli_audit_cmds;
 #[path = "cli_budget_cmds.rs"]
@@ -174,6 +176,10 @@ pub enum Command {
     Action {
         #[command(subcommand)]
         cmd: ActionCmd,
+    },
+    Activity {
+        #[command(subcommand)]
+        cmd: ActivityCmd,
     },
     Audit {
         #[command(subcommand)]
