@@ -42,7 +42,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | H-orchestrator-routes | codex | TODO | — | tier-2 follow-up: gateway HTTP endpoints for sessions + handoffs (waits on H-orchestrator-persist) |
 | H-skill-library-routes | codex | BLOCKED | — | full cargo test fails in argo-cli chain_result_propagation outside this brief's file boundary |
 | H-budget-cli | codex | TODO | — | tier-2 follow-up: `argo budget show <worker_id>` + `argo budget recent` (waits on H-spend-persistence) |
-| H-doctor-extensions | codex | CLAIMED | — | claimed by codex |
+| H-doctor-extensions | codex | IN_REVIEW | #808 | PR opened |
 | H-metrics | codex | TODO | — | tier-2 follow-up: Prometheus counters for auto-approval decisions + sessions + handoffs + evaluation latency histogram (independent) |
 | migration-consolidation-test | codex | TODO | — | tier-2 follow-up: integration test verifying the full migration chain applies cleanly on fresh DB (independent; high-leverage regression guard) |
 | demo-marketplace-seller-vertical | codex | TODO | — | tier-2 follow-up: full v1 demo vertical end-to-end (Genesis-shape manifest + 5-item inventory + auto_approval policy + eval seeds); pure content, no Rust |
