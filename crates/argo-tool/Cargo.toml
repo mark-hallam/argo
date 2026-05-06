@@ -10,6 +10,8 @@ description = "Argo — tool registry + 8 in-core tools (§9)"
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
+argo-memory = { path = "../argo-memory", version = "0.0.1" }
+argo-store = { path = "../argo-store", version = "0.0.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }

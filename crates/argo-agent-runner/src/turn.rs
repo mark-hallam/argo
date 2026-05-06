@@ -189,7 +189,19 @@ async fn run_turn_with_tools(
     session_grants: SessionGrantState,
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
-    let (registry, engine, principal) = build_dispatch_ctx(cwd)?;
+    // claude-memory-tool-wire: thread the live MemoryStore + workspace
+    // through dispatch so the in-core `memory` tool can actually
+    // persist. Vertical-bound writes go through `append_for_vertical`
+    // when `vertical_scope` is set; otherwise writes stay
+    // workspace-global.
+    let memory_ctx = store.first_workspace().await?.map(|ws| {
+        (
+            Arc::new(argo_memory::MemoryStore::new(store.clone())),
+            ws,
+            vertical_scope.map(str::to_string),
+        )
+    });
+    let (registry, engine, principal) = build_dispatch_ctx(cwd, memory_ctx)?;
     // #721: hide manifest-denied tools from the model's tool list
     // entirely — the per-call deny check below remains the hard
     // authoritative guard; this is the discoverability layer that

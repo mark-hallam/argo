@@ -31,6 +31,6 @@ pub use path_guard::confine_path;
 pub use registry::ToolRegistry;
 pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
 pub use tools::{
-    builtin_tools, DelegateTask, FilePatch, FileRead, FileWrite, Memory, Terminal, WebExtract,
-    WebSearch,
+    builtin_tools, builtin_tools_with_memory, DelegateTask, FilePatch, FileRead, FileWrite, Memory,
+    Terminal, WebExtract, WebSearch,
 };

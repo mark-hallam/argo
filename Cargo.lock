@@ -117,6 +117,7 @@ dependencies = [
  "argo-audit",
  "argo-capability",
  "argo-mcp",
+ "argo-memory",
  "argo-provider",
  "argo-skill",
  "argo-store",
@@ -200,7 +201,6 @@ dependencies = [
  "argo-orchestrator",
  "argo-provider",
  "argo-routing",
- "argo-sandbox",
  "argo-skill",
  "argo-store",
  "argo-telemetry",
@@ -837,6 +837,8 @@ name = "argo-tool"
 version = "0.0.1"
 dependencies = [
  "argo-capability",
+ "argo-memory",
+ "argo-store",
  "argo-types",
  "async-trait",
  "chrono",

@@ -2,10 +2,11 @@
 //! and MCP dispatch wiring.
 use argo_capability::CapabilityEngine;
 use argo_mcp::{McpClient, McpContent};
+use argo_memory::MemoryStore;
 use argo_provider::ToolSchema as ProviderToolSchema;
-use argo_tool::{builtin_tools, ToolContext, ToolRegistry, ToolSchema};
+use argo_tool::{builtin_tools, builtin_tools_with_memory, ToolContext, ToolRegistry, ToolSchema};
 use argo_types::{
-    ArgoResult, Capability, ContentBlock, Principal, ToolCallRequest, ToolCallResult,
+    ArgoResult, Capability, ContentBlock, Principal, ToolCallRequest, ToolCallResult, WorkspaceId,
 };
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -38,12 +39,23 @@ impl McpConnectionPool {
 }
 
 /// Build a tool registry + capability engine that grants the local
-/// OS user the `owner` role.
+/// OS user the `owner` role. When `memory` is `Some((store, ws,
+/// vertical_id))`, the registered `memory` tool is wired through the
+/// supplied `MemoryStore` (per claude-memory-tool-wire); otherwise it
+/// stays a stub that errors with the historical "memory store not
+/// wired" message at dispatch.
 pub(crate) fn build_dispatch_ctx(
     cwd: &Path,
+    memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
-    for t in builtin_tools(cwd.to_path_buf()) {
+    let tools = match memory {
+        Some((store, ws, vertical_id)) => {
+            builtin_tools_with_memory(cwd.to_path_buf(), store, ws, vertical_id)
+        }
+        None => builtin_tools(cwd.to_path_buf()),
+    };
+    for t in tools {
         reg.register(t);
     }
     reg.set_mcp_pool(Arc::new(McpConnectionPool::default()));

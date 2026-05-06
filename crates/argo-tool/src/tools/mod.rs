@@ -25,6 +25,8 @@ pub use terminal::Terminal;
 pub use web::{WebExtract, WebSearch};
 
 use crate::tool::Tool;
+use argo_memory::MemoryStore;
+use argo_types::WorkspaceId;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -33,6 +35,11 @@ use std::sync::Arc;
 /// is reserved for future per-workspace defaults; the tools themselves
 /// take the workspace from `ToolContext` at dispatch time so a single
 /// registry serves multiple workspaces.
+///
+/// `Memory` is constructed with `Default::default()` here, which
+/// returns the historical "memory store not wired" error at dispatch.
+/// Callers that want live memory dispatch use
+/// [`builtin_tools_with_memory`] instead.
 #[must_use]
 pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
     vec![
@@ -42,7 +49,32 @@ pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
         Arc::new(Terminal),
         Arc::new(WebSearch),
         Arc::new(WebExtract),
-        Arc::new(Memory),
+        Arc::new(Memory::default()),
+        Arc::new(DelegateTask),
+    ]
+}
+
+/// Same shape as [`builtin_tools`] but the `memory` tool is wired to
+/// the supplied `MemoryStore` + `WorkspaceId`. `vertical_id`, when
+/// `Some`, routes writes through `MemoryStore::append_for_vertical`
+/// so vertical-scoped reads (`list_for_vertical`) see them. `None`
+/// keeps writes workspace-global. Used by the agent runner once per
+/// turn from `build_dispatch_ctx`.
+#[must_use]
+pub fn builtin_tools_with_memory(
+    _workspace_root: PathBuf,
+    store: Arc<MemoryStore>,
+    workspace_id: WorkspaceId,
+    vertical_id: Option<String>,
+) -> Vec<Arc<dyn Tool>> {
+    vec![
+        Arc::new(FileRead),
+        Arc::new(FileWrite),
+        Arc::new(FilePatch),
+        Arc::new(Terminal),
+        Arc::new(WebSearch),
+        Arc::new(WebExtract),
+        Arc::new(Memory::new(store, workspace_id, vertical_id)),
         Arc::new(DelegateTask),
     ]
 }
