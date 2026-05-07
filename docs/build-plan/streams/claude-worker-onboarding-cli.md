@@ -54,7 +54,10 @@ loudly. No update-on-collision.
 - `crates/argo-cli/src/handlers/worker_onboard.rs` (NEW, ≤ 320 LOC)
 - `crates/argo-cli/src/handlers/worker_onboard_tests.rs` (NEW, ≤ 250 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + 1 dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant)
+- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant; cli.rs is 49 LOC post-#968 split, plenty of headroom)
+- `crates/argo-cli/src/cli_command_enum.rs` (post-#968: this is where the `Command` enum body lives now — variant additions go here)
+- `crates/argo-cli/src/cli_worker_cmds.rs` (post-cli-split: WorkerCmd variants live here — add `Onboard` variant)
+- `crates/argo-cli/src/handlers/worker_actions.rs` (worker dispatch lives here — add 1 dispatch arm for the Onboard variant)
 - `crates/argo-cli/tests/worker_onboard_smoke.rs` (NEW)
 - `docs/build-plan/streams/fixtures/onboard_spec_example.toml` (NEW)
 

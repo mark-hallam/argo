@@ -58,7 +58,10 @@ teammate. Backs mission claim 1 ("persistent identity over time").
 - `crates/argo-cli/src/handlers/worker_archive.rs` (NEW, ≤ 280 LOC)
 - `crates/argo-cli/src/handlers/worker_archive_tests.rs` (NEW, ≤ 200 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + dispatch arms)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 sub-enum)
+- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 sub-enum; cli.rs at 49 LOC post-#968 split)
+- `crates/argo-cli/src/cli_command_enum.rs` (post-#968: where Command enum body lives — Worker variant lives here)
+- `crates/argo-cli/src/cli_worker_cmds.rs` (post-cli-split: WorkerCmd variants live here — add Archive/Rehydrate/List variants)
+- `crates/argo-cli/src/handlers/worker_actions.rs` (worker dispatch lives here — add dispatch arms)
 
 ## Files you must NOT touch
 
