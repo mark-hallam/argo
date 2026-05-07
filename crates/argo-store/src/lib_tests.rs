@@ -2,6 +2,7 @@
 //! keep the production-code file under the 500-LOC ceiling.
 #![cfg(test)]
 use super::*;
+use argo_types::MessageRole;
 
 #[tokio::test]
 async fn open_and_migrate() {
