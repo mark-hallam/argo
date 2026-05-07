@@ -28,6 +28,7 @@ use argo_identity::auto_approval::{
 };
 use argo_identity::{circuit, worker_budget, AutoApprovalPolicy, CircuitState};
 use argo_memory::MemoryStore;
+use argo_store::tenant_quota::{TenantQuotaKind, TenantQuotaStore};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use argo_vertical::ActionDeclaration;
@@ -170,9 +171,10 @@ pub(crate) async fn maybe_auto_approve(
     // (`Tenant: '*'`) catch all workers for v1; per-worker
     // selectors land in a v1.x follow-up that adds the worker
     // lookup before `decide_at`.
-    let policy_files =
-        argo_identity::policy::load_policy_dir(&cwd.join(crate::handlers::policy_handlers::POLICY_DIR))
-            .unwrap_or_default();
+    let policy_files = argo_identity::policy::load_policy_dir(
+        &cwd.join(crate::handlers::policy_handlers::POLICY_DIR),
+    )
+    .unwrap_or_default();
     let effective = argo_identity::policy::resolve_effective_policy(
         &workspace_policy,
         &policy_files,
@@ -228,6 +230,7 @@ async fn maybe_auto_approve_with_pool(
     let decision = decide_at(policy, action, decl, spend, now);
     match &decision {
         Decision::AutoApprove { reason } => {
+            ensure_tenant_quota_allows(pool, &worker_id, estimated_cost_micros(decl), now).await?;
             let approver = auto_approver_token(reason);
             let note = format!("auto-approved: {reason}");
             worker_actions_transitions::approve(
@@ -251,6 +254,33 @@ async fn maybe_auto_approve_with_pool(
         Decision::Ask { .. } => Ok(decision),
         Decision::Block { reason } => Err(block_to_error(action_id, reason)),
     }
+}
+
+async fn ensure_tenant_quota_allows(
+    pool: &Pool<Sqlite>,
+    worker_id: &str,
+    estimated_usd_micros: u64,
+    now: DateTime<Utc>,
+) -> ArgoResult<()> {
+    let quotas = TenantQuotaStore::new(pool);
+    let Some(tenant_id) = quotas.tenant_for_worker(worker_id).await? else {
+        return Ok(());
+    };
+    for (kind, amount) in [
+        (TenantQuotaKind::UsdMicros, estimated_usd_micros),
+        (TenantQuotaKind::Actions, 1),
+        (TenantQuotaKind::Workers, 0),
+    ] {
+        let headroom = quotas
+            .has_headroom_for(&tenant_id, kind, amount, now)
+            .await?;
+        if !headroom.allowed {
+            return Err(ArgoError::Provider(headroom.reason.unwrap_or_else(|| {
+                format!("tenant_quota exceeded for {tenant_id}")
+            })));
+        }
+    }
+    Ok(())
 }
 
 fn estimated_cost_micros(decl: Option<&ActionDeclaration>) -> u64 {

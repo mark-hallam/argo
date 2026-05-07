@@ -23,6 +23,8 @@ mod spend;
 /// `claude-spend-anomaly-alerts`).
 pub mod spend_anomaly;
 mod stats;
+/// Per-tenant resource quotas for budget and auto-approval gates.
+pub mod tenant_quota;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;
 mod workspace;

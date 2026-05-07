@@ -1,5 +1,9 @@
 use clap::Subcommand;
 
+#[path = "cli_tenant_quota_cmds.rs"]
+pub mod cli_tenant_quota_cmds;
+pub use cli_tenant_quota_cmds::TenantQuotaCmd;
+
 #[derive(Subcommand, Debug)]
 pub enum TenantCmd {
     /// List tenants known to this workspace store.
@@ -56,5 +60,10 @@ pub enum TenantCmd {
         /// Emit JSON instead of a human-readable summary.
         #[arg(long)]
         json: bool,
+    },
+    /// Per-tenant resource quotas and period-to-date headroom.
+    Quota {
+        #[command(subcommand)]
+        cmd: TenantQuotaCmd,
     },
 }
