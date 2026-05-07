@@ -77,7 +77,10 @@ commit that adds the brief file.
 
 5. For any NEW open PR from a <WORKER_BRANCH_PREFIXES> branch I haven't reviewed yet:
    - gh pr diff <num> --color never | head -300 (skim the diff)
-   - Verify against the brief's acceptance checklist (file boundaries, LOC, clippy/test passing as claimed)
+   - Verify against the brief's acceptance checklist — **TIERED VERIFICATION (tick368 amendment)**:
+     - **Tier 1 (default — ~1-2min)**: diff-shape review only. Confirm: (a) files match brief's may-touch list, (b) every modified file <500 LOC, (c) all acceptance boxes ticked in PR body, (d) any boundary deviations declared, (e) PR body explicitly claims `clippy --workspace clean` / tests pass, (f) `gh pr view --json mergeStateStatus` returns MERGEABLE not DIRTY. **Trust the worker's verification claim.** Workers run cargo build + clippy --workspace + tests per CLAUDE.md step 9; the conductor re-running them duplicates 9+ minutes of work that already passed.
+     - **Tier 2 (~2min)**: targeted single-crate clippy ONLY when the diff touches a schema migration, multi-crate refactor, or any `argo-store/migrations/` file. Run `cargo clippy -p <touched-crate> --all-targets -- -D warnings` (NOT --workspace). 1-2min instead of 9.
+     - **Tier 3 (~10min, full local verify)**: only when Tier 1 surfaces a red flag: missing PR body, no acceptance ticks, out-of-may-touch edits, brand-new crate added, security-sensitive code, or worker history of broken submissions. Spin worktree + `cargo clippy --workspace`.
    - If clean: gh pr merge <num> --squash --delete-branch, then update BUILD_STATUS.md row to MERGED with PR num, commit "status: <brief-id> merged (#<num>)", push to main
    - If issues: gh pr comment <num> --body "<specific issue>", note in BUILD_STATUS.md
    - Track which PRs I've already reviewed across ticks (use git log to see my own merge commits)
