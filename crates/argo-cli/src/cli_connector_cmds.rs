@@ -4,6 +4,22 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum ConnectorCmd {
+    /// List known connector kinds and whether their manifests are installed.
+    List {
+        /// Only show connectors with manifests/connectors/<kind>.toml present.
+        #[arg(long)]
+        installed_only: bool,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one connector's manifest, method list, and required credentials.
+    Show {
+        kind: String,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
     /// Authorize one connector and store credentials in this workspace.
     Authorize {
         kind: String,
