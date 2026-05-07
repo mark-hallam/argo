@@ -79,6 +79,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             args.limit,
             args.json,
         ),
+        SkillCmd::Publish(args) => super::skill_publish::run(&skills, args).await,
+        SkillCmd::Unpublish(args) => super::skill_unpublish::run(args),
+        SkillCmd::Tags(args) => super::skill_tags::run(args),
         SkillCmd::Conflicts { cmd } => super::skill_conflicts::run(&skills, cmd).await,
         SkillCmd::Create {
             name,

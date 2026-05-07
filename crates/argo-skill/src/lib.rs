@@ -26,6 +26,7 @@ pub mod feedback;
 pub mod learn;
 pub mod library;
 pub mod marketplace;
+pub mod publish;
 mod parse;
 pub mod quality;
 mod skill;
@@ -47,6 +48,10 @@ pub use conflicts::{detect_conflicts, parse_keep_flag, render_diff, SkillConflic
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use marketplace::{parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
+pub use publish::{
+    list_mock_skill_tags, mock_registry_root, publish_mock_skill, unpublish_mock_skill_tag,
+    SkillPublishRecord, SkillPublishSource, SkillTag, SkillUnpublishRecord,
+};
 pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore};
 pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
 pub use store::SkillStore;

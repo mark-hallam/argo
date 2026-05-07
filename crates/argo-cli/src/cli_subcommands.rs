@@ -67,7 +67,9 @@ pub enum PluginCmd {
 }
 
 pub use super::cli_subcommands_provider::{ModelCmd, ProviderCmd};
-pub use super::cli_subcommands_skill::SkillCmd;
+pub use super::cli_subcommands_skill::{
+    SkillCmd, SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd,
+};
 pub use super::cli_memory_cmd::MemoryCmd;
 pub use super::cli_cred_cmds::CredCmd;
 pub use super::cli_backup_cmds::{BackupCmd, RestoreCmd};
