@@ -19,7 +19,30 @@ use std::path::{Path, PathBuf};
 pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
     match cmd {
         EvalCmd::Validate { path, json } => validate(&PathBuf::from(path), json).await,
-        EvalCmd::List { vertical, json } => list(&vertical, json),
+        EvalCmd::List {
+            vertical,
+            limit,
+            json,
+        } => super::eval_list::run(vertical.as_deref(), limit, json).await,
+        EvalCmd::Show { run, json } => super::eval_show::run(&run, json).await,
+        EvalCmd::Compare {
+            run_a,
+            run_b,
+            by,
+            show_regressions,
+            show_improvements,
+            json,
+        } => {
+            super::eval_compare::run(
+                &run_a,
+                &run_b,
+                &by,
+                show_regressions,
+                show_improvements,
+                json,
+            )
+            .await
+        }
         EvalCmd::Run {
             vertical,
             score,
@@ -65,36 +88,6 @@ async fn validate(path: &Path, json_out: bool) -> ArgoResult<()> {
 
     if tasks.is_empty() {
         return Err(ArgoError::Provider("no tasks parsed (empty file?)".into()));
-    }
-    Ok(())
-}
-
-fn list(id: &str, json_out: bool) -> ArgoResult<()> {
-    let (_registry, loaded) = load_vertical(id)?;
-    let fixtures = collect_fixtures(&loaded)?;
-    if json_out {
-        let rows: Vec<Value> = fixtures
-            .iter()
-            .map(|f| {
-                json!({
-                    "id": f.id,
-                    "suite": f.suite,
-                    "line": f.line,
-                    "input": f.input,
-                })
-            })
-            .collect();
-        return print_json(&json!({
-            "ok": true,
-            "vertical": id,
-            "fixture_count": rows.len(),
-            "fixtures": rows,
-        }));
-    }
-
-    println!("vertical '{id}': {} eval fixture(s)", fixtures.len());
-    for f in fixtures {
-        println!("{}	{}	{}", f.id, f.suite, f.input);
     }
     Ok(())
 }

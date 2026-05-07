@@ -45,12 +45,17 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod runner;
+mod compare;
 mod streaming;
 mod task;
 
 #[cfg(test)]
 mod tests;
 
+pub use compare::{
+    compare_runs, ComparisonGroup, ComparisonItem, ComparisonReport, EvalRunFixture,
+    EvalRunReport, GroupComparison,
+};
 pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
 pub use streaming::{
     format_simple_line, format_summary_line, format_verbose_line, StreamMode,

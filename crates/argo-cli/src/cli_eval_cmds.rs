@@ -41,11 +41,41 @@ pub enum EvalCmd {
         #[arg(long)]
         json: bool,
     },
-    /// List the fixtures declared by a vertical's eval suites.
+    /// List recent eval runs. With `--vertical`, filters to one vertical.
     List {
-        /// Vertical id to load from $ARGO_VERTICALS_DIR or ./verticals.
+        /// Vertical id to filter by.
         #[arg(long)]
-        vertical: String,
+        vertical: Option<String>,
+        /// Maximum number of runs to return.
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show a single eval run.
+    Show {
+        /// Eval run id or path to an eval run JSON file.
+        run: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Compare two eval runs side by side.
+    Compare {
+        /// Baseline eval run id or JSON path.
+        run_a: String,
+        /// Candidate eval run id or JSON path.
+        run_b: String,
+        /// Group deltas by fixture, skill, or metric.
+        #[arg(long, default_value = "fixture")]
+        by: String,
+        /// Show only fixtures worse than run A in markdown output.
+        #[arg(long)]
+        show_regressions: bool,
+        /// Show only fixtures better than run A in markdown output.
+        #[arg(long)]
+        show_improvements: bool,
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,

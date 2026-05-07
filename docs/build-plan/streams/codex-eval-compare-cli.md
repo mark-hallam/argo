@@ -43,14 +43,14 @@ For comparison output (markdown):
 - `crates/argo-cli/tests/eval_compare_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] `argo eval list` returns list newest-first
-- [ ] `argo eval show <run>` returns single run detail
-- [ ] `argo eval compare a b` outputs markdown comparison
-- [ ] `--by skill` groups deltas by skill instead of fixture
-- [ ] `--show-regressions` filters output to only worse-than-A
-- [ ] `--json` envelope universal across all 3 subcommands
-- [ ] 6 unit tests + 1 CLI smoke
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings`
+- [x] `argo eval list` returns list newest-first
+- [x] `argo eval show <run>` returns single run detail
+- [x] `argo eval compare a b` outputs markdown comparison
+- [x] `--by skill` groups deltas by skill instead of fixture
+- [x] `--show-regressions` filters output to only worse-than-A
+- [x] `--json` envelope universal across all 3 subcommands
+- [x] 6 unit tests + 1 CLI smoke
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`
       clean
 
 ## Branch + PR
