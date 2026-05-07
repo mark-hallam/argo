@@ -823,6 +823,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-stripe-events"
+version = "0.0.1"
+dependencies = [
+ "argo-config",
+ "argo-mcp",
+ "argo-types",
+ "async-trait",
+ "reqwest 0.12.28",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+]
+
+[[package]]
 name = "argo-mcp-connector-trello"
 version = "0.0.1"
 dependencies = [

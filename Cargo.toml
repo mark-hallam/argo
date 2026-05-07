@@ -53,6 +53,7 @@ members = [
   "crates/argo-mcp-connector-zendesk",
   "crates/argo-mcp-connector-discord",
   "crates/argo-mcp-connector-stripe",
+  "crates/argo-mcp-connector-stripe-events",
   "crates/argo-mcp-connector-trello",
   "crates/argo-mcp-connector-github-issues",
   "crates/argo-mcp-connector-monday",

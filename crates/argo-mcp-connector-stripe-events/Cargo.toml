@@ -1,0 +1,22 @@
+[package]
+name = "argo-mcp-connector-stripe-events"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo MCP connector for read-only Stripe events and observability data"
+
+[[bin]]
+name = "argo-mcp-connector-stripe-events"
+path = "src/main.rs"
+
+[dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
+argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+serde_urlencoded = "0.7"
+tokio = { workspace = true }
