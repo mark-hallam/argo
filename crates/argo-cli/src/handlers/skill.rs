@@ -106,7 +106,10 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             args.tenant.as_deref(),
             args.limit,
             args.json,
-        ),
+            args.vertical.as_deref(),
+            args.include_used_by_sessions,
+        )
+        .await,
         SkillCmd::Publish(args) => super::skill_publish::run(&skills, args).await,
         SkillCmd::Unpublish(args) => super::skill_unpublish::run(args),
         SkillCmd::Tags(args) => super::skill_tags::run(args),

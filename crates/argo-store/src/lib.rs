@@ -21,6 +21,10 @@ mod session_meta;
 mod session_query;
 /// Chronological skill invocation history query helpers.
 pub mod skill_runs_query;
+/// Skill discovery query helpers — vertical-scoped search and
+/// session-attachment indirection (Stream
+/// `claude-skill-search-by-vertical`).
+pub mod skill_query;
 mod spend;
 /// Spend anomaly detector — Welford rolling stats per (worker,
 /// hour-of-day) + z-score check (Stream
