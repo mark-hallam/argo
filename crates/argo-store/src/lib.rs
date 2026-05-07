@@ -42,6 +42,9 @@ pub mod recovery_cache;
 pub mod subtask;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
+/// Worker archive (sleep / wake) — frozen JSON snapshot store
+/// (Stream `claude-worker-archive-rehydrate`).
+pub mod worker_archive;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).

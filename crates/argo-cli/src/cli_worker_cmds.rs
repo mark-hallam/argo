@@ -181,7 +181,31 @@ pub enum WorkerCmd {
     /// claim 2 ("Workers operate under a written charter").
     #[command(subcommand)]
     Charter(WorkerCharterCmd),
+    /// Sleep / wake a worker — freezes the full identity into a
+    /// `worker_archive` row and removes the live persona/role/duty
+    /// rows. Audit + handoff history stay intact (Stream
+    /// `claude-worker-archive-rehydrate`, mission claim 1).
+    #[command(subcommand)]
+    Archive(WorkerArchiveCmd),
+    /// Inverse of `worker archive` — restore a previously-archived
+    /// worker by re-creating its persona/role/duty rows from the
+    /// frozen JSON snapshot.
+    Rehydrate {
+        /// Worker id (UUIDv7) of the archived worker.
+        worker_id: String,
+        /// Tenant id whose worker namespace owns the row.
+        #[arg(long)]
+        tenant: String,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
 }
+
+// `WorkerArchiveCmd` lives in `cli_worker_archive_cmds.rs` (sibling
+// file) so this module stays under the 500-LOC per-file ceiling.
+// Re-exported below for `WorkerCmd::Archive(WorkerArchiveCmd)`.
+pub use crate::cli::cli_worker_archive_cmds::WorkerArchiveCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerCharterCmd {

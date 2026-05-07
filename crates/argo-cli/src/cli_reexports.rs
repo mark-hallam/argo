@@ -79,6 +79,8 @@ pub mod cli_vertical_cmds;
 pub mod cli_workflow_cmds;
 #[path = "cli_work_cmds.rs"]
 pub mod cli_work_cmds;
+#[path = "cli_worker_archive_cmds.rs"]
+pub mod cli_worker_archive_cmds;
 #[path = "cli_worker_cmds.rs"]
 pub mod cli_worker_cmds;
 #[path = "cli_workspace_cmds.rs"]
