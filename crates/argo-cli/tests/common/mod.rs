@@ -5,6 +5,8 @@
 
 #![allow(dead_code)]
 
+pub mod product_e2e_helpers;
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::ops::{Deref, DerefMut};

@@ -1,0 +1,23 @@
+# Minimal onboarding config used by `crates/argo-cli/tests/product_e2e_smoke.rs`.
+# Drives the non-interactive onboard pipeline against a fresh tempdir.
+#
+# Stages 1-2 (Welcome, Workspace) need no config.
+# Stage 3 (Credentials) writes the keys below into <workspace>/.argo/credentials.toml at mode 0600.
+# Stage 4 (First connector) is intentionally NOT authorized — non-interactive mode cannot drive OAuth flows.
+# Stage 5 (First worker) calls `argo_genesis::plan` + `write_vertical` with the charter below.
+# Stage 6 (First action) records the sample task description for operator follow-up.
+# Stage 7 (Done) needs no config.
+
+[credentials]
+ANTHROPIC_API_KEY = "sk-ant-test-product-e2e"
+
+[connector]
+authorize = false
+
+[charter]
+text = "Help draft customer welcome emails for new sign-ups"
+persona = "Maya"
+output = "verticals/maya"
+
+[action]
+sample = "Draft a welcome email for the first paying customer of the week"

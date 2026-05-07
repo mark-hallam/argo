@@ -1,0 +1,13 @@
+{
+  "comment": "Sample task injected by product_e2e_smoke after `argo onboard` completes. The product e2e test reads this, fills in the action_id + worker_id + vertical id from the onboarded workspace, then `argo memory append`s it as a worker_action memory row so the rest of the V3 ledger surface (`argo worker actions list/show/approve/execute/complete`) has something to work with. The shape mirrors what argo_cli::handlers::worker_actions_emit writes at runtime.",
+  "schema_key": "worker_action",
+  "job_id": "product-e2e-job-1",
+  "action_type": "draft_email",
+  "risk_level": "medium",
+  "requires_approval": true,
+  "payload": {
+    "subject": "Welcome to SKYCOT",
+    "body": "Thank you for signing up — your first worker is ready.",
+    "to": "operator@example.com"
+  }
+}
