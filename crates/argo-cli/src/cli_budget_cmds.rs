@@ -51,4 +51,53 @@ pub enum BudgetCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Watch worker budget spend and fire push alerts on 80% /
+    /// 100% daily-cap threshold crossings.
+    Watch {
+        /// Restrict the watch pass to one worker id.
+        #[arg(long)]
+        worker: Option<String>,
+        /// Run a single pass instead of looping forever.
+        #[arg(long)]
+        once: bool,
+        /// Emit JSON tick summaries.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect or test budget alert deliveries.
+    Alerts {
+        #[command(subcommand)]
+        cmd: BudgetAlertsCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BudgetAlertsCmd {
+    /// List recent budget alerts.
+    List {
+        /// Restrict to one worker id.
+        #[arg(long)]
+        worker: Option<String>,
+        /// Lookback window, e.g. 30m, 1h, 7d, or RFC3339.
+        #[arg(long)]
+        since: Option<String>,
+        /// Cap the row count.
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Emit one JSON object per alert.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fire a synthetic budget alert immediately, bypassing dedup.
+    Test {
+        /// Worker id to include in the alert.
+        #[arg(long)]
+        worker: String,
+        /// Threshold to test.
+        #[arg(long, value_parser = clap::value_parser!(u8).range(1..=100))]
+        threshold: u8,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
 }

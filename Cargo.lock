@@ -204,6 +204,7 @@ dependencies = [
  "argo-agent-runner",
  "argo-audit",
  "argo-capability",
+ "argo-channels",
  "argo-config",
  "argo-cron",
  "argo-eval",

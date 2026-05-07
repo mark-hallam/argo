@@ -1,5 +1,5 @@
 //! `argo budget` — per-worker budget ledger reads.
-use crate::cli::BudgetCmd;
+use crate::cli::{BudgetAlertsCmd, BudgetCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::{worker_budget, AutoApprovalPolicy};
 use argo_store::SessionStore;
@@ -48,6 +48,27 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
         BudgetCmd::AnomalyTick { json } => {
             super::budget_anomalies::tick(&store, Utc::now(), json).await?;
         }
+        BudgetCmd::Watch { worker, once, json } => {
+            super::budget_watch::run(worker.as_deref(), once, json).await?;
+        }
+        BudgetCmd::Alerts { cmd } => match cmd {
+            BudgetAlertsCmd::List {
+                worker,
+                since,
+                limit,
+                json,
+            } => {
+                super::budget_alerts_list::run(worker.as_deref(), since.as_deref(), limit, json)
+                    .await?;
+            }
+            BudgetAlertsCmd::Test {
+                worker,
+                threshold,
+                json,
+            } => {
+                super::budget_alerts_test::run(&worker, threshold, json).await?;
+            }
+        },
     }
     Ok(())
 }
