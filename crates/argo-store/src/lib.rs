@@ -25,6 +25,8 @@ mod spend;
 /// `claude-spend-anomaly-alerts`).
 pub mod spend_anomaly;
 mod stats;
+/// Recovery-cache CRUD helpers — `argo recover cache list/show/clear`.
+pub mod recovery_cache;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Tenant inspection and id-rename helpers.
@@ -34,6 +36,7 @@ pub mod workflow_checkpoint;
 mod workspace;
 
 pub use grants::SessionGrant;
+pub use recovery_cache::RecoveryCacheEntry;
 pub use marketplace_meta::MarketplaceArtifactRow;
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
 pub use skill_runs_query::{runs_for_skill, runs_for_tenant, SkillRunRow};

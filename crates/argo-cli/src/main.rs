@@ -323,6 +323,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Recover { session_id, json }) => {
             handlers::recover::run(&session_id, json).await
         }
+        Some(Command::RecoverCache { cmd }) => handlers::recover_cache::run(cmd).await,
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");

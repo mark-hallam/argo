@@ -9,7 +9,7 @@ mod cli_reexports;
 // Other modules' types reach callers through the glob re-export below.
 pub use cli_reexports::{
     cli_duty_cmds, cli_eval_cmds, cli_handoff_cmds, cli_org_cmds, cli_policy_cmds,
-    cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
+    cli_recover_cmds, cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
 };
 pub use cli_reexports::*;
 
@@ -438,6 +438,13 @@ pub enum Command {
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,
+    },
+    /// Inspect or invalidate cached suggestions written by `argo
+    /// recover` (Stream `codex-recover-cache-cli`). Pure CRUD over
+    /// the `recovery_cache` table — no LLM calls.
+    RecoverCache {
+        #[command(subcommand)]
+        cmd: cli_recover_cmds::RecoverCacheCmd,
     },
     Update,
 }

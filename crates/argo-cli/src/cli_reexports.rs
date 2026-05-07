@@ -43,6 +43,8 @@ pub mod cli_session_cmds;
 pub mod cli_skill_conflicts_cmds;
 #[path = "cli_skill_review_cmds.rs"]
 pub mod cli_skill_review_cmds;
+#[path = "cli_recover_cmds.rs"]
+pub mod cli_recover_cmds;
 #[path = "cli_skill_search_cmds.rs"]
 pub mod cli_skill_search_cmds;
 #[path = "cli_duty_cmds.rs"]

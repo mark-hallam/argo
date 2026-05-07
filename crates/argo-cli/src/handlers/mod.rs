@@ -114,6 +114,7 @@ pub mod plugin;
 pub mod policy_handlers;
 pub mod provider;
 pub mod recover;
+pub mod recover_cache;
 pub mod recover_prompt;
 pub mod resume;
 pub mod roster_add_member;
