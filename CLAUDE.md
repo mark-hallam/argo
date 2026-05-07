@@ -197,8 +197,14 @@ Run this loop until any STOP CONDITION fires:
    first: `git worktree remove /tmp/<brief-id> --force 2>/dev/null;
    rm -rf /tmp/<brief-id>`).
 8. Implement. Stay inside may-touch list. Tick acceptance boxes.
-9. `cargo build && cargo clippy --workspace --all-targets -- -D warnings
-   && cargo test`. 3-attempt fail rule applies (HARD RULE 4).
+9. **Filter cargo output to keep your context lean.** Run:
+   - `cargo build --workspace --message-format=short 2>&1 | tail -10`
+   - `cargo clippy --workspace --all-targets -- -D warnings 2>&1 | grep -E '^(warning|error|note|help|   --> |Finished)' | tail -30`
+   - `cargo test 2>&1 | tail -100`
+
+   The filtered forms drop ~90% of the "Compiling foo v0.0.1" noise on success while preserving warnings, errors, source-pointer arrows (`-->`), and the test-result summary (which lists failed tests). On a failed clippy/test where the filtered tail-30 / tail-100 cuts off the relevant diagnostic, re-run **unfiltered for the offending crate only** — `cargo clippy -p <crate> -- -D warnings` or `cargo test -p <crate>`. Workspace-wide unfiltered runs cost 10K-50K tokens of context and are rarely necessary.
+
+   3-attempt fail rule applies (HARD RULE 4).
 10. PRE-PUSH FLIGHT CHECK (HARD RULE 8). If still CLAIMED-by-you,
     `git push -u origin <branch>`.
 11. `gh pr create` with title and body matching the brief.

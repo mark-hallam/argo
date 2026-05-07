@@ -64,7 +64,12 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 6. Read brief at `docs/build-plan/streams/<brief-id>.md`. Follow it EXACTLY.
 7. `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id> && git checkout -b codex-<brief-id>` (clean up stale worktrees first if needed).
 8. Implement. Stay inside may-touch list. Tick acceptance boxes.
-9. `cargo build && cargo clippy --workspace --all-targets -- -D warnings && cargo test`. 3-attempt fail rule applies.
+9. **Filter cargo output to keep your context lean.** Run:
+   - `cargo build --workspace --message-format=short 2>&1 | tail -10`
+   - `cargo clippy --workspace --all-targets -- -D warnings 2>&1 | grep -E '^(warning|error|note|help|   --> |Finished)' | tail -30`
+   - `cargo test 2>&1 | tail -100`
+
+   The filtered forms drop ~90% of the verbose "Compiling foo v0.0.1" output on success while preserving warnings, errors, source-pointer arrows (`-->`), and the test-result summary block. On a failed clippy/test where the filtered tail cuts off the relevant diagnostic, re-run **unfiltered for the offending crate only** — `cargo clippy -p <crate> -- -D warnings` or `cargo test -p <crate>`. Workspace-wide unfiltered runs cost 10K-50K tokens of context and are rarely necessary. 3-attempt fail rule applies.
 10. PRE-PUSH FLIGHT CHECK (CLAUDE.md HARD RULE 8). If still CLAIMED-by-you, `git push -u origin codex-<brief-id>`.
 11. `gh pr create` with the brief's specified title + body (acceptance checklist as ticked checkboxes).
 12. cd back to `~/code/argo-codex` (NOT the worktree). Edit BUILD_STATUS.md → set row to IN_REVIEW + PR number. Commit `"status: <brief-id> in review (#<N>)"` and push.
