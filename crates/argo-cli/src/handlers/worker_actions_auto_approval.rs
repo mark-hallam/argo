@@ -251,7 +251,19 @@ async fn maybe_auto_approve_with_pool(
             .await?;
             Ok(decision)
         }
-        Decision::Ask { .. } => Ok(decision),
+        Decision::Ask { .. } => {
+            // Stream `mission-wire-outbound-notify-on-ask` — fan out
+            // to the workspace's NotifyChannel slots so operators see
+            // the request in Slack/email/push instead of the action
+            // sitting Pending forever. Best-effort: errors log via
+            // `tracing::warn!` inside `try_dispatch_on_ask` and never
+            // propagate; the Decision is the source of truth.
+            let cwd_for_notify =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let _ = super::worker_actions_notify::try_dispatch_on_ask(action, &cwd_for_notify)
+                .await;
+            Ok(decision)
+        }
         Decision::Block { reason } => Err(block_to_error(action_id, reason)),
     }
 }
