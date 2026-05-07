@@ -1,83 +1,17 @@
 //! clap-derived CLI surface (§19 command tree). The top-level
 //! `Cli` + `Command` enums live here; per-family `Subcommand` enums
-//! are extracted to `cli_subcommands.rs` (re-exported below) so
-//! both files stay under the 500-LOC ceiling.
-#[path = "cli_action_cmds.rs"] mod cli_action_cmds;
-#[path = "cli_activity_cmds.rs"] mod cli_activity_cmds;
-#[path = "cli_audit_cmds.rs"] mod cli_audit_cmds;
-#[path = "cli_backup_cmds.rs"] mod cli_backup_cmds;
-#[path = "cli_classify_cmds.rs"] mod cli_classify_cmds;
-#[path = "cli_plan_cmds.rs"] mod cli_plan_cmds;
-#[path = "cli_budget_cmds.rs"] mod cli_budget_cmds;
-#[path = "cli_cred_cmds.rs"] mod cli_cred_cmds;
-#[path = "cli_doctor_cmds.rs"] mod cli_doctor_cmds;
-#[path = "cli_feedback_cmds.rs"] mod cli_feedback_cmds;
-#[path = "cli_eval_cmds.rs"] pub(crate) mod cli_eval_cmds;
-#[path = "cli_forge_cmds.rs"] mod cli_forge_cmds;
-#[path = "cli_gateway_cmds.rs"]
-mod cli_gateway_cmds;
-#[path = "cli_genesis_cmds.rs"]
-mod cli_genesis_cmds;
-#[path = "cli_memory_cmd.rs"]
-mod cli_memory_cmd;
-#[path = "cli_messages_cmds.rs"]
-mod cli_messages_cmds;
-#[path = "cli_session_cmds.rs"]
-mod cli_session_cmds;
-#[path = "cli_skill_conflicts_cmds.rs"]
-mod cli_skill_conflicts_cmds;
-#[path = "cli_skill_review_cmds.rs"]
-mod cli_skill_review_cmds;
-#[path = "cli_skill_search_cmds.rs"]
-mod cli_skill_search_cmds;
-#[path = "cli_duty_cmds.rs"]
-pub mod cli_duty_cmds;
-#[path = "cli_handoff_cmds.rs"]
-pub mod cli_handoff_cmds;
-#[path = "cli_org_cmds.rs"]
-pub mod cli_org_cmds;
-#[path = "cli_policy_cmds.rs"]
-pub mod cli_policy_cmds;
-#[path = "cli_roster_cmds.rs"]
-pub mod cli_roster_cmds;
-#[path = "cli_skill_ab_cmds.rs"]
-pub mod cli_skill_ab_cmds;
-#[path = "cli_subcommands.rs"]
-mod cli_subcommands;
-#[path = "cli_subcommands_cron.rs"]
-mod cli_subcommands_cron;
-#[path = "cli_subcommands_provider.rs"]
-mod cli_subcommands_provider;
-#[path = "cli_subcommands_skill.rs"]
-mod cli_subcommands_skill;
-#[path = "cli_trajectory_cmds.rs"]
-mod cli_trajectory_cmds;
-#[path = "cli_tenant_cmds.rs"]
-mod cli_tenant_cmds;
-#[path = "cli_vertical_cmds.rs"]
-mod cli_vertical_cmds;
-#[path = "cli_workflow_cmds.rs"]
-mod cli_workflow_cmds;
-#[path = "cli_work_cmds.rs"]
-pub(crate) mod cli_work_cmds;
-#[path = "cli_worker_cmds.rs"]
-pub(crate) mod cli_worker_cmds;
-#[path = "cli_workspace_cmds.rs"]
-pub(crate) mod cli_workspace_cmds;
-pub use cli_action_cmds::*;
-pub use cli_audit_cmds::AuditQueryCmd;
-pub use cli_budget_cmds::*;
-pub use cli_doctor_cmds::DoctorCmd;
-pub use cli_feedback_cmds::FeedbackCmd;
-pub use cli_genesis_cmds::*;
-pub use cli_memory_cmd::SharedTeamCmd;
-pub use cli_session_cmds::*;
-pub use cli_subcommands::*;
-pub use cli_tenant_cmds::TenantCmd;
-pub use cli_work_cmds::WorkCmd;
-pub use cli_worker_cmds::WorkerCmd;
-pub use cli_workflow_cmds::WorkflowCmd;
-pub use cli_trajectory_cmds::TrajectoryCmd;
+//! and their `mod` declarations live in `cli_reexports.rs`
+//! (`pub use` re-exported below) so this file stays under the
+//! 500-LOC ceiling.
+#[path = "cli_reexports.rs"]
+mod cli_reexports;
+// Modules with external callers via `crate::cli::cli_<x>::Type` paths.
+// Other modules' types reach callers through the glob re-export below.
+pub use cli_reexports::{
+    cli_duty_cmds, cli_eval_cmds, cli_handoff_cmds, cli_org_cmds, cli_policy_cmds,
+    cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
+};
+pub use cli_reexports::*;
 
 use clap::{Parser, Subcommand};
 
