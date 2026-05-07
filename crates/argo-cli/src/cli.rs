@@ -2,28 +2,18 @@
 //! `Cli` + `Command` enums live here; per-family `Subcommand` enums
 //! are extracted to `cli_subcommands.rs` (re-exported below) so
 //! both files stay under the 500-LOC ceiling.
-#[path = "cli_action_cmds.rs"]
-mod cli_action_cmds;
-#[path = "cli_activity_cmds.rs"]
-mod cli_activity_cmds;
-#[path = "cli_audit_cmds.rs"]
-mod cli_audit_cmds;
-#[path = "cli_classify_cmds.rs"]
-mod cli_classify_cmds;
-#[path = "cli_plan_cmds.rs"]
-mod cli_plan_cmds;
-#[path = "cli_budget_cmds.rs"]
-mod cli_budget_cmds;
-#[path = "cli_cred_cmds.rs"]
-mod cli_cred_cmds;
-#[path = "cli_doctor_cmds.rs"]
-mod cli_doctor_cmds;
-#[path = "cli_feedback_cmds.rs"]
-mod cli_feedback_cmds;
-#[path = "cli_eval_cmds.rs"]
-pub(crate) mod cli_eval_cmds;
-#[path = "cli_forge_cmds.rs"]
-mod cli_forge_cmds;
+#[path = "cli_action_cmds.rs"] mod cli_action_cmds;
+#[path = "cli_activity_cmds.rs"] mod cli_activity_cmds;
+#[path = "cli_audit_cmds.rs"] mod cli_audit_cmds;
+#[path = "cli_backup_cmds.rs"] mod cli_backup_cmds;
+#[path = "cli_classify_cmds.rs"] mod cli_classify_cmds;
+#[path = "cli_plan_cmds.rs"] mod cli_plan_cmds;
+#[path = "cli_budget_cmds.rs"] mod cli_budget_cmds;
+#[path = "cli_cred_cmds.rs"] mod cli_cred_cmds;
+#[path = "cli_doctor_cmds.rs"] mod cli_doctor_cmds;
+#[path = "cli_feedback_cmds.rs"] mod cli_feedback_cmds;
+#[path = "cli_eval_cmds.rs"] pub(crate) mod cli_eval_cmds;
+#[path = "cli_forge_cmds.rs"] mod cli_forge_cmds;
 #[path = "cli_gateway_cmds.rs"]
 mod cli_gateway_cmds;
 #[path = "cli_genesis_cmds.rs"]
@@ -180,6 +170,16 @@ pub enum Command {
     Cred {
         #[command(subcommand)]
         cmd: CredCmd,
+    },
+    /// Workspace backup create/list/verify.
+    Backup {
+        #[command(subcommand)]
+        cmd: BackupCmd,
+    },
+    /// Restore a workspace backup tarball.
+    Restore {
+        #[command(flatten)]
+        args: RestoreCmd,
     },
     /// Work queue v0 (#716). `add` enqueues a unit of work for a
     /// vertical-bound worker; `serve` runs a persistent loop that

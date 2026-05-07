@@ -167,6 +167,23 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             cli::CredCmd::Export { shell } => handlers::cred_export::run(&shell),
             cli::CredCmd::Import { shell } => handlers::cred_import::run(&shell),
         },
+        Some(Command::Backup { cmd }) => match cmd {
+            cli::BackupCmd::Create {
+                output,
+                include_credentials,
+                json,
+            } => {
+                handlers::backup_create::run(output.as_deref(), include_credentials, json).await
+            }
+            cli::BackupCmd::List { json } => handlers::backup_list::run(json).await,
+            cli::BackupCmd::Verify { path, json } => {
+                handlers::backup_verify::run(&path, json).await
+            }
+        },
+        Some(Command::Restore { args }) => {
+            handlers::backup_restore::run(&args.path, args.into.as_deref(), args.dry_run, args.json)
+                .await
+        }
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,

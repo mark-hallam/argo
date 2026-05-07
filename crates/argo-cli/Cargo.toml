@@ -54,6 +54,7 @@ sqlx = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
+flate2 = "1"
 tar = "0.4"
 # Used by `argo vertical install` (#675) to extract `.tar`
 # sources into a temp dir before recursing through the

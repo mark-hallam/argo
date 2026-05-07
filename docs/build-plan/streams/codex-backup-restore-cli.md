@@ -35,17 +35,17 @@ Ship `argo backup` + `argo restore`:
 - `crates/argo-cli/tests/backup_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] `backup create` produces a valid tar.gz of `.argo/`
-- [ ] credentials.toml excluded by default; included with
+- [x] `backup create` produces a valid tar.gz of `.argo/`
+- [x] credentials.toml excluded by default; included with
       `--include-credentials`
-- [ ] sha256 of tarball recorded in a `manifest.json` inside
-- [ ] `restore` into a fresh dir works
-- [ ] `restore` into a non-empty workspace refused (no
+- [x] sha256 of tarball recorded in a `manifest.json` inside
+- [x] `restore` into a fresh dir works
+- [x] `restore` into a non-empty workspace refused (no
       data clobbering)
-- [ ] `--dry-run` lists files without extracting
-- [ ] `--json` envelope universal
-- [ ] 6 unit tests + 1 CLI smoke (full round-trip)
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] `--dry-run` lists files without extracting
+- [x] `--json` envelope universal
+- [x] 6 unit tests + 1 CLI smoke (full round-trip)
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `codex-backup-restore-cli`
