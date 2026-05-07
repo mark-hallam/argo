@@ -87,7 +87,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-approval-batch-decisions-cli | claude | TODO | — | **Phase B claim-6.** `argo approval batch <decision> <id...>` applies one decision to many pending approvals with confirm prompt, --yes, --dry-run. |
 | claude-approval-policy-templates | claude | TODO | — | **Phase B claim-6.** Bundled approval policy TOML templates (auto-approve-low-risk, deny-network-egress, etc.) with list/show/init CLI plus extends-merge. |
 | claude-approval-timeout-default-decision | claude | TODO | — | **Phase B claim-6.** Approval rows gain optional timeout_secs + on_timeout (Approve/Deny/Escalate); 30s sweeper applies the default decision past deadline. |
-| claude-approval-history-search-cli | codex | TODO | — | **Phase B claim-6.** `argo approval history --since/--decision/--worker/--action-kind/--format` with table/json/markdown output and parameterised SQL. |
+| claude-approval-history-search-cli | codex | CLAIMED | — | **Phase B claim-6.** `argo approval history --since/--decision/--worker/--action-kind/--format` with table/json/markdown output and parameterised SQL. |
 | codex-approval-audit-export | codex | TODO | — | **Phase B claim-6.** `argo approval export --csv/json/jsonl --out` for compliance reporting; emits row-count + sha256 to stderr for integrity. |
 | claude-approval-rate-limit | claude | TODO | — | **Phase B claim-6.** Per-channel token-bucket RateLimit in argo-channels with conservative defaults; dispatcher honours retry_after backoff. |
 | claude-approval-channel-fallback-chain | claude | TODO | — | **Phase B claim-6.** `[notify_channels.fallback_chain]` order=[slack,email,webinbox] with per-step timeout + DeliveryReport surfaced via doctor channels. |
