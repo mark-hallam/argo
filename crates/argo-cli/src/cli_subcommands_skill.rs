@@ -162,6 +162,18 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
+    /// ASCII sparkline of the past `--days` daily quality scores
+    /// for one skill (gaps render as `·`).
+    QualityTrend {
+        /// Skill name (active version is used).
+        name: String,
+        /// Days to render (default 30, max 365).
+        #[arg(long)]
+        days: Option<u32>,
+        /// Emit JSON envelope (per-day buckets + sparkline).
+        #[arg(long)]
+        json: bool,
+    },
     /// Force a recompute of the quality score from operator-
     /// provided inputs. Use `--all` to recompute every active
     /// skill (uses defaults for the inputs — primarily a

@@ -147,6 +147,7 @@ pub mod skill_list;
 pub mod skill_quality;
 pub mod skill_quality_list;
 pub mod skill_quality_recompute;
+pub mod skill_quality_trend;
 pub mod skill_refine;
 pub mod skill_verify;
 pub mod skill_view;
