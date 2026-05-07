@@ -34,6 +34,7 @@ argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-telemetry = { path = "../argo-telemetry", version = "0.0.1" }
 argo-tool = { path = "../argo-tool", version = "0.0.1" }
 argo-tui = { path = "../argo-tui", version = "0.0.1" }
+argo-voice-tui = { path = "../argo-voice-tui", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-vertical = { path = "../argo-vertical", version = "0.0.1" }
 argo-executor-computer-use = { path = "../argo-executor-computer-use", version = "0.0.1" }
@@ -70,6 +71,14 @@ uuid = { workspace = true }
 # fallback shim in handlers/gateway.rs.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[features]
+default = []
+# Pass-through to argo-voice-tui's whisper-native feature: enables
+# native mic capture (cpal) + whisper.cpp STT for `argo voice`.
+# Heavy native build — see crates/argo-voice-tui/Cargo.toml for
+# the cost.
+whisper-native = ["argo-voice-tui/whisper-native"]
 
 [dev-dependencies]
 csv = "1"

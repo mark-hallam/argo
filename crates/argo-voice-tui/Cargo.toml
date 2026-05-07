@@ -1,0 +1,36 @@
+[package]
+name = "argo-voice-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo — local voice TUI (`argo voice`); offline approve/deny via whisper.cpp + cpal mic capture (opt-in via `whisper-native`)"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# Optional native voice deps. Mirrors mcp-servers/voice's
+# `whisper-native` pattern: default build is pure-Rust (grammar /
+# fuzzy / intent / wake-word logic + a Mock recognizer for tests),
+# heavy native build only when the user opts in. Pulling whisper-rs
+# adds ~50–90 sec to a fresh build (C++/CMake compile step) plus
+# ~20 MB to the resulting binary.
+whisper-rs = { version = "0.16", optional = true }
+hound = { version = "3", optional = true }
+cpal = { version = "0.15", optional = true }
+
+[features]
+default = []
+# Opt-in: pull in whisper-rs (whisper.cpp Rust bindings) +
+# hound (WAV decode) + cpal (cross-platform mic capture).
+# Heavy native build (C++ + CMake + system audio frameworks).
+# Rebuild with `cargo build -p argo-cli --features
+# argo-voice-tui/whisper-native`.
+whisper-native = ["dep:whisper-rs", "dep:hound", "dep:cpal"]

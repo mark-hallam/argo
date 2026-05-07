@@ -21,6 +21,7 @@ members = [
   "crates/argo-gateway",
   "crates/argo-cli",
   "crates/argo-tui",
+  "crates/argo-voice-tui",
   "crates/argo-audit",
   "crates/argo-telemetry",
   "crates/argo-eval",

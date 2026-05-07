@@ -349,6 +349,10 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 handlers::subtask_tree::run(&session, json).await
             }
         },
+        Some(Command::Voice { mock_script, json }) => {
+            let code = handlers::voice::run(mock_script, json);
+            std::process::exit(code);
+        }
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");

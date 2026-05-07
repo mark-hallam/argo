@@ -216,6 +216,7 @@ pub mod vertical_run;
 pub mod vertical_show;
 pub mod vertical_unarchive;
 pub mod vertical_workflow;
+pub mod voice;
 pub mod work;
 mod work_artifacts;
 mod work_emission;

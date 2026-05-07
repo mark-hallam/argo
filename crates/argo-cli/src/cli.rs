@@ -457,6 +457,17 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_recover_cmds::RecoverCacheCmd,
     },
+    /// Local voice TUI for approval flow
+    /// (`claude-voice-local-tui-whisper`). Mic capture is
+    /// opt-in: `--features whisper-native`.
+    Voice {
+        /// Drive the loop from a JSON file (`{"script": [...]}`).
+        #[arg(long, value_name = "PATH")]
+        mock_script: Option<String>,
+        /// Emit one TickOutcome per line as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     Update,
 }
 
