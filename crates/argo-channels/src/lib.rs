@@ -18,6 +18,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod email;
+pub mod discord;
 pub mod imessage;
 pub mod manifest;
 pub mod push;
@@ -26,6 +27,8 @@ pub mod token;
 pub mod voice;
 pub mod webinbox;
 pub mod whatsapp;
+
+pub use discord::DiscordChannel;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

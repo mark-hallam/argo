@@ -6,6 +6,7 @@ use std::time::Duration;
 const TIMEOUT_SECS: u64 = 5;
 const POSTMARK_SERVER_URL: &str = "https://api.postmarkapp.com/server";
 const SLACK_AUTH_TEST_URL: &str = "https://slack.com/api/auth.test";
+const DISCORD_AUTH_TEST_URL: &str = "https://discord.com/api/v10/users/@me";
 const EXPO_SERVER_INFO_URL: &str = "https://exp.host/--/api/v2/server-info";
 const BLUE_BUBBLES_INFO_PATH: &str = "/api/v1/server/info";
 
@@ -25,6 +26,7 @@ enum Auth<'a> {
 struct ProbeConfig {
     postmark_token: Option<String>,
     slack_token: Option<String>,
+    discord_token: Option<String>,
     twilio_sid: Option<String>,
     twilio_token: Option<String>,
     expo_token: Option<String>,
@@ -33,6 +35,7 @@ struct ProbeConfig {
     voice_from_number: Option<String>,
     postmark_url: String,
     slack_url: String,
+    discord_url: String,
     twilio_url: Option<String>,
     expo_url: String,
 }
@@ -46,6 +49,7 @@ impl ProbeConfig {
         Self {
             postmark_token: env_nonempty("POSTMARK_SERVER_TOKEN"),
             slack_token: env_nonempty("SLACK_APPROVALS_BOT_TOKEN"),
+            discord_token: env_nonempty("DISCORD_BOT_TOKEN"),
             twilio_sid,
             twilio_token: env_nonempty("TWILIO_AUTH_TOKEN"),
             expo_token: env_nonempty("EXPO_ACCESS_TOKEN"),
@@ -55,6 +59,7 @@ impl ProbeConfig {
                 .or_else(|| env_nonempty("TWILIO_FROM_NUMBER")),
             postmark_url: POSTMARK_SERVER_URL.into(),
             slack_url: SLACK_AUTH_TEST_URL.into(),
+            discord_url: DISCORD_AUTH_TEST_URL.into(),
             twilio_url,
             expo_url: EXPO_SERVER_INFO_URL.into(),
         }
@@ -74,6 +79,7 @@ async fn collect_with(cfg: ProbeConfig) -> Value {
         return json!({
             "email": check("ERROR", "could not build HTTP client"),
             "slack": check("ERROR", "could not build HTTP client"),
+            "discord": check("ERROR", "could not build HTTP client"),
             "sms": check("ERROR", "could not build HTTP client"),
             "push": check("ERROR", "could not build HTTP client"),
             "imessage": check("ERROR", "could not build HTTP client"),
@@ -110,6 +116,20 @@ async fn collect_with(cfg: ProbeConfig) -> Value {
             .await
         }
         None => check("MISSING", "SLACK_APPROVALS_BOT_TOKEN is not set"),
+    };
+    let discord = match cfg.discord_token.as_deref() {
+        Some(token) => {
+            probe(
+                &client,
+                ProbeSpec {
+                    name: "discord",
+                    url: cfg.discord_url.clone(),
+                    auth: Auth::Bearer(token),
+                },
+            )
+            .await
+        }
+        None => check("MISSING", "DISCORD_BOT_TOKEN is not set"),
     };
     let sms = match (
         cfg.twilio_sid.as_deref(),
@@ -153,6 +173,7 @@ async fn collect_with(cfg: ProbeConfig) -> Value {
     json!({
         "email": email,
         "slack": slack,
+        "discord": discord,
         "sms": sms,
         "push": push,
         "imessage": imessage,
@@ -342,6 +363,7 @@ mod tests {
         ProbeConfig {
             postmark_token: Some("postmark-token".into()),
             slack_token: Some("slack-token".into()),
+            discord_token: Some("discord-token".into()),
             twilio_sid: Some("AC_test".into()),
             twilio_token: Some("twilio-token".into()),
             expo_token: Some("expo-token".into()),
@@ -350,6 +372,7 @@ mod tests {
             voice_from_number: None,
             postmark_url: url.into(),
             slack_url: url.into(),
+            discord_url: url.into(),
             twilio_url: Some(url.into()),
             expo_url: url.into(),
         }
@@ -369,10 +392,11 @@ mod tests {
 
     #[tokio::test]
     async fn ok_status_reports_ok() {
-        let url = server(200, &[], 4).await;
+        let url = server(200, &[], 5).await;
         let v = collect_with(full_cfg(&url)).await;
         assert_eq!(s(&v["email"]), "OK");
         assert_eq!(s(&v["slack"]), "OK");
+        assert_eq!(s(&v["discord"]), "OK");
         assert_eq!(s(&v["sms"]), "OK");
         assert_eq!(s(&v["push"]), "OK");
     }
@@ -412,7 +436,7 @@ mod tests {
 
     #[tokio::test]
     async fn imessage_ok_when_configured() {
-        let url = server(200, &[], 5).await;
+        let url = server(200, &[], 6).await;
         let cfg = ProbeConfig {
             bluebubbles_url: Some(url.clone()),
             bluebubbles_password: Some("bb-secret".into()),
@@ -424,7 +448,7 @@ mod tests {
 
     #[tokio::test]
     async fn imessage_missing_when_url_unset() {
-        let url = server(200, &[], 4).await;
+        let url = server(200, &[], 5).await;
         let cfg = full_cfg(&url);
         let v = collect_with(cfg).await;
         assert_eq!(s(&v["imessage"]), "MISSING");
@@ -436,7 +460,7 @@ mod tests {
 
     #[tokio::test]
     async fn voice_ok_when_configured() {
-        let url = server(200, &[], 5).await;
+        let url = server(200, &[], 6).await;
         let cfg = ProbeConfig {
             voice_from_number: Some("+15555550111".into()),
             ..full_cfg(&url)
@@ -447,7 +471,7 @@ mod tests {
 
     #[tokio::test]
     async fn voice_missing_when_from_number_unset() {
-        let url = server(200, &[], 4).await;
+        let url = server(200, &[], 5).await;
         let cfg = full_cfg(&url);
         let v = collect_with(cfg).await;
         assert_eq!(s(&v["voice"]), "MISSING");

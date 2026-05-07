@@ -1,6 +1,6 @@
 //! Channel webhook + web inbox routes — central dispatcher and
 //! shared primitives. Per-channel handlers live in sibling files
-//! (`routes_channels_email`, `routes_channels_slack`,
+//! (`routes_channels_email`, `routes_channels_slack`, `routes_channels_discord`,
 //! `routes_channels_webinbox`, `routes_channels_push`,
 //! `routes_channels_whatsapp`).
 //!
@@ -9,6 +9,7 @@
 //! [`is_email_webhook`] / [`email_webhook_response`].
 
 use super::routes_channels_email::handle_email_webhook;
+use super::routes_channels_discord::{discord_decision_response, is_discord_decision};
 use super::routes_channels_push::{is_push, push_response};
 use super::routes_channels_slack::{is_slack_webhook, slack_webhook_response};
 use super::routes_channels_webinbox::{is_webinbox, webinbox_response};
@@ -32,6 +33,7 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
     req.starts_with("POST /channels/email/webhook ")
         || req.starts_with("POST /channels/email/webhook?")
         || is_slack_webhook(req)
+        || is_discord_decision(req)
         || is_webinbox(req)
         || is_push(req)
         || is_whatsapp_webhook(req)
@@ -42,6 +44,9 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
 pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) {
     if is_slack_webhook(req) {
         return slack_webhook_response(req).await;
+    }
+    if is_discord_decision(req) {
+        return discord_decision_response(req).await;
     }
     if is_webinbox(req) {
         return webinbox_response(req).await;
