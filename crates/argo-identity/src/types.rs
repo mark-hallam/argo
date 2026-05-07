@@ -5,6 +5,9 @@ use std::fmt;
 use std::str::FromStr;
 use uuid::Uuid;
 
+#[path = "memory_compose.rs"]
+mod memory_compose;
+
 /// Stable worker identity.
 ///
 /// ```
@@ -121,17 +124,18 @@ impl MemoryNs {
         }
     }
 
-    /// Stub memory context composer for Stream F to fill in.
+    /// Compose memory rows into a `## Memory` markdown block (top-N=8,
+    /// override via `ARGO_MEMORY_COMPOSE_TOP_N`). Empty input → empty.
     ///
     /// ```
     /// use argo_identity::{MemoryNs, MemoryScope, WorkerId};
     /// use argo_types::TenantId;
     /// let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::SharedTeam);
-    /// assert_eq!(ns.compose_context(), "");
+    /// assert_eq!(ns.compose_context(&[]), "");
     /// ```
     #[must_use]
-    pub fn compose_context(&self) -> String {
-        String::new()
+    pub fn compose_context(&self, rows: &[(chrono::DateTime<chrono::Utc>, String)]) -> String {
+        memory_compose::compose(rows, memory_compose::resolve_top_n())
     }
 }
 

@@ -741,6 +741,20 @@ When `sam` (the SDR worker) ticks next, the handoff is in
 without re-asking the operator any of the questions `maya`
 already answered.
 
+> **Memory hydration (v1, workspace-shared scope)**: every
+> agent turn now injects a `## Memory` block at the bottom of
+> the system prompt containing the most recent `shared_team`
+> rows for the session's tenant (top-N controlled by
+> `ARGO_MEMORY_COMPOSE_TOP_N`, default 8). This is the v1
+> wire from `mission-wire-memory-compose-context` — it gives
+> every worker continuity across sessions without requiring
+> a tool call to read memory. Per-worker scope (each worker
+> sees only its own private history) ships in a follow-up
+> brief once the session schema gains a `worker_id` column.
+> If the memory table is unreachable on a stale DB, the wire
+> soft-fails — a `tracing::warn!` is emitted and the prompt
+> proceeds without the memory block.
+
 ### 8.2 Escalation chain
 
 The role declares an escalation chain in `vertical.toml`:

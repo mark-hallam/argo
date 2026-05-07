@@ -11,6 +11,7 @@ description = "Argo — reusable multi-turn agent loop driver (live `run_turn` a
 argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
+argo-identity = { path = "../argo-identity", version = "0.0.1" }
 argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
 argo-memory = { path = "../argo-memory", version = "0.0.1" }
 argo-provider = { path = "../argo-provider", version = "0.0.1" }
@@ -25,6 +26,7 @@ chrono = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

@@ -20,7 +20,7 @@ use crate::Worker;
 /// ```
 #[must_use]
 pub fn compose_system_prompt(worker: &Worker, vertical_system_prompt: &str) -> String {
-    let memory_context = worker.memory_namespace.compose_context();
+    let memory_context = worker.memory_namespace.compose_context(&[]);
     [
         worker.persona.voice_profile.preamble.as_str(),
         worker.role.charter.as_str(),

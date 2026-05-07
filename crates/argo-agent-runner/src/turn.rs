@@ -23,7 +23,7 @@ use crate::turn_vertical::{
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
+use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, TenantId, ToolCallResult};
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -214,7 +214,8 @@ async fn run_turn_with_tools(
     // ergonomic seam: when we have a `vertical_prompt`, use the
     // explicitly threaded `vertical_scope` value (id-only, no
     // file content). Both come from the same session.vertical_id.
-    let mut system_prompt = build_system_prompt(store, session_id, vertical_scope).await?;
+    let mut system_prompt =
+        build_system_prompt(store, session_id, vertical_scope, spend.tenant_id).await?;
     // Vertical-bound session: prepend the vertical's
     // [role].system_prompt content so it lands ahead of skill-
     // derived guidance (#654). Falls through cleanly when the
@@ -438,6 +439,7 @@ async fn build_system_prompt(
     store: &Arc<SessionStore>,
     session_id: SessionId,
     vertical_id: Option<&str>,
+    tenant_id: TenantId,
 ) -> ArgoResult<Option<String>> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let attached = skills.skills_for_session(session_id).await?;
@@ -448,29 +450,43 @@ async fn build_system_prompt(
     } else {
         skills.list_active().await?
     };
-    if active.is_empty() {
-        return Ok(None);
+    let mut out = String::new();
+    if !active.is_empty() {
+        out.push_str(
+            "You have access to the following workspace skills. \
+             Apply them as guidance for tool selection, response style, \
+             and domain knowledge.\n\n",
+        );
+        for s in active {
+            out.push_str(&format!(
+                "## {} (v{})\n",
+                s.frontmatter.name, s.frontmatter.version
+            ));
+            if !s.frontmatter.description.is_empty() {
+                out.push_str(&s.frontmatter.description);
+                out.push('\n');
+            }
+            out.push('\n');
+            out.push_str(s.body.trim_end());
+            out.push_str("\n\n---\n\n");
+        }
     }
-    let mut out = String::from(
-        "You have access to the following workspace skills. \
-         Apply them as guidance for tool selection, response style, \
-         and domain knowledge.\n\n",
-    );
-    for s in active {
-        out.push_str(&format!(
-            "## {} (v{})\n",
-            s.frontmatter.name, s.frontmatter.version
-        ));
-        if !s.frontmatter.description.is_empty() {
-            out.push_str(&s.frontmatter.description);
+    let memory = turn_memory::compose_shared_team_memory(store, tenant_id).await;
+    if !memory.is_empty() {
+        if !out.is_empty() {
             out.push('\n');
         }
-        out.push('\n');
-        out.push_str(s.body.trim_end());
-        out.push_str("\n\n---\n\n");
+        out.push_str(&memory);
     }
-    Ok(Some(out))
+    if out.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(out))
+    }
 }
+
+#[path = "turn_memory.rs"]
+mod turn_memory;
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]

@@ -123,6 +123,7 @@ dependencies = [
  "argo-audit",
  "argo-capability",
  "argo-config",
+ "argo-identity",
  "argo-mcp",
  "argo-memory",
  "argo-provider",
@@ -138,6 +139,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
  "uuid",
 ]
 

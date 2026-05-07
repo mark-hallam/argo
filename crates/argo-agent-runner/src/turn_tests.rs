@@ -11,9 +11,10 @@ use argo_store::SessionStore;
 async fn build_system_prompt_returns_none_for_empty_workspace() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
-    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None)
-        .await
-        .unwrap();
+    let prompt =
+        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new())
+            .await
+            .unwrap();
     assert!(prompt.is_none());
 }
 
@@ -25,10 +26,11 @@ async fn build_system_prompt_concatenates_active_skills() {
     let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
                lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
     skills.install(raw, None).await.unwrap();
-    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None)
-        .await
-        .unwrap()
-        .unwrap();
+    let prompt =
+        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new())
+            .await
+            .unwrap()
+            .unwrap();
     assert!(prompt.contains("## alpha (v0.1)"));
     assert!(prompt.contains("body-of-alpha"));
     assert!(prompt.starts_with("You have access to"));
@@ -53,7 +55,7 @@ async fn build_system_prompt_honours_per_session_attachments() {
     let beta = skills.install(raw_b, None).await.unwrap();
 
     // Default behaviour: both active skills are in scope.
-    let prompt_default = build_system_prompt(&store, sid, None)
+    let prompt_default = build_system_prompt(&store, sid, None, tenant)
         .await
         .unwrap()
         .unwrap();
@@ -62,7 +64,7 @@ async fn build_system_prompt_honours_per_session_attachments() {
 
     // Attach only beta — alpha should now drop out.
     skills.attach_to_session(sid, beta.id).await.unwrap();
-    let prompt_curated = build_system_prompt(&store, sid, None)
+    let prompt_curated = build_system_prompt(&store, sid, None, tenant)
         .await
         .unwrap()
         .unwrap();
@@ -72,7 +74,7 @@ async fn build_system_prompt_honours_per_session_attachments() {
     // Detach: falls back to all-active.
     let removed = skills.detach_from_session(sid, beta.id).await.unwrap();
     assert_eq!(removed, 1);
-    let prompt_after = build_system_prompt(&store, sid, None)
+    let prompt_after = build_system_prompt(&store, sid, None, tenant)
         .await
         .unwrap()
         .unwrap();
@@ -117,7 +119,7 @@ async fn build_system_prompt_for_bound_session_filters_to_vertical_skills() {
         .await
         .unwrap();
 
-    let prompt = build_system_prompt(&store, sid, Some("alpha"))
+    let prompt = build_system_prompt(&store, sid, Some("alpha"), tenant)
         .await
         .unwrap()
         .unwrap();
@@ -153,7 +155,7 @@ async fn build_system_prompt_for_unbound_session_keeps_legacy_global_lookup() {
         .create_session(tenant, ws, "m", "p", Some("t"), None)
         .await
         .unwrap();
-    let prompt = build_system_prompt(&store, sid, None)
+    let prompt = build_system_prompt(&store, sid, None, tenant)
         .await
         .unwrap()
         .unwrap();
@@ -161,6 +163,85 @@ async fn build_system_prompt_for_unbound_session_keeps_legacy_global_lookup() {
         prompt.contains("any-body"),
         "unbound session must see all workspace skills (legacy)"
     );
+}
+
+// ─────────────────── mission-wire-memory-compose-context (Phase B)
+
+#[tokio::test]
+async fn build_system_prompt_injects_shared_team_memory_block() {
+    use argo_identity::WorkerId;
+    let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+    store.migrate().await.unwrap();
+    let (tenant, _ws) = store.ensure_workspace("ws", "/tmp/mwm").await.unwrap();
+
+    // Write 2 shared-team rows for this tenant.
+    let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
+    let ns = argo_memory::shared_team(tenant);
+    memory
+        .write_shared_team(&ns, WorkerId::new(), "first handoff note".into())
+        .await
+        .unwrap();
+    memory
+        .write_shared_team(&ns, WorkerId::new(), "second handoff note".into())
+        .await
+        .unwrap();
+
+    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        prompt.contains("## Memory (workspace-shared, last 2)"),
+        "expected memory block header, got:\n{prompt}"
+    );
+    assert!(prompt.contains("first handoff note"), "got:\n{prompt}");
+    assert!(prompt.contains("second handoff note"), "got:\n{prompt}");
+}
+
+#[tokio::test]
+async fn build_system_prompt_omits_memory_block_when_no_rows() {
+    let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+    store.migrate().await.unwrap();
+    let (tenant, _ws) = store.ensure_workspace("ws", "/tmp/mwm-empty").await.unwrap();
+    // No shared-team rows + no skills → still None.
+    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant)
+        .await
+        .unwrap();
+    assert!(prompt.is_none());
+}
+
+#[tokio::test]
+async fn build_system_prompt_appends_memory_after_skills() {
+    use argo_identity::WorkerId;
+    let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+    store.migrate().await.unwrap();
+    let (tenant, _ws) = store.ensure_workspace("ws", "/tmp/mwm-both").await.unwrap();
+
+    let skills = argo_skill::SkillStore::new(Arc::clone(&store));
+    let raw = "---\nname: alpha\nversion: \"0.1\"\ndescription: D\n\
+               lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
+    skills.install(raw, None).await.unwrap();
+    let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
+    memory
+        .write_shared_team(
+            &argo_memory::shared_team(tenant),
+            WorkerId::new(),
+            "shared note".into(),
+        )
+        .await
+        .unwrap();
+
+    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant)
+        .await
+        .unwrap()
+        .unwrap();
+    let skills_pos = prompt.find("body-of-alpha").expect("skill body present");
+    let memory_pos = prompt.find("## Memory").expect("memory header present");
+    assert!(
+        skills_pos < memory_pos,
+        "expected skills before memory; got:\n{prompt}"
+    );
+    assert!(prompt.contains("shared note"));
 }
 
 // ─────────────────────────────────────── max-rounds (#724)
