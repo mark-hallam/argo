@@ -168,7 +168,14 @@ pub(crate) fn resolve_executor(
     let kind = ExecutorKind::parse(decl.executor.kind_str())?;
     let exec: Box<dyn Executor> = match kind {
         ExecutorKind::Human => Box::new(HumanExecutor::new(decl.clone())),
-        ExecutorKind::Mcp => Box::new(McpExecutor::new()),
+        ExecutorKind::Mcp => {
+            let servers = vertical
+                .mcp_servers
+                .as_ref()
+                .map(|s| s.servers.clone().into_iter().collect())
+                .unwrap_or_default();
+            Box::new(McpExecutor::with_manifest(decl.clone(), servers))
+        }
         ExecutorKind::ComputerUse => {
             Box::new(ComputerUseExecutor::with_declaration(decl.clone()))
         }

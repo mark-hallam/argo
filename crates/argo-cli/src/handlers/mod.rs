@@ -229,6 +229,7 @@ mod worker_actions_emit_plan;
 mod worker_actions_executor;
 mod worker_actions_executor_code;
 mod worker_actions_executor_document;
+mod worker_actions_executor_mcp;
 mod worker_actions_executor_stubs;
 mod worker_actions_followup;
 mod worker_actions_items;

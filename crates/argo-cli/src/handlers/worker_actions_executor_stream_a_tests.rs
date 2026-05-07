@@ -214,7 +214,14 @@ executor = {{ kind = "{kind_str}" }}
 }
 
 #[test]
-fn mcp_stub_dispatch_returns_useful_not_implemented_error() {
+fn mcp_dispatch_outside_tokio_runtime_returns_clear_error() {
+    // `mission-wire-mcp-action-executor` swapped the Stream A stub
+    // for a real impl that pools MCP-server connections via tokio.
+    // When dispatch is called from a non-async context, the executor
+    // surfaces a clear runtime-needed error instead of panicking.
+    // This documents that the executor's `dispatch_blocking` requires
+    // an active tokio runtime (which the production CLI path always
+    // has, via `#[tokio::main]`).
     let manifest = argo_vertical::parse(
         r#"
 schema_version = "1"
@@ -223,6 +230,9 @@ schema_version = "1"
 id = "fix"
 name = "fix"
 version = "0.0.1"
+
+[mcp_servers]
+gmail = { transport = "stdio", command = "/bin/false", args = [] }
 
 [actions.send_email]
 risk = "medium"
@@ -237,11 +247,12 @@ executor = { kind = "mcp", server = "gmail", tool = "drafts.send" }
     let cwd = tempfile::tempdir().expect("tempdir");
     let err = exec
         .dispatch(&r, cwd.path())
-        .expect_err("mcp stub must fail at dispatch time");
+        .expect_err("dispatch outside tokio runtime must fail");
     let msg = err.to_string();
-    assert!(msg.contains("not yet implemented"), "got: {msg}");
-    assert!(msg.contains("mcp"), "got: {msg}");
-    assert!(msg.contains("C-mcp-wire"), "msg should reference brief: {msg}");
+    assert!(
+        msg.contains("tokio runtime"),
+        "expected runtime error, got: {msg}"
+    );
 }
 
 #[test]

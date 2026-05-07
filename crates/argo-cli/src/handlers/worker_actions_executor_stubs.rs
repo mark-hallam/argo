@@ -4,20 +4,20 @@
 //! budget by holding only the trait + `HumanExecutor` there;
 //! sibling impls live here.
 //!
-//! Status as of Stream B `#B-computer-use-executor`:
-//!
-//! - `McpExecutor` → still a stub; wired by Stream
-//!   `#C-mcp-wire`.
+//! - `McpExecutor` → real impl as of
+//!   `mission-wire-mcp-action-executor`; delegates to the per-server
+//!   pool in `worker_actions_executor_mcp`.
 //! - `ComputerUseExecutor` → real impl, delegates to
 //!   `argo-executor-computer-use` (Stream B). Falls back to a
 //!   clear error when `E2B_API_KEY` / `ANTHROPIC_API_KEY`
 //!   aren't set so unconfigured workspaces surface the gap
 //!   rather than crash.
-//! - `ApiExecutor` → still a stub; wired by Stream H connector
-//!   flavours.
+//! - `ApiExecutor` → still a stub; wired by
+//!   `mission-wire-api-action-executor`.
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
+use super::worker_actions_executor_mcp;
 use crate::home::{db_path, resolve_home};
 use argo_executor_computer_use::{
     ComputerUseExecutor as CuExecutorImpl, CuConfig, Outcome, ProfileRegistry, RunRequest,
@@ -25,16 +25,32 @@ use argo_executor_computer_use::{
 use argo_executor_filesystem::{ops as fs_ops, FsOpKind, Sandbox};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
-use argo_vertical::ActionDeclaration;
+use argo_vertical::{ActionDeclaration, McpServerDeclaration};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Placeholder for the MCP executor that Stream `#C-mcp-wire`
-/// wires into the agent dispatch loop.
-pub(crate) struct McpExecutor;
+/// Real action-level MCP executor wired by
+/// `mission-wire-mcp-action-executor`. Carries the action's manifest
+/// declaration plus the manifest-level `[mcp_servers]` map so dispatch
+/// can resolve `executor.server` → transport without re-loading the
+/// vertical at call time.
+pub(crate) struct McpExecutor {
+    declaration: Option<ActionDeclaration>,
+    servers: HashMap<String, McpServerDeclaration>,
+}
 
 impl McpExecutor {
-    pub(crate) fn new() -> Self {
-        Self
+    /// Production constructor used by `resolve_executor`. Carries the
+    /// per-action declaration + the manifest's `[mcp_servers]` table
+    /// so the dispatch path is self-contained.
+    pub(crate) fn with_manifest(
+        decl: ActionDeclaration,
+        servers: HashMap<String, McpServerDeclaration>,
+    ) -> Self {
+        Self {
+            declaration: Some(decl),
+            servers,
+        }
     }
 }
 
@@ -42,14 +58,15 @@ impl Executor for McpExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::Mcp
     }
-    fn dispatch(&self, _action: &ActionRecord, _cwd: &Path) -> ArgoResult<ActionOutcome> {
-        Err(ArgoError::Provider(
-            "executor `mcp` is not yet implemented; track \
-             docs/build-plan/streams/C-mcp-wire.md (Stream C \
-             wires MCP into agent dispatch; once it merges, this \
-             stub is swapped for the real impl)"
-                .into(),
-        ))
+    fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
+        let decl = self.declaration.as_ref().ok_or_else(|| {
+            ArgoError::Provider(
+                "McpExecutor needs an ActionDeclaration; resolve_executor \
+                 must build it via `with_manifest`"
+                    .into(),
+            )
+        })?;
+        worker_actions_executor_mcp::dispatch_blocking(action, cwd, decl, &self.servers)
     }
 }
 
