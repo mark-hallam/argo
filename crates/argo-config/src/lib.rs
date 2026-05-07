@@ -18,6 +18,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod cred;
+
 use argo_core::RestartPolicy;
 use argo_types::{ArgoError, ArgoResult, CostCeilings};
 use serde::{Deserialize, Serialize};

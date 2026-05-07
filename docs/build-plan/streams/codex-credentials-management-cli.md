@@ -56,14 +56,14 @@ The follow-up brief is mechanical and small (each reader is one line:
 `std::env::var("X")?` → `argo_config::cred::get("X")?`).
 
 ## Acceptance criteria
-- [ ] All 5 subcommands work end-to-end
-- [ ] credentials.toml has file mode 0600
-- [ ] `--reveal` actually reveals; default masks
-- [ ] Existing env-var-reading code still works (fallback to
+- [x] All 5 subcommands work end-to-end
+- [x] credentials.toml has file mode 0600
+- [x] `--reveal` actually reveals; default masks
+- [x] Existing env-var-reading code still works (fallback to
       credentials.toml only when env unset)
-- [ ] `argo cred export --shell bash` emits valid bash
-- [ ] 6 unit tests + 1 CLI smoke
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] `argo cred export --shell bash` emits valid bash
+- [x] 6 unit tests + 1 CLI smoke
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `codex-credentials-management-cli`

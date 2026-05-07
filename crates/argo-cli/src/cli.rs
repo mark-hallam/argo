@@ -14,6 +14,8 @@ mod cli_classify_cmds;
 mod cli_plan_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
+#[path = "cli_cred_cmds.rs"]
+mod cli_cred_cmds;
 #[path = "cli_doctor_cmds.rs"]
 mod cli_doctor_cmds;
 #[path = "cli_feedback_cmds.rs"]
@@ -171,6 +173,11 @@ pub enum Command {
     Cron {
         #[command(subcommand)]
         cmd: CronCmd,
+    },
+    /// Workspace credential storage and shell export helpers.
+    Cred {
+        #[command(subcommand)]
+        cmd: CredCmd,
     },
     /// Work queue v0 (#716). `add` enqueues a unit of work for a
     /// vertical-bound worker; `serve` runs a persistent loop that
