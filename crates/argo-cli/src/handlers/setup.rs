@@ -36,7 +36,7 @@ fn detect_provider_keys() -> Vec<&'static str> {
     candidates
         .iter()
         .filter(|k| {
-            std::env::var(*k)
+            argo_config::cred::get(k)
                 .map(|v| !v.trim().is_empty())
                 .unwrap_or(false)
         })
@@ -79,7 +79,7 @@ fn run_check_required(required: &[String]) -> ArgoResult<()> {
     let missing: Vec<&String> = required
         .iter()
         .filter(|var| {
-            std::env::var(var.as_str())
+            argo_config::cred::get(var.as_str())
                 .map(|v| v.trim().is_empty())
                 .unwrap_or(true)
         })

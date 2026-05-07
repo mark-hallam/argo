@@ -46,7 +46,7 @@ pub struct SlackApprovalChannelConfig {
 impl SlackApprovalChannelConfig {
     /// Build config using `SLACK_APPROVALS_BOT_TOKEN` and one default route.
     pub fn from_env(default_operator_id: &str, route: SlackOperatorRoute) -> ChannelResult<Self> {
-        let bot_token = std::env::var("SLACK_APPROVALS_BOT_TOKEN")
+        let bot_token = argo_config::cred::get("SLACK_APPROVALS_BOT_TOKEN")
             .map_err(|_| ChannelError::Config("missing SLACK_APPROVALS_BOT_TOKEN".into()))?;
         let mut operator_routes = BTreeMap::new();
         operator_routes.insert(default_operator_id.to_string(), route);

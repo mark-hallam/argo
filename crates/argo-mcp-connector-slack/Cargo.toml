@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo MCP connector for Slack Web API"
 
 [dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
 async-trait = { workspace = true }
 reqwest = { workspace = true }

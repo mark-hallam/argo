@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Shared Blue Bubbles REST client for Argo channels and MCP connectors"
 
 [dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
 hex = { workspace = true }
 hmac = { workspace = true }
 reqwest = { workspace = true }

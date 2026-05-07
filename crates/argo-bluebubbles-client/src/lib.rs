@@ -275,7 +275,7 @@ async fn decode_response(path: &str, response: reqwest::Response) -> BlueBubbles
 }
 
 fn required_env(name: &str) -> BlueBubblesResult<String> {
-    std::env::var(name)
+    argo_config::cred::get(name)
         .ok()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())

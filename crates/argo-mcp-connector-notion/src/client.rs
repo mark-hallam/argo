@@ -20,8 +20,8 @@ pub struct NotionConfig {
 impl NotionConfig {
     /// Load config from environment.
     pub fn from_env() -> McpResult<Self> {
-        let integration_token = std::env::var("NOTION_INTEGRATION_TOKEN")
-            .or_else(|_| std::env::var("NOTION_TEST_TOKEN"))
+        let integration_token = argo_config::cred::get("NOTION_INTEGRATION_TOKEN")
+            .or_else(|_| argo_config::cred::get("NOTION_TEST_TOKEN"))
             .map_err(|_| McpError::Initialize("NOTION_INTEGRATION_TOKEN is required".into()))?;
         Ok(Self {
             integration_token,

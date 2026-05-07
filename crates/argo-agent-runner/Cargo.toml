@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo — reusable multi-turn agent loop driver (live `run_turn` against a SessionStore)"
 
 [dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-mcp = { path = "../argo-mcp", version = "0.0.1" }

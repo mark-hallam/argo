@@ -175,7 +175,7 @@ async fn probe(client: &reqwest::Client, spec: ProbeSpec<'_>) -> Value {
 }
 
 fn env_nonempty(name: &str) -> Option<String> {
-    std::env::var(name).ok().filter(|v| !v.trim().is_empty())
+    argo_config::cred::get(name).ok().filter(|v| !v.trim().is_empty())
 }
 
 fn check(status: impl Into<String>, detail: impl Into<String>) -> Value {

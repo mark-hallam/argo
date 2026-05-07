@@ -20,7 +20,7 @@ pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn T
         return Ok(Box::new(BedrockTransport::from_manifest(manifest, &cfg)?));
     }
     let api_key_env = manifest.auth.api_key_env.clone();
-    let api_key = std::env::var(&api_key_env)
+    let api_key = argo_config::cred::get(&api_key_env)
         .map_err(|_| ArgoError::Provider(format!("{api_key_env} not set")))?;
     let t: Box<dyn Transport> = match manifest.provider.family {
         ProviderFamily::Anthropic => {
@@ -99,8 +99,7 @@ mod tests {
     fn write_manifest(dir: &Path, provider_id: &str, body: &str) {
         let path = dir.join("providers");
         std::fs::create_dir_all(&path).expect("mkdir providers");
-        std::fs::write(path.join(format!("{provider_id}.toml")), body)
-            .expect("write manifest");
+        std::fs::write(path.join(format!("{provider_id}.toml")), body).expect("write manifest");
     }
 
     fn fixture_anthropic() -> String {
@@ -114,9 +113,8 @@ mod tests {
             .and_then(std::path::Path::parent)
             .expect("workspace root")
             .join("manifests/providers/anthropic.toml");
-        std::fs::read_to_string(&path).unwrap_or_else(|e| {
-            panic!("read fixture {}: {e}", path.display())
-        })
+        std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read fixture {}: {e}", path.display()))
     }
 
     #[test]

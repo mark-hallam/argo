@@ -17,7 +17,7 @@ pub fn password_from_env() -> Result<String, String> {
 }
 
 fn required_env(name: &str) -> Result<String, String> {
-    std::env::var(name)
+    argo_config::cred::get(name)
         .ok()
         .map(|v| v.trim().to_owned())
         .filter(|v| !v.is_empty())

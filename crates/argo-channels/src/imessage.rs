@@ -48,7 +48,7 @@ impl IMessageChannelConfig {
             server_url: required_env("BLUE_BUBBLES_URL")?,
             password: required_env("BLUE_BUBBLES_PASSWORD")?,
             approval_secret: required_env("ARGO_CHANNEL_HMAC_SECRET")?,
-            webhook_secret: std::env::var("BLUE_BUBBLES_WEBHOOK_SECRET").ok(),
+            webhook_secret: argo_config::cred::get("BLUE_BUBBLES_WEBHOOK_SECRET").ok(),
             operator_routes: BTreeMap::new(),
         })
     }
@@ -209,7 +209,7 @@ fn nonempty(value: &str) -> Option<String> {
 }
 
 fn required_env(name: &str) -> ChannelResult<String> {
-    std::env::var(name)
+    argo_config::cred::get(name)
         .ok()
         .and_then(|v| nonempty(&v))
         .ok_or_else(|| ChannelError::Config(format!("missing env {name}")))

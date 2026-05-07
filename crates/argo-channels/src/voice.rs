@@ -155,15 +155,18 @@ pub fn sign_voice_callback_token(
 }
 
 /// Verify a signed DTMF callback token and reject expired callbacks.
-pub fn verify_voice_callback_token(token: &str, secret: &str) -> ChannelResult<VoiceCallbackClaims> {
+pub fn verify_voice_callback_token(
+    token: &str,
+    secret: &str,
+) -> ChannelResult<VoiceCallbackClaims> {
     if secret.is_empty() {
         return Err(ChannelError::Auth(
             "voice callback secret must not be empty".into(),
         ));
     }
-    let (payload_hex, sig) = token
-        .rsplit_once('.')
-        .ok_or_else(|| ChannelError::Auth("voice callback token must have payload.signature".into()))?;
+    let (payload_hex, sig) = token.rsplit_once('.').ok_or_else(|| {
+        ChannelError::Auth("voice callback token must have payload.signature".into())
+    })?;
     let payload_bytes = hex::decode(payload_hex)
         .map_err(|e| ChannelError::Auth(format!("voice callback token payload hex: {e}")))?;
     let payload = std::str::from_utf8(&payload_bytes)
@@ -184,9 +187,7 @@ pub fn verify_voice_callback_token(token: &str, secret: &str) -> ChannelResult<V
         .parse::<i64>()
         .map_err(|e| ChannelError::Auth(format!("voice callback token exp: {e}")))?;
     if Utc::now().timestamp() > exp {
-        return Err(ChannelError::Auth(
-            "voice callback token expired".into(),
-        ));
+        return Err(ChannelError::Auth("voice callback token expired".into()));
     }
     Ok(VoiceCallbackClaims {
         approval_id: parts[0].to_string(),
@@ -311,7 +312,11 @@ impl NotifyChannel for VoiceApprovalChannel {
         }
         let provider_message_id = serde_json::from_str::<serde_json::Value>(&raw)
             .ok()
-            .and_then(|v| v.get("sid").and_then(|sid| sid.as_str()).map(str::to_string));
+            .and_then(|v| {
+                v.get("sid")
+                    .and_then(|sid| sid.as_str())
+                    .map(str::to_string)
+            });
         Ok(DeliveryReceipt {
             channel_id: self.id(),
             notification_id: notification.approval_id,
@@ -328,20 +333,26 @@ impl NotifyChannel for VoiceApprovalChannel {
 }
 
 fn env_required(name: &str) -> ChannelResult<String> {
-    let value = std::env::var(name)
+    let value = argo_config::cred::get(name)
         .map_err(|_| ChannelError::Config(format!("missing env {name}")))?;
     if value.is_empty() {
-        Err(ChannelError::Config(format!("env {name} must not be empty")))
+        Err(ChannelError::Config(format!(
+            "env {name} must not be empty"
+        )))
     } else {
         Ok(value)
     }
 }
 
 fn env_first(primary: &str, fallback: &str) -> ChannelResult<String> {
-    std::env::var(primary)
+    argo_config::cred::get(primary)
         .ok()
         .filter(|v| !v.is_empty())
-        .or_else(|| std::env::var(fallback).ok().filter(|v| !v.is_empty()))
+        .or_else(|| {
+            argo_config::cred::get(fallback)
+                .ok()
+                .filter(|v| !v.is_empty())
+        })
         .ok_or_else(|| ChannelError::Config(format!("missing env {primary} or {fallback}")))
 }
 
@@ -398,9 +409,15 @@ mod tests {
 
     #[test]
     fn dtmf_digits_map_to_decisions() {
-        assert_eq!(VoiceDecision::from_digits("1"), Some(VoiceDecision::Approve));
+        assert_eq!(
+            VoiceDecision::from_digits("1"),
+            Some(VoiceDecision::Approve)
+        );
         assert_eq!(VoiceDecision::from_digits("2"), Some(VoiceDecision::Deny));
-        assert_eq!(VoiceDecision::from_digits("9"), Some(VoiceDecision::RequestDetails));
+        assert_eq!(
+            VoiceDecision::from_digits("9"),
+            Some(VoiceDecision::RequestDetails)
+        );
         assert_eq!(VoiceDecision::from_digits("3"), None);
     }
 

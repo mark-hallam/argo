@@ -144,7 +144,11 @@ impl NotifyChannel for SmsApprovalChannel {
         }
         let provider_message_id = serde_json::from_str::<serde_json::Value>(&raw)
             .ok()
-            .and_then(|v| v.get("sid").and_then(|sid| sid.as_str()).map(str::to_string));
+            .and_then(|v| {
+                v.get("sid")
+                    .and_then(|sid| sid.as_str())
+                    .map(str::to_string)
+            });
         Ok(DeliveryReceipt {
             channel_id: self.id(),
             notification_id: notification.approval_id,
@@ -161,10 +165,12 @@ impl NotifyChannel for SmsApprovalChannel {
 }
 
 fn env_required(name: &str) -> ChannelResult<String> {
-    let value = std::env::var(name)
+    let value = argo_config::cred::get(name)
         .map_err(|_| ChannelError::Config(format!("missing env {name}")))?;
     if value.is_empty() {
-        Err(ChannelError::Config(format!("env {name} must not be empty")))
+        Err(ChannelError::Config(format!(
+            "env {name} must not be empty"
+        )))
     } else {
         Ok(value)
     }
@@ -207,7 +213,10 @@ mod tests {
 
     #[tokio::test]
     async fn non_high_risk_sms_is_deferred() {
-        let receipt = channel().send(notification(RiskLevel::Medium)).await.unwrap();
+        let receipt = channel()
+            .send(notification(RiskLevel::Medium))
+            .await
+            .unwrap();
         assert_eq!(receipt.status, DeliveryStatus::Deferred);
         assert_eq!(
             receipt.deferred_reason.as_deref(),

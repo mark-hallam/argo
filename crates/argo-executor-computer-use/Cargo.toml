@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo Stream B — ComputerUseExecutor + E2B sandbox driver for the Anthropic computer-use loop"
 
 [dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }

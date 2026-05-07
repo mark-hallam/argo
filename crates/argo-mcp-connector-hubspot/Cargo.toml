@@ -12,6 +12,7 @@ name = "argo-mcp-connector-hubspot"
 path = "src/main.rs"
 
 [dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 async-trait = { workspace = true }

@@ -11,7 +11,7 @@ pub const DEFAULT_BASE_URL: &str = "https://api.fireflies.ai/graphql";
 
 /// Read the Fireflies.ai API key from `FIREFLIES_API_KEY`.
 pub fn api_key_from_env() -> Result<String, String> {
-    let key = std::env::var(FIREFLIES_API_KEY_ENV)
+    let key = argo_config::cred::get(FIREFLIES_API_KEY_ENV)
         .map_err(|_| format!("missing {FIREFLIES_API_KEY_ENV}"))?;
     if key.trim().is_empty() {
         return Err(format!("missing {FIREFLIES_API_KEY_ENV}"));

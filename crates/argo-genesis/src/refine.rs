@@ -75,10 +75,11 @@ impl RefineConfig {
     /// unset — the cli surfaces this at startup so the operator
     /// sees the gap before the deterministic pipeline runs.
     pub fn from_env() -> Result<Self, GenesisError> {
-        let api_key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| GenesisError::Validation {
-            stage: "refine.config",
-            detail: "ANTHROPIC_API_KEY must be set when --refine is passed".into(),
-        })?;
+        let api_key =
+            argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| GenesisError::Validation {
+                stage: "refine.config",
+                detail: "ANTHROPIC_API_KEY must be set when --refine is passed".into(),
+            })?;
         let model = std::env::var("SKYCOT_REFINE_MODEL")
             .unwrap_or_else(|_| Self::DEFAULT_MODEL.to_string());
         let base_url = std::env::var("SKYCOT_REFINE_BASE_URL")
@@ -250,13 +251,16 @@ pub fn apply_refinement(
 
 fn merge_proposed_actions(actions: &mut ActionsSection, proposed: Vec<ProposedAction>) {
     for p in proposed {
-        actions.actions.entry(p.action_type.clone()).or_insert_with(|| ActionDeclaration {
-            risk: p.risk,
-            requires_approval: p.requires_approval,
-            description: p.description,
-            executor: ExecutorDeclaration::default(),
-            ..ActionDeclaration::default()
-        });
+        actions
+            .actions
+            .entry(p.action_type.clone())
+            .or_insert_with(|| ActionDeclaration {
+                risk: p.risk,
+                requires_approval: p.requires_approval,
+                description: p.description,
+                executor: ExecutorDeclaration::default(),
+                ..ActionDeclaration::default()
+            });
     }
 }
 
@@ -365,16 +369,20 @@ pub mod http {
                     detail: format!("anthropic returned HTTP {}", resp.status()),
                 });
             }
-            let raw: serde_json::Value = resp.json().await.map_err(|e| GenesisError::Validation {
-                stage: "refine.http.parse",
-                detail: format!("anthropic body: {e}"),
-            })?;
+            let raw: serde_json::Value =
+                resp.json().await.map_err(|e| GenesisError::Validation {
+                    stage: "refine.http.parse",
+                    detail: format!("anthropic body: {e}"),
+                })?;
             // The Anthropic response shape: { "content": [{ "type": "text", "text": "..." }] }
             // Extract the first text block — the cli passes that to RefinementResponse::deserialize.
             let text = raw
                 .get("content")
                 .and_then(|c| c.as_array())
-                .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
+                .and_then(|arr| {
+                    arr.iter()
+                        .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
+                })
                 .and_then(|b| b.get("text"))
                 .and_then(|t| t.as_str())
                 .ok_or_else(|| GenesisError::Validation {

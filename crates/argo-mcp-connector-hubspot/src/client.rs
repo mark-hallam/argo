@@ -14,7 +14,7 @@ pub struct HubspotClient {
 impl HubspotClient {
     /// Build from `HUBSPOT_PRIVATE_APP_TOKEN`.
     pub fn from_env() -> Result<Self, String> {
-        let token = std::env::var("HUBSPOT_PRIVATE_APP_TOKEN")
+        let token = argo_config::cred::get("HUBSPOT_PRIVATE_APP_TOKEN")
             .map_err(|_| "missing HUBSPOT_PRIVATE_APP_TOKEN".to_string())?;
         if token.trim().is_empty() {
             return Err("missing HUBSPOT_PRIVATE_APP_TOKEN".into());

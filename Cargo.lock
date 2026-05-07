@@ -116,6 +116,7 @@ version = "0.0.1"
 dependencies = [
  "argo-audit",
  "argo-capability",
+ "argo-config",
  "argo-mcp",
  "argo-memory",
  "argo-provider",
@@ -156,6 +157,7 @@ dependencies = [
 name = "argo-bluebubbles-client"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "hex",
  "hmac 0.12.1",
  "reqwest 0.12.28",
@@ -182,6 +184,7 @@ name = "argo-channels"
 version = "0.0.1"
 dependencies = [
  "argo-bluebubbles-client",
+ "argo-config",
  "async-trait",
  "chrono",
  "hex",
@@ -340,6 +343,7 @@ dependencies = [
 name = "argo-executor-computer-use"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-skill",
  "argo-types",
  "async-trait",
@@ -402,6 +406,7 @@ dependencies = [
 name = "argo-genesis"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-types",
  "argo-vertical",
  "async-trait",
@@ -510,6 +515,7 @@ dependencies = [
 name = "argo-mcp-connector-airtable"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -522,6 +528,7 @@ dependencies = [
 name = "argo-mcp-connector-asana"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -534,6 +541,7 @@ dependencies = [
 name = "argo-mcp-connector-clickup"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -546,6 +554,7 @@ dependencies = [
 name = "argo-mcp-connector-fireflies"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -558,6 +567,7 @@ dependencies = [
 name = "argo-mcp-connector-gcal"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "async-trait",
  "chrono",
@@ -573,6 +583,7 @@ dependencies = [
 name = "argo-mcp-connector-gmail"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -587,6 +598,7 @@ dependencies = [
 name = "argo-mcp-connector-hubspot"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -600,6 +612,7 @@ name = "argo-mcp-connector-imessage"
 version = "0.0.1"
 dependencies = [
  "argo-bluebubbles-client",
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -612,6 +625,7 @@ dependencies = [
 name = "argo-mcp-connector-jira"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -625,6 +639,7 @@ dependencies = [
 name = "argo-mcp-connector-linear"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -637,6 +652,7 @@ dependencies = [
 name = "argo-mcp-connector-monday"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -649,6 +665,7 @@ dependencies = [
 name = "argo-mcp-connector-notion"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "async-trait",
  "reqwest 0.12.28",
@@ -661,6 +678,7 @@ dependencies = [
 name = "argo-mcp-connector-pagerduty"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -673,6 +691,7 @@ dependencies = [
 name = "argo-mcp-connector-salesforce"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",
@@ -686,6 +705,7 @@ dependencies = [
 name = "argo-mcp-connector-slack"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "async-trait",
  "reqwest 0.12.28",
@@ -698,6 +718,7 @@ dependencies = [
 name = "argo-mcp-connector-stripe"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-mcp",
  "argo-types",
  "async-trait",

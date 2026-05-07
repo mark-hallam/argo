@@ -11,7 +11,7 @@ pub const DEFAULT_BASE_URL: &str = "https://api.monday.com/v2";
 
 /// Read the Monday.com API token from `MONDAY_API_TOKEN`.
 pub fn token_from_env() -> Result<String, String> {
-    let token = std::env::var(MONDAY_API_TOKEN_ENV)
+    let token = argo_config::cred::get(MONDAY_API_TOKEN_ENV)
         .map_err(|_| format!("missing {MONDAY_API_TOKEN_ENV}"))?;
     if token.trim().is_empty() {
         return Err(format!("missing {MONDAY_API_TOKEN_ENV}"));

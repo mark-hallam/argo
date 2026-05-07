@@ -6,9 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::recover_prompt::{
-    build_prompt, chain_hash_for, find_failing_step, RecoverySuggestions,
-};
+use super::recover_prompt::{build_prompt, chain_hash_for, find_failing_step, RecoverySuggestions};
 use crate::home::{db_path, ensure_dir, resolve_home};
 
 const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/28__recovery_cache.sql");
@@ -149,7 +147,7 @@ async fn write_cache(
 }
 
 fn build_caller() -> ArgoResult<Box<dyn AnthropicCaller>> {
-    let key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| {
+    let key = argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| {
         ArgoError::Provider(
             "ANTHROPIC_API_KEY unset; cannot run recover (cache hits work without the key)".into(),
         )

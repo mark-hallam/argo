@@ -74,8 +74,7 @@ fn write_outputs(path: &str, yaml: &str, result: &DecomposeResult) -> ArgoResult
                 .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", parent.display())))?;
         }
     }
-    std::fs::write(&p, yaml)
-        .map_err(|e| ArgoError::Provider(format!("write {path}: {e}")))?;
+    std::fs::write(&p, yaml).map_err(|e| ArgoError::Provider(format!("write {path}: {e}")))?;
     let mut sidecar = p.clone();
     let new_ext = match p.extension().and_then(|e| e.to_str()) {
         Some(ext) => format!("{ext}.reasoning"),
@@ -101,7 +100,7 @@ fn planner_to_argo(e: PlannerError) -> ArgoError {
 /// directly and posts to `https://api.anthropic.com/v1/messages`.
 /// Errors during the call surface as `PlannerError::Llm`.
 fn build_anthropic_caller() -> ArgoResult<Box<dyn AnthropicCaller>> {
-    let key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| {
+    let key = argo_config::cred::get("ANTHROPIC_API_KEY").map_err(|_| {
         ArgoError::Provider(
             "ANTHROPIC_API_KEY unset; pass without --llm to use the offline planner".into(),
         )

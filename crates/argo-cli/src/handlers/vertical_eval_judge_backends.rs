@@ -81,7 +81,7 @@ pub(super) fn load_manifest(provider_id: &str) -> ArgoResult<ProviderManifest> {
 /// SDK's default chain.
 fn read_api_key(manifest: &ProviderManifest, provider_id: &str) -> ArgoResult<String> {
     let env_var = manifest.auth.api_key_env.clone();
-    std::env::var(&env_var).map_err(|_| {
+    argo_config::cred::get(&env_var).map_err(|_| {
         ArgoError::Provider(format!(
             "live judge: provider `{provider_id}` requires env `{env_var}` (resolved from \
              manifest `auth.api_key_env`). Set it and re-run, or use --judge heuristic for an \
@@ -432,25 +432,25 @@ mod tests {
 
     #[test]
     fn build_openai_compat_backend_errors_clearly_when_manifest_missing() {
-        let err = build_openai_compat_backend(
-            "definitely-not-a-real-provider-id-67890",
-            "gpt-4o",
-        )
-        .unwrap_err();
+        let err = build_openai_compat_backend("definitely-not-a-real-provider-id-67890", "gpt-4o")
+            .unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("definitely-not-a-real-provider-id-67890"), "{msg}");
+        assert!(
+            msg.contains("definitely-not-a-real-provider-id-67890"),
+            "{msg}"
+        );
         assert!(msg.contains("manifests/providers"), "{msg}");
     }
 
     #[test]
     fn build_openai_responses_backend_errors_clearly_when_manifest_missing() {
-        let err = build_openai_responses_backend(
-            "definitely-not-a-real-provider-id-67890",
-            "o1",
-        )
-        .unwrap_err();
+        let err = build_openai_responses_backend("definitely-not-a-real-provider-id-67890", "o1")
+            .unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("definitely-not-a-real-provider-id-67890"), "{msg}");
+        assert!(
+            msg.contains("definitely-not-a-real-provider-id-67890"),
+            "{msg}"
+        );
         assert!(msg.contains("manifests/providers"), "{msg}");
     }
 
@@ -463,7 +463,10 @@ mod tests {
         .await
         .unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("definitely-not-a-real-provider-id-67890"), "{msg}");
+        assert!(
+            msg.contains("definitely-not-a-real-provider-id-67890"),
+            "{msg}"
+        );
         assert!(msg.contains("manifests/providers"), "{msg}");
     }
 }

@@ -59,7 +59,7 @@ impl JiraConfig {
 }
 
 fn required_env(name: &str) -> Result<String, String> {
-    std::env::var(name).map_err(|_| format!("missing {name}"))
+    argo_config::cred::get(name).map_err(|_| format!("missing {name}"))
 }
 
 fn non_empty(name: &str, value: String) -> Result<String, String> {

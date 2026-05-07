@@ -265,7 +265,7 @@ fn host_base_url(host: &str) -> String {
 /// Read `ARGO_OCI_TOKEN` if set; sent as `Authorization: Bearer …`
 /// on every registry request, bypassing the challenge handshake.
 fn oci_token() -> Option<String> {
-    std::env::var("ARGO_OCI_TOKEN").ok()
+    argo_config::cred::get("ARGO_OCI_TOKEN").ok()
 }
 
 /// Build a registry from the host with optional Basic-auth
@@ -276,8 +276,8 @@ fn oci_token() -> Option<String> {
 fn build_registry(host: &str) -> OciDistributionRegistry {
     let mut reg = OciDistributionRegistry::new(&host_base_url(host), oci_token());
     if let (Ok(user), Ok(password)) = (
-        std::env::var("ARGO_OCI_USER"),
-        std::env::var("ARGO_OCI_PASSWORD"),
+        argo_config::cred::get("ARGO_OCI_USER"),
+        argo_config::cred::get("ARGO_OCI_PASSWORD"),
     ) {
         reg = reg.with_basic_auth(user, password);
     }

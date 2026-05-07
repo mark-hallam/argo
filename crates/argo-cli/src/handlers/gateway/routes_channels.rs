@@ -75,7 +75,7 @@ pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) 
 }
 
 async fn slack_webhook_response(req: &str) -> (&'static str, String) {
-    let Ok(signing_secret) = std::env::var("SLACK_APPROVALS_SIGNING_SECRET") else {
+    let Ok(signing_secret) = argo_config::cred::get("SLACK_APPROVALS_SIGNING_SECRET") else {
         return server_error("missing SLACK_APPROVALS_SIGNING_SECRET");
     };
     let secret = match hmac_secret() {
@@ -200,7 +200,7 @@ fn inbox_post(req: &str) -> Option<(Decision, String)> {
 
 fn operator_from_auth(req: &str) -> Result<String, (&'static str, String)> {
     let token = header_value(req, "Authorization").and_then(|h| h.strip_prefix("Bearer ")).map(str::to_string).or_else(|| cookie_value(req, "argo_operator_token")).ok_or_else(|| unauthorized("missing bearer token"))?;
-    if let Ok(expected) = std::env::var("ARGO_WEBINBOX_BEARER_TOKEN") {
+    if let Ok(expected) = argo_config::cred::get("ARGO_WEBINBOX_BEARER_TOKEN") {
         if !expected.is_empty() && token != expected {
             return Err(unauthorized("invalid bearer token"));
         }
@@ -406,7 +406,7 @@ fn verify_token(token: &str, secret: &str) -> Result<TokenClaims, String> {
 }
 
 fn hmac_secret() -> Result<String, String> {
-    let secret = std::env::var("ARGO_CHANNEL_HMAC_SECRET").map_err(|_| "missing ARGO_CHANNEL_HMAC_SECRET".to_string())?;
+    let secret = argo_config::cred::get("ARGO_CHANNEL_HMAC_SECRET").map_err(|_| "missing ARGO_CHANNEL_HMAC_SECRET".to_string())?;
     if secret.is_empty() { Err("ARGO_CHANNEL_HMAC_SECRET must not be empty".into()) } else { Ok(secret) }
 }
 

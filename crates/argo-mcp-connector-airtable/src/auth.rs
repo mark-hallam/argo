@@ -11,7 +11,8 @@ pub const DEFAULT_BASE_URL: &str = "https://api.airtable.com/v0";
 
 /// Read the Airtable personal access token from `AIRTABLE_PAT`.
 pub fn pat_from_env() -> Result<String, String> {
-    let pat = std::env::var(AIRTABLE_PAT_ENV).map_err(|_| format!("missing {AIRTABLE_PAT_ENV}"))?;
+    let pat = argo_config::cred::get(AIRTABLE_PAT_ENV)
+        .map_err(|_| format!("missing {AIRTABLE_PAT_ENV}"))?;
     if pat.trim().is_empty() {
         return Err(format!("missing {AIRTABLE_PAT_ENV}"));
     }

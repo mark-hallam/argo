@@ -44,19 +44,19 @@ async fn test(provider_id: &str) -> ArgoResult<()> {
             Box::new(BedrockTransport::from_manifest(manifest, &cfg)?)
         }
         ProviderFamily::Anthropic => {
-            let api_key = std::env::var(&manifest.auth.api_key_env).map_err(|_| {
+            let api_key = argo_config::cred::get(&manifest.auth.api_key_env).map_err(|_| {
                 ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
             })?;
             Box::new(AnthropicTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiCompatible => {
-            let api_key = std::env::var(&manifest.auth.api_key_env).map_err(|_| {
+            let api_key = argo_config::cred::get(&manifest.auth.api_key_env).map_err(|_| {
                 ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
             })?;
             Box::new(OpenAiCompatTransport::from_manifest(manifest, &api_key)?)
         }
         ProviderFamily::OpenaiResponses => {
-            let api_key = std::env::var(&manifest.auth.api_key_env).map_err(|_| {
+            let api_key = argo_config::cred::get(&manifest.auth.api_key_env).map_err(|_| {
                 ArgoError::Provider(format!("{} not set", manifest.auth.api_key_env))
             })?;
             Box::new(OpenAiResponsesTransport::from_manifest(manifest, &api_key)?)
@@ -289,7 +289,10 @@ fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
             println!("# Providers ({} matches)", paths.len());
             println!();
             if paths.is_empty() {
-                println!("_(no provider manifests under {}/manifests/providers/)_", cwd.display());
+                println!(
+                    "_(no provider manifests under {}/manifests/providers/)_",
+                    cwd.display()
+                );
                 return Ok(());
             }
             println!("| id | family | base_url |");

@@ -11,8 +11,8 @@ pub const DEFAULT_BASE_URL: &str = "https://api.clickup.com/api/v2";
 
 /// Read the ClickUp personal token from `CLICKUP_TOKEN`.
 pub fn token_from_env() -> Result<String, String> {
-    let token =
-        std::env::var(CLICKUP_TOKEN_ENV).map_err(|_| format!("missing {CLICKUP_TOKEN_ENV}"))?;
+    let token = argo_config::cred::get(CLICKUP_TOKEN_ENV)
+        .map_err(|_| format!("missing {CLICKUP_TOKEN_ENV}"))?;
     if token.trim().is_empty() {
         return Err(format!("missing {CLICKUP_TOKEN_ENV}"));
     }

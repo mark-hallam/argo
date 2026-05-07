@@ -41,9 +41,9 @@ impl CuConfig {
     /// Build from environment. Returns
     /// [`CuError::MissingEnv`] if a required key is unset.
     pub fn from_env() -> Result<Self, CuError> {
-        let e2b_api_key =
-            std::env::var("E2B_API_KEY").map_err(|_| CuError::MissingEnv("E2B_API_KEY"))?;
-        let anthropic_api_key = std::env::var("ANTHROPIC_API_KEY")
+        let e2b_api_key = argo_config::cred::get("E2B_API_KEY")
+            .map_err(|_| CuError::MissingEnv("E2B_API_KEY"))?;
+        let anthropic_api_key = argo_config::cred::get("ANTHROPIC_API_KEY")
             .map_err(|_| CuError::MissingEnv("ANTHROPIC_API_KEY"))?;
         Ok(Self {
             e2b_api_key,
@@ -54,9 +54,7 @@ impl CuConfig {
                 .unwrap_or_else(|_| "https://api.anthropic.com".into()),
             profiles_path: std::env::var("SKYCOT_CU_PROFILES_PATH")
                 .map(PathBuf::from)
-                .unwrap_or_else(|_| {
-                    PathBuf::from("manifests/executors/computer_use.toml")
-                }),
+                .unwrap_or_else(|_| PathBuf::from("manifests/executors/computer_use.toml")),
             per_request_timeout_seconds: 30,
         })
     }

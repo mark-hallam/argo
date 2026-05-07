@@ -133,7 +133,7 @@ impl ResolvedConfig {
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(DEFAULT_MEMORY_MIB);
-        let backend = if std::env::var(ENV_E2B_TOKEN).is_ok() {
+        let backend = if argo_config::cred::get(ENV_E2B_TOKEN).is_ok() {
             BackendKind::E2b
         } else {
             BackendKind::Local

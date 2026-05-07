@@ -14,7 +14,7 @@ pub const DEFAULT_BASE_URL: &str = "https://api.pagerduty.com";
 
 /// Read the PagerDuty API key from `PAGERDUTY_API_KEY`.
 pub fn api_key_from_env() -> Result<String, String> {
-    let key = std::env::var(PAGERDUTY_API_KEY_ENV)
+    let key = argo_config::cred::get(PAGERDUTY_API_KEY_ENV)
         .map_err(|_| format!("missing {PAGERDUTY_API_KEY_ENV}"))?;
     if key.trim().is_empty() {
         return Err(format!("missing {PAGERDUTY_API_KEY_ENV}"));
@@ -31,7 +31,7 @@ pub fn base_url_from_env() -> String {
 /// Read the optional default `From` email for write requests.
 #[must_use]
 pub fn from_email_from_env() -> Option<String> {
-    std::env::var(PAGERDUTY_FROM_EMAIL_ENV)
+    argo_config::cred::get(PAGERDUTY_FROM_EMAIL_ENV)
         .ok()
         .filter(|value| !value.trim().is_empty())
 }
