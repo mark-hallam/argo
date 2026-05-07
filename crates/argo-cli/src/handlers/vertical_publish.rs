@@ -11,7 +11,8 @@
 //! The handler defaults `--tag` to the vertical's manifest
 //! version when omitted so the operator can run a one-liner.
 use argo_marketplace::{
-    build_vertical_bundle, OciDistributionRegistry, OciReference, OciRegistry,
+    build_vertical_bundle, resolve_registry_auth, MemoryRegistry, OciDistributionRegistry,
+    OciReference, OciRegistry,
 };
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::load_dir;
@@ -23,13 +24,14 @@ use std::path::PathBuf;
 /// - `https://ghcr.io` (org-namespaced refs land at
 ///   `ghcr.io/<org>/<id>:<tag>`)
 /// - `http://localhost:5000` (a local `registry:2` test container)
+/// - `None` uses the in-memory mock path for backward compatibility.
 ///
 /// `repo_org` is the org/namespace prefix on the registry side
 /// (e.g. `argo-agents`). When omitted, the vertical id is used
 /// as the bare repo (`<host>/<id>:<tag>`).
 pub async fn run(
     id: &str,
-    registry_url: &str,
+    registry_url: Option<&str>,
     tag: Option<&str>,
     repo_org: Option<&str>,
     auth_token: Option<&str>,
@@ -38,15 +40,14 @@ pub async fn run(
     let dir = argo_vertical::default_dir();
     let (registry, _errors) = load_dir(&dir)?;
     let loaded = registry.get(id).ok_or_else(|| {
-        ArgoError::Provider(format!(
-            "vertical '{id}' not found in {}",
-            dir.display()
-        ))
+        ArgoError::Provider(format!("vertical '{id}' not found in {}", dir.display()))
     })?;
     let resolved_tag = tag
         .map(str::to_string)
         .unwrap_or_else(|| loaded.manifest.vertical.version.clone());
-    let host = host_from_url(registry_url);
+    let host = registry_url
+        .map(host_from_url)
+        .unwrap_or_else(|| "memory.local".into());
     let repo = match repo_org {
         Some(org) if !org.is_empty() => format!("{org}/{id}"),
         _ => id.to_string(),
@@ -60,14 +61,19 @@ pub async fn run(
     let tmp = tempfile::tempdir()
         .map_err(|e| ArgoError::Io(format!("create tempdir for publish: {e}")))?;
     let tar_path: PathBuf = tmp.path().join(format!("{id}.tar"));
-    let manifest =
-        build_vertical_bundle(&loaded.root, id, &resolved_tag, &tar_path).await?;
+    let manifest = build_vertical_bundle(&loaded.root, id, &resolved_tag, &tar_path).await?;
     let tar_bytes = tokio::fs::read(&tar_path)
         .await
         .map_err(|e| ArgoError::Io(format!("read built tar: {e}")))?;
 
-    let oci = OciDistributionRegistry::new(registry_url, auth_token.map(str::to_string));
-    oci.push(&reference, &tar_bytes, &manifest).await?;
+    if let Some(registry_url) = registry_url {
+        let auth = resolve_registry_auth(&host, auth_token);
+        let oci = OciDistributionRegistry::with_resolved_auth(registry_url, auth);
+        oci.push(&reference, &tar_bytes, &manifest).await?;
+    } else {
+        let memory = MemoryRegistry::new();
+        memory.push(&reference, &tar_bytes, &manifest).await?;
+    }
 
     if json {
         println!(
@@ -77,6 +83,7 @@ pub async fn run(
                 "id": id,
                 "reference": reference.to_canonical(),
                 "registry_url": registry_url,
+                "mock": registry_url.is_none(),
                 "tag": resolved_tag,
                 "digest": manifest.digest,
                 "entries": manifest.entries.len(),
@@ -85,10 +92,14 @@ pub async fn run(
             .unwrap_or_default()
         );
     } else {
-        println!("published {} ({} entries)", reference.to_canonical(), manifest.entries.len());
+        println!(
+            "published {} ({} entries)",
+            reference.to_canonical(),
+            manifest.entries.len()
+        );
         println!("  digest:   {}", manifest.digest);
         println!("  bytes:    {}", tar_bytes.len());
-        println!("  registry: {registry_url}");
+        println!("  registry: {}", registry_url.unwrap_or("mock"));
     }
     Ok(())
 }

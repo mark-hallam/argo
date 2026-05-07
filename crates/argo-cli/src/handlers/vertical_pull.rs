@@ -13,7 +13,8 @@
 //!   under a different local id (useful when forking or
 //!   side-by-side comparing two versions).
 use argo_marketplace::{
-    unpack_vertical_bundle, OciDistributionRegistry, OciReference, OciRegistry,
+    resolve_registry_auth, unpack_vertical_bundle, OciDistributionRegistry, OciReference,
+    OciRegistry,
 };
 use argo_types::{ArgoError, ArgoResult};
 
@@ -36,7 +37,8 @@ pub async fn run(
     let url = registry_url
         .map(str::to_string)
         .unwrap_or_else(|| derive_registry_url(&parsed.host));
-    let oci = OciDistributionRegistry::new(&url, auth_token.map(str::to_string));
+    let auth = resolve_registry_auth(&parsed.host, auth_token);
+    let oci = OciDistributionRegistry::with_resolved_auth(&url, auth);
     let (tar_bytes, manifest) = oci.pull(&parsed).await?;
 
     let local_id = rename
@@ -134,8 +136,14 @@ mod tests {
 
     #[test]
     fn derive_registry_url_picks_http_for_localhost() {
-        assert_eq!(derive_registry_url("localhost:5000"), "http://localhost:5000");
-        assert_eq!(derive_registry_url("127.0.0.1:5000"), "http://127.0.0.1:5000");
+        assert_eq!(
+            derive_registry_url("localhost:5000"),
+            "http://localhost:5000"
+        );
+        assert_eq!(
+            derive_registry_url("127.0.0.1:5000"),
+            "http://127.0.0.1:5000"
+        );
         assert_eq!(derive_registry_url("ghcr.io"), "https://ghcr.io");
     }
 

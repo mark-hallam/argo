@@ -123,7 +123,7 @@ pub async fn run(cmd: VerticalCmd) -> ArgoResult<()> {
         } => {
             super::vertical_publish::run(
                 &id,
-                &registry,
+                registry.as_deref(),
                 tag.as_deref(),
                 repo_org.as_deref(),
                 auth_token.as_deref(),

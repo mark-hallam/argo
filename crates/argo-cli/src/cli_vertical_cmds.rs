@@ -262,9 +262,10 @@ pub enum VerticalCmd {
         /// The vertical's id.
         id: String,
         /// OCI registry base URL (e.g. `https://ghcr.io` or
-        /// `http://localhost:5000`).
+        /// `http://localhost:5000`). When omitted, uses the
+        /// in-memory mock path for backward compatibility.
         #[arg(long)]
-        registry: String,
+        registry: Option<String>,
         /// Tag to publish under. Defaults to the vertical's
         /// `[vertical].version` when omitted.
         #[arg(long)]
@@ -274,9 +275,9 @@ pub enum VerticalCmd {
         /// When omitted, the bare vertical id is used as the repo.
         #[arg(long)]
         repo_org: Option<String>,
-        /// Optional bearer token for auth. Most registries also
-        /// accept anonymous public pushes for testing.
-        #[arg(long)]
+        /// Optional registry token. Takes precedence over
+        /// credentials.toml and Docker config.
+        #[arg(long = "token", alias = "auth-token")]
         auth_token: Option<String>,
         /// Output as a single JSON object.
         #[arg(long)]
@@ -301,8 +302,9 @@ pub enum VerticalCmd {
         /// Pull under a different local id when one already exists.
         #[arg(long)]
         rename: Option<String>,
-        /// Optional bearer token for auth.
-        #[arg(long)]
+        /// Optional registry token. Takes precedence over
+        /// credentials.toml and Docker config.
+        #[arg(long = "token", alias = "auth-token")]
         auth_token: Option<String>,
         /// Output as a single JSON object.
         #[arg(long)]

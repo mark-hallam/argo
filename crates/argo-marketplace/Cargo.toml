@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Argo — workspace OCI bundle push/pull (§23)"
 
 [dependencies]
+argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -19,7 +20,8 @@ async-trait = { workspace = true }
 tokio = { workspace = true, features = ["fs", "macros"] }
 tracing = { workspace = true }
 thiserror = { workspace = true }
-reqwest = { workspace = true }
+base64 = "0.22"
+oci-distribution = { version = "0.11", default-features = false, features = ["rustls-tls"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

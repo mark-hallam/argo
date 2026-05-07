@@ -36,9 +36,9 @@ pub use bundle::{
     build_bundle, build_vertical_bundle, manifests_match, unpack_vertical_bundle, BundleEntry,
     BundleManifest, BUNDLE_PATHS,
 };
-pub use oci_auth::BearerChallenge;
+pub use oci_auth::{resolve_registry_auth, BearerChallenge, ResolvedRegistryAuth};
 pub use oci_distribution::{
-    OciDescriptor, OciDistributionRegistry, OciImageManifest, CONFIG_MEDIA_TYPE,
-    LAYER_MEDIA_TYPE, MANIFEST_MEDIA_TYPE,
+    OciDescriptor, OciDistributionRegistry, OciImageManifest, CONFIG_MEDIA_TYPE, LAYER_MEDIA_TYPE,
+    MANIFEST_MEDIA_TYPE,
 };
 pub use registry::{MemoryRegistry, OciReference, OciRegistry, StubRegistry};
