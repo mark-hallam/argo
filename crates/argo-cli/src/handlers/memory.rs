@@ -80,6 +80,7 @@ pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
         MemoryCmd::Forget { entry } => revert(&memory, &entry).await,
         MemoryCmd::Lock { entry } => set_lock(&memory, &entry, Lock::UserProtected).await,
         MemoryCmd::Unlock { entry } => set_lock(&memory, &entry, Lock::None).await,
+        MemoryCmd::DreamNow { worker, scope, json } => super::memory_dream_now::run(&worker, &scope, json).await,
     }
 }
 

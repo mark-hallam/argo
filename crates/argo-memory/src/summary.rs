@@ -1,4 +1,17 @@
 //! Nightly memory summarisation.
+//!
+//! Two providers ship out of the box:
+//!
+//! - [`HaikuSummaryProvider`] — synchronous Haiku-based summary, the
+//!   legacy default. Falls back to a deterministic concatenation
+//!   when no LLM caller is wired in (so unit tests stay offline).
+//! - The Dreams API backend in `crate::dreams_backend` —
+//!   asynchronous, gated by the `dreams-backend` cargo feature
+//!   (default off until per-worker policy is approved). When the
+//!   feature is enabled, prefer `dreams_backend::run_dream_for_worker`
+//!   for the on-demand `argo memory dream-now` path; the legacy
+//!   [`MemoryStore::run_nightly_summary_job`] keeps working as a
+//!   fallback.
 use crate::layers::MemoryLayer;
 use crate::row::{ns_from_parts, scope_as_str};
 use crate::{MemoryEntry, MemoryFile, MemoryStore};
@@ -38,13 +51,19 @@ impl YearMonth {
         format!("{:04}-{:02}", self.year, self.month)
     }
 
-    fn start(self) -> ArgoResult<DateTime<Utc>> {
+    /// Start of the calendar month, inclusive. `pub(crate)` so the
+    /// `dreams_backend` sibling module (V2.0 Integration A) can
+    /// reuse the half-open monthly window.
+    pub(crate) fn start(self) -> ArgoResult<DateTime<Utc>> {
         Utc.with_ymd_and_hms(self.year, self.month, 1, 0, 0, 0)
             .single()
             .ok_or_else(|| ArgoError::Schema(format!("invalid summary month {}", self.label())))
     }
 
-    fn end(self) -> ArgoResult<DateTime<Utc>> {
+    /// Start of the next calendar month, exclusive — the half-open
+    /// upper bound used for monthly windowing. `pub(crate)` for the
+    /// same reason as [`Self::start`].
+    pub(crate) fn end(self) -> ArgoResult<DateTime<Utc>> {
         let (year, month) = if self.month == 12 {
             (self.year + 1, 1)
         } else {

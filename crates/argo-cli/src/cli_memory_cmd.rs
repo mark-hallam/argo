@@ -115,6 +115,24 @@ pub enum MemoryCmd {
     Unlock {
         entry: String,
     },
+    /// Run a Dreams API summary now for one worker. Walks the
+    /// previous calendar month's recent rows, calls the Dreams API,
+    /// and persists the curated summary as a memory row tagged
+    /// `source=dreams_api`. Refuses if the worker has any open
+    /// anomaly events. Honours `ARGO_DREAMS_DAILY_CAP_USD_MICROS`.
+    /// Available only when `argo-memory/dreams-backend` is enabled
+    /// in the build (V2.0 Integration A).
+    DreamNow {
+        /// Worker id to dream for (UUID).
+        worker: String,
+        /// Memory scope (worker_self|role|shared_team). Defaults to
+        /// `worker_self`.
+        #[arg(long, default_value = "worker_self")]
+        scope: String,
+        /// Emit a single JSON object instead of human-readable text.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

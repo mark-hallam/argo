@@ -31,6 +31,8 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod context;
+#[cfg(feature = "dreams-backend")]
+pub mod dreams_backend;
 mod embedding;
 mod entry;
 mod layers;

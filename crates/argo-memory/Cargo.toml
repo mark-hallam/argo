@@ -22,7 +22,18 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 sqlite-vec = { workspace = true }
+async-trait = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+
+[features]
+default = []
+# Enables the Dreams API backend for memory summary tier
+# (claude-dreams-memory-summarize). Compiles in the dreams_backend
+# module + its types. Default-off until the Dreams API endpoint is
+# generally available + per-worker daily-cap policy is approved.
+dreams-backend = ["dep:async-trait", "dep:reqwest"]
 
 [dev-dependencies]
 tokio = { workspace = true }
 proptest = { workspace = true }
+tempfile = "3"
