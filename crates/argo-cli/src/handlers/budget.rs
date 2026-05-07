@@ -67,6 +67,24 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
         BudgetCmd::AnomalyTick { json } => {
             super::budget_anomalies::tick(&store, Utc::now(), json).await?;
         }
+        BudgetCmd::BySkill {
+            skill_name,
+            history,
+            since,
+            limit,
+            vertical,
+            json,
+        } => {
+            super::budget_by_skill::run(
+                skill_name.as_deref(),
+                history,
+                since.as_deref(),
+                limit,
+                vertical.as_deref(),
+                json,
+            )
+            .await?;
+        }
         BudgetCmd::Watch { worker, once, json } => {
             super::budget_watch::run(worker.as_deref(), once, json).await?;
         }

@@ -32,12 +32,12 @@ worker_action rows from H-spend-persistence).
 - `crates/argo-cli/tests/budget_by_skill_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] `argo budget by-skill` returns ranked list
-- [ ] `--since 7d/30d/90d` honored
-- [ ] `<skill-name> --history` returns per-day rows
-- [ ] `--json` universal envelope
-- [ ] 4 unit tests (query helpers) + 1 CLI smoke test
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] `argo budget by-skill` returns ranked list
+- [x] `--since 7d/30d/90d` honored
+- [x] `<skill-name> --history` returns per-day rows
+- [x] `--json` universal envelope
+- [x] 4 unit tests (query helpers) + 1 CLI smoke test
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `codex-cost-by-skill-cli`

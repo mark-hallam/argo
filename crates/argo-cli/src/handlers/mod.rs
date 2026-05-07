@@ -29,6 +29,7 @@ pub mod budget;
 pub mod budget_alerts_list;
 pub mod budget_alerts_test;
 pub mod budget_anomalies;
+pub mod budget_by_skill;
 mod budget_csv;
 pub mod budget_watch;
 pub mod chat;

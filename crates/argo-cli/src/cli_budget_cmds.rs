@@ -80,6 +80,20 @@ pub enum BudgetCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Rank spend by skill or show one skill's daily trend.
+    BySkill {
+        skill_name: Option<String>,
+        #[arg(long)]
+        history: bool,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long, default_value_t = 10)]
+        limit: u32,
+        #[arg(long)]
+        vertical: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Watch worker budget spend and fire push alerts on 80% /
     /// 100% daily-cap threshold crossings.
     Watch {
