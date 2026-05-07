@@ -7,6 +7,7 @@ const TIMEOUT_SECS: u64 = 5;
 const POSTMARK_SERVER_URL: &str = "https://api.postmarkapp.com/server";
 const SLACK_AUTH_TEST_URL: &str = "https://slack.com/api/auth.test";
 const EXPO_SERVER_INFO_URL: &str = "https://exp.host/--/api/v2/server-info";
+const BLUE_BUBBLES_INFO_PATH: &str = "/api/v1/server/info";
 
 struct ProbeSpec<'a> {
     name: &'static str,
@@ -27,6 +28,9 @@ struct ProbeConfig {
     twilio_sid: Option<String>,
     twilio_token: Option<String>,
     expo_token: Option<String>,
+    bluebubbles_url: Option<String>,
+    bluebubbles_password: Option<String>,
+    voice_from_number: Option<String>,
     postmark_url: String,
     slack_url: String,
     twilio_url: Option<String>,
@@ -45,6 +49,10 @@ impl ProbeConfig {
             twilio_sid,
             twilio_token: env_nonempty("TWILIO_AUTH_TOKEN"),
             expo_token: env_nonempty("EXPO_ACCESS_TOKEN"),
+            bluebubbles_url: env_nonempty("BLUE_BUBBLES_URL"),
+            bluebubbles_password: env_nonempty("BLUE_BUBBLES_PASSWORD"),
+            voice_from_number: env_nonempty("TWILIO_VOICE_FROM_NUMBER")
+                .or_else(|| env_nonempty("TWILIO_FROM_NUMBER")),
             postmark_url: POSTMARK_SERVER_URL.into(),
             slack_url: SLACK_AUTH_TEST_URL.into(),
             twilio_url,
@@ -68,6 +76,8 @@ async fn collect_with(cfg: ProbeConfig) -> Value {
             "slack": check("ERROR", "could not build HTTP client"),
             "sms": check("ERROR", "could not build HTTP client"),
             "push": check("ERROR", "could not build HTTP client"),
+            "imessage": check("ERROR", "could not build HTTP client"),
+            "voice": check("ERROR", "could not build HTTP client"),
         });
     };
     let email = match cfg.postmark_token.as_deref() {
@@ -138,7 +148,91 @@ async fn collect_with(cfg: ProbeConfig) -> Value {
         }
         None => check("MISSING", "EXPO_ACCESS_TOKEN is not set"),
     };
-    json!({"email": email, "slack": slack, "sms": sms, "push": push})
+    let imessage = check_imessage(&client, &cfg).await;
+    let voice = check_voice(&client, &cfg).await;
+    json!({
+        "email": email,
+        "slack": slack,
+        "sms": sms,
+        "push": push,
+        "imessage": imessage,
+        "voice": voice,
+    })
+}
+
+async fn check_imessage(client: &reqwest::Client, cfg: &ProbeConfig) -> Value {
+    let (url, password) = match (
+        cfg.bluebubbles_url.as_deref(),
+        cfg.bluebubbles_password.as_deref(),
+    ) {
+        (None, _) => return check("MISSING", "BLUE_BUBBLES_URL is not set"),
+        (_, None) => return check("MISSING", "BLUE_BUBBLES_PASSWORD is not set"),
+        (Some(url), Some(password)) => (url, password),
+    };
+    let info_url = format!("{}{}", url.trim_end_matches('/'), BLUE_BUBBLES_INFO_PATH);
+    let resp = match client
+        .get(&info_url)
+        .header("Accept", "application/json")
+        .query(&[("password", password)])
+        .send()
+        .await
+    {
+        Ok(resp) => resp,
+        Err(e) => return check("ERROR", format!("blue_bubbles network failure: {e}")),
+    };
+    let status = resp.status();
+    let retry_after = resp
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    if status.as_u16() == 429 {
+        let detail = retry_after.as_deref().map_or_else(
+            || "blue_bubbles rate-limited".to_string(),
+            |v| format!("blue_bubbles rate-limited; retry-after={v}"),
+        );
+        return check("WARN", detail)
+            .with("http_status", status.as_u16())
+            .with_opt("retry_after", retry_after);
+    }
+    if status.is_success() {
+        return check("OK", format!("blue_bubbles reachable ({status})"))
+            .with("http_status", status.as_u16());
+    }
+    check("ERROR", format!("blue_bubbles returned {status}"))
+        .with("http_status", status.as_u16())
+}
+
+async fn check_voice(client: &reqwest::Client, cfg: &ProbeConfig) -> Value {
+    if cfg.voice_from_number.is_none() {
+        return check(
+            "MISSING",
+            "TWILIO_VOICE_FROM_NUMBER (or TWILIO_FROM_NUMBER) is not set",
+        );
+    }
+    match (
+        cfg.twilio_sid.as_deref(),
+        cfg.twilio_token.as_deref(),
+        cfg.twilio_url.as_ref(),
+    ) {
+        (Some(sid), Some(token), Some(url)) => {
+            probe(
+                client,
+                ProbeSpec {
+                    name: "twilio_voice",
+                    url: url.clone(),
+                    auth: Auth::Basic {
+                        user: sid,
+                        password: token,
+                    },
+                },
+            )
+            .await
+        }
+        (None, _, _) => check("MISSING", "TWILIO_ACCOUNT_SID is not set"),
+        (_, None, _) => check("MISSING", "TWILIO_AUTH_TOKEN is not set"),
+        _ => check("MISSING", "Twilio account endpoint could not be built"),
+    }
 }
 
 async fn probe(client: &reqwest::Client, spec: ProbeSpec<'_>) -> Value {
@@ -251,6 +345,9 @@ mod tests {
             twilio_sid: Some("AC_test".into()),
             twilio_token: Some("twilio-token".into()),
             expo_token: Some("expo-token".into()),
+            bluebubbles_url: None,
+            bluebubbles_password: None,
+            voice_from_number: None,
             postmark_url: url.into(),
             slack_url: url.into(),
             twilio_url: Some(url.into()),
@@ -311,5 +408,52 @@ mod tests {
         let cfg = full_cfg("http://127.0.0.1:9/closed");
         let v = collect_with(cfg).await;
         assert_eq!(s(&v["email"]), "ERROR");
+    }
+
+    #[tokio::test]
+    async fn imessage_ok_when_configured() {
+        let url = server(200, &[], 5).await;
+        let cfg = ProbeConfig {
+            bluebubbles_url: Some(url.clone()),
+            bluebubbles_password: Some("bb-secret".into()),
+            ..full_cfg(&url)
+        };
+        let v = collect_with(cfg).await;
+        assert_eq!(s(&v["imessage"]), "OK");
+    }
+
+    #[tokio::test]
+    async fn imessage_missing_when_url_unset() {
+        let url = server(200, &[], 4).await;
+        let cfg = full_cfg(&url);
+        let v = collect_with(cfg).await;
+        assert_eq!(s(&v["imessage"]), "MISSING");
+        assert!(v["imessage"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("BLUE_BUBBLES_URL"));
+    }
+
+    #[tokio::test]
+    async fn voice_ok_when_configured() {
+        let url = server(200, &[], 5).await;
+        let cfg = ProbeConfig {
+            voice_from_number: Some("+15555550111".into()),
+            ..full_cfg(&url)
+        };
+        let v = collect_with(cfg).await;
+        assert_eq!(s(&v["voice"]), "OK");
+    }
+
+    #[tokio::test]
+    async fn voice_missing_when_from_number_unset() {
+        let url = server(200, &[], 4).await;
+        let cfg = full_cfg(&url);
+        let v = collect_with(cfg).await;
+        assert_eq!(s(&v["voice"]), "MISSING");
+        assert!(v["voice"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("TWILIO_VOICE_FROM_NUMBER"));
     }
 }
