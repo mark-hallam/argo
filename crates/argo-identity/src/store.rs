@@ -7,6 +7,11 @@ use sqlx::Row;
 use uuid::Uuid;
 
 const IDENTITY_SCHEMA: &str = include_str!("../../argo-store/migrations/12__worker_identity.sql");
+// Documentation-only: ALTER TABLE statements applied via
+// `ensure_worker_charter_columns` (PRAGMA-based idempotent path,
+// mirroring `ensure_role_columns`).
+const _WORKER_CHARTER_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/30__worker_charter.sql");
 
 /// SQLite-backed persistence for worker identities.
 ///
@@ -67,6 +72,7 @@ impl<'a> IdentityStore<'a> {
                 .map_err(|e| ArgoError::Provider(format!("identity schema: {e}")))?;
         }
         ensure_role_columns(self.store.pool()).await?;
+        ensure_worker_charter_columns(self.store.pool()).await?;
         Ok(())
     }
 
@@ -133,11 +139,13 @@ impl<'a> IdentityStore<'a> {
         .await
         .map_err(|e| ArgoError::Provider(format!("insert role: {e}")))?;
 
+        let kpis_json = kpis_to_json(worker.kpis.as_ref())?;
         sqlx::query(
             "INSERT INTO worker (
                 id, tenant_id, vertical_id, persona_id, role_id, memory_scope,
-                auto_approval_json, channels_json, created_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                auto_approval_json, channels_json, created_at,
+                charter_md, kpi_json
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(worker.id.to_string())
         .bind(worker.tenant_id.to_string())
@@ -148,6 +156,8 @@ impl<'a> IdentityStore<'a> {
         .bind(to_json(&worker.auto_approval, "auto approval")?)
         .bind(to_json(&worker.channels, "channels")?)
         .bind(now)
+        .bind(worker.charter.as_deref())
+        .bind(kpis_json)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("insert worker: {e}")))?;
@@ -259,11 +269,43 @@ impl<'a> IdentityStore<'a> {
             })
             .collect())
     }
+
+    /// Update the per-instance charter and/or KPIs for a worker
+    /// (`Stream claude-worker-charter-storage`). Either argument may be
+    /// `None` to null the column. Returns `ArgoError::Provider` when the
+    /// (`tenant_id`, `worker_id`) pair does not match a stored row.
+    pub async fn update_charter(
+        &self,
+        tenant_id: TenantId,
+        worker_id: WorkerId,
+        charter: Option<&str>,
+        kpis: Option<&serde_json::Value>,
+    ) -> ArgoResult<()> {
+        self.ensure_schema().await?;
+        let kpis_json = kpis_to_json(kpis)?;
+        let result = sqlx::query(
+            "UPDATE worker SET charter_md = ?, kpi_json = ? WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(charter)
+        .bind(kpis_json)
+        .bind(worker_id.to_string())
+        .bind(tenant_id.to_string())
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("update charter: {e}")))?;
+        if result.rows_affected() == 0 {
+            return Err(ArgoError::Provider(format!(
+                "worker {worker_id} not found in tenant {tenant_id}"
+            )));
+        }
+        Ok(())
+    }
 }
 
 const WORKER_SELECT: &str = "SELECT
     w.id, w.tenant_id, w.vertical_id, w.memory_scope,
     w.auto_approval_json, w.channels_json,
+    w.charter_md, w.kpi_json,
     p.name, p.voice_preamble, p.avatar, p.bio, p.builder_attribution,
     p.provenance_chain_json,
     r.charter, r.kpis_json, r.escalation
@@ -271,6 +313,32 @@ FROM worker w
 JOIN persona p ON p.id = w.persona_id
 JOIN role r ON r.worker_id = w.id
 WHERE w.id = ? AND w.tenant_id = ?";
+
+async fn ensure_worker_charter_columns(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    for (name, ty) in [("charter_md", "TEXT"), ("kpi_json", "TEXT")] {
+        if !columns.iter().any(|existing| existing == name) {
+            let sql = format!("ALTER TABLE worker ADD COLUMN {name} {ty}");
+            sqlx::query(&sql)
+                .execute(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("add worker.{name}: {e}")))?;
+        }
+    }
+    Ok(())
+}
+
+fn kpis_to_json(kpis: Option<&serde_json::Value>) -> ArgoResult<Option<String>> {
+    kpis.map(|v| {
+        serde_json::to_string(v)
+            .map_err(|e| ArgoError::Provider(format!("serialize kpis: {e}")))
+    })
+    .transpose()
+}
 
 async fn ensure_role_columns(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
     let rows = sqlx::query("PRAGMA table_info(role)")
@@ -342,6 +410,14 @@ fn worker_from_row(row: sqlx::sqlite::SqliteRow, duties: Vec<Duty>) -> ArgoResul
         kpis: from_json(row.get("kpis_json"), "role kpis")?,
         escalation: row.get("escalation"),
     };
+    let charter: Option<String> = row.get("charter_md");
+    let kpis = match row.get::<Option<String>, _>("kpi_json") {
+        Some(raw) => Some(
+            serde_json::from_str(&raw)
+                .map_err(|e| ArgoError::Provider(format!("parse worker kpi_json: {e}")))?,
+        ),
+        None => None,
+    };
     Ok(Worker {
         id,
         tenant_id,
@@ -352,6 +428,8 @@ fn worker_from_row(row: sqlx::sqlite::SqliteRow, duties: Vec<Duty>) -> ArgoResul
         auto_approval: from_json(row.get("auto_approval_json"), "auto approval")?,
         circuit_state: CircuitState::Closed,
         channels: from_json(row.get("channels_json"), "channels")?,
+        charter,
+        kpis,
     })
 }
 

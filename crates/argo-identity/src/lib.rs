@@ -40,7 +40,7 @@ pub use roster::{Roster, RosterId, RosterStore};
 pub use store::IdentityStore;
 pub use types::{
     AutoApprovalPolicy, Duty, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role, VoiceProfile,
-    Worker, WorkerId,
+    Worker, WorkerId, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,
 };
 
 impl WorkerId {

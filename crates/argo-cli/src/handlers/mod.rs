@@ -233,6 +233,9 @@ mod work_shutdown;
 mod work_steps;
 pub mod worker_actions;
 pub mod worker_anomalies;
+pub mod worker_charter;
+#[cfg(test)]
+mod worker_charter_tests;
 #[allow(dead_code)]
 pub mod worker_create;
 pub mod worker_list;

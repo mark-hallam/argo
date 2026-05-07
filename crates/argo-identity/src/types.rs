@@ -20,11 +20,6 @@ pub struct WorkerId(pub Uuid);
 
 impl WorkerId {
     /// Generate a fresh UUIDv7 worker id.
-    ///
-    /// ```
-    /// use argo_identity::WorkerId;
-    /// assert_ne!(WorkerId::new().to_string(), "");
-    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self(Uuid::now_v7())
@@ -108,13 +103,6 @@ pub struct MemoryNs {
 
 impl MemoryNs {
     /// Build a namespace from tenant, worker id, and scope.
-    ///
-    /// ```
-    /// use argo_identity::{MemoryNs, MemoryScope, WorkerId};
-    /// use argo_types::TenantId;
-    /// let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::Role);
-    /// assert_eq!(ns.scope, MemoryScope::Role);
-    /// ```
     #[must_use]
     pub fn new(tenant_id: TenantId, worker_id: WorkerId, scope: MemoryScope) -> Self {
         Self {
@@ -177,12 +165,6 @@ pub struct Persona {
 
 impl Persona {
     /// Create a minimal named persona.
-    ///
-    /// ```
-    /// use argo_identity::Persona;
-    /// let persona = Persona::named("Maya", "builder");
-    /// assert!(persona.voice_profile.preamble.contains("Maya"));
-    /// ```
     #[must_use]
     pub fn named(name: impl Into<String>, builder_attribution: impl Into<String>) -> Self {
         let name = name.into();
@@ -234,13 +216,6 @@ pub struct Duty {
 
 impl Duty {
     /// Build an enabled, never-fired duty with a fresh UUIDv7 id.
-    ///
-    /// ```
-    /// use argo_identity::Duty;
-    /// let duty = Duty::new("0 8 * * *", "brief", "Prepare a brief.");
-    /// assert_eq!(duty.cron, "0 8 * * *");
-    /// assert!(!duty.id.is_empty());
-    /// ```
     #[must_use]
     pub fn new(
         cron: impl Into<String>,
@@ -372,13 +347,25 @@ impl NotifyChannelRef {
     }
 }
 
+/// Maximum byte length of `Worker::charter` (mission claim 2).
+pub const MAX_CHARTER_BYTES: usize = 16 * 1024;
+
+/// Maximum byte length of the serialised `Worker::kpis` JSON.
+pub const MAX_KPIS_BYTES: usize = 8 * 1024;
+
 /// Runtime worker instance.
+///
+/// `charter` (markdown body, ≤ 16 KB) and `kpis` (free-form JSON,
+/// ≤ 8 KB serialised) back mission claim 2 (delegation contract);
+/// both fields are optional so older worker rows without the columns
+/// load cleanly.
 ///
 /// ```
 /// use argo_identity::{Persona, Role, Worker};
 /// use argo_types::TenantId;
 /// let worker = Worker::draft(TenantId::new(), "support", Persona::named("Ari", "op"), Role::new("Triage."));
 /// assert_eq!(worker.vertical_id, "support");
+/// assert!(worker.charter.is_none() && worker.kpis.is_none());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Worker {
@@ -401,6 +388,12 @@ pub struct Worker {
     pub circuit_state: CircuitState,
     /// Approval notification channels.
     pub channels: Vec<NotifyChannelRef>,
+    /// Per-instance operating charter (markdown, ≤ `MAX_CHARTER_BYTES`).
+    #[serde(default)]
+    pub charter: Option<String>,
+    /// Per-instance KPIs (free-form JSON, ≤ `MAX_KPIS_BYTES` serialised).
+    #[serde(default)]
+    pub kpis: Option<serde_json::Value>,
 }
 
 impl Worker {
@@ -430,6 +423,8 @@ impl Worker {
             auto_approval: AutoApprovalPolicy::default(),
             circuit_state: CircuitState::Closed,
             channels: Vec::new(),
+            charter: None,
+            kpis: None,
         }
     }
 

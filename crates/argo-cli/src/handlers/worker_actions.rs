@@ -1,6 +1,8 @@
 //! Worker v3 action ledger schema, read-side CLI, and dispatch.
 
-use crate::cli::cli_worker_cmds::{WorkerActionsCmd, WorkerCmd, WorkerItemsCmd, WorkerPolicyCmd};
+use crate::cli::cli_worker_cmds::{
+    WorkerActionsCmd, WorkerCharterCmd, WorkerCmd, WorkerItemsCmd, WorkerPolicyCmd,
+};
 use argo_identity::WorkerId;
 use argo_types::ArgoResult;
 use serde::{Deserialize, Serialize};
@@ -181,6 +183,17 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         } => {
             super::worker_anomalies::run(&worker_id, since_minutes, limit, json).await
         }
+        WorkerCmd::Charter(charter_cmd) => match charter_cmd {
+            WorkerCharterCmd::Set { worker_id, tenant, file, kpis, json } => {
+                super::worker_charter::set(&tenant, &worker_id, &file, kpis.as_deref(), json).await
+            }
+            WorkerCharterCmd::Get { worker_id, tenant, md, json } => {
+                super::worker_charter::get(&tenant, &worker_id, md, json).await
+            }
+            WorkerCharterCmd::Clear { worker_id, tenant, json } => {
+                super::worker_charter::clear(&tenant, &worker_id, json).await
+            }
+        },
         WorkerCmd::Items(items_cmd) => match items_cmd {
             WorkerItemsCmd::List { vertical, state, limit, json } => {
                 super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await
