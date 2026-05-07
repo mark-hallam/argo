@@ -183,6 +183,15 @@ Sccache + shared target dir = 5-10× iteration speedup vs unconfigured.
    - Pick a DIFFERENT TODO row — never retry the same row you just lost
    - Claim the new row + push
 
+   **🚨 FOOT-GUN (tick408 amendment, observed in worker self-exit notes):**
+   **NEVER** run `git checkout origin/main -- .` in a worktree with
+   uncommitted edits — it silently reverts ALL tracked-file edits with
+   no warning, costing you ~10min of context to recover via `git stash`
+   pop. Use `git restore <file>` per-file or `git stash` BEFORE the
+   checkout. To resync a single file: `git restore <path>` (working
+   tree only) or `git checkout origin/main -- <path>` (single-file
+   form is safe; the bare-dot form is the trap).
+
 8. **PRE-PUSH FLIGHT CHECK** (race-collision defense). Before pushing
    your feature branch, in the main checkout (not the worktree):
    - `git fetch origin main`
