@@ -1,14 +1,8 @@
 name: CI
-# Auto-trigger disabled while GitHub Actions billing is blocked
-# at the account level. Every PR's code is verified locally
-# before merge as a matter of policy. To revive when billing is
-# restored: replace `workflow_dispatch:` below with the original
-#   on:
-#     push:
-#       branches: [main]
-#     pull_request:
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   fmt:
