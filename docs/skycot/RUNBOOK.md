@@ -903,7 +903,28 @@ argo gateway tail --kind auto_approval,handoff
 existing `argo audit query --watch` flag is the today-state
 substitute that polls every second.)
 
-### 9.5 Common failure modes
+### 9.5 Coverage
+
+CI measures Rust coverage on every PR and main push with
+`cargo-llvm-cov`. The job uploads `lcov.info` and
+`coverage-summary.txt`, comments the summary on PRs, and uploads
+`coverage.svg` as an artifact on main pushes. No threshold is
+enforced yet; this is a measurement baseline. The coverage job
+ignores test-run failures while collecting coverage so known
+pre-existing flakes do not suppress the report; the CI `test`
+job remains the correctness gate.
+
+To run the same report locally:
+
+```bash
+cargo install cargo-llvm-cov
+rustup component add llvm-tools-preview
+cargo llvm-cov --workspace --html
+```
+
+Open `target/llvm-cov/html/index.html` for the annotated report.
+
+### 9.6 Common failure modes
 
 | Symptom | Cause | Fix |
 |---|---|---|
