@@ -155,6 +155,11 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             non_interactive,
             json,
         }) => handlers::setup::run(check, require, non_interactive, json).await,
+        Some(Command::Onboard {
+            non_interactive,
+            json,
+            config,
+        }) => handlers::onboard::run(non_interactive, json, config).await,
         Some(Command::Vertical { cmd }) => handlers::vertical::run(cmd).await,
         Some(Command::Genesis { cmd }) => handlers::genesis::run(cmd),
         Some(Command::Messages { cmd }) => handlers::messages::run(cmd).await,

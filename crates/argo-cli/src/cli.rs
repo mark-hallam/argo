@@ -236,6 +236,25 @@ pub enum Command {
         #[arg(long = "require", value_name = "ENV_VAR")]
         require: Vec<String>,
     },
+    /// First-experience operator walkthrough — workspace bootstrap,
+    /// credentials, first connector, first worker (genesis), first
+    /// action, done. 7 stages; stages 3-7 may Skip cleanly. The
+    /// non-developer's entry point — pairs with `argo setup` (the
+    /// CI-style provider-key probe).
+    Onboard {
+        /// Run without prompts. Reads `<workspace>/.argo/onboarding.toml`
+        /// (or `--config <path>`) for stage inputs.
+        #[arg(long)]
+        non_interactive: bool,
+        /// Emit `{stages, any_fail, count}` as JSON instead of the
+        /// pretty checklist.
+        #[arg(long)]
+        json: bool,
+        /// Override the default `<workspace>/.argo/onboarding.toml`
+        /// path used by `--non-interactive`.
+        #[arg(long, value_name = "PATH")]
+        config: Option<String>,
+    },
     /// Vertical-template discovery surface (#650). Read-only —
     /// `list`, `show`, `validate`. Install / eval / run land in
     /// later PRs.

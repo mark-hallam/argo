@@ -49,15 +49,16 @@ yes/no — no manual TOML editing, no env-var hunting.
 - `crates/argo-cli/tests/onboard_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] All 7 stages execute end-to-end
-- [ ] Each stage is skippable except #1, #2 (workspace
+- [x] All 7 stages execute end-to-end
+- [x] Each stage is skippable except #1, #2 (workspace
       mandatory)
-- [ ] `--non-interactive` reads onboarding.toml
-- [ ] `--json` envelope reports stage-by-stage status
-- [ ] Credentials stored under `<workspace>/.argo/credentials.toml`
+- [x] `--non-interactive` reads onboarding.toml
+- [x] `--json` envelope reports stage-by-stage status
+- [x] Credentials stored under `<workspace>/.argo/credentials.toml`
       with appropriate file mode (0600)
-- [ ] 8 unit tests (per stage) + 1 CLI smoke (full flow)
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] 8 unit tests (per stage) + 1 CLI smoke (full flow) — 15 unit
+      (12 in onboard_stages + 3 in onboard_render) + 3 smoke shipped
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `claude-onboarding-flow`
