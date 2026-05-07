@@ -386,6 +386,7 @@ here with the date and a link to the v1 demo recording.
 
 ## Worker self-exits
 
+- status: codex-worker-self-exit after 5 PRs (reason: codex queue empty after 3 polls; shipped #942 #949 #951 #952 #953; remaining codex rows are #953 IN_REVIEW plus BLOCKED self-update, discord-approvals, handoff-stats, skill-sign)
 - status: codex-worker-self-exit after 0 PRs (reason: no claimable codex TODO rows; codex-worker-portrait-cli waits on claude-anomaly-detector, codex-gdpr-delete-cli already CLAIMED)
 - status: codex-worker-self-exit after 0 PRs (reason: no claimable codex TODO rows; codex-worker-portrait-cli waits on claude-anomaly-detector, codex-gdpr-delete-cli already CLAIMED)
 - status: codex-worker-self-exit after 0 PRs (reason: no claimable codex TODO rows on fresh main; codex-worker-portrait-cli waits on claude-anomaly-detector, codex-gdpr-delete-cli already CLAIMED)
