@@ -4,7 +4,7 @@ You are a SKYCOT swarm worker tab in `~/code/argo-codex`.
 
 The full rule set lives in `~/code/argo-codex/CLAUDE.md` under the section **"SKYCOT Swarm Worker Loop — Load-Bearing Rules"**. Codex does NOT auto-inject that file, so you must re-read it at the start of every iteration (step 0 below). Updates to CLAUDE.md propagate on next pull.
 
-Your owner family is **codex**. Implement only briefs where `owner=codex` in `docs/build-plan/BUILD_STATUS.md`.
+**Owner family is no longer a hard lock (tick369 amendment).** Claim any TODO row with all deps MERGED — the brief-id prefix (`claude-` / `codex-`) is a sizing hint, not a restriction. Codex tabs lean toward smaller / single-crate / mechanical briefs but may take any.
 
 ============================================================
 PRE-LOOP STATE CHECK (run ONCE at startup, before any iteration)
@@ -57,9 +57,9 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 1. `cd ~/code/argo-codex`
 2. `git checkout main && git pull --ff-only origin main`
 3. Read `docs/build-plan/BUILD_STATUS.md` from disk
-4. Pick the FIRST row where: `owner=codex` AND `status=TODO` AND every `depends on` predecessor is MERGED. **The TODO list is phase-ordered (`▼ PHASE A → F` header rows in the ledger).** Always claim from the earliest phase first — Phase A items are credibility-bleeders (CI off, headline drift, missing notify wire, MCP exec stub, duty-scheduler unwired); Phase B closes mission claims; Phase C/D/E/F come after. Only descend to a later phase if no codex-owned TODO in earlier phases has all deps met. Skip the `▼ PHASE …` header rows — they're navigation markers, not claimable briefs.
+4. Pick the FIRST row where: `status=TODO` AND every `depends on` predecessor is MERGED. **Owner field is a sizing hint, not a lock (tick369) — any tab may claim any TODO.** **The TODO list is phase-ordered (`▼ PHASE A → F` header rows in the ledger).** Always claim from the earliest phase first — Phase A items are credibility-bleeders; Phase B closes mission claims; Phase C/D/E/F come after. Only descend to a later phase if no TODO in earlier phases has all deps met. Skip the `▼ PHASE …` header rows — they're navigation markers, not claimable briefs.
    - Qualifying row found → `empty_iterations = 0`, continue to step 5.
-   - NO qualifying row → `empty_iterations += 1`. Check EMPTY-ITERATION GUARD below. If guard hasn't fired, sleep 60 seconds, go to step 1.
+   - NO qualifying row → `empty_iterations += 1`. Check EMPTY-ITERATION GUARD below. **Empty-poll back-off (tick369): sleep 60s default; bump to 120s after 3rd consecutive miss; bump to 240s after 7th. Don't burn cycles on a quiet queue.** Then go to step 1.
 5. Mark row `status=CLAIMED` in BUILD_STATUS.md, commit `"status: claim <brief-id>"`, push to origin/main. Race-lost? See HARD RULE 7 in CLAUDE.md.
 6. Read brief at `docs/build-plan/streams/<brief-id>.md`. Follow it EXACTLY.
 7. `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id> && git checkout -b codex-<brief-id>` (clean up stale worktrees first if needed).
@@ -80,10 +80,12 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 EMPTY-ITERATION GUARD
 ============================================================
 
-If `empty_iterations >= 3`:
-- Queue genuinely empty for codex (3 consecutive 60-second polls).
-- Tell the operator: `"codex queue empty after 3 polls. Shipped <prs_shipped> PRs this session. Exiting."`
+If `empty_iterations >= 15` (tick369 raised from 3):
+- Queue genuinely empty (15 consecutive polls with back-off applied).
+- Tell the operator: `"queue empty after 15 polls. Shipped <prs_shipped> PRs this session. Exiting."`
 - EXIT cleanly with code 0.
+
+**Workers no longer self-exit on short dry stretches.** Phase A ship-blockers + 165-row queue depth means an empty queue is exceptional. Lean toward continuing to heartbeat with back-off rather than rotating tabs.
 
 Do NOT heartbeat forever on an empty queue. That hides real problems (broken git state, ledger drift) as if they were just an empty queue.
 

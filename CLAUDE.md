@@ -174,9 +174,12 @@ is the source of truth, not your memory.
 10. **Never delete other agents' branches.** Don't `git push origin
     --delete` on any branch you didn't author.
 
-11. **Never modify other-family briefs.** Codex tabs don't touch claude-*
-    brief files; Claude tabs don't touch codex-* brief files. The only
-    exception is narrow scope clarification on your OWN brief mid-flight.
+11. **Never modify a CLAIMED brief belonging to another tab.** While a
+    brief shows `status=CLAIMED` (or `IN_REVIEW`) on origin/main, that
+    tab owns the spec mid-flight. Wait until it lands or releases before
+    rewriting. The brief-id prefix (`claude-` / `codex-`) is a sizing
+    HINT, not a hard ownership lock — any worker tab may claim any TODO
+    row regardless of the prefix (tick369 amendment).
 
 ### ITERATION SEQUENCE
 
@@ -185,9 +188,12 @@ Run this loop until any STOP CONDITION fires:
 1. `cd ~/code/argo` (or `argo-codex` if that's your tree)
 2. `git checkout main && git pull --ff-only origin main`
 3. Read `docs/build-plan/BUILD_STATUS.md` from disk
-4. Find first row matching: `owner=<your-family>` AND `status=TODO` AND
-   all `depends on` predecessors are MERGED. If none qualifies and
-   queue is genuinely empty, exit per STOP CONDITION 1.
+4. Find first row matching: `status=TODO` AND all `depends on`
+   predecessors are MERGED. **Owner field is a sizing hint, not a lock
+   (tick369 amendment) — any tab may claim any TODO.** Codex-prefixed
+   briefs lean smaller/single-crate; claude-prefixed briefs lean
+   larger/multi-crate, but the prefix is informational. If none
+   qualifies and queue is genuinely empty, see STOP CONDITION 1.
 5. Claim: edit BUILD_STATUS.md → set status=CLAIMED, commit
    `"status: claim <brief-id>"`, push to origin/main. Race-lost? See
    HARD RULE 7.
@@ -215,23 +221,29 @@ Run this loop until any STOP CONDITION fires:
     finishing collisions across tabs.
 14. Loop to step 1.
 
-### STOP CONDITIONS (any one ends the loop cleanly)
+### STOP CONDITIONS (any one ends the loop cleanly) — tick369 loosened
 
-1. **Queue empty.** Three consecutive iterations return no claimable
-   row for your owner family. Exit cleanly — the conductor will
-   replenish; a fresh tab picks up.
+1. **Queue empty (loosened).** **15 consecutive iterations** with no
+   claimable TODO row (any owner). Bump empty-poll sleep from 60s →
+   120s after the 3rd consecutive empty poll, and 240s after the 7th
+   — back-off, don't burn cycles. With ~150-row queue depth this
+   condition should rarely fire; if it does, the conductor will
+   replenish; a fresh tab picks up. **Workers no longer self-exit
+   on the first dry stretch — keep heartbeating.**
 2. **Same op fails twice.** A git operation that worked previously
    now fails for unclear reasons. Environment is degraded — exit and
    let the operator diagnose.
-3. **Auto-compaction warning** (Claude tabs only). If Claude Code
-   prints a compaction notice you didn't trigger, exit cleanly.
-   Compaction summarizes earlier turns; the rules in this CLAUDE.md
-   keep getting auto-injected so they survive — but specific PR
-   context (numbers, file decisions) may be lost. Better to rotate
-   than risk degraded work.
-4. **Self-degradation 2+ indicators.** See list below.
-5. **Operator stop.** File `/tmp/argo-stop` exists, OR all rows for
-   your family are MERGED on main.
+3. **Auto-compaction warning** (Claude tabs only) — **advisory, not
+   mandatory exit (tick369).** If Claude Code prints a compaction
+   notice, finish the current brief if mid-flight, then assess: if
+   you can still recall the brief's may-touch list and your last 2 PR
+   numbers, continue. If recall feels degraded, then exit. Don't
+   reflexively quit on the first compaction signal.
+4. **Self-degradation 4+ indicators.** **Threshold raised from 2 →
+   4 (tick369).** A single off-iteration shouldn't end a productive
+   session. See list below.
+5. **Operator stop.** File `/tmp/argo-stop` exists, OR ALL rows on the
+   ledger are MERGED on main (no remaining TODO/BLOCKED/CLAIMED).
 
 ### SELF-DEGRADATION INDICATORS (vigilance signals)
 
@@ -242,7 +254,9 @@ Run this loop until any STOP CONDITION fires:
 - Searching for context that should be in your recent memory
 
 1 indicator = continue, but tighten up.
-**2+ indicators in one iteration = STOP.** Don't push through.
+**4+ indicators in one iteration = STOP (tick369 raised from 2).**
+1-3 indicators = continue, but tighten up. A single bad iteration is
+not fatal; productive sessions absorb minor friction.
 
 ### GRACEFUL EXIT PROTOCOL
 
