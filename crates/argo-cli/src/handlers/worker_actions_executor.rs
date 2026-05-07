@@ -27,6 +27,7 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor_code::CodeExecutor;
+use super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor;
 use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_stubs::{
     ApiExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
@@ -51,6 +52,13 @@ pub(crate) enum ExecutorKind {
     /// (E2B Firecracker microVM). Wired by Stream
     /// `#B-computer-use-executor`.
     ComputerUse,
+    /// Native macOS computer-use via `screencapture` + `osascript`.
+    /// Wired by `mission-cu-native-macos-executor-dispatch`
+    /// (follow-up to #941 claude-computer-use-native-macos-poc).
+    /// Platform-gated: dispatch on non-macOS returns a clean
+    /// Provider error so manifests that pin `computer_use_macos`
+    /// fail loudly on Linux/Windows hosts.
+    ComputerUseMacOS,
     /// Calls a registered REST API binding directly. Wired by
     /// Stream H connectors that ship as `ApiExecutor` flavours.
     Api,
@@ -74,13 +82,15 @@ impl ExecutorKind {
             "human" => Ok(Self::Human),
             "mcp" => Ok(Self::Mcp),
             "computer_use" => Ok(Self::ComputerUse),
+            "computer_use_macos" | "computer-use-macos" => Ok(Self::ComputerUseMacOS),
             "api" => Ok(Self::Api),
             "filesystem" => Ok(Self::Filesystem),
             "code_execution" => Ok(Self::CodeExecution),
             "document_creation" => Ok(Self::DocumentCreation),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
-                 valid: human | mcp | computer_use | api | filesystem | code_execution | document_creation"
+                 valid: human | mcp | computer_use | computer_use_macos | \
+                 api | filesystem | code_execution | document_creation"
             ))),
         }
     }
@@ -178,6 +188,9 @@ pub(crate) fn resolve_executor(
         }
         ExecutorKind::ComputerUse => {
             Box::new(ComputerUseExecutor::with_declaration(decl.clone()))
+        }
+        ExecutorKind::ComputerUseMacOS => {
+            Box::new(ComputerUseMacOSExecutor::with_declaration(decl.clone()))
         }
         ExecutorKind::Api => Box::new(ApiExecutor::with_manifest(decl.clone())),
         ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
