@@ -25,6 +25,8 @@ mod routes_counts;
 mod routes_cron;
 mod routes_dispatch_costs;
 mod routes_dispatch_forge;
+mod routes_dispatch_get;
+mod routes_dispatch_get_admin;
 mod routes_dispatch_post;
 mod routes_dispatch_rollups;
 mod routes_forge;
