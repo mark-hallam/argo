@@ -241,6 +241,7 @@ mod worker_actions_dispatch;
 pub(crate) mod worker_actions_emit;
 mod worker_actions_emit_plan;
 mod worker_actions_executor;
+mod worker_actions_executor_api;
 mod worker_actions_executor_code;
 mod worker_actions_executor_document;
 mod worker_actions_executor_mcp;

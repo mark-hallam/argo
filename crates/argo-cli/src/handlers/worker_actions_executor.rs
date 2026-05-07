@@ -179,7 +179,7 @@ pub(crate) fn resolve_executor(
         ExecutorKind::ComputerUse => {
             Box::new(ComputerUseExecutor::with_declaration(decl.clone()))
         }
-        ExecutorKind::Api => Box::new(ApiExecutor::new()),
+        ExecutorKind::Api => Box::new(ApiExecutor::with_manifest(decl.clone())),
         ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
         ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
         ExecutorKind::DocumentCreation => Box::new(DocumentExecutor::new()),

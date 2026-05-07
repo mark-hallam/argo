@@ -17,6 +17,7 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
+use super::worker_actions_executor_api;
 use super::worker_actions_executor_mcp;
 use crate::home::{db_path, resolve_home};
 use argo_executor_computer_use::{
@@ -404,13 +405,19 @@ fn resolve_fs_root(cwd: &Path, worker_id: &str) -> ArgoResult<PathBuf> {
     }
 }
 
-/// Placeholder for the REST API executor wired by Stream H
-/// connector flavours.
-pub(crate) struct ApiExecutor;
+/// Real action-level API executor wired by
+/// `mission-wire-api-action-executor`. Carries the action's
+/// manifest declaration so dispatch can read `executor.binding`.
+pub(crate) struct ApiExecutor {
+    declaration: Option<ActionDeclaration>,
+}
 
 impl ApiExecutor {
-    pub(crate) fn new() -> Self {
-        Self
+    /// Production constructor used by `resolve_executor`.
+    pub(crate) fn with_manifest(decl: ActionDeclaration) -> Self {
+        Self {
+            declaration: Some(decl),
+        }
     }
 }
 
@@ -418,13 +425,14 @@ impl Executor for ApiExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::Api
     }
-    fn dispatch(&self, _action: &ActionRecord, _cwd: &Path) -> ArgoResult<ActionOutcome> {
-        Err(ArgoError::Provider(
-            "executor `api` is not yet implemented; ApiExecutor \
-             lands with the connector flavours that depend on it. \
-             Until then, declare `executor = \"human\"` to fall \
-             back to the artifact-bundle path."
-                .into(),
-        ))
+    fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
+        let decl = self.declaration.as_ref().ok_or_else(|| {
+            ArgoError::Provider(
+                "ApiExecutor needs an ActionDeclaration; resolve_executor \
+                 must build it via `with_manifest`"
+                    .into(),
+            )
+        })?;
+        worker_actions_executor_api::dispatch_blocking(action, cwd, decl)
     }
 }
