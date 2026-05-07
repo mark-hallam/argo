@@ -84,8 +84,14 @@ fn success_metric_is_zero_for_handoff_outcome() {
 
 #[test]
 fn should_propose_outcome_clears_completed_with_default_threshold() {
-    assert!(should_propose_outcome(&completed_outcome(), DEFAULT_THRESHOLD));
-    assert!(!should_propose_outcome(&handoff_outcome(), DEFAULT_THRESHOLD));
+    assert!(should_propose_outcome(
+        &completed_outcome(),
+        DEFAULT_THRESHOLD
+    ));
+    assert!(!should_propose_outcome(
+        &handoff_outcome(),
+        DEFAULT_THRESHOLD
+    ));
 }
 
 #[test]
@@ -161,4 +167,47 @@ async fn maybe_propose_with_high_threshold_does_not_propose() {
     let outcome = completed_outcome();
     let result = maybe_propose(None, &req, &outcome, session(), 1.0).await;
     assert!(result.is_none());
+}
+
+#[tokio::test]
+async fn maybe_propose_up_vote_forces_under_threshold_candidate() {
+    let req = run_request();
+    let outcome = completed_outcome();
+    let gate = ProposalGate::with_feedback(1.0, Some(FeedbackVote::Up));
+    let result = maybe_propose(None, &req, &outcome, session(), gate).await;
+    assert!(result.is_some());
+}
+
+#[tokio::test]
+async fn maybe_propose_down_vote_blocks_over_threshold_candidate() {
+    let req = run_request();
+    let outcome = completed_outcome();
+    let gate = ProposalGate::with_feedback(DEFAULT_THRESHOLD, Some(FeedbackVote::Down));
+    let result = maybe_propose(None, &req, &outcome, session(), gate).await;
+    assert!(result.is_none());
+}
+
+#[tokio::test]
+async fn maybe_propose_no_vote_preserves_threshold_semantics() {
+    let req = run_request();
+    let outcome = completed_outcome();
+    let blocked = maybe_propose(
+        None,
+        &req,
+        &outcome,
+        session(),
+        ProposalGate::with_feedback(1.0, None),
+    )
+    .await;
+    assert!(blocked.is_none());
+
+    let proposed = maybe_propose(
+        None,
+        &req,
+        &outcome,
+        session(),
+        ProposalGate::with_feedback(DEFAULT_THRESHOLD, None),
+    )
+    .await;
+    assert!(proposed.is_some());
 }

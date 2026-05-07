@@ -26,8 +26,8 @@
 
 use crate::executor::{Outcome, RunRequest, RunResult};
 use argo_skill::{
-    learn::{should_propose, SkillCandidate, DEFAULT_SUCCESS_THRESHOLD},
-    SkillStore,
+    should_propose_with_feedback, FeedbackVote, ProposalThreshold, SkillCandidate, SkillStore,
+    SuccessMetric, DEFAULT_SUCCESS_THRESHOLD,
 };
 use argo_types::SessionId;
 
@@ -43,12 +43,87 @@ pub fn success_metric_for_outcome(outcome: &Outcome) -> f64 {
     }
 }
 
+/// Proposal gate inputs for the CU learning hook.
+///
+/// Plain `f64` thresholds still work via `From<f64>`. Callers
+/// that have resolved operator feedback can pass
+/// [`ProposalGate::with_feedback`] so up/down votes override
+/// the metric threshold.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ProposalGate {
+    threshold: f64,
+    feedback: Option<FeedbackVote>,
+}
+
+impl ProposalGate {
+    /// Build a metric-only proposal gate.
+    #[must_use]
+    pub fn new(threshold: f64) -> Self {
+        Self {
+            threshold,
+            feedback: None,
+        }
+    }
+
+    /// Build a proposal gate with an already-resolved operator
+    /// feedback vote.
+    #[must_use]
+    pub fn with_feedback(threshold: f64, feedback: Option<FeedbackVote>) -> Self {
+        Self {
+            threshold,
+            feedback,
+        }
+    }
+}
+
+impl From<f64> for ProposalGate {
+    fn from(threshold: f64) -> Self {
+        Self::new(threshold)
+    }
+}
+
 /// Whether this outcome should produce a proposal at all. Wraps
 /// the [`success_metric_for_outcome`] heuristic + the
-/// [`should_propose`] threshold check from H-4c.
+/// feedback-aware proposal gate from `argo-skill`.
 #[must_use]
 pub fn should_propose_outcome(outcome: &Outcome, threshold: f64) -> bool {
-    should_propose(success_metric_for_outcome(outcome), threshold)
+    metric_clears_proposal_gate(
+        success_metric_for_outcome(outcome),
+        ProposalGate::new(threshold),
+    )
+}
+
+fn metric_clears_proposal_gate(metric: f64, gate: ProposalGate) -> bool {
+    let structured = SuccessMetric::from_legacy_confidence(metric);
+    let threshold = ProposalThreshold {
+        min_confidence: strict_min_confidence(gate.threshold),
+        max_trajectory_length: u32::MAX,
+        max_duration_seconds: f64::INFINITY,
+        min_final_state_score: None,
+    };
+    should_propose_with_feedback(&structured, &threshold, gate.feedback)
+}
+
+fn strict_min_confidence(threshold: f64) -> f64 {
+    if threshold.is_nan() {
+        return f64::INFINITY;
+    }
+    next_up(threshold)
+}
+
+fn next_up(value: f64) -> f64 {
+    if value.is_nan() || value == f64::INFINITY {
+        return value;
+    }
+    if value == 0.0 {
+        return f64::from_bits(1);
+    }
+    let bits = value.to_bits();
+    if value > 0.0 {
+        f64::from_bits(bits + 1)
+    } else {
+        f64::from_bits(bits - 1)
+    }
 }
 
 /// Build a `SkillCandidate` from a successful run. The skill
@@ -160,10 +235,10 @@ pub async fn maybe_propose(
     request: &RunRequest,
     outcome: &Outcome,
     session: SessionId,
-    threshold: f64,
+    gate: impl Into<ProposalGate>,
 ) -> Option<SkillCandidate> {
     let metric = success_metric_for_outcome(outcome);
-    if !should_propose(metric, threshold) {
+    if !metric_clears_proposal_gate(metric, gate.into()) {
         return None;
     }
     let result = match outcome {
