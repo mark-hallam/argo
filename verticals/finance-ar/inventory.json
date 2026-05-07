@@ -1,0 +1,75 @@
+{
+  "currency": "USD",
+  "company": "Acme Widgets",
+  "contact": "ar@acme.example.com",
+  "remit_to": "ACH details on each invoice; wire instructions available on request.",
+  "today_iso": "2026-05-07",
+  "invoices": [
+    {
+      "invoice_id": "INV-2026-0411",
+      "customer": "Beanstalk Co.",
+      "customer_email": "ap@beanstalk.example.com",
+      "amount_usd": 2400.00,
+      "issue_date": "2026-04-11",
+      "due_date": "2026-05-11",
+      "status": "open",
+      "last_reminder_at": null,
+      "notes": "Net-30 terms. First invoice for the Q2 retainer."
+    },
+    {
+      "invoice_id": "INV-2026-0327",
+      "customer": "Halcyon Labs",
+      "customer_email": "billing@halcyon.example.com",
+      "amount_usd": 1180.00,
+      "issue_date": "2026-03-27",
+      "due_date": "2026-04-26",
+      "status": "open",
+      "last_reminder_at": "2026-05-03",
+      "notes": "11 days past due; 7-day reminder went out on 2026-05-03."
+    },
+    {
+      "invoice_id": "INV-2026-0312",
+      "customer": "Pinedale Studios",
+      "customer_email": "finance@pinedale.example.com",
+      "amount_usd": 760.00,
+      "issue_date": "2026-03-12",
+      "due_date": "2026-04-11",
+      "status": "open",
+      "last_reminder_at": "2026-04-25",
+      "notes": "26 days past due; 14-day reminder went out on 2026-04-25."
+    },
+    {
+      "invoice_id": "INV-2026-0228",
+      "customer": "Northwind Co-op",
+      "customer_email": "ap@northwind.example.com",
+      "amount_usd": 4200.00,
+      "issue_date": "2026-02-28",
+      "due_date": "2026-03-30",
+      "status": "open",
+      "last_reminder_at": "2026-04-29",
+      "notes": "38 days past due; 30-day reminder out on 2026-04-29; one customer reply asking for a payment plan."
+    },
+    {
+      "invoice_id": "INV-2026-0215",
+      "customer": "Drysdale Roastery",
+      "customer_email": "owner@drysdale-roastery.example.com",
+      "amount_usd": 540.00,
+      "issue_date": "2026-02-15",
+      "due_date": "2026-03-17",
+      "status": "open",
+      "last_reminder_at": "2026-04-29",
+      "notes": "51 days past due. Two reminders + one bounce-back. Operator asked to pause reminders pending escalation review."
+    },
+    {
+      "invoice_id": "INV-2026-0418",
+      "customer": "Quokka Capital",
+      "customer_email": "ap@quokka.example.com",
+      "amount_usd": 6300.00,
+      "issue_date": "2026-04-18",
+      "due_date": "2026-05-18",
+      "status": "open",
+      "last_reminder_at": null,
+      "notes": "Not yet due — included so the daily review touches a healthy invoice too."
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+schema_version = "1"
+
+[vertical]
+id          = "finance-ar"
+name        = "Finance — Accounts Receivable"
+description = "Reviews open invoices, drafts polite reminder emails on a 7/14/30-day cadence, escalates to a human at 45 days past due, logs payment receipts, and produces a weekly aging report. Approval-gated for any buyer-facing email and for the published report."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["finance", "ar", "accounts-receivable", "gmail", "stripe", "documents", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+gmail  = { transport = "stdio", command = "argo-mcp-connector-gmail",  args = [] }
+stripe = { transport = "stdio", command = "argo-mcp-connector-stripe", args = [] }
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Finance AR"
+
+# Duties live on the Worker (`crates/argo-identity::Duty` — landed in
+# #899). When this vertical bootstraps, the operator attaches a
+# `daily_review` duty cron'd `0 9 * * 1-5` whose `entry_action` is
+# `review_invoices` (declared below). The duty-scheduler gateway boot
+# wiring is the follow-on `codex-duty-scheduler-gateway-wiring`
+# brief (Phase A LOAD-BEARING, unblocked by `claude-gateway-mod-split`).
+
+[actions]
+
+[actions.review_invoices]
+risk              = "low"
+requires_approval = false
+description       = "Read inventory.json plus the `invoices` memory entry and classify each open invoice into one of: ok / due_soon / overdue_7 / overdue_14 / overdue_30 / overdue_45. Emits no buyer-facing actions on its own."
+executor          = "human"
+instruction_template = """
+# Daily AR review
+
+Inventory file: `verticals/finance-ar/inventory.json`
+
+For each open invoice:
+1. Compute days_past_due = today - due_date.
+2. Bucket the invoice into ok / due_soon (≤7d) / overdue_7 / overdue_14 / overdue_30 / overdue_45.
+3. Append the bucketed row to the `invoices` memory entry.
+4. Emit `send_reminder` actions for invoices that just crossed a 7 / 14 / 30 day threshold.
+5. Emit `escalate_overdue` for invoices that just crossed 45 days.
+
+Never email or escalate without an approval-gated action — the review itself must not touch a buyer.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "AR review" \
+  --result-json '{"reviewed_count": <num>, "overdue_count": <num>, "escalations": <num>}'
+```
+"""
+
+[actions.send_reminder]
+risk              = "medium"
+requires_approval = true
+description       = "Send a polite reminder email through Gmail to a customer with a past-due invoice. Operator approves the exact body before send."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = """
+# Send AR reminder for invoice `{{ payload.invoice_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Recipient: `{{ payload.recipient_email }}`
+Subject:   `{{ payload.subject }}`
+Bucket:    `{{ payload.bucket }}` ({{ payload.days_past_due }} days past due)
+
+Body to send:
+
+{{ payload.body }}
+
+Never alter the invoice amount, due date, or remittance instructions while sending.
+If the recipient or invoice id is missing, stop and ask the operator.
+"""
+
+[actions.escalate_overdue]
+risk              = "high"
+requires_approval = true
+description       = "Hand off a 45-day-overdue invoice to a human (typically the operator or a finance lead). No money moves; this is a routing-only action."
+executor          = "human"
+instruction_template = """
+# Escalate invoice `{{ payload.invoice_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Customer:        `{{ payload.customer }}`
+Amount:          `${{ payload.amount_usd }}` USD
+Days past due:   `{{ payload.days_past_due }}`
+Last reminder:   `{{ payload.last_reminder_at }}`
+Last response:   `{{ payload.last_response | default(value="(none)") }}`
+
+Hand the case to the assigned finance lead with the full reminder thread attached.
+Do not send another reminder email from this action — escalation is a separate channel.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "escalated" \
+  --result-json '{"escalated_to": "<name>", "channel": "<email|slack|phone>"}'
+```
+"""
+
+[actions.log_payment_receipt]
+risk              = "low"
+requires_approval = false
+description       = "Record an inbound payment-received notification (typically from a Stripe webhook) into the `payments` memory entry. Read-only; reconciles invoice status."
+executor          = "human"
+instruction_template = """
+# Log payment receipt for `{{ payload.invoice_id }}`
+
+Source:       `{{ payload.source | default(value="stripe") }}`
+Amount:       `${{ payload.amount_usd }}` USD
+Received at:  `{{ payload.received_at }}`
+
+Append to the `payments` memory entry with: invoice_id, amount, source, received_at, evidence_url.
+Mark the invoice's status to `paid` if the cumulative amount equals or exceeds the invoice total,
+otherwise `partial`. Never update a buyer-facing record from this action.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "payment logged" \
+  --result-json '{"invoice_id": "{{ payload.invoice_id }}", "status": "<paid|partial>"}'
+```
+"""
+
+[actions.generate_aging_report]
+risk              = "medium"
+requires_approval = true
+description       = "Render the weekly AR aging report (CSV + PDF) via the document-creation executor. Operator approves before the PDF is shared anywhere. Format ('pdf' / 'csv' / both) is selected per emission via the action payload."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Generate weekly AR aging report
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Build the report with these buckets, in order: current / 1-7d / 8-14d / 15-30d / 31-45d / 45d+.
+Each bucket carries: invoice_count, total_amount_usd, oldest_days.
+
+Output paths:
+- CSV:  `<workspace>/.skycot/reports/ar-aging-{{ payload.week_iso }}.csv`
+- PDF:  `<workspace>/.skycot/reports/ar-aging-{{ payload.week_iso }}.pdf`
+
+Do not email or share the report from this action — sharing is a separate approval-gated step.
+"""
+
+[actions.send_reminder.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.escalate_overdue.retry]
+max_attempts = 2
+
+[actions.generate_aging_report.retry]
+max_attempts = 2

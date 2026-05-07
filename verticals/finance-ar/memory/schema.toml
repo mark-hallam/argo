@@ -1,0 +1,26 @@
+schema_version = "1"
+
+[[entry]]
+key = "invoices"
+type = "list-of-objects"
+purpose = "Per-invoice review state. Each row carries: invoice_id, customer, amount_usd, issue_date, due_date, days_past_due, bucket (current|due_soon|overdue_7|overdue_14|overdue_30|overdue_45), status (open|partial|paid|written_off), last_reminder_at, last_response_summary."
+
+[[entry]]
+key = "reminders"
+type = "list-of-objects"
+purpose = "Reminder thread history. Each row carries: invoice_id, sent_at, recipient_email, subject, body, bucket, approved_by, message_id."
+
+[[entry]]
+key = "payments"
+type = "list-of-objects"
+purpose = "Inbound payment events. Each row carries: invoice_id, source (stripe|manual|wire|other), amount_usd, received_at, evidence_url, applied_status (paid|partial)."
+
+[[entry]]
+key = "escalations"
+type = "list-of-objects"
+purpose = "Human handoffs for 45-day overdue invoices. Each row carries: invoice_id, escalated_at, escalated_to, channel, prior_reminder_count, outcome."
+
+[[entry]]
+key = "ar_learnings"
+type = "list-of-objects"
+purpose = "Reusable AR patterns that worked. Each row carries: pattern, context, evidence, suggested_skill, confidence, risk."
