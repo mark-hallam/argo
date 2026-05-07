@@ -158,6 +158,9 @@ fn default_risk() -> String { "low".to_string() }
 pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
     match cmd {
         WorkerCmd::Create { vertical, persona, charter, builder, voice_preamble, duties, fs_root, json } => super::worker_create::run(&vertical, &persona, &charter, builder.as_deref(), voice_preamble.as_deref(), &duties, fs_root.as_deref(), json).await,
+        WorkerCmd::Onboard { persona_spec, id, json } => {
+            super::worker_onboard::run(&persona_spec, id.as_deref(), json).await
+        }
         WorkerCmd::Show { worker_id, tenant, json } => super::worker_list::show(&tenant, &worker_id, json).await,
         WorkerCmd::List { tenant, persona, json } => super::worker_list::list(&tenant, persona.as_deref(), json).await,
         WorkerCmd::Portrait { worker_id, tenant, json } => {

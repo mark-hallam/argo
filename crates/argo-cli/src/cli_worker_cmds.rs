@@ -48,6 +48,18 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Create a worker from a single TOML persona/role spec.
+    Onboard {
+        /// Path to the onboarding TOML spec.
+        #[arg(long = "persona-spec")]
+        persona_spec: PathBuf,
+        /// Explicit worker id. Fails if it already exists.
+        #[arg(long)]
+        id: Option<String>,
+        /// Emit JSON instead of a markdown summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Show the full worker identity plus the resolved policy for
     /// one tenant-scoped worker instance.
     Show {
