@@ -34,6 +34,7 @@ members = [
   "crates/argo-identity",
   "crates/argo-vertical",
   "crates/argo-executor-computer-use",
+  "crates/argo-executor-document",
   "crates/argo-executor-filesystem",
   "crates/argo-genesis",
   "crates/argo-mcp-connector-slack",

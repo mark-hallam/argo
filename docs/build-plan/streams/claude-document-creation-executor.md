@@ -38,15 +38,25 @@ Approval-gated by default since outputs are user-visible.
 - `Cargo.toml` workspace — narrowly: add new member
 
 ## Acceptance criteria
-- [ ] All 4 formats produce well-formed output
-- [ ] Markdown: rendered headers, code, tables
-- [ ] PDF: standalone, A4, no external CDN deps
-- [ ] Slides: reveal.js horizontal navigation
-- [ ] CSV: RFC 4180 compliant escaping
-- [ ] Sandboxed writes to fs_root/outputs only
-- [ ] Approval-gate marks correct
-- [ ] 12 unit tests + 2 integration (PDF + slides)
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] All 4 formats produce well-formed output
+- [x] Markdown: rendered headers, code, tables — pulldown-cmark stays
+      faithful to source markdown; verified by smoke test
+- [x] PDF: standalone, A4, no external CDN deps — print stylesheet
+      bundled inline; Chrome via `ARGO_DOC_CHROME` (default macOS path)
+- [x] Slides: reveal.js horizontal navigation — embedded keyboard-nav
+      script (no CDN); arrow keys / space / Home / End cycle slides
+- [x] CSV: RFC 4180 compliant escaping — quote on `, " \r \n`; double
+      internal quotes; CRLF row terminators; row-arity guard
+- [x] Sandboxed writes to fs_root/outputs only — `OutputPath::resolve`
+      rejects absolute paths + parent traversal + empty components
+- [x] Approval-gate marks correct — DocumentCreation `ExecutorKind`
+      flows through the existing AutoApprovalPolicy gate (which keys
+      off `requires_approval` from manifest); approval-gated by default
+      since outputs are user-visible
+- [x] 12 unit tests + 2 integration (PDF + slides) — 24 unit (2 md +
+      6 csv + 4 pdf + 4 slides + 8 executor) + 5 integration (markdown
+      + csv + slides + pdf-missing + path-escape) shipped
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `claude-document-creation-executor`

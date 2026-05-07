@@ -27,6 +27,7 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor_code::CodeExecutor;
+use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_stubs::{
     ApiExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
 };
@@ -59,6 +60,9 @@ pub(crate) enum ExecutorKind {
     /// Sandboxed Python / Node code execution. Wired by
     /// `claude-code-execution-executor` (V1.2 capability).
     CodeExecution,
+    /// Document synthesis (markdown / CSV / PDF / slides). Wired by
+    /// `claude-document-creation-executor` (V1.2 capability).
+    DocumentCreation,
 }
 
 impl ExecutorKind {
@@ -73,9 +77,10 @@ impl ExecutorKind {
             "api" => Ok(Self::Api),
             "filesystem" => Ok(Self::Filesystem),
             "code_execution" => Ok(Self::CodeExecution),
+            "document_creation" => Ok(Self::DocumentCreation),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
-                 valid: human | mcp | computer_use | api | filesystem | code_execution"
+                 valid: human | mcp | computer_use | api | filesystem | code_execution | document_creation"
             ))),
         }
     }
@@ -170,6 +175,7 @@ pub(crate) fn resolve_executor(
         ExecutorKind::Api => Box::new(ApiExecutor::new()),
         ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
         ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
+        ExecutorKind::DocumentCreation => Box::new(DocumentExecutor::new()),
     };
     Ok(exec)
 }

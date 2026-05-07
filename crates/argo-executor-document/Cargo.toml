@@ -1,0 +1,18 @@
+[package]
+name = "argo-executor-document"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo V1.2 — DocumentCreation ExecutorKind (claude-document-creation-executor)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+argo-types = { path = "../argo-types" }
+pulldown-cmark = { version = "0.10", default-features = false, features = ["html"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -36,6 +36,7 @@ argo-tui = { path = "../argo-tui", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-vertical = { path = "../argo-vertical", version = "0.0.1" }
 argo-executor-computer-use = { path = "../argo-executor-computer-use", version = "0.0.1" }
+argo-executor-document = { path = "../argo-executor-document", version = "0.0.1" }
 argo-executor-filesystem = { path = "../argo-executor-filesystem", version = "0.0.1" }
 argo-genesis = { path = "../argo-genesis", version = "0.0.1" }
 argo-identity = { path = "../argo-identity", version = "0.0.1" }
