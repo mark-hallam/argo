@@ -51,12 +51,18 @@ already vetted by other Rust ecosystem projects.
 
 ## Acceptance criteria
 - [ ] Push to ttl.sh (no-auth ephemeral registry) works
-- [ ] Push to ghcr.io with token auth works
-- [ ] Pull round-trips correctly (bundle hash matches)
+- [ ] **(Operator-validated post-merge, not in CI):** Push to ghcr.io
+      with token auth works. Codex tabs in the swarm don't have
+      write:packages scope on their GH tokens, so this can't be
+      verified at PR time. The CODE PATH for ghcr.io must work — but
+      the CI evidence is ttl.sh only. Boundary-note this in the PR.
+- [ ] Pull round-trips correctly (bundle hash matches) — verified
+      against ttl.sh
 - [ ] Manifest layers correctly typed
-  (application/vnd.skycot.vertical.v1+toml, etc.)
+      (application/vnd.skycot.vertical.v1+toml, etc.)
 - [ ] Auth fallback chain: --token > credentials.toml >
-      docker config > anonymous
+      docker config > anonymous (verified via unit tests of the
+      auth resolver)
 - [ ] Mock path still works when no `--registry` (back-compat)
 - [ ] 6 unit tests + 1 integration test (ttl.sh round-trip)
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
