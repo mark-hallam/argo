@@ -152,7 +152,12 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::AbTest(args) => super::skill_ab::ab_test(args).await,
         SkillCmd::AbStatus(args) => super::skill_ab::ab_status(args).await,
         SkillCmd::AbPromote(args) => super::skill_ab::ab_promote(args).await,
-        SkillCmd::Quality { name, json } => super::skill_quality::run(&name, json).await,
+        SkillCmd::Quality {
+            name,
+            json,
+            format,
+            limit,
+        } => super::skill_quality::run(&name, json, &format, limit).await,
         SkillCmd::Deps {
             name,
             json,

@@ -238,13 +238,27 @@ pub enum SkillCmd {
         name: String,
     },
     /// Show the latest quality score (0..=100) + inputs for one
-    /// skill (`claude-skill-quality-judge`).
+    /// skill (`claude-skill-quality-judge` /
+    /// `claude-skill-quality-score-vis`). With `--limit N` the
+    /// command renders the last N scores as a history block. The
+    /// `--format markdown` flag emits the human-readable
+    /// per-section view; `--json` (or `--format json`) wins for
+    /// scripting; the legacy text default is preserved when
+    /// neither is passed for backward compatibility.
     Quality {
         /// Skill name (active version is used).
         name: String,
-        /// Emit JSON.
+        /// Emit JSON. Equivalent to `--format json`.
         #[arg(long)]
         json: bool,
+        /// Output format: `text` (default), `markdown`, or `json`.
+        /// `--json` wins if both are passed.
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Render history of the last N scores rather than only the
+        /// latest. Default 1 (latest only).
+        #[arg(long, default_value_t = 1)]
+        limit: u32,
     },
     /// Show the dependency DAG of one skill: which skills it
     /// `argo skill run`s, references via `\`skill:NAME\``, etc.

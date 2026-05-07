@@ -90,12 +90,18 @@ pub(super) async fn dispatch_get(
         );
     }
     if let Some(rest) = req.strip_prefix("GET /skills/") {
-        // /skills/<name>/versions takes priority over the bare
-        // /skills/<name> single-skill view.
+        // /skills/<name>/versions and /skills/<name>/quality take
+        // priority over the bare /skills/<name> single-skill view.
         if let Some((name, tail)) = rest.split_once('/') {
             if tail.starts_with("versions ") || tail.starts_with("versions?") {
                 let format = parse_query_kv(tail, "format");
                 return Some(skill_versions_response(name, store, format.as_deref()).await);
+            }
+            if tail.starts_with("quality ") || tail.starts_with("quality?") {
+                let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
+                return Some(
+                    super::routes_skills_quality::skill_quality_response(name, store, limit).await,
+                );
             }
         }
         if let Some((name_with_query, _)) = rest.split_once(' ') {
