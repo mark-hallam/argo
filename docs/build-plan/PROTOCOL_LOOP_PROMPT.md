@@ -33,11 +33,27 @@ brainstorms new briefs at step 8, it picks the sizing flavor based
 on which queue is short.
 
 **Post-v1 idea sources for step 8**: once the v1 demo gate is green,
-queue replenishment also draws from `BUILD_PLAN_V11.md` (the phased
-plan from v1.1 production hardening through v2.2 demo verticals).
-The conductor reads the phase that matches "what's active right
-now" and turns un-shipped bullets into briefs. See `PROTOCOL.md`
-"Phase 2 — beyond the v1 demo gate" for the full source list.
+queue replenishment draws from these sources, in priority order:
+
+1. **`MISSION_BACKLOG.md`** — the canonical 280-item backlog from
+   the tick-198 deep-research pass. Each item is status-tagged.
+   Pick items tagged `[NEW]` (no brief exists yet); skip `[BRIEF]`
+   (already authored), `[SHIPPED]` (merged), `[DEFER]` (not yet
+   actionable). When authoring a brief from this source, name it
+   `mission-<short-slug>.md` so the provenance is visible.
+2. `BUILD_PLAN_V11.md` — the phased plan from v1.1 production
+   hardening through v2.2 demo verticals. Use for items not yet
+   in MISSION_BACKLOG (rare; backlog is the superset).
+3. Recent PR-body "deferred to follow-up" sections — drains as
+   the queue moves.
+4. `MISSION.md` gaps — last-resort source; the substrate-vs-runtime
+   section there points at the same gap MISSION_BACKLOG enumerates.
+5. `git log -100` — for items implied by recent merges.
+
+The conductor picks 3–5 items per replenishment, weighted by which
+queue is short, and updates the picked items' status tag in
+MISSION_BACKLOG.md from `[NEW]` to `[BRIEF: <new-id>]` in the same
+commit that adds the brief file.
 
 ---
 
@@ -74,18 +90,25 @@ now" and turns un-shipped bullets into briefs. See `PROTOCOL.md`
    a. codex_todo = grep -c "| codex |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
       claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
    b. If codex_todo <= 8: brainstorm 3-5 NEW codex-sized briefs. Idea sources, in priority
-      order: MISSION.md gaps, BUILD_PLAN_V11.md phased plan (the v1.x / v2.x stage that's
-      currently active), recent PR-body "deferred to follow-up" sections, v1 demo gaps, and
-      git log -100. Each brief follows PROTOCOL_BRIEF_TEMPLATE.md. Sizing: 200-1200 LOC,
-      narrow may-touch, single-crate focus.
+      order: (1) `<PLAN_DIR>/MISSION_BACKLOG.md` items tagged `[NEW]` — name authored briefs
+      `mission-<slug>` so the source is traceable; in the same commit, flip the picked
+      backlog items' status tag from `[NEW]` to `[BRIEF: mission-<slug>]`. (2) BUILD_PLAN_V11.md
+      phased plan (the v1.x / v2.x stage that's currently active). (3) recent PR-body
+      "deferred to follow-up" sections. (4) MISSION.md gaps. (5) git log -100. Each brief
+      follows PROTOCOL_BRIEF_TEMPLATE.md. Sizing: 200-1200 LOC, narrow may-touch,
+      single-crate focus.
    c. If claude_todo <= 8: same for claude. Sizing: 300-2000 LOC, multi-crate OK,
-      architectural decisions OK, integration tests welcome.
+      architectural decisions OK, integration tests welcome. Same `mission-<slug>` naming
+      + backlog-tag-flip discipline applies.
    d. **Brief authoring discipline (tick-58 lesson)**: before publishing a brief, ground
       the may-touch list in the real codebase. Run `find crates -name '*.rs' | grep <thing>`
       or `rg -l <symbol>` to verify every file path exists. Imagined paths cause BLOCKED
       claims — 30 seconds of verification beats six dead briefs.
    e. Push ONE commit per replenishment: "briefs: replenish <owner> queue (<id1>, <id2>, ...)".
-   f. Skip if both above 3.
+      If sourced from MISSION_BACKLOG, include the backlog-tag-flip in the SAME commit
+      (so MISSION_BACKLOG and the new brief files land atomically — never re-author the
+      same item across ticks).
+   f. Skip if both above 8.
 
 9. If everything is in flight and there's nothing to do, report back briefly with
    "swarm healthy, X PRs in review, Y briefs claimed, Z merged, codex_todo=A, claude_todo=B"
@@ -114,6 +137,16 @@ Do not stop the loop. Cancel only when the user asks to stop OR when every brief
   rows per owner, fire if either is ≤8, write 3–5 new briefs in
   one commit. See `PROTOCOL.md` "Queue replenishment" for the
   idea sources, sizing rules, and stop condition.
+- **MISSION_BACKLOG.md is the canonical source** of un-shipped
+  work post-tick-198. It carries ~280 status-tagged items
+  ([NEW] / [BRIEF: <id>] / [SHIPPED] / [PARTIAL] / [DEFER]).
+  Conductor's job at Step 8 is to pick `[NEW]` items, author
+  briefs named `mission-<slug>`, and flip the backlog tag in the
+  SAME replenishment commit. NEVER author a brief from a
+  `[BRIEF: ...]` item (it already exists; re-authoring causes
+  BLOCKED claims). NEVER author from a `[SHIPPED]` item (it's
+  merged on main; re-authoring is the auto-compaction-amnesia trap
+  documented in BUILD_STATUS.md tick-115 amendment).
 - Hard rules every tick (carry over from earlier protocol revisions):
   always run from `<REPO_PATH>` on the main branch after a fresh
   `git pull --ff-only`; never `git commit -am` (always stage explicit

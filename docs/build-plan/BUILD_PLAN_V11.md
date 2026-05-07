@@ -261,3 +261,104 @@ note to BUILD_STATUS.md with the date + a link to the
 production-deploy recording.
 
 Until then, the loop keeps going.
+
+---
+
+## Tick 198 amendment — deep-research findings ingested
+
+The operator commissioned a deep-research pass over the codebase
+that produced ~280 actionable items. The full backlog is captured
+in [MISSION_BACKLOG.md](MISSION_BACKLOG.md) (status-tagged,
+cross-referenced to existing briefs/PRs). The headline framing
+from that analysis:
+
+- **Substrate (primitives): ~75% complete.** Architecture is sound.
+- **Runtime (closed loops): ~45% complete.** Many wires are missing
+  between substrate primitives that exist and the user-visible loops
+  that prove the mission claims.
+- **Mission spirit: ~45% delivered.**
+
+The gap is enumerable, scoped, and almost entirely tractable —
+no architectural dead-ends visible. The two structural risks
+(no CI; no gateway auth) are 1-day and 1-week fixes respectively.
+The strategic risk (others ship 19 messaging platforms; SKYCOT
+has fewer in-tree adapters) is multi-month catch-up,
+parallelizable with mission closure.
+
+### Phase A — load-bearing wires + production perimeter (queued tick 198)
+
+13 new `mission-*` briefs were added to BUILD_STATUS.md this tick.
+They split into two groups:
+
+**Load-bearing wires (8 items; one already in queue):**
+
+| Brief | Owner | Cite | Closes |
+|---|---|---|---|
+| mission-wire-outbound-notify-on-ask | claude | item #1 | mission claim 6 (Slack/email/SMS approvals) |
+| mission-wire-mcp-action-executor | claude | item #2 | unbricks marketplace-seller demo |
+| mission-wire-api-action-executor | codex | item #3 | direct REST executor; mirror of mcp |
+| codex-duty-scheduler-gateway-wiring | codex | item #4 | (already TODO in queue) mission claim "works autonomously" |
+| mission-wire-memory-compose-context | claude | item #5 | mission claim 1 (persistent identity) |
+| mission-wire-judge-on-skill-creation | claude | item #6 | mission claim 4 ("judge vetoes uncertain") |
+| mission-wire-judge-on-forge-promote | claude | item #7 | enforces auto_promote_threshold 0.85 |
+| mission-wire-feedback-in-cu-executor | codex | item #8 | operator votes flow into propose gate |
+
+**Production perimeter (5 active + 1 deferred-to-last):**
+
+| Brief | Owner | Status |
+|---|---|---|
+| mission-reenable-ci-workflows | codex | SHIP-BLOCKER |
+| mission-gateway-bearer-auth | claude | SHIP-BLOCKER |
+| mission-otlp-exporter | claude | active |
+| mission-migration-reconciliation | claude | active (large refactor) |
+| mission-coverage-tooling | codex | waits on CI re-enable |
+| mission-headline-reconciliation | claude | DEFERRED — must be the LAST brief executed before declaring production-ready (numbers move weekly) |
+
+### Phases B–F — drawn from MISSION_BACKLOG.md as queue drains
+
+The conductor's Step-8 queue replenishment loop continues, now
+drawing from MISSION_BACKLOG.md sections in priority order:
+
+- Phase B (3–4 weeks): mission-claim closure (E2B sandbox image, CU
+  variant update, subtask ledger, planner→dispatch, vertical depth
+  catch-up to gtm-engineer parity)
+- Phase C (4–6 weeks): production hardening tail (TLS, rate limiting,
+  migration walk + upgrade tests, telemetry tail, compliance start)
+- Phase D (parallel, ongoing): catch-up volume (more providers /
+  skills / connectors / channels)
+- Phase E (2–3 months): differentiate via self-improvement (Dreams
+  closure)
+- Phase F (3–6 months): scale-out (perf + horizontal scale + deeper
+  vertical breadth)
+
+The conductor should NOT author all backlog items as briefs at once.
+Author 3–5 per replenishment tick per the standing Step-8 sizing,
+preferring the next-phase items.
+
+### Sequencing rationale
+
+The deep-research analysis produced this sequencing
+recommendation, paraphrased:
+
+1. **Stop bleeding credibility first** (Phase A items: CI, headline
+   honesty prep, gateway auth, the 8 load-bearing wires). 1 week of
+   focused work converts substrate into a runtime the
+   marketplace-seller demo can run end-to-end.
+2. **Production perimeter** before any external customer (Phase A
+   production blockers). Roughly a month, makes enterprise deployment
+   possible.
+3. **Mission claim closure** (Phase B). 3–4 weeks. Lights up the six
+   mission claims as actually-deliverable, not just architecturally
+   present.
+4. **Volume parallelizes with everything else** (Phase D).
+5. **Self-improvement is the differentiator** (Phase E). Dreams +
+   judge integration are the genuinely novel wins; ship after the
+   foundation is solid.
+
+### Stop condition update
+
+The original stop condition stays valid. The amendment adds:
+*"AND every Phase A brief is MERGED"* as a soft pre-condition
+before any external "production-ready" claim is made. The
+mission-headline-reconciliation brief is the gating artifact —
+do not author "production-ready" comms until it lands.

@@ -145,6 +145,52 @@ notifies the operator + collects the reply is multi-channel.
 
 ---
 
+## Status: substrate vs runtime (tick 198 capture)
+
+The mission paragraph above is the **target**. The current state
+of the codebase against that target was assessed in a deep-research
+pass at tick 198 (~280 actionable items captured in
+[docs/build-plan/MISSION_BACKLOG.md](../build-plan/MISSION_BACKLOG.md)).
+The honest framing:
+
+- **Substrate (primitives): ~75% complete.** The architecture is
+  sound. Worker / Persona / Role / Vertical types exist; capability
+  engine real; multi-tenant by construction; MCP wire end-to-end;
+  computer-use loop landed; 8 channel implementations real with
+  real backends; judge crate real; A/B + skill quality real;
+  audit chain hash-verified; OCI distribution real.
+- **Runtime (closed loops): ~45% complete.** Many wires are missing
+  between substrate primitives that exist and the user-visible
+  loops that prove the mission claims. Specifically:
+  - The judge is built but not consulted by skill creation OR
+    forge promote.
+  - The duty scheduler is built but not spawned in gateway boot.
+  - Layered memory composition is built but never injected into
+    the agent system prompt.
+  - Outbound notify channels are built but never called when the
+    auto-approval gate returns Decision::Ask.
+  - Action-level McpExecutor + ApiExecutor remain stubs — the
+    agent-level dispatch shipped, but per-action manifest
+    `executor.kind=mcp` declarations error today.
+- **Mission spirit: ~45% delivered.** Each of the six load-bearing
+  claims has a v1 implementation, but only some have a real
+  closed loop the operator can observe end-to-end without
+  developer hand-holding.
+
+The gap is enumerable, scoped, and almost entirely tractable.
+There are no architectural dead-ends visible. The work is
+partitioned in MISSION_BACKLOG.md across nine sections; the
+highest-leverage next moves are the Phase A `mission-*` briefs
+captured at tick 198 (eight load-bearing wires plus the
+production perimeter).
+
+This section is captured at tick 198 and will be refreshed when
+the next deep assessment is run. It does not change the mission;
+it makes the gap between mission and current reality visible to
+every agent reading this file.
+
+---
+
 ## v1 success criteria
 
 We hit v1 launch when:
