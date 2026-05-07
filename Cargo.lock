@@ -370,6 +370,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-executor-computer-use-macos"
+version = "0.0.1"
+dependencies = [
+ "argo-executor-computer-use",
+ "argo-types",
+ "async-trait",
+ "chrono",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "argo-executor-document"
 version = "0.0.1"
 dependencies = [
