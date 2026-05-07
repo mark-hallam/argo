@@ -24,16 +24,28 @@ self-hosted Zot/Harbor).
 Use `oci-distribution` Rust crate — well-maintained and
 already vetted by other Rust ecosystem projects.
 
-## Files you may touch
+## Files you may touch (amended tick149 — actual layout)
 - BLANKET CLI ALLOWLIST applies
-- `crates/argo-vertical/src/oci_push.rs` (NEW or replace
-  existing mock)
-- `crates/argo-vertical/src/oci_pull.rs` (NEW or replace mock)
-- `crates/argo-vertical/Cargo.toml` — narrowly: add
-  `oci-distribution` dep
+- `crates/argo-marketplace/src/oci_distribution.rs` —
+  narrowly: replace mock push/pull paths with real
+  Distribution Spec calls
+- `crates/argo-marketplace/src/oci_auth.rs` — narrowly:
+  add credentials.toml token + ~/.docker/config.json
+  parsing for fallback chain
+- `crates/argo-marketplace/src/bundle.rs` — narrowly:
+  serialize manifest layers with the correct
+  application/vnd.skycot.vertical.v1+toml media types
+- `crates/argo-marketplace/src/registry.rs` — narrowly:
+  expose new push/pull entry points
+- `crates/argo-marketplace/Cargo.toml` — narrowly: add
+  `oci-distribution` dep if not already present
 - `crates/argo-cli/src/handlers/vertical_publish.rs` —
   narrowly: route to real-OCI path when `--registry` set,
   fallback to mock when unset (back-compat)
+- `crates/argo-cli/src/handlers/vertical_pull.rs` —
+  narrowly: same — real-OCI when `--registry` set
+- `crates/argo-cli/src/cli_vertical_cmds.rs` — narrowly:
+  surface `--registry` flag if not already exposed
 - `crates/argo-cli/tests/vertical_publish_oci_smoke.rs` (NEW —
   gated on `ARGO_OCI_TEST_REGISTRY` env)
 
