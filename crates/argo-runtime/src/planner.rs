@@ -222,6 +222,22 @@ impl TemplatePlanner {
         Self { templates }
     }
 
+    /// Prepend operator-promoted Dreams-distilled templates ahead
+    /// of the existing in-memory list. Templates are matched in
+    /// insertion order, so callers should supply
+    /// `learned_plan_template` rows from
+    /// `argo_store::learned_plan_template::list_promoted` first
+    /// and let the shipped defaults remain as the fallback. This
+    /// is the seam by which Dreams output reaches the planner —
+    /// the runtime stays free of database deps; argo-cli does
+    /// the SQL read and hands the converted templates here.
+    #[must_use]
+    pub fn with_learned_templates(mut self, mut learned: Vec<PlanTemplate>) -> Self {
+        learned.append(&mut self.templates);
+        self.templates = learned;
+        self
+    }
+
     /// Three shipped templates that cover most "first plan"
     /// scenarios. Operators can extend by passing their own list
     /// to [`Self::new`] — disk-loaded templates are a follow-up.

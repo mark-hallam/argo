@@ -56,4 +56,49 @@ pub enum PlanCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Manage Dreams-distilled learned plan templates (Stream
+    /// `claude-dreams-plan-templates`). Cohorts of similar
+    /// successful Planner decompositions get distilled by the
+    /// Dreams API into reusable workflow YAML; operators promote
+    /// good ones via this surface so the TemplatePlanner can
+    /// match them ahead of the shipped defaults.
+    Template {
+        #[command(subcommand)]
+        cmd: PlanTemplateCmd,
+    },
+}
+
+/// `argo plan template ...` sub-subcommands.
+#[derive(Subcommand, Debug)]
+pub enum PlanTemplateCmd {
+    /// List Dreams-distilled learned plan templates. Filter by
+    /// `--grade` (`pending` / `promoted` / `rejected`).
+    List {
+        /// Filter by lifecycle state.
+        #[arg(long)]
+        grade: Option<String>,
+        /// Cap on rows returned (default 50, hard ceiling 500).
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one learned plan template — header + workflow body.
+    Show {
+        /// Template id.
+        id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Promote a Pending template to Promoted so the
+    /// TemplatePlanner can match it.
+    Promote {
+        /// Template id.
+        id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
 }

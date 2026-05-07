@@ -27,6 +27,10 @@ mod spend;
 /// `claude-spend-anomaly-alerts`).
 pub mod spend_anomaly;
 mod stats;
+/// Persistent learned-plan-template store — Dreams-distilled
+/// workflow YAML body + TrustGrade ladder (Stream
+/// `claude-dreams-plan-templates`).
+pub mod learned_plan_template;
 /// Recovery-cache CRUD helpers — `argo recover cache list/show/clear`.
 pub mod recovery_cache;
 /// Persistent subtask ledger — durable record of Planner-emitted

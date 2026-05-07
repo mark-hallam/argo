@@ -115,6 +115,19 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 dry_run,
                 json,
             } => handlers::plan_execute::run(&yaml_path, dry_run, json).await,
+            cli::PlanCmd::Template { cmd } => match cmd {
+                cli::cli_plan_cmds::PlanTemplateCmd::List {
+                    grade,
+                    limit,
+                    json,
+                } => handlers::plan_template_list::run(grade.as_deref(), limit, json).await,
+                cli::cli_plan_cmds::PlanTemplateCmd::Show { id, json } => {
+                    handlers::plan_template_show::run(&id, json).await
+                }
+                cli::cli_plan_cmds::PlanTemplateCmd::Promote { id, json } => {
+                    handlers::plan_template_promote::run(&id, json).await
+                }
+            },
         },
         Some(Command::Doctor {
             cmd: Some(cli::DoctorCmd::Fix { auto, issue, json: fix_json }),

@@ -20,6 +20,11 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+/// Dreams plan-template learning — distill cohorts of similar
+/// successful Planner decompositions into [`PlanTemplate`]
+/// candidates that ride the TrustGrade ladder. Stream
+/// `claude-dreams-plan-templates`.
+pub mod dreams_plan_templates;
 mod planner;
 
 #[cfg(test)]
