@@ -58,7 +58,9 @@ system. Backs mission claim 1 ("persistent identity over time" needs an
 - `crates/argo-cli/src/handlers/worker_fleet.rs` (NEW, ≤ 280 LOC)
 - `crates/argo-cli/src/handlers/worker_fleet_tests.rs` (NEW, ≤ 250 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant)
+- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST; cli.rs is 49 LOC post-#968)
+- `crates/argo-cli/src/cli_worker_cmds.rs` (WorkerCmd variants — add Fleet variant here)
+- `crates/argo-cli/src/handlers/worker_actions.rs` (worker dispatch)
 - `crates/argo-cli/tests/worker_fleet_smoke.rs` (NEW)
 
 ## Files you must NOT touch

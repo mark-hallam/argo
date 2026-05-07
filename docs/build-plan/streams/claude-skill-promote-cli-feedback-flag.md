@@ -45,7 +45,9 @@ one flag.
 
 - BLANKET CLI ALLOWLIST applies (cli.rs, main.rs, handlers/mod.rs, tests/, Cargo.toml).
 - `crates/argo-cli/src/handlers/skill_promote.rs` (extend; keep ≤ 500 LOC).
-- `crates/argo-cli/src/cli.rs` — narrowly: add 3 flags to the `SkillPromote` clap variant.
+- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST; cli.rs is 49 LOC post-#968)
+- `crates/argo-cli/src/cli_subcommands_skill.rs` — narrowly: SkillCmd lives here post-cli-split. Add the 3 flags to the `Promote` variant.
+- `crates/argo-cli/src/handlers/skill_promote.rs` — narrowly: handler
 - `crates/argo-cli/tests/skill_promote_feedback.rs` (NEW, ≤ 200 LOC).
 
 ## Files you must NOT touch

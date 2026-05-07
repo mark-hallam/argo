@@ -48,7 +48,9 @@ read side already exists; this is the missing write.
 - `crates/argo-cli/src/handlers/worker_budget.rs` (NEW, ≤ 220 LOC) — name conflict-check first
 - `crates/argo-cli/src/handlers/worker_budget_tests.rs` (NEW, ≤ 250 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 sub-enum)
+- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 sub-enum; cli.rs is 49 LOC post-#968 split)
+- `crates/argo-cli/src/cli_worker_cmds.rs` (post-cli-split: WorkerCmd variants live here)
+- `crates/argo-cli/src/handlers/worker_actions.rs` (worker dispatch lives here)
 - `crates/argo-cli/tests/worker_budget_smoke.rs` (NEW, ≤ 150 LOC)
 
 ## Files you must NOT touch
