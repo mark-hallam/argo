@@ -217,6 +217,7 @@ dependencies = [
  "argo-orchestrator",
  "argo-provider",
  "argo-routing",
+ "argo-runtime",
  "argo-sandbox",
  "argo-skill",
  "argo-store",
@@ -826,6 +827,21 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "argo-runtime"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "argo-workflow",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "serde_yaml",
  "thiserror 1.0.69",
  "tokio",
  "tracing",

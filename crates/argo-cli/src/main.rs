@@ -92,6 +92,30 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             .await,
             cli::ClassifyCmd::Rules { json } => handlers::classify_rules::run(json).await,
         },
+        Some(Command::Plan { cmd }) => match cmd {
+            cli::PlanCmd::Generate {
+                goal,
+                worker,
+                llm,
+                vertical,
+                output,
+                json,
+            } => handlers::plan_generate::run(
+                &goal,
+                &worker,
+                llm,
+                vertical.as_deref(),
+                output.as_deref(),
+                json,
+            )
+            .await,
+            cli::PlanCmd::Show { target, json } => handlers::plan_show::run(&target, json).await,
+            cli::PlanCmd::Execute {
+                yaml_path,
+                dry_run,
+                json,
+            } => handlers::plan_execute::run(&yaml_path, dry_run, json).await,
+        },
         Some(Command::Doctor {
             cmd: Some(cli::DoctorCmd::Fix { auto, issue, json: fix_json }),
             json,

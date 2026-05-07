@@ -10,6 +10,8 @@ mod cli_activity_cmds;
 mod cli_audit_cmds;
 #[path = "cli_classify_cmds.rs"]
 mod cli_classify_cmds;
+#[path = "cli_plan_cmds.rs"]
+mod cli_plan_cmds;
 #[path = "cli_budget_cmds.rs"]
 mod cli_budget_cmds;
 #[path = "cli_doctor_cmds.rs"]
@@ -397,6 +399,13 @@ pub enum Command {
     Classify {
         #[command(subcommand)]
         cmd: ClassifyCmd,
+    },
+    /// Decompose a coarse goal into a workflow DAG (Stream
+    /// `claude-runtime-planner-trait`). Offline TemplatePlanner by
+    /// default; `--llm` opts into the Anthropic-backed LlmPlanner.
+    Plan {
+        #[command(subcommand)]
+        cmd: PlanCmd,
     },
     /// Diagnose configuration / sandbox / port issues.
     Doctor {
