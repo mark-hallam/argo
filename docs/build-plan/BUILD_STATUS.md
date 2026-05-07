@@ -39,7 +39,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-docs-site-build | claude | CLAIMED | — | claimed by claude (sad-swartz-3e7921) |
 | mission-headline-reconciliation | claude | TODO | — | **DEEP-RESEARCH PHASE A production blocker #6 (DEFERRED: SHIP LAST).** DOCS-ONLY reconciliation of headline numbers in README/ROADMAP/MISSION/launch_readiness/BUILD_STATUS header. Numbers move weekly (e.g., 27 vs 53 crates, 50K vs 183K LOC). Do this brief immediately before declaring "production-ready", NOT before. Waits on mission-reenable-ci-workflows + mission-gateway-bearer-auth + mission-otlp-exporter + mission-coverage-tooling all MERGED. Brief: streams/mission-headline-reconciliation.md. Source: MISSION_BACKLOG.md item #17 |
 | codex-rebase-recover-cache-pr911 | codex | IN_REVIEW | #911 | Recovery rebase landed on existing PR #911; head `fab7834`, `gh pr view 911 --json mergeable` = MERGEABLE. |
-| codex-rebase-connector-authorize-pr905 | codex | TODO | — | RECOVERY: fix 3 `possible_missing_else` clippy errors in connector_list_status.rs:19 (cols 223, 343) + connector_revoke.rs:21 (col 288) + rebase PR #905 onto current main. Original work otherwise clean per conductor's tick197 review. Brief: streams/codex-rebase-connector-authorize-pr905.md |
+| codex-rebase-connector-authorize-pr905 | codex | CLAIMED | — | claimed by codex |
 | codex-rebase-cost-by-skill-pr894 | codex | CLAIMED | — | claimed by codex |
 | claude-rebase-subtask-ledger-store-pr924 | claude | CLAIMED | — | claimed by claude (relaxed-euler-6f3d8b) |
 | **▼ PHASE B — mission claim closure** | — | — | — | — |
