@@ -17,6 +17,8 @@ mod migrations;
 mod models;
 mod session_meta;
 mod session_query;
+/// Chronological skill invocation history query helpers.
+pub mod skill_runs_query;
 mod spend;
 /// Spend anomaly detector — Welford rolling stats per (worker,
 /// hour-of-day) + z-score check (Stream
@@ -34,6 +36,7 @@ mod workspace;
 pub use grants::SessionGrant;
 pub use marketplace_meta::MarketplaceArtifactRow;
 pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
+pub use skill_runs_query::{runs_for_skill, runs_for_tenant, SkillRunRow};
 pub use spend::GlobalSpend;
 pub use stats::{tool_errors_histogram, DbStats};
 

@@ -163,6 +163,7 @@ pub mod skill_export;
 pub mod skill_export_all;
 pub mod skill_import;
 pub mod skill_review;
+pub mod skill_runs;
 pub mod skill_search;
 pub mod skill_tags;
 pub mod skill_unpublish;

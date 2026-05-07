@@ -99,6 +99,34 @@ pub enum SkillCmd {
     Unpublish(SkillUnpublishCmd),
     /// List marketplace tags for one skill.
     Tags(SkillTagsCmd),
+    /// Show chronological skill invocation history.
+    Runs {
+        /// Skill name. Omit when using `--tenant` for cross-skill history.
+        #[arg(
+            value_name = "skill-name",
+            required_unless_present = "tenant",
+            conflicts_with = "tenant"
+        )]
+        name: Option<String>,
+        /// Cross-skill tenant view.
+        #[arg(long, conflicts_with = "name")]
+        tenant: Option<String>,
+        /// Filter to one worker id.
+        #[arg(long)]
+        worker: Option<String>,
+        /// Wall-clock relative filter such as `24h`, `30m`, or `7d`.
+        #[arg(long)]
+        since: Option<String>,
+        /// Maximum number of rows to return.
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Include failed and skipped invocations. Defaults to successes only.
+        #[arg(long)]
+        include_failed: bool,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
     Versions(super::cli_skill_ab_cmds::SkillVersionsCmd),
     AbTest(super::cli_skill_ab_cmds::SkillAbTestCmd),
     AbStatus(super::cli_skill_ab_cmds::SkillAbStatusCmd),
