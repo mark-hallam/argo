@@ -394,6 +394,14 @@ pub enum Command {
         #[command(subcommand)]
         cmd: PlanCmd,
     },
+    /// Inspect the persistent subtask ledger
+    /// (Stream `claude-subtask-ledger-store`). One row per node the
+    /// Planner emits during decomposition; durable across restarts
+    /// so operators can read a worker's plan after the fact.
+    Subtask {
+        #[command(subcommand)]
+        cmd: SubtaskCmd,
+    },
     /// Diagnose configuration / sandbox / port issues.
     Doctor {
         #[command(subcommand)]

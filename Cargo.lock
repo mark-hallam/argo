@@ -931,7 +931,9 @@ dependencies = [
 name = "argo-store"
 version = "0.0.1"
 dependencies = [
+ "argo-runtime",
  "argo-types",
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",

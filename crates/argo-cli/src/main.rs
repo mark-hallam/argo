@@ -324,6 +324,30 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             handlers::recover::run(&session_id, json).await
         }
         Some(Command::RecoverCache { cmd }) => handlers::recover_cache::run(cmd).await,
+        Some(Command::Subtask { cmd }) => match cmd {
+            cli::SubtaskCmd::List {
+                session,
+                worker,
+                parent_goal,
+                state,
+                limit,
+                json,
+            } => {
+                handlers::subtask_list::run(
+                    session.as_deref(),
+                    worker.as_deref(),
+                    parent_goal.as_deref(),
+                    state.as_deref(),
+                    limit,
+                    json,
+                )
+                .await
+            }
+            cli::SubtaskCmd::Show { id, json } => handlers::subtask_show::run(&id, json).await,
+            cli::SubtaskCmd::Tree { session, json } => {
+                handlers::subtask_tree::run(&session, json).await
+            }
+        },
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");

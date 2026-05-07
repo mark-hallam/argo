@@ -27,6 +27,9 @@ pub mod spend_anomaly;
 mod stats;
 /// Recovery-cache CRUD helpers — `argo recover cache list/show/clear`.
 pub mod recovery_cache;
+/// Persistent subtask ledger — durable record of Planner-emitted
+/// decompositions (Stream `claude-subtask-ledger-store`).
+pub mod subtask;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Tenant inspection and id-rename helpers.

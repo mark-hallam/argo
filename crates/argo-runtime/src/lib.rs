@@ -26,6 +26,6 @@ mod planner;
 mod planner_tests;
 
 pub use planner::{
-    AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, Planner, PlannerContext,
-    PlannerError, TemplatePlanner,
+    record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, PlannedSubtask,
+    Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,
 };

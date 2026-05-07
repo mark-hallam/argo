@@ -275,3 +275,4 @@ pub use super::cli_classify_cmds::ClassifyCmd;
 pub use super::cli_plan_cmds::PlanCmd;
 pub use super::cli_skill_conflicts_cmds::SkillConflictsCmd;
 pub use super::cli_skill_review_cmds::SkillReviewCmd;
+pub use super::cli_subtask_cmds::SubtaskCmd;

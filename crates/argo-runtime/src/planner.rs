@@ -10,6 +10,74 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
+/// One node a [`Planner`] decomposed out of a coarse goal. Wrapped
+/// for the [`SubtaskSink`] hand-off so the sink doesn't have to
+/// re-derive the (path, description, worker) triple from the
+/// raw [`argo_workflow::Workflow`] each time.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlannedSubtask {
+    /// DAG path, typically `/<workflow_id>/<task_id>`.
+    pub plan_node_path: String,
+    /// Free-text description (workflow desc + task id).
+    pub description: String,
+    /// Worker id that owns the node — falls back to
+    /// `ctx.worker_id` when the [`argo_workflow::TaskNode`]
+    /// doesn't override.
+    pub worker_id: String,
+}
+
+/// Sink for write-through of Planner output. Implemented in
+/// `argo-store` (`subtask::SqliteSubtaskSink`) so the runtime
+/// crate stays free of database deps. Tests use a vec-backed stub.
+#[async_trait]
+pub trait SubtaskSink: Send + Sync {
+    /// Persist one decomposed subtask. Implementations are free to
+    /// swallow conflicts (e.g. unique-index hits on the same plan
+    /// node path) so re-decompose is idempotent.
+    async fn record_subtask(
+        &self,
+        parent_goal: &str,
+        parent_session_id: Option<&str>,
+        subtask: &PlannedSubtask,
+    ) -> Result<(), PlannerError>;
+}
+
+/// Walk a [`DecomposeResult`] and hand every task to the sink. The
+/// CLI handler calls this immediately after `Planner::decompose`
+/// returns.
+pub async fn record_decomposition(
+    sink: &dyn SubtaskSink,
+    parent_goal: &str,
+    parent_session_id: Option<&str>,
+    ctx: &PlannerContext,
+    result: &DecomposeResult,
+) -> Result<(), PlannerError> {
+    for task in &result.workflow.tasks {
+        let worker_id = if task.worker.is_empty() {
+            ctx.worker_id.clone()
+        } else {
+            task.worker.clone()
+        };
+        let plan_node_path = format!("/{}/{}", result.workflow.id, task.id);
+        let description = if result.workflow.description.is_empty() {
+            task.id.clone()
+        } else {
+            format!("{} :: {}", result.workflow.description, task.id)
+        };
+        sink.record_subtask(
+            parent_goal,
+            parent_session_id,
+            &PlannedSubtask {
+                plan_node_path,
+                description,
+                worker_id,
+            },
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 /// Decomposition errors. The CLI surfaces these as
 /// `ArgoError::Provider`.
 #[derive(Debug, Error)]
