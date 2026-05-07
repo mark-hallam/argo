@@ -1,7 +1,8 @@
 //! Channel webhook + web inbox routes — central dispatcher and
 //! shared primitives. Per-channel handlers live in sibling files
 //! (`routes_channels_email`, `routes_channels_slack`,
-//! `routes_channels_webinbox`, `routes_channels_push`).
+//! `routes_channels_webinbox`, `routes_channels_push`,
+//! `routes_channels_whatsapp`).
 //!
 //! Adding a new channel: implement `is_X` + `X_response` in a new
 //! `routes_channels_<channel>.rs`, then add a branch to
@@ -11,6 +12,7 @@ use super::routes_channels_email::handle_email_webhook;
 use super::routes_channels_push::{is_push, push_response};
 use super::routes_channels_slack::{is_slack_webhook, slack_webhook_response};
 use super::routes_channels_webinbox::{is_webinbox, webinbox_response};
+use super::routes_channels_whatsapp::{is_whatsapp_webhook, whatsapp_webhook_response};
 use crate::handlers::worker_actions::{ActionRecord, ActionState};
 use crate::handlers::worker_actions_transitions;
 use argo_memory::{MemoryFile, MemoryStore};
@@ -18,7 +20,7 @@ use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Decision { Approve, Reject }
 
 pub(super) struct TokenClaims { pub(super) approval_id: String, pub(super) decision: Decision }
@@ -32,6 +34,7 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
         || is_slack_webhook(req)
         || is_webinbox(req)
         || is_push(req)
+        || is_whatsapp_webhook(req)
 }
 
 /// Dispatch to the matching channel handler. Falls through to
@@ -45,6 +48,9 @@ pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) 
     }
     if is_push(req) {
         return push_response(req).await;
+    }
+    if is_whatsapp_webhook(req) {
+        return whatsapp_webhook_response(req).await;
     }
     handle_email_webhook(req).await
 }

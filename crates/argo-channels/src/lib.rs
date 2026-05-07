@@ -25,6 +25,7 @@ pub mod slack;
 pub mod token;
 pub mod voice;
 pub mod webinbox;
+pub mod whatsapp;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
