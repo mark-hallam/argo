@@ -3,12 +3,17 @@
 //! that file under the 500-LOC ceiling.
 
 use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
+use argo_orchestrator::{
+    spawn_duty_scheduler, ClosedGate, DutyScheduler, DutyStore, OrchestratorStore,
+};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::task::JoinHandle;
 
 use super::lifecycle::{pid_is_alive, shutdown_signal, signal_term, PidGuard};
 use super::start_banner::print_endpoint_summary;
@@ -16,6 +21,24 @@ use super::{
     metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice, streaming,
     sweepers,
 };
+
+const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
+
+struct AbortOnDrop {
+    handle: JoinHandle<()>,
+}
+
+impl AbortOnDrop {
+    fn new(handle: JoinHandle<()>) -> Self {
+        Self { handle }
+    }
+}
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
 
 pub(super) fn pid_path() -> ArgoResult<PathBuf> {
     let cwd =
@@ -54,6 +77,9 @@ pub(super) async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> A
     let _sweeper = store
         .as_ref()
         .map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
+    let _duty_scheduler = store
+        .as_ref()
+        .map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
 
     // PID file. If one already exists with a live PID, refuse to
     // start. If it exists but the process is gone, overwrite.
@@ -157,6 +183,28 @@ pub(super) async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> A
             }
         }
     }
+}
+
+fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnDrop {
+    let interval_secs = std::env::var("ARGO_DUTY_SCHEDULER_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .unwrap_or(DEFAULT_DUTY_SCHEDULER_SECS);
+    let duties = Arc::new(DutyStore::new(Arc::clone(&store)));
+    let orchestrator = Arc::new(OrchestratorStore::new(store));
+    // V1 fail-safe: run the autonomous duty loop but deny every
+    // fire until the live auto-approval gate is wired and verified.
+    let gate = Arc::new(ClosedGate);
+    let scheduler = Arc::new(DutyScheduler::new(duties, orchestrator, gate));
+    eprintln!(
+        "argo gateway: duty scheduler enabled (interval={}s, gate=closed)",
+        interval_secs
+    );
+    AbortOnDrop::new(spawn_duty_scheduler(
+        scheduler,
+        Duration::from_secs(interval_secs),
+    ))
 }
 
 pub(super) async fn stop() -> ArgoResult<()> {
