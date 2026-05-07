@@ -27,6 +27,7 @@ use super::routes_session_approval::{
     session_approve_response, session_revoke_approval_response,
 };
 use super::routes_session_clone::{session_branch_response, session_clone_response};
+use super::routes_auth::check_bearer_auth;
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
@@ -240,49 +241,6 @@ pub(super) async fn dispatch_post(
         }
     }
     None
-}
-
-/// Bearer-token gate applied to every POST request before dispatch.
-///
-/// Returns `None` (auth passes) when any of:
-/// - `ARGO_GATEWAY_AUTH_BYPASS=1` is set (integration-test escape hatch),
-/// - `ARGO_GATEWAY_BEARER_TOKEN` is unset/empty (dev default), or
-/// - the request carries a matching `Authorization: Bearer <token>` header.
-///
-/// Returns `Some(401, body)` otherwise. Body is a small JSON envelope so
-/// CLI clients can parse a stable error shape.
-fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
-    if std::env::var("ARGO_GATEWAY_AUTH_BYPASS")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return None;
-    }
-    let expected = match argo_config::cred::get("ARGO_GATEWAY_BEARER_TOKEN") {
-        Ok(t) if !t.is_empty() => t,
-        _ => return None,
-    };
-    if presented_bearer(req).as_deref() == Some(expected.as_str()) {
-        None
-    } else {
-        Some((
-            "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"missing or invalid bearer token"}"#
-                .to_string(),
-        ))
-    }
-}
-
-fn presented_bearer(req: &str) -> Option<String> {
-    req.lines()
-        .find_map(|l| {
-            l.split_once(':').and_then(|(k, v)| {
-                k.eq_ignore_ascii_case("Authorization").then(|| v.trim())
-            })
-        })
-        .and_then(|h| h.strip_prefix("Bearer "))
-        .map(str::to_string)
 }
 
 #[cfg(test)]

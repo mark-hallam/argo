@@ -5,7 +5,7 @@
 //! the two vars they touch at start AND end so order-of-execution does
 //! not affect outcomes.
 
-use super::check_bearer_auth;
+use super::super::routes_auth::check_bearer_auth;
 use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());

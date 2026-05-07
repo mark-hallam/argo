@@ -18,6 +18,7 @@ mod sweepers;
 mod routes_audit;
 mod routes_audit_rollups;
 mod routes_audit_stream;
+mod routes_auth;
 pub(crate) mod routes_catalog;
 mod routes_channels; mod routes_channels_discord; mod routes_channels_email; mod routes_channels_push; mod routes_channels_slack; mod routes_channels_webinbox; mod routes_channels_whatsapp;
 mod routes_costs_by_day;

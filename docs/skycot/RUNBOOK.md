@@ -1000,11 +1000,12 @@ Open `target/llvm-cov/html/index.html` for the annotated report.
 
 ### 11.1 Gateway bearer-token auth
 
-The gateway POST routes (session creation, message append, run
-turn, skill install, memory writes, …) are anonymously writable
-by default — the only protection is the `127.0.0.1:7400`
-localhost bind. For any non-localhost deployment, set a bearer
-token:
+The gateway routes (session creation, message append, run turn,
+skill install, memory writes, the read-side dashboards `/sessions`,
+`/audit/recent`, `/messages/recent`, `/memory/*`, …) are
+anonymously reachable by default — the only protection is the
+`127.0.0.1:7400` localhost bind. For any non-localhost deployment,
+set a bearer token:
 
 ```sh
 export ARGO_GATEWAY_BEARER_TOKEN=$(openssl rand -hex 32)
@@ -1012,16 +1013,27 @@ argo gateway start
 ```
 
 Once the env var is set (with a non-empty value), every POST
-request must carry `Authorization: Bearer <token>` or the
-gateway returns `401 Unauthorized` with body
+request and every non-allowlisted GET request must carry
+`Authorization: Bearer <token>` or the gateway returns
+`401 Unauthorized` with body
 `{"error":"unauthorized","reason":"missing or invalid bearer token"}`.
 
-GET routes (operator dashboards, `/audit/stream`, etc.) stay
-anonymous in v1; read-side auth is a separate follow-up.
+**Public read-only allowlist** (always anonymous so liveness
+probes, load balancers, and catalog-discovery flows keep working):
+
+- `GET /` — root index
+- `GET /health`, `/health/live`, `/health/ready`, `/health/full`
+- `GET /version`
+- `GET /routes`
+
+Everything else (`/sessions`, `/audit/*` except `stream` is gated,
+`/messages/*`, `/memory/*`, `/doctor`, `/db/*`, `/metrics/json`,
+`/workspace/*`, `/search*`, every per-resource GET, every POST)
+is protected.
 
 **Integration-test escape hatch**: set `ARGO_GATEWAY_AUTH_BYPASS=1`
 to bypass the check even when a token is configured. Use this in
-local CI fixtures that need to exercise POST routes without
+local CI fixtures that need to exercise GET + POST routes without
 threading the token through every test.
 
 The token can also live in `<workspace>/.argo/credentials.toml`
