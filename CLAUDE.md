@@ -113,6 +113,30 @@ If you are a worker tab, these rules apply on EVERY iteration —
 including after auto-compaction summarizes earlier turns. The ledger
 is the source of truth, not your memory.
 
+### One-time environment setup (tick370 perf amendment)
+
+Before launching workers, the operator should set:
+
+```bash
+export CARGO_TARGET_DIR=/tmp/argo-shared-target
+```
+
+Add to `~/.zshrc` or `~/.bashrc`. Without this, every `/tmp/<brief-id>`
+worktree gets its own `target/` directory and rebuilds **all 56 crates
+from scratch (~28 min cold)** every time a worker starts a brief. With
+the shared target dir, worktrees reuse compiled crates across briefs;
+first brief is cold (~28 min one-time), subsequent briefs touching only
+1-3 crates compile in ~30s-2min. Cargo's lockfile handles concurrent
+worker contention cleanly.
+
+**Optional but recommended**: install `sccache` for cross-machine /
+cross-tab compile-cache sharing:
+```bash
+brew install sccache
+export RUSTC_WRAPPER=sccache
+```
+Sccache + shared target dir = 5-10× iteration speedup vs unconfigured.
+
 ### HARD RULES (memorize)
 
 1. **Ledger is truth.** Re-pull `origin/main` and re-read
@@ -203,12 +227,39 @@ Run this loop until any STOP CONDITION fires:
    first: `git worktree remove /tmp/<brief-id> --force 2>/dev/null;
    rm -rf /tmp/<brief-id>`).
 8. Implement. Stay inside may-touch list. Tick acceptance boxes.
-9. **Filter cargo output to keep your context lean.** Run:
-   - `cargo build --workspace --message-format=short 2>&1 | tail -10`
-   - `cargo clippy --workspace --all-targets -- -D warnings 2>&1 | grep -E '^(warning|error|note|help|   --> |Finished)' | tail -30`
-   - `cargo test 2>&1 | tail -100`
+9. **Crate-scoped verification (tick370 perf amendment).** Default to
+   checking ONLY the crates your may-touch list mentions — workspace
+   commands cost 28+ minutes cold and ~9 minutes warm, multiplied by
+   every iteration. Crate-scoped commands run in 30s-2min.
 
-   The filtered forms drop ~90% of the "Compiling foo v0.0.1" noise on success while preserving warnings, errors, source-pointer arrows (`-->`), and the test-result summary (which lists failed tests). On a failed clippy/test where the filtered tail-30 / tail-100 cuts off the relevant diagnostic, re-run **unfiltered for the offending crate only** — `cargo clippy -p <crate> -- -D warnings` or `cargo test -p <crate>`. Workspace-wide unfiltered runs cost 10K-50K tokens of context and are rarely necessary.
+   **Compute touched-crates from your may-touch list.** E.g. for a
+   brief touching `crates/argo-store/...` and `crates/argo-cli/...`:
+   ```
+   CRATES="-p argo-store -p argo-cli"
+   ```
+
+   **Run** (`cargo build` is REDUNDANT — clippy already builds; skip it):
+   - `cargo clippy $CRATES --all-targets -- -D warnings 2>&1 | grep -E '^(warning|error|note|help|   --> |Finished)' | tail -30`
+   - `cargo test $CRATES 2>&1 | tail -100`
+
+   The filtered clippy form drops ~90% of "Compiling foo v0.0.1" noise
+   on success while preserving warnings, errors, source-pointer arrows
+   (`-->`), and the test-result summary.
+
+   **Workspace clippy is ONLY for the final pre-push sanity check.**
+   Run it ONCE, after crate-scoped clippy is clean:
+   - `cargo clippy --workspace --all-targets -- -D warnings 2>&1 | tail -10`
+
+   On a failed clippy/test where the filtered tail-30 / tail-100 cuts
+   off the relevant diagnostic, re-run **unfiltered for the offending
+   crate only** — `cargo clippy -p <crate> -- -D warnings` or
+   `cargo test -p <crate>`.
+
+   **Why crate-scoped is correct, not lazy.** The brief's may-touch
+   list defines exactly which crates can change. If your edit doesn't
+   compile a crate that's NOT in may-touch, that's a HARD RULE 5
+   boundary violation regardless of whether `--workspace` would catch
+   it. Crate-scoped clippy + workspace final-sanity catches both.
 
    3-attempt fail rule applies (HARD RULE 4).
 10. PRE-PUSH FLIGHT CHECK (HARD RULE 8). If still CLAIMED-by-you,
