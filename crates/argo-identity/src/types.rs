@@ -195,30 +195,47 @@ impl Persona {
     }
 }
 
-/// A scheduled or callable duty assigned to a role.
+/// A scheduled or callable duty assigned to a role
+/// (Stream `claude-worker-duty-scheduler`). `id`/`enabled`/
+/// `paused_until`/`last_fired_at` are `#[serde(default)]` so role
+/// JSON written before V1.3 still deserialises unchanged.
 ///
 /// ```
 /// use argo_identity::Duty;
 /// let duty = Duty::new("0 9 * * 1-5", "daily_check", "Check the inbox.");
 /// assert_eq!(duty.entry_action, "daily_check");
+/// assert!(duty.enabled && duty.paused_until.is_none());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Duty {
+    /// Stable id (UUIDv7-stringified for sort order).
+    #[serde(default = "Duty::default_id")]
+    pub id: String,
     /// Cron schedule that drives the duty.
     pub cron: String,
     /// Entry action invoked when the duty runs.
     pub entry_action: String,
-    /// Human-readable duty description.
+    /// Human-readable description.
     pub description: String,
+    /// Scheduler considers this duty when `true`.
+    #[serde(default = "Duty::default_enabled")]
+    pub enabled: bool,
+    /// Scheduler skips this duty until the `DateTime` passes.
+    #[serde(default)]
+    pub paused_until: Option<chrono::DateTime<chrono::Utc>>,
+    /// Last successful fire (powers the per-window idempotency).
+    #[serde(default)]
+    pub last_fired_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Duty {
-    /// Create a cron-driven duty.
+    /// Build an enabled, never-fired duty with a fresh UUIDv7 id.
     ///
     /// ```
     /// use argo_identity::Duty;
     /// let duty = Duty::new("0 8 * * *", "brief", "Prepare a brief.");
     /// assert_eq!(duty.cron, "0 8 * * *");
+    /// assert!(!duty.id.is_empty());
     /// ```
     #[must_use]
     pub fn new(
@@ -227,11 +244,18 @@ impl Duty {
         description: impl Into<String>,
     ) -> Self {
         Self {
+            id: Self::default_id(),
             cron: cron.into(),
             entry_action: entry_action.into(),
             description: description.into(),
+            enabled: true,
+            paused_until: None,
+            last_fired_at: None,
         }
     }
+
+    fn default_id() -> String { Uuid::now_v7().to_string() }
+    fn default_enabled() -> bool { true }
 }
 
 /// Delegated role: charter, duties, KPIs, and escalation path.

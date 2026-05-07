@@ -174,6 +174,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Roster { cmd }) => handlers::roster_list::run(cmd).await,
         Some(Command::Policy { cmd }) => handlers::policy_handlers::run(cmd).await,
         Some(Command::HandoffRules { cmd }) => handlers::handoff_rules_list::run(cmd).await,
+        Some(Command::Duty { cmd }) => handlers::duty_list::run(cmd).await,
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Trajectory { cmd }) => match cmd {
             cli::TrajectoryCmd::Export {

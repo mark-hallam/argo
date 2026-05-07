@@ -29,6 +29,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+/// Worker duty scheduler — autonomous cron-driven actions
+/// (Stream `claude-worker-duty-scheduler`, V1.3).
+pub mod duty_scheduler;
 mod escalation;
 mod handoff;
 pub mod persist;
@@ -36,6 +39,10 @@ pub mod routing;
 mod session;
 mod walker;
 
+pub use duty_scheduler::{
+    spawn_duty_scheduler, ClosedGate, DutyGate, DutyRecord, DutyScheduler, DutyStore,
+    FireDecision, OpenGate, TickReport,
+};
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
 pub use persist::OrchestratorStore;

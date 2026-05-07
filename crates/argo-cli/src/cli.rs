@@ -40,6 +40,8 @@ mod cli_skill_conflicts_cmds;
 mod cli_skill_review_cmds;
 #[path = "cli_skill_search_cmds.rs"]
 mod cli_skill_search_cmds;
+#[path = "cli_duty_cmds.rs"]
+pub mod cli_duty_cmds;
 #[path = "cli_handoff_cmds.rs"]
 pub mod cli_handoff_cmds;
 #[path = "cli_org_cmds.rs"]
@@ -226,6 +228,13 @@ pub enum Command {
     HandoffRules {
         #[command(subcommand)]
         cmd: cli_handoff_cmds::HandoffRulesCmd,
+    },
+    /// Worker duty scheduler — autonomous cron-driven actions
+    /// (Stream `claude-worker-duty-scheduler`, V1.3). list / show /
+    /// pause / resume / fire-now.
+    Duty {
+        #[command(subcommand)]
+        cmd: DutyCmd,
     },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +

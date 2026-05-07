@@ -250,10 +250,12 @@ impl<'a> IdentityStore<'a> {
         .map_err(|e| ArgoError::Provider(format!("load duties: {e}")))?;
         Ok(rows
             .into_iter()
-            .map(|row| Duty {
-                cron: row.get("cron"),
-                entry_action: row.get("entry_action"),
-                description: row.get("description"),
+            .map(|row| {
+                Duty::new(
+                    row.get::<String, _>("cron"),
+                    row.get::<String, _>("entry_action"),
+                    row.get::<String, _>("description"),
+                )
             })
             .collect())
     }

@@ -32,6 +32,7 @@ pub enum AgentsCmd {
     Delete { name: String },
 }
 
+pub use super::cli_duty_cmds::DutyCmd;
 pub use super::cli_gateway_cmds::GatewayCmd;
 pub use super::cli_vertical_cmds::VerticalCmd;
 

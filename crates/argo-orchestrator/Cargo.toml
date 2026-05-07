@@ -14,10 +14,13 @@ argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+cron = "0.12"
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
