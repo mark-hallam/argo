@@ -41,6 +41,7 @@ pub mod error;
 pub mod manifest_writer;
 pub mod pipeline;
 pub mod prompt_writer;
+pub mod quality;
 pub mod refine;
 pub mod safety_judge;
 pub mod worker_config;
@@ -50,7 +51,11 @@ pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
 };
 pub use error::GenesisError;
-pub use pipeline::{plan, write_vertical, GenesisPlan};
+pub use pipeline::{plan, plan_with_quality, write_vertical, GenesisPlan};
+pub use quality::{
+    check_plan, require_pass, CheckResult, QualityReport, ACTION_MIN, EVAL_SEED_MIN,
+    MEMORY_LAYER_MIN, PROMPT_WORD_MIN,
+};
 pub use refine::{refine_plan, AnthropicCaller, RefineConfig, RefinementResponse};
 pub use safety_judge::{judge as run_safety_judge, SENSITIVE_VERBS};
 pub use worker_config::{WorkerConfig, DRY_RUN_HOURS};

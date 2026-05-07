@@ -46,6 +46,22 @@ pub fn plan(charter: &str, persona: &str) -> Result<GenesisPlan, GenesisError> {
     })
 }
 
+/// Build a plan AND run the quality gate in one shot. Returns
+/// the plan alongside its [`crate::quality::QualityReport`] so
+/// callers can either surface the report to the operator or
+/// gate emission via [`crate::quality::require_pass`]. Adding
+/// the gate to existing `plan()` callers (currently
+/// `argo-cli`) is the follow-up CLI brief; until then operators
+/// can opt in via this helper.
+pub fn plan_with_quality(
+    charter: &str,
+    persona: &str,
+) -> Result<(GenesisPlan, crate::quality::QualityReport), GenesisError> {
+    let plan = plan(charter, persona)?;
+    let report = crate::quality::check_plan(&plan);
+    Ok((plan, report))
+}
+
 /// Materialise a `GenesisPlan` to disk. Refuses to clobber a
 /// non-empty output dir. Round-trip-validates the result by
 /// re-loading via `argo_vertical::load_dir`.
