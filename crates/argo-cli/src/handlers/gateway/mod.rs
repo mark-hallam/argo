@@ -53,7 +53,7 @@ mod routes_verticals;
 mod routes_verticals_doctor;
 mod routes_verticals_lint;
 mod routes_verticals_run;
-mod routes_workspace;
+mod routes_voice; mod routes_workspace;
 mod streaming;
 
 use crate::cli::GatewayCmd;
@@ -340,13 +340,12 @@ async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<(
                     let _ = stream.shutdown().await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
-                    let resp = format!(
-                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
-                        body.len(),
-                        body
-                    );
-                    let _ = stream.write_all(resp.as_bytes()).await;
-                    let _ = stream.shutdown().await;
+                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+                    let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
+                } else if routes_voice::is_voice_webhook(req) {
+                    let (status_line, body) = routes_voice::voice_webhook_response(req).await;
+                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+                    let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
                 } else if let Some((status_line, body)) = routes_orchestrator::dispatch_route(req, store.as_ref()).await {
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await;

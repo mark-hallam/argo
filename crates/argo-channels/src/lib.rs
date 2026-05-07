@@ -23,6 +23,7 @@ pub mod manifest;
 pub mod push;
 pub mod slack;
 pub mod token;
+pub mod voice;
 pub mod webinbox;
 
 use async_trait::async_trait;
