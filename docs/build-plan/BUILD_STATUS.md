@@ -204,7 +204,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-skill-handlers-split | claude | MERGED | #909 | V1.x architectural prep: pure refactor splitting handlers/skill.rs (500→181 LOC) into 5 per-domain siblings (list/view/verify/create/refine); body_hash pub(super); 502 argo-cli tests pass. Unblocked 3 codex briefs: skill-quality-judge-cli + skill-marketplace-publish-cli + skill-import-export-cli (all now TODO). Merged tick181 |
 | claude-argo-store-lib-split | claude | MERGED | #915 | V1.x architectural prep: lib.rs 504→181 LOC; NEW session_query.rs (214) + message_query.rs (134); pub(crate) pool for sibling impl blocks; clippy clean. **Unblocked codex-tenant-list-show-cli + completed #911 full unblock (paired with #914)**. Merged tick197 |
 | claude-cli-rs-split | claude | MERGED | #914 | V1.x architectural prep: pure refactor extracting `#[path] mod cli_<x>_cmds;` decls + re-exports into new `cli_reexports.rs`; cli.rs 509→443 LOC (57 LOC headroom); API preserved via glob + 8 explicit module re-exports; 512 argo-cli tests pass. **Unblocked claude-installer-macos + claude-onboarding-flow; partial unblock for codex-recover-cache-cli (#911) which still needs argo-store-lib-split**. Merged tick195 |
-| mission-wire-feedback-in-cu-executor | codex | CLAIMED | — | claimed by codex |
+| mission-wire-feedback-in-cu-executor | codex | IN_REVIEW | #929 | PR opened: CU maybe_propose feedback gate |
 
 ---
 
