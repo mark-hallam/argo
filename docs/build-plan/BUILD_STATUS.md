@@ -27,7 +27,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 
 | Brief | Owner | Status | PR | Last update |
 |---|---|---|---|---|
-| **claude-rebase-skill-auction-pr900** | claude | TODO | #900 | **PRIORITY** — recovery task: rebase existing PR #900 onto current main. Two prior tabs that opened/owned the brief self-exited before rebasing; PR has been CONFLICTING since tick 156. Brief is recovery-only, not new implementation; see `streams/claude-rebase-skill-auction-pr900.md`. Pick this BEFORE any other claude TODO. |
+| **claude-rebase-skill-auction-pr900** | claude | CLAIMED | #900 | **PRIORITY** — recovery task: rebase existing PR #900 onto current main. Two prior tabs that opened/owned the brief self-exited before rebasing; PR has been CONFLICTING since tick 156. Brief is recovery-only, not new implementation; see `streams/claude-rebase-skill-auction-pr900.md`. Pick this BEFORE any other claude TODO. |
 | 0-ci-cleanup | (in landing PR) | TODO | — | (not yet started) |
 | A-executor-trait | claude | MERGED | #784 | Executor trait + manifest enum + 4 impl shape; B/C/G unblocked |
 | B-computer-use-executor | claude | MERGED | #787 | CU executor + E2B sandbox + Anthropic CU loop + marketplace_browser profile |
