@@ -228,7 +228,51 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             })
             .await,
         },
-        Some(Command::Action { cmd }) => action_replay::run(cmd).await,
+        Some(Command::Action { cmd }) => match cmd {
+            cli::ActionCmd::Replay {
+                action_id,
+                executor,
+                dry_run,
+                bundle_dir,
+            } => {
+                action_replay::run(cli::ActionCmd::Replay {
+                    action_id,
+                    executor,
+                    dry_run,
+                    bundle_dir,
+                })
+                .await
+            }
+            cli::ActionCmd::History {
+                worker_id,
+                since,
+                limit,
+                include_skill,
+                json,
+            } => {
+                handlers::action_history::run(
+                    &worker_id,
+                    since.as_deref(),
+                    limit,
+                    include_skill,
+                    json,
+                )
+                .await
+            }
+            cli::ActionCmd::Timeline {
+                worker_id,
+                since,
+                bucket_mins,
+                json,
+            } => handlers::action_timeline::run(&worker_id, &since, bucket_mins, json).await,
+            cli::ActionCmd::Recent {
+                tenant,
+                worker,
+                limit,
+                json,
+            } => handlers::action_recent::run(tenant.as_deref(), worker.as_deref(), limit, json)
+                .await,
+        },
         Some(Command::Activity { cmd }) => handlers::activity_tail::run(cmd).await,
         Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,
         Some(Command::Budget { cmd }) => handlers::budget::run(cmd).await,

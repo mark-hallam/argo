@@ -18,6 +18,39 @@ pub enum ActionCmd {
         #[arg(long)]
         bundle_dir: Option<PathBuf>,
     },
+    /// Show recent actions for one worker, newest first.
+    History {
+        worker_id: String,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+        #[arg(long)]
+        include_skill: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Render an activity histogram for one worker.
+    Timeline {
+        worker_id: String,
+        #[arg(long, default_value = "24h")]
+        since: String,
+        #[arg(long, default_value_t = 5)]
+        bucket_mins: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show recent actions across workers.
+    Recent {
+        #[arg(long)]
+        tenant: Option<String>,
+        #[arg(long)]
+        worker: Option<String>,
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Clone, Debug, ValueEnum, PartialEq, Eq)]

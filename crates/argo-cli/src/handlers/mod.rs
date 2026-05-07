@@ -3,6 +3,9 @@
 pub mod activity_since;
 pub mod activity_tail;
 pub mod agents;
+pub mod action_history;
+pub mod action_recent;
+pub mod action_timeline;
 pub mod audit;
 pub mod audit_by_day;
 pub mod audit_by_day_by_kind;
