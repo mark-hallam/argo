@@ -1,6 +1,19 @@
 //! `argo skill list` — list active or all skills, with filters/format/sort.
+use argo_skill::trust::TrustGrade;
 use argo_skill::SkillStore;
 use argo_types::{ArgoError, ArgoResult, Lock};
+
+/// Snake-case form of a `TrustGrade`, matching `parse_trust_grade`'s
+/// canonical input.
+fn format_trust(g: TrustGrade) -> &'static str {
+    match g {
+        TrustGrade::Builtin => "builtin",
+        TrustGrade::PublishedVerified => "published_verified",
+        TrustGrade::Tenant => "tenant",
+        TrustGrade::PublishedCommunity => "published_community",
+        TrustGrade::LearnedUnreviewed => "learned_unreviewed",
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn list(
@@ -64,9 +77,14 @@ pub(super) async fn list(
     match sort_by {
         "created-at" => active.sort_by_key(|s| std::cmp::Reverse(s.created_at)),
         "name" => active.sort_by(|a, b| a.frontmatter.name.cmp(&b.frontmatter.name)),
+        // Most-trusted first: TrustGrade's derived Ord is smallest-variant
+        // = highest trust (Builtin < Tenant), so ascending sort surfaces
+        // builtins/verified ahead of learned-unreviewed.
+        "trust" => active
+            .sort_by_key(|s| TrustGrade::from_source(&s.frontmatter.provenance.source)),
         other => {
             return Err(ArgoError::Provider(format!(
-                "unknown --sort-by '{other}' — use created-at|name"
+                "unknown --sort-by '{other}' — use created-at|name|trust"
             )));
         }
     }
@@ -77,12 +95,14 @@ pub(super) async fn list(
     match pick {
         "json" => {
             for s in &active {
+                let trust = TrustGrade::from_source(&s.frontmatter.provenance.source);
                 let line = serde_json::json!({
                     "id": s.id.0.to_string(),
                     "name": s.frontmatter.name,
                     "version": s.frontmatter.version,
                     "lock": format!("{:?}", s.frontmatter.lock),
                     "hash": hex::encode(s.hash),
+                    "trust_grade": format_trust(trust),
                     "created_at": s.created_at.to_rfc3339(),
                 });
                 let serialized = serde_json::to_string(&line)
@@ -101,13 +121,17 @@ pub(super) async fn list(
             if active.is_empty() {
                 return Ok(());
             }
-            println!("| name | version | lock | hash |");
-            println!("| --- | --- | --- | --- |");
+            println!("| name | version | lock | trust | hash |");
+            println!("| --- | --- | --- | --- | --- |");
             for s in &active {
                 let hash_short: String = hex::encode(s.hash).chars().take(12).collect();
+                let trust = TrustGrade::from_source(&s.frontmatter.provenance.source);
                 println!(
-                    "| `{}` | `{}` | {:?} | `{hash_short}…` |",
-                    s.frontmatter.name, s.frontmatter.version, s.frontmatter.lock,
+                    "| `{}` | `{}` | {:?} | {} | `{hash_short}…` |",
+                    s.frontmatter.name,
+                    s.frontmatter.version,
+                    s.frontmatter.lock,
+                    format_trust(trust),
                 );
             }
             return Ok(());
@@ -123,11 +147,20 @@ pub(super) async fn list(
         println!("(no active skills)");
         return Ok(());
     }
-    println!("{name:<28} {ver:<8} lock", name = "name", ver = "version");
+    println!(
+        "{name:<28} {ver:<8} {lock:<16} trust",
+        name = "name",
+        ver = "version",
+        lock = "lock"
+    );
     for s in active {
+        let trust = TrustGrade::from_source(&s.frontmatter.provenance.source);
         println!(
-            "{:<28} {:<8} {:?}",
-            s.frontmatter.name, s.frontmatter.version, s.frontmatter.lock
+            "{:<28} {:<8} {:<16} {}",
+            s.frontmatter.name,
+            s.frontmatter.version,
+            format!("{:?}", s.frontmatter.lock),
+            format_trust(trust),
         );
     }
     Ok(())

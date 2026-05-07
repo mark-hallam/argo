@@ -16,8 +16,10 @@ pub enum SkillCmd {
         /// passed.
         #[arg(long, default_value = "text")]
         format: String,
-        /// Sort order: `created-at` (default, descending) or
-        /// `name` (lexical, ascending).
+        /// Sort order: `created-at` (default, descending),
+        /// `name` (lexical, ascending), or `trust` (most-trusted
+        /// first — Builtin/PublishedVerified ahead of
+        /// LearnedUnreviewed).
         #[arg(long, default_value = "created-at")]
         sort_by: String,
         /// Truncate to the first N rows (after sorting).
