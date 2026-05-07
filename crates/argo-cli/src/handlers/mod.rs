@@ -47,6 +47,8 @@ pub mod cred_export;
 pub mod cred_import;
 pub mod cred_list;
 pub mod cred_set;
+pub mod daemon_install;
+pub mod daemon_uninstall;
 pub mod db;
 pub mod doctor;
 pub mod doctor_fix;

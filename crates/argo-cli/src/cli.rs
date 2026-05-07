@@ -115,6 +115,15 @@ pub enum Command {
         #[command(flatten)]
         args: RestoreCmd,
     },
+    /// macOS launchd-agent install/uninstall (Stream
+    /// `claude-installer-macos`). Writes
+    /// `~/Library/LaunchAgents/com.skycot.argo.plist` so the
+    /// gateway starts on login + auto-restarts on crash.
+    /// macOS-only.
+    Daemon {
+        #[command(subcommand)]
+        cmd: DaemonCmd,
+    },
     /// Work queue v0 (#716). `add` enqueues a unit of work for a
     /// vertical-bound worker; `serve` runs a persistent loop that
     /// processes the queue using existing session + memory + chat

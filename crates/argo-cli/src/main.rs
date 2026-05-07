@@ -189,6 +189,30 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             handlers::backup_restore::run(&args.path, args.into.as_deref(), args.dry_run, args.json)
                 .await
         }
+        Some(Command::Daemon { cmd }) => match cmd {
+            cli::DaemonCmd::Install {
+                json,
+                dry_run,
+                bin,
+                launch_agents_dir,
+            } => {
+                handlers::daemon_install::run(
+                    json,
+                    dry_run,
+                    bin.as_deref(),
+                    launch_agents_dir.as_deref(),
+                )
+                .await
+            }
+            cli::DaemonCmd::Uninstall {
+                json,
+                dry_run,
+                launch_agents_dir,
+            } => {
+                handlers::daemon_uninstall::run(json, dry_run, launch_agents_dir.as_deref())
+                    .await
+            }
+        },
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,

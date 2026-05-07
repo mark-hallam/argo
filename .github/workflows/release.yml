@@ -71,6 +71,22 @@ jobs:
             -Path "target/${{ matrix.target }}/release/argo.exe" `
             -DestinationPath "argo-${{ matrix.target }}.zip"
 
+      # Build the macOS .dmg for both apple-darwin targets. Uses
+      # ad-hoc signing (`-`) because the public release pipeline
+      # doesn't have an Apple Developer cert; operators who need
+      # notarized installers can rebuild locally with
+      # `ARGO_SIGN_IDENTITY=<id>` env override.
+      - name: Package (macOS dmg)
+        if: matrix.os == 'macos-latest'
+        run: |
+          chmod +x installer/macos/build-dmg.sh installer/macos/post-install.sh installer/macos/uninstall.sh
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          ARGO_BINARY="target/${{ matrix.target }}/release/argo" \
+          ARGO_VERSION="$TAG" \
+          ARGO_OUTPUT_DIR="." \
+            installer/macos/build-dmg.sh
+          mv "argo-${TAG}-macos.dmg" "argo-${{ matrix.target }}.dmg"
+
       - name: Upload to workflow run (always)
         uses: actions/upload-artifact@v4
         with:
@@ -78,6 +94,7 @@ jobs:
           path: |
             argo-${{ matrix.target }}.tar.gz
             argo-${{ matrix.target }}.zip
+            argo-${{ matrix.target }}.dmg
           if-no-files-found: ignore
 
       # Only publish to GitHub Releases when triggered by a tag
@@ -94,3 +111,4 @@ jobs:
           files: |
             argo-${{ matrix.target }}.tar.gz
             argo-${{ matrix.target }}.zip
+            argo-${{ matrix.target }}.dmg
