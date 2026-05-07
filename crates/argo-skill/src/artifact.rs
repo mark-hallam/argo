@@ -48,6 +48,7 @@ impl SkillArtifact {
     ///     capabilities: CapabilitySet::empty(),
     ///     provenance: Provenance { source: "test".into(), hash: "sha256-x".into() },
     ///     lock: Lock::None,
+    ///     evals: Vec::new(),
     /// };
     /// let artifact = SkillArtifact::new(frontmatter, "body".into());
     /// assert!(artifact.verify().is_ok());
@@ -199,6 +200,7 @@ mod tests {
                 hash: "sha256-seed".into(),
             },
             lock: Lock::UserProtected,
+            evals: Vec::new(),
         }
     }
 

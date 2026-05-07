@@ -14,6 +14,7 @@
 //!   bundled-by-vertical + learned-in-a-session-of-vertical.
 //!   Default skill set the agent runner uses for vertical-bound
 //!   sessions (#679 — Rule 6).
+use crate::eval_runner::{run_propose_eval_gate, EvalExecutor, EvalGateOutcome};
 use crate::parse::parse_skill_md;
 use crate::skill::{LifecycleState, Skill};
 use crate::store::SkillStore;
@@ -168,6 +169,39 @@ impl SkillStore {
         vertical_id: &str,
         judge: Option<&dyn Judge>,
     ) -> ArgoResult<Skill> {
+        self.propose_for_review_judged_with_evals(raw, learned_in, vertical_id, judge, None)
+            .await
+    }
+
+    /// Propose with both judge gate AND optional eval-set runner
+    /// (`claude-skill-test-execution-engine`).
+    ///
+    /// When the parsed frontmatter declares a non-empty `evals` array
+    /// AND `evals_executor` is `Some`, the runner walks every case
+    /// before the lifecycle decision. If the resulting pass-rate is
+    /// strictly below the [`DEFAULT_EVAL_PASS_RATE_THRESHOLD`] floor,
+    /// the candidate is installed in [`LifecycleState::Rejected`] with
+    /// an `eval_low_confidence: <rate>` reason — the row exists for
+    /// audit but the agent never sees it.
+    ///
+    /// Eval-runner failure modes (executor errors, transport panics)
+    /// already count as fails inside [`run_evals`]; this layer simply
+    /// applies the floor. Empty evals OR `evals_executor = None`
+    /// short-circuits and falls through to the existing judge gate
+    /// — behaviour is unchanged.
+    ///
+    /// Eval gate runs BEFORE the judge: a skill that fails its own
+    /// declared eval-set should never spend judge tokens. The judge
+    /// gate keeps its own fail-OPEN semantics (degraded judge → still
+    /// promotes to PendingReview).
+    pub async fn propose_for_review_judged_with_evals(
+        &self,
+        raw: &str,
+        learned_in: SessionId,
+        vertical_id: &str,
+        judge: Option<&dyn Judge>,
+        evals_executor: Option<&dyn EvalExecutor>,
+    ) -> ArgoResult<Skill> {
         let (frontmatter, body) = parse_skill_md(raw)?;
         let existing = self.find_active_by_name(&frontmatter.name).await?;
         if existing.is_some() {
@@ -176,29 +210,42 @@ impl SkillStore {
                 frontmatter.name
             )));
         }
-        let lifecycle = match judge {
-            None => LifecycleState::PendingReview,
-            Some(j) => match adjudicate_with_timeout(j, learned_in, &frontmatter.name, &body).await
-            {
-                JudgeOutcome::Allow => LifecycleState::PendingReview,
-                JudgeOutcome::Reject(reason) => {
-                    tracing::info!(
-                        target: "argo_skill::judge::reject",
-                        skill = %frontmatter.name,
-                        reason = %reason,
-                        "judge rejected skill candidate"
-                    );
-                    LifecycleState::Rejected
-                }
-                JudgeOutcome::Unavailable(why) => {
-                    tracing::warn!(
-                        target: "argo_skill::judge::unavailable",
-                        skill = %frontmatter.name,
-                        why = %why,
-                        "judge unavailable; failing OPEN to PendingReview"
-                    );
-                    LifecycleState::PendingReview
-                }
+        let eval_outcome = run_propose_eval_gate(&frontmatter, &body, evals_executor).await;
+        let lifecycle = match eval_outcome {
+            EvalGateOutcome::Reject(reason) => {
+                tracing::info!(
+                    target: "argo_skill::eval::reject",
+                    skill = %frontmatter.name,
+                    reason = %reason,
+                    "eval-runner rejected skill candidate"
+                );
+                LifecycleState::Rejected
+            }
+            EvalGateOutcome::Pass => match judge {
+                None => LifecycleState::PendingReview,
+                Some(j) => match adjudicate_with_timeout(j, learned_in, &frontmatter.name, &body)
+                    .await
+                {
+                    JudgeOutcome::Allow => LifecycleState::PendingReview,
+                    JudgeOutcome::Reject(reason) => {
+                        tracing::info!(
+                            target: "argo_skill::judge::reject",
+                            skill = %frontmatter.name,
+                            reason = %reason,
+                            "judge rejected skill candidate"
+                        );
+                        LifecycleState::Rejected
+                    }
+                    JudgeOutcome::Unavailable(why) => {
+                        tracing::warn!(
+                            target: "argo_skill::judge::unavailable",
+                            skill = %frontmatter.name,
+                            why = %why,
+                            "judge unavailable; failing OPEN to PendingReview"
+                        );
+                        LifecycleState::PendingReview
+                    }
+                },
             },
         };
         self.insert_row_with_state(
@@ -387,3 +434,7 @@ fn skill_body_hash(body: &str) -> [u8; 32] {
 #[cfg(test)]
 #[path = "store_vertical_judge_tests.rs"]
 mod judge_tests;
+
+#[cfg(test)]
+#[path = "store_vertical_eval_tests.rs"]
+mod eval_tests;

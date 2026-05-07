@@ -86,6 +86,12 @@ pub struct SkillCandidate {
     /// in [`crate::dreams_distillation`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body_source: Option<String>,
+    /// Pass-rate from a declarative eval set (0.0–1.0). `None` when
+    /// no eval set was provided or no executor ran. Set by callers
+    /// that pair `from_cu_trajectory` with an [`crate::eval_runner`]
+    /// run before submitting for review (`claude-skill-test-execution-engine`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eval_pass_rate: Option<f32>,
 }
 
 impl SkillCandidate {
@@ -122,6 +128,7 @@ impl SkillCandidate {
             vertical_id: vertical_id.to_string(),
             success_metric,
             body_source: None,
+            eval_pass_rate: None,
         }
     }
 

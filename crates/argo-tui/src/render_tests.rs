@@ -217,6 +217,7 @@ fn skills_overlay_renders_active_skills() {
                 hash: "sha256-abc".into(),
             },
             lock: Lock::None,
+            evals: Vec::new(),
         },
         body: String::new(),
         hash: [0xab; 32],

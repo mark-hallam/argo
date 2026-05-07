@@ -146,6 +146,7 @@ mod tests {
                     hash: "sha256-stub".into(),
                 },
                 lock: Lock::None,
+                evals: Vec::new(),
             },
             body: body.to_string(),
             hash: [0u8; 32],

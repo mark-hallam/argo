@@ -2,6 +2,7 @@
 use argo_types::{CapabilitySet, Lock, SessionId, SkillId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Where a skill came from.
 ///
@@ -33,6 +34,55 @@ pub struct SkillFrontmatter {
     /// Edit-protection lock (Amendment 3).
     #[serde(default)]
     pub lock: Lock,
+    /// Optional declarative eval cases the runner uses to gate
+    /// promotion (`claude-skill-test-execution-engine`). Empty / missing
+    /// means no eval-based gate runs — old skills parse unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evals: Vec<EvalCase>,
+}
+
+/// One declarative eval case from a skill's frontmatter.
+///
+/// The runner pairs `input` with the skill body and feeds it to a
+/// caller-supplied `EvalExecutor`; the resulting `ActualOutcome` is
+/// matched against `expected`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EvalCase {
+    /// Free-form input the executor consumes (caller defines shape).
+    pub input: Value,
+    /// What the executor's output must satisfy.
+    pub expected: ExpectedOutcome,
+}
+
+/// Predicate the runner applies to the executor's `ActualOutcome`.
+///
+/// Tagged via `kind` so YAML frontmatter reads naturally:
+///
+/// ```yaml
+/// evals:
+///   - input: { url: "https://example.com" }
+///     expected: { kind: contains, text: "OK" }
+///   - input: "ping"
+///     expected: { kind: equals, value: "pong" }
+///   - input: { id: 7 }
+///     expected: { kind: non_empty }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ExpectedOutcome {
+    /// Output must be a string containing `text`.
+    Contains {
+        /// Substring the output must include.
+        text: String,
+    },
+    /// Output must equal `value` byte-for-byte (JSON-equality).
+    Equals {
+        /// Reference value the output must match.
+        value: Value,
+    },
+    /// Output must be non-empty: non-empty string / array / object,
+    /// or any non-null scalar.
+    NonEmpty,
 }
 
 /// One row in `skill` plus its lock + decoded body.

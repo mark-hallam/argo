@@ -25,6 +25,7 @@ mod artifact;
 pub mod conflicts;
 pub mod deps;
 pub mod dreams_distillation;
+pub mod eval_runner;
 pub mod feedback;
 pub mod learn;
 pub mod library;
@@ -66,7 +67,13 @@ pub use publish::{
     SkillPublishRecord, SkillPublishSource, SkillTag, SkillUnpublishRecord,
 };
 pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore};
-pub use skill::{LifecycleState, PrincipalOverride, Provenance, Skill, SkillFrontmatter};
+pub use eval_runner::{
+    run_evals, ActualOutcome, EvalExecutor, EvalReport, DEFAULT_EVAL_PASS_RATE_THRESHOLD,
+};
+pub use skill::{
+    EvalCase, ExpectedOutcome, LifecycleState, PrincipalOverride, Provenance, Skill,
+    SkillFrontmatter,
+};
 pub use store::SkillStore;
 pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
 pub use ab_test::{
