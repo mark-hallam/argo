@@ -163,6 +163,7 @@ pub mod worker_anomalies;
 #[allow(dead_code)]
 pub mod worker_create;
 pub mod worker_list;
+pub mod worker_portrait;
 mod worker_resume;
 pub mod worker_update;
 mod worker_actions_anomaly;
