@@ -58,7 +58,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-voice-local-tui-whisper | claude | TODO | — | V1.4: `argo voice` TUI — local Whisper.cpp + cpal mic capture; grammar (approve/deny/details/next/quit); fuzzy worker-name match; wake-word "Argo" gates listening; pure-local privacy + offline-capable |
 | claude-computer-use-native-macos-poc | claude | CLAIMED | — | claimed by claude (exciting-nobel-236a3f) |
 | **▼ PHASE E — Dreams (self-improvement)** | — | — | — | — |
-| claude-dreams-memory-summarize | claude | TODO | — | V2.0 (Dreams Integration A): replace argo-memory::summary LLM-call path with Claude Dreams API backend; nightly per-worker tick + on-demand `argo memory dream-now`; per-worker $5/day cap; anomaly-event guard prevents poisoning; feature-flag gates path |
+| claude-dreams-memory-summarize | claude | CLAIMED | — | claimed by claude (nostalgic-kalam-de4f25) |
 | claude-dreams-skill-distillation | claude | TODO | — | V2.0 (Dreams Integration B): Dreams over cohorts of successful trajectories (≥3 with cosine sim > 0.7) → polished SkillCandidate body via dreams_distillation; mechanical fallback for small cohorts; shared daily cap with memory-summarize |
 | claude-dreams-plan-templates | claude | TODO | — | V2.0 cross-pollination (claim4×claim2): Dreams over PLANNER COHORTS (subtask_ledger by parent_goal similarity) → LearnedPlanTemplate; TrustGrade ladder applies; TemplatePlanner consults templates first. The genuinely-novel proposal from DREAMS investigation |
 | **▼ PHASE F — scale-out** | — | — | — | — |
