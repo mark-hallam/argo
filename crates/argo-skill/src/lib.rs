@@ -23,6 +23,7 @@
 pub mod ab_test;
 mod artifact;
 pub mod conflicts;
+pub mod dreams_distillation;
 pub mod feedback;
 pub mod learn;
 pub mod library;
@@ -47,6 +48,11 @@ pub use success_metric::{
     should_propose_metric, ProposalThreshold, SuccessMetric,
 };
 pub use conflicts::{detect_conflicts, parse_keep_flag, render_diff, SkillConflict};
+pub use dreams_distillation::{
+    distill_cohort, group_into_cohorts, trajectory_similarity, Cohort,
+    DistillationResult, SkillDistillationCaller, TrajectoryInput,
+    BODY_SOURCE_DREAMS, COHORT_SIMILARITY_THRESHOLD, MIN_COHORT_SIZE,
+};
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use marketplace::{parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};

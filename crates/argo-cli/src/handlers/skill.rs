@@ -64,6 +64,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             }
         }
         SkillCmd::Install { source } => install(&skills, &source).await,
+        SkillCmd::DistillNow { worker, json } => {
+            super::skill_distill_now::run_cli(&worker, json).await
+        }
         SkillCmd::Export { name, out, json } => {
             super::skill_export::export_one(&skills, &name, &out, json).await
         }

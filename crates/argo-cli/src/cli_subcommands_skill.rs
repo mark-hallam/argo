@@ -167,6 +167,22 @@ pub enum SkillCmd {
     Install {
         source: String,
     },
+    /// Run cohort-based Dreams distillation over recent
+    /// trajectories and emit a per-cohort summary. Reads
+    /// `TrajectoryInput` JSON array from stdin (the producer is
+    /// out of v1 scope — a nightly tick will land later).
+    /// Brief: `claude-dreams-skill-distillation`.
+    DistillNow {
+        /// Worker id to charge against the per-day Dreams cap
+        /// shared with `argo memory dream-now`. Defaults to
+        /// `skill-distillation` so the operator can run
+        /// off-band without picking a specific worker.
+        #[arg(long, default_value = "skill-distillation")]
+        worker: String,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
     /// Export one active skill (or an explicit `name:version`)
     /// into a portable `.skill.tar.gz` artifact.
     Export {

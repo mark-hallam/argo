@@ -26,15 +26,35 @@ get back a polished candidate body.
   exist; mechanical fallback remains for cohorts < 3
 
 ## Files you may touch
+
+> **Mid-flight clarification (claude/mark-opus-4d5e8a)** —
+> the brief originally pointed at `candidate.rs` and
+> `cli_skill_cmds.rs` which do not exist; `SkillCandidate`
+> lives in `learn.rs` and the skill subcommand enum lives
+> in `cli_subcommands_skill.rs`. Paths corrected below to
+> match the real layout (no scope expansion).
+
 - `crates/argo-skill/src/dreams_distillation.rs` (NEW)
-- `crates/argo-skill/src/candidate.rs` — narrowly: hook
-  Dreams path before falling back to mechanical
+- `crates/argo-skill/src/dreams_distillation_tests.rs` (NEW
+  sibling — `#[cfg(test)] #[path] mod tests;`)
+- `crates/argo-skill/src/learn.rs` — narrowly: add
+  `body_source: Option<String>` field on `SkillCandidate`
+  (was: `candidate.rs` in stale brief; `SkillCandidate`
+  lives in `learn.rs`)
 - `crates/argo-skill/src/lib.rs` — narrowly: re-export
 - `crates/argo-skill/Cargo.toml` — narrowly: feature flag
+  + dep on `argo-memory` (re-uses `DailyCapTracker`)
 - `crates/argo-cli/src/handlers/skill_distill_now.rs` (NEW)
-- `crates/argo-cli/src/cli_skill_cmds.rs` — narrowly:
-  `DistillNow` subcommand variant
+- `crates/argo-cli/src/cli_subcommands_skill.rs` — narrowly:
+  `DistillNow` subcommand variant (was: `cli_skill_cmds.rs`
+  in stale brief; the enum lives in `cli_subcommands_skill.rs`)
+- `crates/argo-cli/src/handlers/skill.rs` — narrowly: dispatch
+  the `DistillNow` arm to the new handler
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly: declare
+  the new module
 - `crates/argo-cli/tests/skill_dreams_smoke.rs` (NEW)
+- BLANKET CLI ALLOWLIST permits `cli.rs` / `Cargo.toml` /
+  `tests/` / `handlers/mod.rs` under strict scope.
 
 ## Acceptance criteria
 - [ ] Cohort grouping works (cosine sim > 0.7 threshold)

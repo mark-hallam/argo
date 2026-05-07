@@ -80,6 +80,12 @@ pub struct SkillCandidate {
     /// Stable threshold-clearing success metric. Stored so the
     /// reviewer sees what motivated the proposal.
     pub success_metric: f64,
+    /// Source of the candidate body. `None` for the legacy
+    /// mechanical path (`from_cu_trajectory`); `Some("dreams_distilled")`
+    /// when produced by the Dreams cohort distillation pipeline
+    /// in [`crate::dreams_distillation`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_source: Option<String>,
 }
 
 impl SkillCandidate {
@@ -115,6 +121,7 @@ impl SkillCandidate {
             tokens_used,
             vertical_id: vertical_id.to_string(),
             success_metric,
+            body_source: None,
         }
     }
 
