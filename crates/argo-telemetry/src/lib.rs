@@ -16,6 +16,9 @@
 mod sink;
 mod tracing_sink;
 
+#[cfg(feature = "otlp")]
+pub mod otlp_exporter;
+
 #[cfg(test)]
 mod tests;
 

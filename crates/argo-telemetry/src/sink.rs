@@ -41,19 +41,52 @@ pub trait TelemetrySink: Send + Sync {
 
 /// Opaque scope guard returned by `TelemetrySink::span`.
 ///
-/// The default sink (`NoopTelemetry`) returns an empty guard. The
-/// in-memory sink doesn't need a guard to record (it records on
-/// enter); we return an empty guard there too. Real exporters
-/// (OTLP, Prometheus) will close the span on drop.
+/// The default sink (`NoopTelemetry`) and the in-memory recorder
+/// return an empty guard ([`SpanGuard::empty`]). The
+/// `tracing`-backed sink ([`crate::TracingTelemetry`]) builds a
+/// guard that owns an entered `tracing` span; the entered scope
+/// is held until the guard is dropped, which is what makes nested
+/// spans inherit the correct parent/child relationship. With the
+/// `otlp` feature enabled, the guard additionally owns an
+/// OpenTelemetry span that is closed on drop.
 pub struct SpanGuard {
-    _hidden: (),
+    _tracing: Option<tracing::span::EnteredSpan>,
+    #[cfg(feature = "otlp")]
+    _otlp: Option<opentelemetry::global::BoxedSpan>,
 }
 
 impl SpanGuard {
-    /// Build an empty guard.
+    /// Build an empty guard. Used by sinks that do not own an
+    /// entered span (`NoopTelemetry`, `InMemoryTelemetry`).
     #[must_use]
     pub fn empty() -> Self {
-        Self { _hidden: () }
+        Self {
+            _tracing: None,
+            #[cfg(feature = "otlp")]
+            _otlp: None,
+        }
+    }
+
+    /// Build a guard that owns an entered `tracing` span. Crate-private
+    /// because the `tracing` types are an implementation detail.
+    /// Used by `TracingTelemetry` when the `otlp` feature is off.
+    #[cfg(not(feature = "otlp"))]
+    pub(crate) fn from_tracing(entered: tracing::span::EnteredSpan) -> Self {
+        Self { _tracing: Some(entered) }
+    }
+
+    /// Build a guard that owns both an entered `tracing` span and a
+    /// matching OpenTelemetry span. Crate-private; only constructed
+    /// when the `otlp` feature is enabled.
+    #[cfg(feature = "otlp")]
+    pub(crate) fn from_tracing_and_otlp(
+        entered: tracing::span::EnteredSpan,
+        otlp: opentelemetry::global::BoxedSpan,
+    ) -> Self {
+        Self {
+            _tracing: Some(entered),
+            _otlp: Some(otlp),
+        }
     }
 }
 

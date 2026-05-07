@@ -13,5 +13,22 @@ serde_json = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 
+# OTLP exporter — optional, gated on the `otlp` feature. Default off
+# so the single-binary distribution stays zero-deps. Pinned to the
+# 0.27 series of the opentelemetry crates (the three crates are
+# released as a coordinated set and must match).
+opentelemetry = { version = "0.27", optional = true, default-features = false, features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "0.27", optional = true, default-features = false, features = ["trace", "metrics", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.27", optional = true, default-features = false, features = ["http-proto", "reqwest-client", "trace", "metrics"] }
+
 [dev-dependencies]
 tokio = { workspace = true }
+# Used by `nested_spans_change_current_span` to install a `Registry`
+# subscriber so `tracing::Span::current().id()` returns Some(...).
+tracing-subscriber = { workspace = true }
+
+[features]
+# Enables the OTLP exporter wiring in `otlp_exporter.rs`. Off by
+# default; when on, callers are expected to call
+# `argo_telemetry::otlp_exporter::init()` once on process start.
+otlp = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp"]

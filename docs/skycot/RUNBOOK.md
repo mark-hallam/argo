@@ -844,6 +844,51 @@ Metrics shipped:
 Wire to whatever Prometheus + Grafana you already use. The
 metrics names are stable — `argo_*` is the namespace.
 
+### 9.3.1 OpenTelemetry / OTLP exporter
+
+`argo-telemetry` ships an optional OpenTelemetry Protocol (OTLP)
+exporter behind the `otlp` cargo feature (default off — single-
+binary distribution stays zero-deps without it). When the feature
+is on, the in-loop spans (`agent.turn`, `judge.adjudicate`, …) and
+counters / histograms (`routing_decisions_total`,
+`judge_duration_ms`, …) are routed to whatever OTel collector you
+point them at.
+
+Build with the feature on:
+
+```bash
+cargo build --release --features argo-telemetry/otlp
+```
+
+Then on process start, call `argo_telemetry::otlp_exporter::init()`
+once and hold the returned `ShutdownGuard` for the lifetime of the
+process — its `Drop` flushes any pending batches synchronously.
+
+Two environment variables tune the exporter:
+
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — collector base URL. Default
+  `http://localhost:4318` (OTLP/HTTP standard port). Spans POST to
+  `<endpoint>/v1/traces`, metrics POST to `<endpoint>/v1/metrics`.
+- `OTEL_SERVICE_NAME` — `service.name` resource attribute.
+  Default `argo`.
+
+Point at a collector by setting the endpoint:
+
+```bash
+# Local OTel collector / Datadog Agent / any OTLP/HTTP receiver
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 argo gateway serve
+
+# Hosted backend that accepts OTLP/HTTP (e.g. Honeycomb)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io \
+OTEL_SERVICE_NAME=argo-prod \
+argo gateway serve
+```
+
+For backends that need auth headers (e.g. Honeycomb's
+`X-Honeycomb-Team`), front the collector with a sidecar OTel
+collector that adds the headers — first-party header config is a
+follow-up item.
+
 ### 9.4 Live audit stream
 
 For real-time monitoring (live ops dashboard, on-call):

@@ -85,3 +85,66 @@ fn in_memory_sink_records_histograms() {
     assert_eq!(h[0].name, metrics::JUDGE_DURATION_MS);
     assert!((h[0].value - 200.0).abs() < 1e-9);
 }
+
+#[test]
+fn nested_spans_change_current_span() {
+    // Pre-mission: TracingTelemetry::span entered the span and dropped
+    // the entered guard on the same line, so by the time a child
+    // `s.span(...)` ran, the parent was no longer current — child
+    // spans had no parent. With the typed `SpanGuard` that owns an
+    // `EnteredSpan`, the parent stays entered for the caller's
+    // scope, so `tracing::Span::current()` walks the entered stack
+    // and a nested `s.span(...)` inherits the right parent.
+    use tracing::Span;
+    use tracing_subscriber::{registry::Registry, util::SubscriberInitExt};
+    let _guard = Registry::default().set_default();
+
+    let s = TracingTelemetry;
+    let initial = Span::current().id();
+
+    let outer = s.span(spans::AGENT_TURN, &[]);
+    let outer_id = Span::current().id();
+    assert!(outer_id.is_some(), "outer should be entered as the current span");
+    assert_ne!(outer_id, initial, "current span changes after entering outer");
+
+    let inner = s.span(spans::AGENT_PROVIDER_REQUEST, &[]);
+    let inner_id = Span::current().id();
+    assert!(inner_id.is_some(), "inner should be entered as the current span");
+    assert_ne!(inner_id, outer_id, "inner span has its own id");
+
+    drop(inner);
+    assert_eq!(
+        Span::current().id(),
+        outer_id,
+        "after inner drop, outer is current again"
+    );
+
+    drop(outer);
+    assert_eq!(
+        Span::current().id(),
+        initial,
+        "after outer drop, current returns to initial"
+    );
+}
+
+#[cfg(feature = "otlp")]
+#[test]
+fn otlp_record_path_does_not_panic_without_init() {
+    // Without `otlp_exporter::init()` the global meter and tracer
+    // are the no-op defaults from `opentelemetry::global`. The
+    // record functions must still be safe to call — this guards
+    // against a regression where the OTLP code path assumes a
+    // provider is registered.
+    crate::otlp_exporter::record_counter(
+        metrics::ROUTING_DECISIONS_TOTAL,
+        1,
+        &[("tier", "simple")],
+    );
+    crate::otlp_exporter::record_histogram(
+        metrics::JUDGE_DURATION_MS,
+        42.0,
+        &[("verdict", "ok")],
+    );
+    let span = crate::otlp_exporter::open_span(spans::AGENT_TURN, &[("session", "abc")]);
+    drop(span);
+}

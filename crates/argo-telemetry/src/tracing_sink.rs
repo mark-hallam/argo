@@ -4,10 +4,18 @@
 //! file / OTLP exporters without each subsystem touching a global.
 //!
 //! Span semantics: each `span()` call emits a `tracing::info_span!`
-//! and the returned [`SpanGuard`] holds the entered guard until
-//! the caller drops it. Counter and histogram observations emit
-//! `tracing::event!` rows at INFO level with a structured `metric`
-//! field and the labels flattened into the event.
+//! and the returned [`SpanGuard`] owns the entered span until the
+//! caller drops it. Holding the entered span across the caller's
+//! scope is what gives nested `span()` calls correct parent/child
+//! relationships. With the `otlp` feature enabled, the guard
+//! additionally owns an OpenTelemetry span that mirrors the same
+//! attributes and is closed on drop.
+//!
+//! Counter and histogram observations emit `tracing::event!` rows
+//! at INFO level with a structured `metric` field and the labels
+//! flattened into the event. With the `otlp` feature on they go
+//! through the OpenTelemetry meter instead, which delivers them to
+//! the OTLP exporter configured by [`crate::otlp_exporter::init`].
 use crate::sink::{SpanGuard, TelemetrySink};
 
 /// Tracing-backed sink. Cheap (`Copy`) — share by value.
@@ -23,33 +31,46 @@ impl TelemetrySink for TracingTelemetry {
             .map(|(k, v)| format!("{k}={v}"))
             .collect::<Vec<_>>()
             .join(" ");
-        let _enter = tracing::info_span!("argo", span = name, attrs = %attrs).entered();
-        // We don't keep `_enter` alive across the boundary — that
-        // would tie it to the caller's stack frame which we can't
-        // express through SpanGuard's opaque shape without major
-        // surgery. Instead we drop the entered guard here, which
-        // closes the span on the same line. Real OTLP wiring lives
-        // in a follow-up that swaps `SpanGuard` for a typed handle.
-        drop(_enter);
-        SpanGuard::empty()
+        let entered = tracing::info_span!("argo", span = name, attrs = %attrs).entered();
+
+        #[cfg(feature = "otlp")]
+        {
+            let otlp_span = crate::otlp_exporter::open_span(name, attributes);
+            SpanGuard::from_tracing_and_otlp(entered, otlp_span)
+        }
+
+        #[cfg(not(feature = "otlp"))]
+        SpanGuard::from_tracing(entered)
     }
 
     fn counter(&self, name: &'static str, by: u64, labels: &[(&str, &str)]) {
-        let labels_str = labels
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join(" ");
-        tracing::info!(metric = "counter", name = name, by, labels = %labels_str);
+        #[cfg(feature = "otlp")]
+        crate::otlp_exporter::record_counter(name, by, labels);
+
+        #[cfg(not(feature = "otlp"))]
+        {
+            let labels_str = labels
+                .iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            tracing::info!(metric = "counter", name = name, by, labels = %labels_str);
+        }
     }
 
     fn observe(&self, name: &'static str, value: f64, labels: &[(&str, &str)]) {
-        let labels_str = labels
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join(" ");
-        tracing::info!(metric = "histogram", name = name, value, labels = %labels_str);
+        #[cfg(feature = "otlp")]
+        crate::otlp_exporter::record_histogram(name, value, labels);
+
+        #[cfg(not(feature = "otlp"))]
+        {
+            let labels_str = labels
+                .iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            tracing::info!(metric = "histogram", name = name, value, labels = %labels_str);
+        }
     }
 }
 
