@@ -38,14 +38,14 @@ Mirrors the existing `argo worker list/show` (#837) +
 - `crates/argo-cli/tests/tenant_inspection_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] `argo tenant list` returns active + (with flag) archived
-- [ ] `argo tenant show t-1` returns tenant detail JSON envelope
-- [ ] `argo tenant rename t-1 t-1-renamed` cascades through all
+- [x] `argo tenant list` returns active + (with flag) archived
+- [x] `argo tenant show t-1` returns tenant detail JSON envelope
+- [x] `argo tenant rename t-1 t-1-renamed` cascades through all
       tables (verified via integration test that audit/worker/spend
       rows update transactionally)
-- [ ] `--json` envelope universal across all 3 subcommands
-- [ ] 5 unit tests + 1 integration test
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings`
+- [x] `--json` envelope universal across all 3 subcommands
+- [x] 5 unit tests + 1 integration test
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`
       clean
 
 ## Branch + PR

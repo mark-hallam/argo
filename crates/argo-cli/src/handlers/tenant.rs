@@ -66,10 +66,25 @@ pub async fn run(cmd: TenantCmd) -> ArgoResult<()> {
         TenantCmd::List {
             include_archived,
             json,
-        } => list(include_archived, json).await,
+        } => super::tenant_list::run(include_archived, json).await,
         TenantCmd::Info { id, json } => info(&id, json).await,
+        TenantCmd::Show { id, json } => super::tenant_show::run(&id, json).await,
         TenantCmd::Create { name, json } => create(&name, json).await,
-        TenantCmd::Rename { id, to, json } => super::tenant_rename::run(&id, &to, json).await,
+        TenantCmd::Rename {
+            id,
+            new_id,
+            to,
+            json,
+        } => match (new_id, to) {
+            (Some(new_id), None) => super::tenant_rename::run_id(&id, &new_id, json).await,
+            (None, Some(to)) => super::tenant_rename::run(&id, &to, json).await,
+            (Some(_), Some(_)) => Err(ArgoError::Provider(
+                "tenant rename: pass either NEW_ID or --to, not both".into(),
+            )),
+            (None, None) => Err(ArgoError::Provider(
+                "tenant rename: missing NEW_ID (or use --to NEW_NAME)".into(),
+            )),
+        },
         TenantCmd::Archive { id, json } => super::tenant_archive::run(&id, json).await,
         TenantCmd::Transfer { id, owner, json } => {
             super::tenant_transfer::run(&id, &owner, json).await
@@ -78,6 +93,7 @@ pub async fn run(cmd: TenantCmd) -> ArgoResult<()> {
     }
 }
 
+#[allow(dead_code)]
 async fn list(include_archived: bool, json: bool) -> ArgoResult<()> {
     let (store, _) = open_store().await?;
     let rows = tenant_ids(&store, include_archived).await?;

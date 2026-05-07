@@ -17,7 +17,7 @@ struct TenantRenameOut {
 pub async fn run(id: &str, to: &str, json_out: bool) -> ArgoResult<()> {
     let tenant = parse_tenant(id)?;
     let (store, _) = open_store().await?;
-    let out = rename_tenant(&store, tenant, to).await?;
+    let out = rename_tenant_name(&store, tenant, to).await?;
     if json_out {
         print_json(&json!({"tenant_rename": out}))
     } else {
@@ -26,7 +26,26 @@ pub async fn run(id: &str, to: &str, json_out: bool) -> ArgoResult<()> {
     }
 }
 
-async fn rename_tenant(
+pub async fn run_id(id: &str, new_id: &str, json_out: bool) -> ArgoResult<()> {
+    let old = parse_tenant(id)?;
+    let new = parse_tenant(new_id)?;
+    let (store, _) = open_store().await?;
+    let out = argo_store::tenant_query::rename_tenant(
+        &store,
+        old,
+        new,
+        Utc::now().timestamp_micros(),
+    )
+    .await?;
+    if json_out {
+        print_json(&json!({"ok": true, "tenant_rename": out}))
+    } else {
+        println!("renamed tenant {} to {}", old, new);
+        Ok(())
+    }
+}
+
+async fn rename_tenant_name(
     store: &SessionStore,
     tenant: TenantId,
     name: &str,
@@ -92,7 +111,7 @@ mod tests {
     #[tokio::test]
     async fn rename_updates_primary_workspace_name() {
         let (store, tenant) = store_with_tenant("Old").await;
-        rename_tenant(&store, tenant, "New Ops").await.unwrap();
+        rename_tenant_name(&store, tenant, "New Ops").await.unwrap();
 
         let row = sqlx::query("SELECT name FROM workspace WHERE tenant_id = ?")
             .bind(tenant.0.as_bytes().as_slice())
@@ -100,5 +119,10 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(row.get::<String, _>("name"), "New Ops");
+    }
+
+    #[test]
+    fn normalize_name_trims_whitespace() {
+        assert_eq!(normalize_name("  New Ops  ").unwrap(), "New Ops");
     }
 }

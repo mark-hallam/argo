@@ -23,6 +23,14 @@ pub enum TenantCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Show tenant metadata, roster, activity, channels, and rules.
+    Show {
+        /// Tenant id (UUID).
+        id: String,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Register a new tenant name in the current workspace store.
     Create {
         /// Human-readable tenant/workspace name.
@@ -31,13 +39,15 @@ pub enum TenantCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Rename a tenant's display name while preserving its stable id.
+    /// Rename a tenant id, or use --to to rename its display name.
     Rename {
         /// Tenant id (UUID).
         id: String,
-        /// New human-readable tenant name.
+        /// New stable tenant id (UUID).
+        new_id: Option<String>,
+        /// New human-readable tenant name (legacy display-name rename).
         #[arg(long, value_name = "NEW_NAME")]
-        to: String,
+        to: Option<String>,
         /// Emit JSON instead of a human-readable summary.
         #[arg(long)]
         json: bool,
