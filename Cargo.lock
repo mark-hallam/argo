@@ -912,8 +912,10 @@ dependencies = [
 name = "argo-skill"
 version = "0.0.1"
 dependencies = [
+ "argo-judge",
  "argo-store",
  "argo-types",
+ "async-trait",
  "chrono",
  "hex",
  "serde",

@@ -26,8 +26,8 @@
 
 use crate::executor::{Outcome, RunRequest, RunResult};
 use argo_skill::{
-    should_propose_with_feedback, FeedbackVote, ProposalThreshold, SkillCandidate, SkillStore,
-    SuccessMetric, DEFAULT_SUCCESS_THRESHOLD,
+    should_propose_with_feedback, FeedbackVote, Judge, ProposalThreshold, SkillCandidate,
+    SkillStore, SuccessMetric, DEFAULT_SUCCESS_THRESHOLD,
 };
 use argo_types::SessionId;
 
@@ -193,15 +193,35 @@ fn action_type_from_request(request: &RunRequest) -> &str {
 /// `vertical_id` is sourced from the candidate (so the caller
 /// has already picked a sensible default if the request didn't
 /// carry one). `session` powers the `learned_in` audit chain.
+///
+/// Back-compat shim: delegates to [`propose_skill_from_run_judged`]
+/// with `judge = None`. Existing callers (today's CU executor)
+/// continue to work unchanged.
 pub async fn propose_skill_from_run(
     store: &SkillStore,
     candidate: &SkillCandidate,
     session: SessionId,
 ) {
+    propose_skill_from_run_judged(store, candidate, session, None).await
+}
+
+/// Fire the proposal with an optional judge gate
+/// (mission-wire-judge-on-skill-creation). When `judge` is `Some`,
+/// the skill candidate is sent to [`Judge::adjudicate`] before the
+/// lifecycle transition; verdicts below the configured floor
+/// (`ARGO_JUDGE_SKILL_FLOOR`, default `0.6`) land the candidate in
+/// `Rejected`. Judge timeout / transport error fails OPEN to
+/// `PendingReview` per the brief.
+pub async fn propose_skill_from_run_judged(
+    store: &SkillStore,
+    candidate: &SkillCandidate,
+    session: SessionId,
+    judge: Option<&dyn Judge>,
+) {
     let session_short = session_short(session);
     let raw = candidate.to_skill_md(&session_short);
     match store
-        .propose_for_review(&raw, session, &candidate.vertical_id)
+        .propose_for_review_judged(&raw, session, &candidate.vertical_id, judge)
         .await
     {
         Ok(skill) => {
@@ -209,6 +229,7 @@ pub async fn propose_skill_from_run(
                 target: "argo_executor_computer_use::learn",
                 skill_id = %skill.id,
                 name = %candidate.name,
+                lifecycle = ?skill.lifecycle_state,
                 "proposed learned skill for review",
             );
         }
@@ -230,12 +251,33 @@ pub async fn propose_skill_from_run(
 /// Returns `Some(candidate)` when a proposal was attempted (the
 /// caller can inspect the candidate post-hoc); `None` when the
 /// outcome didn't clear the threshold.
+///
+/// Back-compat shim: delegates to [`maybe_propose_judged`] with
+/// `judge = None`. The CU executor's call site continues to work
+/// unchanged. Future work threads a real `&dyn Judge` instance
+/// from gateway boot through the executor — see
+/// `mission-wire-judge-on-skill-creation` for the wiring plan.
 pub async fn maybe_propose(
     store: Option<&SkillStore>,
     request: &RunRequest,
     outcome: &Outcome,
     session: SessionId,
     gate: impl Into<ProposalGate>,
+) -> Option<SkillCandidate> {
+    maybe_propose_judged(store, request, outcome, session, gate, None).await
+}
+
+/// Like [`maybe_propose`] but threads an optional judge through
+/// to `propose_skill_from_run_judged`. When a judge is supplied,
+/// the proposal goes through the adjudication gate before
+/// landing in the skill store (mission-wire-judge-on-skill-creation).
+pub async fn maybe_propose_judged(
+    store: Option<&SkillStore>,
+    request: &RunRequest,
+    outcome: &Outcome,
+    session: SessionId,
+    gate: impl Into<ProposalGate>,
+    judge: Option<&dyn Judge>,
 ) -> Option<SkillCandidate> {
     let metric = success_metric_for_outcome(outcome);
     if !metric_clears_proposal_gate(metric, gate.into()) {
@@ -247,7 +289,7 @@ pub async fn maybe_propose(
     };
     let candidate = build_candidate(request, &result, session, metric);
     if let Some(s) = store {
-        propose_skill_from_run(s, &candidate, session).await;
+        propose_skill_from_run_judged(s, &candidate, session, judge).await;
     }
     Some(candidate)
 }

@@ -40,6 +40,7 @@ pub mod version;
 #[cfg(test)]
 mod tests;
 
+pub use argo_judge::Judge;
 pub use feedback::{should_propose_with_feedback, FeedbackVote};
 pub use learn::{should_propose, SkillCandidate, DEFAULT_SUCCESS_THRESHOLD};
 pub use success_metric::{
