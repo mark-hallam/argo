@@ -43,19 +43,19 @@ per `ls`), wire the actual tarball logic.
 - `crates/argo-cli/tests/skill_io_smoke.rs` (NEW)
 
 ## Acceptance criteria
-- [ ] `argo skill export foo --out /tmp/foo.skill.tar.gz` —
+- [x] `argo skill export foo --out /tmp/foo.skill.tar.gz` —
       tarball lands at path with manifest + body + sha256
-- [ ] `argo skill import /tmp/foo.skill.tar.gz` — skill lands
+- [x] `argo skill import /tmp/foo.skill.tar.gz` — skill lands
       in local store; subsequent `argo skill list` shows it
-- [ ] `--dry-run` on import prints what would land, no side
+- [x] `--dry-run` on import prints what would land, no side
       effects
-- [ ] `--name <newname>` rename works for duplicate-name
+- [x] `--name <newname>` rename works for duplicate-name
       conflict
-- [ ] Round-trip: export → wipe workspace skill_store → import
+- [x] Round-trip: export → wipe workspace skill_store → import
       → identical skill
-- [ ] `--json` envelope universal across all 3 subcommands
-- [ ] 6 unit tests + 1 CLI smoke
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings`
+- [x] `--json` envelope universal across all 3 subcommands
+- [x] 6 unit tests + 1 CLI smoke
+- [x] `cargo clippy --workspace --all-targets -- -D warnings`
       clean
 
 ## Branch + PR

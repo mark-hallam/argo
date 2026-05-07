@@ -64,6 +64,31 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             }
         }
         SkillCmd::Install { source } => install(&skills, &source).await,
+        SkillCmd::Export { name, out, json } => {
+            super::skill_export::export_one(&skills, &name, &out, json).await
+        }
+        SkillCmd::ExportAll {
+            out,
+            vertical,
+            json,
+        } => super::skill_export_all::run(&skills, &out, vertical.as_deref(), json).await,
+        SkillCmd::Import {
+            path,
+            name,
+            workspace,
+            dry_run,
+            json,
+        } => {
+            super::skill_import::import_artifact(
+                &skills,
+                &path,
+                name.as_deref(),
+                workspace.as_deref(),
+                dry_run,
+                json,
+            )
+            .await
+        }
         SkillCmd::Lock { name } => set_lock(&skills, &name, Lock::UserProtected).await,
         SkillCmd::Unlock { name } => set_lock(&skills, &name, Lock::None).await,
         SkillCmd::Refine {

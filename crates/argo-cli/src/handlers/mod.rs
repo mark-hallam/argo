@@ -157,6 +157,7 @@ pub mod skill_verify;
 pub mod skill_view;
 pub mod skill_conflicts;
 pub mod skill_export;
+pub mod skill_export_all;
 pub mod skill_import;
 pub mod skill_review;
 pub mod skill_search;

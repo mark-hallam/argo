@@ -139,6 +139,52 @@ pub enum SkillCmd {
     Install {
         source: String,
     },
+    /// Export one active skill (or an explicit `name:version`)
+    /// into a portable `.skill.tar.gz` artifact.
+    Export {
+        /// Skill name, optionally suffixed as `name:version`.
+        name: String,
+        /// Output `.skill.tar.gz` path.
+        #[arg(long)]
+        out: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Export every active skill into a directory of portable
+    /// `.skill.tar.gz` artifacts.
+    ExportAll {
+        /// Output directory.
+        #[arg(long)]
+        out: String,
+        /// Filter to skills bundled by this vertical id.
+        #[arg(long)]
+        vertical: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Import a portable `.skill.tar.gz` artifact into the local
+    /// skill store.
+    Import {
+        /// Artifact path.
+        path: String,
+        /// Rename on import; required to avoid duplicate-name
+        /// conflicts when the original name is already installed.
+        #[arg(long)]
+        name: Option<String>,
+        /// Resolve the target skill store as if running from this
+        /// workspace path.
+        #[arg(long)]
+        workspace: Option<String>,
+        /// Validate and print what would be installed without
+        /// writing the store.
+        #[arg(long)]
+        dry_run: bool,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
     Lock {
         name: String,
     },

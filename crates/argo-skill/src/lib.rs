@@ -21,6 +21,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod ab_test;
+mod artifact;
 pub mod conflicts;
 pub mod feedback;
 pub mod learn;
@@ -60,5 +61,9 @@ pub use ab_test::{
     create_run, ensure_ab_schema, get_run, maybe_complete, promote, record_outcome,
     select_variant, significance, variant_counts, AbTestRun, RunStatus, Significance,
     Variant, VariantCounts, CHI_SQUARE_CRIT_DF1_ALPHA_05, DEFAULT_MIN_SAMPLES_PER_VARIANT,
+};
+pub use artifact::{
+    skill_body_sha256, SkillArtifact, SkillArtifactManifest, SKILL_ARTIFACT_BODY,
+    SKILL_ARTIFACT_MANIFEST, SKILL_ARTIFACT_SCHEMA_VERSION, SKILL_ARTIFACT_SHA256,
 };
 pub use version::{find_version, list_versions, SkillVersion};
