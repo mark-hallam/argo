@@ -259,6 +259,7 @@ mod tests {
                 hash: "sha256-x".into(),
             },
             lock: Lock::None,
+            evals: Vec::new(),
         }
     }
 
