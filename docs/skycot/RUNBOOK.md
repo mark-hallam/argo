@@ -26,6 +26,7 @@ document is the *how*.
 8. [Multi-worker handoff](#8-multi-worker-handoff)
 9. [Audit and observability](#9-audit-and-observability)
 10. [Where to next](#10-where-to-next)
+11. [Security](#11-security)
 
 ---
 
@@ -976,6 +977,41 @@ Open `target/llvm-cov/html/index.html` for the annotated report.
   `argo session start` lands, the v1 demo gate (the
   marketing-intern → sales-sdr → audit walkthrough) becomes
   scriptable and we'll attach the recording here.
+
+---
+
+## 11. Security
+
+### 11.1 Gateway bearer-token auth
+
+The gateway POST routes (session creation, message append, run
+turn, skill install, memory writes, …) are anonymously writable
+by default — the only protection is the `127.0.0.1:7400`
+localhost bind. For any non-localhost deployment, set a bearer
+token:
+
+```sh
+export ARGO_GATEWAY_BEARER_TOKEN=$(openssl rand -hex 32)
+argo gateway start
+```
+
+Once the env var is set (with a non-empty value), every POST
+request must carry `Authorization: Bearer <token>` or the
+gateway returns `401 Unauthorized` with body
+`{"error":"unauthorized","reason":"missing or invalid bearer token"}`.
+
+GET routes (operator dashboards, `/audit/stream`, etc.) stay
+anonymous in v1; read-side auth is a separate follow-up.
+
+**Integration-test escape hatch**: set `ARGO_GATEWAY_AUTH_BYPASS=1`
+to bypass the check even when a token is configured. Use this in
+local CI fixtures that need to exercise POST routes without
+threading the token through every test.
+
+The token can also live in `<workspace>/.argo/credentials.toml`
+under the same key — `argo_config::cred::get` reads env first
+and falls back to that file, matching the precedent for
+`ARGO_WEBINBOX_BEARER_TOKEN`.
 
 ---
 
