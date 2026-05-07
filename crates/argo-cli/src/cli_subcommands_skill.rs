@@ -246,6 +246,26 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Show the dependency DAG of one skill: which skills it
+    /// `argo skill run`s, references via `\`skill:NAME\``, etc.
+    /// (`claude-skill-dependency-graph`). `--reverse` flips the
+    /// arrows so you can see "what would break if I rolled back
+    /// X?" Markdown tree by default; `--json` emits the
+    /// resolved edges.
+    Deps {
+        /// Skill name (active version is used).
+        name: String,
+        /// Emit JSON instead of the markdown tree.
+        #[arg(long)]
+        json: bool,
+        /// Show skills that depend ON this one, not the
+        /// reverse.
+        #[arg(long)]
+        reverse: bool,
+        /// Maximum recursion depth (default 5; 0 → default).
+        #[arg(long, default_value_t = 5)]
+        max_depth: u32,
+    },
     /// List every scored skill, worst first. `--threshold` keeps
     /// rows with score ≤ threshold; `--worst` keeps only the
     /// lowest-scoring N.

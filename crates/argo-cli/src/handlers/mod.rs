@@ -166,6 +166,7 @@ pub mod setup_steps;
 pub mod skill;
 pub mod skill_ab;
 pub mod skill_create;
+pub mod skill_deps;
 pub mod skill_distill_now;
 pub mod skill_list;
 pub mod skill_publish;

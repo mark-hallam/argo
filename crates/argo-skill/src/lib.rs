@@ -23,6 +23,7 @@
 pub mod ab_test;
 mod artifact;
 pub mod conflicts;
+pub mod deps;
 pub mod dreams_distillation;
 pub mod feedback;
 pub mod learn;
@@ -48,6 +49,10 @@ pub use success_metric::{
     should_propose_metric, ProposalThreshold, SuccessMetric,
 };
 pub use conflicts::{detect_conflicts, parse_keep_flag, render_diff, SkillConflict};
+pub use deps::{
+    build_graph, build_reverse_graph, extract_refs, DepEdge, DepGraph, RefKind, SkillRef,
+    DEFAULT_MAX_DEPTH,
+};
 pub use dreams_distillation::{
     distill_cohort, group_into_cohorts, trajectory_similarity, Cohort,
     DistillationResult, SkillDistillationCaller, TrajectoryInput,
