@@ -74,6 +74,9 @@ pub use super::cli_subcommands_skill::{
 pub use super::cli_memory_cmd::MemoryCmd;
 pub use super::cli_cred_cmds::CredCmd;
 pub use super::cli_backup_cmds::{BackupCmd, RestoreCmd};
+#[path = "cli_connector_cmds.rs"]
+mod cli_connector_cmds;
+pub use cli_connector_cmds::ConnectorCmd;
 pub use super::cli_subcommands_cron::CronCmd;
 
 #[derive(Subcommand, Debug)]

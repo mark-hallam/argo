@@ -12,9 +12,7 @@ pub use cli_reexports::{
     cli_recover_cmds, cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
 };
 pub use cli_reexports::*;
-
 use clap::{Parser, Subcommand};
-
 #[derive(Parser, Debug)]
 #[command(
     name = "argo",
@@ -123,6 +121,11 @@ pub enum Command {
     Daemon {
         #[command(subcommand)]
         cmd: DaemonCmd,
+    },
+    /// Manage OAuth and token credentials for MCP connectors.
+    Connector {
+        #[command(subcommand)]
+        cmd: ConnectorCmd,
     },
     /// Work queue v0 (#716). `add` enqueues a unit of work for a
     /// vertical-bound worker; `serve` runs a persistent loop that

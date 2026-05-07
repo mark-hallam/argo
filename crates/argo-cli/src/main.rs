@@ -213,6 +213,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                     .await
             }
         },
+        Some(Command::Connector { cmd }) => handlers::connector_authorize::run(cmd).await,
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
