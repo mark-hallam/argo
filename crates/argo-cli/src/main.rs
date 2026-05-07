@@ -217,6 +217,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Trace { turn, session }) => handlers::trace::run(turn, session).await,
         Some(Command::Tui) => handlers::tui::run().await,
         Some(Command::Tools { cmd }) => handlers::tools::run(cmd).await,
+        Some(Command::Recover { session_id, json }) => {
+            handlers::recover::run(&session_id, json).await
+        }
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");

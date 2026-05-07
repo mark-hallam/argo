@@ -455,6 +455,19 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ImportCmd,
     },
+    /// LLM-assisted post-mortem for a failed session (Stream
+    /// `claude-error-recovery-suggestions`). Walks the audit
+    /// chain, calls Anthropic with the chain summary, returns
+    /// 3 ranked fix suggestions. Cached per
+    /// (session_id, audit_chain_hash) so re-runs are free.
+    /// Advisory only — no auto-apply.
+    Recover {
+        /// Session id (UUID) whose chain to analyze.
+        session_id: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
     Update,
 }
 
