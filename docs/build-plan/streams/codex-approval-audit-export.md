@@ -55,7 +55,8 @@ local path only.
 - `crates/argo-cli/src/handlers/approval_export_tests.rs` (NEW, ≤ 280 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: pub mod line
 - `crates/argo-cli/src/cli.rs` / `main.rs` — narrowly: add
-  subcommand variant + dispatch (BLANKET CLI ALLOWLIST)
+  subcommand variant + dispatch (BLANKET CLI ALLOWLIST). cli.rs is 49 LOC post-#968 split.
+- `crates/argo-cli/src/cli_command_enum.rs` (post-#968: top-level `Command` variants live here)
 - `crates/argo-cli/tests/approval_export_smoke.rs` (NEW) —
   seed → export → re-read CSV → assert round-trip
 - `crates/argo-cli/Cargo.toml` — narrowly: add `csv` if missing

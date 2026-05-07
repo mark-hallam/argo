@@ -48,7 +48,8 @@ view of the persona, validates on save, writes if valid.
 - `crates/argo-cli/src/handlers/persona_edit.rs` (NEW, ≤ 280 LOC)
 - `crates/argo-cli/src/handlers/persona_edit_tests.rs` (NEW, ≤ 250 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` (1 pub mod + dispatch arm)
-- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — 1 enum variant)
+- `crates/argo-cli/src/cli.rs` (BLANKET CLI ALLOWLIST — cli.rs is 49 LOC post-#968 split, plenty of headroom)
+- `crates/argo-cli/src/cli_command_enum.rs` (post-#968: top-level `Command` variants live here — add `Persona` here)
 - `crates/argo-cli/tests/persona_edit_smoke.rs` (NEW)
 - `crates/argo-cli/tests/fixtures/persona_edit_valid.toml` (NEW) — small fixture
 

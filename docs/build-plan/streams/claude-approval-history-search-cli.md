@@ -53,7 +53,8 @@ work). NOT modifying the storage schema.
 - `crates/argo-cli/src/handlers/approval_history_tests.rs` (NEW, ≤ 280 LOC)
 - `crates/argo-cli/src/handlers/mod.rs` — narrowly: pub mod line
 - `crates/argo-cli/src/cli.rs` / `main.rs` — narrowly: add
-  the subcommand variant + dispatch (BLANKET CLI ALLOWLIST)
+  the subcommand variant + dispatch (BLANKET CLI ALLOWLIST). cli.rs is 49 LOC post-#968 split.
+- `crates/argo-cli/src/cli_command_enum.rs` (post-#968: top-level `Command` variants live here — add `Approval` top-level variant here)
 - `crates/argo-cli/tests/approval_history_smoke.rs` (NEW) —
   seed 5 approvals, query with mixed filters, verify count
 
