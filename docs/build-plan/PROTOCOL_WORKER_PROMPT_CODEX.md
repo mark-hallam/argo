@@ -57,7 +57,7 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 1. `cd ~/code/argo-codex`
 2. `git checkout main && git pull --ff-only origin main`
 3. Read `docs/build-plan/BUILD_STATUS.md` from disk
-4. Pick the FIRST row where: `owner=codex` AND `status=TODO` AND every `depends on` predecessor is MERGED.
+4. Pick the FIRST row where: `owner=codex` AND `status=TODO` AND every `depends on` predecessor is MERGED. **The TODO list is phase-ordered (`▼ PHASE A → F` header rows in the ledger).** Always claim from the earliest phase first — Phase A items are credibility-bleeders (CI off, headline drift, missing notify wire, MCP exec stub, duty-scheduler unwired); Phase B closes mission claims; Phase C/D/E/F come after. Only descend to a later phase if no codex-owned TODO in earlier phases has all deps met. Skip the `▼ PHASE …` header rows — they're navigation markers, not claimable briefs.
    - Qualifying row found → `empty_iterations = 0`, continue to step 5.
    - NO qualifying row → `empty_iterations += 1`. Check EMPTY-ITERATION GUARD below. If guard hasn't fired, sleep 60 seconds, go to step 1.
 5. Mark row `status=CLAIMED` in BUILD_STATUS.md, commit `"status: claim <brief-id>"`, push to origin/main. Race-lost? See HARD RULE 7 in CLAUDE.md.
