@@ -71,3 +71,40 @@ pub enum HandoffRulesCmd {
         json: bool,
     },
 }
+
+/// `argo handoff-auctions` subcommands (Stream
+/// `claude-skill-auction`). Surfaced as a top-level command for
+/// the same reason as `handoff-rules` — `HandoffCmd` lives in
+/// `cli_session_cmds.rs` outside the brief's may-touch list.
+#[derive(Subcommand, Debug)]
+pub enum HandoffAuctionsCmd {
+    /// List recent auctions, newest-first. Optional `--status`
+    /// filter (`open` / `closed` / `cancelled` / `no_bidders`).
+    List {
+        /// Filter by status string.
+        #[arg(long)]
+        status: Option<String>,
+        /// Cap the number of rows printed. Default 100.
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one auction by id with all its bids.
+    Show {
+        /// Auction id.
+        id: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Cancel an open auction. No-op on closed / cancelled auctions.
+    Cancel {
+        /// Auction id.
+        id: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}

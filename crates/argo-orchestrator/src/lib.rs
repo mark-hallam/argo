@@ -29,6 +29,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod auction;
 /// Worker duty scheduler — autonomous cron-driven actions
 /// (Stream `claude-worker-duty-scheduler`, V1.3).
 pub mod duty_scheduler;
@@ -39,6 +40,9 @@ pub mod routing;
 mod session;
 mod walker;
 
+pub use auction::{
+    fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
+};
 pub use duty_scheduler::{
     spawn_duty_scheduler, ClosedGate, DutyGate, DutyRecord, DutyScheduler, DutyStore,
     FireDecision, OpenGate, TickReport,

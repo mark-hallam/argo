@@ -236,6 +236,15 @@ pub enum Command {
         #[command(subcommand)]
         cmd: DutyCmd,
     },
+    /// Inspect handoff fallback auctions
+    /// (`claude-skill-auction`). When the routing chain
+    /// exhausts, the walker may record a `no_bidders` auction
+    /// row in the audit trail; this surface lets operators read
+    /// + cancel those.
+    HandoffAuctions {
+        #[command(subcommand)]
+        cmd: cli_handoff_cmds::HandoffAuctionsCmd,
+    },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +
     /// edges; runs each task as a Session with output binding

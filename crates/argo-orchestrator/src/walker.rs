@@ -93,6 +93,12 @@ pub struct HandoffWalker {
     /// `None` (the default) preserves pre-routing-rules behaviour
     /// — the chain's next target wins unconditionally.
     routing_engine: Option<RoutingEngine>,
+    /// Optional auction store (Stream `claude-skill-auction`) —
+    /// when set, an exhausted-chain fallthrough records a
+    /// `no_bidders` auction row in the audit trail before flipping
+    /// the session to `Expired`. v1 doesn't run the auction
+    /// in-process; bidding is the operator's hookup point.
+    auction_store: Option<Arc<crate::auction::AuctionStore>>,
 }
 
 impl HandoffWalker {
@@ -112,6 +118,7 @@ impl HandoffWalker {
             notifier,
             default_deadline_secs: 60 * 60, // 1 hour
             routing_engine: None,
+            auction_store: None,
         }
     }
 
@@ -130,6 +137,18 @@ impl HandoffWalker {
     #[must_use]
     pub fn with_routing_engine(mut self, engine: RoutingEngine) -> Self {
         self.routing_engine = Some(engine);
+        self
+    }
+
+    /// Attach an [`crate::auction::AuctionStore`] (Stream
+    /// `claude-skill-auction`). When set, exhausted-chain fall-
+    /// throughs record a `no_bidders` auction row in
+    /// `auction_log` before the human-operator notification
+    /// fires, giving the audit trail a marker for "tried fallback
+    /// auction, no bidders → escalated to human".
+    #[must_use]
+    pub fn with_auction_store(mut self, store: Arc<crate::auction::AuctionStore>) -> Self {
+        self.auction_store = Some(store);
         self
     }
 
@@ -225,6 +244,27 @@ impl HandoffWalker {
     }
 
     async fn exhaust_chain(&self, row: &OverdueRow) -> ArgoResult<()> {
+        // Stream `claude-skill-auction` — record a no_bidders
+        // auction row before exhausting, so the audit trail shows
+        // the fallback was attempted. Errors here are logged + swallowed
+        // so a transient sqlite hiccup doesn't block the existing
+        // human-operator notification path.
+        if let Some(store) = &self.auction_store {
+            let task_id = format!("auction-{}", row.handoff.id.as_str());
+            let mut auction = crate::auction::Auction::open(crate::auction::AuctionTask {
+                id: task_id,
+                description: row.handoff.expected_outcome.clone(),
+                required_skills: Vec::new(),
+            });
+            auction.close();
+            if let Err(e) = store.insert_auction(&auction).await {
+                tracing::warn!(
+                    target: "argo_orchestrator::auction",
+                    error = %e,
+                    "failed to record no_bidders auction; continuing to escalate",
+                );
+            }
+        }
         let payload = serde_json::json!({
             "session_id": row.handoff.session_id.as_str(),
             "handoff_id": row.handoff.id.as_str(),

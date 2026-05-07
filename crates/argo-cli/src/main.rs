@@ -192,6 +192,19 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Policy { cmd }) => handlers::policy_handlers::run(cmd).await,
         Some(Command::HandoffRules { cmd }) => handlers::handoff_rules_list::run(cmd).await,
         Some(Command::Duty { cmd }) => handlers::duty_list::run(cmd).await,
+        Some(Command::HandoffAuctions { cmd }) => match cmd {
+            cli::cli_handoff_cmds::HandoffAuctionsCmd::List {
+                status,
+                limit,
+                json,
+            } => handlers::handoff_auctions_list::run(status.as_deref(), limit, json).await,
+            cli::cli_handoff_cmds::HandoffAuctionsCmd::Show { id, json } => {
+                handlers::handoff_auctions_show::run(&id, json).await
+            }
+            cli::cli_handoff_cmds::HandoffAuctionsCmd::Cancel { id, json } => {
+                handlers::handoff_auctions_cancel::run(&id, json).await
+            }
+        },
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Trajectory { cmd }) => match cmd {
             cli::TrajectoryCmd::Export {
