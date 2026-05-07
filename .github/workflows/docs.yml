@@ -1,21 +1,77 @@
 name: Docs
-# Auto-trigger disabled while billing is blocked. Manual dispatch
-# only. Original trigger:
-#   on:
-#     push:
-#       branches: [main]
-#       paths: ['docs/**']
-#     workflow_dispatch:
+# Builds the mdBook site from book.toml at the repo root, runs the
+# CLI-reference auto-generator, runs mdbook-linkcheck on internal
+# links, and on push to main publishes the result to the gh-pages
+# branch via peaceiris/actions-gh-pages.
+#
+# Manual dispatch is preserved so operators can re-run the workflow
+# on demand without a code push.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'book/**'
+      - 'book.toml'
+      - 'scripts/build-cli-reference.sh'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'book/**'
+      - 'book.toml'
+      - 'scripts/build-cli-reference.sh'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: peaceiris/actions-mdbook@v2
-        with: { mdbook-version: latest }
-      - run: mdbook build docs || true
-      - uses: actions/upload-artifact@v4
-        with: { name: docs, path: docs/book }
+
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: latest
+
+      - name: Install mdbook-linkcheck
+        run: |
+          set -e
+          MDBOOK_LINKCHECK_VERSION=0.7.7
+          curl -fsSL "https://github.com/Michael-F-Bryan/mdbook-linkcheck/releases/download/v${MDBOOK_LINKCHECK_VERSION}/mdbook-linkcheck.x86_64-unknown-linux-gnu.zip" -o /tmp/mdbook-linkcheck.zip
+          unzip /tmp/mdbook-linkcheck.zip -d /tmp/mdbook-linkcheck
+          chmod +x /tmp/mdbook-linkcheck/mdbook-linkcheck
+          sudo mv /tmp/mdbook-linkcheck/mdbook-linkcheck /usr/local/bin/
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: docs-cli
+
+      - name: Build argo CLI binary (for CLI reference auto-gen)
+        run: cargo build --release -p argo-cli
+
+      - name: Generate CLI reference
+        run: |
+          export PATH="$PWD/target/release:$PATH"
+          ./scripts/build-cli-reference.sh book/reference/cli.md
+
+      - name: Build mdBook
+        run: mdbook build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: book-output/html
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: book-output/html
+          publish_branch: gh-pages
+          force_orphan: true

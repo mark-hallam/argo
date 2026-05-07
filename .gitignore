@@ -12,3 +12,4 @@ node_modules/
 *.db-wal
 .argo-test/
 BURST_PLAN.md
+book-output/

@@ -1,0 +1,30 @@
+[book]
+title = "Argo / Skycot"
+description = "Operator and developer guide for the Argo agent platform (Skycot)."
+authors = ["Argo / Skycot maintainers"]
+language = "en"
+multilingual = false
+src = "book"
+
+[build]
+build-dir = "book-output"
+create-missing = false
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/mark-hallam/Argo-Agent"
+edit-url-template = "https://github.com/mark-hallam/Argo-Agent/edit/main/{path}"
+no-section-label = false
+mathjax-support = false
+fold = { enable = true, level = 1 }
+
+[output.html.search]
+enable = true
+limit-results = 30
+teaser-word-count = 30
+
+[output.linkcheck]
+follow-web-links = false
+warning-policy = "warn"
+exclude = []
