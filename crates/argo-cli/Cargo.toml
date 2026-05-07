@@ -53,6 +53,7 @@ hex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 reqwest = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }

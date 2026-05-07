@@ -37,7 +37,21 @@ use argo_channels::{Notification, OperatorTarget, RiskLevel};
 use argo_identity::NotifyChannelRef;
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
+use serde_json::{json, Value};
 use std::path::Path;
+
+#[path = "worker_actions_notify_chat.rs"]
+mod notify_chat;
+#[path = "worker_actions_notify_discord.rs"]
+mod notify_discord;
+#[path = "worker_actions_notify_email.rs"]
+mod notify_email;
+#[path = "worker_actions_notify_slack.rs"]
+mod notify_slack;
+#[path = "worker_actions_notify_sms.rs"]
+mod notify_sms;
+#[path = "worker_actions_notify_sse.rs"]
+mod notify_sse;
 
 /// `.skycot/notify.toml` — workspace-level approval-notification
 /// config. Loaded once per `Decision::Ask` dispatch.
@@ -227,28 +241,72 @@ pub async fn try_dispatch_on_ask(action: &ActionRecord, cwd: &Path) -> usize {
 }
 
 /// Production [`NotifySender`] — dispatches by `ref_.channel` to
-/// the matching `argo_channels` impl, with config drawn from the
-/// process environment. v1 wires the env-config channels (push,
-/// webinbox); other channel kinds (email/slack/sms/voice/whatsapp/
-/// imessage) return `"channel kind '...' not yet wired in
-/// dispatch_notify"` so the gap is visible. Follow-up brief
-/// expands this match arm.
+/// the matching channel implementation, with config drawn from
+/// process env / workspace credentials. Push and webinbox reuse
+/// the `argo_channels` implementations; webhook-style channels
+/// live in small sibling modules to keep this dispatcher under
+/// the 500-LOC ceiling.
 pub struct EnvChannelSender;
 
 #[async_trait::async_trait]
 impl NotifySender for EnvChannelSender {
-    async fn send_via(
-        &self,
-        ref_: &NotifyChannelRef,
-        n: &Notification,
-    ) -> Result<(), String> {
+    async fn send_via(&self, ref_: &NotifyChannelRef, n: &Notification) -> Result<(), String> {
         match ref_.channel.as_str() {
             "push" => send_push(n).await,
             "webinbox" => send_webinbox(n).await,
+            "slack" => notify_slack::send_slack(n).await,
+            "email" => notify_email::send_email(ref_, n).await,
+            "sms" => notify_sms::send_sms(ref_, n).await,
+            "discord" => notify_discord::send_discord(n).await,
+            "chat" => notify_chat::send_chat(n).await,
+            "sse" => notify_sse::send_sse(n).await,
             other => Err(format!(
-                "channel kind '{other}' not yet wired in dispatch_notify (v1 supports push + webinbox)"
+                "channel kind '{other}' is not supported by dispatch_notify"
             )),
         }
+    }
+}
+
+pub(super) fn required_env(channel: &str, name: &str) -> Result<String, String> {
+    let value = argo_config::cred::get(name)
+        .map_err(|_| format!("{channel} not configured: set {name}"))?;
+    if value.trim().is_empty() {
+        Err(format!("{channel} not configured: set {name}"))
+    } else {
+        Ok(value)
+    }
+}
+
+pub(super) fn approval_payload(channel: &str, n: &Notification) -> Value {
+    json!({
+        "type": "notify_ask",
+        "channel": channel,
+        "action_id": n.action_id,
+        "approval_id": n.approval_id,
+        "risk_level": n.risk_level,
+        "summary": n.prompt_body,
+        "approve_url": n.approve_url,
+        "reject_url": n.reject_url,
+        "expires_at": n.expiry,
+    })
+}
+
+pub(super) async fn post_json(channel: &str, url: &str, payload: Value) -> Result<(), String> {
+    let resp = reqwest::Client::new()
+        .post(url)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("{channel} send failed: {e}"))?;
+    let status = resp.status();
+    let body = match resp.text().await {
+        Ok(body) => body,
+        Err(e) => format!("failed to read response body: {e}"),
+    };
+    if status.is_success() {
+        Ok(())
+    } else {
+        Err(format!("{channel} returned {status}: {body}"))
     }
 }
 

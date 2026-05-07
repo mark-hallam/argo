@@ -531,21 +531,37 @@ The runtime resolves at gate time:
 ### 5.3 Channel notify on Ask
 
 When the gate decides Ask, the channel-notify path fires.
-Configure channels via TOML:
+Configure workspace fan-out channels in `.skycot/notify.toml`:
 
 ```toml
-# manifests/channels/email.toml
-[channel]
-kind = "email"
-operator_email = "you@example.com"
+[[channels]]
+channel = "slack"
+target = "#ops"
+risk_level = "high"
 
-[postmark]
-from = "skycot@yourdomain.com"
-template_id = 12345678
+[[channels]]
+channel = "email"
+target = "you@example.com"
 ```
 
-Then `POSTMARK_SERVER_TOKEN` in the env. Same shape for
-`manifests/channels/{slack,sms,push,webinbox}.toml`.
+Each channel reads env vars, with credentials.toml fallback via
+`argo cred set`:
+
+| Channel | Required env vars |
+|---|---|
+| `push` | `EXPO_ACCESS_TOKEN` plus the push-channel device registry |
+| `webinbox` | optional `ARGO_WEBINBOX_PATH`; optional `ARGO_WEBINBOX_BEARER_TOKEN` for reads |
+| `slack` | `SLACK_WEBHOOK_URL` |
+| `email` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` |
+| `sms` | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |
+| `discord` | `DISCORD_WEBHOOK_URL` |
+| `chat` | `CHAT_WEBHOOK_URL` |
+| `sse` | `SSE_NOTIFY_URL` |
+
+Missing required values produce errors like
+`slack not configured: set SLACK_WEBHOOK_URL` in the notify
+dispatch result and logs. Notify is best-effort: a channel
+failure does not change the approval gate decision.
 
 ---
 
