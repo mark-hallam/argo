@@ -227,16 +227,28 @@ Run this loop until any STOP CONDITION fires:
    briefs lean smaller/single-crate; claude-prefixed briefs lean
    larger/multi-crate, but the prefix is informational. If none
    qualifies and queue is genuinely empty, see STOP CONDITION 1.
-5. Claim: edit BUILD_STATUS.md → set status=CLAIMED, commit
+5. **Pre-claim freshness check (tick412 amendment).** Run
+   `bash scripts/check-brief-freshness.sh <brief-id>`. The script is
+   ADVISORY (always exit 0) and surfaces 4 common drift signals:
+   may-touch file paths missing on current main, stale "is a stub"
+   claims, cli.rs LOC drift (post-#968 split), and missing post-cli-split
+   sibling files (cli_worker_cmds.rs / cli_subcommands_skill.rs /
+   handlers/worker_actions.rs). If output is `✅ No drift signals` →
+   continue to step 6. If it shows ⚠️ drift signals → quickly judge
+   whether to: (a) claim and amend may-touch in your branch, (b) post a
+   BUILD_STATUS.md BLOCKED note describing the drift and pick a
+   different brief, (c) ask the conductor to rewrite. Don't burn
+   context digging blind into a stale brief.
+6. Claim: edit BUILD_STATUS.md → set status=CLAIMED, commit
    `"status: claim <brief-id>"`, push to origin/main. Race-lost? See
    HARD RULE 7.
-6. Read `docs/build-plan/streams/<brief-id>.md`. This is the spec.
-7. `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id>
+7. Read `docs/build-plan/streams/<brief-id>.md`. This is the spec.
+8. `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id>
    && git checkout -b <owner>-<brief-id>` (clean up any stale worktree
    first: `git worktree remove /tmp/<brief-id> --force 2>/dev/null;
    rm -rf /tmp/<brief-id>`).
-8. Implement. Stay inside may-touch list. Tick acceptance boxes.
-9. **Crate-scoped verification (tick370 perf amendment).** Default to
+9. Implement. Stay inside may-touch list. Tick acceptance boxes.
+10. **Crate-scoped verification (tick370 perf amendment).** Default to
    checking ONLY the crates your may-touch list mentions — workspace
    commands cost 28+ minutes cold and ~9 minutes warm, multiplied by
    every iteration. Crate-scoped commands run in 30s-2min.
@@ -271,15 +283,15 @@ Run this loop until any STOP CONDITION fires:
    it. Crate-scoped clippy + workspace final-sanity catches both.
 
    3-attempt fail rule applies (HARD RULE 4).
-10. PRE-PUSH FLIGHT CHECK (HARD RULE 8). If still CLAIMED-by-you,
+11. PRE-PUSH FLIGHT CHECK (HARD RULE 8). If still CLAIMED-by-you,
     `git push -u origin <branch>`.
-11. `gh pr create` with title and body matching the brief.
-12. cd back to main checkout. Edit BUILD_STATUS.md → set row to
+12. `gh pr create` with title and body matching the brief.
+13. cd back to main checkout. Edit BUILD_STATUS.md → set row to
     IN_REVIEW with PR number. Commit `"status: <brief-id> in review
     (#<num>)"` and push.
-13. **Iteration jitter**: `sleep $((RANDOM % 26 + 5))` to spread
+14. **Iteration jitter**: `sleep $((RANDOM % 26 + 5))` to spread
     finishing collisions across tabs.
-14. Loop to step 1.
+15. Loop to step 1.
 
 ### STOP CONDITIONS (any one ends the loop cleanly) — tick369 loosened
 
