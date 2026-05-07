@@ -4,9 +4,9 @@
 
 Argo is the agent framework that **a single engineer can fully audit on a weekend** and that **a 200-person company can deploy to production** without writing the multi-tenant layer themselves.
 
-> **Status: production-ready as of PR #522 (April 2026).** Phases 0–7 + 4.5 + 6.5 + 7.5 all shipped across **636+ PRs** on `main`. The gateway exposes **133 endpoints** (91 GET + 42 POST) with universal `--json` + `?format=markdown`. Library + integration + observability tiers are feature-complete. v1.1 architectural cleanup also done: forge daemon split (#581), browser MCP stateful sessions (17 stateful tools + lifecycle + idle-reaper, #591/#593), voice MCP native STT via whisper-rs (opt-in via `--features whisper-native`, #636).
+> **Status: v1 demo gate green (9/9 e2e steps); production-readiness checklist tracked in [`docs/build-plan/MISSION_BACKLOG.md`](docs/build-plan/MISSION_BACKLOG.md) §2.** Phases 0–7 + 4.5 + 6.5 + 7.5 all shipped across **930+ merged PRs** on `main` (snapshot 2026-05-07; `gh pr list --state merged --limit 1000` is the source-of-truth). The gateway catalog (`GET /routes`) lists **143 endpoints** (97 GET + 46 POST) with universal `--json` + `?format=markdown`. Substrate primitives (Worker / Persona / Role, capability engine, MCP wire, computer-use loop, 8 channel impls, judge crate, A/B + skill quality, audit chain, OCI distribution) are feature-complete; runtime closed-loops landed across the May Phase A wires (judge in skill creation #936 + forge promote #940, memory hydration #945, outbound notify on Ask #931, MCP action executor #933, duty-scheduler in gateway boot #939, gateway bearer auth #946).
 >
-> **What's left** is decision-gated, not blocked: native TTS (waiting on `piper-rs` upstream to fix its `ort` 2.x build), OCI registry CI smoke (needs test creds), and optional cloud browser backends (Browserbase / BrowserUse — user-pays). See `ROADMAP.md` for the per-PR map.
+> **Honest gap.** The deep-research pass at tick 198 framed substrate ≈ 75% / runtime ≈ 45% / mission-spirit ≈ 45%; the May Phase A wires close most of the named runtime gaps (see [`docs/skycot/MISSION.md`](docs/skycot/MISSION.md) for the refreshed snapshot). What's still in flight: per-Principal audit-row stamping on the new bearer-auth gate, Action-level ApiExecutor (mission-wire-api-action-executor BLOCKED on schema), per-worker memory scope (workspace-shared shipped in #945), and the docs-only headline reconciliation across launch_readiness.md.
 
 ## The five non-negotiable invariants
 
@@ -65,7 +65,7 @@ Pin a specific version with `ARGO_VERSION=v0.1.0` or change the destination with
 ```bash
 argo gateway start &           # bind 127.0.0.1:7400
 curl http://127.0.0.1:7400/    # landing JSON + entry-point hints
-curl http://127.0.0.1:7400/routes  # the full 133-endpoint catalog
+curl http://127.0.0.1:7400/routes  # the full 143-endpoint catalog
 argo doctor                    # workspace health probe
 argo gateway probe             # K8s-style readiness probe
 argo tui                       # full Ratatui app w/ 11 overlays

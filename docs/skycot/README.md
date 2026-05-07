@@ -45,27 +45,34 @@ Short version: **the worker does the legwork; you keep the keys.**
 
 ## What ships in v1
 
-Two complete vertical bindings ship in the binary:
+Ten vertical bindings ship in the repo (snapshot 2026-05-07; run
+`ls verticals/` for the live list — the directory is the
+source-of-truth):
 
 ```
 verticals/gtm-engineer/        # marketplace seller — the v1 reference vertical
-verticals/ai-receptionist/     # front-desk worker — same OS, different domain
+verticals/ai-receptionist/     # front-desk worker
+verticals/customer-support/    # support triage
+verticals/finance-ar/          # accounts-receivable clerk
+verticals/marketing-intern/    # marketing intern
+verticals/marketplace-seller/  # generic marketplace listing flow
+verticals/pr-checker/          # PR review aide
+verticals/receptionist/        # alt receptionist binding
+verticals/sales-follow-up/     # post-demo nudge cadence
+verticals/sales-sdr/           # outbound SDR
 ```
 
-**`gtm-engineer`** declares 10 marketplace-action types
-(verify_price, post_listing, mark_item_sold, reply_to_buyer, …)
-with per-platform instruction templates for ebay /
-facebook_marketplace / gumtree.
+**`gtm-engineer`** is the v1 reference vertical — declares
+marketplace-action types (verify_price, post_listing,
+mark_item_sold, reply_to_buyer, …) with per-platform
+instruction templates for ebay / facebook_marketplace /
+gumtree. The other nine verticals are configuration-only (no
+shared Rust code beyond the OS-level Worker v3 contract).
 
-**`ai-receptionist`** declares 6 receptionist actions
-(lookup_contact, take_message, draft_meeting_request,
-send_calendar_invite, forward_call, send_followup_email) with a
-Google Calendar template override.
-
-Both verticals share zero code beyond the OS-level Worker v3
-contract. Authoring a third vertical is a TOML-and-prompt-only
+Authoring an eleventh vertical is a TOML-and-prompt-only
 task; see the `verticals/` directory + `argo vertical lint
-<id>` for the path.
+<id>` for the path. The 12 archetypes covered by `argo genesis
+list-archetypes` are the standard-template starting points.
 
 ## Read next
 

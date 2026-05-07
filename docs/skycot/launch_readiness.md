@@ -4,10 +4,20 @@ A single-page summary of what's shipped, what's not, and the
 confidence level on each. The view that should be in front of
 you the day before first customer onboarding.
 
-Last updated after PRs #729–#759 (Worker v3 generic execution
-through to provider-keys docs, Prometheus metrics for the
-action ledger, retry policy, failure-modes reference, and the
-eval suite expansion across the cohort).
+Last refreshed 2026-05-07 by `mission-headline-reconciliation`
+(headline numbers only — the per-row PR/lock-test references
+below are historically accurate but predate the SKYCOT swarm
+that added ~70 more PRs on top of the table; treat each row as
+"shipped on or after the cited PR" rather than "current
+implementation lives in that PR"). The ground-truth gates for
+v1 launch live in [`docs/build-plan/MISSION_BACKLOG.md`](
+../build-plan/MISSION_BACKLOG.md) §2; the live brief queue is
+in [`docs/build-plan/BUILD_STATUS.md`](
+../build-plan/BUILD_STATUS.md). The original baseline (#729–
+#759) covered Worker v3 generic execution through to
+provider-keys docs, Prometheus metrics for the action ledger,
+retry policy, failure-modes reference, and the eval suite
+expansion across the cohort.
 
 ## Ready for first customer
 
@@ -88,9 +98,15 @@ bindings"), every literal requirement has shipped:
   (per-platform templates ready for hubspot / salesforce /
   close), `send_followup_email` (HIGH RISK).
 
-All three shipped verticals share zero code beyond the OS-level
-Worker v3 contract — proving vertical authoring is genuinely
-TOML-and-prompt-only.
+The original three v3-cohort verticals (gtm-engineer / ai-receptionist /
+sales-follow-up) share zero code beyond the OS-level Worker v3 contract
+— proving vertical authoring is genuinely TOML-and-prompt-only. As of
+2026-05-07 the repo ships **10 vertical bindings total** (`ls
+verticals/` — gtm-engineer / ai-receptionist / customer-support /
+finance-ar / marketing-intern / marketplace-seller / pr-checker /
+receptionist / sales-follow-up / sales-sdr); the seven additions are
+configuration-only, lint-clean against `argo vertical lint`, and
+mirror the same Worker v3 contract.
 
 ## Not ready / out of scope for v1
 

@@ -35,7 +35,7 @@ roadmap lifecycle is operational:**
   detach-skill / skills` carve a curated subset for one
   session; the runner falls back to all active skills when the
   set is empty.
-- Gateway exposes 69 endpoints, all enumerable via
+- Gateway exposes 143 endpoints (snapshot 2026-05-07), all enumerable via
   `GET /routes`. Write endpoints round out CLI parity:
   `POST /skills` (#275), `POST /memory` (#276),
   `POST /forge/optimize` + `POST /forge/bench` (#281),
@@ -67,12 +67,29 @@ roadmap lifecycle is operational:**
   is in flight.
 
 Phases 0–7 + 4.5 + 6.5 + 7.5 all ship at the library tier
-across **658 PRs** on `main` (258 since milestone 400 —
-**v1.0 production-ready**; **v1.1 forge-daemon split complete**; **v1.1 browser stateful sessions feature-complete (17 stateful tools)** — plus opt-in **Browserbase cloud backend (#642)** behind `--features browserbase`; **v1.1 voice native: whisper-rs wired #636** — opt-in `--features whisper-native`; piper-rs blocked on upstream),
-~50k LOC across 27 crates, **zero LOC-budget violations on
-ANY file** (source AND tests), 80+ test suites green.
-Library + integration + observability tiers feature-complete.
-The gateway exposes **133 endpoints** (91 GET + 42 POST) with
+across **930+ merged PRs** on `main` (snapshot 2026-05-07; the
+SKYCOT swarm added ~70 PRs on top of milestone 658 across the
+v1.1 / V2.0 / V2.2 sweep — Phase A wires, dreams memory + skill
+distillation, demo verticals, mobile/voice/native macOS
+operator UX). The repo today is **~204k Rust LOC across 56
+crates** (`find crates -name "*.rs" -not -path "*/target/*" |
+xargs wc -l`); the LOC-budget invariant has **4 source-file
+violations** as of this snapshot (`crates/argo-orchestrator/src/auction.rs`
+683, `crates/argo-orchestrator/src/duty_scheduler.rs` 672,
+`crates/argo-cli/src/handlers/gateway/metrics.rs` 545,
+`crates/argo-cli/src/handlers/memory.rs` 533) plus 2 test-file
+violations (`crates/argo-cli/tests/work_queue.rs` 593,
+`crates/argo-cli/tests/work_multi_step.rs` 528) — split-style
+recovery briefs are the proven pattern (see #851 / #882 / #909
+/ #910 / #914 / #915 / #932 / #935 for the recent eight). Test
+suite reports ~1500 `#[test]`/`#[tokio::test]` declarations
+across the workspace. Library + integration + observability
+tiers feature-complete; runtime closed-loops landed across the
+May Phase A wires (judge gates #936 + #940, memory hydration
+#945, outbound notify on Ask #931, MCP action executor #933,
+duty-scheduler in gateway boot #939, gateway bearer auth
+#946). The gateway catalog (`GET /routes`) lists **143
+endpoints** (97 GET + 46 POST) with
 full CLI parity for the read/count surface, plus the full
 `--sort-by` family across the four list views and time
 filters on the count endpoints. **Count endpoint family

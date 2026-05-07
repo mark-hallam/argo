@@ -145,49 +145,58 @@ notifies the operator + collects the reply is multi-channel.
 
 ---
 
-## Status: substrate vs runtime (tick 198 capture)
+## Status: substrate vs runtime (snapshot 2026-05-07)
 
 The mission paragraph above is the **target**. The current state
 of the codebase against that target was assessed in a deep-research
 pass at tick 198 (~280 actionable items captured in
-[docs/build-plan/MISSION_BACKLOG.md](../build-plan/MISSION_BACKLOG.md)).
-The honest framing:
+[docs/build-plan/MISSION_BACKLOG.md](../build-plan/MISSION_BACKLOG.md));
+the framing below is refreshed against the May Phase A swarm
+that closed most of the named runtime gaps.
 
-- **Substrate (primitives): ~75% complete.** The architecture is
-  sound. Worker / Persona / Role / Vertical types exist; capability
-  engine real; multi-tenant by construction; MCP wire end-to-end;
-  computer-use loop landed; 8 channel implementations real with
-  real backends; judge crate real; A/B + skill quality real;
-  audit chain hash-verified; OCI distribution real.
-- **Runtime (closed loops): ~45% complete.** Many wires are missing
-  between substrate primitives that exist and the user-visible
-  loops that prove the mission claims. Specifically:
-  - The judge is built but not consulted by skill creation OR
-    forge promote.
-  - The duty scheduler is built but not spawned in gateway boot.
-  - Layered memory composition is built but never injected into
-    the agent system prompt.
-  - Outbound notify channels are built but never called when the
-    auto-approval gate returns Decision::Ask.
-  - Action-level McpExecutor + ApiExecutor remain stubs — the
-    agent-level dispatch shipped, but per-action manifest
-    `executor.kind=mcp` declarations error today.
-- **Mission spirit: ~45% delivered.** Each of the six load-bearing
-  claims has a v1 implementation, but only some have a real
-  closed loop the operator can observe end-to-end without
-  developer hand-holding.
+- **Substrate (primitives): ~85% complete** (was 75%). The
+  architecture is sound. Worker / Persona / Role / Vertical
+  types exist; capability engine real; multi-tenant by
+  construction; MCP wire end-to-end; computer-use loop landed;
+  8 channel implementations real with real backends; judge
+  crate real; A/B + skill quality real; audit chain
+  hash-verified; OCI distribution real. Phase A added gateway
+  bearer-token auth at the dispatch layer (#946), the OTLP
+  exporter (#938), and CI / coverage tooling (#930 / #942).
+- **Runtime (closed loops): ~70% complete** (was 45%). Most
+  wires the tick-198 capture flagged as missing have landed:
+  - Judge is consulted by skill creation (#936, fail-OPEN) AND
+    forge promote (#940, fail-CLOSED — promotion blast-radius
+    is larger).
+  - Duty scheduler is spawned in gateway boot (#939) — the
+    autonomous loop foundation is live.
+  - Layered memory composition is injected into the agent
+    system prompt (#945, workspace-shared scope; per-worker is
+    queued).
+  - Outbound notify channels are called when the auto-approval
+    gate returns `Decision::Ask` (#931).
+  - Action-level McpExecutor wired (#933) — per-action manifest
+    `executor.kind=mcp` declarations now reach the connector.
+    ApiExecutor remains BLOCKED on schema-vs-acceptance
+    mismatch (mission-wire-api-action-executor).
+- **Mission spirit: ~65% delivered** (was 45%). Each of the
+  six load-bearing claims now has a v1 closed loop the
+  operator can observe end-to-end. Gaps remaining are:
+  per-Principal audit-row stamping on the new bearer-auth
+  gate; per-worker memory scope (workspace-shared shipped, the
+  schema extension is queued); ApiExecutor unblocked; the
+  Dreams cohort distillation pipeline (V2.0 Integration B,
+  IN_REVIEW #948) hooked into a nightly trajectory walker.
 
 The gap is enumerable, scoped, and almost entirely tractable.
 There are no architectural dead-ends visible. The work is
-partitioned in MISSION_BACKLOG.md across nine sections; the
-highest-leverage next moves are the Phase A `mission-*` briefs
-captured at tick 198 (eight load-bearing wires plus the
-production perimeter).
+partitioned in MISSION_BACKLOG.md across nine sections.
 
-This section is captured at tick 198 and will be refreshed when
-the next deep assessment is run. It does not change the mission;
-it makes the gap between mission and current reality visible to
-every agent reading this file.
+This section is refreshed each time a headline reconciliation
+brief lands (next refresh trigger: when the V2.0 Dreams plan-
+template cascade lands or when ApiExecutor unblocks). It does
+not change the mission; it makes the gap between mission and
+current reality visible to every agent reading this file.
 
 ---
 

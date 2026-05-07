@@ -10,6 +10,38 @@ Versioning: SemVer.
 
 ---
 
+## [Unreleased] — 2026-05-07 — Headline reconciliation
+
+### Changed
+- README.md / ROADMAP.md / MISSION.md substrate-runtime snapshot /
+  docs/skycot/README.md / docs/skycot/launch_readiness.md headline
+  numbers refreshed against tree state on 2026-05-07 (per
+  `mission-headline-reconciliation` brief): 930+ merged PRs (was
+  636/658), 143 gateway endpoints (was 133 / 69), ~204k Rust LOC
+  across 56 crates (was ~50k across 27), 4 source-file LOC-budget
+  violations called out (auction.rs / duty_scheduler.rs /
+  metrics.rs / handlers/memory.rs) — was claimed as "zero".
+- "production-ready as of PR #522" claim removed; replaced with
+  "v1 demo gate green; production-readiness checklist tracked in
+  MISSION_BACKLOG.md §2".
+- MISSION substrate/runtime snapshot refreshed: substrate ~85% (was
+  75%), runtime ~70% (was 45%), mission-spirit ~65% (was 45%) —
+  Phase A wires landed (#931 / #933 / #936 / #939 / #940 / #945 /
+  #946) closed most of the named runtime gaps.
+- launch_readiness.md "Vertical bindings shipped" expanded from
+  3 to the 10 verticals currently in `verticals/`; per-row PR
+  refs in the table flagged as historically-accurate-but-PRs-have-
+  moved.
+
+### Notes
+- Per-row content in `docs/build-plan/BUILD_STATUS.md` is
+  worker-owned and was not touched (per brief Files-You-Must-NOT-
+  Touch); the conductor header was already accurate.
+- The mission paragraph in MISSION.md is immutable per CLAUDE.md
+  and was not touched.
+
+---
+
 ## [0.1.0] — 2026-05-05 — Initial customer-launch release
 
 The first SKYCOT release ready for paying customers. Marketplace
