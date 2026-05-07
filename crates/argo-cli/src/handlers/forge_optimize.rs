@@ -13,12 +13,16 @@
 //! mechanical (a templated `Refinement attempt N` block
 //! appended to the body); LLM-driven mutation is a follow-up.
 use super::forge_mutator::mutate_via_llm;
+use super::forge_optimize_judge::{
+    self, evaluate_promote_gates, write_promote_blocked_audit, PromoteDecision,
+};
 use super::forge_subject::{open_store, BenchSubject};
 use crate::home::resolve_home;
 use argo_audit::{AuditKind, AuditSink};
 use argo_eval::{load_jsonl, run_eval, EvalRecord};
+use argo_judge::Judge;
 use argo_skill::{PrincipalOverride, SkillStore};
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, SessionId};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -53,6 +57,7 @@ pub(crate) async fn run_with_events(
         stream,
         events_tx,
         None,
+        None,
     )
     .await
 }
@@ -77,10 +82,12 @@ pub(crate) async fn run_claimed(
         false,
         None,
         Some(run_id),
+        None,
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_with_events_and_run_id(
     skill_name: &str,
     examples_path: &str,
@@ -89,6 +96,7 @@ async fn run_with_events_and_run_id(
     stream: bool,
     events_tx: Option<tokio::sync::mpsc::UnboundedSender<serde_json::Value>>,
     existing_run_id: Option<uuid::Uuid>,
+    judge: Option<&dyn Judge>,
 ) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
@@ -299,9 +307,35 @@ async fn run_with_events_and_run_id(
         }
     }
 
-    if best_version != baseline.frontmatter.version || iterations > 1 {
-        let _ = skills.promote(skill_name, &best_version).await;
-    }
+    // Gates: threshold + judge must both pass before promote.
+    // Fail-CLOSED on judge availability — promotion is consequential.
+    let promote_decision = if best_version != baseline.frontmatter.version || iterations > 1 {
+        let candidate_body = resolve_candidate_body(&skills, skill_name, &best_version, &baseline)
+            .await
+            .unwrap_or_else(|| baseline.body.clone());
+        let decision = evaluate_promote_gates(
+            best_score,
+            forge_optimize_judge::promote_threshold(),
+            judge,
+            SessionId::new(),
+            skill_name,
+            &baseline.frontmatter.version,
+            &candidate_body,
+        )
+        .await;
+        if matches!(decision, PromoteDecision::Allow) {
+            let _ = skills.promote(skill_name, &best_version).await;
+        } else {
+            write_promote_blocked_audit(&store, run_id, skill_name, &best_version, &decision).await;
+            if last_status == "succeeded" {
+                last_status = decision.run_status().unwrap_or(last_status);
+            }
+        }
+        decision
+    } else {
+        PromoteDecision::Allow
+    };
+    let promoted = matches!(promote_decision, PromoteDecision::Allow);
 
     let final_score = if best_score.is_finite() {
         Some(best_score)
@@ -321,6 +355,7 @@ async fn run_with_events_and_run_id(
                 "best_score": final_score,
                 "best_version": best_version,
                 "iterations_run": completed,
+                "promoted": promoted,
             }),
         )
         .await;
@@ -329,7 +364,11 @@ async fn run_with_events_and_run_id(
             "\nsummary: status={last_status} best_score={best_score:.3} \
              best_version={best_version} iters_run={completed}/{iterations} (run_id={run_id})"
         );
-        println!("  → promoted {skill_name} v{best_version} to active");
+        if promoted {
+            println!("  → promoted {skill_name} v{best_version} to active");
+        } else {
+            println!("  → promotion refused ({last_status}); active version unchanged");
+        }
     } else {
         dispatch(serde_json::json!({
             "event": "done",
@@ -339,10 +378,31 @@ async fn run_with_events_and_run_id(
             "best_version": best_version,
             "iterations_run": completed,
             "iterations_planned": iterations,
-            "promoted": true,
+            "promoted": promoted,
         }));
     }
     Ok(())
+}
+
+/// Look up the on-disk body of the variant that won the optimize
+/// sweep, so the judge can adjudicate against the actual prompt
+/// the agent would inherit. Falls back to the baseline body when
+/// the lookup misses (defensive — the row was just superseded by
+/// the loop a moment ago, so this should always find the row).
+async fn resolve_candidate_body(
+    skills: &SkillStore,
+    skill_name: &str,
+    best_version: &str,
+    baseline: &argo_skill::Skill,
+) -> Option<String> {
+    if best_version == baseline.frontmatter.version {
+        return Some(baseline.body.clone());
+    }
+    let versions = skills.versions_for_name(skill_name).await.ok()?;
+    versions
+        .into_iter()
+        .find(|s| s.frontmatter.version == best_version)
+        .map(|s| s.body)
 }
 
 /// Async kick-off used by the gateway's `POST /forge/optimize`.

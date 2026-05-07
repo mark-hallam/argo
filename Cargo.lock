@@ -222,6 +222,7 @@ dependencies = [
  "argo-executor-filesystem",
  "argo-genesis",
  "argo-identity",
+ "argo-judge",
  "argo-marketplace",
  "argo-mcp",
  "argo-memory",
