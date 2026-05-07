@@ -71,4 +71,5 @@ uuid = { workspace = true }
 libc = "0.2"
 
 [dev-dependencies]
+csv = "1"
 tempfile = "3"

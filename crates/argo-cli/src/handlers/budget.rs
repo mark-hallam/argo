@@ -1,5 +1,5 @@
 //! `argo budget` — per-worker budget ledger reads.
-use crate::cli::{BudgetAlertsCmd, BudgetCmd};
+use crate::cli::{BudgetAlertsCmd, BudgetCmd, BudgetOutputFormat};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::{worker_budget, AutoApprovalPolicy};
 use argo_store::SessionStore;
@@ -14,12 +14,18 @@ const WORKER_BUDGET_SCHEMA: &str =
 pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
     let store = open_store().await?;
     match cmd {
-        BudgetCmd::Show { worker_id, json } => {
+        BudgetCmd::Show {
+            worker_id,
+            json,
+            format,
+        } => {
             let summary = budget_summary(&store, &worker_id, Utc::now()).await?;
-            if json {
-                println!("{}", serde_json::to_string(&summary).unwrap_or_default());
-            } else {
-                print!("{}", render_summary_text(&summary));
+            match format.resolve(json) {
+                BudgetOutputFormat::Json => {
+                    println!("{}", serde_json::to_string(&summary).unwrap_or_default());
+                }
+                BudgetOutputFormat::Csv => print!("{}", super::budget_csv::summary(&summary)),
+                BudgetOutputFormat::Human => print!("{}", render_summary_text(&summary)),
             }
         }
         BudgetCmd::Recent {
@@ -27,13 +33,18 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
             worker,
             since,
             json,
+            format,
         } => {
             let since = parse_since(since.as_deref())?;
             let rows = recent_charges(&store, limit, worker.as_deref(), since).await?;
-            if json {
-                println!("{}", serde_json::to_string(&rows).unwrap_or_default());
-            } else {
-                print!("{}", render_recent_text(&rows, worker.as_deref(), since));
+            match format.resolve(json) {
+                BudgetOutputFormat::Json => {
+                    println!("{}", serde_json::to_string(&rows).unwrap_or_default());
+                }
+                BudgetOutputFormat::Csv => print!("{}", super::budget_csv::charges(&rows)),
+                BudgetOutputFormat::Human => {
+                    print!("{}", render_recent_text(&rows, worker.as_deref(), since));
+                }
             }
         }
         BudgetCmd::Anomalies {
@@ -41,9 +52,17 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
             since,
             limit,
             json,
+            format,
         } => {
             let since = parse_since(since.as_deref())?;
-            super::budget_anomalies::list(&store, worker.as_deref(), since, limit, json).await?;
+            super::budget_anomalies::list(
+                &store,
+                worker.as_deref(),
+                since,
+                limit,
+                format.resolve(json),
+            )
+            .await?;
         }
         BudgetCmd::AnomalyTick { json } => {
             super::budget_anomalies::tick(&store, Utc::now(), json).await?;
@@ -57,10 +76,25 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
                 since,
                 limit,
                 json,
-            } => {
-                super::budget_alerts_list::run(worker.as_deref(), since.as_deref(), limit, json)
+                format,
+            } => match format.resolve(json) {
+                BudgetOutputFormat::Csv => {
+                    let since = super::budget_watch::parse_since(since.as_deref())?;
+                    let rows =
+                        super::budget_watch::list_alerts(&store, worker.as_deref(), since, limit)
+                            .await?;
+                    print!("{}", super::budget_csv::alerts(&rows));
+                }
+                BudgetOutputFormat::Json | BudgetOutputFormat::Human => {
+                    super::budget_alerts_list::run(
+                        worker.as_deref(),
+                        since.as_deref(),
+                        limit,
+                        json || format == BudgetOutputFormat::Json,
+                    )
                     .await?;
-            }
+                }
+            },
             BudgetAlertsCmd::Test {
                 worker,
                 threshold,
@@ -84,27 +118,27 @@ async fn open_store() -> ArgoResult<SessionStore> {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct BudgetSummary {
-    worker_id: String,
-    today_usd_micros: u64,
-    this_month_usd_micros: u64,
-    today_usd: f64,
-    this_month_usd: f64,
-    daily_cap_usd_micros: Option<u64>,
-    monthly_cap_usd_micros: Option<u64>,
-    remaining_today_usd: Option<f64>,
-    remaining_month_usd: Option<f64>,
-    last_charges: Vec<ChargeRow>,
+pub(crate) struct BudgetSummary {
+    pub(crate) worker_id: String,
+    pub(crate) today_usd_micros: u64,
+    pub(crate) this_month_usd_micros: u64,
+    pub(crate) today_usd: f64,
+    pub(crate) this_month_usd: f64,
+    pub(crate) daily_cap_usd_micros: Option<u64>,
+    pub(crate) monthly_cap_usd_micros: Option<u64>,
+    pub(crate) remaining_today_usd: Option<f64>,
+    pub(crate) remaining_month_usd: Option<f64>,
+    pub(crate) last_charges: Vec<ChargeRow>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct ChargeRow {
-    worker_id: String,
-    action_id: String,
-    usd_micros: u64,
-    usd: f64,
-    charged_at: String,
-    charged_at_epoch: i64,
+pub(crate) struct ChargeRow {
+    pub(crate) worker_id: String,
+    pub(crate) action_id: String,
+    pub(crate) usd_micros: u64,
+    pub(crate) usd: f64,
+    pub(crate) charged_at: String,
+    pub(crate) charged_at_epoch: i64,
 }
 
 async fn budget_summary(

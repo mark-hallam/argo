@@ -33,17 +33,17 @@ double-quoted strings with embedded `"` doubled, newline-terminated.
   4 commands' CSV output parses cleanly with `csv` crate
 
 ## Acceptance criteria
-- [ ] `argo budget show w-1 --format csv` emits 1 header row + 1 data row
-- [ ] `argo budget recent --format csv` emits 1 header row + N data rows
-- [ ] `argo budget anomalies --format csv` emits 1 header row + N data rows
-- [ ] `argo budget alerts list --format csv` emits 1 header row + N data rows
-- [ ] CSV output round-trips via the `csv` crate's reader without
+- [x] `argo budget show w-1 --format csv` emits 1 header row + 1 data row
+- [x] `argo budget recent --format csv` emits 1 header row + N data rows
+- [x] `argo budget anomalies --format csv` emits 1 header row + N data rows
+- [x] `argo budget alerts list --format csv` emits 1 header row + N data rows
+- [x] CSV output round-trips via the `csv` crate's reader without
       errors (verified in smoke test)
-- [ ] Embedded commas, quotes, and newlines in fields are properly
+- [x] Embedded commas, quotes, and newlines in fields are properly
       escaped (RFC 4180)
-- [ ] `--format human` and `--format json` continue to work unchanged
-- [ ] 4 unit tests + 1 smoke
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [x] `--format human` and `--format json` continue to work unchanged
+- [x] 4 unit tests + 1 smoke
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` clean
 
 ## Branch + PR
 - Branch: `codex-budget-export-csv-cli`

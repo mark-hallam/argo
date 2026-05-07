@@ -1,5 +1,28 @@
 //! `argo budget` subcommands for per-worker spend visibility.
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
+
+/// Output encoding for budget read-side commands.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum BudgetOutputFormat {
+    /// Human-readable text.
+    Human,
+    /// JSON output matching the legacy `--json` switch.
+    Json,
+    /// RFC 4180 CSV with a header row.
+    Csv,
+}
+
+impl BudgetOutputFormat {
+    /// Preserve legacy `--json` behavior while allowing
+    /// `--format json|csv|human`.
+    pub fn resolve(self, json: bool) -> Self {
+        if json {
+            Self::Json
+        } else {
+            self
+        }
+    }
+}
 
 #[derive(Subcommand, Debug)]
 pub enum BudgetCmd {
@@ -9,6 +32,8 @@ pub enum BudgetCmd {
         worker_id: String,
         #[arg(long)]
         json: bool,
+        #[arg(long, value_enum, default_value_t = BudgetOutputFormat::Human)]
+        format: BudgetOutputFormat,
     },
     /// List recent worker-budget charges.
     Recent {
@@ -20,6 +45,8 @@ pub enum BudgetCmd {
         since: Option<String>,
         #[arg(long)]
         json: bool,
+        #[arg(long, value_enum, default_value_t = BudgetOutputFormat::Human)]
+        format: BudgetOutputFormat,
     },
     /// List spend-anomaly events (Welford z-score on per-worker
     /// USD-per-hour history; threshold env-overridable via
@@ -39,6 +66,8 @@ pub enum BudgetCmd {
         /// table.
         #[arg(long)]
         json: bool,
+        #[arg(long, value_enum, default_value_t = BudgetOutputFormat::Human)]
+        format: BudgetOutputFormat,
     },
     /// Run one anomaly-detection tick: walk every active worker,
     /// fold the previous-hour USD-per-hour into the
@@ -87,6 +116,8 @@ pub enum BudgetAlertsCmd {
         /// Emit one JSON object per alert.
         #[arg(long)]
         json: bool,
+        #[arg(long, value_enum, default_value_t = BudgetOutputFormat::Human)]
+        format: BudgetOutputFormat,
     },
     /// Fire a synthetic budget alert immediately, bypassing dedup.
     Test {

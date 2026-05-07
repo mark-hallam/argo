@@ -12,6 +12,7 @@
 //! USD-per-hour spend into the (worker, hour-of-day) baseline,
 //! and writes a `worker_spend_anomaly` row when |z| exceeds the
 //! configured threshold.
+use crate::cli::BudgetOutputFormat;
 use argo_store::spend_anomaly::{
     configured_threshold, list_active_worker_ids, list_anomalies, load_baseline,
     observe_recent_hour, record_anomaly, save_baseline, AnomalyFilters, SpendAnomaly,
@@ -28,23 +29,30 @@ pub(crate) async fn list(
     worker: Option<&str>,
     since: Option<DateTime<Utc>>,
     limit: u32,
-    json: bool,
+    format: BudgetOutputFormat,
 ) -> ArgoResult<()> {
     let filters = AnomalyFilters {
         worker_id: worker,
         since_micros: since.map(|t| t.timestamp_micros()),
     };
     let rows = list_anomalies(store.pool(), &filters, limit).await?;
-    if json {
-        let payload = json!({
-            "count": rows.len(),
-            "anomalies": rows.iter().map(anomaly_to_json).collect::<Vec<_>>(),
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
-        );
-        return Ok(());
+    match format {
+        BudgetOutputFormat::Json => {
+            let payload = json!({
+                "count": rows.len(),
+                "anomalies": rows.iter().map(anomaly_to_json).collect::<Vec<_>>(),
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
+            );
+            return Ok(());
+        }
+        BudgetOutputFormat::Csv => {
+            print!("{}", super::budget_csv::anomalies(&rows));
+            return Ok(());
+        }
+        BudgetOutputFormat::Human => {}
     }
     println!(
         "spend anomalies ({} rows; threshold |z| > {:.1})",
