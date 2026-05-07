@@ -295,11 +295,22 @@ impl OrchestratorStore {
             .collect()
     }
 
-    /// Update a handoff lifecycle status.
+    /// Update a handoff lifecycle status. On a real
+    /// `Pending → Acknowledged` transition, append a `worker_handoff`
+    /// audit row to the session chain (Stream
+    /// `claude-worker-handoff-record`) so every delegation lands in
+    /// the audit timeline. Re-ack of an already-acknowledged handoff
+    /// is permitted by the state machine but does NOT write a second
+    /// row.
     pub async fn update_handoff_status(&self, tenant_id: TenantId, handoff_id: &HandoffId, status: HandoffStatus) -> ArgoResult<()> {
-        let current = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?.status;
+        let handoff = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?;
+        let current = handoff.status;
         if !handoff_transition_allowed(current, status) { return Err(ArgoError::Invariant("invalid handoff status transition")); }
-        sqlx::query("UPDATE handoff SET status = ? WHERE id = ?").bind(handoff_status_label(status)).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("update handoff status: {e}")))?; Ok(())
+        sqlx::query("UPDATE handoff SET status = ? WHERE id = ?").bind(handoff_status_label(status)).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("update handoff status: {e}")))?;
+        if matches!((current, status), (HandoffStatus::Pending, HandoffStatus::Acknowledged)) {
+            crate::persist_audit::audit_worker_handoff(self.store.pool(), &handoff).await?;
+        }
+        Ok(())
     }
 
     /// Cancel a pending or acknowledged handoff and append its audit row.

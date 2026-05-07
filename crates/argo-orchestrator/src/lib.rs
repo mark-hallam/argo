@@ -36,6 +36,9 @@ pub mod duty_scheduler;
 mod escalation;
 mod handoff;
 pub mod persist;
+/// Audit-row writers for handoff transitions
+/// (Stream `claude-worker-handoff-record`).
+pub mod persist_audit;
 pub mod routing;
 mod session;
 mod walker;
