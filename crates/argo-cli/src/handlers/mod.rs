@@ -102,6 +102,7 @@ pub mod handoff_rules_test;
 pub mod health;
 pub mod judge;
 pub mod mcp;
+pub mod mcp_tools;
 pub mod memory;
 pub mod memory_dream_now;
 pub mod memory_shared_team;

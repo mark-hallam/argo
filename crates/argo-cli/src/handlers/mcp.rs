@@ -20,6 +20,24 @@ use std::sync::Arc;
 pub async fn run(cmd: McpCmd) -> ArgoResult<()> {
     match cmd {
         McpCmd::Serve => serve().await,
+        McpCmd::Tools {
+            server_id,
+            vertical,
+            format,
+            json,
+            filter,
+            schema_only,
+        } => {
+            super::mcp_tools::run(super::mcp_tools::ToolsArgs {
+                server_id,
+                vertical,
+                format,
+                json,
+                filter,
+                schema_only,
+            })
+            .await
+        }
     }
 }
 

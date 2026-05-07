@@ -147,6 +147,20 @@ fn forge_runs_abort_all_renders_help() {
 }
 
 #[test]
+fn mcp_tools_renders_help() {
+    // Pins claude-mcp-tool-discovery-vis — `argo mcp tools` for
+    // discovering tools an MCP server exposes.
+    let h = help(&["mcp", "tools"]);
+    assert!(h.contains("Usage:"), "mcp tools --help: {h}");
+    assert!(h.contains("--vertical"), "mcp tools missing --vertical: {h}");
+    assert!(h.contains("--filter"), "mcp tools missing --filter: {h}");
+    assert!(
+        h.contains("--schema-only"),
+        "mcp tools missing --schema-only: {h}"
+    );
+}
+
+#[test]
 fn tools_list_show_render_help() {
     // Pins #525 — the new `argo tools list / show` surface.
     let h = help(&["tools", "list"]);

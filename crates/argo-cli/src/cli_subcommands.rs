@@ -39,7 +39,33 @@ pub use super::cli_vertical_cmds::VerticalCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum McpCmd {
+    /// Serve the workspace store as an MCP server over stdio.
     Serve,
+    /// Discover the tools an MCP server exposes
+    /// (`claude-mcp-tool-discovery-vis`). Connects to the server
+    /// over stdio using the manifest declaration in the named
+    /// vertical, calls `tools/list`, and renders the result.
+    Tools {
+        /// Server id as declared in the vertical manifest's
+        /// `[mcp_servers]` section.
+        server_id: String,
+        /// Vertical id whose manifest declares the server.
+        #[arg(long)]
+        vertical: String,
+        /// Output format: `markdown` (default) or `json`
+        /// (NDJSON, one tool per line).
+        #[arg(long, default_value = "markdown")]
+        format: String,
+        /// Equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
+        /// Regex narrowing the tool list by name.
+        #[arg(long)]
+        filter: Option<String>,
+        /// Omit descriptions for terse output.
+        #[arg(long)]
+        schema_only: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
