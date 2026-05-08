@@ -547,6 +547,7 @@ here with the date and a link to the v1 demo recording.
 
 ## Worker self-exits
 
+- status: codex-worker-self-exit after 23 PRs (reason: shipped through #1020 `claude-spend-anomaly-vis` and reached a clean PR+ledger boundary well beyond the 2-4 PR rotation guidance; context has compacted once and this iteration hit repeated shared-target cargo contention, so rotating to a fresh tab is the safer handoff. Latest boundary notes: #1020 is IN_REVIEW; `cargo build --workspace` + workspace clippy clean; full `cargo test -p argo-cli` has the two known CLAUDE.md flakes and `cargo test -p argo-store` still fails the pre-existing migration_chain/19__worker_fs_root.sql issue. Fresh tab should re-read the ledger and claim the next TODO normally.)
 - status: codex-worker-self-exit after 0 PRs (reason: codex queue empty after 3 polls; no codex TODO rows remain; non-merged codex rows are BLOCKED: codex-self-update-cli, codex-channel-discord-approvals, codex-handoff-stats-cli, codex-skill-sign-cli)
 - status: codex-worker-self-exit after 5 PRs (reason: codex queue empty after 3 polls; shipped #942 #949 #951 #952 #953; remaining codex rows are #953 IN_REVIEW plus BLOCKED self-update, discord-approvals, handoff-stats, skill-sign)
 - status: codex-worker-self-exit after 0 PRs (reason: no claimable codex TODO rows; codex-worker-portrait-cli waits on claude-anomaly-detector, codex-gdpr-delete-cli already CLAIMED)
