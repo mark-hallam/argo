@@ -92,6 +92,10 @@ pub enum AuditKind {
     /// the skills table for review.
     /// Payload: `{skill_id, name, vertical_id, memory_entry_id}`.
     SkillCandidatePromoted,
+    /// A skill version was rolled back to a prior active-eligible
+    /// row by an operator. Payload carries `name`, from/to
+    /// versions, skill ids, and optional reason.
+    SkillRolledBack,
 }
 
 impl AuditKind {
@@ -124,6 +128,7 @@ impl AuditKind {
             Self::SkillApproved => "skill.approved",
             Self::SkillRejected => "skill.rejected",
             Self::SkillCandidatePromoted => "skill.candidate.promoted",
+            Self::SkillRolledBack => "skill.rollback",
         }
     }
 
@@ -158,6 +163,7 @@ impl AuditKind {
             "skill.approved" => Self::SkillApproved,
             "skill.rejected" => Self::SkillRejected,
             "skill.candidate.promoted" => Self::SkillCandidatePromoted,
+            "skill.rollback" => Self::SkillRolledBack,
             _ => return None,
         })
     }
@@ -182,12 +188,13 @@ impl AuditKind {
     }
 
     /// `true` for kinds added by the vertical-template surface
-    /// (Phase 6+). Today eight: `EscalationRequired` (#660 gate),
+    /// (Phase 6+). Today nine: `EscalationRequired` (#660 gate),
     /// `ApprovalGranted` (#664 grant), `ApprovalRevoked` (#664
     /// revoke), `ApprovalConsumed` (#667 one-shot dispatch),
     /// `CapabilityGap` (#682 detection), `SkillApproved` (#684),
     /// `SkillRejected` (#684), `SkillCandidatePromoted` (#697
-    /// memory→pending_review materialisation). The gateway / CLI
+    /// memory→pending_review materialisation), and
+    /// `SkillRolledBack`. The gateway / CLI
     /// rollups treat these the same as any other audit kind.
     #[must_use]
     pub fn is_vertical(self) -> bool {
@@ -201,6 +208,7 @@ impl AuditKind {
                 | Self::SkillApproved
                 | Self::SkillRejected
                 | Self::SkillCandidatePromoted
+                | Self::SkillRolledBack
         )
     }
 
@@ -234,6 +242,7 @@ impl AuditKind {
             Self::SkillApproved,
             Self::SkillRejected,
             Self::SkillCandidatePromoted,
+            Self::SkillRolledBack,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -330,6 +339,7 @@ mod tests {
             ("skill.approved", AuditKind::SkillApproved),
             ("skill.rejected", AuditKind::SkillRejected),
             ("skill.candidate.promoted", AuditKind::SkillCandidatePromoted),
+            ("skill.rollback", AuditKind::SkillRolledBack),
         ] {
             assert_eq!(AuditKind::from_label(label), Some(kind));
             assert_eq!(kind.label(), label);
@@ -340,5 +350,6 @@ mod tests {
         assert!(labels.contains(&"skill.approved"));
         assert!(labels.contains(&"skill.rejected"));
         assert!(labels.contains(&"skill.candidate.promoted"));
+        assert!(labels.contains(&"skill.rollback"));
     }
 }

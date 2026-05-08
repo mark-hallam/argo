@@ -166,6 +166,23 @@ pub enum SkillCmd {
         #[arg(long = "new-version")]
         new_version: Option<String>,
     },
+    /// Promote a prior version back to active.
+    Rollback {
+        /// Skill name.
+        name: String,
+        /// Target version to promote.
+        #[arg(long = "to")]
+        to: String,
+        /// Preview the transition without changing rows.
+        #[arg(long)]
+        dry_run: bool,
+        /// Optional audit reason.
+        #[arg(long)]
+        reason: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
     Install {
         source: String,
     },

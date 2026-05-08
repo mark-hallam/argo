@@ -99,6 +99,13 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             hint,
             new_version,
         } => super::skill_refine::refine(&skills, &name, &hint, new_version.as_deref()).await,
+        SkillCmd::Rollback {
+            name,
+            to,
+            dry_run,
+            reason,
+            json,
+        } => super::skill_rollback::run(&skills, &name, &to, dry_run, reason.as_deref(), json).await,
         SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
         SkillCmd::Search(args) => super::skill_search::run(
             &args.query,
