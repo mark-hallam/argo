@@ -57,6 +57,7 @@ impl OrchestratorStore {
         .execute(pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("orchestrator handoff table: {e}")))?;
+        add_column_if_missing(pool, "handoff", "resolved_at", "INTEGER").await?;
         sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_handoff_session ON handoff(session_id, created_at)",
         )
@@ -67,6 +68,7 @@ impl OrchestratorStore {
             .execute(pool)
             .await
             .map_err(|e| ArgoError::Provider(format!("handoff status index: {e}")))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_handoff_resolved_at ON handoff(resolved_at) WHERE resolved_at IS NOT NULL").execute(pool).await.map_err(|e| ArgoError::Provider(format!("handoff resolved_at index: {e}")))?;
         Ok(())
     }
 
@@ -295,18 +297,18 @@ impl OrchestratorStore {
             .collect()
     }
 
-    /// Update a handoff lifecycle status. On a real
-    /// `Pending → Acknowledged` transition, append a `worker_handoff`
-    /// audit row to the session chain (Stream
-    /// `claude-worker-handoff-record`) so every delegation lands in
-    /// the audit timeline. Re-ack of an already-acknowledged handoff
-    /// is permitted by the state machine but does NOT write a second
-    /// row.
+    /// Store the terminal-resolution timestamp for a handoff.
+    pub async fn update_handoff_resolved_at(&self, handoff_id: &HandoffId, now_micros: i64) -> ArgoResult<()> {
+        self.ensure_schema().await?; sqlx::query("UPDATE handoff SET resolved_at = ? WHERE id = ?").bind(now_micros).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("update handoff resolved_at: {e}")))?; Ok(())
+    }
+
+    /// Update handoff status and write transition audit/timestamp side effects.
     pub async fn update_handoff_status(&self, tenant_id: TenantId, handoff_id: &HandoffId, status: HandoffStatus) -> ArgoResult<()> {
         let handoff = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?;
         let current = handoff.status;
         if !handoff_transition_allowed(current, status) { return Err(ArgoError::Invariant("invalid handoff status transition")); }
         sqlx::query("UPDATE handoff SET status = ? WHERE id = ?").bind(handoff_status_label(status)).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("update handoff status: {e}")))?;
+        if is_terminal_handoff_status(status) { self.update_handoff_resolved_at(handoff_id, Utc::now().timestamp_micros()).await?; }
         if matches!((current, status), (HandoffStatus::Pending, HandoffStatus::Acknowledged)) {
             crate::persist_audit::audit_worker_handoff(self.store.pool(), &handoff).await?;
         }
@@ -317,7 +319,7 @@ impl OrchestratorStore {
     pub async fn cancel_handoff(&self, tenant_id: TenantId, handoff_id: &HandoffId, note: Option<&str>) -> ArgoResult<Handoff> {
         let mut handoff = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?; handoff.cancel()?;
         if let Some(note) = note.map(str::trim).filter(|n| !n.is_empty()) { let mut payload = handoff.payload.as_object().cloned().unwrap_or_default(); payload.insert("cancel_note".into(), serde_json::Value::String(note.to_string())); handoff.payload = serde_json::Value::Object(payload); }
-        sqlx::query("UPDATE handoff SET status = ?, payload = ? WHERE id = ?").bind(handoff_status_label(handoff.status)).bind(to_json(&handoff.payload, "handoff.payload")?).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("cancel handoff: {e}")))?; write_handoff_cancelled_audit(self.store.pool(), &handoff, note).await?; Ok(handoff)
+        sqlx::query("UPDATE handoff SET status = ?, payload = ? WHERE id = ?").bind(handoff_status_label(handoff.status)).bind(to_json(&handoff.payload, "handoff.payload")?).bind(handoff_id.as_str()).execute(self.store.pool()).await.map_err(|e| ArgoError::Provider(format!("cancel handoff: {e}")))?; self.update_handoff_resolved_at(handoff_id, Utc::now().timestamp_micros()).await?; write_handoff_cancelled_audit(self.store.pool(), &handoff, note).await?; Ok(handoff)
     }
 }
 
@@ -379,6 +381,7 @@ fn handoff_status_label(s: HandoffStatus) -> &'static str { match s { HandoffSta
 fn parse_handoff_status(s: &str) -> ArgoResult<HandoffStatus> { match s { "pending" => Ok(HandoffStatus::Pending), "acknowledged" => Ok(HandoffStatus::Acknowledged), "settled" => Ok(HandoffStatus::Settled), "expired" => Ok(HandoffStatus::Expired), "cancelled" => Ok(HandoffStatus::Cancelled), other => Err(ArgoError::Schema(format!("handoff.status: {other}"))) } }
 fn session_transition_allowed(current: SessionStatus, next: SessionStatus) -> bool { matches!(current, SessionStatus::Active) || current == next }
 fn handoff_transition_allowed(current: HandoffStatus, next: HandoffStatus) -> bool { matches!((current, next), (HandoffStatus::Pending, _) | (HandoffStatus::Acknowledged, HandoffStatus::Acknowledged | HandoffStatus::Settled | HandoffStatus::Cancelled) | (HandoffStatus::Settled, HandoffStatus::Settled) | (HandoffStatus::Expired, HandoffStatus::Expired) | (HandoffStatus::Cancelled, HandoffStatus::Cancelled)) }
+fn is_terminal_handoff_status(status: HandoffStatus) -> bool { matches!(status, HandoffStatus::Settled | HandoffStatus::Expired | HandoffStatus::Cancelled) }
 fn step_json(s: &EscalationStep) -> ArgoResult<String> { match s { EscalationStep::Worker(id) => to_json(&serde_json::json!({"kind":"worker","worker_id":id.to_string()}), "handoff.to"), EscalationStep::Human(addr) => to_json(&serde_json::json!({"kind":"human","addr":addr}), "handoff.to") } }
 fn step_from_json(json: &str) -> ArgoResult<EscalationStep> {
     let v: serde_json::Value = from_json(json, "handoff.to")?;
