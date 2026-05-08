@@ -10,6 +10,7 @@ description = "Argo — SQLite + FTS5 session store"
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-runtime = { path = "../argo-runtime", version = "0.0.1" }
+argo-security = { path = "../argo-security", version = "0.0.1" }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

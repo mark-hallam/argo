@@ -169,6 +169,7 @@ dependencies = [
 name = "argo-audit"
 version = "0.0.1"
 dependencies = [
+ "argo-security",
  "argo-store",
  "argo-types",
  "chrono",
@@ -1103,6 +1104,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-security"
+version = "0.0.1"
+dependencies = [
+ "regex",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "argo-skill"
 version = "0.0.1"
 dependencies = [
@@ -1130,6 +1140,7 @@ name = "argo-store"
 version = "0.0.1"
 dependencies = [
  "argo-runtime",
+ "argo-security",
  "argo-types",
  "async-trait",
  "chrono",

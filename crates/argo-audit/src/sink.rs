@@ -3,6 +3,7 @@
 //! `self_hash = sha256(parent_hash || kind || 0x00 || canonical_payload)`
 //! per session. The first row in a session has `parent_hash = 0…0`.
 use crate::event::AuditKind;
+use argo_security::pii_detect;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
 use chrono::Utc;
@@ -99,8 +100,12 @@ impl AuditSink {
     ) -> ArgoResult<()> {
         let id = Uuid::now_v7();
         let parent_hash = self.last_hash_for(session_id).await?;
-        let canonical = serde_json::to_string(&payload)
+        let raw = serde_json::to_string(&payload)
             .map_err(|e| ArgoError::Schema(format!("audit payload serialize: {e}")))?;
+        // Soft-flag (or auto-redact) PII before hashing + persisting so
+        // the chain stays consistent with what's on disk. Default is
+        // log-only; redaction requires `ARGO_PII_AUTOREDACT=1`.
+        let canonical = pii_detect::scan_and_maybe_redact(&raw, "audit_write").into_owned();
         let self_hash = chain_hash(&parent_hash, kind.label(), &canonical);
         let now = Utc::now();
         sqlx::query(

@@ -10,6 +10,7 @@ description = "Argo — hash-chained audit log + 17 event kinds (§17)"
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-security = { path = "../argo-security", version = "0.0.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

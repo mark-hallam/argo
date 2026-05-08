@@ -5,6 +5,7 @@
 //! method retains its public signature.
 use crate::models::{MessageRow, MessageSearchHit, MessageSearchHitRow};
 use crate::{SessionStore, StoreResult};
+use argo_security::pii_detect;
 use argo_types::{ArgoError, MessageRole, SessionId};
 use chrono::Utc;
 use uuid::Uuid;
@@ -25,6 +26,8 @@ impl SessionStore {
             MessageRole::Assistant => "assistant",
             MessageRole::Tool => "tool",
         };
+
+        let scanned = pii_detect::scan_and_maybe_redact(content_json, "message_write");
 
         let mut tx = self
             .pool
@@ -47,7 +50,7 @@ impl SessionStore {
         .bind(id.as_bytes().as_slice())
         .bind(session_id.0.as_bytes().as_slice())
         .bind(role_str)
-        .bind(content_json)
+        .bind(scanned.as_ref())
         .bind(created_at)
         .bind(next_seq)
         .execute(&mut *tx)

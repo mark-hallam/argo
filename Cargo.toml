@@ -23,6 +23,7 @@ members = [
   "crates/argo-tui",
   "crates/argo-voice-tui",
   "crates/argo-audit",
+  "crates/argo-security",
   "crates/argo-telemetry",
   "crates/argo-eval",
   "crates/argo-core",
