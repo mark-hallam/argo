@@ -34,7 +34,7 @@ echo "=== Brief freshness check: $BRIEF_ID ===" >&2
 
 # 1. Validate may-touch files exist on current main
 #    Extracts paths from lines like "- `crates/argo-cli/src/handlers/foo.rs`"
-echo "[1/4] Validating may-touch file paths..." >&2
+echo "[1/5] Validating may-touch file paths..." >&2
 in_may_touch=0
 while IFS= read -r line; do
   if [[ "$line" =~ ^"## Files you may touch" ]]; then in_may_touch=1; continue; fi
@@ -50,7 +50,7 @@ while IFS= read -r line; do
 done < "$BRIEF"
 
 # 2. Verify "stub" / "not yet wired" / "is currently a stub" claims still hold
-echo "[2/4] Validating stub/unimplemented claims..." >&2
+echo "[2/5] Validating stub/unimplemented claims..." >&2
 grep -nE 'currently a stub|not yet wired|is a stub|returns Err.*not yet implemented' "$BRIEF" 2>/dev/null | while IFS=: read -r lineno text; do
   # Try to extract a path mentioned on the same brief line
   if [[ "$text" =~ \`([a-zA-Z_/.]+\.rs)\` ]]; then
@@ -63,7 +63,7 @@ grep -nE 'currently a stub|not yet wired|is a stub|returns Err.*not yet implemen
 done
 
 # 3. Check for cli.rs at-500-LOC claim (common stale claim post-#968)
-echo "[3/4] Checking cli.rs LOC claim staleness..." >&2
+echo "[3/5] Checking cli.rs LOC claim staleness..." >&2
 if grep -qE 'cli\.rs.*500 LOC' "$BRIEF"; then
   cli_lines=$(wc -l < "$REPO_ROOT/crates/argo-cli/src/cli.rs" 2>/dev/null || echo 0)
   if [[ $cli_lines -lt 100 ]]; then
@@ -72,7 +72,7 @@ if grep -qE 'cli\.rs.*500 LOC' "$BRIEF"; then
 fi
 
 # 4. Worker-CLI brief pattern: should mention cli_worker_cmds.rs / cli_subcommands_skill.rs / handlers/worker_actions.rs
-echo "[4/4] Checking CLI sibling-file coverage..." >&2
+echo "[4/5] Checking CLI sibling-file coverage..." >&2
 if grep -qE 'argo worker|WorkerCmd' "$BRIEF"; then
   for sibling in cli_worker_cmds.rs handlers/worker_actions.rs; do
     if ! grep -q "$sibling" "$BRIEF"; then
@@ -83,6 +83,20 @@ fi
 if grep -qE 'argo skill|SkillCmd' "$BRIEF"; then
   if ! grep -q 'cli_subcommands_skill.rs' "$BRIEF"; then
     note "skill-CLI brief is missing cli_subcommands_skill.rs in may-touch (post-cli-split sibling)"
+  fi
+fi
+
+# 5. Forward-only freshness anchor (Stream `claude-brief-freshness-header`).
+#    New briefs carry `**Authored against**: origin/main <short-sha> on <YYYY-MM-DD>`.
+#    Older briefs without the header skip this check silently.
+echo "[5/5] Checking authored-against SHA distance (forward-only)..." >&2
+authored_sha=$(grep -oE '\*\*Authored against\*\*:[[:space:]]*origin/main[[:space:]]+`?[a-f0-9]{7,40}`?' "$BRIEF" 2>/dev/null \
+  | grep -oE '[a-f0-9]{7,40}' | head -1)
+if [[ -n "$authored_sha" ]]; then
+  if commits_behind=$(git -C "$REPO_ROOT" rev-list --count "$authored_sha..HEAD" 2>/dev/null); then
+    if [[ "$commits_behind" -gt 100 ]]; then
+      note "brief authored against $authored_sha is $commits_behind commits behind main (>100 — likely stale)"
+    fi
   fi
 fi
 

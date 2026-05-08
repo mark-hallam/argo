@@ -239,6 +239,11 @@ Run this loop until any STOP CONDITION fires:
    BUILD_STATUS.md BLOCKED note describing the drift and pick a
    different brief, (c) ask the conductor to rewrite. Don't burn
    context digging blind into a stale brief.
+   New briefs (Stream `claude-brief-freshness-header`) carry an
+   `**Authored against**: origin/main <short-sha> on <YYYY-MM-DD>`
+   anchor near the top — the freshness script reads it (when present)
+   for an extra "N commits behind main" signal. The header is
+   forward-only; older briefs without it are still valid.
 6. Claim: edit BUILD_STATUS.md → set status=CLAIMED, commit
    `"status: claim <brief-id>"`, push to origin/main. Race-lost? See
    HARD RULE 7.

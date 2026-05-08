@@ -107,6 +107,11 @@ commit that adds the brief file.
       the may-touch list in the real codebase. Run `find crates -name '*.rs' | grep <thing>`
       or `rg -l <symbol>` to verify every file path exists. Imagined paths cause BLOCKED
       claims — 30 seconds of verification beats six dead briefs.
+      Also stamp every NEW brief with the freshness header from
+      `PROTOCOL_BRIEF_TEMPLATE.md` (Stream `claude-brief-freshness-header`):
+      `**Authored against**: origin/main <short-sha> on <YYYY-MM-DD>`. Capture
+      via `git rev-parse --short origin/main` at author-time. Forward-only —
+      do NOT retrofit older briefs.
    e. Push ONE commit per replenishment: "briefs: replenish <owner> queue (<id1>, <id2>, ...)".
       If sourced from MISSION_BACKLOG, include the backlog-tag-flip in the SAME commit
       (so MISSION_BACKLOG and the new brief files land atomically — never re-author the

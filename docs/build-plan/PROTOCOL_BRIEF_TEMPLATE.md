@@ -14,13 +14,20 @@ match the ledger row exactly (e.g. `A-executor-trait`, `C-gmail`,
 ## The template
 
 Copy this verbatim, fill in the angle-bracket sections, delete this
-preamble:
+preamble. The `**Authored against**:` line is a forward-only freshness
+anchor (Stream `claude-brief-freshness-header`). Capture the current
+`git rev-parse --short origin/main` SHA when authoring; workers feed
+that SHA to `scripts/check-brief-freshness.sh` to detect drift before
+they claim. Older briefs without the line stay valid; the freshness
+script still runs, it just skips the SHA-distance check on those.
 
 ```markdown
 # Stream <X> — <one-line summary>
 
 **Owner**: <claude | codex | other agent family>.
 **Depends on**: <brief-id-N merged | none>.
+**Authored against**: origin/main `<short-sha>` on `<YYYY-MM-DD>`.
+**Validate before claim**: `bash scripts/check-brief-freshness.sh <brief-id>`.
 <optional: critical-path / capstone / preflight tag>
 
 ## Scope
