@@ -211,22 +211,39 @@ cargo test $CRATES 2>&1 | tail -100
 clippy form drops ~90% of compile-noise on success while preserving
 warnings, errors, source-pointer arrows, and the test-result summary.
 
-**Workspace clippy is ONLY for the final pre-push sanity check.** Run
-once after crate-scoped clippy is clean:
+If a `tail -30` / `tail -100` cuts off the relevant diagnostic,
+re-run unfiltered for the offending crate only:
+`cargo clippy -p <crate>` or `cargo test -p <crate>`.
+
+**Workspace clippy: codex tabs only.** The blocking gate
+`scripts/codex-pre-push.sh` runs `cargo clippy --workspace
+--all-targets -- -D warnings` and is required for codex tabs before
+push. See "Codex pre-push gate" below.
+
+**Claude tabs are exempt from workspace clippy.** Crate-scoped clippy
++ tests is the verification floor. Empirical basis: claude PRs
+average ~0.17 conductor comments per PR vs codex 0.29; lint
+regressions are not a documented claude failure mode. The 9-min
+workspace step would tax claude per-brief without addressing a real
+quality gap. HARD RULE 5 (stay inside may-touch) is the structural
+defense against accidentally regressing a crate outside the brief's
+scope.
+
+**When a claude tab SHOULD still run workspace clippy** (manual,
+optional): the brief touches `Cargo.toml`/`Cargo.lock` workspace
+deps, modifies a public trait that other crates implement, or adds
+an enum variant used across crates. These are the rare cases where
+crate-scoped clippy can't see workspace-boundary issues. Run:
 
 ```bash
 cargo clippy --workspace --all-targets -- -D warnings 2>&1 | tail -10
 ```
 
-If a `tail -30` / `tail -100` cuts off the relevant diagnostic,
-re-run unfiltered for the offending crate only:
-`cargo clippy -p <crate>` or `cargo test -p <crate>`.
-
 **Why crate-scoped is correct, not lazy.** The brief's may-touch list
 defines exactly which crates can change. If your edit doesn't compile
 a crate that's NOT in may-touch, that's a HARD RULE 5 boundary
-violation. Crate-scoped clippy + workspace final-sanity catches both.
-HARD RULE 4 (3-attempt fail) applies.
+violation, surfaced at the brief level rather than via workspace
+clippy. HARD RULE 4 (3-attempt fail) applies.
 
 ### Codex pre-push gate
 

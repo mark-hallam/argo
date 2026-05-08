@@ -77,8 +77,9 @@ Your job — ONE brief, then exit:
   1. git worktree add /tmp/$BRIEF_ID origin/main
   2. cd /tmp/$BRIEF_ID && git checkout -b $FAMILY-$BRIEF_ID
   3. Implement the brief inside its may-touch list.
-  4. Run verification per SWARM_PROTOCOL.md (crate-scoped + final
-     workspace clippy).
+  4. Run verification per SWARM_PROTOCOL.md — crate-scoped clippy +
+     tests for crates in the may-touch list. Claude tabs are exempt
+     from the workspace clippy step (codex-only via pre-push gate).
   5. Apply HARD RULE 8 pre-push flight check.
   6. git push -u origin $FAMILY-$BRIEF_ID
   7. gh pr create with title and body matching the brief.

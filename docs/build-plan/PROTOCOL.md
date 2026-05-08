@@ -139,9 +139,10 @@ In text:
 8. cd /tmp/<brief-id> && git checkout -b <owner>-<brief-id>
 9. Implement the brief. Stay inside the may-touch list.
 10. Run crate-scoped clippy/tests for crates in the may-touch list,
-    then one final workspace clippy sanity check as described in
-    `SWARM_PROTOCOL.md`. Tick the acceptance boxes. Verify file LOC
-    budget.
+    plus the family-specific final check (codex tabs run the
+    workspace-clippy gate via `scripts/codex-pre-push.sh`; claude
+    tabs are exempt). See `SWARM_PROTOCOL.md` Verification. Tick
+    the acceptance boxes. Verify file LOC budget.
 11. git push -u origin <owner>-<brief-id>
 12. gh pr create with the brief's PR title, body listing checked
     acceptance boxes
