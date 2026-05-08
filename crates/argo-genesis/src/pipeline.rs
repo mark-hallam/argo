@@ -2,8 +2,9 @@
 //! manifest → prompts → eval seed → worker config → safety
 //! judge → disk write into one entry point.
 
-use crate::archetype::{classify_charter, Archetype};
+use crate::archetype::{Archetype, classify_charter};
 use crate::error::GenesisError;
+use crate::eval_seed::{generate as generate_eval_seeds, suggested_actions_from_manifest, to_toml};
 use crate::manifest_writer::build_manifest;
 use crate::prompt_writer::write_artefacts;
 use crate::safety_judge;
@@ -73,11 +74,33 @@ pub fn write_vertical(plan: &GenesisPlan, output: &Path) -> Result<(), GenesisEr
     })?;
     write_manifest(&plan.manifest, output)?;
     write_artefacts(output, &plan.charter, plan.archetype, &plan.persona)?;
+    write_eval_seed_toml(plan, output)?;
     let cfg = WorkerConfig::new_dry_run(&plan.vertical_id, &plan.persona, Utc::now());
     cfg.write_to(output)?;
     if let Some(actions) = plan.manifest.actions.as_ref() {
         safety_judge::judge(actions)?;
     }
+    Ok(())
+}
+
+fn write_eval_seed_toml(plan: &GenesisPlan, output: &Path) -> Result<(), GenesisError> {
+    let actions = plan
+        .manifest
+        .actions
+        .as_ref()
+        .map(suggested_actions_from_manifest)
+        .unwrap_or_default();
+    let seeds =
+        generate_eval_seeds(&plan.charter, &actions).map_err(|e| GenesisError::Validation {
+            stage: "eval_seed.generate",
+            detail: e.to_string(),
+        })?;
+    std::fs::write(output.join("eval-seed.toml"), to_toml(&seeds)).map_err(|e| {
+        GenesisError::Io {
+            what: "eval_seed.write",
+            source: e,
+        }
+    })?;
     Ok(())
 }
 
@@ -167,6 +190,7 @@ mod tests {
         for relpath in [
             "vertical.toml",
             "worker.toml",
+            "eval-seed.toml",
             "prompts/system.md",
             "prompts/persona.md",
             "memory/schema.toml",

@@ -38,6 +38,7 @@
 pub mod archetype;
 pub mod charter_dialogue;
 pub mod error;
+pub mod eval_seed;
 pub mod manifest_writer;
 pub mod pipeline;
 pub mod prompt_writer;
