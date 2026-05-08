@@ -8,17 +8,23 @@ use argo_types::MessageRole;
 async fn open_and_migrate() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 11);
+    assert_eq!(store.schema_version().await.unwrap(), 15);
 }
 
 #[tokio::test]
 async fn migrate_round_trip() {
     let store = SessionStore::open(":memory:").await.unwrap();
-    store.migrate().await.unwrap();
+    crate::migrations::run_up_to(store.pool(), 11).await.unwrap();
     store.migrate_down_to(0).await.unwrap();
     assert_eq!(store.schema_version().await.unwrap(), 0);
+
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 11);
+    let err = store
+        .migrate_down_to(11)
+        .await
+        .expect_err("v12-v15 down unsupported");
+    assert!(err.to_string().contains("rollback unsupported"));
+    assert_eq!(store.schema_version().await.unwrap(), 15);
 }
 
 #[tokio::test]

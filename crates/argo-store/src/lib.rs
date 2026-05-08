@@ -251,3 +251,6 @@ async fn ensure_session_worker_id_column(pool: &Pool<Sqlite>) -> StoreResult<()>
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "migration_reconciliation_tests.rs"]
+mod migration_reconciliation_tests;

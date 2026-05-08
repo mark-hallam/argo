@@ -125,7 +125,7 @@ async fn has_headroom_allows_missing_quota() {
 }
 
 async fn seed_worker_budget(pool: &SqlitePool) {
-    sqlx::query("CREATE TABLE worker (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL)")
+    sqlx::query("CREATE TABLE IF NOT EXISTS worker (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL)")
         .execute(pool)
         .await
         .unwrap();
@@ -133,7 +133,12 @@ async fn seed_worker_budget(pool: &SqlitePool) {
         .execute(pool)
         .await
         .unwrap();
-    sqlx::query("INSERT INTO worker (id, tenant_id) VALUES ('w-1', 't-1')")
+    sqlx::query(
+        "INSERT INTO worker
+            (id, tenant_id, vertical_id, persona_id, role_id, memory_scope,
+             auto_approval_json, channels_json, created_at)
+         VALUES ('w-1', 't-1', 'support', 'p-1', 'r-1', 'worker_self', '{}', '[]', 0)",
+    )
         .execute(pool)
         .await
         .unwrap();

@@ -19,26 +19,103 @@ async fn migration_chain_applies_and_h_stack_tables_accept_inserts() {
     }
 
     insert_worker_budget_if_present(&store).await.unwrap();
-    insert_orchestrator_session_if_present(&store).await.unwrap();
+    insert_orchestrator_session_if_present(&store)
+        .await
+        .unwrap();
     insert_handoff_if_present(&store).await.unwrap();
     insert_shared_team_memory_if_present(&store).await.unwrap();
 }
 
 async fn apply_sql_file_migrations(store: &SessionStore, idempotent: bool) -> Result<(), String> {
     for path in migration_files()? {
+        if is_reconciled_versioned_raw(&path) {
+            continue;
+        }
         let body = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        for stmt in body.split_terminator(';').map(str::trim).filter(|s| !s.is_empty()) {
+        for stmt in split_sql_statements(&body) {
             match sqlx::query(stmt).execute(store.pool()).await {
                 Ok(_) => {}
                 Err(e) if is_optional_vec(stmt, &e) => {
                     println!("missing: sqlite-vec vec0; skipping native vector table");
                 }
+                Err(e) if is_session_worker_id_duplicate(stmt, &e) => {}
                 Err(e) if idempotent && is_clean_idempotent_error(&e) => {}
                 Err(e) => return Err(format!("{}: {e}", path.display())),
             }
         }
     }
     Ok(())
+}
+
+fn split_sql_statements(sql: &str) -> Vec<&str> {
+    let mut statements = Vec::new();
+    let mut start = 0;
+    let mut in_single = false;
+    let mut in_double = false;
+    let bytes = sql.as_bytes();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' if !in_double => {
+                if in_single && bytes.get(index + 1) == Some(&b'\'') {
+                    index += 1;
+                } else {
+                    in_single = !in_single;
+                }
+            }
+            b'"' if !in_single => in_double = !in_double,
+            b'-' if !in_single && !in_double && bytes.get(index + 1) == Some(&b'-') => {
+                index = skip_line_comment(bytes, index);
+                continue;
+            }
+            b';' if !in_single && !in_double => {
+                let stmt = sql[start..=index].trim();
+                if !is_incomplete_trigger(stmt) {
+                    if !stmt.is_empty() {
+                        statements.push(stmt);
+                    }
+                    start = index + 1;
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+
+    let tail = sql[start..].trim();
+    if !tail.is_empty() {
+        statements.push(tail);
+    }
+    statements
+}
+
+fn skip_line_comment(bytes: &[u8], index: usize) -> usize {
+    bytes[index..]
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .map_or(bytes.len(), |offset| index + offset)
+}
+
+fn is_incomplete_trigger(stmt: &str) -> bool {
+    stmt.trim_start()
+        .get(..14)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("CREATE TRIGGER"))
+        && !ends_with_end(stmt)
+}
+
+fn ends_with_end(stmt: &str) -> bool {
+    let stmt = stmt.trim_end_matches(';').trim_end();
+    stmt.get(stmt.len().saturating_sub(3)..)
+        .is_some_and(|suffix| suffix.eq_ignore_ascii_case("END"))
+}
+
+fn is_reconciled_versioned_raw(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|s| s.to_str())
+        .and_then(|s| s.split_once("__"))
+        .and_then(|(n, _)| n.parse::<u32>().ok())
+        .is_some_and(|version| (12..=15).contains(&version))
 }
 
 fn migration_files() -> Result<Vec<PathBuf>, String> {
@@ -92,11 +169,12 @@ fn expected_tables() -> &'static [&'static str] {
 }
 
 async fn table_exists(store: &SessionStore, table: &str) -> Result<bool, sqlx::Error> {
-    let row: Option<(String,)> =
-        sqlx::query_as("SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name = ?")
-            .bind(table)
-            .fetch_optional(store.pool())
-            .await?;
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name = ?",
+    )
+    .bind(table)
+    .fetch_optional(store.pool())
+    .await?;
     Ok(row.is_some())
 }
 
@@ -116,7 +194,12 @@ async fn insert_worker_budget_if_present(store: &SessionStore) -> Result<(), sql
 }
 
 async fn insert_orchestrator_session_if_present(store: &SessionStore) -> Result<(), sqlx::Error> {
-    if !has_columns(store, "session", &["status", "participants", "created_at", "deadline"]).await?
+    if !has_columns(
+        store,
+        "session",
+        &["status", "participants", "created_at", "deadline"],
+    )
+    .await?
     {
         println!("missing: orchestrator session columns; skipping");
         return Ok(());
@@ -150,11 +233,10 @@ async fn insert_handoff_if_present(store: &SessionStore) -> Result<(), sqlx::Err
         println!("missing: handoff; skipping");
         return Ok(());
     }
-    let session_id: Vec<u8> =
-        sqlx::query("SELECT id FROM session WHERE title = 'handoff' LIMIT 1")
-            .fetch_one(store.pool())
-            .await?
-            .try_get("id")?;
+    let session_id: Vec<u8> = sqlx::query("SELECT id FROM session WHERE title = 'handoff' LIMIT 1")
+        .fetch_one(store.pool())
+        .await?
+        .try_get("id")?;
     sqlx::query(
         "INSERT INTO handoff (id, session_id, from_worker_id, \"to\", expected_outcome,
          payload, status, created_at, deadline)
@@ -198,6 +280,11 @@ fn uuid_blob() -> Vec<u8> {
 
 fn is_optional_vec(stmt: &str, err: &sqlx::Error) -> bool {
     stmt.contains("memory_vec_index") && err.to_string().contains("no such module: vec0")
+}
+
+fn is_session_worker_id_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
+    stmt.contains("ALTER TABLE session ADD COLUMN worker_id")
+        && err.to_string().contains("duplicate column name: worker_id")
 }
 
 fn is_clean_idempotent_error(err: &sqlx::Error) -> bool {

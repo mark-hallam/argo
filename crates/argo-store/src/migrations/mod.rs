@@ -6,6 +6,10 @@ mod v4;
 mod v5;
 mod v10;
 mod v11;
+mod v12;
+mod v13;
+mod v14;
+mod v15;
 mod v6;
 mod v7;
 mod v8;
@@ -167,5 +171,53 @@ fn all_migrations() -> Vec<Migration> {
             up: |tx| Box::pin(v11::up(tx)),
             down: |tx| Box::pin(v11::down(tx)),
         },
+        Migration {
+            version: 12,
+            up: |tx| Box::pin(v12::up(tx)),
+            down: |tx| Box::pin(v12::down(tx)),
+        },
+        Migration {
+            version: 13,
+            up: |tx| Box::pin(v13::up(tx)),
+            down: |tx| Box::pin(v13::down(tx)),
+        },
+        Migration {
+            version: 14,
+            up: |tx| Box::pin(v14::up(tx)),
+            down: |tx| Box::pin(v14::down(tx)),
+        },
+        Migration {
+            version: 15,
+            up: |tx| Box::pin(v15::up(tx)),
+            down: |tx| Box::pin(v15::down(tx)),
+        },
     ]
+}
+
+#[cfg(test)]
+pub(crate) async fn run_up_to(pool: &Pool<Sqlite>, target: u32) -> Result<(), ArgoError> {
+    ensure_schema_table(pool).await?;
+    let mut current = current_version(pool).await?;
+    for m in all_migrations().into_iter().filter(|m| m.version <= target) {
+        if m.version > current {
+            let mut tx = pool
+                .begin()
+                .await
+                .map_err(|e| ArgoError::Provider(format!("migration tx: {e}")))?;
+            (m.up)(&mut tx).await?;
+            sqlx::query(
+                "INSERT OR REPLACE INTO schema_version (id, version, applied_at)
+                 VALUES (1, ?, strftime('%s','now'))",
+            )
+            .bind(i64::from(m.version))
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("schema_version write: {e}")))?;
+            tx.commit()
+                .await
+                .map_err(|e| ArgoError::Provider(format!("migration commit: {e}")))?;
+            current = m.version;
+        }
+    }
+    Ok(())
 }
