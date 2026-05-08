@@ -37,6 +37,7 @@
 
 pub mod archetype;
 pub mod charter_dialogue;
+pub mod conflict;
 pub mod error;
 pub mod eval_seed;
 pub mod manifest_writer;
@@ -52,8 +53,11 @@ pub use archetype::{classify_charter, Archetype};
 pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
 };
+pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, ConflictReport};
 pub use error::GenesisError;
-pub use pipeline::{plan, plan_with_quality, write_vertical, GenesisPlan};
+pub use pipeline::{
+    plan, plan_with_quality, write_vertical, write_vertical_with_overlap, GenesisPlan,
+};
 pub use quality::{
     check_plan, require_pass, CheckResult, QualityReport, ACTION_MIN, EVAL_SEED_MIN,
     MEMORY_LAYER_MIN, PROMPT_WORD_MIN,

@@ -2,7 +2,8 @@
 //! manifest → prompts → eval seed → worker config → safety
 //! judge → disk write into one entry point.
 
-use crate::archetype::{Archetype, classify_charter};
+use crate::archetype::{classify_charter, Archetype};
+use crate::conflict::{detect as detect_conflicts, highest_score};
 use crate::error::GenesisError;
 use crate::eval_seed::{generate as generate_eval_seeds, suggested_actions_from_manifest, to_toml};
 use crate::manifest_writer::build_manifest;
@@ -13,6 +14,9 @@ use crate::worker_config::WorkerConfig;
 use argo_vertical::VerticalManifest;
 use chrono::Utc;
 use std::path::Path;
+
+// The conductor-selected cutoff for refusing a likely duplicate.
+const CONFLICT_REFUSE_SCORE: f32 = 0.7;
 
 /// Resolved Genesis plan — the output of `plan()` before any
 /// disk write.
@@ -71,7 +75,18 @@ pub fn plan_with_quality(
 /// non-empty output dir. Round-trip-validates the result by
 /// re-loading via `argo_vertical::load_dir`.
 pub fn write_vertical(plan: &GenesisPlan, output: &Path) -> Result<(), GenesisError> {
+    write_vertical_with_overlap(plan, output, false)
+}
+
+/// Materialise a `GenesisPlan`, optionally allowing likely overlap with
+/// an existing vertical in the same parent directory.
+pub fn write_vertical_with_overlap(
+    plan: &GenesisPlan,
+    output: &Path,
+    allow_overlap: bool,
+) -> Result<(), GenesisError> {
     ensure_output_empty(output)?;
+    enforce_overlap_policy(plan, output, allow_overlap)?;
     std::fs::create_dir_all(output).map_err(|e| GenesisError::Io {
         what: "vertical.dir.create",
         source: e,
@@ -85,6 +100,39 @@ pub fn write_vertical(plan: &GenesisPlan, output: &Path) -> Result<(), GenesisEr
         safety_judge::judge(actions)?;
     }
     Ok(())
+}
+
+fn enforce_overlap_policy(
+    plan: &GenesisPlan,
+    output: &Path,
+    allow_overlap: bool,
+) -> Result<(), GenesisError> {
+    if allow_overlap {
+        return Ok(());
+    }
+    let Some(verticals_root) = output.parent().filter(|p| p.exists()) else {
+        return Ok(());
+    };
+    let report = detect_conflicts(plan, verticals_root).map_err(|e| GenesisError::Validation {
+        stage: "conflict.detect",
+        detail: e.to_string(),
+    })?;
+    let Some(score) = highest_score(&report) else {
+        return Ok(());
+    };
+    if score < CONFLICT_REFUSE_SCORE {
+        return Ok(());
+    }
+    let top = &report.matches[0];
+    Err(GenesisError::Validation {
+        stage: "conflict.detect",
+        detail: format!(
+            "generated vertical overlaps '{}' with score {:.2}: {}",
+            top.existing_vertical,
+            top.score,
+            top.reasons.join("; ")
+        ),
+    })
 }
 
 fn write_eval_seed_toml(plan: &GenesisPlan, output: &Path) -> Result<(), GenesisError> {
