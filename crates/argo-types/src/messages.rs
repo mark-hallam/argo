@@ -4,6 +4,13 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Role in a conversation.
+///
+/// ```
+/// use argo_types::MessageRole;
+/// let json = serde_json::to_string(&MessageRole::Assistant).unwrap();
+/// assert_eq!(json, "\"assistant\"");
+/// assert_eq!(serde_json::from_str::<MessageRole>(&json).unwrap(), MessageRole::Assistant);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
@@ -18,6 +25,17 @@ pub enum MessageRole {
 }
 
 /// A single message in a conversation.
+///
+/// ```
+/// use argo_types::{ContentBlock, Message, MessageId, MessageRole, SessionId};
+/// let msg = Message {
+///     id: MessageId::new(), session_id: SessionId::new(), role: MessageRole::User,
+///     content: vec![ContentBlock::Text { text: "hello".into() }], tool_calls: vec![],
+///     tool_call_id: None, reasoning: None, created_at: chrono::Utc::now(),
+///     provider_meta: serde_json::Value::Null,
+/// };
+/// assert!(serde_json::to_string(&msg).unwrap().contains("hello"));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     /// Stable identifier.
@@ -45,6 +63,12 @@ pub struct Message {
 }
 
 /// A piece of message content.
+///
+/// ```
+/// use argo_types::ContentBlock;
+/// let block = ContentBlock::Text { text: "done".into() };
+/// assert!(serde_json::to_string(&block).unwrap().contains("text"));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
@@ -82,6 +106,15 @@ pub enum ContentBlock {
 }
 
 /// A request from an Assistant turn to invoke a tool.
+///
+/// ```
+/// use argo_types::{ToolCallId, ToolCallRequest};
+/// let call = ToolCallRequest {
+///     id: ToolCallId::new(), provider_call_id: Some("call_123".into()),
+///     name: "search".into(), arguments: serde_json::json!({"q": "argo"}),
+/// };
+/// assert_eq!(call.arguments["q"], "argo");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallRequest {
     /// Stable internal identifier (UUIDv7). Always set; uniquely
@@ -106,6 +139,16 @@ pub struct ToolCallRequest {
 }
 
 /// The outcome of a tool invocation.
+///
+/// ```
+/// use argo_types::{ContentBlock, ToolCallId, ToolCallResult};
+/// let result = ToolCallResult {
+///     id: ToolCallId::new(), is_error: false,
+///     content: vec![ContentBlock::Text { text: "ok".into() }],
+///     duration_ms: 42, tokens_in: Some(3), tokens_out: Some(1),
+/// };
+/// assert!(!result.is_error);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallResult {
     /// Correlates with the request.

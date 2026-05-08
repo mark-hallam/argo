@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 /// Capabilities are the unit of authorization in Argo. Every tool, skill,
 /// plugin, and provider declares a `CapabilitySet`. The core enforces these
 /// at call time.
+///
+/// ```
+/// use argo_types::Capability;
+/// let cap = Capability::NetEgress { host_glob: "*.example.com".into(), port: Some(443) };
+/// assert!(serde_json::to_string(&cap).unwrap().contains("net_egress"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Capability {
@@ -60,6 +66,12 @@ pub enum Capability {
 }
 
 /// What kind of process is being spawned.
+///
+/// ```
+/// use argo_types::SpawnKind;
+/// let json = serde_json::to_string(&SpawnKind::Subprocess).unwrap();
+/// assert_eq!(json, "\"subprocess\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpawnKind {
@@ -72,6 +84,13 @@ pub enum SpawnKind {
 }
 
 /// A bag of capabilities granted to a principal.
+///
+/// ```
+/// use argo_types::{Capability, CapabilitySet};
+/// let mut set = CapabilitySet::empty();
+/// set.push(Capability::SkillWrite);
+/// assert!(set.covers(&Capability::SkillWrite));
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CapabilitySet(pub Vec<Capability>);
 
@@ -156,6 +175,15 @@ fn glob_covers(grant_glob: &str, requested: &str) -> bool {
 }
 
 /// A named role: a `CapabilitySet` plus optional single-inheritance.
+///
+/// ```
+/// use argo_types::{Capability, CapabilitySet, Role};
+/// let role = Role {
+///     name: "operator".into(), capabilities: CapabilitySet(vec![Capability::AuditWrite]),
+///     inherits_from: Some("viewer".into()),
+/// };
+/// assert_eq!(role.inherits_from.as_deref(), Some("viewer"));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Role {
     /// Role name (e.g. `"owner"`).
@@ -168,6 +196,12 @@ pub struct Role {
 }
 
 /// Who or what is acting.
+///
+/// ```
+/// use argo_types::Principal;
+/// let principal = Principal::Local { os_user: "mark".into() };
+/// assert!(serde_json::to_string(&principal).unwrap().contains("local"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Principal {
@@ -195,6 +229,15 @@ pub enum Principal {
 }
 
 /// A binding of a principal to a role.
+///
+/// ```
+/// use argo_types::{Principal, RoleBinding};
+/// let binding = RoleBinding {
+///     principal: Principal::Forge,
+///     role_name: "builder".into(),
+/// };
+/// assert_eq!(binding.role_name, "builder");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleBinding {
     /// Bound principal.

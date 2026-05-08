@@ -14,7 +14,10 @@ macro_rules! id_type {
             /// ```
             /// use argo_types::*;
             #[doc = concat!("let id = ", stringify!($name), "::new();")]
-            /// assert_ne!(id.0.get_version_num(), 0);
+            /// let json = serde_json::to_string(&id).unwrap();
+            #[doc = concat!("let decoded: ", stringify!($name), " = serde_json::from_str(&json).unwrap();")]
+            /// assert_eq!(decoded, id);
+            /// assert_eq!(id.to_string(), id.0.to_string());
             /// ```
             #[must_use]
             pub fn new() -> Self {
@@ -60,5 +63,12 @@ id_type!(RoutingDecisionId, "A routing decision record.");
 id_type!(ForgeRunId, "An Argo Forge optimization run.");
 
 /// A human-readable named agent within a tenant (Amendment 5).
+///
+/// ```
+/// use argo_types::AgentName;
+/// let name = AgentName("riley-ar".into());
+/// let json = serde_json::to_string(&name).unwrap();
+/// assert_eq!(serde_json::from_str::<AgentName>(&json).unwrap(), name);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AgentName(pub String);

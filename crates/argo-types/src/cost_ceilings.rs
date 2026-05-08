@@ -15,6 +15,13 @@ use crate::ids::{SessionId, TenantId};
 use serde::{Deserialize, Serialize};
 
 /// Spend caps, in USD micros. `None` disables that scope.
+///
+/// ```
+/// use argo_types::CostCeilings;
+/// let ceilings = CostCeilings::defaults();
+/// assert_eq!(ceilings.per_session_usd_micros, Some(1_000_000));
+/// assert!(CostCeilings::unlimited().per_day_usd_micros.is_none());
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CostCeilings {
     /// Per-session hard cap.
@@ -49,6 +56,12 @@ impl CostCeilings {
 }
 
 /// Current spend totals for a `(tenant, session)` pair.
+///
+/// ```
+/// use argo_types::SpendCounters;
+/// let counters = SpendCounters { session_used: 10, day_used: 20, month_used: 30 };
+/// assert_eq!(serde_json::to_string(&counters).unwrap(), "{\"session_used\":10,\"day_used\":20,\"month_used\":30}");
+/// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpendCounters {
     /// Spend on this session (USD micros).
@@ -60,6 +73,12 @@ pub struct SpendCounters {
 }
 
 /// Which scope a notification fired in.
+///
+/// ```
+/// use argo_types::CapScope;
+/// let json = serde_json::to_string(&CapScope::Month).unwrap();
+/// assert_eq!(json, "\"month\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CapScope {
@@ -72,6 +91,15 @@ pub enum CapScope {
 }
 
 /// One notification event emitted by [`enforce_pre_spend`].
+///
+/// ```
+/// use argo_types::{CapScope, NotifyEvent};
+/// let event = NotifyEvent {
+///     scope: CapScope::Session, threshold_pct: 80,
+///     new_used_usd_micros: 850_000, cap_usd_micros: 1_000_000,
+/// };
+/// assert_eq!(event.threshold_pct, 80);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NotifyEvent {
     /// Scope.
@@ -85,6 +113,15 @@ pub struct NotifyEvent {
 }
 
 /// Hard cap blocked the charge. Pre-spend, so no money was spent.
+///
+/// ```
+/// use argo_types::{CapBlocked, CapScope, SessionId, TenantId};
+/// let blocked = CapBlocked {
+///     scope: CapScope::Day, cap_usd_micros: 10, attempted_usd_micros: 11,
+///     tenant: TenantId::new(), session: SessionId::new(),
+/// };
+/// assert_eq!(blocked.scope, CapScope::Day);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ::thiserror::Error)]
 #[error("cost ceiling blocked: {scope:?} cap = {cap_usd_micros} usd-micros, attempted = {attempted_usd_micros}")]
 pub struct CapBlocked {
@@ -101,6 +138,12 @@ pub struct CapBlocked {
 }
 
 /// Caller context: who is being charged, on which session.
+///
+/// ```
+/// use argo_types::{EnforceContext, SessionId, TenantId};
+/// let ctx = EnforceContext { tenant: TenantId::new(), session: SessionId::new() };
+/// assert_ne!(ctx.tenant, TenantId::new());
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct EnforceContext {
     /// Tenant.
@@ -120,6 +163,13 @@ pub struct EnforceContext {
 /// Returns [`CapBlocked`] when any of `per_session_usd_micros`,
 /// `per_day_usd_micros`, or `per_month_usd_micros` would be exceeded
 /// after adding `attempted_usd_micros` to the matching counter.
+///
+/// ```
+/// use argo_types::{enforce_pre_spend, CostCeilings, EnforceContext, SessionId, SpendCounters, TenantId};
+/// let ctx = EnforceContext { tenant: TenantId::new(), session: SessionId::new() };
+/// let events = enforce_pre_spend(&CostCeilings::defaults(), SpendCounters::default(), 850_000, ctx).unwrap();
+/// assert_eq!(events[0].threshold_pct, 80);
+/// ```
 pub fn enforce_pre_spend(
     ceilings: &CostCeilings,
     counters: SpendCounters,

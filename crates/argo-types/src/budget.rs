@@ -4,6 +4,12 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 /// What is being charged against a budget.
+///
+/// ```
+/// use argo_types::BudgetKind;
+/// let json = serde_json::to_string(&BudgetKind::TokensIn).unwrap();
+/// assert_eq!(json, "\"tokens_in\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BudgetKind {
@@ -24,6 +30,13 @@ pub enum BudgetKind {
 }
 
 /// Declarable budget caps.
+///
+/// ```
+/// use argo_types::Budget;
+/// let budget = Budget { iterations: Some(3), spend_usd_micros: Some(1_000_000), ..Default::default() };
+/// let json = serde_json::to_string(&budget).unwrap();
+/// assert_eq!(serde_json::from_str::<Budget>(&json).unwrap().iterations, Some(3));
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Budget {
     /// Iteration cap.
@@ -49,6 +62,13 @@ pub struct Budget {
 }
 
 /// A node in the budget tree. Atomically charged; cascades to root.
+///
+/// ```
+/// use argo_types::{Budget, BudgetKind, BudgetNode};
+/// let node = BudgetNode::root(&Budget { iterations: Some(1), ..Default::default() });
+/// assert!(node.charge(BudgetKind::Iterations, 1).is_ok());
+/// assert!(node.charge(BudgetKind::Iterations, 1).is_err());
+/// ```
 pub struct BudgetNode {
     parent: Option<Arc<BudgetNode>>,
     iterations: AtomicU32,
@@ -179,6 +199,12 @@ impl BudgetNode {
 }
 
 /// Budget exhausted at some level of the tree.
+///
+/// ```
+/// use argo_types::{BudgetExhausted, BudgetKind};
+/// let err = BudgetExhausted(BudgetKind::ToolCalls);
+/// assert!(err.to_string().contains("ToolCalls"));
+/// ```
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("budget exhausted: {0:?}")]
 pub struct BudgetExhausted(pub BudgetKind);
