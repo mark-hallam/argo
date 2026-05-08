@@ -228,6 +228,19 @@ a crate that's NOT in may-touch, that's a HARD RULE 5 boundary
 violation. Crate-scoped clippy + workspace final-sanity catches both.
 HARD RULE 4 (3-attempt fail) applies.
 
+### Codex pre-push gate
+
+**Codex worker tabs only.** Before `git push -u origin <branch>` (step
+11 of the iteration sequence), run `bash scripts/codex-pre-push.sh`
+from the worktree. The script runs a blocking workspace clippy and
+refuses exit 0 if cargo errors or any `^error` lines surface. It
+exists to catch lint regressions introduced *after* the crate-scoped
+check ran — most commonly during post-rebase conflict resolution
+(documented in #905, where compacted single-line `if`-chains tripped
+`collapsible_if`). Claude tabs are not subject to the gate; their
+documented failure mode is the 500-LOC ceiling, not clippy
+verification gaps.
+
 ## Effective worker habits
 
 Patterns from observed high-throughput sessions (4+ PRs/session vs

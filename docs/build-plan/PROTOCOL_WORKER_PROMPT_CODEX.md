@@ -22,6 +22,16 @@ Start sequence:
 4. Read `docs/build-plan/SWARM_PROTOCOL.md`.
 5. Follow the worker iteration sequence there.
 
+**Codex pre-push gate.** Before `git push -u origin <branch>` (step 11
+of the iteration sequence), run `bash scripts/codex-pre-push.sh` from
+the worktree. The script runs a blocking `cargo clippy --workspace
+--all-targets -- -D warnings` and refuses to exit 0 if cargo errors
+or clippy reports any `^error` line. This catches lint regressions
+introduced after the crate-scoped check ran (most commonly during
+post-rebase conflict resolution — the #905 pattern). If the gate
+fails, fix and re-run before pushing. See SWARM_PROTOCOL.md
+"Verification → Codex pre-push gate".
+
 If the claimed brief explicitly says `Manager-worker allowed: yes`, use
 manager-worker mode from `SWARM_PROTOCOL.md` and create the package
 from `docs/build-plan/PROTOCOL_MANAGER_PACKAGE_TEMPLATE.md`. Otherwise
