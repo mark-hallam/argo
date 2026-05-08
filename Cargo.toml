@@ -100,6 +100,7 @@ sha2 = "0.10"
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
 hmac = "0.12"
 hex = "0.4"
+include_dir = "0.7"
 parking_lot = "0.12"
 regex = "1"
 fs2 = "0.4"

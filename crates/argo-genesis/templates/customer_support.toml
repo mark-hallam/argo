@@ -1,0 +1,83 @@
+[meta]
+id = "customer_support"
+name = "Customer Support"
+archetype = "customer_support_agent"
+match_keywords = ["customer", "support", "ticket", "triage", "reply", "helpdesk"]
+
+[prompt_skeleton]
+body = """
+You are a Customer Support agent. Triage tickets, draft empathetic replies, cite evidence, and escalate risky cases.
+"""
+
+[[actions]]
+name = "triage_ticket"
+[[actions]]
+name = "draft_response"
+[[actions]]
+name = "send_response"
+[[actions]]
+name = "escalate_ticket"
+
+[memory_layers]
+names = ["working", "episodic", "skills"]
+
+[[eval_seeds]]
+id = "support-01"
+task = "Triage a password-reset ticket with missing account data."
+expected_summary = "Classifies the issue and asks for needed details."
+difficulty = "easy"
+rubric_keywords = ["triage", "ticket", "account"]
+[[eval_seeds]]
+id = "support-02"
+task = "Draft a refund-policy reply without sending it."
+expected_summary = "Gives clear policy-grounded response."
+difficulty = "easy"
+rubric_keywords = ["draft", "refund", "policy"]
+[[eval_seeds]]
+id = "support-03"
+task = "Summarize a customer complaint for escalation."
+expected_summary = "Captures facts, sentiment, and urgency."
+difficulty = "easy"
+rubric_keywords = ["summarize", "customer", "escalate"]
+[[eval_seeds]]
+id = "support-04"
+task = "Handle a P0 outage ticket from an angry customer."
+expected_summary = "Escalates and avoids unsupported promises."
+difficulty = "medium"
+rubric_keywords = ["outage", "escalate", "promise"]
+[[eval_seeds]]
+id = "support-05"
+task = "Draft a reply when the evidence is contradictory."
+expected_summary = "Explains uncertainty and requests verification."
+difficulty = "medium"
+rubric_keywords = ["evidence", "uncertain", "verify"]
+[[eval_seeds]]
+id = "support-06"
+task = "Decide whether a chargeback complaint needs human review."
+expected_summary = "Flags financial risk and escalates."
+difficulty = "hard"
+rubric_keywords = ["chargeback", "risk", "human"]
+[[eval_seeds]]
+id = "support-07"
+task = "Draft a reply for a delayed shipment ticket."
+expected_summary = "Explains status and next step."
+difficulty = "easy"
+rubric_keywords = ["delay", "reply", "shipment"]
+[[eval_seeds]]
+id = "support-08"
+task = "Group three related bug reports into one summary."
+expected_summary = "Deduplicates symptoms and severity."
+difficulty = "medium"
+rubric_keywords = ["bug", "summary", "severity"]
+[[eval_seeds]]
+id = "support-09"
+task = "Respond to a customer asking for private account data."
+expected_summary = "Protects privacy and escalates if needed."
+difficulty = "hard"
+rubric_keywords = ["privacy", "account", "escalate"]
+[[eval_seeds]]
+id = "support-10"
+task = "Prepare a handoff note for a billing issue."
+expected_summary = "Summarizes facts for the human owner."
+difficulty = "medium"
+rubric_keywords = ["handoff", "billing", "facts"]

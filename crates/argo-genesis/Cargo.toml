@@ -11,6 +11,7 @@ description = "Argo Stream G — charter → vertical generator (Genesis pipelin
 argo-config = { path = "../argo-config", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+include_dir = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

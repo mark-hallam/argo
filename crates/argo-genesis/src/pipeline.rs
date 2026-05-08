@@ -8,6 +8,7 @@ use crate::eval_seed::{generate as generate_eval_seeds, suggested_actions_from_m
 use crate::manifest_writer::build_manifest;
 use crate::prompt_writer::write_artefacts;
 use crate::safety_judge;
+use crate::templates::match_template;
 use crate::worker_config::WorkerConfig;
 use argo_vertical::VerticalManifest;
 use chrono::Utc;
@@ -28,7 +29,10 @@ pub struct GenesisPlan {
 /// archetype classification → manifest assembly → safety judge.
 pub fn plan(charter: &str, persona: &str) -> Result<GenesisPlan, GenesisError> {
     validate_persona(persona)?;
-    let archetype = classify_charter(charter)?;
+    let archetype = match match_template(charter).and_then(|template| template.archetype()) {
+        Some(archetype) => archetype,
+        None => classify_charter(charter)?,
+    };
     // The vertical-id validator allows lowercase ASCII letters,
     // digits, and `-` only. Convert the slug + persona to a
     // dash-joined id so the round-trip load passes.

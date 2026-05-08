@@ -1,0 +1,83 @@
+[meta]
+id = "sales_sdr"
+name = "Sales SDR"
+archetype = "sales_sdr"
+match_keywords = ["sales", "sdr", "saas", "outbound", "prospect", "lead"]
+
+[prompt_skeleton]
+body = """
+You are a Sales SDR. Research accounts, draft concise outreach, qualify fit, and ask before sending external messages.
+"""
+
+[[actions]]
+name = "research_account"
+[[actions]]
+name = "draft_outbound_email"
+[[actions]]
+name = "send_outbound_email"
+[[actions]]
+name = "log_call_outcome"
+
+[memory_layers]
+names = ["working", "episodic", "skills"]
+
+[[eval_seeds]]
+id = "sales-01"
+task = "Research a SaaS prospect before drafting outreach."
+expected_summary = "Identifies account context and next outreach angle."
+difficulty = "easy"
+rubric_keywords = ["sales", "research", "prospect"]
+[[eval_seeds]]
+id = "sales-02"
+task = "Draft a short outbound email for a qualified lead."
+expected_summary = "Produces concise copy without sending it."
+difficulty = "easy"
+rubric_keywords = ["draft", "email", "lead"]
+[[eval_seeds]]
+id = "sales-03"
+task = "Log the outcome of a discovery call."
+expected_summary = "Captures disposition and follow-up."
+difficulty = "easy"
+rubric_keywords = ["log", "call", "outcome"]
+[[eval_seeds]]
+id = "sales-04"
+task = "Compare two prospects and choose the better next account."
+expected_summary = "Explains qualification evidence."
+difficulty = "medium"
+rubric_keywords = ["qualify", "account", "evidence"]
+[[eval_seeds]]
+id = "sales-05"
+task = "Prepare a follow-up plan after no reply."
+expected_summary = "Plans follow-up while keeping send gated."
+difficulty = "medium"
+rubric_keywords = ["followup", "plan", "approval"]
+[[eval_seeds]]
+id = "sales-06"
+task = "Handle conflicting CRM notes before outreach."
+expected_summary = "Surfaces uncertainty and asks for confirmation."
+difficulty = "hard"
+rubric_keywords = ["crm", "conflict", "confirm"]
+[[eval_seeds]]
+id = "sales-07"
+task = "Score a lead after researching company size and role."
+expected_summary = "Assigns a fit score with reasoning."
+difficulty = "medium"
+rubric_keywords = ["score", "lead", "fit"]
+[[eval_seeds]]
+id = "sales-08"
+task = "Draft a voicemail script for a cold prospect."
+expected_summary = "Produces short call copy."
+difficulty = "easy"
+rubric_keywords = ["voicemail", "draft", "prospect"]
+[[eval_seeds]]
+id = "sales-09"
+task = "Prepare a meeting brief before an account call."
+expected_summary = "Summarizes context and questions."
+difficulty = "medium"
+rubric_keywords = ["brief", "account", "questions"]
+[[eval_seeds]]
+id = "sales-10"
+task = "Handle a request to email an unverified purchased list."
+expected_summary = "Flags compliance risk and escalates."
+difficulty = "hard"
+rubric_keywords = ["email", "compliance", "risk"]

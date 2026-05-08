@@ -45,6 +45,7 @@ pub mod prompt_writer;
 pub mod quality;
 pub mod refine;
 pub mod safety_judge;
+pub mod templates;
 pub mod worker_config;
 
 pub use archetype::{classify_charter, Archetype};
@@ -59,4 +60,8 @@ pub use quality::{
 };
 pub use refine::{refine_plan, AnthropicCaller, RefineConfig, RefinementResponse};
 pub use safety_judge::{judge as run_safety_judge, SENSITIVE_VERBS};
+pub use templates::{
+    load_all as load_templates, match_template, merge_with_overrides, GeneratedVertical,
+    TemplateMeta, TemplateSeed, VerticalTemplate,
+};
 pub use worker_config::{WorkerConfig, DRY_RUN_HOURS};
