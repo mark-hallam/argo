@@ -1,0 +1,33 @@
+# Example `.skycot/alerts.toml` — copy to `.skycot/alerts.toml` and tune.
+#
+# The gateway boots a background evaluator that ticks every 60s,
+# builds a snapshot of metrics from the session store, and emits one
+# firing per rule when its threshold is crossed. Hysteresis: a fired
+# rule re-arms only after the underlying metric falls back below
+# threshold. Restarting the gateway resets hysteresis state.
+#
+# Channels:
+#   - "file:<path>"  — append one JSON line per firing
+#   - "event"        — write a structured `alert.event` line to gateway
+#                      stderr (a future webhook channel is out of scope)
+
+[[rule]]
+name = "spend-day"
+kind = "spend_total"
+threshold_usd = 50.0
+window = "24h"
+channels = ["file:.skycot/alerts.log", "event"]
+
+[[rule]]
+name = "error-rate-actions"
+kind = "error_rate"
+route = "/v1/actions/dispatch"
+threshold_pct = 5.0
+window = "10m"
+channels = ["file:.skycot/alerts.log"]
+
+[[rule]]
+name = "approvals-stuck"
+kind = "approval_timeout"
+older_than = "30m"
+channels = ["event"]

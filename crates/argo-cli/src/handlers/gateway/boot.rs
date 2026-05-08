@@ -22,6 +22,7 @@ use super::{
     metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice, streaming,
     sweepers,
 };
+use crate::handlers::alerts;
 
 const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
 
@@ -91,6 +92,7 @@ pub(super) async fn start(
     let _duty_scheduler = store
         .as_ref()
         .map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
+    let _alerts_loop = store.as_ref().map(|s| spawn_alerts_loop(Arc::clone(s)));
     phases.mark("spawn_bg_tasks");
 
     // PID file. If one already exists with a live PID, refuse to
@@ -206,6 +208,27 @@ pub(super) async fn start(
             }
         }
     }
+}
+
+fn spawn_alerts_loop(store: Arc<SessionStore>) -> AbortOnDrop {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let path = cwd.join(".skycot").join("alerts.toml");
+    let cfg = match alerts::load_alerts_config(&path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("argo gateway: alerts config load failed ({e}); skipping evaluator");
+            Default::default()
+        }
+    };
+    if cfg.rules.is_empty() {
+        eprintln!("argo gateway: alerts evaluator inactive (no rules)");
+    } else {
+        eprintln!(
+            "argo gateway: alerts evaluator enabled ({} rule(s))",
+            cfg.rules.len()
+        );
+    }
+    AbortOnDrop::new(tokio::spawn(alerts::run_alerts_loop(store, cfg)))
 }
 
 fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnDrop {
