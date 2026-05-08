@@ -58,6 +58,7 @@ members = [
   "crates/argo-mcp-connector-github-issues",
   "crates/argo-mcp-connector-typeform",
   "crates/argo-mcp-connector-figma",
+  "crates/argo-mcp-connector-google-meet",
   "crates/argo-mcp-connector-calendly",
   "crates/argo-mcp-connector-mailchimp",
   "crates/argo-mcp-connector-sendgrid",
