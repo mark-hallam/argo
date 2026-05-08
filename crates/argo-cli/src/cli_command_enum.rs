@@ -124,6 +124,13 @@ pub enum Command {
         #[command(subcommand)]
         cmd: TenantCmd,
     },
+    /// Persona maintenance — `$EDITOR`-driven update of the
+    /// human-facing persona row attached to one or more workers
+    /// (Stream `claude-persona-edit-cli`).
+    Persona {
+        #[command(subcommand)]
+        cmd: PersonaCmd,
+    },
     /// Org chart, addressable names, manager chain
     /// (`claude-org-awareness`).
     Org {
