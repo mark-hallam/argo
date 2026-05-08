@@ -79,6 +79,7 @@ pub async fn list(tenant: &str, persona: Option<&str>, json: bool) -> ArgoResult
     }
 }
 
+#[allow(dead_code)]
 pub async fn show(tenant: &str, worker_id: &str, _json: bool) -> ArgoResult<()> {
     let out = resolved_worker(tenant, worker_id).await?;
     print_json(&out)
