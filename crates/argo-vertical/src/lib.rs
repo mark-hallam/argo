@@ -57,6 +57,7 @@ mod loader;
 mod manifest;
 mod manifest_actions;
 mod manifest_mcp;
+mod manifest_validate;
 mod memory_schema;
 mod registry;
 mod validator;
@@ -105,6 +106,7 @@ pub use manifest::{
 // directly from `manifest_actions` since they're not consumed by
 // `manifest.rs` itself.
 pub use manifest_actions::{ExecutorDeclaration, ExecutorTagged};
+pub use manifest_validate::{validate_strict, ValidationError, KNOWN_EXECUTOR_KINDS};
 pub use memory_schema::{
     parse_memory_schema, validate_memory_schema, MemoryEntry, MemorySchema, MEMORY_SCHEMA_VERSION,
 };

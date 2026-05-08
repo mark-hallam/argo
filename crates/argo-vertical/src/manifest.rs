@@ -280,6 +280,7 @@ pub fn parse(src: &str) -> ArgoResult<VerticalManifest> {
             m.schema_version, SCHEMA_VERSION
         )));
     }
+    crate::manifest_validate::validate_strict(&m)?;
     Ok(m)
 }
 
