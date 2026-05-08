@@ -125,6 +125,14 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ApprovalCmd,
     },
+    /// Compliance-aligned audit-trail reports
+    /// (`claude-compliance-soc2-audit-trail`). Read-only over
+    /// `audit_record`. Currently exposes `soc2`; future GDPR
+    /// `export` / `delete` arms attach as siblings here.
+    Compliance {
+        #[command(subcommand)]
+        cmd: ComplianceCmd,
+    },
     Tenant {
         #[command(subcommand)]
         cmd: TenantCmd,

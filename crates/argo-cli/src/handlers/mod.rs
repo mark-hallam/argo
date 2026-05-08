@@ -35,6 +35,7 @@ mod budget_csv;
 pub mod budget_watch;
 pub mod chat;
 pub mod classify_list;
+pub mod compliance_soc2;
 pub mod classify_rules;
 pub mod classify_set;
 pub mod compliance_export;

@@ -54,6 +54,37 @@ pub enum ApprovalCmd {
     Export(ApprovalExportArgs),
 }
 
+/// Compliance-aligned read-only reports over the audit trail.
+#[derive(Subcommand, Debug)]
+pub enum ComplianceCmd {
+    /// SOC2 Common Criteria 6.x audit-trail report. Groups events
+    /// in `[--from, --to)` by control category (Access, ChangeMgmt,
+    /// DataMgmt, Security, Other).
+    Soc2(ComplianceSoc2Args),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ComplianceSoc2Args {
+    /// Window start, RFC3339. Inclusive.
+    #[arg(long)]
+    pub from: String,
+    /// Window end, RFC3339. Exclusive.
+    #[arg(long)]
+    pub to: String,
+    /// Optional actor id filter.
+    #[arg(long)]
+    pub actor: Option<String>,
+    /// Optional action / kind filter.
+    #[arg(long)]
+    pub action: Option<String>,
+    /// Optional tenant id filter.
+    #[arg(long)]
+    pub tenant: Option<String>,
+    /// Output format: `markdown` (default), `json`, or `csv`.
+    #[arg(long, default_value = "markdown")]
+    pub format: String,
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct ApprovalExportArgs {
     /// Include approvals requested at or after this time (`30d`, `12h`, or RFC3339).

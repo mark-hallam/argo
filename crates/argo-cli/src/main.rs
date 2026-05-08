@@ -238,6 +238,26 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Approval { cmd }) => match cmd {
             cli::ApprovalCmd::Export(args) => handlers::approval_export::run(args).await,
         },
+        Some(Command::Compliance { cmd }) => match cmd {
+            cli::ComplianceCmd::Soc2(args) => {
+                let cwd = std::env::current_dir()
+                    .map_err(|e| argo_types::ArgoError::Provider(format!("current_dir: {e}")))?;
+                let home = home::resolve_home(&cwd)?;
+                home::ensure_dir(&home)?;
+                let store = argo_store::SessionStore::open(&home::db_path(&home)).await?;
+                store.migrate().await?;
+                let soc2_args = handlers::compliance_soc2::ComplianceSoc2Args {
+                    from: args.from,
+                    to: args.to,
+                    actor: args.actor,
+                    action: args.action,
+                    tenant: args.tenant,
+                    format: args.format,
+                };
+                let _ = handlers::compliance_soc2::run(soc2_args, &store).await?;
+                Ok(())
+            }
+        },
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
