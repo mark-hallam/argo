@@ -1,81 +1,66 @@
-# V1.1 — Worker KPI metric tracker
+# Stream B — worker KPI time-series store and CLI
 
-**Owner**: claude. **Depends on**: claude-worker-charter-storage (charter_md + kpi_json columns) MERGED.
-
-## Why
-
-Mission claim 2: "A worker has duties, KPIs, and a charter." The charter
-storage brief queues `kpi_json` (the schema/definition) but there is no
-mechanism to **record** observed KPI values over time. Without
-time-series points there is no way to ask "is the AR clerk hitting its
-weekly DSO target?" — KPI is just a static label.
-
-This brief adds a per-worker time-series KPI store + CLI to record/query.
+**Owner**: codex.
+**Depends on**: `claude-worker-charter-storage` MERGED.
+**Authored against**: origin/main `69b929c8` on `2026-05-08`.
+**Validate before claim**: `bash scripts/check-brief-freshness.sh claude-worker-kpi-tracker`.
+**MVP lane**: closes mission claim 2's "worker has KPIs" runtime evidence path.
 
 ## Scope
 
-- New `worker_kpi_value(id, worker_id, kpi_name, value, recorded_at,
-  source, note)` table. `value` is `REAL`. `source` distinguishes
-  manual entry from auto-derived (later wired to anomaly / success
-  surfaces).
-- CLI:
-  - `argo worker kpi record <id> <kpi> <value> [--note <text>]` —
-    insert one point
-  - `argo worker kpi list <id> [--kpi <name>] [--since <dur>]` — table
-  - `argo worker kpi series <id> <kpi> [--bucket day|week|month]
-    [--format markdown|json]` — bucketed avg/min/max/count
-- KPI names are NOT validated against `kpi_json` in this brief — that
-  cross-check is a follow-up so the two PRs can ship independently.
+Worker charters can already carry KPI definitions, but current main has no
+time-series record of observed KPI values. Add a small per-worker KPI value
+store plus `argo worker kpi ...` commands.
 
-## Approach
-
-1. Migration (next free `38__worker_kpi_value.sql`): table +
-   `(worker_id, kpi_name, recorded_at)` index.
-2. `crates/argo-store/src/worker_kpi.rs` (NEW) — `record_kpi`,
-   `list_kpi`, `series_kpi` (bucketing via SQLite `strftime`).
-3. `crates/argo-cli/src/handlers/worker_kpi.rs` (NEW) — handlers +
-   markdown formatter (≤ 320 LOC).
-4. `cli_worker_cmds.rs` — `Kpi { Record, List, Series }` subenum.
+The previous block was caused by `crates/argo-cli/src/cli_worker_cmds.rs`
+being at/near the 500 LOC ceiling. Current main has sibling command files for
+worker archive and charter. Follow that pattern: put the new KPI subcommand
+enum in a new sibling file and add only a small `WorkerCmd::Kpi(...)` variant
+to `cli_worker_cmds.rs`.
 
 ## Files you may touch
 
-- BLANKET CLI ALLOWLIST applies
-- EXHAUSTIVE-MATCH amendment applies
-- `crates/argo-store/migrations/38__worker_kpi_value.sql` (NEW)
-- `crates/argo-store/src/worker_kpi.rs` (NEW)
-- `crates/argo-store/src/lib.rs` — narrowly: `pub mod worker_kpi`
-- `crates/argo-cli/src/handlers/worker_kpi.rs` (NEW)
-- `crates/argo-cli/src/cli_worker_cmds.rs` — `Kpi` variant + subenum
-- `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
+- `crates/argo-store/migrations/39__worker_kpi_value.sql` (NEW) — use this prefix if still free at claim time; if another migration lands first, bump to the next free raw SQL prefix and note it in the PR body.
+- `crates/argo-store/src/worker_kpi.rs` (NEW) — record/list/series helpers.
+- `crates/argo-store/src/worker_kpi_tests.rs` (NEW) — unit tests for store helpers.
+- `crates/argo-store/src/lib.rs` — narrowly: `pub mod worker_kpi;`.
+- `crates/argo-cli/src/cli_worker_kpi_cmds.rs` (NEW) — clap enum for record/list/series.
+- `crates/argo-cli/src/cli_reexports.rs` — narrowly: module declaration/re-export for `cli_worker_kpi_cmds`.
+- `crates/argo-cli/src/cli_worker_cmds.rs` — narrowly: add `WorkerCmd::Kpi(WorkerKpiCmd)` and one `pub use`.
+- `crates/argo-cli/src/handlers/worker_kpi.rs` (NEW) — CLI handler.
+- `crates/argo-cli/src/handlers/worker_kpi_tests.rs` (NEW) — formatter/parse tests.
+- `crates/argo-cli/src/handlers/worker_actions.rs` — narrowly: route `WorkerCmd::Kpi` to the new handler if this remains the worker command dispatcher.
+- `crates/argo-cli/src/handlers/mod.rs` — one `pub mod worker_kpi;` line.
+- `crates/argo-cli/tests/worker_kpi_smoke.rs` (NEW) — record/list/series smoke.
 
 ## Files you must NOT touch
 
-- `crates/argo-identity/src/types.rs` Worker struct — KPI values are
-  separate table, not a struct field
-- charter storage migrations — those land in the parent brief
-- TUI — out of scope for this brief
+- `crates/argo-identity/src/types.rs` — KPI observations are a separate store table, not a Worker struct field.
+- Existing charter migrations — KPI definitions stay in charter storage.
+- `docs/skycot/RUNBOOK.md` — over the 500 LOC ceiling.
+- TUI files — read-side UI is a follow-up.
+- Anything not on the may-touch list above.
 
 ## Acceptance criteria
 
-- [ ] `argo worker kpi record` inserts a row
-- [ ] `argo worker kpi list --since 7d` filters by recorded_at
-- [ ] `argo worker kpi series --bucket week` returns
-      avg/min/max/count per bucket in markdown + JSON
-- [ ] 8 unit tests (insert, list, bucket arithmetic, since filter)
-      + 2 CLI smoke + 1 markdown snapshot
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
-- [ ] Every modified file < 500 LOC
+- [ ] `argo worker kpi record <worker_id> <kpi> <value> [--tenant <tenant>] [--note <text>]` inserts one value.
+- [ ] `argo worker kpi list <worker_id> [--tenant <tenant>] [--kpi <name>] [--since <rfc3339>]` filters correctly.
+- [ ] `argo worker kpi series <worker_id> <kpi> --bucket day|week|month` returns avg/min/max/count buckets.
+- [ ] Text output is operator-readable and JSON output is available for every list/show/status-style command.
+- [ ] Store tests cover insert, tenant isolation, KPI-name filter, since filter, and bucket math.
+- [ ] CLI smoke covers record/list/series.
+- [ ] `cargo clippy -p argo-store -p argo-cli --all-targets -- -D warnings` passes.
+- [ ] `cargo test -p argo-store -p argo-cli` passes.
+- [ ] Every modified file stays under 500 LOC.
+- [ ] BUILD_STATUS.md updated with PR number.
 
 ## Branch + PR
 
-- Branch: `claude-worker-kpi-tracker`
-- PR title: `worker: per-worker KPI metric time-series store + CLI (claude-worker-kpi-tracker)`
+- Branch: `codex-claude-worker-kpi-tracker`
+- PR title: `worker: record and query per-worker KPI values (claude-worker-kpi-tracker)`
 
-## Notes
+## Notes for the implementer
 
-- Mirror the `series` formatter on `argo session messages --markdown`
-  (see project_argo_state.md "markdown-format family").
-- Bucketing in SQLite: `strftime('%Y-%W', recorded_at)` for week,
-  `strftime('%Y-%m', recorded_at)` for month.
-- Defer auto-emit hooks (anomaly / success) to a follow-up so this
-  PR stays narrow.
+- Use `REAL` for KPI values, `TEXT` worker ids, and a tenant boundary column. Keep the schema additive.
+- The raw migration namespace currently jumps from `38__session_worker_id.sql`; check `ls crates/argo-store/migrations` before creating the file.
+- Do not validate KPI names against charter `kpis_json` in this PR. The first MVP need is observable time-series data.
