@@ -1,0 +1,28 @@
+name: Schema doc drift
+# Fail PRs that change argo-store migrations (or sqlx::FromRow row
+# structs) without regenerating docs/skycot/SCHEMA.md. Run
+# `bash scripts/gen-schema-doc.sh` locally and commit the result.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/argo-store/migrations/**'
+      - 'crates/argo-store/src/**'
+      - 'docs/skycot/SCHEMA.md'
+      - 'scripts/gen-schema-doc.sh'
+      - '.github/workflows/schema-doc-check.yml'
+  pull_request:
+    paths:
+      - 'crates/argo-store/migrations/**'
+      - 'crates/argo-store/src/**'
+      - 'docs/skycot/SCHEMA.md'
+      - 'scripts/gen-schema-doc.sh'
+      - '.github/workflows/schema-doc-check.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify SCHEMA.md is up to date
+        run: bash scripts/gen-schema-doc.sh --check
