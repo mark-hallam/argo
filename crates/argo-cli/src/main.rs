@@ -229,6 +229,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Connector { cmd }) => handlers::connector_authorize::run(cmd).await,
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
+        Some(Command::Approval { cmd }) => match cmd {
+            cli::ApprovalCmd::Export(args) => handlers::approval_export::run(args).await,
+        },
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,

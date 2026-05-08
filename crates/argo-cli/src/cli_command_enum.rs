@@ -120,6 +120,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: WorkerCmd,
     },
+    /// Approval audit surfaces.
+    Approval {
+        #[command(subcommand)]
+        cmd: ApprovalCmd,
+    },
     Tenant {
         #[command(subcommand)]
         cmd: TenantCmd,

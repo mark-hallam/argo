@@ -9,7 +9,7 @@ pub use cli_reexports::{
 };
 #[path = "cli_command_enum.rs"]
 mod cli_command_enum;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 pub use cli_command_enum::Command;
 #[derive(Parser, Debug)]
 #[command(
@@ -46,4 +46,41 @@ pub enum ToolsCmd {
         #[arg(long)]
         json: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ApprovalCmd {
+    /// Export approval audit rows to CSV, JSON, or JSONL.
+    Export(ApprovalExportArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ApprovalExportArgs {
+    /// Include approvals requested at or after this time (`30d`, `12h`, or RFC3339).
+    #[arg(long)]
+    pub since: Option<String>,
+    /// Include approvals requested at or before this time (`30d`, `12h`, or RFC3339).
+    #[arg(long)]
+    pub until: Option<String>,
+    /// Filter by decision; may be repeated. Values: approve, deny, pending, timeout.
+    #[arg(long)]
+    pub decision: Vec<String>,
+    /// Strict equality filter on worker id/name.
+    #[arg(long)]
+    pub worker: Option<String>,
+    /// Strict equality filter on action kind.
+    #[arg(long = "action-kind")]
+    pub action_kind: Option<String>,
+    /// Maximum rows to export; clamped to 1000.
+    #[arg(long, default_value_t = 50)]
+    pub limit: u32,
+    /// Output format: csv, json, or jsonl.
+    #[arg(long, default_value = "csv")]
+    pub format: String,
+    /// Output path, or `-` for stdout.
+    #[arg(long, default_value = "-")]
+    pub out: String,
+    /// Allow overwriting an existing output file.
+    #[arg(long)]
+    pub force: bool,
 }
