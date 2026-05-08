@@ -13,6 +13,8 @@ pub mod cli_audit_cmds;
 pub mod cli_backup_cmds;
 #[path = "cli_classify_cmds.rs"]
 pub mod cli_classify_cmds;
+#[path = "cli_compliance_cmds.rs"]
+pub mod cli_compliance_cmds;
 #[path = "cli_plan_cmds.rs"]
 pub mod cli_plan_cmds;
 #[path = "cli_budget_cmds.rs"]
@@ -92,6 +94,7 @@ pub mod cli_workspace_cmds;
 
 pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
+pub use cli_compliance_cmds::{ComplianceCmd, ComplianceExportArgs};
 pub use cli_budget_cmds::*;
 pub use cli_doctor_cmds::DoctorCmd;
 pub use cli_feedback_cmds::FeedbackCmd;

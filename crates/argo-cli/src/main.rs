@@ -95,6 +95,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             .await,
             cli::ClassifyCmd::Rules { json } => handlers::classify_rules::run(json).await,
         },
+        Some(Command::Compliance { cmd }) => match cmd {
+            cli::ComplianceCmd::Export(args) => handlers::compliance_export::run(args).await,
+        },
         Some(Command::Plan { cmd }) => match cmd {
             cli::PlanCmd::Generate {
                 goal,

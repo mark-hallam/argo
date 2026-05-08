@@ -37,6 +37,7 @@ pub mod chat;
 pub mod classify_list;
 pub mod classify_rules;
 pub mod classify_set;
+pub mod compliance_export;
 pub mod costs;
 pub mod costs_anomalies;
 pub mod costs_by_day;

@@ -378,6 +378,14 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ClassifyCmd,
     },
+    /// GDPR compliance surfaces (Phase C). `export` emits every
+    /// tenant-scoped row across the database for one tenant id as a
+    /// single JSON envelope, satisfying GDPR Article 15 right-to-access.
+    /// The export is itself audit-logged.
+    Compliance {
+        #[command(subcommand)]
+        cmd: ComplianceCmd,
+    },
     /// Decompose a coarse goal into a workflow DAG (Stream
     /// `claude-runtime-planner-trait`). Offline TemplatePlanner by
     /// default; `--llm` opts into the Anthropic-backed LlmPlanner.
