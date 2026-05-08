@@ -278,8 +278,12 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 )
                 .await
             }
-            WorkerActionsCmd::Execute { action_id, json } => {
-                super::worker_actions_dispatch::execute(&action_id, json).await
+            WorkerActionsCmd::Execute {
+                action_id,
+                dry_run,
+                json,
+            } => {
+                super::worker_actions_dispatch::execute(&action_id, dry_run, json).await
             }
             WorkerActionsCmd::Complete {
                 action_id,

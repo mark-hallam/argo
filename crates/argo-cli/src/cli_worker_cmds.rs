@@ -362,6 +362,9 @@ pub enum WorkerActionsCmd {
     /// signal "I started doing this offline".
     Execute {
         action_id: String,
+        /// Preview execution without changing state or writing an output bundle.
+        #[arg(long)]
+        dry_run: bool,
         #[arg(long)]
         json: bool,
     },

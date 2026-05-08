@@ -111,9 +111,12 @@ pub(crate) async fn approve_batch(
     Ok(())
 }
 
-pub(crate) async fn execute(action_id: &str, json: bool) -> ArgoResult<()> {
+pub(crate) async fn execute(action_id: &str, dry_run: bool, json: bool) -> ArgoResult<()> {
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     worker_actions_auto_approval::ensure_circuit_allows_dispatch(&memory, ws, action_id).await?;
+    if dry_run {
+        return super::worker_actions_dry_run::preview(&memory, ws, action_id, json).await;
+    }
     // Stream H-2: auto-approval gate runs first so an
     // auto-approved action gets a real `approve()` audit row.
     worker_actions_auto_approval::maybe_auto_approve(&memory, ws, action_id).await?;
