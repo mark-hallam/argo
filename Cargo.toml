@@ -57,6 +57,7 @@ members = [
   "crates/argo-mcp-connector-trello",
   "crates/argo-mcp-connector-github-issues",
   "crates/argo-mcp-connector-typeform",
+  "crates/argo-mcp-connector-figma",
   "crates/argo-mcp-connector-monday",
   "crates/argo-mcp-connector-fireflies",
   "crates/argo-mcp-connector-clickup",
