@@ -345,6 +345,16 @@ When exiting cleanly:
    exit, what triggered the exit.
 3. Exit. The wrapper or operator restarts a fresh tab.
 
+### Exemption: CLI-loop workers
+
+Workers launched under `scripts/claude-worker-loop.sh` are exempt
+from the graceful-exit protocol. The script holds the loop in bash
+and spawns a fresh `claude -p` session per brief, so context never
+accumulates across briefs and the 4-PR degradation curve does not
+apply. Stop a CLI-loop worker via `touch /tmp/argo-stop` (Stop
+Condition 5) or Ctrl-C — there is nothing to "gracefully exit"
+internally because every iteration is structurally fresh.
+
 ## Post-compaction recovery
 
 If you sense compaction just fired:

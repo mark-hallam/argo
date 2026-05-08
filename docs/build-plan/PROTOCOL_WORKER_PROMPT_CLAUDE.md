@@ -25,3 +25,21 @@ If the claimed brief explicitly says `Manager-worker allowed: yes`, use
 manager-worker mode from `SWARM_PROTOCOL.md` and create the package
 from `docs/build-plan/PROTOCOL_MANAGER_PACKAGE_TEMPLATE.md`. Otherwise
 run the normal worker loop.
+
+## CLI loop mode (alternative to interactive desktop)
+
+For unattended runs, launch the stateless Claude worker loop in any
+terminal:
+
+```bash
+bash scripts/claude-worker-loop.sh
+```
+
+Optional env: `REPO=/path/to/repo`, `FAMILY=claude`. The wrapper holds
+the swarm-protocol state machine in bash (pull, claim, jitter); each
+iteration spawns a fresh `claude -p` session for one brief and exits.
+
+CLI-loop workers are exempt from the graceful-exit protocol in
+`SWARM_PROTOCOL.md` — every iteration is a fresh window, so context
+never accumulates and there is no degraded-session mode to exit from.
+Stop the loop by `touch /tmp/argo-stop` or Ctrl-C.
