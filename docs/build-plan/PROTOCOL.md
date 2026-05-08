@@ -21,16 +21,18 @@ The companion artifacts:
 
 Three roles:
 
-1. **Conductor** — ONE Claude tab. Driven by `/loop 5m <prompt>`.
-   Never writes feature code. Pulls main, reviews open PRs, merges
-   clean ones, updates the ledger, unblocks BLOCKED rows, supervises
-   the swarm. The conductor is the only agent allowed to merge.
-2. **Workers** — N tabs (mix Claude + Codex). Each tab claims one
-   row from the ledger, implements it on a worktree, opens a PR,
-   marks the row IN_REVIEW, then **stops**. Do not loop — the
-   conductor does the merging and the human spawns a fresh worker
-   tab when capacity opens up. (A self-pacing worker is fine too,
-   but expect more conflict noise.)
+1. **Conductor** — ONE tab. Claude Code is the default because it can
+   run `/loop 5m <prompt>`; Codex may act as conductor when the
+   operator explicitly chooses it. Never writes feature code. Pulls
+   main, reviews open PRs, merges clean ones, updates the ledger,
+   unblocks BLOCKED rows, supervises the swarm. The conductor is the
+   only agent allowed to merge.
+2. **Workers** — N tabs (mix Claude + Codex). Each worker has one
+   active brief at a time: claim a row from the ledger, implement it
+   on a worktree, open a PR, and mark the row IN_REVIEW. Current
+   `CLAUDE.md` rules allow self-paced workers to continue after that
+   with fresh pulls and jitter; rotating after 2-4 PRs is the healthy
+   norm when context gets heavy.
 3. **Human operator** — escalation target only. Reviews the rare
    row the conductor flags, resolves cross-stream architectural
    choices, kills runaway tabs.
@@ -118,9 +120,11 @@ In text:
 1. git checkout main && git pull --ff-only
 2. cat BUILD_STATUS.md
 3. Find the first row where:
-     owner matches my agent family
      status == TODO
      all predecessors MERGED
+   The owner column is a sizing hint, not a hard lock; Codex-prefixed
+   briefs are normally smaller/mechanical, Claude-prefixed briefs are
+   normally broader/architectural.
 4. Edit BUILD_STATUS.md → set that row's status to CLAIMED
 5. git commit -m "status: claim <brief-id>" && git push origin main
    (if push fails: pull, pick a different row, retry)
@@ -128,20 +132,22 @@ In text:
 7. git worktree add /tmp/<brief-id> origin/main
 8. cd /tmp/<brief-id> && git checkout -b <owner>-<brief-id>
 9. Implement the brief. Stay inside the may-touch list.
-10. cargo build / clippy / test (or project equivalent). Tick the
-    acceptance boxes. Verify file LOC budget.
+10. Run crate-scoped clippy/tests for crates in the may-touch list,
+    then one final workspace clippy sanity check as described in
+    `CLAUDE.md`. Tick the acceptance boxes. Verify file LOC budget.
 11. git push -u origin <owner>-<brief-id>
 12. gh pr create with the brief's PR title, body listing checked
     acceptance boxes
 13. Edit BUILD_STATUS.md (in the main checkout, not the worktree)
     → status = IN_REVIEW, add PR number
 14. git commit -m "status: <brief-id> in review (#NNN)" && git push
-15. STOP. The conductor merges. A fresh tab starts the next brief.
+15. Either rotate out cleanly or continue from step 1 with fresh
+    ledger state and jitter, per `CLAUDE.md`.
 ```
 
-The single most important worker rule: **one PR per tab, then stop**.
-Don't loop. Don't claim a second row from the same tab. The
-conductor has visibility on what's mergeable; the worker doesn't.
+The single most important worker rule: **one active brief per worker
+at a time**. Do not claim a second row until the current row is
+IN_REVIEW, BLOCKED, or explicitly released on main.
 
 ### 4. The unblock dance
 
@@ -443,7 +449,8 @@ clause for new sections. Bake into the template.
 
 ### Conductor
 
-- ONE Claude tab. Driven by `/loop 5m <PROTOCOL_LOOP_PROMPT.md>`.
+- ONE tab. Claude Code uses `/loop 5m <PROTOCOL_LOOP_PROMPT.md>`;
+  Codex runs the same sequence manually or through app automations.
 - Allowed to: pull main, read BUILD_STATUS.md, read PR diffs, merge
   clean PRs, comment on PRs with issues, edit BUILD_STATUS.md
   (status transitions only), edit briefs in `streams/` (to expand
@@ -470,7 +477,9 @@ clause for new sections. Bake into the template.
 - NOT allowed to: merge anything, modify another brief's files,
   modify the conductor's BUILD_STATUS.md transitions out of order,
   delete or force-push another agent's branch.
-- Stop after the IN_REVIEW commit. Do not loop.
+- Stop after the IN_REVIEW commit when context is heavy, or continue
+  self-paced from a fresh pull when operating under the current
+  `CLAUDE.md` loop rules.
 
 ### Human operator
 
@@ -626,12 +635,13 @@ conflict surface area.
 5. Write a tight `CONTRIBUTING_AGENT.md` adapting the worker rules
    to your toolchain (replace `cargo build/clippy/test` with your
    build commands, keep the LOC budget if you want it).
-6. Open one Claude tab. Paste `PROTOCOL_LOOP_PROMPT.md` content
-   into a `/loop 5m` command, substituting your repo path. Hit
-   enter. The conductor is now running.
+6. Open one conductor tab. In Claude Code, paste
+   `PROTOCOL_LOOP_PROMPT.md` content into a `/loop 5m` command,
+   substituting your repo path. In Codex, run the same tick sequence
+   manually or via app automations. The conductor is now running.
 7. Open N worker tabs (mix of Claude and Codex). In each, paste:
    "Read `docs/build-plan/CONTRIBUTING_AGENT.md` and pick the
-   first TODO row matching your agent family." Hit enter.
+   first claimable TODO row." Hit enter.
 8. Watch the ledger. Spawn fresh worker tabs as ones finish.
 
 That's it. The swarm is live.

@@ -113,6 +113,13 @@ If you are a worker tab, these rules apply on EVERY iteration —
 including after auto-compaction summarizes earlier turns. The ledger
 is the source of truth, not your memory.
 
+If the operator explicitly designates a Codex tab as the conductor,
+it follows the same conductor role from `PROTOCOL_LOOP_PROMPT.md`:
+review/merge PRs, maintain the ledger, unblock/rewrite briefs, and
+replenish queues. A conductor tab must not write feature code; if it
+previously claimed worker work, release or finish that worker state
+before making conductor mutations.
+
 ### One-time environment setup (tick370 perf amendment)
 
 Before launching workers, the operator should set:
@@ -254,10 +261,11 @@ Run this loop until any STOP CONDITION fires:
    `"status: claim <brief-id>"`, push to origin/main. Race-lost? See
    HARD RULE 7.
 7. Read `docs/build-plan/streams/<brief-id>.md`. This is the spec.
-8. `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id>
-   && git checkout -b <owner>-<brief-id>` (clean up any stale worktree
-   first: `git worktree remove /tmp/<brief-id> --force 2>/dev/null;
-   rm -rf /tmp/<brief-id>`).
+8. Inspect any existing `/tmp/<brief-id>` worktree before deleting it.
+   If it has useful uncommitted work from an aborted tab, salvage or
+   stash it first. Then create the fresh worktree:
+   `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id>
+   && git checkout -b <owner>-<brief-id>`.
 9. Implement. Stay inside may-touch list. Tick acceptance boxes.
 10. **Crate-scoped verification (tick370 perf amendment).** Default to
    checking ONLY the crates your may-touch list mentions — workspace
@@ -350,7 +358,9 @@ Adopt as defaults; deviate consciously when needed.
    workspace clippy and the 28-min cold build are dead time if
    foreground-polled — and they should NEVER block your reasoning
    capacity. Use `Monitor` or wait for the background-completion
-   notification rather than polling.
+   notification rather than polling. In environments without that
+   exact flag, keep the long-running terminal session alive and do
+   non-overlapping review/planning work before waiting on completion.
 
 5. **Clean BLOCK + move on (≤2 min budget).** If a brief's premise
    is wrong AND the fix is outside may-touch:

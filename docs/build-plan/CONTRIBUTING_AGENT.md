@@ -4,6 +4,12 @@ How multiple AI agent families (Claude Code, Codex, future
 agents) build this repo concurrently without stepping on each
 other. Read this before starting any task.
 
+`CLAUDE.md` is the live swarm-worker rule source for this repo,
+including newer amendments for owner-as-sizing-hint,
+`claim-with-retry.sh`, freshness checks, crate-scoped verification,
+and worker rotation. If this companion file conflicts with
+`CLAUDE.md`, follow `CLAUDE.md`.
+
 ---
 
 ## The protocol
@@ -11,16 +17,19 @@ other. Read this before starting any task.
 1. **Sync main first.** Always start with `git checkout main &&
    git pull --ff-only origin main`.
 2. **Read [`BUILD_STATUS.md`](BUILD_STATUS.md).** Find the first
-   row where `owner` matches your agent family (claude / codex)
-   and `status` is `TODO`.
+   row whose `status` is `TODO` and whose predecessors are merged.
+   The `owner` column is a sizing hint, not a hard lock.
+   Codex-sized briefs are normally narrower and more mechanical;
+   Claude-sized briefs may be broader.
 3. **Claim the brief.** Edit `BUILD_STATUS.md` to set that
    row's `status` to `CLAIMED`. Commit + push to main with
    message `status: claim <brief-id>`. If push fails (someone
    else got there first), pull main and pick a different brief.
 4. **Read the brief** at `streams/<brief-id>.md`. Follow it
    exactly.
-5. **Build, test, lint** before opening the PR. The brief lists
-   the exact commands.
+5. **Build, test, lint** before opening the PR. Prefer the
+   crate-scoped verification flow in `CLAUDE.md`, then run the final
+   workspace clippy sanity check before pushing.
 6. **Open the PR** with the brief's specified title + body.
 7. **Mark in review.** Edit `BUILD_STATUS.md` to set the row's
    `status` to `IN_REVIEW`, add the PR number to the row,
@@ -71,10 +80,12 @@ expand scope.
 
 Every brief lists this as the acceptance checklist; never skip:
 
-- [ ] `cargo build -p <crate>` passes
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings`
-      clean
-- [ ] `cargo test -p <crate>` passes
+- [ ] crate-scoped `cargo clippy -p <crate> --all-targets -- -D warnings`
+      clean for every touched crate
+- [ ] crate-scoped `cargo test -p <crate>` passes for every touched crate
+- [ ] final `cargo clippy --workspace --all-targets -- -D warnings`
+      sanity check is clean, or any failure is a documented
+      pre-existing boundary issue under `CLAUDE.md` HARD RULE 2
 - [ ] Every file you authored or modified is < 500 LOC
 - [ ] Files-touched list matches the brief's "may touch"
 - [ ] BUILD_STATUS.md updated with PR number

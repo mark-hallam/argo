@@ -15,9 +15,14 @@ How to run:
      swarm uses (e.g. `claude-,codex-`).
    - `<PROJECT_NICKNAME>` — what to call the swarm in the report
      (e.g. `SKYCOT 14-day v1`).
-2. Open ONE Claude tab on `<REPO_PATH>`. This tab will be the
-   conductor for the duration of the run.
-3. Run `/loop 5m <paste the prompt below>`.
+2. Open ONE conductor tab on `<REPO_PATH>`. Claude Code is the
+   default because it supports `/loop`; Codex may act as conductor
+   when the operator explicitly chooses it. The role is identical:
+   ledger, PR review, queue replenishment, brief rewrites; no feature
+   code.
+3. In Claude Code, run `/loop 5m <paste the prompt below>`. In Codex,
+   execute the same sequence manually or via the app automation
+   surface without changing the repository protocol.
 4. Cancel the loop when every brief in BUILD_STATUS.md is MERGED
    AND the v1 demo gate is green, or by Ctrl-C / human intervention.
 
@@ -66,6 +71,9 @@ commit that adds the brief file.
    If EITHER is ≤8, fire Step 8 (queue replenishment) NOW before continuing to Step 1.
    This rule is load-bearing — workers stand down if queue runs dry. The conductor must
    not skip this check, even when "nothing else looks pressing."
+   If this tab previously acted as a worker and has a CLAIMED row or feature-code WIP,
+   cleanly release/finish that worker state before doing conductor mutations. Never mix
+   worker implementation with conductor review/replenishment in the same tick.
 
 1. cd <REPO_PATH> && git checkout main && git pull --ff-only origin main 2>&1 | tail -3
 
@@ -78,14 +86,15 @@ commit that adds the brief file.
 5. For any NEW open PR from a <WORKER_BRANCH_PREFIXES> branch I haven't reviewed yet:
    - gh pr diff <num> --color never | head -300 (skim the diff)
    - Verify against the brief's acceptance checklist — **TIERED VERIFICATION (tick368 amendment)**:
-     - **Tier 1 (default — ~1-2min)**: diff-shape review only. Confirm: (a) files match brief's may-touch list, (b) every modified file <500 LOC, (c) all acceptance boxes ticked in PR body, (d) any boundary deviations declared, (e) PR body explicitly claims `clippy --workspace clean` / tests pass, (f) `gh pr view --json mergeStateStatus` returns MERGEABLE not DIRTY. **Trust the worker's verification claim.** Workers run cargo build + clippy --workspace + tests per CLAUDE.md step 9; the conductor re-running them duplicates 9+ minutes of work that already passed.
+     - **Tier 1 (default — ~1-2min)**: diff-shape review only. Confirm: (a) files match brief's may-touch list, (b) every modified file <500 LOC, (c) all acceptance boxes ticked in PR body, (d) any boundary deviations declared, (e) PR body explicitly claims crate-scoped clippy/tests plus the final `clippy --workspace` sanity check from CLAUDE.md step 10, (f) `gh pr view --json mergeStateStatus` returns MERGEABLE not DIRTY. **Trust the worker's verification claim.** Workers own the cargo verification; the conductor re-running it duplicates 9+ minutes of work that already passed.
      - **Tier 2 (~2min)**: targeted single-crate clippy ONLY when the diff touches a schema migration, multi-crate refactor, or any `argo-store/migrations/` file. Run `cargo clippy -p <touched-crate> --all-targets -- -D warnings` (NOT --workspace). 1-2min instead of 9.
      - **Tier 3 (~10min, full local verify)**: only when Tier 1 surfaces a red flag: missing PR body, no acceptance ticks, out-of-may-touch edits, brand-new crate added, security-sensitive code, or worker history of broken submissions. Spin worktree + `cargo clippy --workspace`.
    - If clean: gh pr merge <num> --squash --delete-branch, then update BUILD_STATUS.md row to MERGED with PR num, commit "status: <brief-id> merged (#<num>)", push to main
    - If issues: gh pr comment <num> --body "<specific issue>", note in BUILD_STATUS.md
    - Track which PRs I've already reviewed across ticks (use git log to see my own merge commits)
 
-6. Continue any in-progress claude-owned Stream work I'm building. Pick the first claude-owned TODO row whose predecessors are all MERGED.
+6. Do not write feature code from the conductor tab. If there is process/doc work already
+   in progress for the conductor role, continue it; otherwise skip to BLOCKED triage.
 
 7. If a brief has been BLOCKED, investigate the reason and decide: expand its may-touch list (small fix in BUILD_STATUS.md + brief), or split into sub-briefs, or escalate to the human operator.
 
