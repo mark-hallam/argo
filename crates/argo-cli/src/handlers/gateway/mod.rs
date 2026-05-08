@@ -2,11 +2,12 @@
 //! `<ARGO_HOME>/gateway.pid` mediates the start↔stop handshake.
 //!
 //! Sub-modules:
-//!   - `lifecycle`:     PidGuard + signal helpers (SIGTERM/SIGINT).
-//!   - `boot`:          start/stop command bodies + supporting helpers.
-//!   - `start_banner`:  the one-time route summary printed on `start`.
-//!   - `print_routes`:  `argo gateway routes` CLI subcommand printer.
-//!   - `routes`:        HTTP route dispatch + per-endpoint handlers.
+//!   - `lifecycle`:            PidGuard + signal helpers (SIGTERM/SIGINT).
+//!   - `boot`:                 start/stop command bodies + supporting helpers.
+//!   - `start_banner`:         the one-time route summary printed on `start`.
+//!   - `start_banner_config`:  layered config loader for the banner.
+//!   - `print_routes`:         `argo gateway routes` CLI subcommand printer.
+//!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
 mod boot;
 mod lifecycle;
 mod metrics;
@@ -14,6 +15,7 @@ mod metrics_actions;
 mod print_routes;
 mod routes;
 mod start_banner;
+mod start_banner_config;
 mod sweepers;
 mod routes_audit;
 mod routes_audit_rollups;
@@ -78,7 +80,8 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             bind,
             port,
             max_requests,
-        } => boot::start(&bind, port, max_requests).await,
+            quiet,
+        } => boot::start(&bind, port, max_requests, quiet).await,
         GatewayCmd::Stop => boot::stop().await,
         GatewayCmd::Routes {
             json,

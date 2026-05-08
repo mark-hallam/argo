@@ -19,6 +19,11 @@ pub enum GatewayCmd {
         /// until SIGINT / SIGTERM).
         #[arg(long)]
         max_requests: Option<u64>,
+        /// Suppress the boot-time route catalog banner. Top of the
+        /// precedence chain — overrides `ARGO_BANNER_*` env vars and
+        /// any `[startup_banner]` TOML section.
+        #[arg(long)]
+        quiet: bool,
     },
     Stop,
     /// One-line status: running PID + listening address.

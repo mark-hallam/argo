@@ -16,7 +16,8 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use super::lifecycle::{pid_is_alive, shutdown_signal, signal_term, PidGuard};
-use super::start_banner::print_endpoint_summary;
+use super::start_banner::print_banner;
+use super::start_banner_config::load_layered;
 use super::{
     metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice, streaming,
     sweepers,
@@ -56,7 +57,12 @@ async fn open_store(cwd: &std::path::Path) -> ArgoResult<SessionStore> {
     Ok(store)
 }
 
-pub(super) async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> ArgoResult<()> {
+pub(super) async fn start(
+    bind: &str,
+    port: u16,
+    max_requests: Option<u64>,
+    cli_quiet: bool,
+) -> ArgoResult<()> {
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await
@@ -118,7 +124,9 @@ pub(super) async fn start(bind: &str, port: u16, max_requests: Option<u64>) -> A
             }
         }
     }
-    print_endpoint_summary();
+    let argo_toml = cwd_for_store.join("argo.toml");
+    let banner_cfg = load_layered(Some(&argo_toml), cli_quiet);
+    print_banner(&banner_cfg);
 
     let mut served = 0_u64;
     let shutdown = shutdown_signal();
