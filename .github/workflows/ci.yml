@@ -20,6 +20,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
+      - name: Check workspace dependency pinning
+        run: scripts/check-version-pinning.sh
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
