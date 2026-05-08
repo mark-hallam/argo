@@ -39,6 +39,8 @@ Cluster:
 - `crates/argo-store/src/migrations/v15.rs` (NEW) — shared team memory schema, idempotent.
 - `crates/argo-store/src/migration_reconciliation_tests.rs` (NEW) — fresh and legacy/partial schema tests.
 - `crates/argo-store/src/lib.rs` — narrowly: test module include if needed.
+- `crates/argo-store/src/lib_tests.rs` — narrowly: update schema-version / rollback expectations after the registered runner advances from v11 to v15.
+- `crates/argo-store/src/tenant_quota_tests.rs` — narrowly: make worker_budget test seeding compatible with `SessionStore::migrate()` creating worker identity tables.
 
 ## Files you must NOT touch
 
