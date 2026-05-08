@@ -1,87 +1,95 @@
 # Bearer-auth principal stamping (Phase A follow-up to #946)
 
-**Owner**: claude. **Depends on**: `mission-gateway-bearer-auth-get-routes` MERGED
-(creates `routes_auth.rs`).
+**Owner**: codex. **Depends on**: `mission-gateway-bearer-auth-get-routes`
+MERGED.
+
+**Authored against**: origin/main `ab1fbc40` on 2026-05-08.
+
+## Conductor Rewrite
+
+Rewritten on 2026-05-08 after worker validation found the original
+schema premise stale. Current main has canonical table `audit_record`
+(`crates/argo-store/src/migrations/v1.rs`) with no `principal` column;
+there is no `audit_log` table. This brief must not add a migration.
+Stamp the authenticated principal into `audit_record.payload_json`
+instead.
 
 ## Why
 
-#946 wired `check_bearer_auth` across POST routes and a sibling stream is
-extending it to GET routes via `routes_auth.rs`. We accept the bearer but
-discard everything we *learn* from it — every audit row reads
-`principal=anonymous` even when the request was authenticated. Mission
-claim 1 ("teammate, not tool. A worker has persistent identity, voice,
-memory") demands every action be attributable. This brief adds principal
-stamping: when `X-Argo-Principal` accompanies a valid bearer, parse it and
-write it onto the audit row that the request produces.
+#946 / #960 wired bearer auth across gateway POST and protected GET
+routes. We accept the bearer but currently discard operator identity
+metadata on gateway audit rows. Mission claim 1 needs attributable
+worker/human actions. For this v1 follow-up, attribution lives in each
+gateway audit row's JSON payload.
 
 ## Scope
 
-- Parse `X-Argo-Principal: worker:<uuid>` / `human:<email>` / `system:<name>`
-  out of the request after bearer succeeds.
-- Pass the parsed `Principal` through the dispatch path so the audit row
-  gets stamped instead of the default `anonymous`.
-- Schema: extend the audit row writer to accept an optional principal
-  string (column already exists in `audit_log`; verify before adding).
-- Reject malformed principal values with 400 (not 401 — bearer was good).
+- Parse optional `X-Argo-Principal` after bearer auth succeeds:
+  - `worker:<uuid>`
+  - `human:<email-or-handle>`
+  - `system:<name>`
+- Missing header maps to `anonymous`.
+- Malformed principal returns `400 Bad Request` with
+  `{"error":"bad principal"}`. This is not a 401 because bearer auth
+  already succeeded.
+- Add `"principal":"..."` into gateway approval audit payloads emitted
+  by `POST /sessions/<id>/approve` and
+  `POST /sessions/<id>/revoke-approval`.
+- Keep the change payload-only. Do not add audit schema columns.
 
-## Approach (concrete)
+## Approach
 
 1. **NEW** `crates/argo-cli/src/handlers/gateway/routes_auth_principal.rs`
-   (~120 LOC):
-   - `Principal` enum: `Worker(WorkerId)` / `Human(String)` / `System(String)` / `Anonymous`
-   - `pub fn parse_principal_header(req: &str) -> Result<Principal, &'static str>`
-   - 8 unit tests in same file (well-formed each variant, malformed, missing,
-     empty, oversized).
-2. **Modify** `routes_auth.rs` (created by parent brief) — narrowly:
-   on bearer-auth success, also call `parse_principal_header` and pass
-   the result through the request context tuple (existing pattern in
-   `routes_dispatch_post.rs`).
-3. **Modify** audit row writer site(s) — pass `principal.as_str()` into
-   the existing column rather than hard-coded `"anonymous"`.
-4. Add 1 integration test in `crates/argo-cli/tests/gateway_auth_smoke.rs`
-   covering: header present → audit row has principal; header absent →
-   audit row has `anonymous`; malformed → 400.
+   (<= 180 LOC):
+   - `Principal` enum: `Worker(Uuid)`, `Human(String)`,
+     `System(String)`, `Anonymous`
+   - `parse_principal_header(req: &str) -> Result<Principal, &'static str>`
+   - `principal_payload(req, payload)` helper that inserts the string
+     principal into an existing JSON object
+   - unit tests for each accepted variant, missing, malformed, empty,
+     and oversized values
+2. `routes_dispatch_post.rs`: after `check_bearer_auth(req)` passes,
+   validate the principal header once and return the 400 envelope on
+   malformed values.
+3. `routes_session_approval.rs`: wrap both existing audit payloads
+   with the helper before calling `AuditSink::write`.
+4. Add a focused gateway smoke test file for the principal payload
+   behavior. The old brief referenced nonexistent
+   `gateway_auth_smoke.rs`; use a new file instead.
 
-## Files you may touch
+## Files You May Touch
 
-- `crates/argo-cli/src/handlers/gateway/routes_auth_principal.rs` (NEW, ≤ 200 LOC)
-- `crates/argo-cli/src/handlers/gateway/routes_auth.rs` (narrow edit — 1 call site)
-- `crates/argo-cli/src/handlers/gateway/mod.rs` (1 pub mod line)
-- `crates/argo-cli/src/handlers/gateway/routes_dispatch_post.rs` (narrow — thread principal arg)
-- Audit row writer site(s) the request path actually reaches (≤ 2 files;
-  prefer the smallest possible diff)
-- `crates/argo-cli/tests/gateway_auth_smoke.rs` (existing — add 3 cases)
+- `crates/argo-cli/src/handlers/gateway/routes_auth_principal.rs` (NEW)
+- `crates/argo-cli/src/handlers/gateway/routes_auth.rs` (only if a
+  small shared helper is cleaner)
+- `crates/argo-cli/src/handlers/gateway/routes_dispatch_post.rs`
+- `crates/argo-cli/src/handlers/gateway/routes_session_approval.rs`
+- `crates/argo-cli/src/handlers/gateway/mod.rs`
+- `crates/argo-cli/tests/gateway_auth_principal_smoke.rs` (NEW)
 
-## Files you must NOT touch
+## Files You Must NOT Touch
 
-- The `argo-store` migrations directory — `audit_log.principal` column
-  already exists; verify with `grep -n principal crates/argo-store/migrations/*audit*`
-  before assuming. If it does NOT exist, STOP and surface to conductor;
-  do not add migration in this brief.
-- `crates/argo-identity/` types
-- Any non-audit-row writer
+- `CLAUDE.md`
+- `crates/argo-store/src/migrations/`
+- `crates/argo-identity/`
+- Non-gateway audit writers
 
-## Acceptance criteria
+## Acceptance Criteria
 
-- [ ] `X-Argo-Principal: worker:<uuid>` parses to `Principal::Worker(_)`
-- [ ] Malformed principal → 400 with body `{"error":"bad principal"}`
-- [ ] Missing header → `Principal::Anonymous` (current behaviour preserved)
-- [ ] Audit row produced by an authenticated POST has `principal` column
-      populated, not the literal string `"anonymous"`
-- [ ] 8 unit tests + 3 integration cases
-- [ ] `cargo build && cargo clippy --workspace --all-targets -- -D warnings && cargo test -p argo-cli` clean
-- [ ] Every modified file < 500 LOC
+- [ ] `X-Argo-Principal: worker:<uuid>` parses as a worker principal.
+- [ ] Missing header produces `principal = "anonymous"` in payload JSON.
+- [ ] Malformed principal returns `400 Bad Request` with
+      `{"error":"bad principal"}`.
+- [ ] `POST /sessions/<id>/approve` audit payload contains
+      `"principal":"worker:<uuid>"` when the header is present.
+- [ ] `POST /sessions/<id>/revoke-approval` audit payload contains
+      `"principal":"anonymous"` when the header is absent.
+- [ ] No migration or audit schema change is added.
+- [ ] `cargo clippy -p argo-cli --all-targets -- -D warnings` clean.
+- [ ] `cargo test -p argo-cli gateway_auth_principal` passes.
+- [ ] Every modified file is under 500 LOC.
 
 ## Branch + PR
 
-- Branch: `claude-bearer-auth-principal-stamping`
-- PR title: `gateway: stamp principal from X-Argo-Principal onto audit rows (claude-bearer-auth-principal-stamping)`
-
-## Notes for the implementer
-
-- BLANKET CLI ALLOWLIST applies to gateway handler files.
-- This brief is intentionally PURE READ + STAMP. No new audit kinds, no
-  policy changes, no rate-limit logic. If you find yourself touching
-  more than ~5 files, stop and re-scope.
-- Block start: read #946 in full before modifying. The pattern there is
-  load-bearing.
+- Branch: `codex-claude-bearer-auth-principal-stamping`
+- PR title: `gateway: stamp bearer principal into audit payloads (claude-bearer-auth-principal-stamping)`

@@ -1,82 +1,95 @@
-# claude-skill-export-import-bundle — portable skill bundles
+# claude-skill-export-import-bundle — skill artifact metadata sidecar
 
-**Owner**: claude. **Depends on**: existing `argo skill export` / `argo skill
-import` (H-skill-export-import); existing `SkillArtifact*` types in
-`crates/argo-skill/src/artifact.rs`.
+**Owner**: codex. **Depends on**: existing `argo skill export` /
+`argo skill import` artifact flow.
+
+**Authored against**: origin/main `ab1fbc40` on 2026-05-08.
+
+## Conductor Rewrite
+
+Rewritten on 2026-05-08 because current main already exports portable
+`.skill.tar.gz` artifacts from `crates/argo-cli/src/handlers/skill_export.rs`
+and imports them from `skill_import.rs`. The original brief's
+"single markdown file" / new `--bundle` premise is stale. Do not add a
+new `--bundle` flag. Extend the existing artifact format with metadata
+while preserving import compatibility with older three-file artifacts.
 
 ## Why
 
-Mission claim 4: "Cross-tenant sharing with provenance + trust." The current
-export emits a single markdown file. That's enough for round-tripping inside
-one tenant but loses the metadata an outside consumer needs (manifest, trust
-grade, signing source, dependency hints). A self-describing **bundle** —
-manifest + body + side metadata in a single tarball — closes that gap and
-gives us a unit we can later sign / publish / mirror.
+Mission claim 4 needs reusable shared skills with provenance and trust.
+The current artifact already carries a manifest, body, and body hash.
+It does not carry operator-facing distribution metadata such as trust
+grade, vertical, learned session, or exporter version.
 
 ## Scope
 
-- `argo skill export <id> --bundle <out.tar.gz>` writes a tarball containing:
-  - `manifest.toml` (full `SkillFrontmatter` plus version + computed sha256
-    of the body).
-  - `skill.md` (the body, identical to the existing export format).
-  - `metadata.json` with: trust_grade, learned_in, vertical_id (if any),
-    operator_feedback summary (if available), exported_at, exporter version.
-- `argo skill import <bundle.tar.gz>` reverses the export: validates the
-  body sha256 against `manifest.toml`, refuses on mismatch, re-applies the
-  skill (insert-or-no-op on duplicate id+version).
-- Existing single-file export remains the default behavior; `--bundle` is
-  opt-in.
+- Keep the existing commands:
+  - `argo skill export <name[:version]> --out <path>`
+  - `argo skill import <path>`
+- Add optional `metadata.json` at artifact root when exporting.
+- Metadata fields:
+  - `artifact_format`: stable string, e.g. `"skycot.skill.v2"`
+  - `trust_grade`
+  - `vertical_id`
+  - `learned_in`
+  - `exported_at`
+  - `exporter_version`
+  - `body_sha256`
+- Import must accept both old artifacts without `metadata.json` and new
+  artifacts with it.
+- Tamper validation remains based on the body hash.
 
 ## Approach
 
-1. **NEW** `crates/argo-skill/src/bundle.rs` (~280 LOC):
-   - `pub struct SkillBundle { manifest, body, metadata }`.
-   - `pub fn write_bundle(skill: &Skill, meta: BundleMetadata, out: &Path) -> ArgoResult<()>`.
-   - `pub fn read_bundle(path: &Path) -> ArgoResult<SkillBundle>` (validates sha).
-   - Use existing `tar` + `flate2` workspace deps if present; otherwise hand-roll
-     a flat zip via `std::io::Cursor` — DO NOT add new deps.
-2. **NEW** `crates/argo-cli/src/handlers/skill_bundle.rs` (~250 LOC):
-   - `pub async fn export(skills: &SkillStore, args: SkillExportBundleCmd) -> ArgoResult<()>`.
-   - `pub async fn import(skills: &SkillStore, args: SkillImportBundleCmd) -> ArgoResult<()>`.
-3. Wire CLI: extend `SkillExportCmd`/`SkillImportCmd` with `--bundle <path>`
-   so the existing command shape stays. Handler dispatches to bundle path
-   when present.
+1. Extend the existing artifact code path rather than adding a parallel
+   bundle implementation.
+2. `crates/argo-skill/src/artifact.rs`: add a `SkillArtifactMetadata`
+   type and optional read/write support for `metadata.json`.
+3. `crates/argo-cli/src/handlers/skill_export.rs`: build metadata from
+   the selected `Skill` and include it in the tarball.
+4. `crates/argo-cli/src/handlers/skill_import.rs`: ignore/validate the
+   optional metadata without changing install semantics.
+5. Add focused round-trip/tamper tests.
 
-## Files you may touch
+## Files You May Touch
 
-- BLANKET CLI ALLOWLIST applies.
-- `crates/argo-skill/src/bundle.rs` (NEW, ≤ 320 LOC).
-- `crates/argo-skill/src/lib.rs` — narrowly: 1 `pub mod bundle;` line + re-exports.
-- `crates/argo-cli/src/handlers/skill_bundle.rs` (NEW, ≤ 280 LOC).
-- `crates/argo-cli/src/handlers/skill_export.rs` — narrowly: branch on `--bundle`.
-- `crates/argo-cli/src/handlers/skill_import.rs` — narrowly: branch on `--bundle`.
-- `crates/argo-cli/src/cli.rs` — narrowly: add `--bundle` to existing variants.
-- `crates/argo-cli/tests/skill_bundle_roundtrip.rs` (NEW, ≤ 250 LOC).
+- `crates/argo-skill/src/artifact.rs`
+- `crates/argo-skill/src/lib.rs` (only for re-export if needed)
+- `crates/argo-cli/src/handlers/skill_export.rs`
+- `crates/argo-cli/src/handlers/skill_import.rs`
+- `crates/argo-cli/src/handlers/skill.rs` (only if dispatch output needs
+  a small metadata JSON field)
+- `crates/argo-cli/src/cli_subcommands_skill.rs` (only if help text needs
+  clarification; do not add `--bundle`)
+- `crates/argo-cli/tests/skill_bundle_roundtrip.rs` (NEW or extend if it
+  already exists)
 
-## Files you must NOT touch
+## Files You Must NOT Touch
 
-- Migration files — bundles are filesystem artefacts only.
-- `crates/argo-skill/src/publish.rs` — out of scope.
-- The mock OCI marketplace.
+- `CLAUDE.md`
+- Migration files
+- `crates/argo-skill/src/publish.rs`
+- Marketplace / OCI mock registry surfaces
+- Workspace dependency manifests unless a compile error proves an
+  existing dependency is not already available
 
-## Acceptance criteria
+## Acceptance Criteria
 
-- [ ] `argo skill export <id> --bundle <out>` produces a valid bundle file.
-- [ ] `argo skill import <bundle>` round-trips byte-for-byte (body) + frontmatter.
-- [ ] Tampered body → import fails with clear sha256 mismatch error.
-- [ ] Missing `manifest.toml` in bundle → import fails clearly.
-- [ ] No new workspace deps.
-- [ ] 6+ tests: roundtrip, sha mismatch, missing manifest, dupe import, JSON output, bundle inspector smoke.
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean.
-- [ ] Every authored file < 500 LOC.
+- [ ] Exported `.skill.tar.gz` contains `manifest.json`, `skill.md`,
+      `sha256.txt`, and `metadata.json`.
+- [ ] `metadata.json` includes trust grade, vertical id when present,
+      learned session when present, exporter version, and body hash.
+- [ ] Import of a new artifact succeeds and verifies the body hash.
+- [ ] Import of an old three-file artifact still succeeds.
+- [ ] Tampered body still fails with a clear sha mismatch error.
+- [ ] No new workspace dependencies.
+- [ ] 5+ tests cover new export metadata, old-artifact import,
+      round-trip, sha mismatch, and JSON output.
+- [ ] `cargo clippy -p argo-skill --all-targets -- -D warnings` clean.
+- [ ] `cargo clippy -p argo-cli --all-targets -- -D warnings` clean.
+- [ ] Every modified file is under 500 LOC.
 
 ## Branch + PR
 
-- Branch: `claude-skill-export-import-bundle`
-- PR title: `skill: portable skill bundle export/import (claude-skill-export-import-bundle)`
-
-## Notes
-
-- Existing `H-skill-export-import.md` is the prior art — read it before starting.
-- Keep the bundle layout flat (3 files at root), not nested — simplifies tooling.
-- Future work: detached signature file alongside the bundle; not in this brief.
+- Branch: `codex-claude-skill-export-import-bundle`
+- PR title: `skill: add metadata sidecar to portable artifacts (claude-skill-export-import-bundle)`
