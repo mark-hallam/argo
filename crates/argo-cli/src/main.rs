@@ -95,9 +95,6 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             .await,
             cli::ClassifyCmd::Rules { json } => handlers::classify_rules::run(json).await,
         },
-        Some(Command::Compliance { cmd }) => match cmd {
-            cli::ComplianceCmd::Export(args) => handlers::compliance_export::run(args).await,
-        },
         Some(Command::Plan { cmd }) => match cmd {
             cli::PlanCmd::Generate {
                 goal,
@@ -257,6 +254,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 let _ = handlers::compliance_soc2::run(soc2_args, &store).await?;
                 Ok(())
             }
+            cli::ComplianceCmd::Export(args) => handlers::compliance_export::run(args).await,
         },
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,

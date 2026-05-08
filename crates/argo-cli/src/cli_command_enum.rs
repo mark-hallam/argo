@@ -125,10 +125,13 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ApprovalCmd,
     },
-    /// Compliance-aligned audit-trail reports
-    /// (`claude-compliance-soc2-audit-trail`). Read-only over
-    /// `audit_record`. Currently exposes `soc2`; future GDPR
-    /// `export` / `delete` arms attach as siblings here.
+    /// Compliance surfaces (Phase C). Read-only over `audit_record`
+    /// and tenant-scoped tables.
+    /// - `soc2` — SOC2 Common Criteria 6.x audit-trail report
+    ///   (`claude-compliance-soc2-audit-trail`).
+    /// - `export` — GDPR Article 15 right-to-access JSON envelope
+    ///   for one tenant; the export is itself audit-logged
+    ///   (`claude-compliance-gdpr-data-export`).
     Compliance {
         #[command(subcommand)]
         cmd: ComplianceCmd,
@@ -385,14 +388,6 @@ pub enum Command {
     Classify {
         #[command(subcommand)]
         cmd: ClassifyCmd,
-    },
-    /// GDPR compliance surfaces (Phase C). `export` emits every
-    /// tenant-scoped row across the database for one tenant id as a
-    /// single JSON envelope, satisfying GDPR Article 15 right-to-access.
-    /// The export is itself audit-logged.
-    Compliance {
-        #[command(subcommand)]
-        cmd: ComplianceCmd,
     },
     /// Decompose a coarse goal into a workflow DAG (Stream
     /// `claude-runtime-planner-trait`). Offline TemplatePlanner by

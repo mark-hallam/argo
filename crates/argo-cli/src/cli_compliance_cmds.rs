@@ -9,6 +9,10 @@ use clap::{Args, Subcommand};
 
 #[derive(Subcommand, Debug)]
 pub enum ComplianceCmd {
+    /// SOC2 Common Criteria 6.x audit-trail report. Groups events
+    /// in `[--from, --to)` by control category (Access, ChangeMgmt,
+    /// DataMgmt, Security, Other).
+    Soc2(crate::cli::ComplianceSoc2Args),
     /// Emit every tenant-scoped row across the database for GDPR
     /// right-to-access. Output is a single JSON envelope.
     Export(ComplianceExportArgs),

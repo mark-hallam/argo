@@ -54,15 +54,6 @@ pub enum ApprovalCmd {
     Export(ApprovalExportArgs),
 }
 
-/// Compliance-aligned read-only reports over the audit trail.
-#[derive(Subcommand, Debug)]
-pub enum ComplianceCmd {
-    /// SOC2 Common Criteria 6.x audit-trail report. Groups events
-    /// in `[--from, --to)` by control category (Access, ChangeMgmt,
-    /// DataMgmt, Security, Other).
-    Soc2(ComplianceSoc2Args),
-}
-
 #[derive(Args, Debug, Clone)]
 pub struct ComplianceSoc2Args {
     /// Window start, RFC3339. Inclusive.
