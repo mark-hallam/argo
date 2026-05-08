@@ -19,14 +19,13 @@ The companion artifacts:
 
 ![Figure 1 — Architecture: human operator, conductor, the BUILD_STATUS.md ledger on origin/main, N workers (mixed Claude + Codex) opening PRs, conductor merges back to main.](build-pdf/diagrams/01-architecture.svg)
 
-Three roles:
+Three base roles:
 
-1. **Conductor** — ONE tab. Claude Code is the default because it can
-   run `/loop 5m <prompt>`; Codex may act as conductor when the
-   operator explicitly chooses it. Never writes feature code. Pulls
-   main, reviews open PRs, merges clean ones, updates the ledger,
-   unblocks BLOCKED rows, supervises the swarm. The conductor is the
-   only agent allowed to merge.
+1. **Conductor** — ONE agent session. Any platform may run it if it can
+   execute the tick in `PROTOCOL_LOOP_PROMPT.md` reliably. Never writes
+   feature code. Pulls main, reviews open PRs, merges clean ones,
+   updates the ledger, unblocks BLOCKED rows, supervises the swarm. The
+   conductor is the only agent allowed to merge.
 2. **Workers** — N tabs (mix Claude + Codex). Each worker has one
    active brief at a time: claim a row from the ledger, implement it
    on a worktree, open a PR, and mark the row IN_REVIEW. Current
@@ -36,6 +35,13 @@ Three roles:
 3. **Human operator** — escalation target only. Reviews the rare
    row the conductor flags, resolves cross-stream architectural
    choices, kills runaway tabs.
+
+Optional extension: a claimed parent brief may enable
+**manager-worker mode**. A manager-worker still owns exactly one parent
+row in `BUILD_STATUS.md`, but may create a private package under
+`work-packages/` for bounded child tasks. The manager integrates child
+outputs into one parent PR. Child rows never go into the global ledger
+unless the conductor promotes them.
 
 **Why two agent families?** Claude and Codex make different
 mistakes; you get cheap diversity by running both. They share the
@@ -147,7 +153,9 @@ In text:
 
 The single most important worker rule: **one active brief per worker
 at a time**. Do not claim a second row until the current row is
-IN_REVIEW, BLOCKED, or explicitly released on main.
+IN_REVIEW, BLOCKED, or explicitly released on main. In manager-worker
+mode, that active brief is the parent; child tasks remain inside the
+parent's package and scope.
 
 ### 4. The unblock dance
 
@@ -449,8 +457,8 @@ clause for new sections. Bake into the template.
 
 ### Conductor
 
-- ONE tab. Claude Code uses `/loop 5m <PROTOCOL_LOOP_PROMPT.md>`;
-  Codex runs the same sequence manually or through app automations.
+- ONE agent session. Run `PROTOCOL_LOOP_PROMPT.md` through the platform's
+  loop/automation facility, or execute the same sequence manually.
 - Allowed to: pull main, read BUILD_STATUS.md, read PR diffs, merge
   clean PRs, comment on PRs with issues, edit BUILD_STATUS.md
   (status transitions only), edit briefs in `streams/` (to expand
@@ -632,13 +640,11 @@ conflict surface area.
    BUILD_STATUS.md`, etc, and fill in your project's brief rows.
 4. Write one brief per intended PR slice in `streams/<brief-id>.md`.
    Tighten may-touch lists; the conductor will expand later.
-5. Write a tight `CONTRIBUTING_AGENT.md` adapting the worker rules
-   to your toolchain (replace `cargo build/clippy/test` with your
-   build commands, keep the LOC budget if you want it).
-6. Open one conductor tab. In Claude Code, paste
-   `PROTOCOL_LOOP_PROMPT.md` content into a `/loop 5m` command,
-   substituting your repo path. In Codex, run the same tick sequence
-   manually or via app automations. The conductor is now running.
+5. Write a tight `CONTRIBUTING_AGENT.md` pointing at the live protocol
+   and adapting only project-specific build commands.
+6. Open one conductor session. Run `PROTOCOL_LOOP_PROMPT.md` through
+   the platform's loop/automation facility, substituting your repo path.
+   The conductor is now running.
 7. Open N worker tabs (mix of Claude and Codex). In each, paste:
    "Read `docs/build-plan/CONTRIBUTING_AGENT.md` and pick the
    first claimable TODO row." Hit enter.
@@ -736,10 +742,12 @@ rules:
 - **The four state machines.** Brief lifecycle, conductor tick,
   worker tick, unblock dance — all unchanged.
 - **The roles.** Conductor still doesn't write feature code.
-  Workers still stop after one PR. Human still escalation-only.
+  Workers still own one parent brief at a time, with optional
+  manager-worker packages only when the parent brief allows them.
+  Human still escalation-only.
 - **The artifacts.** BUILD_STATUS.md still the ledger.
-  Briefs still in `streams/`. CONTRIBUTING_AGENT.md still the
-  worker-side rules.
+  Briefs still in `streams/`. `CLAUDE.md` is the live protocol;
+  worker prompt files are platform adapters.
 
 The protocol survives the v1-to-v2 transition unchanged in
 shape; only the queue-source list grows.

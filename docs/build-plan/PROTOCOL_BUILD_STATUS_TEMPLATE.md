@@ -47,9 +47,11 @@ prefix. Conductor uses no owner column — it merges everyone's PRs.
 ## Picking your next brief
 
 Workers pick the first row where:
-- `owner == <my agent family>`
 - `status == TODO`
 - All "depends on" predecessors have `status == MERGED`
+
+The owner column is a sizing/provenance hint, not a hard lock, unless
+the live project protocol says otherwise.
 
 If multiple agents try to claim the same row, the one whose commit
 lands first on main wins. The losers will see the row is already
@@ -143,5 +145,8 @@ truth.
 - Don't track sub-task completion at the row level for fat briefs.
   Either the brief is small enough to be one row, or split it into
   separate rows (each its own brief file).
+- For manager-worker briefs, keep only the parent row here. Child
+  state lives in `work-packages/<brief-id>.md` and is promoted to this
+  ledger only by the conductor.
 - Don't delete rows. Once a row exists, it ends in MERGED or as a
   documented closure note. The ledger is part of the audit trail.

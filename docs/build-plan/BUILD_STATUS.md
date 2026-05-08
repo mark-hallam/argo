@@ -377,15 +377,12 @@ C-gmail`, `status: C-gmail in review (#812)`).
 
 ## Picking your next brief
 
-Codex picks the first row where:
-- `owner == codex`
+All agent families pick the first row where:
 - `status == TODO`
-- All "waits on" predecessors have `status == MERGED`
+- All "depends on" / "waits on" predecessors have `status == MERGED`
 
-Claude picks the first row where:
-- `owner == claude`
-- `status == TODO`
-- All "waits on" predecessors have `status == MERGED`
+The owner column is a sizing/provenance hint, not a hard lock, unless
+the live protocol in `CLAUDE.md` says otherwise.
 
 If multiple agents try to claim the same row, the one whose
 commit lands first on main wins. The losers will see the row is

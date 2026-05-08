@@ -101,24 +101,50 @@ pass. Do not start renaming proactively.
 
 ---
 
-## SKYCOT Swarm Worker Loop — Load-Bearing Rules
+## SKYCOT Agent Protocol — Load-Bearing Rules
 
-**This section is the single source of truth for swarm worker behavior.**
-Both Claude tabs and Codex tabs honor it. Updates here propagate to all
-workers on next pull. The worker prompts (`PROTOCOL_WORKER_PROMPT_*.md`)
-delegate to this section — they are slim kickoffs, not duplicated rule
-sets.
+**This section is the single source of truth for swarm behavior.** All
+agent families honor it: Claude, Codex, and any future coding platform.
+Updates here propagate to all agents on next pull. The worker prompts
+(`PROTOCOL_WORKER_PROMPT_*.md`) are platform adapters only; they must
+not restate stop thresholds, cargo gates, or ownership rules.
 
 If you are a worker tab, these rules apply on EVERY iteration —
 including after auto-compaction summarizes earlier turns. The ledger
 is the source of truth, not your memory.
 
-If the operator explicitly designates a Codex tab as the conductor,
-it follows the same conductor role from `PROTOCOL_LOOP_PROMPT.md`:
-review/merge PRs, maintain the ledger, unblock/rewrite briefs, and
-replenish queues. A conductor tab must not write feature code; if it
+If the operator explicitly designates any agent as the conductor, it
+follows the conductor role from `PROTOCOL_LOOP_PROMPT.md`: review/merge
+PRs, maintain the ledger, unblock/rewrite briefs, and replenish queues.
+A conductor tab must not write feature code; if it
 previously claimed worker work, release or finish that worker state
 before making conductor mutations.
+
+### Agent roles
+
+`agent_family` (`claude`, `codex`, or future family) is provenance and
+sizing signal, not authority. Every family can run any role if the
+operator assigns it and the protocol below allows it.
+
+- **conductor** — owns global priority, PR review/merge, BLOCKED triage,
+  queue replenishment, conflict arbitration, and stale package sweeps.
+- **worker** — owns one normal brief at a time through PR creation.
+- **manager_worker** — owns one parent brief, a manager package, bounded
+  child decomposition, integration, tests, and one final parent PR.
+- **subworker** — owns one child task inside a manager package; it does
+  not edit `BUILD_STATUS.md`, spawn descendants, or open the final PR.
+- **reviewer** — read-only checker; it may inspect diffs and package
+  artifacts, but it may not edit code, update ledgers, approve, or merge.
+
+Manager-worker mode is opt-in per brief. A brief must say
+`Manager-worker allowed: yes` in its `## Parallelism` section and name a
+`Max children` value. Otherwise the normal worker loop applies. In
+manager mode, `BUILD_STATUS.md` tracks only the parent row; child state
+lives in `docs/build-plan/work-packages/<brief-id>.md`. Auto-spawn is
+allowed only from package `spawn_requests`, when supported by the
+platform, within spawn budget, and after child file locks validate as a
+subset of the parent may-touch list. `max_depth` is always `1`, and the
+conductor remains the only final merge authority.
 
 ### One-time environment setup (tick370 perf amendment)
 

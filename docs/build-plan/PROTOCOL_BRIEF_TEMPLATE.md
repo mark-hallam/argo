@@ -1,9 +1,12 @@
 # PROTOCOL_BRIEF_TEMPLATE — seed brief
 
-One brief per row in the ledger. One brief = one PR. Workers read
-the brief once and follow it exactly. The conductor reads the brief
-when reviewing the worker's PR (acceptance checklist) and when
-deciding how to unblock a BLOCKED row (may-touch expansion).
+One brief per row in the ledger. By default, one brief = one PR.
+Workers read the brief once and follow it exactly. The conductor reads
+the brief when reviewing the worker's PR (acceptance checklist) and
+when deciding how to unblock a BLOCKED row (may-touch expansion).
+Manager-worker mode is an explicit opt-in exception: the parent brief
+still has one final PR, while child task state lives in a manager
+package under `docs/build-plan/work-packages/`.
 
 Save each brief as `streams/<brief-id>.md`. The `<brief-id>` should
 match the ledger row exactly (e.g. `A-executor-trait`, `C-gmail`,
@@ -37,6 +40,22 @@ contract this PR is locking, if any (e.g. "this is a CONTRACT PR;
 downstream briefs implement against the trait this PR defines —
 get the shape right"). State explicitly what is NOT in scope but
 might appear to be.>
+
+## Parallelism
+
+- Manager-worker allowed: no
+- Max children: 0
+- Max depth: 1
+- Auto-spawn: automatic_if_supported
+- Manager package: n/a
+- Shared hotspots: []
+
+Default to `Manager-worker allowed: no`. If set to `yes`, the manager
+must create `docs/build-plan/work-packages/<brief-id>.md` from
+`PROTOCOL_MANAGER_PACKAGE_TEMPLATE.md`, child tasks must stay inside
+this brief's may-touch list, child status must not be added to
+`BUILD_STATUS.md`, auto-spawn requests must fit the spawn budget, and
+the conductor remains the only final merge authority.
 
 ## Files you may touch
 

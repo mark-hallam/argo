@@ -1,154 +1,67 @@
-# Agent coordination rules
+# Agent Coordination Rules
 
-How multiple AI agent families (Claude Code, Codex, future
-agents) build this repo concurrently without stepping on each
-other. Read this before starting any task.
+This file is a short companion for agents and humans. The live protocol
+for every coding platform lives in `CLAUDE.md` under
+`SKYCOT Agent Protocol — Load-Bearing Rules`. If this file conflicts
+with `CLAUDE.md`, follow `CLAUDE.md`.
 
-`CLAUDE.md` is the live swarm-worker rule source for this repo,
-including newer amendments for owner-as-sizing-hint,
-`claim-with-retry.sh`, freshness checks, crate-scoped verification,
-and worker rotation. If this companion file conflicts with
-`CLAUDE.md`, follow `CLAUDE.md`.
+## Shared Model
 
----
+- `BUILD_STATUS.md` is the global ledger for parent work.
+- `streams/<brief-id>.md` is the parent brief spec.
+- `work-packages/<brief-id>.md` is optional child state for a
+  manager-worker brief.
+- PRs carry implementation review and final integration discussion.
+- The conductor is the only role that merges and arbitrates global
+  conflicts.
 
-## The protocol
+## Agent Families
 
-1. **Sync main first.** Always start with `git checkout main &&
-   git pull --ff-only origin main`.
-2. **Read [`BUILD_STATUS.md`](BUILD_STATUS.md).** Find the first
-   row whose `status` is `TODO` and whose predecessors are merged.
-   The `owner` column is a sizing hint, not a hard lock.
-   Codex-sized briefs are normally narrower and more mechanical;
-   Claude-sized briefs may be broader.
-3. **Claim the brief.** Edit `BUILD_STATUS.md` to set that
-   row's `status` to `CLAIMED`. Commit + push to main with
-   message `status: claim <brief-id>`. If push fails (someone
-   else got there first), pull main and pick a different brief.
-4. **Read the brief** at `streams/<brief-id>.md`. Follow it
-   exactly.
-5. **Build, test, lint** before opening the PR. Prefer the
-   crate-scoped verification flow in `CLAUDE.md`, then run the final
-   workspace clippy sanity check before pushing.
-6. **Open the PR** with the brief's specified title + body.
-7. **Mark in review.** Edit `BUILD_STATUS.md` to set the row's
-   `status` to `IN_REVIEW`, add the PR number to the row,
-   commit + push to main with message `status: <brief-id> in
-   review (#<N>)`.
-8. **Loop.** Pick the next `TODO` row and start over.
+`agent_family` is provenance and sizing signal, not authority. Current
+families are `claude` and `codex`; future families should use their own
+branch prefix and the same protocol roles.
 
----
+## Roles
 
-## File boundaries
+- **conductor** — global priority, PR review/merge, queue
+  replenishment, stale package sweeps, and BLOCKED triage.
+- **worker** — one normal parent brief through PR creation.
+- **manager_worker** — one parent brief, bounded child decomposition,
+  integration, tests, and one final parent PR.
+- **subworker** — one child task inside a manager package; no global
+  ledger edits and no final PR.
+- **reviewer** — read-only diff/package checker.
 
-Each brief specifies:
+## Default Worker Flow
 
-- **Files you may touch** — implementation files for this
-  stream
-- **Files you must NOT touch** — anything outside the stream's
-  scope, including: other streams' implementation files, the
-  `Executor` trait (touched only by Stream A), shared
-  workspace `Cargo.toml` deps (any new dep must be added in
-  the brief's "may touch" list explicitly)
+1. Sync main and read `CLAUDE.md`.
+2. Read `BUILD_STATUS.md`.
+3. Claim a TODO parent row according to the live protocol.
+4. Read `streams/<brief-id>.md`.
+5. Implement inside the may-touch list.
+6. Run the required verification from `CLAUDE.md` and the brief.
+7. Open a PR.
+8. Mark the parent row `IN_REVIEW`.
 
-If your task genuinely requires touching a "must not" file,
-**stop and surface it in BUILD_STATUS.md** with a brief
-description of what change is needed and why. Do not silently
-expand scope.
+## Manager-Worker Flow
 
----
+Use only when the parent brief says `Manager-worker allowed: yes`.
 
-## Branch + PR conventions
+1. Claim the parent row.
+2. Create `work-packages/<brief-id>.md` from
+   `PROTOCOL_MANAGER_PACKAGE_TEMPLATE.md`.
+3. Keep child files inside the parent may-touch list.
+4. Keep child state out of `BUILD_STATUS.md`.
+5. If the platform supports subagents, satisfy `spawn_requests`
+   automatically; otherwise leave them pending for a wrapper or human.
+6. Integrate child outputs into one parent branch and one final PR.
+7. Link the package from the PR body.
 
-- Branch name format: `<owner>-<brief-id>` (e.g.
-  `claude-A-executor-trait`, `codex-C-gmail`)
-- PR title format: specified per-brief; usually
-  `<area>: <one-line summary> (<brief-id>)`
-- PR body must:
-  - Reference the brief path
-  - List acceptance criteria with checkboxes (paste from brief)
-  - Note any deviations + reasons
-- Commit messages: present-tense imperative, < 72 chars title,
-  body wrapped at 72
-- Co-Authored-By trailer for the agent that authored the work:
-  - Claude: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
-  - Codex: `Co-Authored-By: Codex <noreply@openai.com>`
+## Non-Negotiables
 
----
-
-## Gates before opening any PR
-
-Every brief lists this as the acceptance checklist; never skip:
-
-- [ ] crate-scoped `cargo clippy -p <crate> --all-targets -- -D warnings`
-      clean for every touched crate
-- [ ] crate-scoped `cargo test -p <crate>` passes for every touched crate
-- [ ] final `cargo clippy --workspace --all-targets -- -D warnings`
-      sanity check is clean, or any failure is a documented
-      pre-existing boundary issue under `CLAUDE.md` HARD RULE 2
-- [ ] Every file you authored or modified is < 500 LOC
-- [ ] Files-touched list matches the brief's "may touch"
-- [ ] BUILD_STATUS.md updated with PR number
-
-If clippy warns and you cannot resolve in 3 attempts, mark the
-brief `BLOCKED` in BUILD_STATUS.md with a one-line reason and
-pick a different brief.
-
----
-
-## Merge policy
-
-- **All PRs reviewed before merge.** Reviewer is the human
-  operator OR a Claude reviewing-agent designated for that
-  stream. The brief specifies who.
-- **Squash-merge.** Merge commit body should preserve the PR
-  title.
-- **Delete branch on merge.**
-- **Pull main immediately after your PR merges.**
-
----
-
-## What to do when stuck
-
-1. **Build fails or test fails:** debug for ≤30 min. If
-   unresolved, mark brief `BLOCKED` in BUILD_STATUS.md, commit,
-   continue with the next brief.
-2. **Acceptance criteria conflict with each other:** mark brief
-   `BLOCKED`, surface the conflict in BUILD_STATUS.md, ask the
-   human operator to resolve.
-3. **Mission disagreement:** if a brief contradicts
-   [`docs/skycot/MISSION.md`](../skycot/MISSION.md), MISSION.md
-   wins. Mark brief `BLOCKED`, note the disagreement.
-4. **Git push fails because main moved:** `git pull --rebase
-   origin main`, retry. Repeat once. If it fails twice, it
-   means another agent is also pushing — back off 60 seconds,
-   retry.
-
----
-
-## Rules that override everything
-
-1. **Never force-push to main.**
-2. **Never modify files outside your brief's "may touch" list.**
-3. **Never modify another agent's branch.**
-4. **Never delete another agent's PR or branch.**
-5. **Never override clippy warnings with `#[allow(...)]` unless
-   the brief explicitly authorizes it.**
-6. **Never skip the acceptance checklist.**
-
-Violations are bugs. Each agent's PR review will check.
-
----
-
-## Status values for BUILD_STATUS.md
-
-- `TODO` — available to claim
-- `CLAIMED` — an agent has started; do not pick up
-- `IN_REVIEW` — PR open, awaiting review
-- `MERGED` — done, on main
-- `BLOCKED` — agent hit something it cannot resolve; needs
-  human or different agent to unblock
-
-Always check the latest BUILD_STATUS.md from origin/main, not a
-stale local copy. Pull before claiming; pull before marking in
-review.
+- Never force-push to main.
+- Never modify another agent's branch.
+- Never expand may-touch without conductor approval.
+- Never let subworkers edit `BUILD_STATUS.md`.
+- Never skip the acceptance checklist.
+- Never merge your own work.

@@ -15,14 +15,13 @@ How to run:
      swarm uses (e.g. `claude-,codex-`).
    - `<PROJECT_NICKNAME>` — what to call the swarm in the report
      (e.g. `SKYCOT 14-day v1`).
-2. Open ONE conductor tab on `<REPO_PATH>`. Claude Code is the
-   default because it supports `/loop`; Codex may act as conductor
-   when the operator explicitly chooses it. The role is identical:
+2. Open ONE conductor session on `<REPO_PATH>`. Any coding platform may
+   run it if it can execute this tick reliably. The role is identical:
    ledger, PR review, queue replenishment, brief rewrites; no feature
    code.
-3. In Claude Code, run `/loop 5m <paste the prompt below>`. In Codex,
-   execute the same sequence manually or via the app automation
-   surface without changing the repository protocol.
+3. Run the prompt below through your platform's loop/automation surface
+   or execute the same sequence manually without changing the repository
+   protocol.
 4. Cancel the loop when every brief in BUILD_STATUS.md is MERGED
    AND the v1 demo gate is green, or by Ctrl-C / human intervention.
 
@@ -97,6 +96,7 @@ commit that adds the brief file.
    in progress for the conductor role, continue it; otherwise skip to BLOCKED triage.
 
 7. If a brief has been BLOCKED, investigate the reason and decide: expand its may-touch list (small fix in BUILD_STATUS.md + brief), or split into sub-briefs, or escalate to the human operator.
+   Also sweep active manager packages under `<PLAN_DIR>/work-packages/`: parent row still CLAIMED, package heartbeat fresh, `max_depth: 1`, child count + spawn_requests within spawn budget, and child allowed files inside the parent brief's may-touch list. If a package heartbeat is stale (>30m warn, >60m consider reclaim, >90m reclaim unless human overrides), comment or update the parent row instead of adding child rows to BUILD_STATUS.md.
 
 8. Queue replenishment:
    a. codex_todo = grep -c "| codex |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
