@@ -52,7 +52,7 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 
 0. **Re-load the rules** (Codex doesn't auto-inject CLAUDE.md):
    `cat ~/code/argo-codex/CLAUDE.md`
-   The "SKYCOT Swarm Worker Loop — Load-Bearing Rules" section is your source of truth.
+   The "SKYCOT Swarm Worker Loop — Load-Bearing Rules" section is your source of truth. **In particular, read EFFECTIVE WORKER HABITS (tick418 amendment) at the bottom of the ITERATION SEQUENCE section.** The 8 habits codified there (pre-claim premise validation, pattern-match before authoring, background cargo runs, ≤2-min BLOCK on stale briefs, sensible deviations encouraged) separate 4+ PR sessions from 1-2 PR sessions.
 
 1. `cd ~/code/argo-codex`
 2. `git checkout main && git pull --ff-only origin main`

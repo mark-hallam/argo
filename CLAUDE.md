@@ -304,6 +304,85 @@ Run this loop until any STOP CONDITION fires:
     finishing collisions across tabs.
 15. Loop to step 1.
 
+### EFFECTIVE WORKER HABITS (tick418 amendment)
+
+These aren't rules — they're patterns codified from observed
+high-throughput sessions (4+ PRs/session vs the 1-2 PR baseline).
+Adopt as defaults; deviate consciously when needed.
+
+1. **Pre-claim premise validation (≤30 sec).** Before claiming, the
+   freshness script (step 5) catches the common drift signals. Do a
+   second human pass on brief-specific assumptions: do the cited
+   migration files / struct fields / file paths actually exist as
+   the brief assumes? If anything doesn't match, post a detailed
+   BLOCKED note and pick a different brief. **Don't claim then
+   discover staleness mid-implementation** — that's the friction
+   pattern observed in 5+ worker self-exits this session.
+
+2. **Pattern-match before authoring.** Before writing any new code,
+   identify 1-2 closely-analogous existing implementations and read
+   them end-to-end. Examples:
+   - New MCP connector → read `crates/argo-mcp-connector-zendesk/src/*.rs`
+     (proven shape; new connectors should be ~95% structurally
+     similar).
+   - New worker CLI handler → read the most recent `worker_*.rs` in
+     `crates/argo-cli/src/handlers/` (e.g., `worker_charter.rs`).
+   - New schema migration → read the closest-numbered existing
+     migration + its `ensure_schema()` caller.
+   - New skill subcommand → read `cli_subcommands_skill.rs` + the
+     last skill handler that landed.
+
+   Novelty is the leading source of bugs. Pattern-matching saves
+   debugging time AND makes review faster.
+
+3. **Salvage pre-existing WIP in worktrees.** When you
+   `git worktree add /tmp/<brief-id>`, the worktree may have
+   untracked files from a prior aborted tab's attempt at the same
+   brief. DON'T delete blindly. Read what's there, evaluate against
+   the brief's spec, salvage what's useful. Often saves 20-40 min
+   of redundant typing. (If the prior attempt was wrong-headed,
+   `git stash` it for the conductor's review and start clean.)
+
+4. **Background long cargo runs (NOT foreground polls).** Use
+   `run_in_background: true` on any cargo command expected to take
+   >30s. Continue context-relevant work (read more files, draft PR
+   body, plan next iter step) while the build runs. The 9-min
+   workspace clippy and the 28-min cold build are dead time if
+   foreground-polled — and they should NEVER block your reasoning
+   capacity. Use `Monitor` or wait for the background-completion
+   notification rather than polling.
+
+5. **Clean BLOCK + move on (≤2 min budget).** If a brief's premise
+   is wrong AND the fix is outside may-touch:
+   - Write a 3-5 sentence BLOCKED note in the ledger row naming the
+     specific gap (which file, which struct, which assumption).
+   - `bash scripts/claim-with-retry.sh` doesn't apply for status
+     flips; just regular commit + push.
+   - Move to the next claimable brief.
+
+   **Don't dwell. Don't try to make a wrong brief work.** The
+   2-minute BLOCK note lets the conductor or a future tab fix the
+   brief structurally. Trying to push through a wrong brief burns
+   30+ min of context.
+
+6. **Sensible deviations are encouraged.** If the brief's CLI
+   surface is awkward (`worker archive archive`), or its cited file
+   path is wrong (`skill_promote.rs` doesn't exist), or it asks for
+   `ArgoError::NotFound` (which doesn't exist; use `Provider`):
+   make the small judgment-call fix and document it in the PR body
+   under "Sensible deviations." The brief is a spec, not a
+   contract — small UX / path / type fixes are net-positive.
+
+7. **Use the swarm's own tooling.** When new scripts ship
+   (`scripts/check-brief-freshness.sh`, `scripts/claim-with-retry.sh`,
+   etc.), they were necessary because prior friction made them
+   necessary. Use them.
+
+8. **Phase-priority discipline.** Drain Phase A first (process
+   improvements + architectural prep cascade). Subsequent Phase B+
+   work benefits from the new tooling shipped in Phase A. Following
+   phase order isn't bureaucratic — it's compounding.
+
 ### STOP CONDITIONS (any one ends the loop cleanly) — tick369 loosened
 
 1. **Queue empty (loosened).** **15 consecutive iterations** with no
