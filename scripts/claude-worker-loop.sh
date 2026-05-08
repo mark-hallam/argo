@@ -64,7 +64,10 @@ while true; do
   fi
 
   echo "[$(date +%H:%M:%S)] Spawning fresh Claude session for $BRIEF_ID..."
-  claude -p "You are a SKYCOT $FAMILY worker.
+  # --dangerously-skip-permissions: required for unattended headless mode.
+  # The bash wrapper holds the boundary (worktree isolation, conductor merges,
+  # HARD RULE 5 may-touch list) so per-tool prompts are not the right defense.
+  claude --dangerously-skip-permissions -p "You are a SKYCOT $FAMILY worker.
 
 Repo: $REPO
 Brief: $BRIEF_ID (already CLAIMED on origin/main).
