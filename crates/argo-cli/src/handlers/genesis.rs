@@ -49,6 +49,19 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
             json,
             refine,
         } => super::genesis_interactive::run(non_interactive, &output, json, refine),
+        GenesisCmd::Export {
+            vertical,
+            output,
+            include_skills,
+            manifest_only,
+            force,
+        } => super::genesis_export::handle_export(super::genesis_export::GenesisExportArgs {
+            vertical,
+            output,
+            include_skills,
+            manifest_only,
+            force,
+        }),
     }
 }
 

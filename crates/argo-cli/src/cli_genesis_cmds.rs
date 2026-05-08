@@ -6,7 +6,7 @@
 //! additions (e.g. `argo genesis refine` for LLM-driven
 //! follow-up passes) plug in here without reshaping the cli.
 
-use clap::Subcommand;
+use clap::{ArgAction, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Subcommand, Debug)]
@@ -115,5 +115,23 @@ pub enum GenesisCmd {
         /// to the deterministic plan on transient API failures.
         #[arg(long)]
         refine: bool,
+    },
+    /// Export an installed vertical as a portable tar.gz bundle.
+    Export {
+        /// Vertical id discoverable via ARGO_VERTICALS_DIR or ./verticals.
+        #[arg(long)]
+        vertical: String,
+        /// Output path. Defaults to `<vertical>.argo-vertical.tar.gz`.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Include `skills/` from the vertical root when present.
+        #[arg(long, default_value_t = true, action = ArgAction::Set)]
+        include_skills: bool,
+        /// Write only BUNDLE.toml instead of a tarball.
+        #[arg(long)]
+        manifest_only: bool,
+        /// Overwrite an existing output file.
+        #[arg(long)]
+        force: bool,
     },
 }
