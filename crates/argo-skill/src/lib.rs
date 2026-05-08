@@ -42,6 +42,8 @@ pub mod version;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod sign_dep_smoke;
 
 pub use argo_judge::Judge;
 pub use feedback::{should_propose_with_feedback, FeedbackVote};
