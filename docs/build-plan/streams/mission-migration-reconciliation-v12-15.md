@@ -41,6 +41,7 @@ Cluster:
 - `crates/argo-store/src/lib.rs` — narrowly: test module include if needed.
 - `crates/argo-store/src/lib_tests.rs` — narrowly: update schema-version / rollback expectations after the registered runner advances from v11 to v15.
 - `crates/argo-store/src/tenant_quota_tests.rs` — narrowly: make worker_budget test seeding compatible with `SessionStore::migrate()` creating worker identity tables.
+- `crates/argo-store/tests/migration_chain.rs` — narrowly: make the raw-SQL compatibility walk skip or tolerate raw 12..15 after those schemas are registered versioned migrations.
 
 ## Files you must NOT touch
 
