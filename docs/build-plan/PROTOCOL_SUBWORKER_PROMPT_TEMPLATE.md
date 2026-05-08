@@ -12,7 +12,7 @@ agent_family: <claude|codex|other>
 role: subworker
 
 Read first:
-1. <repo>/CLAUDE.md
+1. <repo>/docs/build-plan/SWARM_PROTOCOL.md
 2. <repo>/docs/build-plan/work-packages/<brief-id>.md
 
 Assignment:

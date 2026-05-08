@@ -1,9 +1,9 @@
 # Agent Coordination Rules
 
 This file is a short companion for agents and humans. The live protocol
-for every coding platform lives in `CLAUDE.md` under
-`SKYCOT Agent Protocol — Load-Bearing Rules`. If this file conflicts
-with `CLAUDE.md`, follow `CLAUDE.md`.
+for every coding platform lives in `SWARM_PROTOCOL.md` (in this same
+directory). If this file conflicts with `SWARM_PROTOCOL.md`, follow
+`SWARM_PROTOCOL.md`.
 
 ## Shared Model
 
@@ -34,12 +34,12 @@ branch prefix and the same protocol roles.
 
 ## Default Worker Flow
 
-1. Sync main and read `CLAUDE.md`.
+1. Sync main and read `SWARM_PROTOCOL.md`.
 2. Read `BUILD_STATUS.md`.
 3. Claim a TODO parent row according to the live protocol.
 4. Read `streams/<brief-id>.md`.
 5. Implement inside the may-touch list.
-6. Run the required verification from `CLAUDE.md` and the brief.
+6. Run the required verification from `SWARM_PROTOCOL.md` and the brief.
 7. Open a PR.
 8. Mark the parent row `IN_REVIEW`.
 

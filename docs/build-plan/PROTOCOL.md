@@ -28,10 +28,10 @@ Three base roles:
    conductor is the only agent allowed to merge.
 2. **Workers** — N tabs (mix Claude + Codex). Each worker has one
    active brief at a time: claim a row from the ledger, implement it
-   on a worktree, open a PR, and mark the row IN_REVIEW. Current
-   `CLAUDE.md` rules allow self-paced workers to continue after that
-   with fresh pulls and jitter; rotating after 2-4 PRs is the healthy
-   norm when context gets heavy.
+   on a worktree, open a PR, and mark the row IN_REVIEW. The current
+   `SWARM_PROTOCOL.md` rules allow self-paced workers to continue
+   after that with fresh pulls and jitter; rotating after 2-4 PRs is
+   the healthy norm when context gets heavy.
 3. **Human operator** — escalation target only. Reviews the rare
    row the conductor flags, resolves cross-stream architectural
    choices, kills runaway tabs.
@@ -140,7 +140,8 @@ In text:
 9. Implement the brief. Stay inside the may-touch list.
 10. Run crate-scoped clippy/tests for crates in the may-touch list,
     then one final workspace clippy sanity check as described in
-    `CLAUDE.md`. Tick the acceptance boxes. Verify file LOC budget.
+    `SWARM_PROTOCOL.md`. Tick the acceptance boxes. Verify file LOC
+    budget.
 11. git push -u origin <owner>-<brief-id>
 12. gh pr create with the brief's PR title, body listing checked
     acceptance boxes
@@ -148,7 +149,7 @@ In text:
     → status = IN_REVIEW, add PR number
 14. git commit -m "status: <brief-id> in review (#NNN)" && git push
 15. Either rotate out cleanly or continue from step 1 with fresh
-    ledger state and jitter, per `CLAUDE.md`.
+    ledger state and jitter, per `SWARM_PROTOCOL.md`.
 ```
 
 The single most important worker rule: **one active brief per worker
@@ -487,7 +488,7 @@ clause for new sections. Bake into the template.
   delete or force-push another agent's branch.
 - Stop after the IN_REVIEW commit when context is heavy, or continue
   self-paced from a fresh pull when operating under the current
-  `CLAUDE.md` loop rules.
+  `SWARM_PROTOCOL.md` loop rules.
 
 ### Human operator
 
@@ -746,8 +747,8 @@ rules:
   manager-worker packages only when the parent brief allows them.
   Human still escalation-only.
 - **The artifacts.** BUILD_STATUS.md still the ledger.
-  Briefs still in `streams/`. `CLAUDE.md` is the live protocol;
-  worker prompt files are platform adapters.
+  Briefs still in `streams/`. `SWARM_PROTOCOL.md` is the live
+  protocol; worker prompt files are platform adapters.
 
 The protocol survives the v1-to-v2 transition unchanged in
 shape; only the queue-source list grows.
