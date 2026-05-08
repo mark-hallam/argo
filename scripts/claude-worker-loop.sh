@@ -68,13 +68,15 @@ while true; do
   # The bash wrapper holds the boundary (worktree isolation, conductor merges,
   # HARD RULE 5 may-touch list) so per-tool prompts are not the right defense.
   #
-  # --output-format stream-json + --include-partial-messages + jq filter:
-  # streams tool calls + assistant text to the terminal so the operator sees
-  # progress instead of silence during long iterations. Default text format
-  # buffers the full response until completion (the silence trap).
+  # --output-format stream-json + jq filter: streams completed assistant
+  # messages and tool calls to the terminal so the operator sees progress
+  # instead of silence during long iterations. Default text format buffers
+  # the full response until completion (the silence trap).
+  #
+  # No --include-partial-messages: those produce ~15 stream_event chunks
+  # per real action — pure noise. We want completed events only.
   claude --dangerously-skip-permissions \
          --output-format stream-json \
-         --include-partial-messages \
          --verbose \
          -p "You are a SKYCOT $FAMILY worker.
 
@@ -115,7 +117,6 @@ the next iteration.
       ))
     elif .type == "result" then "  ✅ result: " + (.subtype // "ok")
     elif .type == "system" and .subtype == "init" then "  ▶️  session started"
-    elif .type then "  · [\(.type)]"
     else empty end' \
   || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
 
