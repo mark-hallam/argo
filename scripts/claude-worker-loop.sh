@@ -67,7 +67,16 @@ while true; do
   # --dangerously-skip-permissions: required for unattended headless mode.
   # The bash wrapper holds the boundary (worktree isolation, conductor merges,
   # HARD RULE 5 may-touch list) so per-tool prompts are not the right defense.
-  claude --dangerously-skip-permissions -p "You are a SKYCOT $FAMILY worker.
+  #
+  # --output-format stream-json + --include-partial-messages + jq filter:
+  # streams tool calls + assistant text to the terminal so the operator sees
+  # progress instead of silence during long iterations. Default text format
+  # buffers the full response until completion (the silence trap).
+  claude --dangerously-skip-permissions \
+         --output-format stream-json \
+         --include-partial-messages \
+         --verbose \
+         -p "You are a SKYCOT $FAMILY worker.
 
 Repo: $REPO
 Brief: $BRIEF_ID (already CLAIMED on origin/main).
@@ -96,7 +105,19 @@ If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
 
 DO NOT loop. DO NOT claim another brief. The outer bash loop handles
 the next iteration.
-" || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
+" 2>&1 | jq -rR --unbuffered '
+    fromjson? // empty |
+    if .type == "assistant" and .message.content then
+      (.message.content[]? | (
+        if .type == "text" then "  💬 " + ((.text // "") | gsub("\n"; " ") | .[0:200])
+        elif .type == "tool_use" then "  🔧 " + .name + "  " + ((.input // {} | tostring) | .[0:120])
+        else empty end
+      ))
+    elif .type == "result" then "  ✅ result: " + (.subtype // "ok")
+    elif .type == "system" and .subtype == "init" then "  ▶️  session started"
+    elif .type then "  · [\(.type)]"
+    else empty end' \
+  || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
 
   JITTER=$((RANDOM % 26 + 5))
   echo "[$(date +%H:%M:%S)] Iteration done. Jittering ${JITTER}s..."
