@@ -161,6 +161,18 @@ fn mcp_tools_renders_help() {
 }
 
 #[test]
+fn worker_charter_renders_help() {
+    let h = help(&["worker", "charter"]);
+    assert!(h.contains("Usage:"), "worker charter --help: {h}");
+    for sub in ["set", "get", "clear"] {
+        assert!(
+            h.contains(sub),
+            "`argo worker charter --help` missing {sub}: {h}"
+        );
+    }
+}
+
+#[test]
 fn tools_list_show_render_help() {
     // Pins #525 — the new `argo tools list / show` surface.
     let h = help(&["tools", "list"]);

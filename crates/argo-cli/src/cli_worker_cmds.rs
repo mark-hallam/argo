@@ -202,56 +202,11 @@ pub enum WorkerCmd {
     },
 }
 
-// `WorkerArchiveCmd` lives in `cli_worker_archive_cmds.rs` (sibling
-// file) so this module stays under the 500-LOC per-file ceiling.
-// Re-exported below for `WorkerCmd::Archive(WorkerArchiveCmd)`.
+// Charter/archive leaf enums live in sibling files so this module stays
+// under the 500-LOC per-file ceiling. Re-exported below for the
+// corresponding `WorkerCmd` variants.
 pub use crate::cli::cli_worker_archive_cmds::WorkerArchiveCmd;
-
-#[derive(Subcommand, Debug)]
-pub enum WorkerCharterCmd {
-    /// Set or replace the worker's charter and/or KPIs.
-    Set {
-        /// Worker id (UUIDv7).
-        worker_id: String,
-        /// Tenant id whose worker namespace owns the row.
-        #[arg(long)]
-        tenant: String,
-        /// Path to a markdown file holding the charter body.
-        #[arg(long)]
-        file: PathBuf,
-        /// Optional path to a JSON file holding the KPIs object.
-        #[arg(long)]
-        kpis: Option<PathBuf>,
-        /// Emit JSON instead of a human-readable summary.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Print the worker's charter and/or KPIs.
-    Get {
-        /// Worker id (UUIDv7).
-        worker_id: String,
-        /// Tenant id whose worker namespace should be queried.
-        #[arg(long)]
-        tenant: String,
-        /// Render the charter markdown to stdout (default).
-        #[arg(long)]
-        md: bool,
-        /// Emit `{charter, kpis}` JSON.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Null out the charter and KPIs for one worker.
-    Clear {
-        /// Worker id (UUIDv7).
-        worker_id: String,
-        /// Tenant id whose worker namespace owns the row.
-        #[arg(long)]
-        tenant: String,
-        /// Emit JSON instead of a human-readable summary.
-        #[arg(long)]
-        json: bool,
-    },
-}
+pub use crate::cli::cli_worker_charter_cmds::WorkerCharterCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerPolicyCmd {
