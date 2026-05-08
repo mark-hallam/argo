@@ -10,6 +10,12 @@ mod v12;
 mod v13;
 mod v14;
 mod v15;
+mod v16;
+mod v17;
+mod v18;
+mod v19;
+mod v20;
+mod v21_skill_ab_tests;
 mod v6;
 mod v7;
 mod v8;
@@ -190,6 +196,36 @@ fn all_migrations() -> Vec<Migration> {
             version: 15,
             up: |tx| Box::pin(v15::up(tx)),
             down: |tx| Box::pin(v15::down(tx)),
+        },
+        Migration {
+            version: 16,
+            up: |tx| Box::pin(v16::up(tx)),
+            down: |tx| Box::pin(v16::down(tx)),
+        },
+        Migration {
+            version: 17,
+            up: |tx| Box::pin(v17::up(tx)),
+            down: |tx| Box::pin(v17::down(tx)),
+        },
+        Migration {
+            version: 18,
+            up: |tx| Box::pin(v18::up(tx)),
+            down: |tx| Box::pin(v18::down(tx)),
+        },
+        Migration {
+            version: 19,
+            up: |tx| Box::pin(v19::up(tx)),
+            down: |tx| Box::pin(v19::down(tx)),
+        },
+        Migration {
+            version: 20,
+            up: |tx| Box::pin(v20::up(tx)),
+            down: |tx| Box::pin(v20::down(tx)),
+        },
+        Migration {
+            version: 21,
+            up: |tx| Box::pin(v21_skill_ab_tests::up(tx)),
+            down: |tx| Box::pin(v21_skill_ab_tests::down(tx)),
         },
     ]
 }

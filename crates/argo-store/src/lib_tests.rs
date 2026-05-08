@@ -8,7 +8,7 @@ use argo_types::MessageRole;
 async fn open_and_migrate() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 15);
+    assert_eq!(store.schema_version().await.unwrap(), 21);
 }
 
 #[tokio::test]
@@ -22,9 +22,11 @@ async fn migrate_round_trip() {
     let err = store
         .migrate_down_to(11)
         .await
-        .expect_err("v12-v15 down unsupported");
+        .expect_err("v12+ down unsupported below v16");
     assert!(err.to_string().contains("rollback unsupported"));
-    assert_eq!(store.schema_version().await.unwrap(), 15);
+    // v17..v21 unwind cleanly; v16 refuses (orchestrator session
+    // columns may own live data), so the floor settles at 16.
+    assert_eq!(store.schema_version().await.unwrap(), 16);
 }
 
 #[tokio::test]
