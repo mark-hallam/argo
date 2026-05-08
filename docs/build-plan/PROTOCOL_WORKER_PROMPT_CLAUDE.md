@@ -20,4 +20,6 @@ Loop until a STOP CONDITION in CLAUDE.md fires. **Workers no longer auto-exit on
 
 Self-degradation: requires 4+ indicators in one iteration to stop (tick369 raised from 2). Auto-compaction is advisory, not mandatory exit.
 
+**Healthy sessions ship 2-4 PRs, then exit cleanly and rotate to a fresh tab.** Don't push past 4 PRs with multi-crate work unless you're tight on self-degradation indicators. This is permission, not a hard cap; see GRACEFUL EXIT PROTOCOL in CLAUDE.md.
+
 Do not duplicate the rules from CLAUDE.md into your reasoning — just follow them. They are auto-loaded on every turn.

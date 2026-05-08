@@ -413,7 +413,9 @@ Adopt as defaults; deviate consciously when needed.
    reflexively quit on the first compaction signal.
 4. **Self-degradation 4+ indicators.** **Threshold raised from 2 →
    4 (tick369).** A single off-iteration shouldn't end a productive
-   session. See list below.
+   session. See list below. Note: most healthy sessions exit before
+   this threshold fires, via PR-count-based natural rotation
+   (see GRACEFUL EXIT PROTOCOL).
 5. **Operator stop.** File `/tmp/argo-stop` exists, OR ALL rows on the
    ledger are MERGED on main (no remaining TODO/BLOCKED/CLAIMED).
 
@@ -431,6 +433,22 @@ Adopt as defaults; deviate consciously when needed.
 not fatal; productive sessions absorb minor friction.
 
 ### GRACEFUL EXIT PROTOCOL
+
+**Healthy sessions ship 2-4 PRs and exit cleanly.** Empirical data
+across self-exits this session (placid-curie, quirky-noether, plus
+others) converges on the same observation: meaningful
+context-pressure surfaces after roughly 4 multi-crate
+implementation cycles in one session. **Workers should treat this
+as expected operational behavior, not as a failure mode.** Once
+you've shipped 2-4 PRs, look for a natural exit point: a clean
+commit boundary, an empty queue poll, the end of an iteration,
+and rotate to a fresh tab.
+
+This is **permission, not mandate**. There is **no hard PR cap**:
+a productive 6-PR session is fine if you're not seeing
+self-degradation indicators. The point is to remove the implicit
+"exit only when degraded" framing; most sessions naturally peak
+in the 2-4 PR range, and that's healthy.
 
 When exiting cleanly:
 1. Make a final commit to BUILD_STATUS.md with a note (or as its own

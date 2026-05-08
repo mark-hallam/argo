@@ -73,7 +73,7 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 10. PRE-PUSH FLIGHT CHECK (CLAUDE.md HARD RULE 8). If still CLAIMED-by-you, `git push -u origin codex-<brief-id>`.
 11. `gh pr create` with the brief's specified title + body (acceptance checklist as ticked checkboxes).
 12. cd back to `~/code/argo-codex` (NOT the worktree). Edit BUILD_STATUS.md → set row to IN_REVIEW + PR number. Commit `"status: <brief-id> in review (#<N>)"` and push.
-13. `prs_shipped += 1`. **Iteration jitter**: `sleep $((RANDOM % 26 + 5))`.
+13. `prs_shipped += 1`. **Iteration jitter**: `sleep $((RANDOM % 26 + 5))`. **Healthy sessions ship 2-4 PRs and exit cleanly.** Once `prs_shipped >= 2`, look for a natural exit point on each subsequent iteration: empty poll, end of clean iteration, etc. Don't push past 4 PRs of multi-crate work unless self-degradation indicators are clean. This is permission, not a hard cap; see GRACEFUL EXIT PROTOCOL in CLAUDE.md.
 14. GO TO STEP 0 (re-read CLAUDE.md, then re-pull main).
 
 ============================================================
