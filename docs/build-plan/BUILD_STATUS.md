@@ -1,14 +1,23 @@
 # Build status — live ledger
 
+> **CODEX OFFLINE 2026-05-09**: codex is out of credit and no longer
+> running. All 10 prior `codex` TODO rows were re-assigned to `claude`
+> (owner column flip; brief ids and stream files unchanged — `codex-`
+> prefixed ids remain a sizing hint per CLAUDE.md). Until codex comes
+> back, ignore the codex side of the queue-depth check below: only
+> fire replenishment when `claude` TODO ≤ 8. Do not brainstorm new
+> codex briefs; do not target `~50/50 codex/claude` — target ~12-16
+> total claude briefs.
+>
 > **CONDUCTOR HARD RULE (load-bearing, do not drift):** check queue
-> depth at the START of every tick. If `codex` TODO count ≤ 8 OR
-> `claude` TODO count ≤ 8, fire queue replenishment IMMEDIATELY
+> depth at the START of every tick. If `claude` TODO count ≤ 8,
+> fire queue replenishment IMMEDIATELY
 > (Step 8 of PROTOCOL_LOOP_PROMPT.md, brainstorm 3-5 new briefs from
 > BUILD_PLAN_V11.md / MISSION.md gaps / PR-body deferrals / git log)
 > BEFORE touching merges. Workers stand down if queue runs dry.
-> Target depth after replenishment: 12-16 total briefs, weighted
-> ~50/50 codex/claude. **Skipping this rule has happened twice this
-> session and is not acceptable.**
+> Target depth after replenishment: 12-16 total claude briefs.
+> **Skipping this rule has happened twice this session and is not
+> acceptable.**
 
 **Updated by every agent on every state transition.** Always
 read from origin/main; never trust a stale local copy.
@@ -167,13 +176,13 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | claude-dashboard-fleet-view-html | claude | BLOCKED | — | **Phase C obs.** Adds `GET /dashboard/fleet` HTML page listing every worker, status badge, last activity, recent action ids. Auto-refresh, no external assets. Depends on `claude-web-dashboard-mvp` MERGED. |
 | claude-alerts-config-system | claude | MERGED | #1049 | **Phase C obs.** Adds .skycot/alerts.toml declarative rules (spend, error rate, approval timeout) + 60s background evaluator with hysteresis routing firings to file/event channels. 5 files +533/-0 LOC. Sensible deviations declared (GatewayState→AlertSnapshot; gateway::serve→gateway::start; spend bucket selection; v1 zero-snapshots for unwired metrics pending follow-up). 7 unit tests on pure evaluate_once. Tier 1 clean; conductor merged tick. |
 | claude-log-aggregation-runbook | codex | BLOCKED | — | blocked by codex (worker tab, 2026-05-08): brief requires appending a new `## Log aggregation` section to `docs/skycot/RUNBOOK.md`, but that file is 1088 LOC on current main. HARD RULE 6 forbids adding to files already over the 500-LOC ceiling; the allowed new Promtail YAML cannot satisfy the RUNBOOK acceptance alone. Needs RUNBOOK split or a redirected sub-500 operator doc plus link strategy. |
-| claude-trace-explorer-cli | codex | TODO | — | **Phase C obs.** Adds `argo trace explore <session>` reading local NDJSON span sink, building parent/child tree, rendering markdown or JSON. |
-| claude-spend-forecast-cli | codex | TODO | — | **Phase C obs.** Adds `argo costs forecast --horizon eod|eom|eoq` linear extrapolation over a configurable lookback, with ±20% band and JSON output. |
-| claude-error-rate-dashboard | codex | TODO | — | **Phase C obs.** Adds `argo errors dashboard` markdown breakdown by route or provider with prev-window comparison, --since clipping, JSON output. |
-| claude-latency-percentiles-tracking | codex | TODO | — | **Phase C obs.** Wraps every action dispatch with timing into a power-of-2-ms histogram per executor kind; 60s flush; `argo latency` prints p50/p95/p99/max. |
-| claude-availability-sla-tracking | codex | TODO | — | **Phase C obs.** Adds `argo doctor sla` rolling-window uptime % vs target with error budget and 24h ASCII heatmap; exits non-zero when below target. |
-| claude-incident-postmortem-template | codex | TODO | — | **Phase C obs.** Adds blameless postmortem template + `argo incident new` (interactive or YAML fixture) writing dated slugged files to docs/skycot/incidents/. |
-| claude-runbook-quickref-html | codex | TODO | — | **Phase C obs.** Bash script extracts marked top-commands and common-errors blocks from RUNBOOK and emits a self-contained quickref.html with reproducible footer. |
+| claude-trace-explorer-cli | claude | TODO | — | **Phase C obs.** Adds `argo trace explore <session>` reading local NDJSON span sink, building parent/child tree, rendering markdown or JSON. |
+| claude-spend-forecast-cli | claude | TODO | — | **Phase C obs.** Adds `argo costs forecast --horizon eod|eom|eoq` linear extrapolation over a configurable lookback, with ±20% band and JSON output. |
+| claude-error-rate-dashboard | claude | TODO | — | **Phase C obs.** Adds `argo errors dashboard` markdown breakdown by route or provider with prev-window comparison, --since clipping, JSON output. |
+| claude-latency-percentiles-tracking | claude | TODO | — | **Phase C obs.** Wraps every action dispatch with timing into a power-of-2-ms histogram per executor kind; 60s flush; `argo latency` prints p50/p95/p99/max. |
+| claude-availability-sla-tracking | claude | TODO | — | **Phase C obs.** Adds `argo doctor sla` rolling-window uptime % vs target with error budget and 24h ASCII heatmap; exits non-zero when below target. |
+| claude-incident-postmortem-template | claude | TODO | — | **Phase C obs.** Adds blameless postmortem template + `argo incident new` (interactive or YAML fixture) writing dated slugged files to docs/skycot/incidents/. |
+| claude-runbook-quickref-html | claude | TODO | — | **Phase C obs.** Bash script extracts marked top-commands and common-errors blocks from RUNBOOK and emits a self-contained quickref.html with reproducible footer. |
 | **▼ PHASE D — catch-up volume / specialized** | — | — | — | — |
 | codex-connector-list-cli | codex | MERGED | #949 | Added `argo connector list/show` enumeration over connector specs, manifests, and crate schema names. JSON envelopes + markdown/detail output; 4 unit tests + 1 CLI smoke. Boundary: full `cargo test` still has setup_steps/env, webinbox suite-order, and gtm vertical-schema flakes outside may-touch. |
 | claude-web-dashboard-mvp | claude | TODO | — | **REWRITE v2 by conductor (tick365).** Paths corrected from argo-gateway crate (no HTTP server) to crates/argo-cli/src/handlers/gateway/ where the actual gateway HTTP server lives. Operator-UX intent preserved. Brief: streams/claude-web-dashboard-mvp.md. |
@@ -347,7 +356,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-vertical-publish-real-oci | codex | MERGED | #908 | V1.x: real OCI Distribution Spec push/pull via oci-distribution crate when --registry set; mock path preserved; auth fallback `--token > credentials.toml > docker config > anonymous`; typed vertical layers; ttl.sh live round-trip PASS; mock fixed (chunked PATCH, Location header, URL-decode); 6+ unit + 1 gated smoke. **Conductor ran missing clippy gate — clean.** Compaction-degraded tab disclosed gap honestly; extra-scrutiny merged tick180 |
 | claude-skill-auction | claude | MERGED | #900 | V1.3 multi-worker: argo-orchestrator::auction module + AuctionStore + fit_score + deterministic 3-tier tie-break; migration 27; HandoffWalker `with_auction_store` opt-in; `argo handoff-auctions list/show/cancel`; 15 unit + 2 integration; 1208 LOC. Rebased + merged tick177 after recovery brief landed. |
 | codex-backup-restore-cli | codex | MERGED | #904 | V1.x: `argo backup create/list/verify` + `argo restore`; tarball of <workspace>/.argo/; credentials excluded by default (--include-credentials opt-in); sha256 in manifest.json; refuses non-empty workspace restore; 9 unit + 1 CLI smoke round-trip; 1007 LOC; merged tick173 |
-| codex-self-update-cli | codex | TODO | — | **Status flip tick365.** Deps now satisfied (claude-installer-macos #928 MERGED). Brief unchanged; ready for a fresh codex tab. |
+| codex-self-update-cli | claude | TODO | — | **Status flip tick365.** Deps now satisfied (claude-installer-macos #928 MERGED). Brief unchanged; ready for a fresh codex tab. |
 | claude-operator-feedback-channel | claude | MERGED | #889 | operator_feedback table (migration 24) + Vote enum/CRUD; FeedbackVote + should_propose_with_feedback in argo-skill (Up forces propose, Down blacklists, None falls back); `argo feedback up/down/list` + --json; 9 unit + 2 integration tests; merged tick134 |
 | claude-document-creation-executor | claude | MERGED | #923 | V1.2 capability: NEW argo-executor-document crate (markdown/csv/pdf/slides backends + DocExecutor + OutputPath path-escape guard) + NEW worker_actions_executor_document.rs handler. ExecutorKind::DocumentCreation arm wired through resolve_executor (EXHAUSTIVE-MATCH). PDF via pulldown-cmark + headless Chrome (ARGO_DOC_CHROME override + macOS default; ChromeMissing error mirrors CodeExecutor's E2B-not-wired pattern). Slides via reveal.js HTML w/ embedded keyboard-nav (no CDN). CSV is RFC 4180 with row-arity guard. 24 unit + 5 integration + 7 argo-cli handler tests; conductor verified clippy clean. ~1500 LOC across 8 NEW files + 4 MODIFIED. worker_actions_executor.rs at 460 LOC (40 LOC headroom). Merged tick226 |
 | codex-skill-quality-judge-cli | codex | MERGED | #912 | V2.0: `argo skill quality-trend <name>` 30-day ASCII sparkline (▁..█ + `·` gap); reuses SkillQualityStore::history from #886; 6 unit + 1 smoke; conductor verified clippy clean. **First PR after #909 split — confirms unlock pattern works (skill.rs 184 LOC has room).** Merged tick188 |
@@ -362,10 +371,10 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | codex-eval-compare-cli | codex | MERGED | #916 | V1.4 dev UX: argo eval list/show/compare persisted run artifacts + A/B comparison; pure argo-eval::compare logic with fixture/skill/metric grouping; markdown + JSON; --show-regressions; 6 unit + 1 smoke; conductor verified clippy clean; merged tick198 |
 | codex-doctor-channels-extend | codex | MERGED | #906 | V1.4 mechanical: extended `argo doctor channels` (#828) with imessage (#890 Blue Bubbles ping) + voice (#896 Twilio ping) checks; reuses OK/WARN/ERROR/MISSING vocabulary + 5s reqwest timeout; doctor_channels.rs 315→459 LOC; 4 unit tests; 145+/-1 LOC; merged tick179 |
 | codex-skill-runs-cli | codex | MERGED | #926 | V1.4 operator UX: `argo skill runs <name>` chronological invocation history; --worker/--since/--include-failed/--tenant filters; --json universal; reads worker-action JSON from memory_entry, reduces to latest-snapshot per action_id, joins worker/worker_budget when those late tables present (graceful fallback for older stores); 5 unit + 1 smoke; conductor verified clippy clean. **Note: skill_runs_query.rs at 473 LOC — 27 LOC headroom.** Merged tick231 |
-| codex-handoff-stats-cli | codex | TODO | — | **Unblocked by #994.** Handoff table now has `resolved_at` for median-latency acceptance. Build stats CLI against the merged schema + orchestrator writes. |
+| codex-handoff-stats-cli | claude | TODO | — | **Unblocked by #994.** Handoff table now has `resolved_at` for median-latency acceptance. Build stats CLI against the merged schema + orchestrator writes. |
 | codex-recover-cache-cli | codex | MERGED | #911 | **🎉 Recovered after months stuck CONFLICTING.** V1.4 mechanical: `argo recover-cache list/show/clear` for the recovery_cache table populated by claude-error-recovery-suggestions #901; reads/inspects/clears rows. NEW handlers/recover_cache.rs + cli_recover_cmds.rs + recovery_cache.rs in argo-store; 7 store + 5 handler unit + 1 smoke. Recovery brief codex-rebase-recover-cache-pr911 (tick250) rebased onto current main; conductor verified clippy clean. 777 +/- 1 LOC, 9 files. Merged tick250 |
 | codex-budget-export-csv-cli | codex | MERGED | #927 | V1.4 mechanical: `--format human|json|csv` across `argo budget show/recent/anomalies/alerts list`; new `handlers/budget_csv.rs` (RFC 4180 compliant escaping for commas/quotes/newlines); legacy `--json` preserved; 4 unit + 1 smoke; conductor verified clippy clean. budget.rs at 478 LOC (22 headroom). Merged tick236 |
-| codex-skill-sign-cli | codex | TODO | — | Unblocked after `codex-skill-sign-cli-deps` merged in #993; ed25519-dalek is now a workspace dependency. |
+| codex-skill-sign-cli | claude | TODO | — | Unblocked after `codex-skill-sign-cli-deps` merged in #993; ed25519-dalek is now a workspace dependency. |
 | claude-cli-subcommands-split | claude | MERGED | #882 | V1.x architectural prep: split crates/argo-cli/src/cli_subcommands.rs (was 500 LOC) into 3 focused sibling files — cli_subcommands_skill.rs (136 LOC) + cli_subcommands_provider.rs (49 LOC) + cli_subcommands_cron.rs (55 LOC); main file trimmed to 269 LOC; pure refactor, public API stable via re-exports; 4th post-sweep recovery this session. Unblocks claude-skill-quality-judge |
 | claude-routes-channels-split | claude | MERGED | #910 | V1.x architectural prep: pure refactor splitting routes_channels.rs (499→184 LOC) into 4 per-channel siblings (email/slack/webinbox/push); pub(super) sub-mods; gateway/mod.rs held at 499 (no regression); 3 tests preserved + 503 workspace pass. Unblocked codex-channel-whatsapp-twilio (now TODO). codex-channel-discord-approvals still BLOCKED on #879. Merged tick181 |
 | claude-skill-handlers-split | claude | MERGED | #909 | V1.x architectural prep: pure refactor splitting handlers/skill.rs (500→181 LOC) into 5 per-domain siblings (list/view/verify/create/refine); body_hash pub(super); 502 argo-cli tests pass. Unblocked 3 codex briefs: skill-quality-judge-cli + skill-marketplace-publish-cli + skill-import-export-cli (all now TODO). Merged tick181 |
