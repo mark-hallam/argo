@@ -6,9 +6,27 @@
 use crate::models::{
     AuditRow, ForgeRunRow, JudgeRow, RoutingDecisionRow, SessionHeader, SessionHeaderRow,
 };
-use crate::{SessionStore, StoreResult};
+use crate::{SessionStore, StoreResult, WorkerId};
 use argo_types::{ArgoError, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
+
+/// Session creation fields, including optional worker ownership.
+pub struct SessionCreate<'a> {
+    /// Tenant that owns the session.
+    pub tenant_id: TenantId,
+    /// Workspace where the session starts.
+    pub workspace_id: WorkspaceId,
+    /// Model id to store on the session.
+    pub model: &'a str,
+    /// Provider id to store on the session.
+    pub provider: &'a str,
+    /// Optional human-readable title.
+    pub title: Option<&'a str>,
+    /// Optional vertical template binding.
+    pub vertical_id: Option<&'a str>,
+    /// Optional worker identity that started or owns the session.
+    pub worker_id: Option<WorkerId>,
+}
 
 impl SessionStore {
     /// Create a new session under a tenant + workspace.
@@ -23,20 +41,36 @@ impl SessionStore {
         title: Option<&str>,
         vertical_id: Option<&str>,
     ) -> StoreResult<SessionId> {
+        self.create_session_with_worker(SessionCreate {
+            tenant_id,
+            workspace_id,
+            model,
+            provider,
+            title,
+            vertical_id,
+            worker_id: None,
+        })
+        .await
+    }
+
+    /// Create a new session and optionally stamp its owning worker.
+    pub async fn create_session_with_worker(&self, input: SessionCreate<'_>) -> StoreResult<SessionId> {
         let id = SessionId::new();
         let started_at = Utc::now().timestamp_micros();
+        let worker_blob = input.worker_id.map(|w| w.0.as_bytes().to_vec());
         sqlx::query(
-            "INSERT INTO session (id, tenant_id, workspace_id, model, provider, title, started_at, vertical_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO session (id, tenant_id, workspace_id, model, provider, title, started_at, vertical_id, worker_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.0.as_bytes().as_slice())
-        .bind(tenant_id.0.as_bytes().as_slice())
-        .bind(workspace_id.0.as_bytes().as_slice())
-        .bind(model)
-        .bind(provider)
-        .bind(title)
+        .bind(input.tenant_id.0.as_bytes().as_slice())
+        .bind(input.workspace_id.0.as_bytes().as_slice())
+        .bind(input.model)
+        .bind(input.provider)
+        .bind(input.title)
         .bind(started_at)
-        .bind(vertical_id)
+        .bind(input.vertical_id)
+        .bind(worker_blob.as_deref())
         .execute(&self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;
@@ -46,7 +80,7 @@ impl SessionStore {
     /// Fetch a session header.
     pub async fn get_session(&self, session_id: SessionId) -> StoreResult<Option<SessionHeader>> {
         let row = sqlx::query_as::<_, SessionHeaderRow>(
-            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id, worker_id
              FROM session WHERE id = ?",
         )
         .bind(session_id.0.as_bytes().as_slice())
@@ -54,7 +88,7 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("get_session: {e}")))?;
 
-        Ok(row.map(SessionHeader::from))
+        row.map(SessionHeader::try_from).transpose()
     }
 
     /// List sessions across all tenants, ordered by recency. Used
@@ -62,14 +96,14 @@ impl SessionStore {
     /// provided.
     pub async fn list_all_sessions(&self, limit: u32) -> StoreResult<Vec<SessionHeader>> {
         let rows = sqlx::query_as::<_, SessionHeaderRow>(
-            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id, worker_id
              FROM session ORDER BY started_at DESC LIMIT ?",
         )
         .bind(i64::from(limit))
         .fetch_all(&self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("list_all_sessions: {e}")))?;
-        Ok(rows.into_iter().map(SessionHeader::from).collect())
+        rows.into_iter().map(SessionHeader::try_from).collect()
     }
 
     /// List sessions for a tenant, ordered by recency.
@@ -79,7 +113,7 @@ impl SessionStore {
         limit: u32,
     ) -> StoreResult<Vec<SessionHeader>> {
         let rows = sqlx::query_as::<_, SessionHeaderRow>(
-            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id
+            "SELECT id, tenant_id, workspace_id, model, provider, title, started_at, ended_at, vertical_id, worker_id
              FROM session WHERE tenant_id = ?
              ORDER BY started_at DESC LIMIT ?",
         )
@@ -89,7 +123,7 @@ impl SessionStore {
         .await
         .map_err(|e| ArgoError::Provider(format!("list_sessions: {e}")))?;
 
-        Ok(rows.into_iter().map(SessionHeader::from).collect())
+        rows.into_iter().map(SessionHeader::try_from).collect()
     }
 
     /// Delete every session whose `started_at` is older than
@@ -212,3 +246,7 @@ impl SessionStore {
         Ok(rows.into_iter().map(RoutingDecision::from).collect())
     }
 }
+
+#[cfg(test)]
+#[path = "session_worker_id_tests.rs"]
+mod session_worker_id_tests;

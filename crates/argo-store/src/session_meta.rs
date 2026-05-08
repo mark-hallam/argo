@@ -1,8 +1,7 @@
 //! Session metadata mutations — title rename, delete, judge
 //! override. Lives in its own file so `lib.rs` stays under the
 //! 500-LOC ceiling as new one-shot mutators get added.
-use crate::SessionStore;
-use crate::StoreResult;
+use crate::{SessionStore, StoreResult, WorkerId};
 use argo_types::{ArgoError, JudgeRecordId, SessionId};
 use sqlx::{Pool, Sqlite};
 
@@ -36,6 +35,17 @@ impl SessionStore {
         reopen_session(self.pool(), sid)
             .await
             .map_err(|e| ArgoError::Provider(format!("reopen_session: {e}")))
+    }
+
+    /// Update the optional worker id stamped on a session.
+    pub async fn set_session_worker_id(
+        &self,
+        sid: SessionId,
+        worker_id: Option<WorkerId>,
+    ) -> StoreResult<u64> {
+        set_session_worker_id(self.pool(), sid, worker_id)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("set_session_worker_id: {e}")))
     }
 
     /// Update a judge_record's verdict (and optionally its
@@ -103,6 +113,21 @@ pub(super) async fn reopen_session(
     sid: SessionId,
 ) -> Result<u64, sqlx::Error> {
     let res = sqlx::query("UPDATE session SET ended_at = NULL WHERE id = ?")
+        .bind(sid.0.as_bytes().as_slice())
+        .execute(pool)
+        .await?;
+    Ok(res.rows_affected())
+}
+
+/// Update `session.worker_id` for the given session id.
+pub(super) async fn set_session_worker_id(
+    pool: &Pool<Sqlite>,
+    sid: SessionId,
+    worker_id: Option<WorkerId>,
+) -> Result<u64, sqlx::Error> {
+    let worker_blob = worker_id.map(|w| w.0.as_bytes().to_vec());
+    let res = sqlx::query("UPDATE session SET worker_id = ? WHERE id = ?")
+        .bind(worker_blob.as_deref())
         .bind(sid.0.as_bytes().as_slice())
         .execute(pool)
         .await?;

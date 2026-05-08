@@ -4,7 +4,8 @@
 //! Public API stays stable: `routes_post.rs` re-exports
 //! `create_session_response` and `create_session_for_vertical_response`
 //! so existing call sites compile unchanged.
-use argo_store::SessionStore;
+use argo_store::{SessionCreate, SessionStore, WorkerId};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use super::{body_from_request, store_unavailable};
@@ -39,7 +40,19 @@ pub(super) async fn create_session_response(
     // POST /verticals/<id>/sessions path-bound endpoint sets.
     // Existing clients that don't send it remain unchanged.
     let vertical_id = parsed["vertical_id"].as_str();
-    create_session_inner(store, model, provider, title, vertical_id).await
+    let worker_id = match parse_worker_id(&parsed) {
+        Ok(id) => id,
+        Err(e) => return ("400 Bad Request", format!("{{\"error\":\"{e}\"}}")),
+    };
+    create_session_inner(store, model, provider, title, vertical_id, worker_id).await
+}
+
+fn parse_worker_id(parsed: &serde_json::Value) -> Result<Option<WorkerId>, String> {
+    parsed["worker_id"]
+        .as_str()
+        .map(WorkerId::from_str)
+        .transpose()
+        .map_err(|e| format!("invalid worker_id: {e}"))
 }
 
 /// Shared session-creation helper. Validates vertical_id (when
@@ -55,6 +68,7 @@ pub(super) async fn create_session_inner(
     provider: &str,
     title: Option<&str>,
     vertical_id: Option<&str>,
+    worker_id: Option<WorkerId>,
 ) -> (&'static str, String) {
     let loaded_vertical = if let Some(vid) = vertical_id {
         let dir = crate::handlers::vertical::resolve_verticals_dir();
@@ -105,7 +119,15 @@ pub(super) async fn create_session_inner(
         }
     };
     let id = match store
-        .create_session(tenant, workspace, model, provider, title, vertical_id)
+        .create_session_with_worker(SessionCreate {
+            tenant_id: tenant,
+            workspace_id: workspace,
+            model,
+            provider,
+            title,
+            vertical_id,
+            worker_id,
+        })
         .await
     {
         Ok(id) => id,
@@ -142,6 +164,7 @@ pub(super) async fn create_session_inner(
             "provider": provider,
             "title": title,
             "vertical_id": vertical_id,
+            "worker_id": worker_id.map(|w| w.to_string()),
             "skills_attached": skills_attached,
         }))
         .unwrap_or_else(|_| "{}".to_string()),
@@ -179,5 +202,9 @@ pub(super) async fn create_session_for_vertical_response(
         );
     }
     let title = parsed["title"].as_str();
-    create_session_inner(store, model, provider, title, Some(vertical_id)).await
+    let worker_id = match parse_worker_id(&parsed) {
+        Ok(id) => id,
+        Err(e) => return ("400 Bad Request", format!("{{\"error\":\"{e}\"}}")),
+    };
+    create_session_inner(store, model, provider, title, Some(vertical_id), worker_id).await
 }

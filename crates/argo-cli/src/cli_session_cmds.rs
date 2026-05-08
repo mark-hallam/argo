@@ -12,6 +12,8 @@ pub enum SessionCmd {
         #[arg(long)]
         title: String,
         #[arg(long)]
+        worker: Option<String>,
+        #[arg(long)]
         json: bool,
     },
     List {

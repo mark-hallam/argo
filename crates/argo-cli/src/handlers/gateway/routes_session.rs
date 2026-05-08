@@ -184,6 +184,9 @@ pub(super) async fn session_show_response_with_format(
         if let Some(v) = session.vertical_id.as_deref() {
             out.push_str(&format!("- **Vertical**: `{v}`\n"));
         }
+        if let Some(worker) = session.worker_id {
+            out.push_str(&format!("- **Worker**: `{worker}`\n"));
+        }
         out.push_str(&format!(
             "- **Started**: {}\n",
             session.started_at.to_rfc3339()
@@ -211,6 +214,7 @@ pub(super) async fn session_show_response_with_format(
         "provider": session.provider,
         "title": session.title,
         "vertical_id": session.vertical_id,
+        "worker_id": session.worker_id.map(|w| w.to_string()),
         "started_at": session.started_at.to_rfc3339(),
         "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
         "elapsed_seconds": elapsed_seconds,

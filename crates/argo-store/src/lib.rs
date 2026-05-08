@@ -54,7 +54,10 @@ mod workspace;
 pub use grants::SessionGrant;
 pub use recovery_cache::RecoveryCacheEntry;
 pub use marketplace_meta::MarketplaceArtifactRow;
-pub use models::{AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader};
+pub use models::{
+    AuditRow, ForgeRunRow, JudgeRow, MessageRow, MessageSearchHit, SessionHeader, WorkerId,
+};
+pub use session_query::SessionCreate;
 pub use skill_runs_query::{runs_for_skill, runs_for_tenant, SkillRunRow};
 pub use spend::GlobalSpend;
 pub use stats::{tool_errors_histogram, DbStats};
@@ -96,7 +99,9 @@ impl SessionStore {
 
     /// Apply all pending migrations.
     pub async fn migrate(&self) -> StoreResult<()> {
-        migrations::run(&self.pool).await
+        migrations::run(&self.pool).await?;
+        ensure_session_worker_id_column(&self.pool).await?;
+        Ok(())
     }
 
     /// Roll the schema back to a specific version (test/dev only).
@@ -200,6 +205,38 @@ impl SessionStore {
     ) -> StoreResult<(TenantId, WorkspaceId)> {
         workspace::ensure_workspace(&self.pool, name, root_path).await
     }
+}
+
+/// PRAGMA-detect-then-ALTER for `session.worker_id` (Stream
+/// `claude-session-worker-id-schema`). Mirrors the
+/// `ensure_role_columns` / `ensure_worker_charter_columns` pattern
+/// in argo-identity: the structured migration runner stops at v11,
+/// later additive columns are applied idempotently from a sibling
+/// SQL file (`migrations/38__session_worker_id.sql`).
+async fn ensure_session_worker_id_column(pool: &Pool<Sqlite>) -> StoreResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(session)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("session table info: {e}")))?;
+    let has_column = rows.iter().any(|row| {
+        use sqlx::Row;
+        let name: String = row.get("name");
+        name == "worker_id"
+    });
+    if !has_column {
+        sqlx::query("ALTER TABLE session ADD COLUMN worker_id BLOB")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add session.worker_id: {e}")))?;
+    }
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_session_worker \
+         ON session(worker_id) WHERE worker_id IS NOT NULL",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("create idx_session_worker: {e}")))?;
+    Ok(())
 }
 
 #[cfg(test)]

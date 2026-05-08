@@ -96,6 +96,7 @@ mod tests {
             started_at: Utc::now(),
             ended_at: None,
             vertical_id: None,
+            worker_id: None,
         }
     }
 

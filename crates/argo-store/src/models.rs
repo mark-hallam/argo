@@ -1,10 +1,46 @@
 //! Read-side row models and conversions.
 use argo_types::{
-    ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId, WorkspaceId,
+    ArgoError, ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId,
+    WorkspaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::{fmt, str::FromStr};
 use uuid::Uuid;
+
+/// Stable worker id stored on a session row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WorkerId(
+    /// UUID payload stored as a 16-byte SQLite BLOB.
+    pub Uuid,
+);
+
+impl WorkerId {
+    /// Parse a 16-byte SQLite BLOB into a worker id.
+    pub fn from_blob(blob: &[u8]) -> Result<Self, ArgoError> {
+        if blob.len() != 16 {
+            return Err(ArgoError::Schema(format!(
+                "worker_id blob must be 16 bytes, got {}",
+                blob.len()
+            )));
+        }
+        Ok(Self(uuid_from_blob(blob)))
+    }
+}
+
+impl fmt::Display for WorkerId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl FromStr for WorkerId {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(s).map(Self)
+    }
+}
 
 /// A session record returned from `SessionStore::get_session` etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +66,9 @@ pub struct SessionHeader {
     /// sessions that don't go through a vertical.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vertical_id: Option<String>,
+    /// Optional worker identity that started or owns the session.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker_id: Option<WorkerId>,
 }
 
 /// Raw row shape used internally by sqlx.
@@ -44,6 +83,7 @@ pub(crate) struct SessionHeaderRow {
     pub started_at: i64,
     pub ended_at: Option<i64>,
     pub vertical_id: Option<String>,
+    pub worker_id: Option<Vec<u8>>,
 }
 
 pub(crate) fn uuid_from_blob(b: &[u8]) -> Uuid {
@@ -209,9 +249,11 @@ impl From<RoutingDecisionRow> for RoutingDecision {
     }
 }
 
-impl From<SessionHeaderRow> for SessionHeader {
-    fn from(r: SessionHeaderRow) -> Self {
-        Self {
+impl TryFrom<SessionHeaderRow> for SessionHeader {
+    type Error = ArgoError;
+
+    fn try_from(r: SessionHeaderRow) -> Result<Self, Self::Error> {
+        Ok(Self {
             id: SessionId(uuid_from_blob(&r.id)),
             tenant_id: TenantId(uuid_from_blob(&r.tenant_id)),
             workspace_id: WorkspaceId(uuid_from_blob(&r.workspace_id)),
@@ -222,6 +264,7 @@ impl From<SessionHeaderRow> for SessionHeader {
                 .unwrap_or_else(Utc::now),
             ended_at: r.ended_at.and_then(DateTime::<Utc>::from_timestamp_micros),
             vertical_id: r.vertical_id,
-        }
+            worker_id: r.worker_id.map(|blob| WorkerId::from_blob(&blob)).transpose()?,
+        })
     }
 }

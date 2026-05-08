@@ -2,13 +2,13 @@ use crate::cli::{HandoffCmd, SessionCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::WorkerId;
 use argo_orchestrator::{EscalationStep, Handoff, HandoffId, HandoffStatus, OrchestratorStore, Session};
-use argo_store::SessionStore;
+use argo_store::{SessionStore, WorkerId as StoreWorkerId};
 use argo_types::{ArgoError, ArgoResult, SessionId as StoreSessionId, TenantId};
 use std::str::FromStr;
 use std::sync::Arc;
 pub async fn run(cmd: SessionCmd) -> ArgoResult<()> {
     match cmd {
-        SessionCmd::Start { tenant, title, json } => start_orchestrator_session(tenant.as_deref(), &title, json).await,
+        SessionCmd::Start { tenant, title, worker, json } => start_orchestrator_session(tenant.as_deref(), &title, worker.as_deref(), json).await,
         SessionCmd::List {
             tenant,
             limit,
@@ -265,15 +265,17 @@ pub async fn run_handoff(cmd: HandoffCmd) -> ArgoResult<()> {
         HandoffCmd::Cancel { id, tenant, note, json } => cancel_handoff(tenant.as_deref(), &id, note.as_deref(), json).await,
     }
 }
-async fn start_orchestrator_session(
-    tenant: Option<&str>,
-    title: &str,
-    json: bool,
-) -> ArgoResult<()> {
+async fn start_orchestrator_session(tenant: Option<&str>, title: &str, worker: Option<&str>, json: bool) -> ArgoResult<()> {
     let tenant = tenant_id(tenant)?;
-    let repo = orchestrator_repo().await?;
-    let session = Session::new(tenant, title);
+    let worker = worker.map(WorkerId::from_str).transpose().map_err(|e| ArgoError::Provider(format!("invalid worker id: {e}")))?;
+    let (store, repo) = orchestrator_store_and_repo().await?;
+    let mut session = Session::new(tenant, title);
+    if let Some(w) = worker { session.add_participant(w); }
     repo.insert_session(&session).await?;
+    if let Some(w) = worker {
+        let sid = uuid::Uuid::parse_str(session.id.as_str()).map(StoreSessionId).map_err(|e| ArgoError::Provider(format!("invalid session id '{}': {e}", session.id)))?;
+        store.set_session_worker_id(sid, Some(StoreWorkerId(w.0))).await?;
+    }
     print_json_or_text(json, &session, || session.id.to_string())
 }
 async fn list_orchestrator_sessions(tenant: Option<&str>, status: &str, limit: u32, json: bool) -> ArgoResult<()> {
@@ -366,15 +368,16 @@ async fn cancel_handoff(tenant: Option<&str>, id: &str, note: Option<&str>, json
     if json { println!("{}", serde_json::to_string(&handoff_json(&handoff)).unwrap_or_default()); } else { println!("{}	{}	{}", handoff.id, handoff_status_label(handoff.status), handoff.expected_outcome); }
     Ok(())
 }
-async fn orchestrator_repo() -> ArgoResult<OrchestratorStore> {
+async fn orchestrator_repo() -> ArgoResult<OrchestratorStore> { orchestrator_store_and_repo().await.map(|(_store, repo)| repo) }
+async fn orchestrator_store_and_repo() -> ArgoResult<(Arc<SessionStore>, OrchestratorStore)> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
     store.migrate().await?;
-    let repo = OrchestratorStore::new(store);
+    let repo = OrchestratorStore::new(Arc::clone(&store));
     repo.ensure_schema().await?;
-    Ok(repo)
+    Ok((store, repo))
 }
 fn tenant_id(raw: Option<&str>) -> ArgoResult<TenantId> {
     let raw = raw.map(ToOwned::to_owned).or_else(|| std::env::var("ARGO_DEFAULT_TENANT").ok())

@@ -45,6 +45,7 @@ pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoRes
                 "model": session.model,
                 "title": session.title,
                 "vertical_id": session.vertical_id,
+                "worker_id": session.worker_id.map(|w| w.to_string()),
                 "started_at": session.started_at.to_rfc3339(),
                 "ended_at": session.ended_at.map(|d| d.to_rfc3339()),
                 "message_count": count,
@@ -76,6 +77,9 @@ pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoRes
             // when bound; legacy sessions stay clean).
             if let Some(v) = session.vertical_id.as_deref() {
                 println!("- **Vertical**: `{v}`");
+            }
+            if let Some(worker) = session.worker_id {
+                println!("- **Worker**: `{worker}`");
             }
             println!("- **Started**: {}", session.started_at.to_rfc3339());
             if let Some(ended) = session.ended_at {
@@ -112,6 +116,9 @@ pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoRes
     // when bound — keeps legacy session output unchanged.
     if let Some(v) = session.vertical_id.as_deref() {
         println!("  vertical:     {v}");
+    }
+    if let Some(worker) = session.worker_id {
+        println!("  worker_id:    {worker}");
     }
     println!(
         "  title:        {}",
