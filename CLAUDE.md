@@ -183,6 +183,12 @@ Sccache + shared target dir = 5-10× iteration speedup vs unconfigured.
    - Pick a DIFFERENT TODO row — never retry the same row you just lost
    - Claim the new row + push
 
+   Or wrap the claim sequence with `bash scripts/claim-with-retry.sh
+   <brief-id>` — it auto-retries non-fast-forward races up to 3× with
+   jitter (recovering when another tab raced on a *different* row),
+   exits 1 if the brief is now CLAIMED-by-another, and falls through
+   to this rule on retries-exhausted (Stream `claude-claim-with-retry`).
+
    **🚨 FOOT-GUN (tick408 amendment, observed in worker self-exit notes):**
    **NEVER** run `git checkout origin/main -- .` in a worktree with
    uncommitted edits — it silently reverts ALL tracked-file edits with

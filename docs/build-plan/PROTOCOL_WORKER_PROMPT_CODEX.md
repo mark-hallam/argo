@@ -60,7 +60,7 @@ Run this loop until any STOP CONDITION fires. No reports, no summaries between i
 4. Pick the FIRST row where: `status=TODO` AND every `depends on` predecessor is MERGED. **Owner field is a sizing hint, not a lock (tick369) — any tab may claim any TODO.** **The TODO list is phase-ordered (`▼ PHASE A → F` header rows in the ledger).** Always claim from the earliest phase first — Phase A items are credibility-bleeders; Phase B closes mission claims; Phase C/D/E/F come after. Only descend to a later phase if no TODO in earlier phases has all deps met. Skip the `▼ PHASE …` header rows — they're navigation markers, not claimable briefs.
    - Qualifying row found → `empty_iterations = 0`, continue to step 5.
    - NO qualifying row → `empty_iterations += 1`. Check EMPTY-ITERATION GUARD below. **Empty-poll back-off (tick369): sleep 60s default; bump to 120s after 3rd consecutive miss; bump to 240s after 7th. Don't burn cycles on a quiet queue.** Then go to step 1.
-5. Mark row `status=CLAIMED` in BUILD_STATUS.md, commit `"status: claim <brief-id>"`, push to origin/main. Race-lost? See HARD RULE 7 in CLAUDE.md.
+5. Mark row `status=CLAIMED` in BUILD_STATUS.md, commit `"status: claim <brief-id>"`, push to origin/main. Race-lost? See HARD RULE 7 in CLAUDE.md. Optional: wrap with `bash scripts/claim-with-retry.sh <brief-id>` (Stream `claude-claim-with-retry`) for bounded auto-retry on non-fast-forward races.
 6. Read brief at `docs/build-plan/streams/<brief-id>.md`. Follow it EXACTLY.
 7. `git worktree add /tmp/<brief-id> origin/main && cd /tmp/<brief-id> && git checkout -b codex-<brief-id>` (clean up stale worktrees first if needed).
 8. Implement. Stay inside may-touch list. Tick acceptance boxes.

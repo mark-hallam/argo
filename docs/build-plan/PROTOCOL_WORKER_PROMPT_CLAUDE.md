@@ -12,7 +12,7 @@ Begin iteration 1:
 2. `git checkout main && git pull --ff-only origin main`
 3. Read `docs/build-plan/BUILD_STATUS.md` from disk
 4. Find the first row where: `status=TODO` AND all `depends on` predecessors are MERGED. **The TODO list is phase-ordered (`▼ PHASE A → F` header rows in the ledger).** Always claim from the earliest phase first — Phase A items are credibility-bleeders; Phase B closes mission claims; Phase C/D/E/F come after. Only descend to a later phase if no claimable TODO in earlier phases has all deps met. Skip the `▼ PHASE …` header rows — they're navigation markers, not claimable briefs.
-5. Continue per the iteration sequence in CLAUDE.md (HARD RULES + ITERATION SEQUENCE sections)
+5. Continue per the iteration sequence in CLAUDE.md (HARD RULES + ITERATION SEQUENCE sections). Optional: wrap the claim step with `bash scripts/claim-with-retry.sh <brief-id>` for bounded auto-retry on non-fast-forward races (Stream `claude-claim-with-retry`).
 
 Loop until a STOP CONDITION in CLAUDE.md fires. **Workers no longer auto-exit on short empty stretches (tick369 loosened).** Empty-poll back-off: 60s → 120s after 3rd consecutive miss → 240s after 7th. Only exit if 15 consecutive polls find nothing claimable.
 
