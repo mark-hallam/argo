@@ -42,6 +42,8 @@ pub mod recovery_cache;
 pub mod subtask;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
+/// sqlx connection-pool tuning knobs (env-driven).
+pub mod pool_config;
 /// Worker archive (sleep / wake) — frozen JSON snapshot store
 /// (Stream `claude-worker-archive-rehydrate`).
 pub mod worker_archive;
@@ -88,8 +90,15 @@ impl SessionStore {
             .create_if_missing(true)
             .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
 
-        let pool = SqlitePoolOptions::new()
-            .max_connections(8)
+        let pool_cfg = pool_config::PoolConfig::from_env();
+        let mut builder = SqlitePoolOptions::new()
+            .max_connections(pool_cfg.max_connections)
+            .min_connections(pool_cfg.min_connections)
+            .acquire_timeout(pool_cfg.acquire_timeout);
+        if let Some(idle) = pool_cfg.idle_timeout {
+            builder = builder.idle_timeout(Some(idle));
+        }
+        let pool = builder
             .connect_with(opts)
             .await
             .map_err(|e| ArgoError::Provider(format!("sqlite pool: {e}")))?;

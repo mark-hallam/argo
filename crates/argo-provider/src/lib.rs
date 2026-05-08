@@ -30,8 +30,11 @@ mod heartbeat;
 mod manifest;
 mod openai_compat;
 mod openai_responses;
+/// reqwest connection-pool tuning knobs (env-driven).
+pub mod pool_config;
 mod sse;
-mod transport;
+/// Provider-transport trait, wire types, and `build_http_client` helper.
+pub mod transport;
 
 pub use anthropic::AnthropicTransport;
 pub use bedrock::BedrockTransport;

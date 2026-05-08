@@ -12,7 +12,9 @@ mod tests;
 use crate::extractors::extract_tool_calls;
 use crate::manifest::{ProviderFamily, ProviderManifest};
 use crate::sse::SseBuffer;
-use crate::transport::{ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport};
+use crate::transport::{
+    build_http_client, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
+};
 use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
 use async_trait::async_trait;
 use futures::stream::{self as fstream, BoxStream, StreamExt};
@@ -77,11 +79,10 @@ impl AnthropicTransport {
                 manifest.auth.api_key_env
             )));
         }
-        let client = Client::builder()
-            .connect_timeout(Duration::from_millis(manifest.transport.connect_timeout_ms))
-            .timeout(Duration::from_millis(manifest.transport.read_timeout_ms))
-            .build()
-            .map_err(|e| ArgoError::Provider(format!("reqwest client build: {e}")))?;
+        let client = build_http_client(
+            manifest.transport.connect_timeout_ms,
+            manifest.transport.read_timeout_ms,
+        )?;
         let capabilities = manifest.capabilities.to_set(&manifest.auth.api_key_env);
         Ok(Self {
             manifest,

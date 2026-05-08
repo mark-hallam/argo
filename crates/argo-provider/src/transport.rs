@@ -167,3 +167,31 @@ pub trait Transport: Send + Sync {
         req: &ProviderRequest,
     ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>>;
 }
+
+/// Build a `reqwest::Client` with this crate's pool-sizing knobs
+/// stamped on plus the manifest-driven connect/read timeouts.
+///
+/// Centralised here so each manifest-backed transport
+/// (`anthropic`, `openai_compat`, `openai_responses`) has a single
+/// hook to read [`crate::pool_config::ProviderPoolConfig::from_env`]
+/// without reimplementing the builder chain.
+///
+/// ```
+/// # fn doc() -> argo_types::ArgoResult<()> {
+/// use argo_provider::transport::build_http_client;
+/// let _client = build_http_client(5_000, 60_000)?;
+/// # Ok(()) }
+/// ```
+pub fn build_http_client(
+    connect_timeout_ms: u64,
+    read_timeout_ms: u64,
+) -> ArgoResult<reqwest::Client> {
+    let cfg = crate::pool_config::ProviderPoolConfig::from_env();
+    cfg.apply_pool(reqwest::Client::builder())
+        .connect_timeout(std::time::Duration::from_millis(connect_timeout_ms))
+        .timeout(std::time::Duration::from_millis(read_timeout_ms))
+        .build()
+        .map_err(|e| {
+            argo_types::ArgoError::Provider(format!("reqwest client build: {e}"))
+        })
+}
