@@ -155,6 +155,7 @@ pub async fn run_turn_with_events(
         &vertical_deny,
         &vertical_approval,
         session_grants,
+        session.worker_id,
     )
     .await;
     let kind = if result.is_ok() {
@@ -187,6 +188,7 @@ async fn run_turn_with_tools(
     vertical_deny: &std::collections::HashSet<String>,
     vertical_approval: &std::collections::HashSet<String>,
     session_grants: SessionGrantState,
+    worker_id: Option<argo_store::WorkerId>,
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
     // claude-memory-tool-wire: thread the live MemoryStore + workspace
@@ -215,7 +217,7 @@ async fn run_turn_with_tools(
     // explicitly threaded `vertical_scope` value (id-only, no
     // file content). Both come from the same session.vertical_id.
     let mut system_prompt =
-        build_system_prompt(store, session_id, vertical_scope, spend.tenant_id).await?;
+        build_system_prompt(store, session_id, vertical_scope, spend.tenant_id, worker_id).await?;
     // Vertical-bound session: prepend the vertical's
     // [role].system_prompt content so it lands ahead of skill-
     // derived guidance (#654). Falls through cleanly when the
@@ -440,6 +442,7 @@ async fn build_system_prompt(
     session_id: SessionId,
     vertical_id: Option<&str>,
     tenant_id: TenantId,
+    worker_id: Option<argo_store::WorkerId>,
 ) -> ArgoResult<Option<String>> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let attached = skills.skills_for_session(session_id).await?;
@@ -471,7 +474,7 @@ async fn build_system_prompt(
             out.push_str("\n\n---\n\n");
         }
     }
-    let memory = turn_memory::compose_shared_team_memory(store, tenant_id).await;
+    let memory = turn_memory::compose_prompt_memory(store, tenant_id, worker_id).await;
     if !memory.is_empty() {
         if !out.is_empty() {
             out.push('\n');

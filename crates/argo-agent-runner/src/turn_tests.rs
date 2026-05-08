@@ -1,8 +1,5 @@
 //! Tests for `turn::build_system_prompt` + the multi-round
 //! tool-dispatch loop's max-rounds behaviour (#724).
-//!
-//! Loaded via `#[cfg(test)] #[path = "turn_tests.rs"] mod tests;`
-//! at the bottom of `turn.rs`.
 
 use super::*;
 use argo_store::SessionStore;
@@ -12,7 +9,7 @@ async fn build_system_prompt_returns_none_for_empty_workspace() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
     let prompt =
-        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new())
+        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new(), None)
             .await
             .unwrap();
     assert!(prompt.is_none());
@@ -27,7 +24,7 @@ async fn build_system_prompt_concatenates_active_skills() {
                lock: none\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody-of-alpha";
     skills.install(raw, None).await.unwrap();
     let prompt =
-        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new())
+        build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, TenantId::new(), None)
             .await
             .unwrap()
             .unwrap();
@@ -55,7 +52,7 @@ async fn build_system_prompt_honours_per_session_attachments() {
     let beta = skills.install(raw_b, None).await.unwrap();
 
     // Default behaviour: both active skills are in scope.
-    let prompt_default = build_system_prompt(&store, sid, None, tenant)
+    let prompt_default = build_system_prompt(&store, sid, None, tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -64,7 +61,7 @@ async fn build_system_prompt_honours_per_session_attachments() {
 
     // Attach only beta — alpha should now drop out.
     skills.attach_to_session(sid, beta.id).await.unwrap();
-    let prompt_curated = build_system_prompt(&store, sid, None, tenant)
+    let prompt_curated = build_system_prompt(&store, sid, None, tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -74,7 +71,7 @@ async fn build_system_prompt_honours_per_session_attachments() {
     // Detach: falls back to all-active.
     let removed = skills.detach_from_session(sid, beta.id).await.unwrap();
     assert_eq!(removed, 1);
-    let prompt_after = build_system_prompt(&store, sid, None, tenant)
+    let prompt_after = build_system_prompt(&store, sid, None, tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -119,7 +116,7 @@ async fn build_system_prompt_for_bound_session_filters_to_vertical_skills() {
         .await
         .unwrap();
 
-    let prompt = build_system_prompt(&store, sid, Some("alpha"), tenant)
+    let prompt = build_system_prompt(&store, sid, Some("alpha"), tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -155,7 +152,7 @@ async fn build_system_prompt_for_unbound_session_keeps_legacy_global_lookup() {
         .create_session(tenant, ws, "m", "p", Some("t"), None)
         .await
         .unwrap();
-    let prompt = build_system_prompt(&store, sid, None, tenant)
+    let prompt = build_system_prompt(&store, sid, None, tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -164,8 +161,6 @@ async fn build_system_prompt_for_unbound_session_keeps_legacy_global_lookup() {
         "unbound session must see all workspace skills (legacy)"
     );
 }
-
-// ─────────────────── mission-wire-memory-compose-context (Phase B)
 
 #[tokio::test]
 async fn build_system_prompt_injects_shared_team_memory_block() {
@@ -186,7 +181,7 @@ async fn build_system_prompt_injects_shared_team_memory_block() {
         .await
         .unwrap();
 
-    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant)
+    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -199,15 +194,121 @@ async fn build_system_prompt_injects_shared_team_memory_block() {
 }
 
 #[tokio::test]
+async fn build_system_prompt_prefers_worker_memory_when_session_has_worker() {
+    use argo_identity::{MemoryNs, MemoryScope};
+    let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+    store.migrate().await.unwrap();
+    let (tenant, ws) = store.ensure_workspace("ws", "/tmp/mwm-worker").await.unwrap();
+    let worker = argo_store::WorkerId(uuid::Uuid::now_v7());
+    let memory_worker = argo_identity::WorkerId(worker.0);
+    let sid = store
+        .create_session_with_worker(argo_store::SessionCreate {
+            tenant_id: tenant,
+            workspace_id: ws,
+            model: "m",
+            provider: "p",
+            title: Some("t"),
+            vertical_id: None,
+            worker_id: Some(worker),
+        })
+        .await
+        .unwrap();
+
+    let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
+    let worker_ns = MemoryNs::new(tenant, memory_worker, MemoryScope::WorkerSelf);
+    memory
+        .append_in_namespace(
+            &worker_ns,
+            ws,
+            argo_memory::MemoryFile::Memory,
+            "worker-specific note".into(),
+            Some(sid),
+        )
+        .await
+        .unwrap();
+    memory
+        .write_shared_team(&argo_memory::shared_team(tenant), memory_worker, "shared note".into())
+        .await
+        .unwrap();
+
+    let prompt = build_system_prompt(&store, sid, None, tenant, Some(worker))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(prompt.contains("## Memory (worker-scoped)"), "got:\n{prompt}");
+    assert!(prompt.contains("worker-specific note"), "got:\n{prompt}");
+    assert!(!prompt.contains("shared note"), "got:\n{prompt}");
+}
+
+#[tokio::test]
 async fn build_system_prompt_omits_memory_block_when_no_rows() {
     let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     store.migrate().await.unwrap();
     let (tenant, _ws) = store.ensure_workspace("ws", "/tmp/mwm-empty").await.unwrap();
-    // No shared-team rows + no skills → still None.
-    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant)
+    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant, None)
         .await
         .unwrap();
     assert!(prompt.is_none());
+}
+
+#[tokio::test]
+async fn prompt_memory_modes_select_shared_worker_and_both() {
+    use argo_identity::{MemoryNs, MemoryScope};
+    let store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+    store.migrate().await.unwrap();
+    let (tenant, ws) = store.ensure_workspace("ws", "/tmp/mwm-modes").await.unwrap();
+    let worker = argo_store::WorkerId(uuid::Uuid::now_v7());
+    let memory_worker = argo_identity::WorkerId(worker.0);
+    let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
+    let worker_ns = MemoryNs::new(tenant, memory_worker, MemoryScope::WorkerSelf);
+    memory
+        .append_in_namespace(
+            &worker_ns,
+            ws,
+            argo_memory::MemoryFile::Memory,
+            "mode worker note".into(),
+            None,
+        )
+        .await
+        .unwrap();
+    memory
+        .write_shared_team(
+            &argo_memory::shared_team(tenant),
+            memory_worker,
+            "mode shared note".into(),
+        )
+        .await
+        .unwrap();
+
+    let shared = turn_memory::compose_prompt_memory_for_mode(
+        &store,
+        tenant,
+        Some(worker),
+        turn_memory::PromptMemoryMode::Shared,
+    )
+    .await;
+    assert!(shared.contains("mode shared note"), "got:\n{shared}");
+    assert!(!shared.contains("mode worker note"), "got:\n{shared}");
+
+    let worker_without_id = turn_memory::compose_prompt_memory_for_mode(
+        &store,
+        tenant,
+        None,
+        turn_memory::PromptMemoryMode::Worker,
+    )
+    .await;
+    assert!(worker_without_id.is_empty(), "got:\n{worker_without_id}");
+
+    let both = turn_memory::compose_prompt_memory_for_mode(
+        &store,
+        tenant,
+        Some(worker),
+        turn_memory::PromptMemoryMode::Both,
+    )
+    .await;
+    let worker_pos = both.find("mode worker note").expect("worker note");
+    let shared_pos = both.find("mode shared note").expect("shared note");
+    assert!(worker_pos < shared_pos, "got:\n{both}");
 }
 
 #[tokio::test]
@@ -231,7 +332,7 @@ async fn build_system_prompt_appends_memory_after_skills() {
         .await
         .unwrap();
 
-    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant)
+    let prompt = build_system_prompt(&store, SessionId(uuid::Uuid::nil()), None, tenant, None)
         .await
         .unwrap()
         .unwrap();
@@ -243,8 +344,6 @@ async fn build_system_prompt_appends_memory_after_skills() {
     );
     assert!(prompt.contains("shared note"));
 }
-
-// ─────────────────────────────────────── max-rounds (#724)
 
 /// Mock Transport that always returns a `file_read` tool call.
 /// Used by the max-rounds graceful-exit test to drive the
@@ -364,6 +463,7 @@ async fn max_rounds_returns_ok_with_stopped_on_tool_budget_flag() {
         &deny,
         &approval,
         grants,
+        None,
     )
     .await
     .expect("max_rounds must NOT produce an Err post-#724");
