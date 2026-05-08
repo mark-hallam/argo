@@ -1,7 +1,8 @@
 //! `argo skill export` and `argo skill review export`.
 use argo_skill::{
-    skill_body_sha256, Skill, SkillArtifact, SkillFrontmatter, SkillStore, SKILL_ARTIFACT_BODY,
-    SKILL_ARTIFACT_MANIFEST, SKILL_ARTIFACT_SHA256,
+    skill_body_sha256, Skill, SkillArtifact, SkillArtifactMetadata, SkillFrontmatter, SkillStore,
+    TrustGrade, SKILL_ARTIFACT_BODY, SKILL_ARTIFACT_MANIFEST, SKILL_ARTIFACT_METADATA,
+    SKILL_ARTIFACT_SHA256,
 };
 use argo_types::{ArgoError, ArgoResult, Lock, SkillId};
 use flate2::write::GzEncoder;
@@ -25,6 +26,7 @@ pub(crate) struct ExportedArtifact {
     pub(crate) path: String,
     pub(crate) body_sha256: String,
     pub(crate) artifact_sha256: String,
+    pub(crate) metadata: SkillArtifactMetadata,
 }
 
 pub async fn export_one(
@@ -46,6 +48,7 @@ pub async fn export_one(
                 "path": exported.path,
                 "sha256": exported.artifact_sha256,
                 "body_sha256": exported.body_sha256,
+                "metadata": exported.metadata,
             }
         }));
     }
@@ -61,7 +64,9 @@ pub(crate) fn export_skill_to_path(skill: &Skill, output: &Path) -> ArgoResult<E
         std::fs::create_dir_all(parent)
             .map_err(|e| ArgoError::Provider(format!("create {}: {e}", parent.display())))?;
     }
-    let artifact = SkillArtifact::new(skill.frontmatter.clone(), skill.body.clone());
+    let mut artifact = SkillArtifact::new(skill.frontmatter.clone(), skill.body.clone());
+    let metadata = metadata_for_skill(skill, &artifact.manifest.body_sha256);
+    artifact = artifact.with_metadata(metadata.clone());
     artifact.verify()?;
     write_skill_artifact(output, &artifact)?;
     let artifact_sha256 = file_sha256(output)?;
@@ -71,6 +76,7 @@ pub(crate) fn export_skill_to_path(skill: &Skill, output: &Path) -> ArgoResult<E
         path: output.display().to_string(),
         body_sha256: artifact.manifest.body_sha256,
         artifact_sha256,
+        metadata,
     })
 }
 
@@ -217,6 +223,9 @@ fn write_skill_artifact(path: &Path, artifact: &SkillArtifact) -> ArgoResult<()>
         SKILL_ARTIFACT_SHA256,
         artifact.sha256_text().as_bytes(),
     )?;
+    if let Some(metadata) = artifact.metadata_json()? {
+        append_bytes(&mut builder, SKILL_ARTIFACT_METADATA, &metadata)?;
+    }
     let encoder = builder
         .into_inner()
         .map_err(|e| ArgoError::Provider(format!("finish skill tar: {e}")))?;
@@ -257,4 +266,67 @@ fn print_json<T: Serialize>(value: &T) -> ArgoResult<()> {
         serde_json::to_string(value).map_err(|e| ArgoError::Provider(format!("json: {e}")))?;
     println!("{body}");
     Ok(())
+}
+
+fn metadata_for_skill(skill: &Skill, body_sha256: &str) -> SkillArtifactMetadata {
+    SkillArtifactMetadata::new(
+        trust_grade_label(TrustGrade::from_source(
+            &skill.frontmatter.provenance.source,
+        )),
+        skill.vertical_id.clone(),
+        skill.learned_in.map(|sid| sid.0.to_string()),
+        chrono::Utc::now().to_rfc3339(),
+        env!("CARGO_PKG_VERSION").to_string(),
+        body_sha256.to_string(),
+    )
+}
+
+fn trust_grade_label(grade: TrustGrade) -> String {
+    serde_json::to_value(grade)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| "learned_unreviewed".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::metadata_for_skill;
+    use argo_skill::{LifecycleState, Provenance, Skill, SkillFrontmatter};
+    use argo_types::{CapabilitySet, Lock, SessionId, SkillId};
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    #[test]
+    fn metadata_for_skill_includes_vertical_and_learned_session() {
+        let learned = SessionId(Uuid::parse_str("018f55b7-89ab-7cde-8123-456789abcdef").unwrap());
+        let skill = Skill {
+            id: SkillId(Uuid::parse_str("018f55b7-89ab-7cde-8123-456789abcdee").unwrap()),
+            frontmatter: SkillFrontmatter {
+                name: "demo".into(),
+                version: "1.0".into(),
+                description: "demo".into(),
+                capabilities: CapabilitySet::empty(),
+                provenance: Provenance {
+                    source: "learned".into(),
+                    hash: "sha256-x".into(),
+                },
+                lock: Lock::None,
+                evals: Vec::new(),
+            },
+            body: "body".into(),
+            hash: [0; 32],
+            learned_in: Some(learned),
+            superseded_by: None,
+            created_at: Utc::now(),
+            vertical_id: Some("finance-ar".into()),
+            lifecycle_state: LifecycleState::Active,
+        };
+        let metadata = metadata_for_skill(&skill, "sha256-body");
+        let learned_id = learned.0.to_string();
+        assert_eq!(metadata.trust_grade, "learned_unreviewed");
+        assert_eq!(metadata.vertical_id.as_deref(), Some("finance-ar"));
+        assert_eq!(metadata.learned_in.as_deref(), Some(learned_id.as_str()));
+        assert_eq!(metadata.body_sha256, "sha256-body");
+        assert!(!metadata.exporter_version.is_empty());
+    }
 }

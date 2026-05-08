@@ -48,12 +48,16 @@ fn skill_export_import_round_trip_and_rename() {
     assert!(artifact.is_file());
     assert_eq!(
         artifact_entries(&artifact),
-        vec!["body.md", "manifest.json", "sha256.txt"]
+        vec!["manifest.json", "metadata.json", "sha256.txt", "skill.md"]
     );
     assert!(export_json["artifact"]["body_sha256"]
         .as_str()
         .unwrap()
         .starts_with("sha256-"));
+    assert_eq!(
+        export_json["artifact"]["metadata"]["body_sha256"],
+        export_json["artifact"]["body_sha256"]
+    );
 
     let dry_run = argo(
         dry_home.path(),

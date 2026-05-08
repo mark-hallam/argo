@@ -84,7 +84,9 @@ pub use ab_test::{
     Variant, VariantCounts, CHI_SQUARE_CRIT_DF1_ALPHA_05, DEFAULT_MIN_SAMPLES_PER_VARIANT,
 };
 pub use artifact::{
-    skill_body_sha256, SkillArtifact, SkillArtifactManifest, SKILL_ARTIFACT_BODY,
-    SKILL_ARTIFACT_MANIFEST, SKILL_ARTIFACT_SCHEMA_VERSION, SKILL_ARTIFACT_SHA256,
+    skill_body_sha256, SkillArtifact, SkillArtifactManifest, SkillArtifactMetadata,
+    SKILL_ARTIFACT_BODY, SKILL_ARTIFACT_BODY_LEGACY, SKILL_ARTIFACT_MANIFEST,
+    SKILL_ARTIFACT_METADATA, SKILL_ARTIFACT_METADATA_FORMAT, SKILL_ARTIFACT_SCHEMA_VERSION,
+    SKILL_ARTIFACT_SHA256,
 };
 pub use version::{find_version, list_versions, SkillVersion};

@@ -106,6 +106,7 @@ fn read_skill_artifact(path: &Path) -> ArgoResult<SkillArtifact> {
     let mut manifest = None;
     let mut body = None;
     let mut sha256 = None;
+    let mut metadata = None;
     for entry in archive
         .entries()
         .map_err(|e| ArgoError::Provider(format!("read skill artifact entries: {e}")))?
@@ -126,8 +127,16 @@ fn read_skill_artifact(path: &Path) -> ArgoResult<SkillArtifact> {
             .map_err(|e| ArgoError::Provider(format!("read {path}: {e}")))?;
         match path.as_str() {
             argo_skill::SKILL_ARTIFACT_MANIFEST => manifest = Some(bytes),
-            argo_skill::SKILL_ARTIFACT_BODY => body = Some(bytes),
+            argo_skill::SKILL_ARTIFACT_BODY | argo_skill::SKILL_ARTIFACT_BODY_LEGACY => {
+                if body.as_ref().is_some_and(|existing| existing != &bytes) {
+                    return Err(ArgoError::Schema(
+                        "skill artifact has conflicting body entries".into(),
+                    ));
+                }
+                body = Some(bytes);
+            }
             argo_skill::SKILL_ARTIFACT_SHA256 => sha256 = Some(bytes),
+            argo_skill::SKILL_ARTIFACT_METADATA => metadata = Some(bytes),
             other => {
                 return Err(ArgoError::Schema(format!(
                     "unexpected skill artifact entry '{other}'"
@@ -135,11 +144,10 @@ fn read_skill_artifact(path: &Path) -> ArgoResult<SkillArtifact> {
             }
         }
     }
-    SkillArtifact::from_archive_parts(
-        &required_entry(manifest, argo_skill::SKILL_ARTIFACT_MANIFEST)?,
-        &required_entry(body, argo_skill::SKILL_ARTIFACT_BODY)?,
-        &required_entry(sha256, argo_skill::SKILL_ARTIFACT_SHA256)?,
-    )
+    let manifest = required_entry(manifest, argo_skill::SKILL_ARTIFACT_MANIFEST)?;
+    let body = required_entry(body, argo_skill::SKILL_ARTIFACT_BODY)?;
+    let sha256 = required_entry(sha256, argo_skill::SKILL_ARTIFACT_SHA256)?;
+    SkillArtifact::from_archive_parts_with_metadata(&manifest, &body, &sha256, metadata.as_deref())
 }
 
 fn required_entry(bytes: Option<Vec<u8>>, name: &str) -> ArgoResult<Vec<u8>> {
@@ -151,6 +159,7 @@ fn artifact_json(path: &str, artifact: &SkillArtifact) -> serde_json::Value {
         "path": path,
         "body_sha256": &artifact.manifest.body_sha256,
         "signature": &artifact.manifest.signature,
+        "metadata": &artifact.metadata,
     })
 }
 
