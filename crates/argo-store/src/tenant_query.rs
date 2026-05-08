@@ -161,6 +161,7 @@ async fn collect_tenants(store: &SessionStore) -> ArgoResult<BTreeMap<String, Te
     let mut out = BTreeMap::new();
     for table in BLOB_TENANT_TABLES {
         if has_column(store, table, "tenant_id").await? {
+            // audit-allow: identifier substitution
             let sql = format!("SELECT DISTINCT tenant_id FROM {table} WHERE tenant_id IS NOT NULL");
             for row in query_all(store, &sql, table).await? {
                 let raw: Vec<u8> = row.get("tenant_id");
@@ -173,6 +174,7 @@ async fn collect_tenants(store: &SessionStore) -> ArgoResult<BTreeMap<String, Te
     }
     for table in TEXT_TENANT_TABLES {
         if has_column(store, table, "tenant_id").await? {
+            // audit-allow: identifier substitution
             let sql = format!("SELECT DISTINCT tenant_id FROM {table} WHERE tenant_id IS NOT NULL");
             for row in query_all(store, &sql, table).await? {
                 let raw: String = row.get("tenant_id");
@@ -215,6 +217,7 @@ async fn workspace_text(store: &SessionStore, tenant: TenantId, column: &str) ->
     if !has_column(store, "workspace", column).await? {
         return Ok(None);
     }
+    // audit-allow: identifier substitution
     let sql = format!("SELECT {column} FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1");
     let row = sqlx::query(&sql)
         .bind(tenant.0.as_bytes().as_slice())
@@ -228,6 +231,7 @@ async fn workspace_i64(store: &SessionStore, tenant: TenantId, column: &str) -> 
     if !has_column(store, "workspace", column).await? {
         return Ok(None);
     }
+    // audit-allow: identifier substitution
     let sql = format!("SELECT {column} FROM workspace WHERE tenant_id = ? ORDER BY created_at ASC LIMIT 1");
     let row = sqlx::query(&sql)
         .bind(tenant.0.as_bytes().as_slice())
@@ -241,6 +245,7 @@ async fn count_blob(store: &SessionStore, table: &str, tenant: TenantId) -> Argo
     if !has_column(store, table, "tenant_id").await? {
         return Ok(0);
     }
+    // audit-allow: identifier substitution
     let sql = format!("SELECT COUNT(*) FROM {table} WHERE tenant_id = ?");
     sqlx::query_scalar(&sql)
         .bind(tenant.0.as_bytes().as_slice())
@@ -253,6 +258,7 @@ async fn count_text(store: &SessionStore, table: &str, tenant: TenantId) -> Argo
     if !has_column(store, table, "tenant_id").await? {
         return Ok(0);
     }
+    // audit-allow: identifier substitution
     let sql = format!("SELECT COUNT(*) FROM {table} WHERE tenant_id = ?");
     sqlx::query_scalar(&sql)
         .bind(tenant.to_string())
@@ -265,6 +271,7 @@ async fn min_blob(store: &SessionStore, table: &str, column: &str, tenant: Tenan
     if !has_column(store, table, "tenant_id").await? || !has_column(store, table, column).await? {
         return Ok(None);
     }
+    // audit-allow: identifier substitution
     let sql = format!("SELECT MIN({column}) FROM {table} WHERE tenant_id = ?");
     sqlx::query_scalar(&sql)
         .bind(tenant.0.as_bytes().as_slice())
@@ -277,6 +284,7 @@ async fn min_text(store: &SessionStore, table: &str, column: &str, tenant: Tenan
     if !has_column(store, table, "tenant_id").await? || !has_column(store, table, column).await? {
         return Ok(None);
     }
+    // audit-allow: identifier substitution
     let sql = format!("SELECT MIN({column}) FROM {table} WHERE tenant_id = ?");
     sqlx::query_scalar(&sql)
         .bind(tenant.to_string())
@@ -407,6 +415,7 @@ async fn update_text(
     old: TenantId,
     new: TenantId,
 ) -> ArgoResult<Value> {
+    // audit-allow: identifier substitution
     let sql = format!("UPDATE {table} SET tenant_id = ? WHERE tenant_id = ?");
     let rows = sqlx::query(&sql)
         .bind(new.to_string())
@@ -424,6 +433,7 @@ async fn update_blob(
     old: TenantId,
     new: TenantId,
 ) -> ArgoResult<Value> {
+    // audit-allow: identifier substitution
     let sql = format!("UPDATE {table} SET tenant_id = ? WHERE tenant_id = ?");
     let rows = sqlx::query(&sql)
         .bind(new.0.as_bytes().as_slice())
