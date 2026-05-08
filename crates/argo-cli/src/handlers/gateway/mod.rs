@@ -81,7 +81,8 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             port,
             max_requests,
             quiet,
-        } => boot::start(&bind, port, max_requests, quiet).await,
+            profile_startup,
+        } => boot::start(&bind, port, max_requests, quiet, profile_startup).await,
         GatewayCmd::Stop => boot::stop().await,
         GatewayCmd::Routes {
             json,

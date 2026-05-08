@@ -24,6 +24,13 @@ pub enum GatewayCmd {
         /// any `[startup_banner]` TOML section.
         #[arg(long)]
         quiet: bool,
+        /// Hidden maintainer flag — emit per-init-phase wall-clock
+        /// timings to stderr and exit before listening. Used by
+        /// `scripts/profile-startup.sh` to drive cold/warm startup
+        /// regression bench on M-series hardware (see brief
+        /// claude-perf-startup-time).
+        #[arg(long, hide = true)]
+        profile_startup: bool,
     },
     Stop,
     /// One-line status: running PID + listening address.

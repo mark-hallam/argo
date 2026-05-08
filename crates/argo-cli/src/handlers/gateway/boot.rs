@@ -10,7 +10,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -62,11 +62,14 @@ pub(super) async fn start(
     port: u16,
     max_requests: Option<u64>,
     cli_quiet: bool,
+    profile_startup: bool,
 ) -> ArgoResult<()> {
+    let mut phases = StartupPhases::new();
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await
         .map_err(|e| ArgoError::Provider(format!("bind {addr}: {e}")))?;
+    phases.mark("tcp_bind");
 
     // Open the session store so the routes that touch it can serve.
     // Failure to open is logged but doesn't kill the gateway —
@@ -80,12 +83,15 @@ pub(super) async fn start(
             None
         }
     };
+    phases.mark("store_open_migrate");
+
     let _sweeper = store
         .as_ref()
         .map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
     let _duty_scheduler = store
         .as_ref()
         .map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
+    phases.mark("spawn_bg_tasks");
 
     // PID file. If one already exists with a live PID, refuse to
     // start. If it exists but the process is gone, overwrite.
@@ -110,6 +116,7 @@ pub(super) async fn start(
     std::fs::write(&pidfile, format!("{pid}\n"))
         .map_err(|e| ArgoError::Provider(format!("write {}: {e}", pidfile.display())))?;
     let _guard = PidGuard(pidfile.clone());
+    phases.mark("pidfile");
 
     metrics::init_boot_time();
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
@@ -124,9 +131,17 @@ pub(super) async fn start(
             }
         }
     }
+    phases.mark("workspace_lookup");
     let argo_toml = cwd_for_store.join("argo.toml");
     let banner_cfg = load_layered(Some(&argo_toml), cli_quiet);
     print_banner(&banner_cfg);
+    phases.mark("banner");
+
+    if profile_startup {
+        phases.emit();
+        eprintln!("argo gateway: --profile-startup set, exiting before serve loop");
+        return Ok(());
+    }
 
     let mut served = 0_u64;
     let shutdown = shutdown_signal();
@@ -213,6 +228,47 @@ fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnDrop {
         scheduler,
         Duration::from_secs(interval_secs),
     ))
+}
+
+/// Per-phase wall-clock recorder used by `--profile-startup`. Each
+/// `mark()` call records the elapsed time since the previous boundary
+/// under a stable `&'static str` label. `emit()` writes a stable,
+/// machine-grep-able summary to stderr (one line per phase + a `total`
+/// line). The struct itself stays well under 30 LOC so boot.rs keeps
+/// headroom under the 500-LOC ceiling.
+struct StartupPhases {
+    t0: Instant,
+    last: Instant,
+    items: Vec<(&'static str, Duration)>,
+}
+
+impl StartupPhases {
+    fn new() -> Self {
+        let now = Instant::now();
+        Self {
+            t0: now,
+            last: now,
+            items: Vec::with_capacity(8),
+        }
+    }
+
+    fn mark(&mut self, label: &'static str) {
+        let now = Instant::now();
+        self.items.push((label, now.duration_since(self.last)));
+        self.last = now;
+    }
+
+    fn emit(&self) {
+        eprintln!("argo gateway: startup phases (ms)");
+        for (label, d) in &self.items {
+            eprintln!("  phase  {:<20} {:>8.2}", label, d.as_secs_f64() * 1000.0);
+        }
+        eprintln!(
+            "  phase  {:<20} {:>8.2}",
+            "total",
+            self.last.duration_since(self.t0).as_secs_f64() * 1000.0
+        );
+    }
 }
 
 pub(super) async fn stop() -> ArgoResult<()> {
