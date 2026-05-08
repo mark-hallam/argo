@@ -138,6 +138,28 @@ fn format_markdown_flag_pins() {
 }
 
 #[test]
+fn costs_anomalies_renders_help() {
+    let h = help(&["costs", "anomalies"]);
+    assert!(h.contains("Usage:"), "costs anomalies --help: {h}");
+    assert!(
+        h.contains("--since"),
+        "costs anomalies missing --since: {h}"
+    );
+    assert!(
+        h.contains("--limit"),
+        "costs anomalies missing --limit: {h}"
+    );
+    assert!(
+        h.contains("--tenant"),
+        "costs anomalies missing --tenant: {h}"
+    );
+    assert!(
+        h.contains("--format"),
+        "costs anomalies missing --format: {h}"
+    );
+}
+
+#[test]
 fn forge_runs_abort_all_renders_help() {
     let h = help(&["forge", "runs", "abort-all"]);
     assert!(

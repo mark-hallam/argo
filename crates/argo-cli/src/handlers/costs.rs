@@ -47,6 +47,14 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
             since_minutes,
             json,
         }) => super::costs_recent::run(limit, since_minutes, json).await,
+        Some(CostsCmd::Anomalies {
+            since,
+            limit,
+            format,
+            tenant,
+        }) => {
+            super::costs_anomalies::run(since.as_deref(), limit, format, tenant.as_deref()).await
+        }
         Some(CostsCmd::Cap {
             session,
             day,

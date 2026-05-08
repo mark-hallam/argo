@@ -38,6 +38,7 @@ pub mod classify_list;
 pub mod classify_rules;
 pub mod classify_set;
 pub mod costs;
+pub mod costs_anomalies;
 pub mod costs_by_day;
 pub mod costs_by_model;
 pub mod costs_by_provider;

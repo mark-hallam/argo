@@ -2,7 +2,7 @@
 //! `cli_subcommands.rs` to keep that file under the 500-LOC
 //! ceiling. Re-exported by `cli_subcommands.rs` so existing
 //! `use crate::cli::FooCmd;` callers stay unchanged.
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 
 #[derive(Subcommand, Debug)]
 pub enum WorkspaceCmd {
@@ -220,4 +220,25 @@ pub enum CostsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Read-only spend anomaly table view.
+    Anomalies {
+        /// Filter to anomalies observed after RFC3339 or YYYY-MM-DD.
+        #[arg(long)]
+        since: Option<String>,
+        /// Cap row count (default 50, hard max 1000).
+        #[arg(long, default_value_t = 50, value_parser = clap::value_parser!(u32).range(1..=1000))]
+        limit: u32,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = CostsAnomaliesFormat::Markdown)]
+        format: CostsAnomaliesFormat,
+        /// Filter to one tenant id via the worker table.
+        #[arg(long)]
+        tenant: Option<String>,
+    },
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum CostsAnomaliesFormat {
+    Markdown,
+    Json,
 }
