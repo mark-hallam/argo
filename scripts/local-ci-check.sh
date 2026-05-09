@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # local-ci-check.sh — full CI gauntlet runner for local trust-ladder use.
 #
-# While GitHub Actions is broken (billing/infra), local verification is
-# the only trust signal for merging. This script runs the same checks
-# the GitHub workflow would, in the same order, with the same gates.
+# GitHub Actions workflows are intentionally disabled (operator cost
+# control; .github/workflows/*.yml.disabled). Local verification is the
+# canonical trust signal for merging. This script runs the same checks
+# the disabled ci.yml workflow would, in the same order, with the same
+# gates. See docs/skycot/CI_FALLBACK_RUNBOOK.md for the trust ladder
+# and re-enabling instructions.
 #
 # Usage:
 #   scripts/local-ci-check.sh                # run full gauntlet
