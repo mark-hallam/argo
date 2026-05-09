@@ -372,6 +372,54 @@ apply. Stop a CLI-loop worker via `touch /tmp/argo-stop` (Stop
 Condition 5) or Ctrl-C — there is nothing to "gracefully exit"
 internally because every iteration is structurally fresh.
 
+### Conductor edits and the pause primitive (added 2026-05-09)
+
+When the conductor edits files in the **same working tree** that
+the worker-loop reads from (typically `~/code/argo`),
+there is a race window between the conductor's first `Edit`/`Write`
+and the conductor's `git commit + git push`. During that window the
+working tree is dirty. If the worker-loop fires a `claim-with-retry`
+iteration in that window, it correctly refuses with
+`FAIL: working tree dirty; commit or stash first` (a HARD RULE 7
+foot-gun guard added in commit `ed5acef4`) — but it consumes a
+claim attempt, and after 2 such failures the worker-loop self-exits
+to prevent spin-loop. **Observed**: 2026-05-09 ~22:47, conductor
+mid-edit on the Tier A commit while the worker-loop tried to claim
+`claude-tui-theme-system`.
+
+**Conductor edit pattern (use whenever conductor will write to the
+shared main checkout):**
+
+```bash
+touch /tmp/argo-pause   # workers idle-sleep 60s on next iteration
+# … conductor's Edit/Write/git add/git commit/git push …
+rm /tmp/argo-pause      # workers resume next iteration
+```
+
+`/tmp/argo-pause` is the graceful-pause sentinel; it is **distinct
+from** `/tmp/argo-stop` (which is a kill switch). Workers check for
+`/tmp/argo-pause` at the top of every iteration and idle-sleep 60s
+without releasing claims. Resume is automatic on the next iteration
+after the file is removed.
+
+Conductor edits that don't touch the shared working tree (e.g.,
+git operations against PR branches in detached worktrees, or
+read-only inspections) don't need the pause. Use it for:
+
+- Editing `BUILD_STATUS.md` rows (sweep, BLOCK, status flips)
+- Authoring or amending brief files in `docs/build-plan/streams/`
+- Scripts in `scripts/` (workspace tooling)
+- `BUILD_STATUS_HISTORY.ndjson` appends via
+  `scripts/append-history.sh`
+
+Skip it for:
+
+- Pure read tools (`scripts/conductor-status.sh`,
+  `scripts/check-worker-heartbeats.sh`)
+- PR-branch worktree work in `/tmp/conductor-pr<num>` (workers
+  don't read those)
+- `gh pr merge` calls (no working-tree mutation in main checkout)
+
 ## Post-compaction recovery
 
 If you sense compaction just fired:
