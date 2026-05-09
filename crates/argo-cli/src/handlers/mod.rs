@@ -6,6 +6,7 @@ pub mod agents;
 pub mod alerts;
 #[cfg(test)]
 mod alerts_tests;
+pub mod approval_deep_link;
 pub mod approval_export;
 pub mod approval_policy;
 pub mod action_history;
