@@ -1,0 +1,4 @@
+enabled = true
+max_usd_micros_per_action = 100000
+daily_budget_usd_micros = 5000000
+wake_action_types = ["review_contract", "generate_summary"]

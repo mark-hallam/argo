@@ -1,0 +1,213 @@
+schema_version = "1"
+
+[vertical]
+id          = "legal-paralegal"
+name        = "Legal — Paralegal"
+description = "Reviews routine contracts (NDAs, MSAs, SOWs) for standard clauses, flags concerning clauses (liability, indemnity, IP) for attorney review, drafts amendment language, files documents with court systems (mocked), and produces plain-language summaries for clients. Approval-gated for any external filing or buyer-facing document; the persona never gives legal advice."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["legal", "paralegal", "contracts", "documents", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[skills]
+bundle = "skills"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Legal Paralegal"
+
+# Persona Quinn handles routine paralegal duties under attorney
+# supervision. Auto-safe actions: review_contract, generate_summary
+# (read-only / draft-only). Approval-gated: flag_clause_concern (routes
+# to human attorney), draft_amendment (uses document_creation executor),
+# file_with_court (mocked stub — no real court API in V2).
+
+[actions]
+
+[actions.review_contract]
+risk              = "low"
+requires_approval = false
+description       = "Read inventory.json plus the `contracts` memory entry and classify each contract by type (NDA / MSA / SOW / employment / lease) and clause-risk bucket (clean / minor_concern / major_concern). Emits no buyer-facing actions on its own; downstream emissions go through the approval-gated paths."
+executor          = "human"
+instruction_template = """
+# Routine contract review
+
+Inventory file: `verticals/legal-paralegal/inventory.json`
+
+For each contract on file:
+1. Identify the contract type (NDA / MSA / SOW / employment / lease).
+2. Walk the standard clause checklist (parties, term, governing law,
+   liability cap, indemnity, IP assignment, termination, confidentiality).
+3. Bucket each clause as `standard` / `minor_concern` / `major_concern`.
+4. Append the per-contract row to the `contracts` memory entry with
+   contract_id, type, bucket counts, and the dated review summary.
+5. For each `major_concern` clause, emit a `flag_clause_concern` action.
+   Never escalate to a human attorney without that approval-gated path.
+6. For each contract the operator marks "ready for client", emit
+   `generate_summary`.
+
+Reviewing is autonomous-safe. Drafting amendments, filing, and
+escalating concerns each require an approval-gated action.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "contract review" \
+  --result-json '{"reviewed_count": <num>, "concerns_flagged": <num>}'
+```
+"""
+
+[actions.flag_clause_concern]
+risk              = "high"
+requires_approval = true
+description       = "Hand a major-concern clause to the supervising attorney. Routing-only — Quinn never opines on whether the clause is acceptable; the attorney decides. No buyer-facing action; the clause is logged for review."
+executor          = "human"
+instruction_template = """
+# Flag clause for attorney review on `{{ payload.contract_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Contract type:    `{{ payload.contract_type }}`
+Counterparty:     `{{ payload.counterparty }}`
+Clause heading:   `{{ payload.clause_heading }}`
+Concern category: `{{ payload.concern_category }}` (liability | indemnity | ip | other)
+Why flagged:     {{ payload.summary }}
+
+Quote the clause text verbatim; do not paraphrase.
+Hand the case to the supervising attorney with the contract attached.
+Quinn does not give legal advice — the operator's note is observation,
+not opinion.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "attorney notified" \
+  --result-json '{"escalated_to": "<attorney name>", "channel": "<email|slack|phone>"}'
+```
+"""
+
+[actions.draft_amendment]
+risk              = "medium"
+requires_approval = true
+description       = "Render a markdown amendment doc via the document-creation executor. The amendment captures the negotiated change to a flagged clause; the operator (typically the supervising attorney) approves before it's shared with the counterparty."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Draft amendment for `{{ payload.contract_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Original clause heading: `{{ payload.clause_heading }}`
+Negotiated change:       {{ payload.change_summary }}
+
+Output path:
+- Markdown: `<workspace>/.skycot/amendments/{{ payload.contract_id }}-{{ payload.amendment_iso }}.md`
+
+Render a one-page amendment carrying:
+- Header with contract id, parties, effective date.
+- Section "Original Clause" — verbatim quote of the prior text.
+- Section "Amended Clause" — proposed replacement language.
+- Section "Rationale" — single-paragraph plain-language summary of why
+  the change was negotiated.
+- Footer with attorney signature line.
+
+Do not send the amendment from this action — sharing is a separate
+approval-gated step belonging to the attorney.
+"""
+
+[actions.file_with_court]
+risk              = "high"
+requires_approval = true
+description       = "Submit a filing to a court system. Mocked stub for V2 — no real court API integration. The action records the filing intent + receipt placeholder; the operator handles the actual filing through their existing court e-filing portal until the integration lands."
+executor          = "human"
+instruction_template = """
+# File with court for `{{ payload.matter_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Court:           `{{ payload.court }}`
+Filing type:     `{{ payload.filing_type }}` (motion | response | brief | other)
+Document:        `{{ payload.document_path }}`
+Deadline:        `{{ payload.deadline_iso }}`
+Matter caption:  `{{ payload.matter_caption }}`
+
+This action is mocked — no court API call fires from the platform.
+Hand the filing package to the supervising attorney for upload through
+the court's e-filing portal. Once filed, return the receipt id and
+filing timestamp.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "filed via court portal" \
+  --result-json '{"receipt_id": "<id>", "filed_at": "<iso>"}'
+```
+"""
+
+[actions.generate_summary]
+risk              = "low"
+requires_approval = false
+description       = "Produce a plain-language summary of a contract for the client. Read-only — never modifies the contract; the summary is a derived artifact. Autonomous-safe because it does not touch the counterparty or change the legal record."
+executor          = "human"
+instruction_template = """
+# Plain-language summary for `{{ payload.contract_id }}`
+
+Audience:        `{{ payload.audience | default(value="client") }}`
+Contract type:   `{{ payload.contract_type }}`
+Counterparty:    `{{ payload.counterparty }}`
+
+Produce a ≤ 250-word summary covering:
+1. What the contract does (one-paragraph plain English).
+2. Key dates (effective date, term, renewal trigger).
+3. Money in / money out — total values, cadence, late-payment terms.
+4. The three biggest obligations the client is taking on.
+5. The three biggest risks (in plain language; do not opine on whether
+   they're acceptable — that is the attorney's call).
+
+Always finish with: "I can summarize but not advise — your attorney
+should sign off before relying on this."
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "summary drafted" \
+  --result-json '{"contract_id": "{{ payload.contract_id }}", "word_count": <num>}'
+```
+"""
+
+[actions.flag_clause_concern.retry]
+max_attempts = 2
+
+[actions.draft_amendment.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.file_with_court.retry]
+max_attempts = 2

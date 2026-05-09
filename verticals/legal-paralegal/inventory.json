@@ -1,0 +1,65 @@
+{
+  "firm": "Acme & Hallam, LLP",
+  "supervising_attorney": "S. Hallam",
+  "today_iso": "2026-05-09",
+  "contracts": [
+    {
+      "contract_id": "NDA-2026-0117",
+      "matter_id": "MAT-2026-0001",
+      "type": "nda",
+      "counterparty": "Beanstalk Co.",
+      "effective_date": "2026-01-17",
+      "term_months": 24,
+      "governing_law": "California",
+      "notes": "Mutual NDA; standard 2-year term; symmetric obligations; no IP assignment."
+    },
+    {
+      "contract_id": "MSA-2026-0044",
+      "matter_id": "MAT-2026-0002",
+      "type": "msa",
+      "counterparty": "Halcyon Labs",
+      "effective_date": "2026-02-04",
+      "term_months": 36,
+      "governing_law": "Delaware",
+      "notes": "Master services agreement. Liability cap is uncapped (major concern). Indemnity runs only one way (counterparty indemnifies; client does not). IP assignment vests on signature, not on payment."
+    },
+    {
+      "contract_id": "SOW-2026-0091",
+      "matter_id": "MAT-2026-0002",
+      "type": "sow",
+      "counterparty": "Pinedale Studios",
+      "effective_date": "2026-03-12",
+      "term_months": 6,
+      "governing_law": "California",
+      "notes": "Statement of work under existing MSA. Fixed-fee, milestone payments, mutual confidentiality. Routine."
+    },
+    {
+      "contract_id": "EMP-2026-0033",
+      "matter_id": "MAT-2026-0005",
+      "type": "employment",
+      "counterparty": "Quokka Capital (new hire — A. Singh)",
+      "effective_date": "2026-04-01",
+      "term_months": null,
+      "governing_law": "California",
+      "notes": "At-will employment offer. 90-day non-solicit. IP assignment vests on signature. Standard for new hires."
+    },
+    {
+      "contract_id": "LSE-2026-0019",
+      "matter_id": "MAT-2026-0007",
+      "type": "lease",
+      "counterparty": "Drysdale Roastery (commercial lease)",
+      "effective_date": "2026-02-15",
+      "term_months": 60,
+      "governing_law": "Washington",
+      "notes": "Commercial lease, 5-year term. Tenant indemnifies landlord for all third-party claims with no carve-outs (major concern)."
+    }
+  ],
+  "open_matters": [
+    {
+      "matter_id": "MAT-2026-0007",
+      "matter_caption": "Drysdale Roastery v. Northwind Co-op",
+      "court": "Northern District of California",
+      "next_deadline_iso": "2026-05-15"
+    }
+  ]
+}

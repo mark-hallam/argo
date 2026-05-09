@@ -1,0 +1,36 @@
+schema_version = "1"
+
+[[entry]]
+key = "matters"
+type = "list-of-objects"
+purpose = "One row per legal matter. Each row carries: matter_id, matter_caption, client, opened_at, status (open|closed|stayed), supervising_attorney, summary."
+
+[[entry]]
+key = "contracts"
+type = "list-of-objects"
+purpose = "Per-contract review state. Each row carries: contract_id, matter_id, type (nda|msa|sow|employment|lease), counterparty, effective_date, term, bucket_counts (standard|minor_concern|major_concern), reviewed_at, reviewer_summary."
+
+[[entry]]
+key = "clause_history"
+type = "list-of-objects"
+purpose = "One row per clause flag/review pass. Each row carries: contract_id, clause_heading, concern_category (liability|indemnity|ip|other), bucket, verbatim_text, flagged_at, flagged_by_action_id, attorney_response."
+
+[[entry]]
+key = "amendments"
+type = "list-of-objects"
+purpose = "Drafted amendment artifacts. Each row carries: contract_id, amendment_iso, output_path, original_clause, amended_clause, rationale, approved_by, approved_at."
+
+[[entry]]
+key = "court_filings"
+type = "list-of-objects"
+purpose = "Mocked court filing log. Each row carries: matter_id, court, filing_type (motion|response|brief|other), document_path, deadline_iso, filed_at, receipt_id, filed_by."
+
+[[entry]]
+key = "attorney_review_log"
+type = "list-of-objects"
+purpose = "Routing log of every clause / filing handoff to the supervising attorney. Each row carries: contract_id, matter_id, escalated_at, escalated_to, channel (email|slack|phone), prior_flag_count, outcome."
+
+[[entry]]
+key = "client_summaries"
+type = "list-of-objects"
+purpose = "Plain-language summaries shared with the client. Each row carries: contract_id, audience, word_count, summary_iso, output_path."
