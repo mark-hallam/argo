@@ -1,0 +1,26 @@
+# Action: schedule_venue (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. Venues bind real money — deposits sit
+# outside the cancel-by window and burn cash when the operator pivots.
+# Even a "hold" can incur a fee at certain venues. Operator names the
+# slot, deposit, and cancel-by date before the action fires.
+
+action_type       = "schedule_venue"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+event_id        = "string (EV-####)"
+venue_name      = "string — must match the operator-provided spelling"
+slot_iso        = "RFC3339 timestamp — start of the booked window"
+duration_hours  = "decimal — total venue access time including setup + load-out"
+headcount       = "integer — planned attendance"
+deposit_usd     = "decimal — amount sitting at the venue until cancel-by"
+cancel_by_iso   = "ISO date — last day to back out without losing deposit"
+
+[failure_modes]
+slot_unavailable      = "Venue replied no — re-fetch availability and surface alternatives to the operator. Do NOT silently book elsewhere."
+deposit_over_budget   = "Refuse and escalate — `budget_state` ceiling cannot be widened from this action."
+cancel_by_lapsed      = "Hold has aged past its cancel-by; surface for re-approval before re-confirming."

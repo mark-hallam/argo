@@ -1,0 +1,30 @@
+# Action: generate_run_of_show (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto-executed against the document_creation
+# executor). The single autonomous-safe action in this vertical —
+# the output is a draft markdown timeline document. No external send,
+# no money mutation, no calendar mutation. The thesis: "compose from
+# gathered facts" workflows can run autonomously when the gating risk
+# is brand-voice or money, not factual fidelity.
+
+action_type       = "generate_run_of_show"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "document_creation"
+budget_usd        = 0.10
+
+[payload_shape]
+event_id          = "string (EV-####)"
+event_name        = "string"
+event_date_iso    = "ISO date — event day"
+venue_name        = "string — pulled from `bookings` memory"
+
+[content_rules]
+source_of_truth = ["bookings memory", "vendor_status memory", "skills/run_of_show.skill.md heuristics"]
+output_path     = "<workspace>/.skycot/run-of-show/<event_id>.md"
+
+[failure_modes]
+venue_not_confirmed   = "Refuse — `bookings` shows the venue still on hold, not confirmed. Run-of-show requires a confirmed slot."
+no_confirmed_vendors  = "Compose with `(pending)` markers across category rows — every category should at least appear in the table even if the vendor is unset."
+double_booked_owner   = "Refuse — two vendors share an owner column entry. Surface the conflict; the operator resolves before re-emit."

@@ -1,0 +1,30 @@
+# Action: send_invites (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Email. Templated invite blast against a guest list
+# the operator approved during event setup. Operator approves subject
+# + body before send so brand voice and any region-specific phrasing
+# are checked first. Send_invites NEVER widens the recipient list —
+# adding contacts is a separate operator workflow.
+
+action_type       = "send_invites"
+risk              = "medium"
+requires_approval = true
+notify_channel    = "Email"
+executor          = "mcp:gmail/gmail.send"
+budget_usd        = 0.05
+
+[payload_shape]
+event_id          = "string (EV-####)"
+guest_list_id     = "string — references the pre-approved cohort"
+recipient_count   = "integer — must equal the size of the named guest list"
+subject           = "string — leads with event name + date"
+body              = "string — templated; merge fields only, no novel content"
+send_at           = "RFC3339 timestamp — operator-approved send window"
+
+[content_rules]
+allowed_topics = ["event name + date", "venue address", "RSVP link", "dress code", "accessibility notes"]
+forbidden      = ["pricing", "vendor names beyond the venue", "operator-only logistics", "wider-list CCs"]
+
+[failure_modes]
+list_size_mismatch   = "Refuse — recipient_count and guest_list size disagree. Operator must reconcile before re-emit."
+guest_list_unapproved = "Refuse — guest_list_id is not in the approved cohorts table. Operator approves the list, not this action."

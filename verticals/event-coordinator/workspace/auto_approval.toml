@@ -1,0 +1,11 @@
+enabled = true
+max_usd_micros_per_action = 100000
+daily_budget_usd_micros   = 500000
+
+# Only generate_run_of_show is autonomous-safe — the output is a draft
+# markdown document, no external send, no money, no calendar mutation.
+# Every other action in this vertical (schedule_venue, send_invites,
+# confirm_vendors, post_event_recap) carries a deposit, a guest-list
+# implication, a vendor commitment, or a brand-voice risk and runs
+# through the human approval gate.
+wake_action_types = ["generate_run_of_show"]

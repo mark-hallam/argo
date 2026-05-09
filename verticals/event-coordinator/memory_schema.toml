@@ -1,0 +1,36 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to event state. The operator's
+# financial ledger and the venue/vendor contracts live outside the
+# system; this schema only records what Sage needs to coordinate
+# across the action surface.
+
+[[entry]]
+key = "events"
+type = "list-of-objects"
+purpose = "Per-event coordination state. Each row carries: event_id, event_name, event_date_iso, headcount, status (planning|booked|live|closed|cancelled), owner."
+
+[[entry]]
+key = "bookings"
+type = "list-of-objects"
+purpose = "Venue holds + confirmations. Each row carries: event_id, venue_name, slot_iso, duration_hours, deposit_usd, cancel_by_iso, status (held|confirmed|cancelled), approved_by."
+
+[[entry]]
+key = "vendor_status"
+type = "list-of-objects"
+purpose = "Confirmed vendors across catering / AV / photo / florals. Each row carries: event_id, vendor_id, category, service_summary, quoted_usd, confirm_by_iso, status (pending|confirmed|cancelled), approved_by."
+
+[[entry]]
+key = "guest_list"
+type = "list-of-objects"
+purpose = "Pre-approved invite cohorts + RSVP rollups. Each row carries: event_id, guest_list_id, recipient_count, rsvp_yes, rsvp_no, rsvp_pending, last_synced_at."
+
+[[entry]]
+key = "budget_state"
+type = "list-of-objects"
+purpose = "Running budget ledger per event. Each row carries: event_id, ceiling_usd, deposits_usd, vendor_committed_usd, remaining_usd, last_updated_at, last_approved_by."
+
+[[entry]]
+key = "timeline_log"
+type = "list-of-objects"
+purpose = "Coordination events feeding the run-of-show + recap. Each row carries: event_id, ts_iso, kind (booking|confirmation|invite_send|cancellation|note), summary (one-line), source_ref."

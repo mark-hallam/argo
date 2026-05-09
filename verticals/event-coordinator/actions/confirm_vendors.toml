@@ -1,0 +1,27 @@
+# Action: confirm_vendors (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. Confirming a vendor binds payment and slots
+# the vendor against competing events on the same date. Real
+# contracts and deposits live outside this system; the action only
+# records the operator-approved confirmation in `vendor_status`
+# memory and feeds the run-of-show generator.
+
+action_type       = "confirm_vendors"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+event_id          = "string (EV-####)"
+vendor_id         = "string (VND-CAT-* / VND-AV-* / VND-PHO-* / VND-FLO-*)"
+category          = "catering | av | photo | florals"
+service_summary   = "string — one-line scope (e.g. 'plated dinner for 80, 2 servers')"
+quoted_usd        = "decimal — operator-approved quote"
+confirm_by_iso    = "ISO date — vendor's confirm-by deadline"
+
+[failure_modes]
+vendor_not_in_inventory = "Refuse — vendor_id is not in `inventory/sample_vendors.json`. Operator must onboard the vendor before this action runs."
+quoted_over_budget      = "Refuse — confirming would push `budget_state` over its operator-approved ceiling. Escalate for a fresh approval that names the new ceiling."
+category_mismatch       = "Refuse — vendor's inventory category disagrees with the payload. Common when the operator typoed a vendor_id from a different class."
+capacity_exceeded       = "Refuse — vendor's capacity_max from inventory is below the event headcount. Surface for operator to pick a larger-capacity vendor."

@@ -1,0 +1,14 @@
+{
+  "agency": "Skycot Events (synthetic — demo only)",
+  "today_iso": "2026-05-10",
+  "vendors": [
+    {"vendor_id": "VND-CAT-BRAMBLE", "name": "Bramble Catering", "category": "catering", "city": "Portland, OR", "capacity_max": 200, "lead_time_days": 21, "contact": "events@bramble.example.com", "rate_card": "https://example.com/bramble/rates"},
+    {"vendor_id": "VND-CAT-VERVAIN", "name": "Vervain Kitchen", "category": "catering", "city": "Portland, OR", "capacity_max": 60, "lead_time_days": 14, "contact": "hello@vervain.example.com", "rate_card": "https://example.com/vervain/rates"},
+    {"vendor_id": "VND-AV-SOLSTICE", "name": "Solstice Audio Visual", "category": "av", "city": "Portland, OR", "capacity_max": 500, "lead_time_days": 7, "contact": "bookings@solstice-av.example.com", "rate_card": "https://example.com/solstice/rates"},
+    {"vendor_id": "VND-AV-RIVERLINE", "name": "Riverline Stage", "category": "av", "city": "Portland, OR", "capacity_max": 1500, "lead_time_days": 30, "contact": "ops@riverline.example.com", "rate_card": "https://example.com/riverline/rates"},
+    {"vendor_id": "VND-PHO-LUMEN", "name": "Lumen Photo", "category": "photo", "city": "Portland, OR", "capacity_max": 2, "lead_time_days": 14, "contact": "studio@lumen.example.com", "rate_card": "https://example.com/lumen/rates"},
+    {"vendor_id": "VND-PHO-DAYBREAK", "name": "Daybreak Imaging", "category": "photo", "city": "Portland, OR", "capacity_max": 4, "lead_time_days": 21, "contact": "team@daybreak.example.com", "rate_card": "https://example.com/daybreak/rates"},
+    {"vendor_id": "VND-FLO-SORREL", "name": "Sorrel Florals", "category": "florals", "city": "Portland, OR", "capacity_max": 80, "lead_time_days": 10, "contact": "orders@sorrel.example.com", "rate_card": "https://example.com/sorrel/rates"},
+    {"vendor_id": "VND-FLO-MEADOWLARK", "name": "Meadowlark Studio", "category": "florals", "city": "Portland, OR", "capacity_max": 250, "lead_time_days": 14, "contact": "info@meadowlark.example.com", "rate_card": "https://example.com/meadowlark/rates"}
+  ]
+}

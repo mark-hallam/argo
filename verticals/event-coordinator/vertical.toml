@@ -1,0 +1,147 @@
+schema_version = "1"
+
+[vertical]
+id          = "event-coordinator"
+name        = "Event Coordinator"
+description = "Multi-vendor event coordination (Sage). Schedules venue bookings, sends invites and tracks RSVPs, confirms vendors (catering, AV, photo), generates run-of-show timelines, and posts event recaps. Heaviest human-gate profile in the demo catalogue — only generate_run_of_show auto-approves; venue + vendor + invite + recap actions all surface for sign-off because they carry deposit, guest-list, or brand-voice implications."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["events", "coordination", "vendors", "calendar", "documents", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+[mcp_servers]
+gcal  = { transport = "stdio", command = "argo-mcp-connector-gcal",  args = [] }
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
+
+[escalation]
+# Per-action approval gates live in [actions.<name>].requires_approval.
+# This section names the BUILT-IN tools that always require approval.
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 1
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Event Coordinator"
+
+# Action vocabulary. Per-action operator notes (NotifyChannel, payload
+# shapes) live in `actions/*.toml`; the inline declaration below is what
+# the OS validates emissions against.
+
+[actions]
+
+[actions.schedule_venue]
+risk              = "high"
+requires_approval = true
+description       = "Hold or book a venue slot. Approval-gated — venues involve deposits and cancellation windows that bind real money."
+executor          = "human"
+platforms         = ["venue"]
+instruction_template = """
+# Schedule venue for `{{ payload.event_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Venue: `{{ payload.venue_name }}` — Slot: `{{ payload.slot_iso }}` ({{ payload.duration_hours }} hr) — Headcount: `{{ payload.headcount }}`.
+Deposit: `${{ payload.deposit_usd }}` USD — Cancel-by: `{{ payload.cancel_by_iso }}`.
+Record the hold in `bookings` memory. Do NOT email guests or vendors from this action — invites + vendor confirmations are separate gates.
+"""
+
+[actions.send_invites]
+risk              = "medium"
+requires_approval = true
+description       = "Email invitations to the pre-approved guest list via gmail. Templated body; operator approves the subject + body before send."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = """
+# Send invites for `{{ payload.event_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Guest list: `{{ payload.guest_list_id }}` (size `{{ payload.recipient_count }}`).
+Subject: `{{ payload.subject }}`
+
+Body to send:
+
+{{ payload.body }}
+
+Use only the pre-approved guest list — never widen recipients from this action. RSVP tracking flows back through inbox sync, not through a re-send.
+"""
+
+[actions.confirm_vendors]
+risk              = "high"
+requires_approval = true
+description       = "Confirm a vendor's services + price (catering / AV / photo / florals). Approval-gated — confirmations create payment obligations and slot the vendor against competing events."
+executor          = "human"
+platforms         = ["vendor"]
+instruction_template = """
+# Confirm vendor `{{ payload.vendor_id }}` for `{{ payload.event_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Category: `{{ payload.category }}` — Service: `{{ payload.service_summary }}`.
+Quoted: `${{ payload.quoted_usd }}` USD — Confirm-by: `{{ payload.confirm_by_iso }}`.
+Append the confirmation to `vendor_status` memory. Do NOT release the deposit or sign a contract from this action — those live outside the system.
+"""
+
+[actions.generate_run_of_show]
+risk              = "low"
+requires_approval = false
+description       = "Compose a markdown run-of-show timeline from the event's confirmed vendor + venue state. Auto-approved because the output is a draft document — no external send, no money, no calendar mutation."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Generate run-of-show for `{{ payload.event_id }}`
+Event: `{{ payload.event_name }}` — Date: `{{ payload.event_date_iso }}` — Venue: `{{ payload.venue_name }}`.
+
+Output path: `<workspace>/.skycot/run-of-show/{{ payload.event_id }}.md`
+
+Compose the timeline from `bookings` + `vendor_status` memory entries plus the buffer-time heuristics in `skills/run_of_show.skill.md`. Mark unconfirmed vendors with `(pending)` so the operator can chase. Do NOT invent vendor names or service times — pull from memory.
+"""
+
+[actions.post_event_recap]
+risk              = "medium"
+requires_approval = true
+description       = "Compose and route a post-event recap document for the operator to share with stakeholders. Approval-gated — the recap goes to clients, sponsors, and venue partners; brand voice + factual accuracy need a human pass."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Recap for `{{ payload.event_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Event: `{{ payload.event_name }}` — Date: `{{ payload.event_date_iso }}` — Final headcount: `{{ payload.final_headcount }}`.
+
+Output path: `<workspace>/.skycot/recaps/{{ payload.event_id }}.md`
+
+Compose from `bookings`, `vendor_status`, `guest_list`, and `timeline_log` memory entries. Lead with what worked, then issues + lessons. Never quote vendor pricing in the recap body — pricing belongs in the operator's ledger, not a shareable doc.
+"""
+
+[actions.send_invites.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.schedule_venue.retry]
+max_attempts = 1
+
+[actions.confirm_vendors.retry]
+max_attempts = 1
+
+[actions.post_event_recap.retry]
+max_attempts = 2

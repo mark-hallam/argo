@@ -1,0 +1,31 @@
+# Action: post_event_recap (canonical declaration in ../vertical.toml)
+#
+# Notify channel: DocumentCreation. The recap composes a shareable
+# narrative from memory state — bookings, vendor_status, guest_list,
+# timeline_log — and writes it to the workspace. Approval-gated
+# because the recap goes to clients, sponsors, and venue partners;
+# brand voice and factual claims need a human pass before the
+# operator forwards the document.
+
+action_type       = "post_event_recap"
+risk              = "medium"
+requires_approval = true
+notify_channel    = "DocumentCreation"
+executor          = "document_creation"
+budget_usd        = 0.10
+
+[payload_shape]
+event_id          = "string (EV-####)"
+event_name        = "string"
+event_date_iso    = "ISO date — actual event day"
+final_headcount   = "integer — actual attendance, not planned"
+
+[content_rules]
+sections_required   = ["highlights", "issues", "lessons"]
+allowed_topics      = ["headcount actual vs planned", "vendor delivery quality (qualitative)", "venue notes", "next-time recommendations"]
+forbidden           = ["vendor pricing", "operator-only deposits", "internal commission notes", "anything from `budget_state` memory"]
+output_path         = "<workspace>/.skycot/recaps/<event_id>.md"
+
+[failure_modes]
+event_still_open  = "Refuse — `events` memory shows status != closed. Recaps run after the event wraps, not during."
+pricing_in_payload = "Refuse — payload contains a quoted_usd or deposit_usd field. Pricing belongs in the operator's ledger, not a shareable recap."
