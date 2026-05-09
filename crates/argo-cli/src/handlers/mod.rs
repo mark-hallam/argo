@@ -293,6 +293,8 @@ mod worker_actions_anomaly;
 mod worker_actions_auto_approval;
 mod worker_actions_batch;
 mod worker_actions_dispatch;
+mod worker_actions_dispatch_ledger;
+mod worker_actions_dispatch_retry;
 mod worker_actions_dry_run;
 pub(crate) mod worker_actions_emit;
 mod worker_actions_emit_plan;
