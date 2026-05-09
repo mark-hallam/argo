@@ -97,6 +97,7 @@ pub(super) async fn start(
         .as_ref()
         .map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
     let _alerts_loop = store.as_ref().map(|s| spawn_alerts_loop(Arc::clone(s)));
+    let _mcp_health = crate::handlers::mcp_health::spawn_from_env();
     phases.mark("spawn_bg_tasks");
 
     // PID file. If one already exists with a live PID, refuse to

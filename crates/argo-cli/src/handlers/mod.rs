@@ -126,6 +126,7 @@ mod incident_tests;
 pub mod judge;
 pub mod latency;
 pub mod mcp;
+pub mod mcp_health;
 pub mod mcp_rate_limit;
 pub mod mcp_registry;
 pub mod mcp_tools;

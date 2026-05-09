@@ -1,0 +1,13 @@
+# Optional MCP health-check task tunables.
+#
+# The task is off by default. Enable it for a gateway process with:
+#   ARGO_MCP_HEALTH_CHECK=1
+#
+# Runtime environment overrides:
+#   ARGO_MCP_HEALTH_INTERVAL_MS=60000
+#   ARGO_MCP_HEALTH_TIMEOUT_MS=5000
+#   ARGO_MCP_HEALTH_MAX_CONCURRENT=8
+#
+# interval_ms = 60000
+# timeout_ms = 5000
+# max_concurrent = 8

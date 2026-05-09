@@ -67,6 +67,9 @@ regex = { workspace = true }
 reqwest = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
+# Direct dep only for `tokio_util::sync::CancellationToken` used by the
+# `mcp_health` background task (claude-mcp-server-health-check).
+tokio-util = "0.7"
 toml = { workspace = true }
 tracing = { workspace = true }
 flate2 = "1"
