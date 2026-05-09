@@ -400,6 +400,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-executor-computer-use-linux"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "argo-executor-computer-use-macos"
 version = "0.0.1"
 dependencies = [
