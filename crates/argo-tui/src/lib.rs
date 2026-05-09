@@ -32,6 +32,7 @@ mod overlays_h_stack;
 mod overlays_handoffs;
 mod overlays_replay;
 mod overlays_sessions;
+mod overlays_tables;
 mod overlays_tool_errors;
 mod render;
 pub mod session_detail;
