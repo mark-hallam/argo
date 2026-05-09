@@ -25,6 +25,9 @@ pub mod skill_runs_query;
 /// session-attachment indirection (Stream
 /// `claude-skill-search-by-vertical`).
 pub mod skill_query;
+/// Cross-tenant skill sharing query helpers (Stream
+/// `claude-skill-share-cross-tenant-poc`, mission claim 4).
+pub mod skill_share;
 mod spend;
 /// Spend anomaly detector — Welford rolling stats per (worker,
 /// hour-of-day) + z-score check (Stream
