@@ -246,6 +246,24 @@ pub enum WorkerCmd {
     /// against named KPIs and score progress.
     #[command(subcommand)]
     Okr(WorkerOkrCmd),
+    /// Quarterly / monthly / weekly review packet bundling KPI
+    /// deltas, success rate, operator feedback, handoffs, and
+    /// anomalies for one worker (Stream
+    /// `claude-worker-review-cycle-cli`, mission claim 2). Read-only
+    /// aggregator — no new schema.
+    Review {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Period preset: `quarterly` (default), `monthly`, `weekly`.
+        #[arg(long, default_value = "quarterly")]
+        period: String,
+        /// Override the period start with an explicit RFC3339 cutoff.
+        #[arg(long)]
+        since: Option<String>,
+        /// `markdown` (default) or `json`.
+        #[arg(long, default_value = "markdown")]
+        format: String,
+    },
     /// Per-worker auto-approval success rollup over typed `AuditKind`
     /// approval kinds. Read-only join over `audit_record` +
     /// `session.worker_id` (mission claim 2 KPI seed).

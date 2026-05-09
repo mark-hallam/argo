@@ -241,6 +241,14 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         } => {
             super::worker_metrics::run(&worker_id, since.as_deref(), &bucket, &format).await
         }
+        WorkerCmd::Review {
+            worker_id,
+            period,
+            since,
+            format,
+        } => {
+            super::worker_review::run(&worker_id, &period, since.as_deref(), &format).await
+        }
         WorkerCmd::Kpi(kpi_cmd) => match kpi_cmd {
             WorkerKpiCmd::Record { worker_id, kpi, value, tenant, note, json } => {
                 super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await

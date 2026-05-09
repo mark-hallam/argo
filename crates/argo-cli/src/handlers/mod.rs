@@ -285,6 +285,8 @@ mod worker_charter_tests;
 pub mod worker_kpi;
 pub mod worker_metrics;
 pub mod worker_okr;
+pub mod worker_review;
+mod worker_review_md;
 #[allow(dead_code)]
 pub mod worker_create;
 pub mod worker_costs;
