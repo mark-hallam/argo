@@ -7,7 +7,7 @@ use crate::session::Session;
 use argo_audit::AuditSink;
 use argo_identity::WorkerId;
 use argo_store::SessionStore;
-use argo_types::TenantId;
+use argo_types::{ArgoError, TenantId};
 use chrono::Duration;
 use std::sync::Mutex as StdMutex;
 

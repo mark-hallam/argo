@@ -43,6 +43,7 @@ mod persist_handoffs;
 pub mod routing;
 mod session;
 mod walker;
+mod walker_helpers;
 
 pub use auction::{
     fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
