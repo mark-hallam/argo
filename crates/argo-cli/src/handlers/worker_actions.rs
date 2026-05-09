@@ -230,6 +230,14 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             }
         },
         WorkerCmd::Budget(budget_cmd) => super::worker_budget::run(budget_cmd).await,
+        WorkerCmd::Success {
+            worker_id,
+            since,
+            bucket,
+            format,
+        } => {
+            super::worker_metrics::run(&worker_id, since.as_deref(), &bucket, &format).await
+        }
         WorkerCmd::Kpi(kpi_cmd) => match kpi_cmd {
             WorkerKpiCmd::Record { worker_id, kpi, value, tenant, note, json } => {
                 super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await

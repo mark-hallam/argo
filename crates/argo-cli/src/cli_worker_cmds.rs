@@ -221,6 +221,21 @@ pub enum WorkerCmd {
     /// numeric values.
     #[command(subcommand)]
     Kpi(WorkerKpiCmd),
+    /// Per-worker auto-approval success rollup over typed `AuditKind`
+    /// approval kinds. Read-only join over `audit_record` +
+    /// `session.worker_id` (mission claim 2 KPI seed).
+    Success {
+        worker_id: String,
+        /// `now - <duration>` filter; suffixes `s`/`m`/`h`/`d`.
+        #[arg(long)]
+        since: Option<String>,
+        /// `none` (default), `day`, `week`, or `month`.
+        #[arg(long, default_value = "none")]
+        bucket: String,
+        /// `markdown` (default) or `json`.
+        #[arg(long, default_value = "markdown")]
+        format: String,
+    },
 }
 
 // Charter/archive/kpi leaf enums live in sibling files so this module
