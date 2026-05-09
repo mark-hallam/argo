@@ -957,6 +957,12 @@ Open `target/llvm-cov/html/index.html` for the annotated report.
 
 ### 9.6 Common failure modes
 
+A condensed copy of this table — plus the cli command index from
+Appendix A — is rendered to a self-contained one-screen card at
+[`quickref.html`](quickref.html). Regenerate with
+`bash scripts/gen-runbook-quickref.sh`.
+
+<!-- quickref:errors:start -->
 | Symptom | Cause | Fix |
 |---|---|---|
 | `executor 'computer_use' is not yet implemented` | `E2B_API_KEY` or `ANTHROPIC_API_KEY` not set | Set them, or declare `executor = "human"` to fall back to the artifact-bundle path |
@@ -965,6 +971,7 @@ Open `target/llvm-cov/html/index.html` for the annotated report.
 | `vertical-id 'marketing_intern' must be lowercase ASCII letters, digits, or '-'` | Underscores in the id | Use dashes: `marketing-intern-maya`. Genesis converts automatically; only hand-authored manifests hit this. |
 | `output dir '...' is not empty` | Re-running `argo genesis create` against an existing dir | Use a fresh path or `rm -rf` the old one — Genesis refuses to clobber. |
 | `action {id}: approval required (state pending, requires_approval=true)` | Trying to execute before approval | Run `argo worker actions approve <id>` first, or set up an auto-approval policy |
+<!-- quickref:errors:end -->
 
 ---
 
@@ -1049,6 +1056,7 @@ Every command shown above is in v1 main. Run `argo --help` for
 the full tree, or `argo <subcommand> --help` for a specific
 group. The 25 top-level commands are:
 
+<!-- quickref:commands:start -->
 ```
 argo new           argo resume        argo chat          argo steer
 argo agents        argo gateway       argo doctor        argo health
@@ -1060,6 +1068,7 @@ argo model         argo plugin        argo provider      argo route
 argo session       argo skill         argo trace         argo tui
 argo tools
 ```
+<!-- quickref:commands:end -->
 
 `argo worker actions <list|show|approve|execute|complete|fail|block|retry>`
 is the hot-path family for driving the action ledger. Genesis
