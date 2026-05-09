@@ -168,6 +168,18 @@ jobs:
       - name: Audit ArgoError variant usage (warning-only)
         run: bash scripts/check-error-variant-usage.sh || true
 
+  config-callsite-audit:
+    # Warning-only ratchet from claude-config-loader-overhaul.
+    # Reports direct std::env::var("ARGO_*") reads outside
+    # crates/argo-config/. Flips to a failing gate once
+    # claude-config-loader-migrate-callsites empties the audit list.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit direct ARGO_* env reads (warning-only)
+        shell: bash
+        run: bash scripts/check-no-direct-env-reads.sh
+
   deny:
     runs-on: ubuntu-latest
     steps:
