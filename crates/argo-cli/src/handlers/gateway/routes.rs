@@ -19,13 +19,26 @@ use super::routes_dispatch_get::dispatch_get;
 use super::routes_dispatch_get_admin::dispatch_get_admin;
 use super::routes_dispatch_post::dispatch_post;
 use super::routes_session_get::dispatch_session_get;
+use super::shutdown::{shutting_down_response, ShutdownController};
 use argo_store::SessionStore;
 use std::sync::Arc;
 
 pub(super) async fn dispatch_route(
     req: &str,
     store: Option<&Arc<SessionStore>>,
+    shutdown: &ShutdownController,
 ) -> (&'static str, String) {
+    // Race window: SIGTERM may have flipped the shutdown flag while
+    // this connection was already accepted+read. Reject with the
+    // documented 503 body so external clients (k8s readiness probes,
+    // load balancers) can back off cleanly during the drain.
+    if shutdown.is_shutting_down() {
+        return shutting_down_response();
+    }
+    // Drop-guard increments the in-flight counter for the lifetime of
+    // this future and decrements on any return path (including panic
+    // unwind). The drain loop blocks on this counter.
+    let _guard = shutdown.request_guard();
     // Bearer-token gate on every non-allowlisted GET. POST has its own
     // gate inside `dispatch_post` (#946); allowlist members (`/`,
     // `/health[/...]`, `/version`, `/routes`) stay anonymous so liveness

@@ -15,6 +15,7 @@ mod rate_limit_ip;
 mod metrics_actions;
 mod print_routes;
 mod routes;
+mod shutdown;
 mod start_banner;
 mod start_banner_config;
 mod sweepers;

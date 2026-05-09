@@ -15,10 +15,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
-use super::lifecycle::{pid_is_alive, shutdown_signal, signal_term, PidGuard};
+use super::lifecycle::{pid_is_alive, signal_term, PidGuard};
 use super::rate_limit_ip::{
     self, rate_limited_response_bytes, CheckResult, IpRateLimiter,
 };
+use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
 use super::{
@@ -153,14 +154,16 @@ pub(super) async fn start(
     // `rate_limit_ip` for the env knobs and trust-model docs.
     let ip_limiter = Arc::new(IpRateLimiter::from_env());
     let mut served = 0_u64;
-    let shutdown = shutdown_signal();
-    tokio::pin!(shutdown);
+    let shutdown_ctl = ShutdownController::new();
+    let mut shutdown_rx = shutdown::install_signal_handler(shutdown_ctl.clone());
+    let mut watchdog: Option<JoinHandle<()>> = None;
     loop {
         tokio::select! {
             biased;
-            _ = &mut shutdown => {
-                eprintln!("argo gateway: shutdown signal received; exiting cleanly");
-                return Ok(());
+            recv = &mut shutdown_rx => {
+                watchdog = recv.ok();
+                eprintln!("argo gateway: stopping accept loop; SIGTERM observed");
+                break;
             }
             accept = listener.accept() => {
                 let (mut stream, peer) = accept
@@ -207,7 +210,7 @@ pub(super) async fn start(
                     let _ = stream.write_all(resp.as_bytes()).await;
                     let _ = stream.shutdown().await;
                 } else {
-                    let (status_line, body) = routes::dispatch_route(req, store.as_ref()).await;
+                    let (status_line, body) = routes::dispatch_route(req, store.as_ref(), &shutdown_ctl).await;
                     let resp = format!(
                         "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
                         body.len(),
@@ -221,10 +224,34 @@ pub(super) async fn start(
                     eprintln!(
                         "argo gateway: served {served} request(s); exiting per --max-requests"
                     );
-                    return Ok(());
+                    break;
                 }
             }
         }
+    }
+    finish_shutdown(&shutdown_ctl, store.as_ref(), watchdog).await;
+    Ok(())
+}
+
+/// Drain in-flight requests up to `ARGO_SHUTDOWN_DEADLINE_SECS` (env,
+/// default 30s), then close the session store so SQLite checkpoints
+/// the WAL and releases the lock file. The force-exit watchdog (when
+/// present) was armed inside the signal handler and started ticking
+/// from SIGTERM time; we abort it after a clean drain+close so the
+/// process exits 0 instead of 124.
+async fn finish_shutdown(
+    ctl: &ShutdownController,
+    store: Option<&Arc<SessionStore>>,
+    watchdog: Option<JoinHandle<()>>,
+) {
+    let deadline = Duration::from_secs(shutdown::deadline_secs_from_env());
+    shutdown::drain_in_flight(ctl, deadline).await;
+    if let Some(s) = store {
+        s.close().await;
+        eprintln!("argo gateway: session store closed");
+    }
+    if let Some(w) = watchdog {
+        w.abort();
     }
 }
 

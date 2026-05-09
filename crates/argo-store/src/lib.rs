@@ -138,6 +138,29 @@ impl SessionStore {
         migrations::current_version(&self.pool).await
     }
 
+    /// Cleanly tear the pool down so SQLite can checkpoint the WAL,
+    /// release the lock file, and close every cached connection.
+    /// Idempotent — re-calling `close()` after the pool has shut
+    /// down is a no-op.
+    ///
+    /// Used by the gateway's graceful-shutdown path so a SIGTERM
+    /// during a rolling deploy doesn't leak unflushed WAL frames or
+    /// leave a stale `*.db-shm` lock that blocks the next process.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn run() -> argo_store::StoreResult<()> {
+    /// let store = argo_store::SessionStore::open(":memory:").await?;
+    /// store.migrate().await?;
+    /// store.close().await;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
     /// Run `VACUUM` to reclaim SQLite-page space (typically after a
     /// large prune). Wallclock cost scales with DB size; the
     /// operation rebuilds the file in-place. Returns when the
