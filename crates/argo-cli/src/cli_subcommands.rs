@@ -66,6 +66,63 @@ pub enum McpCmd {
         #[arg(long)]
         schema_only: bool,
     },
+    /// Manage the per-tenant MCP server registry
+    /// (`codex-mcp-server-registry-cli`). Backs the dispatch path
+    /// when `ARGO_MCP_REGISTRY_BACKED=1` is set.
+    Registry {
+        #[command(subcommand)]
+        cmd: McpRegistryCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum McpRegistryCmd {
+    /// List registered MCP servers for a tenant.
+    List {
+        /// Tenant id. Defaults to the current workspace tenant.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Output format: `markdown` (default) or `json` (NDJSON).
+        #[arg(long, default_value = "markdown")]
+        format: String,
+        /// Emit NDJSON; equivalent to `--format json`.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Register one MCP server for a tenant.
+    Add {
+        /// Server id referenced by MCP-executor actions.
+        server_id: String,
+        /// Server kind or transport family (e.g. `stdio`, `http`).
+        #[arg(long)]
+        kind: String,
+        /// Base URL for the MCP server.
+        #[arg(long = "url")]
+        base_url: String,
+        /// Opaque reference into the workspace credential store.
+        #[arg(long)]
+        secrets_ref: Option<String>,
+        /// Tenant id. Defaults to the current workspace tenant.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Remove one MCP server registration.
+    Remove {
+        /// Server id to remove.
+        server_id: String,
+        /// Tenant id. Defaults to the current workspace tenant.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Remove even when active actions reference this server.
+        #[arg(long)]
+        force: bool,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

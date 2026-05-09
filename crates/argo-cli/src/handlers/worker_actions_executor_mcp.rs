@@ -15,9 +15,13 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::ActionOutcome;
+use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_mcp::{McpClient, McpContent};
+use argo_store::queries::mcp_registry::McpRegistryStore;
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{ActionDeclaration, McpServerDeclaration};
+use async_trait::async_trait;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::path::Path;
@@ -81,15 +85,11 @@ pub(crate) async fn dispatch_action(
                 .into(),
         )
     })?;
-    let server_decl = servers.get(server_name).ok_or_else(|| {
-        ArgoError::Provider(format!(
-            "MCP executor references server '{server_name}' but the \
-             vertical manifest's `[mcp_servers]` table has no such \
-             entry — declare it before dispatching this action"
-        ))
-    })?;
+    let server_decl = EnvMcpRegistryLookup
+        .lookup(server_name, cwd, servers)
+        .await?;
     let args = substitute_args(&action.payload, action);
-    let client = acquire_client(pool, server_name, server_decl).await?;
+    let client = acquire_client(pool, server_name, &server_decl).await?;
     let result = match tokio::time::timeout(timeout, client.call_tool(tool_name, args)).await {
         Ok(r) => r,
         Err(_) => {
@@ -155,6 +155,79 @@ pub(crate) fn dispatch_blocking(
             default_pool(),
             timeout,
         ))
+    })
+}
+
+/// Resolve an MCP server declaration for `server_name`. Two backings:
+/// the vertical manifest's `[mcp_servers]` table (default) and the
+/// per-tenant SQL registry (gated on `ARGO_MCP_REGISTRY_BACKED=1`).
+/// Behind a trait so action-executor tests can stub a deterministic
+/// lookup without touching env or disk.
+#[async_trait]
+trait McpRegistryLookup {
+    async fn lookup(
+        &self,
+        server_name: &str,
+        cwd: &Path,
+        static_servers: &HashMap<String, McpServerDeclaration>,
+    ) -> ArgoResult<McpServerDeclaration>;
+}
+
+struct EnvMcpRegistryLookup;
+
+#[async_trait]
+impl McpRegistryLookup for EnvMcpRegistryLookup {
+    async fn lookup(
+        &self,
+        server_name: &str,
+        cwd: &Path,
+        static_servers: &HashMap<String, McpServerDeclaration>,
+    ) -> ArgoResult<McpServerDeclaration> {
+        if std::env::var("ARGO_MCP_REGISTRY_BACKED").ok().as_deref() == Some("1") {
+            lookup_registry_server(cwd, server_name).await
+        } else {
+            lookup_static_server(server_name, static_servers)
+        }
+    }
+}
+
+fn lookup_static_server(
+    server_name: &str,
+    servers: &HashMap<String, McpServerDeclaration>,
+) -> ArgoResult<McpServerDeclaration> {
+    servers.get(server_name).cloned().ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "MCP executor references server '{server_name}' but the \
+             vertical manifest's `[mcp_servers]` table has no such \
+             entry — declare it before dispatching this action"
+        ))
+    })
+}
+
+async fn lookup_registry_server(cwd: &Path, server_name: &str) -> ArgoResult<McpServerDeclaration> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    let tenant_id = tenant.to_string();
+    let row = McpRegistryStore::new(store.pool())
+        .get(&tenant_id, server_name)
+        .await?
+        .ok_or_else(|| {
+            ArgoError::Provider(format!(
+                "MCP registry has no server '{server_name}' for tenant '{tenant_id}'"
+            ))
+        })?;
+    Ok(McpServerDeclaration {
+        transport: row.kind,
+        command: row.base_url,
+        args: Vec::new(),
     })
 }
 

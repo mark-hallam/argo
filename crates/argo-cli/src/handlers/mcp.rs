@@ -38,6 +38,7 @@ pub async fn run(cmd: McpCmd) -> ArgoResult<()> {
             })
             .await
         }
+        McpCmd::Registry { cmd } => super::mcp_registry::run(cmd).await,
     }
 }
 

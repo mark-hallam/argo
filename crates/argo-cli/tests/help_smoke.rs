@@ -183,6 +183,42 @@ fn mcp_tools_renders_help() {
 }
 
 #[test]
+fn mcp_registry_renders_help() {
+    // Pins codex-mcp-server-registry-cli — `argo mcp registry
+    // list / add / remove`.
+    let h = help(&["mcp", "registry"]);
+    assert!(h.contains("Usage:"), "mcp registry --help: {h}");
+    for sub in ["list", "add", "remove"] {
+        assert!(
+            h.contains(sub),
+            "`argo mcp registry --help` missing {sub}: {h}"
+        );
+    }
+}
+
+#[test]
+fn mcp_registry_add_renders_help() {
+    let h = help(&["mcp", "registry", "add"]);
+    assert!(h.contains("Usage:"), "mcp registry add --help: {h}");
+    for flag in ["--kind", "--url", "--tenant"] {
+        assert!(
+            h.contains(flag),
+            "`argo mcp registry add --help` missing {flag}: {h}"
+        );
+    }
+}
+
+#[test]
+fn mcp_registry_remove_renders_help() {
+    let h = help(&["mcp", "registry", "remove"]);
+    assert!(h.contains("Usage:"), "mcp registry remove --help: {h}");
+    assert!(
+        h.contains("--force"),
+        "`argo mcp registry remove --help` missing --force: {h}"
+    );
+}
+
+#[test]
 fn worker_charter_renders_help() {
     let h = help(&["worker", "charter"]);
     assert!(h.contains("Usage:"), "worker charter --help: {h}");

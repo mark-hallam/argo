@@ -35,6 +35,9 @@ mod stats;
 /// workflow YAML body + TrustGrade ladder (Stream
 /// `claude-dreams-plan-templates`).
 pub mod learned_plan_template;
+/// Typed query helpers backed by lazy raw-SQL schemas
+/// (Stream `codex-mcp-server-registry-cli`).
+pub mod queries;
 /// Recovery-cache CRUD helpers — `argo recover cache list/show/clear`.
 pub mod recovery_cache;
 /// Persistent subtask ledger — durable record of Planner-emitted
