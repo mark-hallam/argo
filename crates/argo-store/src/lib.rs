@@ -3,6 +3,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod anomaly;
+mod anomaly_persistence;
 /// Typed scaffold for blob storage — `AttachedBlob`, `BlobRef`,
 /// `BlobStore` trait, and an in-memory test impl. No persistence yet
 /// (Stream `claude-store-attached-blob-layer`); downstream
