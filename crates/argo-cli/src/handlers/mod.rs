@@ -22,6 +22,8 @@ pub mod audit_by_tool;
 pub mod audit_by_vertical;
 mod audit_count;
 pub mod audit_export;
+mod audit_export_args;
+mod audit_export_redact;
 mod audit_helpers;
 mod audit_md;
 pub mod audit_query;
