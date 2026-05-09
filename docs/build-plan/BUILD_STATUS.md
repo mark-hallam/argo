@@ -5,17 +5,18 @@
 > (owner column flip; brief ids and stream files unchanged — `codex-`
 > prefixed ids remain a sizing hint per CLAUDE.md). Until codex comes
 > back, ignore the codex side of the queue-depth check below: only
-> fire replenishment when `claude` TODO ≤ 8. Do not brainstorm new
-> codex briefs; do not target `~50/50 codex/claude` — target ~12-16
-> total claude briefs.
+> fire replenishment when `claude` TODO ≤ 25 (raised from 8 by
+> operator 2026-05-10 to keep MVP-day swarm well-fed). Do not
+> brainstorm new codex briefs; do not target `~50/50 codex/claude` —
+> target ~30-40 total claude briefs.
 >
 > **CONDUCTOR HARD RULE (load-bearing, do not drift):** check queue
-> depth at the START of every tick. If `claude` TODO count ≤ 8,
+> depth at the START of every tick. If `claude` TODO count ≤ 25,
 > fire queue replenishment IMMEDIATELY
 > (Step 8 of PROTOCOL_LOOP_PROMPT.md, brainstorm 3-5 new briefs from
 > BUILD_PLAN_V11.md / MISSION.md gaps / PR-body deferrals / git log)
 > BEFORE touching merges. Workers stand down if queue runs dry.
-> Target depth after replenishment: 12-16 total claude briefs.
+> Target depth after replenishment: 30-40 total claude briefs.
 > **Skipping this rule has happened twice this session and is not
 > acceptable.**
 
