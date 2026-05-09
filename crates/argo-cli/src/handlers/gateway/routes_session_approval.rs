@@ -12,6 +12,7 @@
 //! `note` is optional; the rest of the contract matches the
 //! CLI verbatim — same audit kinds, same SQLite write path,
 //! same precedence rules.
+use super::routes_auth_principal::principal_payload;
 use super::{body_from_request, store_unavailable};
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
@@ -76,6 +77,10 @@ pub(super) async fn session_approve_response(
         "note": note,
         "one_shot": one_shot,
     });
+    let payload = match principal_payload(req, payload) {
+        Ok(payload) => payload,
+        Err(_) => return bad_request("bad principal"),
+    };
     if let Err(e) = audit
         .write(Some(sid), AuditKind::ApprovalGranted, payload)
         .await
@@ -130,6 +135,10 @@ pub(super) async fn session_revoke_approval_response(
         "removed": removed,
         "source": "gateway",
     });
+    let payload = match principal_payload(req, payload) {
+        Ok(payload) => payload,
+        Err(_) => return bad_request("bad principal"),
+    };
     if let Err(e) = audit
         .write(Some(sid), AuditKind::ApprovalRevoked, payload)
         .await

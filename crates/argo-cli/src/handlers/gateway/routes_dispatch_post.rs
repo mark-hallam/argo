@@ -3,15 +3,15 @@
 //! arm forwards to a handler defined in another sibling
 //! module. Returns `Some(resp)` on a match, `None` otherwise so
 //! `routes.rs` can fall through to its 404 default.
+use super::routes_auth::check_bearer_auth;
+use super::routes_auth_principal::parse_principal_header;
 use super::routes_cron::{cron_create_response, cron_delete_response};
 use super::routes_forge_promote::{
-    forge_abort_all_response, forge_promote_response, forge_requeue_response,
-    forge_sweep_response,
+    forge_abort_all_response, forge_promote_response, forge_requeue_response, forge_sweep_response,
 };
 use super::routes_post::{
     append_message_response, create_session_for_vertical_response, create_session_response,
-    replay_response, run_turn_response,
-    steer_response,
+    replay_response, run_turn_response, steer_response,
 };
 use super::routes_post_admin::{
     judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
@@ -23,11 +23,8 @@ use super::routes_post_writes::{
     workspace_init_response,
 };
 use super::routes_query::parse_query_kv;
-use super::routes_session_approval::{
-    session_approve_response, session_revoke_approval_response,
-};
+use super::routes_session_approval::{session_approve_response, session_revoke_approval_response};
 use super::routes_session_clone::{session_branch_response, session_clone_response};
-use super::routes_auth::check_bearer_auth;
 use super::routes_session_skills::{
     session_attach_skill_response, session_clear_skills_response, session_delete_response,
     session_detach_skill_response, session_end_all_response, session_end_response,
@@ -47,6 +44,12 @@ pub(super) async fn dispatch_post(
     if let Some(resp) = check_bearer_auth(req) {
         return Some(resp);
     }
+    if parse_principal_header(req).is_err() {
+        return Some((
+            "400 Bad Request",
+            r#"{"error":"bad principal"}"#.to_string(),
+        ));
+    }
     if req.starts_with("POST /sessions ") {
         return Some(create_session_response(req, store).await);
     }
@@ -56,9 +59,7 @@ pub(super) async fn dispatch_post(
         if let Some((id, tail)) = rest.split_once('/') {
             // /sessions (#651) — bind a session to the vertical.
             if tail.starts_with("sessions ") || tail.starts_with("sessions?") {
-                return Some(
-                    create_session_for_vertical_response(id, req, store).await,
-                );
+                return Some(create_session_for_vertical_response(id, req, store).await);
             }
             // /run (#670) — one-shot composite mirror of `argo
             // vertical run`: create session + attach skills + run
@@ -107,18 +108,14 @@ pub(super) async fn dispatch_post(
     if req.starts_with("POST /forge/runs/abort-all ") {
         return Some(forge_abort_all_response(store).await);
     }
-    if req.starts_with("POST /forge/runs/sweep ")
-        || req.starts_with("POST /forge/runs/sweep?")
-    {
+    if req.starts_with("POST /forge/runs/sweep ") || req.starts_with("POST /forge/runs/sweep?") {
         let tail = req.strip_prefix("POST ").unwrap_or(req);
         let older_than_minutes = parse_query_kv(tail, "older-than-minutes")
             .and_then(|v| v.parse::<i64>().ok())
             .unwrap_or(60);
         return Some(forge_sweep_response(older_than_minutes, store).await);
     }
-    if req.starts_with("POST /sessions/end-all ")
-        || req.starts_with("POST /sessions/end-all?")
-    {
+    if req.starts_with("POST /sessions/end-all ") || req.starts_with("POST /sessions/end-all?") {
         let tail = req.strip_prefix("POST ").unwrap_or(req);
         let older_than =
             parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
@@ -220,11 +217,9 @@ pub(super) async fn dispatch_post(
                 return Some(session_clone_response(sid, store).await);
             }
             if tail.starts_with("branch ") || tail.starts_with("branch?") {
-                let through_seq = parse_query_kv(tail, "through-seq")
-                    .and_then(|v| v.parse::<i64>().ok());
-                return Some(
-                    session_branch_response(sid, through_seq, store).await,
-                );
+                let through_seq =
+                    parse_query_kv(tail, "through-seq").and_then(|v| v.parse::<i64>().ok());
+                return Some(session_branch_response(sid, through_seq, store).await);
             }
             // #665 — escalation grant flow mirror of `argo
             // session approve` / `revoke-approval`. Same body
@@ -234,9 +229,7 @@ pub(super) async fn dispatch_post(
                 return Some(session_approve_response(sid, req, store).await);
             }
             if tail.starts_with("revoke-approval ") {
-                return Some(
-                    session_revoke_approval_response(sid, req, store).await,
-                );
+                return Some(session_revoke_approval_response(sid, req, store).await);
             }
         }
     }
