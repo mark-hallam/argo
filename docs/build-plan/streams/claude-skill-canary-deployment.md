@@ -1,6 +1,8 @@
 # claude-skill-canary-deployment — canary rollout for promoted skills
 
-**Owner**: claude. **Depends on**: skill versioning (claude-skill-versioning-ab-test);
+**Owner**: claude.
+
+**Authored against**: origin/main 2026-05-09 (rewrite v2 by conductor — original v1 used `<resolver>.rs` placeholder + `skill_runs` audit-target that doesn't exist; retargeted to `argo-agent-runner/src/turn.rs` + action-ledger audit source. Migration slots also retargeted post-cascade to raw 41__ + v42). **Depends on**: skill versioning (claude-skill-versioning-ab-test);
 existing `argo-agent-runner` skill lookup path.
 
 ## Why
@@ -37,19 +39,18 @@ claim 4 ("trust") is hollow without a graceful rollout primitive.
    `grep -rn "skill body\|fetch_skill_body\|active body" crates/argo-agent-runner/src/`,
    then add a single `if let Some(cfg) = canary.get(skill_id) { ... }` branch.
    Keep the change ≤ 30 LOC inside the runner.
-4. Audit: every canary pick writes a row to `skill_runs` with `kind=canary_pick`,
-   from_version, to_version chosen, seed (hashed). Reuse existing skill_runs
+4. Audit: every canary pick writes a row to `action ledger (skill_runs table doesn't exist post-cascade; use `argo-audit::AuditSink::write` with audit kind for canary picks)` with `kind=canary_pick`,
+   from_version, to_version chosen, seed (hashed). Reuse existing action ledger (skill_runs table doesn't exist post-cascade; use `argo-audit::AuditSink::write` with audit kind for canary picks)
    helper.
 
 ## Files you may touch
 
 - `crates/argo-skill/src/canary.rs` (NEW, ≤ 360 LOC).
 - `crates/argo-skill/src/lib.rs` — narrowly: 1 `pub mod canary;` + re-export.
-- `crates/argo-store/migrations/3X__skill_canary.sql` (NEW; pick free number ≥ 38).
-- `crates/argo-store/src/migrations/v13.rs` (NEW, ≤ 80 LOC) wrapping the SQL,
-  next available version slot after the share PoC.
-- `crates/argo-store/src/migrations/mod.rs` — narrowly: 1 `mod v13;` + insertion in `all_migrations()`.
-- `crates/argo-agent-runner/src/<resolver>.rs` — narrowly: ≤ 30 LOC for the canary branch (path determined during implementation).
+- `crates/argo-store/migrations/41__skill_canary.sql` (NEW — slot 41; depends on `claude-skill-share-cross-tenant-poc` having taken slot 40).
+- `crates/argo-store/src/migrations/v42.rs` (NEW, ≤ 80 LOC) wrapping the SQL. (v40 is cascade tombstone; v41 is the share PoC; v42 is this brief.)
+- `crates/argo-store/src/migrations/mod.rs` — narrowly: 1 `mod v42;` + insertion in `all_migrations()`.
+- `crates/argo-agent-runner/src/turn.rs` — narrowly: ≤ 30 LOC for the canary branch (replaces the brief's prior placeholder `<resolver>.rs` reference; turn.rs is the per-turn dispatch entry point).
 - `crates/argo-skill/tests.rs` — narrowly: canary picker unit tests.
 - `crates/argo-agent-runner/tests/canary_routing.rs` (NEW, ≤ 250 LOC).
 

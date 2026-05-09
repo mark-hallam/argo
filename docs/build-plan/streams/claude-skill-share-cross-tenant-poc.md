@@ -1,6 +1,8 @@
 # claude-skill-share-cross-tenant-poc — cross-tenant skill sharing PoC
 
-**Owner**: claude. **Depends on**: existing `org_chart` table (migration
+**Owner**: claude.
+
+**Authored against**: origin/main 2026-05-09 (rewrite v2 by conductor — original v1 targeted v12 slot which got reconciled by the v12-v40 migration cascade #1029/#1048/#1050/#1054. Retargeted to v41 + raw 40__. org_chart dependency from raw `21__org_chart.sql` was reconciled into versioned `v22.rs` per #1050; cross-cluster lookups still work). **Depends on**: existing `org_chart` table (migration
 `21__org_chart.sql`); existing skill versioning + `SkillStore`.
 
 ## Why
@@ -43,9 +45,9 @@ data model.
 
 ## Files you may touch
 
-- `crates/argo-store/migrations/38__skill_shared.sql` (NEW).
-- `crates/argo-store/src/migrations/v12.rs` (NEW, ≤ 80 LOC) wrapping the SQL.
-- `crates/argo-store/src/migrations/mod.rs` — narrowly: 1 `mod v12;` + insertion in `all_migrations()`.
+- `crates/argo-store/migrations/40__skill_shared.sql` (NEW — slot 40, post-cascade; raw 38 taken by session_worker_id, raw 39 by worker_kpi_value).
+- `crates/argo-store/src/migrations/v41.rs` (NEW, ≤ 80 LOC) wrapping the SQL. v40 is the cascade tombstone (#1054); v41 is the next free versioned slot.
+- `crates/argo-store/src/migrations/mod.rs` — narrowly: 1 `mod v41;` + insertion in `all_migrations()`.
 - `crates/argo-store/src/skill_share.rs` (NEW, ≤ 280 LOC).
 - `crates/argo-store/src/lib.rs` — narrowly: 1 `pub mod skill_share;` line.
 - `crates/argo-store/tests/skill_share.rs` (NEW, ≤ 250 LOC) OR equivalent
