@@ -256,6 +256,7 @@ pub mod vertical_workflow;
 pub mod voice;
 pub mod work;
 mod work_artifacts;
+mod work_dispatch;
 mod work_emission;
 mod work_jobs;
 mod work_loop;
