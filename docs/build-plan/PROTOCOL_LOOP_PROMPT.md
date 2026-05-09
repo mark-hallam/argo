@@ -91,6 +91,17 @@ commit that adds the brief file.
    - If clean: gh pr merge <num> --squash --delete-branch, then update BUILD_STATUS.md row to MERGED with PR num, commit "status: <brief-id> merged (#<num>)", push to main
    - If issues: gh pr comment <num> --body "<specific issue>", note in BUILD_STATUS.md
    - Track which PRs I've already reviewed across ticks (use git log to see my own merge commits)
+   - **Stale-IN_REVIEW sweep (tick465 amendment).** A worker that opens a PR, gets a fix-request comment, then exits without re-pushing leaves the PR + ledger row stuck IN_REVIEW indefinitely. After handling NEW PRs above, sweep stuck ones:
+     ```
+     gh pr list --state open --json number,updatedAt,headRefName \
+       | jq -r '.[] | select((now - (.updatedAt | fromdate)) > 7200) | "\(.number)\t\(.headRefName)"'
+     ```
+     For each stale PR (>2h since last push) where the BUILD_STATUS row still shows IN_REVIEW:
+     1. Confirm the conductor (this tab or a prior tick's tab) has a fix-request comment on the PR via `gh pr view <num> --json comments` — if there's no fix-request, leave alone (the PR may legitimately be parked).
+     2. Demote the BUILD_STATUS row from IN_REVIEW to TODO. Append a salvage note to the row containing: PR number, branch name, the worktree path (`/tmp/<brief-id>`) if it still exists, and a one-line excerpt of the conductor's fix-request comment so the next worker has the context.
+     3. Do NOT close the PR. A fresh worker that re-claims the brief decides whether to rebase + push the existing branch or open a new PR; closing prematurely loses their starting point.
+     4. Commit `"status: demote stale IN_REVIEW <brief-id> (no push in 2h+)"` and push.
+     5. **Boundary**: do not auto-demote PRs >24h old where multiple fix-request comments exist — those need a `claude-rebase-pr-<n>` recovery brief instead (#911/#905/#894/#924 precedent). Note them in the tick summary for the operator/next conductor.
 
 6. Do not write feature code from the conductor tab. If there is process/doc work already
    in progress for the conductor role, continue it; otherwise skip to BLOCKED triage.
