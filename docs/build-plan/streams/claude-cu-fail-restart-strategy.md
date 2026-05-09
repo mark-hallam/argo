@@ -35,6 +35,7 @@ This brief codifies a **snapshot / reset / retry-with-context** restart strategy
   - RetryWithContext (no snapshot) preserves trajectory log across attempts
   - None strategy is a no-op
 - `crates/argo-executor-computer-use/src/executor.rs` — narrowly: ~30 LOC delta around the per-step error branch
+- `crates/argo-executor-computer-use/src/profile.rs` — narrowly: add `#[serde(deny_unknown_fields)]` on the executor `restart` subsection (pre-cleared by `claude-cu-executor-extract-helper`)
 - `crates/argo-executor-computer-use/src/lib.rs` — narrowly: `mod restart;` declaration
 - `manifests/executors/computer_use.toml` — narrowly: add commented-out `[restart]` example block + parsing in the loader
 - `crates/argo-executor-computer-use/tests/restart_smoke.rs` (NEW, ≤ 200 LOC) — 1 integration test with a flaky-mock sandbox that fails twice then succeeds; asserts retry path

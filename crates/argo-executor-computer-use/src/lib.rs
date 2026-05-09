@@ -59,6 +59,7 @@ pub mod budget;
 pub mod config;
 pub mod e2b;
 pub mod executor;
+pub mod executor_types;
 pub mod learn;
 pub mod pool;
 pub mod profile;
