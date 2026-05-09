@@ -7,6 +7,7 @@ use crate::conflict::{detect as detect_conflicts, highest_score};
 use crate::error::GenesisError;
 use crate::eval_seed::{generate as generate_eval_seeds, suggested_actions_from_manifest, to_toml};
 use crate::manifest_writer::build_manifest;
+use crate::memory_schema;
 use crate::prompt_writer::write_artefacts;
 use crate::safety_judge;
 use crate::templates::match_template;
@@ -47,6 +48,7 @@ pub fn plan(charter: &str, persona: &str) -> Result<GenesisPlan, GenesisError> {
     );
     let mut manifest = build_manifest(charter, archetype, persona, &vertical_id)?;
     add_suggested_actions(&mut manifest, charter)?;
+    manifest.memory = Some(memory_schema::manifest_section());
     Ok(GenesisPlan {
         charter: charter.to_string(),
         persona: persona.to_string(),
@@ -138,6 +140,7 @@ pub fn write_vertical_with_overlap(
     write_manifest(&plan.manifest, output)?;
     write_artefacts(output, &plan.charter, plan.archetype, &plan.persona)?;
     write_eval_seed_toml(plan, output)?;
+    memory_schema::write_schema_file(&plan.charter, plan.archetype, output)?;
     let cfg = WorkerConfig::new_dry_run(&plan.vertical_id, &plan.persona, Utc::now());
     cfg.write_to(output)?;
     if let Some(actions) = plan.manifest.actions.as_ref() {

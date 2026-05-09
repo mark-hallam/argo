@@ -42,6 +42,7 @@ pub mod conflict;
 pub mod error;
 pub mod eval_seed;
 pub mod manifest_writer;
+pub mod memory_schema;
 pub mod pipeline;
 pub mod prompt_engineer;
 pub mod prompt_writer;
