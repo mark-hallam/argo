@@ -175,6 +175,7 @@ mod session_export;
 mod session_list;
 mod session_messages;
 mod session_messages_rollups;
+mod session_orchestrator;
 pub mod session_replay;
 mod session_resolve;
 mod session_search;
