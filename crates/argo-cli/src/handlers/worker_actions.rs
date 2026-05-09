@@ -3,7 +3,7 @@
 use crate::cli::cli_worker_channels_cmds::WorkerChannelsCmd;
 use crate::cli::cli_worker_cmds::{
     WorkerActionsCmd, WorkerArchiveCmd, WorkerCharterCmd, WorkerCmd, WorkerItemsCmd,
-    WorkerKpiCmd, WorkerPolicyCmd,
+    WorkerKpiCmd, WorkerOkrCmd, WorkerPolicyCmd,
 };
 use argo_identity::WorkerId;
 use argo_types::ArgoResult;
@@ -250,6 +250,17 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             }
             WorkerKpiCmd::Series { worker_id, kpi, tenant, bucket, json } => {
                 super::worker_kpi::series(&worker_id, &kpi, &tenant, &bucket, json).await
+            }
+        },
+        WorkerCmd::Okr(okr_cmd) => match okr_cmd {
+            WorkerOkrCmd::Set { worker_id, tenant, period, title, description, kr, json } => {
+                super::worker_okr::set(&worker_id, &tenant, &period, &title, description.as_deref(), &kr, json).await
+            }
+            WorkerOkrCmd::Show { worker_id, tenant, period, format } => {
+                super::worker_okr::show(&worker_id, &tenant, period.as_deref(), &format).await
+            }
+            WorkerOkrCmd::Progress { worker_id, tenant, period, json } => {
+                super::worker_okr::progress(&worker_id, &tenant, period.as_deref(), json).await
             }
         },
         WorkerCmd::Items(items_cmd) => match items_cmd {

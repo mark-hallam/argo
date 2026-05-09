@@ -240,6 +240,12 @@ pub enum WorkerCmd {
     /// numeric values.
     #[command(subcommand)]
     Kpi(WorkerKpiCmd),
+    /// Set / show / score quarterly OKRs for one worker
+    /// (Stream `claude-worker-okr-cli`, mission claim 2 goals layer).
+    /// KPI tracker records observed values; OKRs declare intent
+    /// against named KPIs and score progress.
+    #[command(subcommand)]
+    Okr(WorkerOkrCmd),
     /// Per-worker auto-approval success rollup over typed `AuditKind`
     /// approval kinds. Read-only join over `audit_record` +
     /// `session.worker_id` (mission claim 2 KPI seed).
@@ -270,4 +276,5 @@ pub use crate::cli::cli_worker_charter_cmds::WorkerCharterCmd;
 pub use crate::cli::cli_worker_costs_cmds::WorkerCostsCmd;
 pub use crate::cli::cli_worker_items_cmds::WorkerItemsCmd;
 pub use crate::cli::cli_worker_kpi_cmds::WorkerKpiCmd;
+pub use crate::cli::cli_worker_okr_cmds::WorkerOkrCmd;
 pub use crate::cli::cli_worker_policy_cmds::WorkerPolicyCmd;
