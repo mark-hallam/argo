@@ -99,6 +99,12 @@ pub mod cli_worker_cmds;
 pub mod cli_worker_channels_cmds;
 #[path = "cli_worker_kpi_cmds.rs"]
 pub mod cli_worker_kpi_cmds;
+#[path = "cli_worker_actions_cmds.rs"]
+pub mod cli_worker_actions_cmds;
+#[path = "cli_worker_items_cmds.rs"]
+pub mod cli_worker_items_cmds;
+#[path = "cli_worker_policy_cmds.rs"]
+pub mod cli_worker_policy_cmds;
 #[path = "cli_workspace_cmds.rs"]
 pub mod cli_workspace_cmds;
 
