@@ -22,6 +22,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Check workspace dependency pinning
         run: scripts/check-version-pinning.sh
+      - name: Check tracing span naming
+        run: scripts/check-span-naming.sh
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
