@@ -50,6 +50,10 @@ pub mod recovery_cache;
 /// Persistent subtask ledger — durable record of Planner-emitted
 /// decompositions (Stream `claude-subtask-ledger-store`).
 pub mod subtask;
+/// Operator-facing team primitive — bridges `org_unit` + `roster`
+/// + `roster_member` for the `argo team` CLI surface (Stream
+/// `claude-worker-team-roster-cli`).
+pub mod team_roster;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Quota kind enums + error type for the tenant_quota gate

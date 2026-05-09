@@ -65,6 +65,8 @@ pub mod cli_roster_cmds;
 pub mod cli_skill_ab_cmds;
 #[path = "cli_subcommands.rs"]
 pub mod cli_subcommands;
+#[path = "cli_team_cmds.rs"]
+pub mod cli_team_cmds;
 #[path = "cli_subtask_cmds.rs"]
 pub mod cli_subtask_cmds;
 #[path = "cli_subcommands_cron.rs"]

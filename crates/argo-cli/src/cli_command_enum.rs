@@ -159,6 +159,15 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_roster_cmds::RosterCmd,
     },
+    /// Org-chart-aware teams: the operator-facing bridge between
+    /// `argo org` (the tree) and `argo roster` (group policy)
+    /// (Stream `claude-worker-team-roster-cli`). Each `team` is a
+    /// single id that resolves uniquely in both `org_unit` (name +
+    /// parent link) and `roster` (default policy bundle).
+    Team {
+        #[command(subcommand)]
+        cmd: cli_team_cmds::TeamCmd,
+    },
     /// Declarative org policies (Stream `claude-policy-as-code`):
     /// list, show, validate, apply YAML files at
     /// `<workspace>/policies/<name>.yaml` that constrain the

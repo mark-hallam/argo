@@ -154,6 +154,7 @@ pub mod roster_create;
 pub mod roster_list;
 pub mod roster_remove_member;
 pub mod roster_show;
+pub mod team;
 pub mod route;
 pub mod session;
 mod session_aggregates;
