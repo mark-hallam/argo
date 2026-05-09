@@ -300,6 +300,7 @@ mod worker_actions_executor_code;
 mod worker_actions_executor_cu_macos;
 mod worker_actions_executor_document;
 mod worker_actions_executor_mcp;
+mod worker_actions_executor_render;
 mod worker_actions_executor_stubs;
 mod worker_actions_executor_timing;
 mod worker_actions_followup;
