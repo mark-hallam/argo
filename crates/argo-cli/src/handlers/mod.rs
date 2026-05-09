@@ -257,6 +257,7 @@ pub mod worker_charter;
 mod worker_charter_tests;
 #[allow(dead_code)]
 pub mod worker_create;
+pub mod worker_costs;
 pub mod worker_list;
 pub mod worker_onboard;
 pub mod worker_portrait;

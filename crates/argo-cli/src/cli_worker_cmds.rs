@@ -85,6 +85,8 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Show cost attribution from the worker budget ledger.
+    Costs(WorkerCostsCmd),
     /// Render a paste-friendly one-page worker portrait.
     Portrait {
         /// Worker id (UUIDv7).
@@ -221,6 +223,7 @@ pub enum WorkerCmd {
 // `handlers::worker_budget::run` rather than pattern-matching here.
 pub use crate::cli::cli_worker_archive_cmds::WorkerArchiveCmd;
 pub use crate::cli::cli_worker_charter_cmds::WorkerCharterCmd;
+pub use crate::cli::cli_worker_costs_cmds::WorkerCostsCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerPolicyCmd {

@@ -165,6 +165,7 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         }
         WorkerCmd::Show { worker_id, tenant, json } => super::worker_show::run(&tenant, &worker_id, json).await,
         WorkerCmd::List { tenant, persona, json } => super::worker_list::list(&tenant, persona.as_deref(), json).await,
+        WorkerCmd::Costs(costs_cmd) => super::worker_costs::run(costs_cmd).await,
         WorkerCmd::Portrait { worker_id, tenant, json } => {
             super::worker_portrait::run(&worker_id, &tenant, json).await
         }

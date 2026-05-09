@@ -89,6 +89,8 @@ pub mod cli_worker_archive_cmds;
 pub mod cli_worker_budget_cmds;
 #[path = "cli_worker_charter_cmds.rs"]
 pub mod cli_worker_charter_cmds;
+#[path = "cli_worker_costs_cmds.rs"]
+pub mod cli_worker_costs_cmds;
 #[path = "cli_worker_cmds.rs"]
 pub mod cli_worker_cmds;
 #[path = "cli_worker_channels_cmds.rs"]
