@@ -18,6 +18,7 @@
 
 pub mod auth;
 pub mod client;
+mod client_helpers;
 mod schemas;
 mod service;
 
