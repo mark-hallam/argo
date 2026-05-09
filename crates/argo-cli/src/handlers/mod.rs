@@ -38,6 +38,7 @@ pub mod budget_alerts_test;
 pub mod budget_anomalies;
 pub mod budget_by_skill;
 mod budget_csv;
+mod budget_show;
 pub mod budget_watch;
 pub mod chat;
 pub mod classify_list;

@@ -1,12 +1,12 @@
 //! `argo budget` — per-worker budget ledger reads.
 use crate::cli::{BudgetAlertsCmd, BudgetCmd, BudgetOutputFormat};
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_identity::{worker_budget, AutoApprovalPolicy};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
-use chrono::{DateTime, Datelike, TimeZone, Utc};
-use serde::Serialize;
+use chrono::{DateTime, TimeZone, Utc};
 use sqlx::{QueryBuilder, Sqlite};
+
+pub(crate) use super::budget_show::{micros_to_usd, BudgetSummary, ChargeRow};
 
 const WORKER_BUDGET_SCHEMA: &str =
     include_str!("../../../argo-store/migrations/14__worker_budget.sql");
@@ -19,13 +19,15 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
             json,
             format,
         } => {
-            let summary = budget_summary(&store, &worker_id, Utc::now()).await?;
+            let summary = super::budget_show::budget_summary(&store, &worker_id, Utc::now()).await?;
             match format.resolve(json) {
                 BudgetOutputFormat::Json => {
                     println!("{}", serde_json::to_string(&summary).unwrap_or_default());
                 }
                 BudgetOutputFormat::Csv => print!("{}", super::budget_csv::summary(&summary)),
-                BudgetOutputFormat::Human => print!("{}", render_summary_text(&summary)),
+                BudgetOutputFormat::Human => {
+                    print!("{}", super::budget_show::render_summary_text(&summary));
+                }
             }
         }
         BudgetCmd::Recent {
@@ -43,7 +45,10 @@ pub async fn run(cmd: BudgetCmd) -> ArgoResult<()> {
                 }
                 BudgetOutputFormat::Csv => print!("{}", super::budget_csv::charges(&rows)),
                 BudgetOutputFormat::Human => {
-                    print!("{}", render_recent_text(&rows, worker.as_deref(), since));
+                    print!(
+                        "{}",
+                        super::budget_show::render_recent_text(&rows, worker.as_deref(), since)
+                    );
                 }
             }
         }
@@ -135,95 +140,7 @@ async fn open_store() -> ArgoResult<SessionStore> {
     Ok(store)
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct BudgetSummary {
-    pub(crate) worker_id: String,
-    pub(crate) today_usd_micros: u64,
-    pub(crate) this_month_usd_micros: u64,
-    pub(crate) today_usd: f64,
-    pub(crate) this_month_usd: f64,
-    pub(crate) daily_cap_usd_micros: Option<u64>,
-    pub(crate) monthly_cap_usd_micros: Option<u64>,
-    pub(crate) remaining_today_usd: Option<f64>,
-    pub(crate) remaining_month_usd: Option<f64>,
-    pub(crate) last_charges: Vec<ChargeRow>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct ChargeRow {
-    pub(crate) worker_id: String,
-    pub(crate) action_id: String,
-    pub(crate) usd_micros: u64,
-    pub(crate) usd: f64,
-    pub(crate) charged_at: String,
-    pub(crate) charged_at_epoch: i64,
-}
-
-async fn budget_summary(
-    store: &SessionStore,
-    worker_id: &str,
-    now: DateTime<Utc>,
-) -> ArgoResult<BudgetSummary> {
-    let pool = store.pool();
-    let today = worker_budget::spend_today_for_worker(pool, worker_id, now).await?;
-    let month = spend_this_month_for_worker(store, worker_id, now).await?;
-    let policy = worker_policy(store, worker_id).await?;
-    let daily_cap = policy.as_ref().and_then(|p| p.daily_budget_usd_micros);
-    let last_charges = recent_charges(store, 5, Some(worker_id), None).await?;
-    Ok(BudgetSummary {
-        worker_id: worker_id.to_string(),
-        today_usd_micros: today,
-        this_month_usd_micros: month,
-        today_usd: micros_to_usd(today),
-        this_month_usd: micros_to_usd(month),
-        daily_cap_usd_micros: daily_cap,
-        monthly_cap_usd_micros: None,
-        remaining_today_usd: daily_cap.map(|cap| micros_to_usd(cap.saturating_sub(today))),
-        remaining_month_usd: None,
-        last_charges,
-    })
-}
-
-async fn spend_this_month_for_worker(
-    store: &SessionStore,
-    worker_id: &str,
-    now: DateTime<Utc>,
-) -> ArgoResult<u64> {
-    ensure_budget_schema(store).await?;
-    let start = month_start_utc(now).timestamp();
-    let total: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(usd_micros), 0) FROM worker_budget \
-         WHERE worker_id = ? AND charged_at >= ?",
-    )
-    .bind(worker_id)
-    .bind(start)
-    .fetch_one(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("worker budget spend this month: {e}")))?;
-    Ok(u64::try_from(total).unwrap_or(0))
-}
-
-async fn worker_policy(
-    store: &SessionStore,
-    worker_id: &str,
-) -> ArgoResult<Option<AutoApprovalPolicy>> {
-    if !table_exists(store, "worker").await? {
-        return Ok(None);
-    }
-    let row: Option<(String,)> =
-        sqlx::query_as("SELECT auto_approval_json FROM worker WHERE id = ? LIMIT 1")
-            .bind(worker_id)
-            .fetch_optional(store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("worker policy lookup: {e}")))?;
-    row.map(|(body,)| {
-        serde_json::from_str(&body)
-            .map_err(|e| ArgoError::Provider(format!("worker policy JSON: {e}")))
-    })
-    .transpose()
-}
-
-async fn recent_charges(
+pub(crate) async fn recent_charges(
     store: &SessionStore,
     limit: u32,
     worker: Option<&str>,
@@ -266,7 +183,7 @@ async fn recent_charges(
         .collect())
 }
 
-async fn ensure_budget_schema(store: &SessionStore) -> ArgoResult<()> {
+pub(crate) async fn ensure_budget_schema(store: &SessionStore) -> ArgoResult<()> {
     for stmt in WORKER_BUDGET_SCHEMA.split_terminator(';') {
         let sql = stmt.trim();
         if sql.is_empty() {
@@ -278,16 +195,6 @@ async fn ensure_budget_schema(store: &SessionStore) -> ArgoResult<()> {
             .map_err(|e| ArgoError::Provider(format!("worker budget schema: {e}")))?;
     }
     Ok(())
-}
-
-async fn table_exists(store: &SessionStore, table: &str) -> ArgoResult<bool> {
-    let count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?")
-            .bind(table)
-            .fetch_one(store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("table lookup {table}: {e}")))?;
-    Ok(count > 0)
 }
 
 fn parse_since(raw: Option<&str>) -> ArgoResult<Option<DateTime<Utc>>> {
@@ -303,90 +210,10 @@ fn parse_since(raw: Option<&str>) -> ArgoResult<Option<DateTime<Utc>>> {
     .transpose()
 }
 
-fn month_start_utc(now: DateTime<Utc>) -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
-        .single()
-        .unwrap_or(now)
-}
-
-fn micros_to_usd(micros: u64) -> f64 {
-    micros as f64 / 1_000_000.0
-}
-
-fn format_usd(micros: u64) -> String {
-    let usd = micros_to_usd(micros);
-    if micros > 0 && usd < 0.01 {
-        format!("{usd:.4}")
-    } else {
-        format!("{usd:.2}")
-    }
-}
-
-fn render_summary_text(summary: &BudgetSummary) -> String {
-    let mut out = format!("budget show worker={}\n", summary.worker_id);
-    out.push_str(&format!(
-        "  today:      ${:>10}\n",
-        format_usd(summary.today_usd_micros)
-    ));
-    out.push_str(&format!(
-        "  this month: ${:>10}\n",
-        format_usd(summary.this_month_usd_micros)
-    ));
-    match summary.daily_cap_usd_micros {
-        Some(cap) => out.push_str(&format!(
-            "  remaining today: ${:>10}\n",
-            format_usd(cap.saturating_sub(summary.today_usd_micros))
-        )),
-        None => out.push_str("  remaining today: (unlimited)\n"),
-    }
-    out.push_str("  remaining month: (unlimited)\n");
-    out.push_str("last charges:\n");
-    if summary.last_charges.is_empty() {
-        out.push_str("  (none)\n");
-    } else {
-        for row in &summary.last_charges {
-            out.push_str(&format!(
-                "  {}  ${:>10}  action={}\n",
-                row.charged_at,
-                format_usd(row.usd_micros),
-                row.action_id
-            ));
-        }
-    }
-    out
-}
-
-fn render_recent_text(
-    rows: &[ChargeRow],
-    worker: Option<&str>,
-    since: Option<DateTime<Utc>>,
-) -> String {
-    if rows.is_empty() {
-        return "(no worker budget charges)\n".to_string();
-    }
-    let mut out = format!("budget recent ({} ledger rows", rows.len());
-    if let Some(worker) = worker {
-        out.push_str(&format!(", worker={worker}"));
-    }
-    if let Some(since) = since {
-        out.push_str(&format!(", since={}", since.to_rfc3339()));
-    }
-    out.push_str("):\n");
-    for row in rows {
-        out.push_str(&format!(
-            "  {}  ${:>10}  worker={}  action={}\n",
-            row.charged_at,
-            format_usd(row.usd_micros),
-            row.worker_id,
-            row.action_id
-        ));
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use argo_identity::{worker_budget, AutoApprovalPolicy};
     use chrono::TimeZone;
 
     async fn store() -> SessionStore {
@@ -451,13 +278,15 @@ mod tests {
             .await
             .unwrap();
 
-        let summary = budget_summary(&store, "worker-a", at(6, 12)).await.unwrap();
+        let summary = super::super::budget_show::budget_summary(&store, "worker-a", at(6, 12))
+            .await
+            .unwrap();
         assert_eq!(summary.today_usd_micros, 1_500_000);
         assert_eq!(summary.this_month_usd_micros, 12_500_000);
         assert_eq!(summary.remaining_today_usd, Some(3.5));
         assert_eq!(summary.remaining_month_usd, None);
         assert_eq!(summary.last_charges.len(), 3);
-        let text = render_summary_text(&summary);
+        let text = super::super::budget_show::render_summary_text(&summary);
         assert!(text.contains("remaining today"));
         assert!(text.contains("action=a1"));
     }
