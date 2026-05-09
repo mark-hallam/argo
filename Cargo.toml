@@ -102,6 +102,7 @@ reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "multi
 globset = "0.4"
 proptest = "1"
 clap = { version = "4", features = ["derive", "env"] }
+criterion = "0.5"
 sha2 = "0.10"
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
 hmac = "0.12"
