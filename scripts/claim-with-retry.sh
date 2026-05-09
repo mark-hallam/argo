@@ -31,10 +31,21 @@ if [[ ! -f "$LEDGER" ]]; then
     exit 2
 fi
 
+# Phantom-modifications rescue: stash-pop on already-pulled state can leave
+# files marked M whose content is byte-identical to HEAD. Refresh the index
+# (clears stat-only artefacts), then check if a real content diff remains.
+# If every dirty file's content matches HEAD, restore from HEAD and proceed.
+# If any real edit exists, fail loud so we never destroy operator work.
+git -C "$REPO_ROOT" update-index --refresh >/dev/null 2>&1 || true
 if [[ -n "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]]; then
-    echo "FAIL: working tree dirty; commit or stash first" >&2
-    git -C "$REPO_ROOT" status --short >&2
-    exit 2
+    if [[ -z "$(git -C "$REPO_ROOT" diff HEAD --)" ]]; then
+        echo "claim-with-retry: phantom modifications detected (content == HEAD); restoring" >&2
+        git -C "$REPO_ROOT" checkout HEAD -- .
+    else
+        echo "FAIL: working tree dirty; commit or stash first" >&2
+        git -C "$REPO_ROOT" status --short >&2
+        exit 2
+    fi
 fi
 
 # Sync to remote tip before we classify.

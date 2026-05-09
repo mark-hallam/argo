@@ -138,6 +138,17 @@ Your job — ONE brief, then exit:
   7. gh pr create with title and body matching the brief.
   8. cd back to $REPO main checkout. Edit BUILD_STATUS.md row to
      IN_REVIEW with the PR number, commit, push to main.
+     **Use rebase, NOT stash, for the post-edit push:**
+       git pull --rebase origin main   # races land cleanly
+       git add docs/build-plan/BUILD_STATUS.md
+       git commit -m \"status: $BRIEF_ID in review (#<PR>)\"
+       git push origin main
+     If push is rejected (non-fast-forward): re-run \`git pull --rebase\`
+     and retry. **Never** use \`git stash push\`/\`pop\` around this:
+     stash-pop on already-pulled state leaves phantom \`M\` markers
+     in the shared main checkout that block subsequent claim
+     attempts (claim-with-retry has a rescue for this, but do not
+     rely on it).
 
 If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
   - Edit BUILD_STATUS.md row to BLOCKED with a one-line reason.
