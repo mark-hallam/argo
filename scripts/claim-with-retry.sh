@@ -73,8 +73,11 @@ import sys, re
 ledger, brief_id, host, ts = sys.argv[1:5]
 with open(ledger) as f:
     text = f.read()
+# Description body (last cell) may contain literal pipes — e.g. brief authors
+# embed shell snippets like `--horizon eod|eom|eoq`. Match the body greedily
+# up to the trailing pipe + EOL instead of `[^|\n]*`.
 pat = re.compile(
-    rf'^(\| {re.escape(brief_id)} \| [^|]+ \|) TODO \| [^|]+ \|([^|\n]*)\|$',
+    rf'^(\| {re.escape(brief_id)} \| [^|]+ \|) TODO \| [^|]+ \|(.*)\|$',
     re.MULTILINE,
 )
 def repl(m):

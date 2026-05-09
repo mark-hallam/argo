@@ -32,6 +32,17 @@ FAMILY="${FAMILY:-claude}"
 
 cd "$REPO"
 
+# Spin-loop guard: if the SAME brief fails to claim N times in a row, exit
+# rather than burning CPU. claim-with-retry exit codes:
+#   0 = claimed
+#   1 = race lost / row already CLAIMED-by-another / BLOCKED → safe to pick a different row
+#   2 = deterministic failure (brief not in ledger, or regex mismatch on the row)
+# Same brief failing 2/2 means our awk + retry-script disagree on what's claimable —
+# need an operator fix, not a tighter loop.
+LAST_BRIEF=""
+LAST_BRIEF_FAILS=0
+MAX_SAME_BRIEF_FAILS=2
+
 while true; do
   if [ -f /tmp/argo-stop ]; then
     echo "[$(date +%H:%M:%S)] /tmp/argo-stop sentinel found. Exiting."
@@ -58,10 +69,38 @@ while true; do
   fi
 
   echo "[$(date +%H:%M:%S)] Claiming $BRIEF_ID..."
-  if ! bash scripts/claim-with-retry.sh "$BRIEF_ID"; then
-    echo "[$(date +%H:%M:%S)] Claim failed/lost for $BRIEF_ID. Restarting iteration."
+  set +e
+  bash scripts/claim-with-retry.sh "$BRIEF_ID"
+  CLAIM_RC=$?
+  set -e
+
+  if [ "$CLAIM_RC" -ne 0 ]; then
+    # Track consecutive failures on the same brief
+    if [ "$BRIEF_ID" = "$LAST_BRIEF" ]; then
+      LAST_BRIEF_FAILS=$((LAST_BRIEF_FAILS + 1))
+    else
+      LAST_BRIEF=$BRIEF_ID
+      LAST_BRIEF_FAILS=1
+    fi
+
+    echo "[$(date +%H:%M:%S)] Claim failed (rc=$CLAIM_RC) for $BRIEF_ID — attempt ${LAST_BRIEF_FAILS}/${MAX_SAME_BRIEF_FAILS}."
+
+    if [ "$LAST_BRIEF_FAILS" -ge "$MAX_SAME_BRIEF_FAILS" ]; then
+      echo "[$(date +%H:%M:%S)] Same brief failed ${MAX_SAME_BRIEF_FAILS}× in a row. Exiting to prevent spin-loop."
+      echo "[$(date +%H:%M:%S)] Likely root cause: ledger row format the awk picks but claim-with-retry's regex rejects."
+      echo "[$(date +%H:%M:%S)] Inspect: grep '$BRIEF_ID' $REPO/docs/build-plan/BUILD_STATUS.md"
+      exit 1
+    fi
+
+    # Back off so we don't burn CPU even when not yet at exit threshold
+    echo "[$(date +%H:%M:%S)] Backing off 30s before retry."
+    sleep 30
     continue
   fi
+
+  # Successful claim resets the failure tracker
+  LAST_BRIEF=""
+  LAST_BRIEF_FAILS=0
 
   echo "[$(date +%H:%M:%S)] Spawning fresh Claude session for $BRIEF_ID..."
   # --dangerously-skip-permissions: required for unattended headless mode.
