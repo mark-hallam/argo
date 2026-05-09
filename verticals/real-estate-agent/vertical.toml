@@ -1,0 +1,157 @@
+schema_version = "1"
+
+[vertical]
+id          = "real-estate-agent"
+name        = "Real Estate — Agent Assistant"
+description = "Executive assistant for a licensed real-estate agent. Schedules property viewings, sends listing packets to qualified leads, drafts offer documents, flags inspection findings for human review, and runs templated post-viewing follow-up. Mixed-trust: schedule_viewing + follow_up_lead are autonomous; send_listing_packet, draft_offer, and flag_inspection_finding route to operator approval."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["real-estate", "sales", "calendar", "gmail", "documents", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
+gcal  = { transport = "stdio", command = "argo-mcp-connector-gcal",  args = [] }
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Real Estate"
+
+# Persona is "Jamie" — see prompts/persona.md. Allowed executors are
+# the four named in the brief (gcal, email/gmail, document_creation,
+# human_approval). Auto-approval gates schedule_viewing +
+# follow_up_lead; the other three actions surface to the operator.
+
+[actions]
+
+[actions.schedule_viewing]
+risk              = "low"
+requires_approval = false
+description       = "Book a property viewing on the agent's calendar via the gcal connector. Auto-approved because the calendar is the agent's own diary; never sends an external invite from this action."
+executor          = { kind = "mcp", server = "gcal", tool = "gcal.create_event", budget_usd = 0.05 }
+platforms         = ["gcal"]
+instruction_template = """
+# Schedule viewing for `{{ payload.lead_id }}`
+
+Property: `{{ payload.listing_id }}` — {{ payload.listing_address }}
+Slot:     `{{ payload.slot_start_iso }}` → `{{ payload.slot_end_iso }}`
+
+Read `inventory/sample_listings.json` for the listing's address + key. Create a private gcal event titled `Viewing: {{ payload.listing_id }} — {{ payload.lead_name }}`. Add the listing description and lockbox code to the event body. Append the booking to the `viewings` memory entry. Never auto-invite the buyer; that's the listing-packet step.
+"""
+
+[actions.send_listing_packet]
+risk              = "medium"
+requires_approval = true
+description       = "Email a curated listing packet (PDF + description summary) to a qualified lead via the gmail connector. Operator approves the recipient + body before send so the agent's brand voice and any Fair Housing language is checked first."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = """
+# Send listing packet to `{{ payload.lead_name }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Recipient:   `{{ payload.recipient_email }}`
+Listings:    `{{ payload.listing_ids | join(sep=", ") }}`
+Subject:     `{{ payload.subject }}`
+
+Body to send:
+
+{{ payload.body }}
+
+Never alter the listing price, square footage, or HOA terms while sending. Never imply preferential treatment based on a protected class — see `prompts/system.md` Fair Housing rules.
+If the lead's qualification status is unset or `unqualified`, stop and ask the operator.
+"""
+
+[actions.draft_offer]
+risk              = "high"
+requires_approval = true
+description       = "Render a markdown offer letter via the document-creation executor. Operator approves before the offer leaves the agent's workspace; the agent reviews price, contingencies, and closing terms manually."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Draft offer letter for `{{ payload.listing_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Buyer:           `{{ payload.buyer_name }}`
+Listing:         `{{ payload.listing_id }}` — {{ payload.listing_address }}
+Offer price:     `${{ payload.offer_price_usd }}` USD
+Earnest money:   `${{ payload.earnest_usd }}` USD
+Closing date:    `{{ payload.closing_date_iso }}`
+Contingencies:   `{{ payload.contingencies | join(sep=", ") }}`
+
+Output path: `<workspace>/.skycot/offers/{{ payload.listing_id }}-{{ payload.buyer_name | slugify }}.md`
+
+Use the agent's standard Markdown offer template. Never include legally binding language ("we are bound", "this is a contract"); the document is a draft for the agent to review and convert to the official offer document outside this system.
+"""
+
+[actions.flag_inspection_finding]
+risk              = "high"
+requires_approval = true
+description       = "Hand off a material inspection finding (e.g. foundation, roof, HVAC) to the licensed agent for review and re-negotiation. Routing-only — no money or document moves."
+executor          = "human"
+instruction_template = """
+# Inspection finding on `{{ payload.listing_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Buyer:    `{{ payload.buyer_name }}`
+Listing:  `{{ payload.listing_id }}` — {{ payload.listing_address }}
+Finding:  `{{ payload.finding_summary }}` (severity `{{ payload.severity }}`)
+Report:   {{ payload.report_excerpt }}
+
+Hand the finding to the agent with the inspection report attached. Never draft a re-negotiation message or repair credit from this action — that is a separate human step the agent owns. On complete, set `next_step` to one of `re-negotiate|walk|accept_as_is`.
+"""
+
+[actions.follow_up_lead]
+risk              = "low"
+requires_approval = false
+description       = "Send a templated post-viewing follow-up to a warm lead, using merge fields against `inventory/follow_up_templates.md`. Auto-approval safe because the body is a fixed template — no novel content is generated."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.02 }
+platforms         = ["gmail"]
+instruction_template = """
+# Templated follow-up to `{{ payload.lead_name }}`
+
+Lead:     `{{ payload.lead_id }}`
+Listing:  `{{ payload.listing_id }}` — viewed `{{ payload.viewed_at_iso }}`
+Template: `{{ payload.template_id }}` (`post_viewing_24h` / `post_viewing_72h` / `cold_lead_revive`)
+
+Render the named template from `inventory/follow_up_templates.md`. Substitute `lead_name`, `listing_address`, and `agent_name` exactly. Send via `gmail.send`. Never deviate from the template body — the auto-approval safety case rests on the body being template-only; custom messages go through `send_listing_packet` (approval-gated). Append the send to the `follow_ups` memory entry.
+"""
+
+[actions.send_listing_packet.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.draft_offer.retry]
+max_attempts = 2
+
+[actions.flag_inspection_finding.retry]
+max_attempts = 2

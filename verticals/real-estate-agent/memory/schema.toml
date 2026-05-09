@@ -1,0 +1,36 @@
+schema_version = "1"
+
+[[entry]]
+key = "leads"
+type = "list-of-objects"
+purpose = "Per-lead qualification state. Each row carries: lead_id, lead_name, lead_email, source (web|referral|sign_call|other), bucket (qualified|nurture|unqualified), price_band_usd, beds_min, baths_min, geography, stated_criteria_summary, last_touch_at."
+
+[[entry]]
+key = "property_interests"
+type = "list-of-objects"
+purpose = "Lead-to-listing interest map. Each row: lead_id, listing_id, interest_level (high|medium|low), captured_at, source_action."
+
+[[entry]]
+key = "viewings"
+type = "list-of-objects"
+purpose = "Booked property viewings. Each row: lead_id, listing_id, slot_start_iso, slot_end_iso, gcal_event_id, attendees, post_viewing_notes."
+
+[[entry]]
+key = "offers"
+type = "list-of-objects"
+purpose = "Draft offers per buyer + listing. Each row: listing_id, buyer_name, offer_price_usd, earnest_usd, closing_date_iso, contingencies, draft_path, status (draft|reviewed_by_agent|sent|withdrawn)."
+
+[[entry]]
+key = "follow_ups"
+type = "list-of-objects"
+purpose = "Templated follow-up sends. Each row: lead_id, listing_id, template_id (post_viewing_24h|post_viewing_72h|cold_lead_revive), sent_at, message_id."
+
+[[entry]]
+key = "inspection_flags"
+type = "list-of-objects"
+purpose = "Material inspection findings handed to the agent. Each row: listing_id, buyer_name, finding_summary, severity (low|medium|high), inspector_name, inspected_at, next_step (re-negotiate|walk|accept_as_is|pending), report_excerpt."
+
+[[entry]]
+key = "real_estate_learnings"
+type = "list-of-objects"
+purpose = "Reusable real-estate patterns the operator confirms work. Each row: pattern, context, evidence, suggested_skill, confidence, risk."

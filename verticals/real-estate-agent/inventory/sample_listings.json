@@ -1,0 +1,113 @@
+{
+  "currency": "USD",
+  "agent_name": "Pat the Agent",
+  "agent_email": "agent@example.com",
+  "today_iso": "2026-05-10",
+  "note": "Synthetic listings for demo purposes only. Addresses are placeholders; do not treat as real properties.",
+  "listings": [
+    {
+      "listing_id": "LST-0007",
+      "address": "11 Maple St, Maplewood",
+      "price_usd": 685000,
+      "beds": 3,
+      "baths": 2,
+      "sqft": 1820,
+      "year_built": 1998,
+      "hoa_usd_per_month": 0,
+      "type": "single-family",
+      "lockbox_code": "1234",
+      "summary": "Updated kitchen, finished basement, fenced yard. On market 14 days."
+    },
+    {
+      "listing_id": "LST-0019",
+      "address": "402 Pine Ave, Riverside",
+      "price_usd": 925000,
+      "beds": 4,
+      "baths": 3,
+      "sqft": 2640,
+      "year_built": 2014,
+      "hoa_usd_per_month": 0,
+      "type": "single-family",
+      "lockbox_code": "5641",
+      "summary": "Move-in ready, two-car garage, multiple offers expected. On market 6 days."
+    },
+    {
+      "listing_id": "LST-0023",
+      "address": "8B Cedar Ct, Oak Hill",
+      "price_usd": 425000,
+      "beds": 2,
+      "baths": 2,
+      "sqft": 1180,
+      "year_built": 2008,
+      "hoa_usd_per_month": 285,
+      "type": "townhouse",
+      "lockbox_code": "9012",
+      "summary": "End-unit townhouse, attached garage, pool + fitness HOA. On market 9 days."
+    },
+    {
+      "listing_id": "LST-0031",
+      "address": "55 Elm Way, Maplewood",
+      "price_usd": 540000,
+      "beds": 3,
+      "baths": 2,
+      "sqft": 1490,
+      "year_built": 1985,
+      "hoa_usd_per_month": 0,
+      "type": "single-family",
+      "lockbox_code": "3370",
+      "summary": "Original kitchen, large lot, needs cosmetic updates. Priced to move. On market 31 days."
+    },
+    {
+      "listing_id": "LST-0035",
+      "address": "1407 Birch Rd, Lakeside",
+      "price_usd": 1175000,
+      "beds": 5,
+      "baths": 4,
+      "sqft": 3210,
+      "year_built": 2002,
+      "hoa_usd_per_month": 0,
+      "type": "single-family",
+      "lockbox_code": "8841",
+      "summary": "Lakefront, dock included, recent roof. Foundation crack flagged in inspection — see inspection_flags memory."
+    },
+    {
+      "listing_id": "LST-0042",
+      "address": "27 Walnut Ln, Maplewood",
+      "price_usd": 695000,
+      "beds": 3,
+      "baths": 2,
+      "sqft": 1910,
+      "year_built": 2005,
+      "hoa_usd_per_month": 0,
+      "type": "single-family",
+      "lockbox_code": "4419",
+      "summary": "Open-plan main floor, primary suite up, low-maintenance yard. On market 4 days."
+    },
+    {
+      "listing_id": "LST-0048",
+      "address": "330 Aspen Pl #4C, Downtown",
+      "price_usd": 365000,
+      "beds": 1,
+      "baths": 1,
+      "sqft": 720,
+      "year_built": 2019,
+      "hoa_usd_per_month": 410,
+      "type": "condo",
+      "lockbox_code": "7702",
+      "summary": "Top-floor condo, rooftop deck access, parking included. On market 21 days."
+    },
+    {
+      "listing_id": "LST-0051",
+      "address": "9 Spruce Dr, Hillcrest",
+      "price_usd": 815000,
+      "beds": 4,
+      "baths": 3,
+      "sqft": 2310,
+      "year_built": 1992,
+      "hoa_usd_per_month": 0,
+      "type": "single-family",
+      "lockbox_code": "2058",
+      "summary": "Cul-de-sac, big garage, finished bonus room. On market 12 days."
+    }
+  ]
+}

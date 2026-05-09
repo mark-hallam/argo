@@ -1,0 +1,4 @@
+enabled = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros = 2000000
+wake_action_types = ["schedule_viewing", "follow_up_lead"]
