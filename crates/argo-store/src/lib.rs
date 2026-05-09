@@ -50,6 +50,10 @@ pub mod pool_config;
 /// Worker archive (sleep / wake) — frozen JSON snapshot store
 /// (Stream `claude-worker-archive-rehydrate`).
 pub mod worker_archive;
+/// Per-worker KPI time-series store — append-only observations
+/// recorded against KPI names from the worker's charter
+/// (Stream `claude-worker-kpi-tracker`, mission claim 2).
+pub mod worker_kpi;
 /// Per-worker spend cap write helpers — `argo worker budget set/show`
 /// (Stream `claude-worker-budget-cli`). Caps live on the worker's
 /// `auto_approval_json` column; the spend totals come from the

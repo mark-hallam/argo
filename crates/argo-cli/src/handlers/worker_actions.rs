@@ -3,7 +3,7 @@
 use crate::cli::cli_worker_channels_cmds::WorkerChannelsCmd;
 use crate::cli::cli_worker_cmds::{
     WorkerActionsCmd, WorkerArchiveCmd, WorkerCharterCmd, WorkerCmd, WorkerItemsCmd,
-    WorkerPolicyCmd,
+    WorkerKpiCmd, WorkerPolicyCmd,
 };
 use argo_identity::WorkerId;
 use argo_types::ArgoResult;
@@ -230,6 +230,17 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             }
         },
         WorkerCmd::Budget(budget_cmd) => super::worker_budget::run(budget_cmd).await,
+        WorkerCmd::Kpi(kpi_cmd) => match kpi_cmd {
+            WorkerKpiCmd::Record { worker_id, kpi, value, tenant, note, json } => {
+                super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await
+            }
+            WorkerKpiCmd::List { worker_id, tenant, kpi, since, json } => {
+                super::worker_kpi::list(&worker_id, &tenant, kpi.as_deref(), since.as_deref(), json).await
+            }
+            WorkerKpiCmd::Series { worker_id, kpi, tenant, bucket, json } => {
+                super::worker_kpi::series(&worker_id, &kpi, &tenant, &bucket, json).await
+            }
+        },
         WorkerCmd::Items(items_cmd) => match items_cmd {
             WorkerItemsCmd::List { vertical, state, limit, json } => {
                 super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await

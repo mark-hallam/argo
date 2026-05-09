@@ -214,16 +214,24 @@ pub enum WorkerCmd {
     /// rolls up the existing `worker_budget` ledger.
     #[command(subcommand)]
     Budget(crate::cli::cli_worker_budget_cmds::WorkerBudgetCmd),
+    /// Record / list / aggregate observed KPI values for one
+    /// worker (Stream `claude-worker-kpi-tracker`, mission claim 2
+    /// runtime evidence). Charter storage records KPI *definitions*
+    /// on the worker row; this is the time-series store of observed
+    /// numeric values.
+    #[command(subcommand)]
+    Kpi(WorkerKpiCmd),
 }
 
-// Charter/archive leaf enums live in sibling files so this module stays
-// under the 500-LOC per-file ceiling. Re-exported below for the
+// Charter/archive/kpi leaf enums live in sibling files so this module
+// stays under the 500-LOC per-file ceiling. Re-exported below for the
 // corresponding `WorkerCmd` variants. The budget enum is reached through
 // its sibling path directly — this dispatcher hands the whole cmd to
 // `handlers::worker_budget::run` rather than pattern-matching here.
 pub use crate::cli::cli_worker_archive_cmds::WorkerArchiveCmd;
 pub use crate::cli::cli_worker_charter_cmds::WorkerCharterCmd;
 pub use crate::cli::cli_worker_costs_cmds::WorkerCostsCmd;
+pub use crate::cli::cli_worker_kpi_cmds::WorkerKpiCmd;
 
 #[derive(Subcommand, Debug)]
 pub enum WorkerPolicyCmd {
