@@ -23,6 +23,7 @@ mod input_helpers;
 mod input_overlay_dispatch;
 mod input_replay;
 mod live_event;
+pub mod notifications;
 mod overlay_text;
 mod overlays;
 mod overlays_budget;

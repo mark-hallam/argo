@@ -177,6 +177,10 @@ pub struct ViewerState {
     pub workspace_label: Option<String>,
     /// Drill-in detail pane (Stream `claude-tui-session-detail-pane`).
     pub session_detail: Option<crate::session_detail::SessionDetailPane>,
+    /// Top-right toast queue for approval + error events
+    /// (Stream `claude-tui-alert-notifications`). Renders above
+    /// every overlay; only `x` is consumed (dismiss topmost).
+    pub notifications: crate::notifications::ToastQueue,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -254,7 +258,15 @@ impl ViewerState {
             dashboard_overlay: None,
             workspace_label: None,
             session_detail: None,
+            notifications: crate::notifications::ToastQueue::default(),
         }
+    }
+
+    /// Drop expired toasts from the notification queue. Called
+    /// once per event-loop tick by the wiring follow-up so the
+    /// queue self-trims independent of new pushes.
+    pub fn tick_notifications(&mut self) {
+        self.notifications.tick(std::time::Instant::now());
     }
 
     // Pane focus + message-pane scrolling + session-list filter +
