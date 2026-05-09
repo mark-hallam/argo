@@ -7,9 +7,10 @@ use crate::actions::{
 };
 use crate::app::{PaneFocus, ViewerState};
 use crate::input_helpers::{
-    force_refresh_open_overlays, handle_message_overlay, handle_scroll_overlay, pick_yank_at_cursor,
-    pick_yank_text, scan_dir_basenames,
+    force_refresh_open_overlays, handle_message_overlay, pick_yank_at_cursor, pick_yank_text,
+    scan_dir_basenames,
 };
+use crate::input_overlay_dispatch::{try_close_overlay, try_open_overlay};
 use crate::render::draw;
 use crate::viewer::{fetch_message_count, fetch_messages};
 use argo_store::SessionStore;
@@ -114,96 +115,10 @@ pub(crate) async fn run(
                 handle_message_overlay(key.code, state);
                 continue;
             }
-            // Forge-runs overlay: Esc/F/q close, vim-ish scroll.
-            // Body auto-refreshes on the 1s tick so a CLI-side
-            // optimize ticks along live.
-            if let Some(rows) = state.forge_runs.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['F'], &mut state.forge_runs_scroll, n) {
-                    state.forge_runs = None;
-                    state.forge_runs_scroll = 0;
-                }
-                continue;
-            }
-            // Active-skills overlay: Esc/S/q close, vim-ish scroll.
-            if let Some(rows) = state.skills_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['S'], &mut state.skills_overlay_scroll, n) {
-                    state.skills_overlay = None;
-                    state.skills_overlay_scroll = 0;
-                }
-                continue;
-            }
-            // Active-memory overlay: Esc/M/q close, vim-ish scroll.
-            if let Some(rows) = state.memory_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['M'], &mut state.memory_overlay_scroll, n) {
-                    state.memory_overlay = None;
-                    state.memory_overlay_scroll = 0;
-                }
-                continue;
-            }
-            // Cost-rollup overlay: Esc/$/q close. Snapshot is
-            // taken once at open — re-press `$` to refresh.
-            if state.cost_overlay.is_some() {
-                if matches!(
-                    key.code,
-                    KeyCode::Esc | KeyCode::Char('$') | KeyCode::Char('q')
-                ) {
-                    state.cost_overlay = None;
-                }
-                continue;
-            }
-            // Audit-chain overlay: Esc/A/q close, vim-ish scroll.
-            // Snapshot at open — re-press `A` (or `R` global) to
-            // refresh.
-            if let Some(rows) = state.audit_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['A'], &mut state.audit_overlay_scroll, n) {
-                    state.audit_overlay = None;
-                    state.audit_overlay_scroll = 0;
-                }
-                continue;
-            }
-            // Cron overlay: Esc/K/q close, vim-ish scroll.
-            if let Some(rows) = state.cron_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['K'], &mut state.cron_overlay_scroll, n) {
-                    state.cron_overlay = None;
-                    state.cron_overlay_scroll = 0;
-                }
-                continue;
-            }
-            // Providers overlay: Esc/P/q close, vim-ish scroll.
-            if let Some(rows) = state.providers_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['P'], &mut state.providers_overlay_scroll, n) {
-                    state.providers_overlay = None;
-                    state.providers_overlay_scroll = 0;
-                }
-                continue;
-            }
-            // Tools overlay: Esc/T/q close, vim-ish scroll.
-            if let Some(rows) = state.tools_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(key.code, &['T'], &mut state.tools_overlay_scroll, n) {
-                    state.tools_overlay = None;
-                    state.tools_overlay_scroll = 0;
-                }
-                continue;
-            }
-            // Tool-errors overlay: Esc/E/q close, vim-ish scroll.
-            if let Some(rows) = state.tool_errors_overlay.as_ref() {
-                let n = rows.len();
-                if handle_scroll_overlay(
-                    key.code,
-                    &['E'],
-                    &mut state.tool_errors_overlay_scroll,
-                    n,
-                ) {
-                    state.tool_errors_overlay = None;
-                    state.tool_errors_overlay_scroll = 0;
-                }
+            // List/scroll overlays (forge-runs, skills, memory,
+            // cost, audit, cron, providers, tools, tool-errors)
+            // share a close-key shape — see input_overlay_dispatch.
+            if try_close_overlay(state, key.code) {
                 continue;
             }
             if crate::try_close_aux_overlay(state, key.code) { continue; }
@@ -268,6 +183,11 @@ pub(crate) async fn run(
                 }
                 continue;
             }
+            // Store-backed overlay openers (F, S, $, K, P, T, A,
+            // E, M) — see input_overlay_dispatch::try_open_overlay.
+            if try_open_overlay(state, &store, &cwd, key.code).await? {
+                continue;
+            }
             match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -275,13 +195,6 @@ pub(crate) async fn run(
                 }
                 KeyCode::Tab => state.toggle_focus(),
                 KeyCode::Char('?') => state.help_overlay = true,
-                KeyCode::Char('F') => {
-                    // Load the forge_run rows once and stash on
-                    // state. Errors → empty list (UI shows
-                    // "(no forge runs recorded yet)").
-                    let rows = store.list_forge_runs(50).await.unwrap_or_default();
-                    state.forge_runs = Some(rows);
-                }
                 KeyCode::Char('C') => {
                     // Drop the in-memory live-event trail
                     // without spawning a new turn. Useful when
@@ -301,89 +214,10 @@ pub(crate) async fn run(
                     force_refresh_open_overlays(&store, state).await;
                     last_refresh = std::time::Instant::now();
                 }
-                KeyCode::Char('S') => {
-                    // Load the active-skill rows. Errors → empty
-                    // list (overlay shows "(no active skills)").
-                    let skills = argo_skill::SkillStore::new(Arc::clone(&store));
-                    let rows = skills.list_active().await.unwrap_or_default();
-                    state.skills_overlay = Some(rows);
-                }
-                KeyCode::Char('$') => {
-                    // Snapshot cross-tenant spend rollup. Errors
-                    // → zero-snapshot (overlay shows $0.00).
-                    let snap = store.load_global_spend().await.unwrap_or_default();
-                    state.cost_overlay = Some(snap);
-                }
-                KeyCode::Char('K') => {
-                    state.cron_overlay = Some(scan_dir_basenames(
-                        &cwd.join("cron").join("jobs"),
-                        "json",
-                    ));
-                }
-                KeyCode::Char('P') => {
-                    state.providers_overlay = Some(scan_dir_basenames(
-                        &cwd.join("manifests").join("providers"),
-                        "toml",
-                    ));
-                }
-                KeyCode::Char('T') => {
-                    // Snapshot the in-core tool registry. Names
-                    // only — full schemas are available via the
-                    // gateway's GET /tools endpoint.
-                    let mut reg = argo_tool::ToolRegistry::new();
-                    for t in argo_tool::builtin_tools(cwd.clone()) {
-                        reg.register(t);
-                    }
-                    let mut names: Vec<String> =
-                        reg.schemas().into_iter().map(|s| s.name).collect();
-                    names.sort();
-                    state.tools_overlay = Some(names);
-                }
-                KeyCode::Char('A') => {
-                    // Audit chain for the selected session. No
-                    // selection → empty overlay so the user can
-                    // tell why nothing rendered.
-                    let rows = if let Some(s) = state.selected_session() {
-                        store
-                            .list_audit_for_session(s.id)
-                            .await
-                            .unwrap_or_default()
-                    } else {
-                        Vec::new()
-                    };
-                    state.audit_overlay = Some(rows);
-                }
-                KeyCode::Char('E') => {
-                    // Tool-error histogram (#617).
-                    let rows = argo_store::tool_errors_histogram(store.pool())
-                        .await
-                        .unwrap_or_default();
-                    state.tool_errors_overlay = Some(rows);
-                }
                 k @ (KeyCode::Char('O') | KeyCode::Char('H') | KeyCode::Char('B'))
                     if crate::input_h_stack::try_open_h_stack_overlay(state, k).await => {}
                 KeyCode::Char('V') => crate::input_replay::open_replay_overlay(state),
                 KeyCode::Char('D') => crate::input_dashboard::open_dashboard_overlay(state),
-                KeyCode::Char('M') => {
-                    // Load the active-memory rows across all 4
-                    // canonical files. No workspace → empty
-                    // list (overlay shows "(no active memory)").
-                    let mut all = Vec::new();
-                    if let Ok(Some(ws)) = store.first_workspace().await {
-                        let memory = argo_memory::MemoryStore::new(Arc::clone(&store));
-                        for f in [
-                            argo_memory::MemoryFile::Memory,
-                            argo_memory::MemoryFile::User,
-                            argo_memory::MemoryFile::Soul,
-                            argo_memory::MemoryFile::Agents,
-                        ] {
-                            if let Ok(rows) = memory.list_active(ws, f).await {
-                                all.extend(rows);
-                            }
-                        }
-                    }
-                    state.memory_overlay = Some(all);
-                }
                 KeyCode::Char('o')
                     if matches!(state.focus, PaneFocus::Messages)
                         && !state.selected_messages.is_empty() =>
