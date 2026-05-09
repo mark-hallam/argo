@@ -1,0 +1,31 @@
+# Tight production defaults: small per-action cap + business-hours
+# auto-approve window only.
+#
+# WHY: production workspaces want auto-approval ON during
+# business hours (so the on-call rotation isn't paged for every
+# routine action) but OFF outside the window so a runaway loop at
+# 3am goes straight to Ask. This template encodes that posture
+# with conservative dollar ceilings.
+#
+# `extends` this template from a workspace that needs a different
+# wake-action list — the bundled list covers the obvious oncall
+# escalation actions but every vertical adds its own.
+
+enabled = true
+
+# WHY: $0.10 per action — tight enough to flush out the
+# pathological "spend $50 on one tool call" regression, loose
+# enough to let routine LOW-risk work clear the cap without an
+# Ask.
+max_usd_micros_per_action = 100000
+
+# WHY: $20/day soft cap. Production workspaces typically have many
+# small actions adding up; the cap exists to surface a hot worker
+# rather than to be a hard daily budget.
+daily_budget_usd_micros = 20000000
+
+# WHY: if the operator layers a `time_windows = [...]` business-
+# hours window on top of this template (recommended), these are
+# the actions that should still auto-approve outside the window
+# because they're page-the-on-call work.
+wake_action_types = ["page_oncall", "escalate_ticket", "escalate_to_human"]

@@ -1,0 +1,30 @@
+# Auto-approve LOW-risk actions only.
+#
+# WHY: most workspaces want to silence approval prompts for cheap,
+# read-only or LOW-risk operations while still escalating MEDIUM /
+# HIGH risk work to a human. Pairs the auto-approval gate's
+# `enabled = true` with a tight per-action spend ceiling so a
+# misbehaving worker can't accidentally rack up cost on a single
+# action.
+#
+# Operators referencing this template should ALSO set their own
+# `wake_action_types` if they have urgent action_types
+# (`page_oncall`, `escalate_ticket`) that should bypass any
+# `time_windows` they layer on top.
+
+enabled = true
+
+# WHY: USD_micros = USD * 1_000_000. $0.50 cap is comfortably below
+# the kind of one-shot LLM call that makes operators nervous and
+# well above any cheap classification / format / lookup action.
+max_usd_micros_per_action = 500000
+
+# WHY: $5/day soft ceiling per worker. The evaluator falls back to
+# Ask once today's spend crosses the line so the operator can
+# eyeball a workspace that's run hot.
+daily_budget_usd_micros = 5000000
+
+# WHY: empty list — the template doesn't presume a wake list.
+# Templates that DO want a wake list should `extends` this one
+# and add their own.
+wake_action_types = []

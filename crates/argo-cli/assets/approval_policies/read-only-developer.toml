@@ -1,0 +1,30 @@
+# Permissive defaults for a developer running on a private laptop.
+#
+# WHY: during local development the Ask prompt is friction. This
+# template enables the gate, sets a generous per-action ceiling so
+# everyday LLM round-trips clear the cap, and leaves the daily
+# budget high enough that a normal day's exploratory chat doesn't
+# trip the soft kill-switch.
+#
+# DO NOT use this template in production — it's the explicit
+# "trust the developer's machine, optimize for iteration speed"
+# stance and the daily-budget number is set with that context in
+# mind.
+
+enabled = true
+
+# WHY: $5/action is wide enough to clear an Anthropic Opus
+# round-trip with full tool use without nagging the developer at
+# every prompt.
+max_usd_micros_per_action = 5000000
+
+# WHY: $50/day soft cap. Generous, but still defensive against the
+# pathological "loop calling itself" failure mode that's burned a
+# few prior agent stacks.
+daily_budget_usd_micros = 50000000
+
+# WHY: developers often want their `escalate_to_human` action to
+# bypass any time_windows so they can test the wake path during
+# off-hours. Listed here so it's visible in the resolved TOML
+# without the developer having to remember the field name.
+wake_action_types = ["escalate_to_human"]

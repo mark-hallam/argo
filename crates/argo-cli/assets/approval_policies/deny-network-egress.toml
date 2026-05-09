@@ -1,0 +1,26 @@
+# Deny outbound network egress by default.
+#
+# WHY: workspaces operating in regulated / air-gapped contexts
+# want a default-deny posture for any action that touches the
+# public internet. The auto-approval gate doesn't read
+# action-shape directly, so this template encodes the strict
+# stance via a $0 per-action cap — every egress-shaped action
+# fails the spend ceiling and the evaluator returns Block. Pair
+# with the workspace's MCP allowlist for the actual transport-
+# layer guardrail.
+#
+# Conservative by design: operators who want a soft "Ask, don't
+# auto" posture instead should `extends` this template and bump
+# `max_usd_micros_per_action` so the evaluator falls through to
+# Ask rather than Block.
+
+enabled = true
+
+# WHY: $0 budget = any priced action trips the per-action cap and
+# the evaluator returns Block. The bundled risk-level matchers
+# inside the evaluator still let zero-cost LOW-risk actions
+# through; this template only locks down anything billable.
+max_usd_micros_per_action = 0
+daily_budget_usd_micros = 0
+
+wake_action_types = []

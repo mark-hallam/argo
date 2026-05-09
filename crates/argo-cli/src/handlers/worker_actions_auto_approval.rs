@@ -44,6 +44,12 @@ pub(crate) const POLICY_RELPATH: &str = ".skycot/auto_approval.toml";
 /// Returns the default (disabled) policy when the file is
 /// absent — every approval-gated action goes to a human, which
 /// is exactly the v0 behaviour the cli has shipped to date.
+///
+/// Stream `claude-approval-policy-templates` (V1.4): if the body
+/// contains a `template = "..."` or `extends = [...]` reference,
+/// resolve the bundled / local template chain first, then
+/// overlay the file's own keys. Files without either reference
+/// stay on the existing fast path.
 pub(crate) fn load_workspace_policy(cwd: &Path) -> ArgoResult<AutoApprovalPolicy> {
     let path = cwd.join(POLICY_RELPATH);
     if !path.exists() {
@@ -55,6 +61,14 @@ pub(crate) fn load_workspace_policy(cwd: &Path) -> ArgoResult<AutoApprovalPolicy
             path.display()
         ))
     })?;
+    if super::approval_policy::body_uses_templates(&body) {
+        return super::approval_policy::resolve_workspace_body_at(&body, cwd).map_err(|e| {
+            ArgoError::Provider(format!(
+                "auto-approval policy at {} could not resolve templates: {e}",
+                path.display()
+            ))
+        });
+    }
     toml::from_str(&body).map_err(|e| {
         ArgoError::Provider(format!(
             "auto-approval policy at {} is not valid TOML: {e}",

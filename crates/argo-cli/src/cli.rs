@@ -52,6 +52,46 @@ pub enum ToolsCmd {
 pub enum ApprovalCmd {
     /// Export approval audit rows to CSV, JSON, or JSONL.
     Export(ApprovalExportArgs),
+    /// Approval-policy starter templates (Stream
+    /// `claude-approval-policy-templates`, V1.4): list bundled +
+    /// repo-local templates, print one resolved against its
+    /// `extends` chain, or copy a bundled body into
+    /// `.skycot/approval-policies/<name>.toml` for editing.
+    Policy {
+        #[command(subcommand)]
+        cmd: ApprovalPolicyCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ApprovalPolicyCmd {
+    /// List bundled + repo-local approval policy templates.
+    List {
+        /// Emit `{bundled, local, local_dir}` as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print one template resolved against its `extends` chain.
+    Show {
+        /// Template name (bundled, or stem of a local
+        /// `.skycot/approval-policies/<name>.toml` file).
+        name: String,
+        /// Emit `{name, policy, toml}` as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Copy a bundled template into the local override directory.
+    Init {
+        /// Bundled template name (must match `policy list`).
+        name: String,
+        /// Overwrite an existing local file.
+        #[arg(long)]
+        force: bool,
+        /// Emit `{name, path, bytes}` as JSON instead of a status
+        /// line.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

@@ -1,0 +1,25 @@
+# Require a human approver for any finance-related action.
+#
+# WHY: financial actions (invoice approval, payment release,
+# refund) are the textbook example of work that should never
+# auto-approve, even when the worker's risk-level metadata says
+# LOW. Disabling the gate entirely is the strictest safety stance:
+# every action goes Ask, the operator answers in their notify
+# channel.
+#
+# Combine via `extends = ["require-human-for-finance", "..."]` to
+# layer additional template-driven rules on top — but note that
+# `enabled` is a boolean, so a later template setting
+# `enabled = true` will re-enable the gate. Keep finance templates
+# LAST in the chain or own the full policy here.
+
+enabled = false
+
+# WHY: setting an explicit per-action ceiling here is harmless when
+# `enabled = false` (the evaluator never reads it) but documents
+# the intended ceiling for operators who later flip the gate on
+# for a constrained subset of action_types.
+max_usd_micros_per_action = 0
+daily_budget_usd_micros = 0
+
+wake_action_types = []
