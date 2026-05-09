@@ -143,6 +143,30 @@ pub enum GenesisCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Surgically revise an already-generated vertical from operator
+    /// feedback. Updates one or more of the system prompt, action
+    /// vocabulary, and eval-seed list while preserving anything wrapped
+    /// in `[KEEP]…[/KEEP]` markers. See
+    /// `docs/build-plan/streams/claude-genesis-iteration-cycle.md`.
+    Revise {
+        /// Vertical id to revise (directory name under the verticals root).
+        #[arg(long)]
+        vertical: String,
+        /// Plain-English operator feedback (`"be more terse"`,
+        /// `"drop the social-media actions"`, …).
+        #[arg(long)]
+        feedback: String,
+        /// Which artefact(s) to update: `prompt`, `actions`, `eval`,
+        /// or `all` (default).
+        #[arg(long, default_value = "all")]
+        target: String,
+        /// Print the diff and exit without writing to disk.
+        #[arg(long)]
+        dry_run: bool,
+        /// Emit a JSON envelope instead of human-readable lines.
+        #[arg(long)]
+        json: bool,
+    },
     /// Export an installed vertical as a portable tar.gz bundle.
     Export {
         /// Vertical id discoverable via ARGO_VERTICALS_DIR or ./verticals.

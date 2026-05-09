@@ -99,6 +99,7 @@ pub mod genesis_import;
 pub mod genesis_interactive;
 pub mod genesis_interactive_qa;
 pub mod genesis_refine;
+pub mod genesis_revise;
 pub mod duty_fire_now;
 pub mod duty_list;
 pub mod duty_pause;
