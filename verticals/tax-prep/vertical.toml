@@ -1,0 +1,181 @@
+schema_version = "1"
+
+[vertical]
+id          = "tax-prep"
+name        = "Tax Preparation Assistant"
+description = "Seasonal tax-prep assistant for a licensed preparer. Reviews uploaded W-2s and extracts line items, flags potential deductions for client review, drafts 1040 + schedules for the preparer, schedules client review meetings on the preparer's calendar, and routes the final IRS filing to a human-approval gate (mapping to the e-file 8879 authorization). Mixed-trust: review_w2 + schedule_review are autonomous; flag_deduction_eligibility, draft_return, and file_return all require operator approval before any client- or IRS-facing effect."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["tax", "tax-prep", "finance", "seasonal", "documents", "gcal", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+gcal = { transport = "stdio", command = "argo-mcp-connector-gcal", args = [] }
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Tax Prep"
+
+# Persona is "Dakota" — see prompts/persona.md. Allowed executors are
+# the three named in the brief (gcal, document_creation, human) plus
+# the implicit in-process "human" placeholder for review_w2. The
+# file_return action is ALWAYS approval-gated; mocked here as a
+# routing-only step that maps to a real e-file 8879 authorization in a
+# production wiring. No real IRS integration in V2.
+
+[actions]
+
+[actions.review_w2]
+risk              = "low"
+requires_approval = false
+description       = "Read a single W-2 entry from `inventory/sample_w2s.json` (or the `w2_data` memory entry once seeded) and extract the structured line items the rest of the workflow needs: wages (Box 1), federal income tax withheld (Box 2), social-security wages (Box 3), state wages + tax withheld (Boxes 16/17). In-process; no client- or IRS-facing effect."
+executor          = "human"
+instruction_template = """
+# Review W-2 for client `{{ payload.client_id }}` ({{ payload.return_year }})
+
+Source: `{{ payload.w2_source | default(value="inventory/sample_w2s.json") }}`
+Employer entry: `{{ payload.employer_ein }}`
+
+For the named W-2:
+1. Read all 20 boxes; carry forward Box 1 (wages), Box 2 (fed income tax withheld), Box 3 (SS wages), Box 4 (SS tax withheld), Box 5 (Medicare wages), Box 6 (Medicare tax), Box 16 (state wages), Box 17 (state tax withheld).
+2. Append the parsed row to the `w2_data` memory entry keyed by `(client_id, return_year, employer_ein)`.
+3. If Box 1 and Box 3 disagree by more than $5 without a Box 12 code (`D`/`401k`, `W`/`HSA`) explaining the gap, note `unexplained_box_diff = true` for the preparer to review.
+4. Never quote a refund estimate or tax liability from this action — that's `draft_return`.
+
+Never invent missing SSNs, employer EINs, or wage figures. If a W-2 is partial, flag and stop.
+"""
+
+[actions.flag_deduction_eligibility]
+risk              = "medium"
+requires_approval = true
+description       = "Surface a candidate deduction (charitable, mortgage interest, student-loan interest, HSA, etc.) to the operator with the rubric hit and the supporting evidence. Approval-gated because deduction eligibility is licensed-judgment territory; the assistant proposes, the preparer + client confirm. No tax advice leaves this action without the operator's explicit yes."
+executor          = "human"
+instruction_template = """
+# Flag deduction candidate for `{{ payload.client_id }}` ({{ payload.return_year }})
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Candidate:        `{{ payload.deduction_kind }}` (rubric hit)
+Estimated amount: `${{ payload.estimated_amount_usd }}` USD
+Evidence:         `{{ payload.evidence_summary }}`
+Cite rubric line: `skills/deduction_eligibility.md` § `{{ payload.rubric_section }}`
+
+Hand the candidate to the operator for client confirmation. Never imply the deduction is approved or that the client should claim it — only the licensed preparer with client sign-off makes that call. Append to the `deduction_candidates` memory entry with: kind, estimated_amount_usd, evidence_summary, status (`proposed`).
+On client + preparer sign-off, the operator updates status to `approved` or `rejected` outside this action.
+"""
+
+[actions.draft_return]
+risk              = "high"
+requires_approval = true
+description       = "Render a markdown 1040 draft (plus any required Schedule A / B / C / E surfaces) via the document-creation executor. The preparer reviews price-impacting fields (filing status, total income, total deductions, total tax, refund or balance due) before signing the actual e-file. The draft is NEVER an IRS-ready return; it is a working-paper for the preparer."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Draft 1040 return for `{{ payload.client_id }}` ({{ payload.return_year }})
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Filing status:     `{{ payload.filing_status }}` (single | mfj | mfs | hoh | qss)
+W-2 entries:       `{{ payload.w2_employer_eins | join(sep=", ") }}`
+1099 entries:      `{{ payload.form_1099_summary | default(value="(none)") }}`
+Itemize / Std:     `{{ payload.deduction_method }}` (itemize | standard)
+Approved deductions: `{{ payload.approved_deductions | join(sep=", ") }}`
+
+Output path: `<workspace>/.skycot/tax-prep/returns/{{ payload.client_id }}-{{ payload.return_year }}-draft.md`
+
+Render the markdown 1040 draft with these sections, in order:
+1. Header (client name redacted to initials + last 4 of synthetic SSN, return year, filing status).
+2. Income (W-2 wages summed, 1099 totals if present).
+3. Adjustments (only the approved ones from the operator-confirmed `deduction_candidates`).
+4. Deduction line (itemized total OR standard deduction for the year + status).
+5. Tax (computed via the year's brackets — show bracket-by-bracket breakdown).
+6. Credits (only those flagged + approved upstream).
+7. Refund or balance due.
+8. Preparer footer: "DRAFT — for preparer review. Not an IRS-ready return. A licensed preparer must sign and file."
+
+Never write the SSN in full into the draft body — initials + last 4 only. Never set `status = filed` from this action — only `file_return` does that, and only after operator approval + e-file 8879 sign.
+"""
+
+[actions.schedule_review]
+risk              = "low"
+requires_approval = false
+description       = "Book a private review meeting on the preparer's gcal so the client can walk through the draft return before sign-off. Auto-approved because the calendar is the preparer's own diary; the action never sends an external invite from this step (separate human-approved email handles that)."
+executor          = { kind = "mcp", server = "gcal", tool = "gcal.create_event", budget_usd = 0.05 }
+platforms         = ["gcal"]
+instruction_template = """
+# Schedule review meeting for `{{ payload.client_id }}` ({{ payload.return_year }})
+
+Slot:        `{{ payload.slot_start_iso }}` → `{{ payload.slot_end_iso }}`
+Modality:    `{{ payload.modality | default(value="video") }}` (video | phone | in-person)
+Draft path:  `{{ payload.draft_path | default(value="(none yet)") }}`
+
+Create a private gcal event titled `Tax review: {{ payload.client_id }} ({{ payload.return_year }})`. Add the draft path (if any) and the agenda outline (income, deductions, refund/owe, sign-off) to the event body. Never auto-invite the client; the client invite is a separate operator-approved step.
+Append the booking to the `review_log` memory entry with: client_id, return_year, slot, gcal_event_id, modality.
+"""
+
+[actions.file_return]
+risk              = "high"
+requires_approval = true
+description       = "Routing-only handoff that submits the (preparer-signed, client-8879-authorized) return to the IRS e-file system. ALWAYS human-gated: the preparer must confirm the 8879 authorization is on file before this action is approved. Mocked in V2 — no real IRS integration; the action records the approval + intended submission timestamp so the audit trail is intact."
+executor          = "human"
+instruction_template = """
+# File return for `{{ payload.client_id }}` ({{ payload.return_year }})
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Filing status:    `{{ payload.filing_status }}`
+Refund / owe:     `${{ payload.refund_or_owe_usd }}` USD ({{ payload.refund_or_owe_direction }})
+Draft path:       `{{ payload.draft_path }}`
+8879 on file?:    `{{ payload.form_8879_signed }}` (must be `true` to proceed)
+8879 sign date:   `{{ payload.form_8879_signed_at }}`
+
+PRE-SUBMISSION CHECKLIST (operator confirms each before approving):
+- [ ] The preparer has reviewed every line of the draft and signed the working paper.
+- [ ] The client has signed Form 8879 (e-file authorization) and the signed copy is on file.
+- [ ] Bank routing + account numbers (if a refund is direct-deposited) match what the client provided in writing.
+- [ ] No outstanding `proposed` rows in `deduction_candidates` for this return.
+
+If any item is unchecked, REFUSE the file and bounce back to the operator. Never call the IRS API speculatively.
+
+On approval (mocked submission):
+1. Append to the `review_log` memory entry: client_id, return_year, action=`filed`, submitted_at, submission_id (mocked).
+2. Update the `draft_status` memory entry from `signed` → `filed`.
+3. Note: V2 does NOT call a real IRS endpoint; the production wiring would invoke the e-file submission MCP server here.
+"""
+
+[actions.flag_deduction_eligibility.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.draft_return.retry]
+max_attempts = 2
+
+[actions.file_return.retry]
+max_attempts = 2

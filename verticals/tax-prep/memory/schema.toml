@@ -1,0 +1,31 @@
+schema_version = "1"
+
+[[entry]]
+key = "clients"
+type = "list-of-objects"
+purpose = "Per-client return state. Each row carries: client_id, client_name_initials, ssn_last4 (synthetic), filing_status (single|mfj|mfs|hoh|qss), return_year, dependents_count, occupation, intake_received_at."
+
+[[entry]]
+key = "w2_data"
+type = "list-of-objects"
+purpose = "Parsed W-2 line items keyed by (client_id, return_year, employer_ein). Each row: employer_ein, box1_wages_usd, box2_fed_withheld_usd, box3_ss_wages_usd, box4_ss_tax_usd, box5_medicare_wages_usd, box6_medicare_tax_usd, box16_state_wages_usd, box17_state_withheld_usd, box12_codes (list of {code, amount}), unexplained_box_diff (bool)."
+
+[[entry]]
+key = "deduction_candidates"
+type = "list-of-objects"
+purpose = "Candidate deductions surfaced by `flag_deduction_eligibility`. Each row: client_id, return_year, kind (charitable|mortgage_interest|student_loan_interest|hsa|ira|medical|salt|other), estimated_amount_usd, evidence_summary, rubric_section, status (proposed|approved|rejected), proposed_at, decided_at."
+
+[[entry]]
+key = "draft_status"
+type = "list-of-objects"
+purpose = "Per-return draft lifecycle. Each row: client_id, return_year, status (intake|reviewed|drafted|signed|filed), draft_path, refund_or_owe_usd, refund_or_owe_direction (refund|owe), updated_at."
+
+[[entry]]
+key = "review_log"
+type = "list-of-objects"
+purpose = "Audit trail for review meetings AND filing actions. Each row: client_id, return_year, action (review_scheduled|review_held|filed), slot_or_submitted_at, gcal_event_id (for reviews), submission_id (mocked, for filings), modality, notes."
+
+[[entry]]
+key = "tax_prep_learnings"
+type = "list-of-objects"
+purpose = "Reusable tax-prep patterns the operator confirms work. Each row: pattern, context, evidence, suggested_skill, confidence, risk."
