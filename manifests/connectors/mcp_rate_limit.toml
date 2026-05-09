@@ -1,0 +1,16 @@
+# Optional MCP dispatch rate-limit defaults.
+#
+# Operators can point a gateway/worker process at another file with:
+#   ARGO_MCP_RATE_LIMIT_PATH=/path/to/mcp_rate_limit.toml
+#
+# Defaults preserve bursty but bounded behavior:
+default_capacity = 60
+default_refill_rate_per_sec = 10
+max_wait_ms = 30000
+
+# Per-server overrides are keyed by the vertical manifest
+# `[mcp_servers]` server id.
+#
+# [rate_limit.gmail]
+# capacity = 60
+# refill_rate_per_sec = 10

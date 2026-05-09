@@ -90,6 +90,7 @@ pub(crate) async fn dispatch_action(
         .await?;
     let args = substitute_args(&action.payload, action);
     let client = acquire_client(pool, server_name, &server_decl).await?;
+    super::mcp_rate_limit::acquire_for_dispatch(server_name).await?;
     let result = match tokio::time::timeout(timeout, client.call_tool(tool_name, args)).await {
         Ok(r) => r,
         Err(_) => {
