@@ -42,13 +42,16 @@ field in the body.
   returning `Result<(), RetryAfter>`, the eviction sweep task
 - `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly:
   declare module + spawn the sweep task during gateway init
-- `crates/argo-cli/src/handlers/gateway/dispatch_route.rs` —
+- `crates/argo-cli/src/handlers/gateway/routes.rs` —
   narrowly: a single call to `rate_limiter.acquire(...)?` at
-  the top of dispatch (before the action runs and before the
-  quota gate from the other brief, if both land)
-- `crates/argo-cli/src/handlers/gateway/error_response.rs` (or
-  equivalent) — narrowly: map `RetryAfter` to 429 with the
-  documented body + header
+  the top of `dispatch_route` (post-#935/#956/#960 split — the
+  old `dispatch_route.rs` was renamed to `routes.rs`).
+  Before the GET/POST sub-dispatchers run.
+- The error-mapping is inline in `routes.rs`'s helpers; map
+  `RetryAfter` to 429 with the documented body + header there.
+  There is no separate `error_response.rs`.
+  Note: there is already a per-IP rate limiter at `rate_limit_ip.rs`
+  (#1051); your per-route per-tenant gate is **independent + additive**.
 - `crates/argo-cli/src/handlers/gateway/rate_limit_tests.rs`
   (NEW) — 6 tests: bucket fills + drains, refill rate is
   correct, eviction removes idle buckets, env override works,
@@ -60,8 +63,8 @@ field in the body.
 - `argo-mcp`'s per-MCP-server rate limiter — different
   concern, different layer.
 - Quota enforcement files — separate brief.
-- Routes themselves — no per-handler changes; the gate is in
-  `dispatch_route`.
+- Routes themselves — no per-handler changes; the gate is at
+  the top of `routes::dispatch_route` (entry point).
 
 ## Acceptance criteria
 

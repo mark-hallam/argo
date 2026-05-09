@@ -20,7 +20,8 @@ Convert tenant quota from observational to enforcing:
    `Ok(())` otherwise. Single transaction: read current, compare,
    return — no write. (The existing `record_usage` is the
    write-side; this is the gate.)
-3. Wire `check_or_reject` into the gateway's `dispatch_route`
+3. Wire `check_or_reject` into the gateway's POST dispatch
+   (`routes_dispatch_post.rs` per the post-#935/#956/#960 split)
    for the four heavy actions:
    `session.create`, `message.add`, `forge.run`, `skill.execute`.
    Each maps to a kind: `sessions`, `messages`, `forge_runs`,
@@ -42,11 +43,13 @@ in isolation.
 - `crates/argo-store/src/tenant_quota_kinds.rs` (NEW, ~60 LOC) —
   the kinds enum + Display + FromStr
 - `crates/argo-store/src/lib.rs` — narrowly: declare new module
-- `crates/argo-cli/src/handlers/gateway/dispatch_route.rs` —
-  narrowly: 4 `check_or_reject` call sites (one per action)
-- `crates/argo-cli/src/handlers/gateway/error_response.rs` (or
-  the existing error-mapping module — verify) — narrowly: map
-  `QuotaError::Exceeded` to HTTP 429 with the JSON body
+- `crates/argo-cli/src/handlers/gateway/routes_dispatch_post.rs` —
+  narrowly: 4 `check_or_reject` call sites (one per mutation
+  action; this is the post-#935/#956/#960 split target — the old
+  `dispatch_route.rs` no longer exists)
+- The error-mapping is inline in `routes_dispatch_post.rs`'s
+  per-route helpers; map `QuotaError::Exceeded` to HTTP 429 with
+  the JSON body there. There is no separate `error_response.rs`
 - `crates/argo-store/tests/tenant_quota_enforcement_e2e.rs`
   (NEW) — 4 tests: under-quota success path, at-limit reject,
   reject body shape, re-check passes after admin raises limit

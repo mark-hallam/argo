@@ -41,13 +41,17 @@ feature.
   ~150 LOC) — `ShutdownController` struct holding the
   `Notify` + in-flight counter; SIGTERM/SIGINT handler;
   drain loop with deadline; force-exit fallback
-- `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly:
-  wire `ShutdownController` into the axum server's
-  `with_graceful_shutdown` and into the store close path
-- `crates/argo-cli/src/handlers/gateway/dispatch_route.rs` —
-  narrowly: increment / decrement the in-flight counter
-  around each dispatch (or use a tower middleware layer —
-  implementer's choice; middleware is cleaner)
+- `crates/argo-cli/src/handlers/gateway/boot.rs` —
+  narrowly: spawn the SIGTERM/SIGINT handler in
+  `spawn_bg_tasks`; wire the shutdown signal into the
+  accept-loop's `tokio::select!` so new connections stop being
+  accepted on signal; call `ArgoStore::close()` after drain.
+- `crates/argo-cli/src/handlers/gateway/routes.rs` —
+  narrowly: wrap dispatch in an in-flight-counter increment/
+  decrement (drop guard pattern). The gateway is **hand-rolled
+  TcpStream + manual chunked HTTP**, NOT axum — no
+  `with_graceful_shutdown` or tower middleware applies. The
+  per-request guard goes at the top of `dispatch_route`.
 - `crates/argo-store/src/lib.rs` — narrowly (only if needed):
   expose `close()` if not already present. Quick check first.
 - `crates/argo-cli/tests/shutdown_e2e.rs` (NEW) — 3 tests:
@@ -84,11 +88,14 @@ feature.
 
 - `tokio::signal::unix::signal(SignalKind::terminate())` for
   SIGTERM; `ctrl_c()` for SIGINT in dev.
-- `axum::Server::with_graceful_shutdown(future)` is the
-  standard pattern; the future resolves when the controller
-  fires.
-- For the in-flight counter, prefer a tower `Layer` over manual
-  `dispatch_route` calls — much harder to forget a path.
+- The gateway uses a hand-rolled `TcpListener::accept()` loop in
+  `boot.rs` — wrap the loop in `tokio::select!` between
+  `listener.accept()` and the shutdown signal future so the
+  loop returns cleanly on signal.
+- For the in-flight counter, use a drop-guard struct (e.g.
+  `RequestGuard` that decrements an `Arc<AtomicUsize>` on
+  Drop) created at the top of `routes::dispatch_route` — the
+  guard's Drop is exception-safe so no path leaks the counter.
 - DO NOT introduce a separate `--graceful` flag; the new
   behavior is the only behavior. Document it in the runbook
   changelog instead.
