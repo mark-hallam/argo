@@ -122,6 +122,9 @@ impl AuditSink {
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
+        for worker_id in worker_ids_in_payload(&payload) {
+            argo_store::worker_presence::touch_presence(self.store.pool(), &worker_id).await?;
+        }
         // Best-effort broadcast — `send` errors only when there
         // are no live receivers, which is fine; subscribers will
         // get rows written after they connect.
@@ -183,4 +186,32 @@ impl AuditSink {
 #[must_use]
 pub fn compute_chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
     chain_hash(parent, kind, payload)
+}
+
+/// Pull every UUID-shaped worker id out of a freshly-written audit
+/// payload (Stream `claude-worker-presence-tracking`). Recognised
+/// keys: top-level `worker_id`, `from_worker`, `from_worker_id`,
+/// `to_worker_id`, plus the same names nested under `payload`/`to`.
+/// Empty strings, JSON-null, and parse failures are skipped — the
+/// caller treats this as best-effort metadata extraction.
+fn worker_ids_in_payload(payload: &serde_json::Value) -> Vec<String> {
+    const POINTERS: [&str; 8] = [
+        "/worker_id",
+        "/from_worker",
+        "/from_worker_id",
+        "/to_worker_id",
+        "/payload/worker_id",
+        "/payload/from_worker",
+        "/payload/from_worker_id",
+        "/to/worker_id",
+    ];
+    let mut out = Vec::new();
+    for pointer in POINTERS {
+        if let Some(raw) = payload.pointer(pointer).and_then(|v| v.as_str()) {
+            if !raw.is_empty() && !out.iter().any(|seen: &String| seen == raw) {
+                out.push(raw.to_string());
+            }
+        }
+    }
+    out
 }

@@ -81,6 +81,9 @@ pub mod worker_kpi;
 /// `auto_approval_json` column; the spend totals come from the
 /// existing `worker_budget` ledger.
 pub mod worker_budget_write;
+/// Worker presence (`last_active_at`) and fleet listing helpers
+/// (Stream `claude-worker-presence-tracking`).
+pub mod worker_presence;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).

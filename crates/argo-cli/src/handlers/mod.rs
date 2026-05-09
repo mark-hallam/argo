@@ -262,6 +262,9 @@ mod work_shutdown;
 mod work_steps;
 pub mod worker_actions;
 pub mod worker_anomalies;
+pub mod worker_fleet;
+#[cfg(test)]
+mod worker_fleet_tests;
 pub mod worker_archive;
 #[cfg(test)]
 mod worker_archive_tests;

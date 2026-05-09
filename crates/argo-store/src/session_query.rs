@@ -74,6 +74,9 @@ impl SessionStore {
         .execute(&self.pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("create_session: {e}")))?;
+        if let Some(worker) = input.worker_id {
+            crate::worker_presence::touch_presence(&self.pool, &worker.to_string()).await?;
+        }
         Ok(id)
     }
 

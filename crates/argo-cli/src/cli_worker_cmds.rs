@@ -87,6 +87,25 @@ pub enum WorkerCmd {
     },
     /// Show cost attribution from the worker budget ledger.
     Costs(WorkerCostsCmd),
+    /// Show live worker presence ordered by `last_active_at DESC`,
+    /// with workers idle >30 days flagged `idle` and never-seen
+    /// rows rendered as `(never seen)` (Stream
+    /// `claude-worker-presence-tracking`).
+    Fleet {
+        /// Optional tenant id filter. Omitted means all tenants.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Cap the number of rows printed. Default 50.
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Only include workers active since this duration
+        /// (`7d`, `12h`, `30m`, or `60s`).
+        #[arg(long)]
+        since: Option<String>,
+        /// Emit JSON instead of a markdown table.
+        #[arg(long)]
+        json: bool,
+    },
     /// Render a paste-friendly one-page worker portrait.
     Portrait {
         /// Worker id (UUIDv7).
