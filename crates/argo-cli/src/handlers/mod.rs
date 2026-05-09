@@ -29,6 +29,7 @@ mod audit_md;
 pub mod audit_query;
 pub mod audit_replay;
 pub mod audit_report;
+mod audit_report_aggregate;
 pub mod audit_tool_errors;
 pub mod backup_create;
 pub mod backup_list;
