@@ -1,5 +1,6 @@
 //! Twilio-backed WhatsApp approval channel.
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
     Notification, NotifyChannel, RiskLevel,
@@ -24,6 +25,11 @@ pub struct WhatsAppApprovalChannelConfig {
     pub endpoint: String,
     /// Per-operator WhatsApp number map.
     pub operator_whatsapp_numbers: BTreeMap<String, String>,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the WhatsApp default
+    /// (5/sec, 30/min).
+    #[serde(default)]
+    pub rate_limit: RateLimitConfig,
 }
 
 impl WhatsAppApprovalChannelConfig {
@@ -41,6 +47,7 @@ impl WhatsAppApprovalChannelConfig {
             auth_token,
             from_number: whatsapp_address(&from_number),
             operator_whatsapp_numbers,
+            rate_limit: RateLimitConfig::default(),
         })
     }
 
@@ -54,6 +61,7 @@ impl WhatsAppApprovalChannelConfig {
             from_number: "whatsapp:+14155238886".into(),
             endpoint: "http://127.0.0.1:9/Messages.json".into(),
             operator_whatsapp_numbers,
+            rate_limit: RateLimitConfig::unlimited(),
         }
     }
 }
@@ -62,15 +70,20 @@ impl WhatsAppApprovalChannelConfig {
 pub struct WhatsAppApprovalChannel {
     config: WhatsAppApprovalChannelConfig,
     client: reqwest::Client,
+    rate_limit: RateLimit,
 }
 
 impl WhatsAppApprovalChannel {
     /// Create a WhatsApp approval channel.
     #[must_use]
     pub fn new(config: WhatsAppApprovalChannelConfig) -> Self {
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::whatsapp_default().with_override(config.rate_limit),
+        );
         Self {
             config,
             client: reqwest::Client::new(),
+            rate_limit,
         }
     }
 
@@ -109,6 +122,9 @@ impl NotifyChannel for WhatsAppApprovalChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         if notification.risk_level != RiskLevel::High {
             return Ok(DeliveryReceipt {
                 channel_id: self.id(),

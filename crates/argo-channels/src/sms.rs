@@ -1,5 +1,6 @@
 //! Twilio-backed SMS approval channel.
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
     Notification, NotifyChannel, RiskLevel,
@@ -24,6 +25,10 @@ pub struct SmsApprovalChannelConfig {
     pub endpoint: String,
     /// Per-operator phone-number map.
     pub operator_phone_numbers: BTreeMap<String, String>,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the SMS default (1/sec, 10/min).
+    #[serde(default)]
+    pub rate_limit: RateLimitConfig,
 }
 
 impl SmsApprovalChannelConfig {
@@ -41,6 +46,7 @@ impl SmsApprovalChannelConfig {
             auth_token,
             from_number,
             operator_phone_numbers,
+            rate_limit: RateLimitConfig::default(),
         })
     }
 
@@ -54,6 +60,7 @@ impl SmsApprovalChannelConfig {
             from_number: "+15555550100".into(),
             endpoint: "http://127.0.0.1:9/Messages.json".into(),
             operator_phone_numbers,
+            rate_limit: RateLimitConfig::unlimited(),
         }
     }
 }
@@ -62,15 +69,20 @@ impl SmsApprovalChannelConfig {
 pub struct SmsApprovalChannel {
     config: SmsApprovalChannelConfig,
     client: reqwest::Client,
+    rate_limit: RateLimit,
 }
 
 impl SmsApprovalChannel {
     /// Create an SMS approval channel.
     #[must_use]
     pub fn new(config: SmsApprovalChannelConfig) -> Self {
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::sms_default().with_override(config.rate_limit),
+        );
         Self {
             config,
             client: reqwest::Client::new(),
+            rate_limit,
         }
     }
 
@@ -107,6 +119,9 @@ impl NotifyChannel for SmsApprovalChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         if notification.risk_level != RiskLevel::High {
             return Ok(DeliveryReceipt {
                 channel_id: self.id(),
@@ -242,6 +257,7 @@ mod tests {
             auth_token: token,
             from_number: from,
             operator_phone_numbers: phones,
+            rate_limit: RateLimitConfig::unlimited(),
         });
         let receipt = channel.send(notification(RiskLevel::High)).await.unwrap();
         assert_eq!(receipt.status, DeliveryStatus::Sent);

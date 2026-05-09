@@ -10,6 +10,7 @@
 //! # Ok(()) }
 //! ```
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::token::verify_approval_token;
 use crate::{
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
@@ -37,6 +38,10 @@ pub struct IMessageChannelConfig {
     pub webhook_secret: Option<String>,
     /// Per-operator Blue Bubbles chat GUID routes.
     pub operator_routes: BTreeMap<String, String>,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the iMessage default
+    /// (5/sec, 60/min).
+    pub rate_limit: RateLimitConfig,
 }
 
 impl IMessageChannelConfig {
@@ -50,6 +55,7 @@ impl IMessageChannelConfig {
             approval_secret: required_env("ARGO_CHANNEL_HMAC_SECRET")?,
             webhook_secret: argo_config::cred::get("BLUE_BUBBLES_WEBHOOK_SECRET").ok(),
             operator_routes: BTreeMap::new(),
+            rate_limit: RateLimitConfig::default(),
         })
     }
 
@@ -63,6 +69,7 @@ impl IMessageChannelConfig {
             approval_secret: "secret".into(),
             webhook_secret: Some("webhook-secret".into()),
             operator_routes: BTreeMap::new(),
+            rate_limit: RateLimitConfig::unlimited(),
         }
     }
 }
@@ -71,6 +78,7 @@ impl IMessageChannelConfig {
 pub struct IMessageChannel {
     config: IMessageChannelConfig,
     client: BlueBubblesClient,
+    rate_limit: RateLimit,
 }
 
 impl IMessageChannel {
@@ -78,7 +86,14 @@ impl IMessageChannel {
     pub fn new(config: IMessageChannelConfig) -> ChannelResult<Self> {
         let client = BlueBubblesClient::new(&config.server_url, &config.password)
             .map_err(|e| ChannelError::Config(e.to_string()))?;
-        Ok(Self { config, client })
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::imessage_default().with_override(config.rate_limit),
+        );
+        Ok(Self {
+            config,
+            client,
+            rate_limit,
+        })
     }
 
     /// Parse an inbound Blue Bubbles webhook into an approval event.
@@ -133,6 +148,9 @@ impl NotifyChannel for IMessageChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         let chat_guid = self.chat_guid_for(&notification)?;
         let message = render_approval_message(&notification);
         let sent = self

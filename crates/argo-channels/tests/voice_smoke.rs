@@ -1,5 +1,7 @@
 use argo_channels::voice::{VoiceApprovalChannel, VoiceApprovalChannelConfig};
-use argo_channels::{ChannelId, Notification, NotifyChannel, OperatorTarget, RiskLevel};
+use argo_channels::{
+    ChannelId, Notification, NotifyChannel, OperatorTarget, RateLimitConfig, RiskLevel,
+};
 use chrono::{Duration, Utc};
 use std::collections::BTreeMap;
 
@@ -40,6 +42,7 @@ async fn twilio_voice_integration_gated_on_env() {
         hmac_secret: std::env::var("ARGO_CHANNEL_HMAC_SECRET")
             .unwrap_or_else(|_| "voice-smoke-test-secret".into()),
         operator_phone_numbers: phones,
+        rate_limit: RateLimitConfig::unlimited(),
     });
     let receipt = channel
         .send(Notification {

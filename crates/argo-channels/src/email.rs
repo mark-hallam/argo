@@ -1,5 +1,6 @@
 //! Postmark-backed email notification channel.
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
     Notification, NotifyChannel,
@@ -25,6 +26,11 @@ pub struct EmailChannelConfig {
     pub message_stream: Option<String>,
     /// Operator quiet hours.
     pub quiet_hours: QuietHours,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the email default
+    /// (5/sec, 30/min).
+    #[serde(default)]
+    pub rate_limit: RateLimitConfig,
 }
 
 impl EmailChannelConfig {
@@ -39,6 +45,7 @@ impl EmailChannelConfig {
             endpoint: "http://127.0.0.1:9/email".into(),
             message_stream: None,
             quiet_hours: QuietHours::default(),
+            rate_limit: RateLimitConfig::unlimited(),
         }
     }
 }
@@ -47,15 +54,20 @@ impl EmailChannelConfig {
 pub struct EmailChannel {
     config: EmailChannelConfig,
     client: reqwest::Client,
+    rate_limit: RateLimit,
 }
 
 impl EmailChannel {
     /// Create an email channel from config.
     #[must_use]
     pub fn new(config: EmailChannelConfig) -> Self {
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::email_default().with_override(config.rate_limit),
+        );
         Self {
             config,
             client: reqwest::Client::new(),
+            rate_limit,
         }
     }
 
@@ -122,6 +134,9 @@ impl NotifyChannel for EmailChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         if self.config.quiet_hours.contains(Utc::now()) {
             tracing::info!(
                 channel = %self.config.channel_id,

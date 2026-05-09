@@ -2,7 +2,9 @@ use argo_channels::email::{EmailChannel, EmailChannelConfig};
 use argo_channels::token::{
     sign_approval_token, verify_approval_token, verify_webhook_signature, ApprovalDecision,
 };
-use argo_channels::{ChannelId, Notification, NotifyChannel, OperatorTarget, RiskLevel};
+use argo_channels::{
+    ChannelId, Notification, NotifyChannel, OperatorTarget, RateLimitConfig, RiskLevel,
+};
 use chrono::{Duration, Utc};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -18,6 +20,7 @@ async fn email_send_posts_to_fake_postmark() {
         endpoint,
         message_stream: None,
         quiet_hours: Default::default(),
+        rate_limit: RateLimitConfig::unlimited(),
     });
     let receipt = channel
         .send(fake_notification("act-1"))

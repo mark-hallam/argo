@@ -24,6 +24,7 @@ pub mod imessage;
 pub mod manifest;
 pub mod push;
 pub mod push_format;
+pub mod rate_limit;
 pub mod slack;
 pub mod token;
 pub mod voice;
@@ -32,6 +33,7 @@ pub mod webinbox;
 pub mod whatsapp;
 
 pub use discord::DiscordChannel;
+pub use rate_limit::{RateLimit, RateLimitConfig};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -56,6 +58,14 @@ pub enum ChannelError {
     /// Payload parse failed.
     #[error("channel parse: {0}")]
     Parse(String),
+    /// Per-channel token-bucket budget exhausted. Callers should
+    /// back off for `retry_after` and retry; the dispatcher caps
+    /// this at 60s and bounds the retry count.
+    #[error("channel rate-limited: retry after {} ms", retry_after.as_millis())]
+    RateLimited {
+        /// Longest wait across exhausted windows.
+        retry_after: std::time::Duration,
+    },
 }
 
 /// Stable identifier for a notification channel implementation.

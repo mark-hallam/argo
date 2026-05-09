@@ -1,5 +1,6 @@
 //! Expo-backed push approval notification channel.
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
     push_format::{action_summary, expo_has_error, expo_message_id, token_from_url},
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
@@ -27,6 +28,11 @@ pub struct PushApprovalChannelConfig {
     endpoint: String,
     access_token: Option<String>,
     device_registry_path: PathBuf,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the push default
+    /// (5/sec, 100/min).
+    #[serde(default)]
+    pub rate_limit: RateLimitConfig,
 }
 
 impl PushApprovalChannelConfig {
@@ -44,6 +50,7 @@ impl PushApprovalChannelConfig {
                 .ok()
                 .filter(|v| !v.trim().is_empty()),
             device_registry_path: device_registry_path_from_env(),
+            rate_limit: RateLimitConfig::default(),
         }
     }
 
@@ -55,6 +62,7 @@ impl PushApprovalChannelConfig {
             endpoint: DEFAULT_EXPO_ENDPOINT.into(),
             access_token: None,
             device_registry_path: device_registry_path.into(),
+            rate_limit: RateLimitConfig::unlimited(),
         }
     }
 }
@@ -63,15 +71,20 @@ impl PushApprovalChannelConfig {
 pub struct PushApprovalChannel {
     config: PushApprovalChannelConfig,
     client: reqwest::Client,
+    rate_limit: RateLimit,
 }
 
 impl PushApprovalChannel {
     /// Create a push channel.
     #[must_use]
     pub fn new(config: PushApprovalChannelConfig) -> Self {
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::push_default().with_override(config.rate_limit),
+        );
         Self {
             config,
             client: reqwest::Client::new(),
+            rate_limit,
         }
     }
 
@@ -123,6 +136,9 @@ impl NotifyChannel for PushApprovalChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         let devices = self.devices_for(&notification.target.operator_id)?;
         let payloads = self.message_payloads(&notification, &devices)?;
         let mut req = self.client.post(&self.config.endpoint).json(&payloads);

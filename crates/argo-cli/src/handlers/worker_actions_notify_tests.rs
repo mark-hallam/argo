@@ -67,6 +67,96 @@ pub(super) fn action(action_id: &str, risk: &str) -> ActionRecord {
     }
 }
 
+/// `send_with_rate_limit_retry` honours
+/// `ChannelError::RateLimited` by sleeping for `retry_after`
+/// (capped at the helper's max backoff) before its second
+/// attempt, then succeeding. Uses a short real sleep rather
+/// than `tokio::time::pause` to match
+/// `mcp_rate_limit_tests.rs` precedent.
+#[tokio::test]
+async fn rate_limit_retry_waits_then_succeeds() {
+    use argo_channels::{
+        ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
+        NotifyChannel,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    struct FlakyOnce {
+        calls: AtomicUsize,
+    }
+    #[async_trait::async_trait]
+    impl NotifyChannel for FlakyOnce {
+        fn id(&self) -> ChannelId {
+            ChannelId::new("flaky")
+        }
+        async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+            let n = self.calls.fetch_add(1, Ordering::SeqCst);
+            if n == 0 {
+                Err(ChannelError::RateLimited {
+                    retry_after: Duration::from_millis(20),
+                })
+            } else {
+                Ok(DeliveryReceipt {
+                    channel_id: ChannelId::new("flaky"),
+                    notification_id: notification.approval_id,
+                    provider_message_id: None,
+                    status: DeliveryStatus::Sent,
+                    deferred_reason: None,
+                    delivered_at: Utc::now(),
+                })
+            }
+        }
+        async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
+            Ok(Vec::new())
+        }
+    }
+
+    let channel = FlakyOnce {
+        calls: AtomicUsize::new(0),
+    };
+    let n = build_notification(&action("act-rate", "high"));
+    let started = std::time::Instant::now();
+    send_with_rate_limit_retry("flaky", &channel, &n)
+        .await
+        .expect("retry must succeed on attempt 2");
+    let elapsed = started.elapsed();
+    assert_eq!(channel.calls.load(Ordering::SeqCst), 2);
+    assert!(
+        elapsed >= Duration::from_millis(15),
+        "must sleep at least retry_after; elapsed={elapsed:?}",
+    );
+}
+
+#[tokio::test]
+async fn rate_limit_retry_gives_up_after_bound() {
+    use argo_channels::{
+        ChannelError, ChannelId, ChannelResult, DeliveryReceipt, InboundEvent, NotifyChannel,
+    };
+    use std::time::Duration;
+
+    struct AlwaysLimited;
+    #[async_trait::async_trait]
+    impl NotifyChannel for AlwaysLimited {
+        fn id(&self) -> ChannelId {
+            ChannelId::new("always-limited")
+        }
+        async fn send(&self, _: Notification) -> ChannelResult<DeliveryReceipt> {
+            Err(ChannelError::RateLimited {
+                retry_after: Duration::from_millis(5),
+            })
+        }
+        async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
+            Ok(Vec::new())
+        }
+    }
+    let n = build_notification(&action("act-rate-bound", "high"));
+    let err = send_with_rate_limit_retry("always-limited", &AlwaysLimited, &n)
+        .await
+        .expect_err("after bounded retries the limiter surfaces an error");
+    assert!(err.contains("rate-limited"));
+}
+
 #[tokio::test]
 async fn no_channels_is_no_op() {
     let cfg = NotifyConfig::default();

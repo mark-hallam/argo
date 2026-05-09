@@ -35,12 +35,13 @@
 use crate::handlers::worker_actions::ActionRecord;
 use crate::handlers::worker_actions_notify_fallback;
 use argo_channels::fallback::{FallbackChain, FallbackChainManifest};
-use argo_channels::{Notification, OperatorTarget, RiskLevel};
+use argo_channels::{ChannelError, Notification, NotifyChannel, OperatorTarget, RiskLevel};
 use argo_identity::NotifyChannelRef;
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::Path;
+use std::time::Duration;
 
 #[path = "worker_actions_notify_chat.rs"]
 mod notify_chat;
@@ -367,19 +368,54 @@ pub(super) async fn post_json(channel: &str, url: &str, payload: Value) -> Resul
 
 async fn send_push(n: &Notification) -> Result<(), String> {
     use argo_channels::push::{PushApprovalChannel, PushApprovalChannelConfig};
-    use argo_channels::NotifyChannel;
     let cfg = PushApprovalChannelConfig::from_env();
     let channel = PushApprovalChannel::new(cfg);
-    channel
-        .send(n.clone())
-        .await
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    send_with_rate_limit_retry("push", &channel, n).await
+}
+
+/// Maximum backoff honoured per `ChannelError::RateLimited` hit.
+const RATE_LIMIT_MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// Number of additional attempts after a rate-limit hit. Bounded
+/// so a chronically-saturated channel cannot stall a worker tick.
+const RATE_LIMIT_MAX_RETRIES: usize = 1;
+
+/// Honour `ChannelError::RateLimited { retry_after }` as backoff
+/// before re-attempting `channel.send`. Wait is capped at
+/// `RATE_LIMIT_MAX_BACKOFF`; total attempts (initial + retries)
+/// are bounded by `RATE_LIMIT_MAX_RETRIES + 1`. Other errors
+/// surface verbatim. Used by every dispatcher arm whose channel
+/// is backed by a `NotifyChannel` impl in `argo_channels`.
+pub(super) async fn send_with_rate_limit_retry<C: NotifyChannel + Sync>(
+    channel_label: &str,
+    channel: &C,
+    n: &Notification,
+) -> Result<(), String> {
+    for attempt in 0..=RATE_LIMIT_MAX_RETRIES {
+        match channel.send(n.clone()).await {
+            Ok(_) => return Ok(()),
+            Err(ChannelError::RateLimited { retry_after })
+                if attempt < RATE_LIMIT_MAX_RETRIES =>
+            {
+                let backoff = retry_after.min(RATE_LIMIT_MAX_BACKOFF);
+                tracing::warn!(
+                    channel = channel_label,
+                    attempt,
+                    retry_after_ms = u64::try_from(backoff.as_millis()).unwrap_or(u64::MAX),
+                    "rate-limited; backing off before retry",
+                );
+                tokio::time::sleep(backoff).await;
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Err(format!(
+        "{channel_label} rate-limited after {} retries",
+        RATE_LIMIT_MAX_RETRIES
+    ))
 }
 
 async fn send_webinbox(n: &Notification) -> Result<(), String> {
     use argo_channels::webinbox::{WebInboxChannel, WebInboxChannelConfig};
-    use argo_channels::NotifyChannel;
     let inbox_path = std::env::var("ARGO_WEBINBOX_PATH")
         .ok()
         .filter(|s| !s.is_empty())

@@ -2,6 +2,7 @@
 
 use crate::email::QuietHours;
 use crate::fallback::FallbackChainManifest;
+use crate::rate_limit::RateLimitConfig;
 use crate::{ChannelError, ChannelResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -18,6 +19,11 @@ pub struct EmailChannelManifest {
     pub operator: OperatorManifest,
     /// Per-action approval channel declarations.
     pub action: BTreeMap<String, ActionManifest>,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the channel's compiled-in
+    /// default (email is 5/sec, 30/min). See
+    /// [`crate::rate_limit`] for the full default table.
+    pub rate_limit: RateLimitConfig,
 }
 
 impl EmailChannelManifest {
@@ -171,5 +177,32 @@ per_step_timeout_secs = 12
     fn notify_channels_manifest_omits_fallback_chain_when_absent() {
         let parsed = NotifyChannelsManifest::parse("").expect("parse");
         assert!(parsed.fallback_chain.is_none());
+    }
+
+    #[test]
+    fn parses_rate_limit_block_with_partial_override() {
+        let src = r#"
+[channel]
+postmark_token_env = "POSTMARK_TOKEN"
+from_address_env = "FROM"
+
+[rate_limit]
+per_sec = 20
+"#;
+        let parsed = EmailChannelManifest::parse(src).expect("parse");
+        assert_eq!(parsed.rate_limit.per_sec, Some(20));
+        assert_eq!(parsed.rate_limit.per_min, None);
+        assert_eq!(parsed.rate_limit.per_hour, None);
+    }
+
+    #[test]
+    fn omitted_rate_limit_block_defaults_to_unlimited_override() {
+        let src = r#"
+[channel]
+postmark_token_env = "POSTMARK_TOKEN"
+from_address_env = "FROM"
+"#;
+        let parsed = EmailChannelManifest::parse(src).expect("parse");
+        assert_eq!(parsed.rate_limit, RateLimitConfig::unlimited());
     }
 }

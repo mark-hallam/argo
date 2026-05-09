@@ -1,5 +1,6 @@
 //! Twilio-backed voice approval channel.
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
     Notification, NotifyChannel, RiskLevel,
@@ -33,6 +34,11 @@ pub struct VoiceApprovalChannelConfig {
     pub hmac_secret: String,
     /// Per-operator phone-number map.
     pub operator_phone_numbers: BTreeMap<String, String>,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the voice default
+    /// (1/min, 5/hour).
+    #[serde(default)]
+    pub rate_limit: RateLimitConfig,
 }
 
 impl VoiceApprovalChannelConfig {
@@ -54,6 +60,7 @@ impl VoiceApprovalChannelConfig {
             decision_callback_base_url,
             hmac_secret,
             operator_phone_numbers,
+            rate_limit: RateLimitConfig::default(),
         })
     }
 
@@ -69,6 +76,7 @@ impl VoiceApprovalChannelConfig {
             decision_callback_base_url: "https://gw.example.com/twilio/voice/decision".into(),
             hmac_secret: "test-secret".into(),
             operator_phone_numbers,
+            rate_limit: RateLimitConfig::unlimited(),
         }
     }
 }
@@ -77,15 +85,20 @@ impl VoiceApprovalChannelConfig {
 pub struct VoiceApprovalChannel {
     config: VoiceApprovalChannelConfig,
     client: reqwest::Client,
+    rate_limit: RateLimit,
 }
 
 impl VoiceApprovalChannel {
     /// Create a voice approval channel.
     #[must_use]
     pub fn new(config: VoiceApprovalChannelConfig) -> Self {
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::voice_default().with_override(config.rate_limit),
+        );
         Self {
             config,
             client: reqwest::Client::new(),
+            rate_limit,
         }
     }
 
@@ -137,6 +150,9 @@ impl NotifyChannel for VoiceApprovalChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         if notification.risk_level != RiskLevel::High {
             return Ok(DeliveryReceipt {
                 channel_id: self.id(),

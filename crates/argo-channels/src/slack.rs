@@ -1,5 +1,6 @@
 //! Slack Block Kit approval notification channel.
 
+use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
     ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
     Notification, NotifyChannel,
@@ -41,6 +42,11 @@ pub struct SlackApprovalChannelConfig {
     pub endpoint: String,
     /// Per-operator routing preferences.
     pub operator_routes: BTreeMap<String, SlackOperatorRoute>,
+    /// Operator override for the per-channel rate-limit budget.
+    /// Missing fields fall back to the Slack default
+    /// (5/sec, 60/min).
+    #[serde(default)]
+    pub rate_limit: RateLimitConfig,
 }
 
 impl SlackApprovalChannelConfig {
@@ -55,6 +61,7 @@ impl SlackApprovalChannelConfig {
             bot_token,
             endpoint: "https://slack.com/api/chat.postMessage".into(),
             operator_routes,
+            rate_limit: RateLimitConfig::default(),
         })
     }
 }
@@ -63,15 +70,20 @@ impl SlackApprovalChannelConfig {
 pub struct SlackApprovalChannel {
     config: SlackApprovalChannelConfig,
     client: reqwest::Client,
+    rate_limit: RateLimit,
 }
 
 impl SlackApprovalChannel {
     /// Create a Slack approval channel from config.
     #[must_use]
     pub fn new(config: SlackApprovalChannelConfig) -> Self {
+        let rate_limit = RateLimit::from_config(
+            RateLimitConfig::slack_default().with_override(config.rate_limit),
+        );
         Self {
             config,
             client: reqwest::Client::new(),
+            rate_limit,
         }
     }
 
@@ -128,6 +140,9 @@ impl NotifyChannel for SlackApprovalChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Err(retry_after) = self.rate_limit.try_acquire() {
+            return Err(ChannelError::RateLimited { retry_after });
+        }
         if self.config.bot_token.is_empty() {
             return Err(ChannelError::Config(
                 "SLACK_APPROVALS_BOT_TOKEN must not be empty".into(),
@@ -217,6 +232,7 @@ mod tests {
             bot_token: "test".into(),
             endpoint: "http://127.0.0.1:9".into(),
             operator_routes,
+            rate_limit: RateLimitConfig::unlimited(),
         })
     }
 

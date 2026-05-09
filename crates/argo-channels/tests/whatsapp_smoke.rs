@@ -1,7 +1,8 @@
 use argo_channels::token::{sign_approval_token, ApprovalDecision};
 use argo_channels::whatsapp::{WhatsAppApprovalChannel, WhatsAppApprovalChannelConfig};
 use argo_channels::{
-    ChannelId, DeliveryStatus, Notification, NotifyChannel, OperatorTarget, RiskLevel,
+    ChannelId, DeliveryStatus, Notification, NotifyChannel, OperatorTarget, RateLimitConfig,
+    RiskLevel,
 };
 use chrono::{Duration, Utc};
 use std::collections::BTreeMap;
@@ -56,6 +57,7 @@ async fn twilio_whatsapp_integration_gated_on_env() {
         auth_token: token,
         from_number: from,
         operator_whatsapp_numbers: phones,
+        rate_limit: RateLimitConfig::unlimited(),
     });
     let receipt = channel
         .send(Notification {
