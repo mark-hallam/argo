@@ -62,6 +62,22 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
             manifest_only,
             force,
         }),
+        GenesisCmd::Import {
+            source,
+            name,
+            format,
+            output,
+            json,
+        } => {
+            let format = format.parse::<super::genesis_import::ImportFormat>()?;
+            super::genesis_import::handle_import(super::genesis_import::GenesisImportArgs {
+                source,
+                name,
+                format,
+                output,
+                json,
+            })
+        }
     }
 }
 

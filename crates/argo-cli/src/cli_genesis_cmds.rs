@@ -116,6 +116,33 @@ pub enum GenesisCmd {
         #[arg(long)]
         refine: bool,
     },
+    /// Import an existing prompt source (LangChain `*.py`,
+    /// markdown, or raw text) into a minimal vertical scaffold.
+    /// Genesis revise + the action/eval/memory generators can then
+    /// flesh the scaffold out. v0 reads local paths only — URL
+    /// fetch needs a security review and lands in a follow-up.
+    Import {
+        /// Local path to the prompt source. Required.
+        #[arg(long)]
+        source: PathBuf,
+        /// Vertical id for the new scaffold (lowercase ASCII +
+        /// digits + `-`, same shape as `vertical.id`).
+        #[arg(long)]
+        name: String,
+        /// Source format. `auto` (default) sniffs by extension:
+        /// `*.py` → langchain, `*.md` → markdown, anything else →
+        /// raw.
+        #[arg(long, default_value = "auto")]
+        format: String,
+        /// Parent directory for the scaffold. The vertical lands at
+        /// `<output>/<name>/`.
+        #[arg(long, default_value = "verticals")]
+        output: PathBuf,
+        /// Emit a single JSON envelope summarising the import
+        /// instead of human-readable lines.
+        #[arg(long)]
+        json: bool,
+    },
     /// Export an installed vertical as a portable tar.gz bundle.
     Export {
         /// Vertical id discoverable via ARGO_VERTICALS_DIR or ./verticals.
