@@ -281,6 +281,11 @@ PY
 
     # Release the just-claimed row → TODO so a fresh worker (this loop, post-sleep)
     # can re-claim. Salvage note points at /tmp/<brief-id> for any partial WIP.
+    # Note: regex captures up-to-but-not-including the trailing ` |` so the
+    # release note can be appended INSIDE the last cell, not after it.
+    # (Prior version had `(.*)$` which swallowed the trailing pipe and
+    # placed the note after it, breaking row format and tripping
+    # claim-with-retry's regex on next iteration.)
     set +e
     python3 - "$BRIEF_ID" "$REPO" <<'PY'
 import re, sys, pathlib
@@ -291,8 +296,8 @@ note = (f" **RELEASED by worker-loop quota guard; auto-resume pending:** "
         f"Anthropic 5h quota hit; session exited before opening PR. "
         f"/tmp/{brief} may have salvageable WIP.")
 new, n = re.subn(
-    rf"^(\| {re.escape(brief)} \| (?:claude|codex)) \| CLAIMED \|(.*)$",
-    lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note}",
+    rf"^(\| {re.escape(brief)} \| (?:claude|codex)) \| CLAIMED \|(.*) \|$",
+    lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note} |",
     text, count=1, flags=re.MULTILINE,
 )
 if n:
