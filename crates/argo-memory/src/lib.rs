@@ -40,6 +40,7 @@ mod row;
 pub mod shared_team;
 mod skill_candidate;
 mod store;
+mod store_vertical;
 mod summary;
 
 #[cfg(test)]
