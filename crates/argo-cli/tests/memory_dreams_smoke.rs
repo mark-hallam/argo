@@ -34,7 +34,9 @@ async fn smoke_dreams_call_persists_summary() {
     .execute(store.pool())
     .await
     .unwrap();
-    argo_store::anomaly::ensure_schema(store.pool()).await.unwrap();
+    // The anomaly schema (worker_anomaly_event + worker_behavior_baseline)
+    // now lands via SessionStore::migrate (v19 in the reconciled ladder),
+    // so no separate ensure_schema call is needed.
 
     let memory = MemoryStore::new(Arc::clone(&store));
     let ns = MemoryNs::new(tenant, WorkerId::new(), MemoryScope::WorkerSelf);

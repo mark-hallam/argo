@@ -1,16 +1,25 @@
 use super::*;
+use crate::SessionStore;
 
 async fn fresh_pool() -> SqlitePool {
-    SqlitePool::connect("sqlite::memory:")
-        .await
-        .expect("open in-memory pool")
+    // The subtask_ledger table now lives in `migrations/v39.rs`; a
+    // migrated SessionStore gives us the full ladder including the
+    // subtask schema with no raw SQL needed.
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate");
+    store.pool().clone()
 }
 
 #[tokio::test]
-async fn schema_applies_idempotently() {
+async fn migrate_yields_subtask_ledger_table() {
     let pool = fresh_pool().await;
-    ensure_schema(&pool).await.expect("first apply");
-    ensure_schema(&pool).await.expect("second apply");
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'subtask_ledger'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 1);
 }
 
 #[tokio::test]
@@ -78,7 +87,6 @@ async fn update_state_transitions_persist_timestamps() {
 #[tokio::test]
 async fn update_state_unknown_id_errors() {
     let pool = fresh_pool().await;
-    ensure_schema(&pool).await.unwrap();
     let err = update_state(&pool, "no-such-id", SubtaskState::Running, None)
         .await
         .expect_err("expected error");

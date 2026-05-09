@@ -17,8 +17,6 @@ use uuid::Uuid;
 
 use argo_types::{ArgoError, ArgoResult};
 
-const SUBTASK_LEDGER_SCHEMA: &str = include_str!("../migrations/29__subtask_ledger.sql");
-
 /// Lifecycle states a [`SubtaskRow`] can occupy. Mirrored as a
 /// lower-case string in the `state` column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,27 +121,11 @@ pub struct SubtaskFilters<'a> {
     pub state: Option<SubtaskState>,
 }
 
-/// Ensure the schema is in place. Idempotent — safe to call from
-/// every entry point so callers don't have to coordinate with the
-/// global migration runner.
-pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    for stmt in SUBTASK_LEDGER_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
-            .execute(pool)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("subtask schema: {e}")))?;
-    }
-    Ok(())
-}
-
 /// Insert one row. Returns the assigned id so the caller can keep
 /// it alongside the in-memory plan node for state-transition writes.
+/// Schema is owned by `migrations/v39.rs`; callers must run
+/// `SessionStore::migrate` before use.
 pub async fn insert(pool: &SqlitePool, new: &NewSubtask<'_>) -> ArgoResult<String> {
-    ensure_schema(pool).await?;
     let id = Uuid::now_v7().to_string();
     let created_at = Utc::now().timestamp_micros();
     sqlx::query(
@@ -174,7 +156,6 @@ pub async fn update_state(
     state: SubtaskState,
     output: Option<&str>,
 ) -> ArgoResult<()> {
-    ensure_schema(pool).await?;
     let now = Utc::now().timestamp_micros();
     let started = matches!(state, SubtaskState::Running).then_some(now);
     let completed = matches!(
@@ -208,7 +189,6 @@ pub async fn update_state(
 
 /// Fetch one row by id.
 pub async fn get(pool: &SqlitePool, id: &str) -> ArgoResult<Option<SubtaskRow>> {
-    ensure_schema(pool).await?;
     let row: Option<RowTuple> = sqlx::query_as(SELECT_COLUMNS_BY_ID)
         .bind(id)
         .fetch_optional(pool)
@@ -224,7 +204,6 @@ pub async fn list(
     filters: &SubtaskFilters<'_>,
     limit: u32,
 ) -> ArgoResult<Vec<SubtaskRow>> {
-    ensure_schema(pool).await?;
     let mut sql = String::from(SELECT_COLUMNS);
     let mut clauses: Vec<&str> = Vec::new();
     if filters.parent_session_id.is_some() {
@@ -317,7 +296,6 @@ impl argo_runtime::SubtaskSink for SqliteSubtaskSink {
 /// ordered by `created_at` ascending so callers can render the
 /// plan in insert order. Used by `argo subtask tree`.
 pub async fn list_by_session(pool: &SqlitePool, session_id: &str) -> ArgoResult<Vec<SubtaskRow>> {
-    ensure_schema(pool).await?;
     let rows: Vec<RowTuple> = sqlx::query_as(SELECT_COLUMNS_BY_SESSION)
         .bind(session_id)
         .fetch_all(pool)

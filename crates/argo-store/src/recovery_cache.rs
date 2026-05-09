@@ -216,16 +216,11 @@ mod tests {
     use chrono::Utc;
 
     async fn open_with_table() -> SessionStore {
+        // The recovery_cache table now lives in `migrations/v36.rs`;
+        // SessionStore::migrate installs it as part of the v12..v40
+        // ladder, no raw SQL replay required.
         let store = SessionStore::open(":memory:").await.unwrap();
         store.migrate().await.unwrap();
-        let stmts = include_str!("../migrations/28__recovery_cache.sql");
-        for stmt in stmts.split_terminator(';') {
-            let sql = stmt.trim();
-            if sql.is_empty() {
-                continue;
-            }
-            sqlx::query(sql).execute(store.pool()).await.unwrap();
-        }
         store
     }
 

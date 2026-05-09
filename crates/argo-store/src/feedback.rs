@@ -190,21 +190,14 @@ pub fn micros_to_rfc3339(micros: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::SqlitePoolOptions;
+    use crate::SessionStore;
 
     async fn fresh_pool() -> Pool<Sqlite> {
-        let pool = SqlitePoolOptions::new()
-            .connect(":memory:")
-            .await
-            .unwrap();
-        for stmt in include_str!("../migrations/24__operator_feedback.sql")
-            .split_terminator(';')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            sqlx::query(stmt).execute(&pool).await.unwrap();
-        }
-        pool
+        // operator_feedback now lives in `migrations/v27.rs`; a
+        // migrated SessionStore is the canonical setup path.
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        store.pool().clone()
     }
 
     #[tokio::test]

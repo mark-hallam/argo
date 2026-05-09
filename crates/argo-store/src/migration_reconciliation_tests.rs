@@ -1,12 +1,18 @@
 use crate::SessionStore;
 use sqlx::Row;
 
+#[path = "migration_test_helpers.rs"]
+mod helpers;
+use helpers::{
+    apply_raw, assert_columns, assert_schema_version_singleton, baseline_v11, table_exists,
+};
+
 #[tokio::test]
-async fn fresh_migrate_reaches_v33_and_creates_reconciled_schema() {
+async fn fresh_migrate_reaches_v40_and_creates_reconciled_schema() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 33);
+    assert_eq!(store.schema_version().await.unwrap(), 40);
     for table in [
         "persona",
         "worker",
@@ -38,6 +44,15 @@ async fn fresh_migrate_reaches_v33_and_creates_reconciled_schema() {
         "data_classification_tag",
         "worker_spend_baseline",
         "worker_budget_alert",
+        // v34..v39 reconciled tables (v40 is a no-op tombstone).
+        "auction_log",
+        "auction_bid",
+        "worker_spend_anomaly",
+        "recovery_cache",
+        "role_duty",
+        "duty_fired_session",
+        "tenant_quota",
+        "subtask_ledger",
     ] {
         assert!(table_exists(&store, table).await, "missing {table}");
     }
@@ -66,7 +81,7 @@ async fn fresh_migrate_reaches_v33_and_creates_reconciled_schema() {
 }
 
 #[tokio::test]
-async fn raw_v12_to_v26_legacy_schema_migrates_without_duplicate_errors() {
+async fn raw_v12_to_v29_legacy_schema_migrates_without_duplicate_errors() {
     let store = baseline_v11().await;
     for raw in [
         include_str!("../migrations/12__worker_identity.sql"),
@@ -91,6 +106,12 @@ async fn raw_v12_to_v26_legacy_schema_migrates_without_duplicate_errors() {
         include_str!("../migrations/26__data_classification.sql"),
         include_str!("../migrations/26__spend_baseline.sql"),
         include_str!("../migrations/26__worker_budget_alert.sql"),
+        include_str!("../migrations/27__handoff_auctions.sql"),
+        include_str!("../migrations/27__spend_anomaly.sql"),
+        include_str!("../migrations/28__recovery_cache.sql"),
+        include_str!("../migrations/28__role_duties.sql"),
+        include_str!("../migrations/28__tenant_quota.sql"),
+        include_str!("../migrations/29__subtask_ledger.sql"),
     ] {
         apply_raw(&store, raw).await;
     }
@@ -98,7 +119,7 @@ async fn raw_v12_to_v26_legacy_schema_migrates_without_duplicate_errors() {
 
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 33);
+    assert_eq!(store.schema_version().await.unwrap(), 40);
     for table in [
         "shared_team_memory",
         "handoff",
@@ -119,6 +140,15 @@ async fn raw_v12_to_v26_legacy_schema_migrates_without_duplicate_errors() {
         "data_classification_tag",
         "worker_spend_baseline",
         "worker_budget_alert",
+        // v34..v39 reconciled tables.
+        "auction_log",
+        "auction_bid",
+        "worker_spend_anomaly",
+        "recovery_cache",
+        "role_duty",
+        "duty_fired_session",
+        "tenant_quota",
+        "subtask_ledger",
     ] {
         assert!(table_exists(&store, table).await, "missing {table}");
     }
@@ -134,7 +164,7 @@ async fn raw_v12_to_v26_legacy_schema_migrates_without_duplicate_errors() {
 }
 
 #[tokio::test]
-async fn partial_legacy_19_collision_pair_migrates_to_full_v33() {
+async fn partial_legacy_19_collision_pair_migrates_to_full_v40() {
     let store = baseline_v11().await;
     apply_raw(
         &store,
@@ -150,7 +180,7 @@ async fn partial_legacy_19_collision_pair_migrates_to_full_v33() {
 
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 33);
+    assert_eq!(store.schema_version().await.unwrap(), 40);
     assert!(table_exists(&store, "worker_anomaly_event").await);
     assert!(table_exists(&store, "worker_behavior_baseline").await);
     assert!(table_exists(&store, "skill_ab_test_run").await);
@@ -158,10 +188,12 @@ async fn partial_legacy_19_collision_pair_migrates_to_full_v33() {
 }
 
 #[tokio::test]
-async fn partial_legacy_22_collision_pair_migrates_to_full_v33() {
+async fn partial_legacy_28_collision_trio_migrates_to_full_v40() {
     // Lazy raw application of one half of each multi-prefix
-    // collision (22, 23, 24, 26) — proves v23..v33 idempotency
-    // when only some sibling files were applied historically.
+    // collision (22, 23, 24, 26, 27, 28) — proves v23..v40 idempotency
+    // when only some sibling files were applied historically. The 28
+    // group adds three siblings: recovery_cache (v36) preapplied,
+    // role_duties (v37) and tenant_quota (v38) installed by migrate().
     let store = baseline_v11().await;
     apply_raw(
         &store,
@@ -188,14 +220,26 @@ async fn partial_legacy_22_collision_pair_migrates_to_full_v33() {
         include_str!("../migrations/26__worker_budget_alert.sql"),
     )
     .await;
+    apply_raw(
+        &store,
+        include_str!("../migrations/27__handoff_auctions.sql"),
+    )
+    .await;
+    apply_raw(
+        &store,
+        include_str!("../migrations/28__recovery_cache.sql"),
+    )
+    .await;
 
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 33);
+    assert_eq!(store.schema_version().await.unwrap(), 40);
     // Pre-applied raw siblings still present.
     assert!(table_exists(&store, "handoff_routing_rule").await);
     assert!(table_exists(&store, "skill_quality_score").await);
     assert!(table_exists(&store, "worker_budget_alert").await);
+    assert!(table_exists(&store, "auction_log").await);
+    assert!(table_exists(&store, "recovery_cache").await);
     assert_columns(&store, "workspace", &["archived_at", "owner_email"]).await;
     // The other half of each collision installed by migrate().
     assert!(table_exists(&store, "roster").await);
@@ -204,13 +248,17 @@ async fn partial_legacy_22_collision_pair_migrates_to_full_v33() {
     assert!(table_exists(&store, "vertical_lifecycle").await);
     assert!(table_exists(&store, "data_classification_tag").await);
     assert!(table_exists(&store, "worker_spend_baseline").await);
+    assert!(table_exists(&store, "worker_spend_anomaly").await);
+    assert!(table_exists(&store, "role_duty").await);
+    assert!(table_exists(&store, "tenant_quota").await);
+    assert!(table_exists(&store, "subtask_ledger").await);
 }
 
 #[tokio::test]
-async fn rollback_to_v16_drops_v17_through_v33_tables() {
+async fn rollback_to_v16_drops_v17_through_v40_tables() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 33);
+    assert_eq!(store.schema_version().await.unwrap(), 40);
 
     store.migrate_down_to(16).await.unwrap();
 
@@ -244,6 +292,15 @@ async fn rollback_to_v16_drops_v17_through_v33_tables() {
         "data_classification_tag",
         "worker_spend_baseline",
         "worker_budget_alert",
+        // v34..v39 reconciled tables.
+        "auction_log",
+        "auction_bid",
+        "worker_spend_anomaly",
+        "recovery_cache",
+        "role_duty",
+        "duty_fired_session",
+        "tenant_quota",
+        "subtask_ledger",
     ] {
         assert!(
             !table_exists(&store, dropped).await,
@@ -275,10 +332,10 @@ async fn rollback_to_v16_drops_v17_through_v33_tables() {
 }
 
 #[tokio::test]
-async fn rollback_to_v22_drops_v23_through_v33_tables() {
+async fn rollback_to_v22_drops_v23_through_v40_tables() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 33);
+    assert_eq!(store.schema_version().await.unwrap(), 40);
 
     store.migrate_down_to(22).await.unwrap();
 
@@ -286,7 +343,7 @@ async fn rollback_to_v22_drops_v23_through_v33_tables() {
     // v22 (org_chart) still present.
     assert!(table_exists(&store, "org_unit").await);
     assert!(table_exists(&store, "org_member").await);
-    // v23..v33 unwound.
+    // v23..v40 unwound.
     for dropped in [
         "roster",
         "roster_member",
@@ -299,6 +356,15 @@ async fn rollback_to_v22_drops_v23_through_v33_tables() {
         "data_classification_tag",
         "worker_spend_baseline",
         "worker_budget_alert",
+        // v34..v39 reconciled tables.
+        "auction_log",
+        "auction_bid",
+        "worker_spend_anomaly",
+        "recovery_cache",
+        "role_duty",
+        "duty_fired_session",
+        "tenant_quota",
+        "subtask_ledger",
     ] {
         assert!(
             !table_exists(&store, dropped).await,
@@ -326,118 +392,8 @@ async fn rollback_to_v11_returns_clear_unsupported_error() {
 
     let err = store.migrate_down_to(11).await.expect_err("unsupported");
     assert!(err.to_string().contains("rollback unsupported"));
-    // After v17..v33 unwound, v16 refuses and the schema_version
+    // After v17..v40 unwound, v16 refuses and the schema_version
     // settles at 16 — the highest layer whose down() is supported.
     assert_eq!(store.schema_version().await.unwrap(), 16);
 }
 
-async fn baseline_v11() -> SessionStore {
-    let store = SessionStore::open(":memory:").await.unwrap();
-    crate::migrations::run_up_to(store.pool(), 11)
-        .await
-        .unwrap();
-    store
-}
-
-async fn apply_raw(store: &SessionStore, body: &str) {
-    // Strip `--` line comments before splitting on `;` so semicolons
-    // inside SQL prose comments (e.g. `19__worker_fs_root.sql`) do
-    // not split mid-statement.
-    let stripped: String = body
-        .lines()
-        .map(|line| match line.find("--") {
-            Some(idx) => &line[..idx],
-            None => line,
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    for stmt in split_with_trigger_awareness(&stripped) {
-        match sqlx::query(stmt).execute(store.pool()).await {
-            Ok(_) => {}
-            Err(e)
-                if stmt.contains("memory_vec_index")
-                    && e.to_string().contains("no such module: vec0") => {}
-            Err(e) => panic!("raw migration failed: {e}; stmt={stmt}"),
-        }
-    }
-}
-
-// Mirrors `tests/migration_chain.rs::split_sql_statements`: splits on
-// `;` but treats a statement starting with `CREATE TRIGGER` as
-// continuing until its `END;` so the inner `;` inside the
-// `BEGIN ... END` body do not slice the trigger in half. Required
-// for `22__tenant_archived.sql` once it is part of the v22..v33
-// reconciliation walk.
-fn split_with_trigger_awareness(sql: &str) -> Vec<&str> {
-    let mut statements = Vec::new();
-    let mut start = 0;
-    let bytes = sql.as_bytes();
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b';' {
-            let stmt = sql[start..=index].trim();
-            if !is_incomplete_trigger(stmt) {
-                if !stmt.is_empty() {
-                    statements.push(stmt);
-                }
-                start = index + 1;
-            }
-        }
-        index += 1;
-    }
-    let tail = sql[start..].trim();
-    if !tail.is_empty() {
-        statements.push(tail);
-    }
-    statements
-        .into_iter()
-        .map(|s| s.trim_end_matches(';').trim())
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
-fn is_incomplete_trigger(stmt: &str) -> bool {
-    stmt.trim_start()
-        .get(..14)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("CREATE TRIGGER"))
-        && !ends_with_end(stmt)
-}
-
-fn ends_with_end(stmt: &str) -> bool {
-    let stmt = stmt.trim_end_matches(';').trim_end();
-    stmt.get(stmt.len().saturating_sub(3)..)
-        .is_some_and(|suffix| suffix.eq_ignore_ascii_case("END"))
-}
-
-async fn table_exists(store: &SessionStore, table: &str) -> bool {
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name = ?",
-    )
-    .bind(table)
-    .fetch_optional(store.pool())
-    .await
-    .unwrap();
-    row.is_some()
-}
-
-async fn assert_columns(store: &SessionStore, table: &str, columns: &[&str]) {
-    let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
-        .fetch_all(store.pool())
-        .await
-        .unwrap();
-    for column in columns {
-        assert!(
-            rows.iter()
-                .any(|row| row.get::<String, _>("name") == *column),
-            "missing {table}.{column}"
-        );
-    }
-}
-
-async fn assert_schema_version_singleton(store: &SessionStore) {
-    let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM schema_version")
-        .fetch_one(store.pool())
-        .await
-        .unwrap();
-    assert_eq!(rows, 1);
-}

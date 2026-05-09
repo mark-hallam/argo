@@ -2,25 +2,20 @@
 //! (Stream `claude-spend-anomaly-alerts`). Sibling test file so
 //! `spend_anomaly.rs` stays focused on the data model + queries.
 use super::{
-    configured_threshold, ensure_schema, list_active_worker_ids, list_anomalies, load_baseline,
+    configured_threshold, list_active_worker_ids, list_anomalies, load_baseline,
     observe_recent_hour, previous_hour_bounds, record_anomaly, save_baseline, AnomalyFilters,
     SpendBaseline, DEFAULT_SPEND_Z_THRESHOLD, MIN_SAMPLES_FOR_DETECT,
 };
+use crate::SessionStore;
 use chrono::{TimeZone, Utc};
-use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 
 async fn fresh_pool() -> SqlitePool {
-    let pool = SqlitePoolOptions::new()
-        .connect("sqlite::memory:")
-        .await
-        .expect("in-memory pool");
-    sqlx::query(include_str!("../migrations/14__worker_budget.sql"))
-        .execute(&pool)
-        .await
-        .expect("worker_budget schema");
-    ensure_schema(&pool).await.expect("spend anomaly schema");
-    pool
+    // worker_budget (v14), worker_spend_baseline (v32) and
+    // worker_spend_anomaly (v35) all land via the versioned ladder.
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate");
+    store.pool().clone()
 }
 
 #[test]

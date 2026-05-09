@@ -28,6 +28,13 @@ mod v30;
 mod v31;
 mod v32;
 mod v33;
+mod v34;
+mod v35;
+mod v36;
+mod v37;
+mod v38;
+mod v39;
+mod v40;
 mod v6;
 mod v7;
 mod v8;
@@ -298,6 +305,41 @@ fn all_migrations() -> Vec<Migration> {
             version: 33,
             up: |tx| Box::pin(v33::up(tx)),
             down: |tx| Box::pin(v33::down(tx)),
+        },
+        Migration {
+            version: 34,
+            up: |tx| Box::pin(v34::up(tx)),
+            down: |tx| Box::pin(v34::down(tx)),
+        },
+        Migration {
+            version: 35,
+            up: |tx| Box::pin(v35::up(tx)),
+            down: |tx| Box::pin(v35::down(tx)),
+        },
+        Migration {
+            version: 36,
+            up: |tx| Box::pin(v36::up(tx)),
+            down: |tx| Box::pin(v36::down(tx)),
+        },
+        Migration {
+            version: 37,
+            up: |tx| Box::pin(v37::up(tx)),
+            down: |tx| Box::pin(v37::down(tx)),
+        },
+        Migration {
+            version: 38,
+            up: |tx| Box::pin(v38::up(tx)),
+            down: |tx| Box::pin(v38::down(tx)),
+        },
+        Migration {
+            version: 39,
+            up: |tx| Box::pin(v39::up(tx)),
+            down: |tx| Box::pin(v39::down(tx)),
+        },
+        Migration {
+            version: 40,
+            up: |tx| Box::pin(v40::up(tx)),
+            down: |tx| Box::pin(v40::down(tx)),
         },
     ]
 }

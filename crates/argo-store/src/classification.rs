@@ -17,8 +17,6 @@ use chrono::{TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-const SCHEMA_SQL: &str = include_str!("../migrations/26__data_classification.sql");
-
 /// One row of `data_classification_tag`. Strings stay raw at this
 /// layer — typed parsing is the caller's job.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,23 +33,10 @@ pub struct ClassificationTag {
     pub tagged_by: Option<String>,
 }
 
-/// Lazily install the classification table. Idempotent.
-pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    for stmt in SCHEMA_SQL.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
-            .execute(pool)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("classification schema: {e}")))?;
-    }
-    Ok(())
-}
-
 /// Insert (or replace if duplicate) a classification tag. Returns
-/// the `tagged_at_micros` written (always `now`).
+/// the `tagged_at_micros` written (always `now`). Schema is owned
+/// by `migrations/v31.rs`; callers must run `SessionStore::migrate`
+/// before use.
 pub async fn insert_tag(
     pool: &SqlitePool,
     record_kind: &str,
@@ -59,7 +44,6 @@ pub async fn insert_tag(
     class: &str,
     tagged_by: Option<&str>,
 ) -> ArgoResult<i64> {
-    ensure_schema(pool).await?;
     let now = Utc::now().timestamp_micros();
     sqlx::query(
         "INSERT OR REPLACE INTO data_classification_tag \
@@ -86,7 +70,6 @@ pub async fn list_tags(
     tagged_by: Option<&str>,
     limit: u32,
 ) -> ArgoResult<Vec<ClassificationTag>> {
-    ensure_schema(pool).await?;
     let class_filter = class.unwrap_or("");
     let kind_filter = record_kind.unwrap_or("");
     let actor_filter = tagged_by.unwrap_or("");
@@ -125,7 +108,6 @@ pub async fn classes_for_record(
     record_kind: &str,
     record_id: &str,
 ) -> ArgoResult<Vec<String>> {
-    ensure_schema(pool).await?;
     let rows: Vec<(String,)> = sqlx::query_as(
         "SELECT class FROM data_classification_tag \
          WHERE record_kind = ? AND record_id = ? \
@@ -160,7 +142,6 @@ pub async fn prune_tags_older_than(
     class: &str,
     cutoff_micros: i64,
 ) -> ArgoResult<u64> {
-    ensure_schema(pool).await?;
     let result = sqlx::query(
         "DELETE FROM data_classification_tag \
          WHERE class = ? AND tagged_at_micros < ?",
@@ -185,13 +166,15 @@ pub fn micros_to_rfc3339(micros: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::sqlite::SqlitePoolOptions;
+    use crate::SessionStore;
 
     async fn fresh_pool() -> SqlitePool {
-        SqlitePoolOptions::new()
-            .connect(":memory:")
-            .await
-            .unwrap()
+        // The data_classification_tag table now lives in
+        // `migrations/v31.rs`; opening a SessionStore + migrate gives
+        // us the table without including raw SQL.
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        store.pool().clone()
     }
 
     #[tokio::test]
@@ -289,7 +272,6 @@ mod tests {
     async fn prune_removes_old_tags() {
         let pool = fresh_pool().await;
         // Manually insert with backdated tagged_at to simulate old rows.
-        ensure_schema(&pool).await.unwrap();
         sqlx::query(
             "INSERT INTO data_classification_tag \
              (record_kind, record_id, class, tagged_at_micros, tagged_by) \

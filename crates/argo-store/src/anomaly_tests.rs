@@ -2,7 +2,6 @@
 //! the LOC budget.
 use super::*;
 use chrono::Utc;
-use sqlx::sqlite::SqlitePoolOptions;
 
 fn s(latency_ms: i64, retry: u32) -> BehaviorSample {
     BehaviorSample {
@@ -75,11 +74,12 @@ fn threshold_paths_serial() {
 }
 
 async fn pool() -> sqlx::SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+    // The anomaly schema lives in `migrations/v19.rs`; opening a
+    // `SessionStore` and migrating gives us the worker_anomaly_event
+    // and worker_behavior_baseline tables this module reads/writes.
+    let store = crate::SessionStore::open(":memory:").await.unwrap();
+    store.migrate().await.unwrap();
+    store.pool().clone()
 }
 
 #[tokio::test]

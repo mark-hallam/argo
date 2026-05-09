@@ -24,17 +24,16 @@
 //! responsible for firing any NotifyChannel alerts (the cli
 //! handler does this — keeping the store layer a pure data
 //! sink).
+//!
+//! Schema is owned by `migrations/v32.rs` (worker_spend_baseline)
+//! and `migrations/v35.rs` (worker_spend_anomaly). Callers must run
+//! `SessionStore::migrate` before using this module.
 use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use argo_types::{ArgoError, ArgoResult};
-
-const SPEND_BASELINE_SCHEMA: &str =
-    include_str!("../migrations/26__spend_baseline.sql");
-const SPEND_ANOMALY_SCHEMA: &str =
-    include_str!("../migrations/27__spend_anomaly.sql");
 
 /// Default `|z|` threshold above which a (worker, hour) sample
 /// is flagged. `4.0` is intentionally aggressive — the
@@ -43,6 +42,17 @@ const SPEND_ANOMALY_SCHEMA: &str =
 /// on genuinely unusual events (a per-hour USD spike that's 4σ
 /// above the mean is a real outlier).
 pub const DEFAULT_SPEND_Z_THRESHOLD: f64 = 4.0;
+
+/// No-op shim retained for callers in crates outside the
+/// may-touch list (e.g. argo-cli budget-anomaly tests). The
+/// `worker_spend_baseline` and `worker_spend_anomaly` tables are
+/// now installed by [`crate::SessionStore::migrate`] via
+/// `migrations/v32.rs` and `migrations/v35.rs`. This shim returns
+/// `Ok(())` so existing call sites compile without churn.
+#[allow(clippy::missing_errors_doc)]
+pub async fn ensure_schema(_pool: &SqlitePool) -> ArgoResult<()> {
+    Ok(())
+}
 
 /// Minimum samples a baseline needs before z-score detection is
 /// active. Below this, the tick still folds the sample into the
@@ -158,21 +168,6 @@ pub struct SpendAnomaly {
     pub observed_at_micros: i64,
 }
 
-/// Ensure the baseline + anomaly tables exist (idempotent).
-/// Runs both migrations inline so callers can construct a fresh
-/// pool without coordinating with the global migration runner.
-pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    sqlx::query(SPEND_BASELINE_SCHEMA)
-        .execute(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("spend baseline schema: {e}")))?;
-    sqlx::query(SPEND_ANOMALY_SCHEMA)
-        .execute(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("spend anomaly schema: {e}")))?;
-    Ok(())
-}
-
 /// Load one (worker, hour) baseline. Returns
 /// [`SpendBaseline::empty`] when the row doesn't yet exist —
 /// callers can immediately call [`SpendBaseline::update`] then
@@ -182,7 +177,6 @@ pub async fn load_baseline(
     worker_id: &str,
     hour_of_day: u8,
 ) -> ArgoResult<SpendBaseline> {
-    ensure_schema(pool).await?;
     let row: Option<(f64, f64, i64, i64)> = sqlx::query_as(
         "SELECT mean_usd_per_hour, m2_usd_per_hour, sample_count, updated_at_micros \
          FROM worker_spend_baseline WHERE worker_id = ? AND hour_of_day = ?",
@@ -207,7 +201,6 @@ pub async fn load_baseline(
 
 /// Upsert a baseline row.
 pub async fn save_baseline(pool: &SqlitePool, baseline: &SpendBaseline) -> ArgoResult<()> {
-    ensure_schema(pool).await?;
     sqlx::query(
         "INSERT INTO worker_spend_baseline \
          (worker_id, hour_of_day, mean_usd_per_hour, m2_usd_per_hour, sample_count, updated_at_micros) \
@@ -244,7 +237,6 @@ pub async fn record_anomaly(
     hour_of_day: u8,
     now_micros: i64,
 ) -> ArgoResult<String> {
-    ensure_schema(pool).await?;
     let id = Uuid::now_v7().to_string();
     sqlx::query(
         "INSERT INTO worker_spend_anomaly \
@@ -284,7 +276,6 @@ pub async fn list_anomalies(
     filters: &AnomalyFilters<'_>,
     limit: u32,
 ) -> ArgoResult<Vec<SpendAnomaly>> {
-    ensure_schema(pool).await?;
     let mut sql = String::from(
         "SELECT id, worker_id, observed_usd_per_hour, baseline_mean_usd, \
                 baseline_stddev_usd, z_score, hour_of_day, observed_at_micros \
@@ -357,7 +348,6 @@ pub async fn observe_recent_hour(
 /// `worker_budget` table. Used by the cli tick to walk every
 /// active worker without needing the IdentityStore handle.
 pub async fn list_active_worker_ids(pool: &SqlitePool) -> ArgoResult<Vec<String>> {
-    ensure_schema(pool).await?;
     let rows: Vec<(String,)> =
         sqlx::query_as("SELECT DISTINCT worker_id FROM worker_budget ORDER BY worker_id")
             .fetch_all(pool)

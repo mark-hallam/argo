@@ -1,11 +1,12 @@
 //! Per-tenant resource quota storage and headroom checks.
+//!
+//! Schema is owned by `migrations/v38.rs`; callers must run
+//! `SessionStore::migrate` before constructing a `TenantQuotaStore`.
 
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Datelike, Utc};
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
-
-const SCHEMA_SQL: &str = include_str!("../migrations/28__tenant_quota.sql");
 
 /// The calendar window used to aggregate tenant usage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -157,21 +158,6 @@ impl<'a> TenantQuotaStore<'a> {
         Self { pool }
     }
 
-    /// Apply the tenant quota schema if this workspace has not seen it.
-    pub async fn ensure_schema(&self) -> ArgoResult<()> {
-        for stmt in SCHEMA_SQL.split_terminator(';') {
-            let sql = stmt.trim();
-            if sql.is_empty() {
-                continue;
-            }
-            sqlx::query(sql)
-                .execute(self.pool)
-                .await
-                .map_err(|e| ArgoError::Provider(format!("tenant quota schema: {e}")))?;
-        }
-        Ok(())
-    }
-
     /// Insert or update one tenant quota row.
     pub async fn set_quota(
         &self,
@@ -179,7 +165,6 @@ impl<'a> TenantQuotaStore<'a> {
         update: TenantQuotaUpdate,
         now: DateTime<Utc>,
     ) -> ArgoResult<TenantQuotaSummary> {
-        self.ensure_schema().await?;
         let existing = self.quota(tenant_id).await?;
         let period = update
             .period
@@ -219,7 +204,6 @@ impl<'a> TenantQuotaStore<'a> {
 
     /// Load the raw quota row for a tenant.
     pub async fn quota(&self, tenant_id: &str) -> ArgoResult<Option<TenantQuota>> {
-        self.ensure_schema().await?;
         let row = sqlx::query(
             "SELECT tenant_id, period, max_usd_micros, max_actions, max_workers, set_at \
              FROM tenant_quota WHERE tenant_id = ?",
@@ -233,7 +217,6 @@ impl<'a> TenantQuotaStore<'a> {
 
     /// List every configured tenant quota with live usage.
     pub async fn list(&self, now: DateTime<Utc>) -> ArgoResult<Vec<TenantQuotaSummary>> {
-        self.ensure_schema().await?;
         let rows = sqlx::query("SELECT tenant_id FROM tenant_quota ORDER BY tenant_id")
             .fetch_all(self.pool)
             .await
@@ -253,7 +236,6 @@ impl<'a> TenantQuotaStore<'a> {
         field: Option<TenantQuotaField>,
         now: DateTime<Utc>,
     ) -> ArgoResult<TenantQuotaSummary> {
-        self.ensure_schema().await?;
         match field {
             None => {
                 sqlx::query("DELETE FROM tenant_quota WHERE tenant_id = ?")

@@ -125,14 +125,8 @@ async fn has_headroom_allows_missing_quota() {
 }
 
 async fn seed_worker_budget(pool: &SqlitePool) {
-    sqlx::query("CREATE TABLE IF NOT EXISTS worker (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL)")
-        .execute(pool)
-        .await
-        .unwrap();
-    sqlx::query(include_str!("../migrations/14__worker_budget.sql"))
-        .execute(pool)
-        .await
-        .unwrap();
+    // worker (v12) and worker_budget (v14) tables are created by the
+    // migration ladder; this helper just seeds rows callers reference.
     sqlx::query(
         "INSERT INTO worker
             (id, tenant_id, vertical_id, persona_id, role_id, memory_scope,

@@ -75,15 +75,16 @@ fn render_text(worker_id: &str, events: &[AnomalyEvent]) {
 mod tests {
     use super::*;
     use argo_store::anomaly::{record_sample, BehaviorSample};
+    use argo_store::SessionStore;
     use chrono::Utc;
-    use sqlx::sqlite::SqlitePoolOptions;
 
     async fn fresh_pool() -> sqlx::SqlitePool {
-        SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap()
+        // worker_anomaly_event + worker_behavior_baseline now ship via
+        // the migration ladder (v19); a migrated SessionStore replaces
+        // the old anomaly::ensure_schema bootstrap.
+        let store = SessionStore::open(":memory:").await.unwrap();
+        store.migrate().await.unwrap();
+        store.pool().clone()
     }
 
     #[tokio::test]

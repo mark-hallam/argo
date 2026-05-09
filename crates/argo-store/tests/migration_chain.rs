@@ -115,7 +115,7 @@ fn is_reconciled_versioned_raw(path: &Path) -> bool {
         .and_then(|s| s.to_str())
         .and_then(|s| s.split_once("__"))
         .and_then(|(n, _)| n.parse::<u32>().ok())
-        .is_some_and(|version| (12..=26).contains(&version))
+        .is_some_and(|version| (12..=29).contains(&version))
 }
 
 fn migration_files() -> Result<Vec<PathBuf>, String> {
@@ -186,6 +186,15 @@ fn expected_tables() -> &'static [&'static str] {
         "data_classification_tag",
         "worker_spend_baseline",
         "worker_budget_alert",
+        // v34..v39 reconciled tables (v40 is a no-op tombstone).
+        "auction_log",
+        "auction_bid",
+        "worker_spend_anomaly",
+        "recovery_cache",
+        "role_duty",
+        "duty_fired_session",
+        "tenant_quota",
+        "subtask_ledger",
     ]
 }
 

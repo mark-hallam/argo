@@ -1,6 +1,10 @@
 //! Per-(worker, action_kind) behavioural baselines + anomaly
 //! event log (Stream `claude-anomaly-detector`). Welford running
 //! stats + z-score detection (env: `$ARGO_ANOMALY_Z_THRESHOLD`).
+//!
+//! Schema is owned by migration `v19_anomaly` (in
+//! `migrations/v19.rs`). Callers are expected to run
+//! `SessionStore::migrate()` before using this module.
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -8,10 +12,19 @@ use uuid::Uuid;
 
 use argo_types::{ArgoError, ArgoResult};
 
-const ANOMALY_SCHEMA: &str = include_str!("../migrations/19__anomaly.sql");
-
 /// Default `|z|` threshold above which a sample is flagged.
 pub const DEFAULT_Z_THRESHOLD: f64 = 3.0;
+
+/// No-op shim retained for callers in crates outside the
+/// may-touch list (e.g. `argo-memory` tests). The anomaly
+/// schema is now installed by [`crate::SessionStore::migrate`]
+/// via `migrations/v19.rs`; callers that need the tables should
+/// call `migrate` instead. This shim returns `Ok(())` so existing
+/// call sites compile without churn.
+#[allow(clippy::missing_errors_doc)]
+pub async fn ensure_schema(_pool: &SqlitePool) -> ArgoResult<()> {
+    Ok(())
+}
 
 /// Minimum baseline sample count before z-score detection emits.
 pub const MIN_SAMPLES_FOR_DETECT: u64 = 5;
@@ -153,21 +166,6 @@ pub struct AnomalyEvent {
     pub observed_at: DateTime<Utc>,
 }
 
-/// Lazily install the anomaly tables. Idempotent.
-pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
-    for stmt in ANOMALY_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
-            .execute(pool)
-            .await
-            .map_err(|e| ArgoError::Provider(format!("anomaly schema: {e}")))?;
-    }
-    Ok(())
-}
-
 /// One-shot: load → check → fold → save → maybe-emit.
 pub async fn record_sample(
     pool: &SqlitePool,
@@ -270,7 +268,6 @@ pub async fn load_baseline(
     worker_id: &str,
     action_kind: &str,
 ) -> ArgoResult<BehaviorBaseline> {
-    ensure_schema(pool).await?;
     let row: Option<RawBaseline> = sqlx::query_as::<_, RawBaseline>(
         "SELECT worker_id, action_kind, latency_mean, latency_m2, \
          retry_mean, retry_m2, sample_count, updated_at \
@@ -289,7 +286,6 @@ pub async fn load_baseline(
 
 /// Persist a baseline row.
 pub async fn save_baseline(pool: &SqlitePool, b: &BehaviorBaseline) -> ArgoResult<()> {
-    ensure_schema(pool).await?;
     sqlx::query(
         "INSERT INTO worker_behavior_baseline \
          (worker_id, action_kind, latency_mean, latency_m2, \
@@ -331,7 +327,6 @@ pub async fn insert_event(
     threshold: f64,
     now: DateTime<Utc>,
 ) -> ArgoResult<String> {
-    ensure_schema(pool).await?;
     let id = Uuid::now_v7();
     let mean = if dimension == "latency_ms" {
         baseline.latency_mean
@@ -374,7 +369,6 @@ pub async fn list_for_worker(
     since_micros: Option<i64>,
     limit: Option<u32>,
 ) -> ArgoResult<Vec<AnomalyEvent>> {
-    ensure_schema(pool).await?;
     let lim = limit.unwrap_or(100).min(1000);
     let rows: Vec<RawEvent> = match since_micros {
         Some(since) => sqlx::query_as::<_, RawEvent>(

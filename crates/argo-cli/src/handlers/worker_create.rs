@@ -1,4 +1,10 @@
 //! Worker identity create/show/list CLI.
+//!
+//! The persona / worker / role / duty tables (v12) and the
+//! `worker.fs_root` column (v20) are now installed by the
+//! versioned migration runner — this handler just calls
+//! `SessionStore::migrate` via [`open_workspace_store`] and
+//! relies on the ladder for schema state.
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_cron::{CronExpr, CronJob, CronTarget};
 use argo_store::SessionStore;
@@ -8,9 +14,6 @@ use serde::Serialize;
 use sqlx::Row;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-
-const IDENTITY_SCHEMA: &str = include_str!("../../../argo-store/migrations/12__worker_identity.sql");
-const FS_ROOT_SCHEMA: &str = include_str!("../../../argo-store/migrations/19__worker_fs_root.sql");
 
 #[derive(Debug, Clone, Serialize)]
 struct PersonaOut {
@@ -70,7 +73,6 @@ pub async fn run(
     json: bool,
 ) -> ArgoResult<()> {
     let (store, tenant_id, cwd) = open_workspace_store().await?;
-    ensure_identity_schema(&store).await?;
     let duties = parse_duties(duty_specs)?;
     let worker = insert_worker(
         &store,
@@ -91,14 +93,12 @@ pub async fn run(
 
 pub async fn show(worker_id: &str, json: bool) -> ArgoResult<()> {
     let (store, tenant_id, _cwd) = open_workspace_store().await?;
-    ensure_identity_schema(&store).await?;
     let worker = load_worker(&store, tenant_id, worker_id).await?;
     print_worker(&worker, json)
 }
 
 pub async fn list(json: bool) -> ArgoResult<()> {
     let (store, tenant_id, _cwd) = open_workspace_store().await?;
-    ensure_identity_schema(&store).await?;
     let ids: Vec<String> = sqlx::query_scalar(
         "SELECT id FROM worker WHERE tenant_id = ? ORDER BY created_at DESC, id ASC",
     )
@@ -144,66 +144,6 @@ async fn open_workspace_store() -> ArgoResult<(SessionStore, TenantId, PathBuf)>
     let root = cwd.to_string_lossy();
     let (tenant_id, _workspace) = store.ensure_workspace(name, &root).await?;
     Ok((store, tenant_id, cwd))
-}
-
-async fn ensure_identity_schema(store: &SessionStore) -> ArgoResult<()> {
-    for stmt in IDENTITY_SCHEMA.split_terminator(';') {
-        let sql = stmt.trim();
-        if sql.is_empty() {
-            continue;
-        }
-        sqlx::query(sql)
-            .execute(store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("identity schema: {e}")))?;
-    }
-    ensure_role_columns(store).await?;
-    ensure_worker_columns(store).await?;
-    Ok(())
-}
-
-async fn ensure_worker_columns(store: &SessionStore) -> ArgoResult<()> {
-    let rows = sqlx::query("PRAGMA table_info(worker)")
-        .fetch_all(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
-    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
-    if !columns.iter().any(|c| c == "fs_root") {
-        for stmt in FS_ROOT_SCHEMA.split_terminator(';') {
-            let sql = stmt.trim();
-            if sql.is_empty() {
-                continue;
-            }
-            sqlx::query(sql)
-                .execute(store.pool())
-                .await
-                .map_err(|e| ArgoError::Provider(format!("fs_root migration: {e}")))?;
-        }
-    }
-    Ok(())
-}
-
-async fn ensure_role_columns(store: &SessionStore) -> ArgoResult<()> {
-    let rows = sqlx::query("PRAGMA table_info(role)")
-        .fetch_all(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("role table info: {e}")))?;
-    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
-    for (name, ty) in [
-        ("worker_id", "TEXT"),
-        ("charter", "TEXT"),
-        ("kpis_json", "TEXT"),
-        ("escalation", "TEXT"),
-    ] {
-        if !columns.iter().any(|existing| existing == name) {
-            let sql = format!("ALTER TABLE role ADD COLUMN {name} {ty}");
-            sqlx::query(&sql)
-                .execute(store.pool())
-                .await
-                .map_err(|e| ArgoError::Provider(format!("add role.{name}: {e}")))?;
-        }
-    }
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -190,17 +190,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worker_budget_missing_reports_missing() {
+    async fn nonexistent_table_reports_missing() {
+        // After migrate, worker_budget exists (v14) and handoff exists
+        // (v16). The MISSING branch only fires for tables that weren't
+        // created by the ladder, so probe a fictional table to exercise
+        // the no-such-table error path.
         let home = TempDir::new().unwrap();
         migrated(home.path()).await;
-        assert_eq!(s(&table_count(home.path(), "worker_budget").await), "MISSING");
+        assert_eq!(s(&table_count(home.path(), "definitely_not_a_table").await), "MISSING");
     }
 
     #[tokio::test]
     async fn worker_budget_ok_counts_rows() {
+        // worker_budget is installed by v14 in the migration ladder;
+        // the doctor check should report OK with zero rows on a freshly
+        // migrated DB and OK with one row after we insert.
         let home = TempDir::new().unwrap();
         let store = migrated(home.path()).await;
-        sqlx::query("CREATE TABLE worker_budget (tenant_id BLOB, worker_id TEXT, action_id TEXT, usd_micros INTEGER, charged_at INTEGER)").execute(store.pool()).await.unwrap();
+        let v = table_count(home.path(), "worker_budget").await;
+        assert_eq!(s(&v), "OK");
+        assert_eq!(v["rows"].as_i64(), Some(0));
         sqlx::query("INSERT INTO worker_budget VALUES (X'00', 'w', 'a', 1, 1)").execute(store.pool()).await.unwrap();
         let v = table_count(home.path(), "worker_budget").await;
         assert_eq!(s(&v), "OK");
@@ -208,17 +217,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn orchestrator_missing_handoff_reports_missing() {
+    async fn orchestrator_tables_ok() {
+        // session + handoff are now installed by the migration ladder
+        // (v16 / v18); the doctor probe just sees them on a migrated DB.
         let home = TempDir::new().unwrap();
         migrated(home.path()).await;
-        assert_eq!(s(&orchestrator_tables(home.path()).await), "MISSING");
-    }
-
-    #[tokio::test]
-    async fn orchestrator_tables_ok() {
-        let home = TempDir::new().unwrap();
-        let store = migrated(home.path()).await;
-        sqlx::query("CREATE TABLE handoff (id TEXT PRIMARY KEY)").execute(store.pool()).await.unwrap();
         assert_eq!(s(&orchestrator_tables(home.path()).await), "OK");
     }
 
