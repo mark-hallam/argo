@@ -26,6 +26,7 @@ mod session_meta;
 mod session_query;
 /// Chronological skill invocation history query helpers.
 pub mod skill_runs_query;
+mod skill_runs_query_decode;
 /// Skill discovery query helpers — vertical-scoped search and
 /// session-attachment indirection (Stream
 /// `claude-skill-search-by-vertical`).
