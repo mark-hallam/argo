@@ -387,6 +387,14 @@ pub enum Command {
         #[arg(long)]
         max_tool_rounds: Option<usize>,
     },
+    /// Walk the operator through a blameless postmortem (Stream
+    /// `claude-incident-postmortem-template`). Reads stdin section
+    /// by section, or `--from <yaml>` for non-interactive scripts;
+    /// writes `docs/skycot/incidents/<YYYY-MM-DD>-<slug>.md`.
+    Incident {
+        #[command(subcommand)]
+        cmd: IncidentCmd,
+    },
     /// Open the interactive TUI (read-only session viewer for now).
     Tui,
     /// List the in-core tools the agent can call. Mirrors

@@ -115,6 +115,9 @@ pub mod handoff_rules_remove;
 pub mod handoff_rules_show;
 pub mod handoff_rules_test;
 pub mod health;
+pub mod incident;
+#[cfg(test)]
+mod incident_tests;
 pub mod judge;
 pub mod latency;
 pub mod mcp;

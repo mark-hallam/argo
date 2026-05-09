@@ -1,0 +1,35 @@
+# Sample fixture for `argo incident new --from <yaml>`.
+# Copy, edit, and feed back in for non-interactive postmortem filing.
+summary: "Gateway refused requests for 11 minutes after dependency rotation"
+severity: SEV2
+timeline: |
+  - 14:02 UTC — operator rotated upstream provider key.
+  - 14:03 UTC — gateway began returning 502 on `/v1/messages`.
+  - 14:09 UTC — alert fired (error_pct rule "gateway-5xx").
+  - 14:11 UTC — on-call rolled the key back; traffic recovered.
+  - 14:13 UTC — error rate steady at baseline.
+root_cause: |
+  The provider-manifest reload path did not pick up the new key
+  because `manifests/providers/anthropic.toml` cached the secret in
+  process memory at startup; rotation only updates the file on disk.
+contributing_factors: |
+  - No documented runbook for live key rotation.
+  - The gateway's `/healthz` did not exercise the upstream call, so
+    the rotation looked successful from the operator's side.
+  - Alert window (5 min) was longer than the typical rotation gap.
+detection: |
+  Automated alert "gateway-5xx" fired at 14:09 UTC, six minutes after
+  onset. Operator was already in the deploy channel and noticed the
+  error spike on the dashboard before the alert.
+resolution: |
+  Rolled the upstream provider key back to the previous value via
+  `argo cred set`. Restarted the gateway to clear the cached entry.
+  Verified recovery by tailing `/v1/messages` for 90 seconds.
+action_items: |
+  - [ ] Add `argo cred reload` subcommand (owner: platform, by 2026-05-23).
+  - [ ] Extend `/healthz` to exercise one upstream call (owner: gateway, by 2026-05-30).
+  - [ ] Document the live key-rotation runbook (owner: oncall, by 2026-05-16).
+lessons_learned: |
+  Cached secrets are a silent footgun. Any operator-facing rotation
+  flow must either invalidate the cache explicitly or be documented
+  as requiring a process restart.

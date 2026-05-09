@@ -100,6 +100,25 @@ pub enum ApprovalPolicyCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum IncidentCmd {
+    /// Walk the operator through a blameless postmortem and write a
+    /// dated, slugged file under `docs/skycot/incidents/`. Reads a
+    /// YAML fixture with `--from <path>` for non-interactive use
+    /// (cron / scripts); otherwise prompts per section over stdin.
+    New {
+        /// YAML fixture (matches `_template_example.yaml`).
+        #[arg(long)]
+        from: Option<std::path::PathBuf>,
+        /// Override the default `docs/skycot/incidents/` output dir.
+        #[arg(long, default_value = "docs/skycot/incidents")]
+        out_dir: std::path::PathBuf,
+        /// Overwrite an existing postmortem at the same path.
+        #[arg(long)]
+        force: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum TraceCmd {
     /// Walk a session's local OTLP trace tree from
     /// `.skycot/traces/<session>.ndjson` and render it as markdown

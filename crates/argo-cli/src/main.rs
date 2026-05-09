@@ -377,6 +377,13 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Trace { cmd: None, turn, session }) => {
             handlers::trace::run(turn, session).await
         }
+        Some(Command::Incident { cmd }) => match cmd {
+            cli::IncidentCmd::New {
+                from,
+                out_dir,
+                force,
+            } => handlers::incident::run(from, out_dir, force),
+        },
         Some(Command::Tui) => handlers::tui::run().await,
         Some(Command::Tools { cmd }) => handlers::tools::run(cmd).await,
         Some(Command::Recover { session_id, json }) => {
