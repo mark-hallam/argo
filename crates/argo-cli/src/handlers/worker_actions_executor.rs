@@ -32,6 +32,7 @@ use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_stubs::{
     ApiExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
 };
+use super::worker_actions_executor_timing::TimedExecutor;
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::ActionDeclaration;
 use std::path::{Path, PathBuf};
@@ -92,6 +93,22 @@ impl ExecutorKind {
                  valid: human | mcp | computer_use | computer_use_macos | \
                  api | filesystem | code_execution | document_creation"
             ))),
+        }
+    }
+
+    /// Stable lowercase tag used by the latency tracker as the
+    /// histogram key. Mirrors the manifest spelling so persisted
+    /// rows stay readable in raw SQL.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Human => "human",
+            Self::Mcp => "mcp",
+            Self::ComputerUse => "computer_use",
+            Self::ComputerUseMacOS => "computer_use_macos",
+            Self::Api => "api",
+            Self::Filesystem => "filesystem",
+            Self::CodeExecution => "code_execution",
+            Self::DocumentCreation => "document_creation",
         }
     }
 }
@@ -166,10 +183,10 @@ pub(crate) trait Executor {
 }
 
 /// Resolve the executor declared by the manifest for this
-/// action_type. Returns the boxed trait object so dispatch stays
-/// generic. The placeholder impls (`Mcp` / `ComputerUse` / `Api`)
-/// resolve cleanly here — they fail at `dispatch()` time with a
-/// useful error so the operator sees the gap.
+/// action_type. The returned executor is wrapped in a
+/// [`TimedExecutor`] so every dispatch records its wall-clock
+/// duration into `argo_store::latency_tracker::global()` (Stream
+/// `claude-latency-percentiles-tracking`).
 pub(crate) fn resolve_executor(
     vertical: &argo_vertical::VerticalManifest,
     action_type: &str,
@@ -197,7 +214,7 @@ pub(crate) fn resolve_executor(
         ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
         ExecutorKind::DocumentCreation => Box::new(DocumentExecutor::new()),
     };
-    Ok(exec)
+    Ok(Box::new(TimedExecutor::new(exec)))
 }
 
 /// Shared lookup so resolve_executor + the test helpers don't

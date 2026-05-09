@@ -410,6 +410,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             let code = handlers::voice::run(mock_script, json);
             std::process::exit(code);
         }
+        Some(Command::Latency { format }) => handlers::latency::run(&format).await,
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");

@@ -481,5 +481,15 @@ pub enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Show per-executor-kind action latency percentiles (Stream
+    /// `claude-latency-percentiles-tracking`). Reads the
+    /// `latency_buckets` table populated by the dispatch wrapper
+    /// and prints `kind | n | p50 | p95 | p99 | max` as a markdown
+    /// table (default) or as JSON.
+    Latency {
+        /// Output format: `markdown` (default) or `json`.
+        #[arg(long, default_value = "markdown")]
+        format: String,
+    },
     Update,
 }

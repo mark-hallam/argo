@@ -34,6 +34,10 @@ mod spend;
 /// `claude-spend-anomaly-alerts`).
 pub mod spend_anomaly;
 mod stats;
+/// Per-executor-kind action latency histogram — power-of-2 ms
+/// buckets, p50/p95/p99 readout (Stream
+/// `claude-latency-percentiles-tracking`).
+pub mod latency_tracker;
 /// Persistent learned-plan-template store — Dreams-distilled
 /// workflow YAML body + TrustGrade ladder (Stream
 /// `claude-dreams-plan-templates`).
