@@ -80,6 +80,7 @@ async fn no_channels_is_no_op() {
 async fn single_channel_one_send() {
     let cfg = NotifyConfig {
         channels: vec![NotifyChannelRef::new("push", "operator-iphone")],
+        ..Default::default()
     };
     let sender = StubSender::new();
     let results = dispatch(&cfg, &action("act-2", "medium"), &sender).await;
@@ -97,6 +98,7 @@ async fn multi_channel_fan_out() {
             NotifyChannelRef::new("email", "ops@example.com"),
             NotifyChannelRef::new("slack", "C123"),
         ],
+        ..Default::default()
     };
     let sender = StubSender::new();
     let results = dispatch(&cfg, &action("act-3", "low"), &sender).await;
@@ -117,6 +119,7 @@ async fn one_channel_fails_others_still_fire() {
             NotifyChannelRef::new("email", "ops@example.com"),
             NotifyChannelRef::new("slack", "C123"),
         ],
+        ..Default::default()
     };
     let sender = StubSender::fail_for("email");
     let results = dispatch(&cfg, &action("act-4", "high"), &sender).await;
@@ -152,6 +155,7 @@ async fn risk_class_filter_drops_mismatched_channels() {
             high_only.clone(),
             low_only,
         ],
+        ..Default::default()
     };
     let sender = StubSender::new();
     let results = dispatch(&cfg, &action("act-5", "high"), &sender).await;
@@ -165,7 +169,10 @@ async fn risk_class_filter_drops_mismatched_channels() {
 async fn risk_filter_is_case_insensitive() {
     let mut ch = NotifyChannelRef::new("push", "iphone");
     ch.risk_level = Some("HIGH".into());
-    let cfg = NotifyConfig { channels: vec![ch] };
+    let cfg = NotifyConfig {
+        channels: vec![ch],
+        ..Default::default()
+    };
     let sender = StubSender::new();
     let results = dispatch(&cfg, &action("act-6", "high"), &sender).await;
     assert_eq!(results.len(), 1);

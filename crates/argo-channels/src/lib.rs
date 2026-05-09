@@ -19,6 +19,7 @@
 
 pub mod email;
 pub mod discord;
+pub mod fallback;
 pub mod imessage;
 pub mod manifest;
 pub mod push;

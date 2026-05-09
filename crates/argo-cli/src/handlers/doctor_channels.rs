@@ -1,10 +1,16 @@
 //! NotifyChannel connectivity checks for `argo doctor`.
 
+use argo_channels::fallback::{read_recent_reports, reports_path};
 use serde_json::{json, Value};
+use std::path::Path;
 use std::time::Duration;
 
 #[path = "doctor_channels_kinds.rs"]
 mod kinds;
+
+/// Number of recent fallback `DeliveryReport` rows surfaced under
+/// `recent_delivery_reports` in `argo doctor channels` output.
+const RECENT_REPORT_COUNT: usize = 10;
 
 const TIMEOUT_SECS: u64 = 5;
 const POSTMARK_SERVER_URL: &str = "https://api.postmarkapp.com/server";
@@ -70,6 +76,11 @@ pub(super) async fn collect() -> Value {
 }
 
 pub(super) async fn collect_with(cfg: ProbeConfig) -> Value {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    collect_with_at(cfg, &cwd).await
+}
+
+pub(super) async fn collect_with_at(cfg: ProbeConfig, cwd: &Path) -> Value {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(TIMEOUT_SECS))
         .build();
@@ -82,6 +93,7 @@ pub(super) async fn collect_with(cfg: ProbeConfig) -> Value {
             "push": check("ERROR", "could not build HTTP client"),
             "imessage": check("ERROR", "could not build HTTP client"),
             "voice": check("ERROR", "could not build HTTP client"),
+            "recent_delivery_reports": json!([]),
         });
     };
     json!({
@@ -92,7 +104,32 @@ pub(super) async fn collect_with(cfg: ProbeConfig) -> Value {
         "push": kinds::check_push(&client, &cfg).await,
         "imessage": kinds::check_imessage(&client, &cfg).await,
         "voice": kinds::check_voice(&client, &cfg).await,
+        "recent_delivery_reports": recent_delivery_reports(cwd),
     })
+}
+
+/// Last-N fallback delivery reports for `argo doctor channels`.
+/// Reads the JSONL log written by
+/// `worker_actions_notify_fallback::persist_report`. Missing file →
+/// empty array; the operator probably hasn't enabled
+/// `[notify_channels.fallback_chain]` yet, which is fine.
+fn recent_delivery_reports(cwd: &Path) -> Value {
+    let path = reports_path(cwd);
+    let reports = read_recent_reports(&path, RECENT_REPORT_COUNT);
+    let rows: Vec<Value> = reports
+        .iter()
+        .map(|r| {
+            json!({
+                "summary": r.summary(),
+                "action_id": r.action_id,
+                "started_at": r.started_at,
+                "finished_at": r.finished_at,
+                "succeeded_via": r.succeeded_via,
+                "attempts": r.attempts,
+            })
+        })
+        .collect();
+    Value::Array(rows)
 }
 
 #[cfg(test)]
@@ -209,5 +246,45 @@ pub(super) mod tests {
         let cfg = full_cfg("http://127.0.0.1:9/closed");
         let v = collect_with(cfg).await;
         assert_eq!(s(&v["email"]), "ERROR");
+    }
+
+    #[tokio::test]
+    async fn recent_delivery_reports_surface_when_present() {
+        use argo_channels::fallback::{
+            append_report, reports_path, AttemptOutcome, DeliveryAttempt, DeliveryReport,
+        };
+        use chrono::Utc;
+        let url = server(200, &[], 7).await;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        for i in 0..3 {
+            let now = Utc::now();
+            let report = DeliveryReport {
+                action_id: format!("act-{i}"),
+                started_at: now,
+                finished_at: now,
+                succeeded_via: Some("webinbox".into()),
+                attempts: vec![DeliveryAttempt {
+                    channel: "webinbox".into(),
+                    started_at: now,
+                    outcome: AttemptOutcome::Success,
+                }],
+            };
+            append_report(&reports_path(tmp.path()), &report).unwrap();
+        }
+        let v = collect_with_at(full_cfg(&url), tmp.path()).await;
+        let rows = v["recent_delivery_reports"].as_array().unwrap();
+        assert_eq!(rows.len(), 3);
+        // Newest first.
+        assert_eq!(rows[0]["action_id"], "act-2");
+        assert!(rows[0]["summary"].as_str().unwrap().contains("act-2"));
+    }
+
+    #[tokio::test]
+    async fn recent_delivery_reports_empty_when_no_log() {
+        let url = server(200, &[], 7).await;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let v = collect_with_at(full_cfg(&url), tmp.path()).await;
+        let rows = v["recent_delivery_reports"].as_array().unwrap();
+        assert!(rows.is_empty());
     }
 }

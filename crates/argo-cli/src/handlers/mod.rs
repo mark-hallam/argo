@@ -319,6 +319,7 @@ mod worker_actions_followup;
 mod worker_actions_items;
 mod worker_actions_list;
 pub(crate) mod worker_actions_notify;
+pub(crate) mod worker_actions_notify_fallback;
 mod worker_actions_query;
 mod worker_actions_render;
 mod worker_actions_transitions;

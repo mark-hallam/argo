@@ -33,6 +33,8 @@
 //! Tests under `worker_actions_notify_tests.rs` exercise the
 //! fan-out with a stub sender that records calls.
 use crate::handlers::worker_actions::ActionRecord;
+use crate::handlers::worker_actions_notify_fallback;
+use argo_channels::fallback::{FallbackChain, FallbackChainManifest};
 use argo_channels::{Notification, OperatorTarget, RiskLevel};
 use argo_identity::NotifyChannelRef;
 use chrono::{Duration as ChronoDuration, Utc};
@@ -57,6 +59,17 @@ mod notify_sse;
 /// config. Loaded once per `Decision::Ask` dispatch.
 const NOTIFY_RELPATH: &str = ".skycot/notify.toml";
 
+/// `[notify_channels]` umbrella block in `.skycot/notify.toml`.
+/// Today only the `fallback_chain` sub-block is parsed (V1.4 brief);
+/// future sub-blocks (parallel fan-out etc.) bolt on here.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct NotifyChannelsConfig {
+    /// `[notify_channels.fallback_chain]` — channel order tried in
+    /// sequence on each dispatch.
+    #[serde(default)]
+    pub fallback_chain: Option<FallbackChainManifest>,
+}
+
 /// Workspace-level approval-notification config. Operators
 /// declare the channels here; absent file == no channels == no-op.
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
@@ -66,6 +79,24 @@ pub struct NotifyConfig {
     ///    risk_level = "high" }`.
     #[serde(default)]
     pub channels: Vec<NotifyChannelRef>,
+    /// Optional `[notify_channels]` block; today only carries the
+    /// V1.4 fallback chain.
+    #[serde(default)]
+    pub notify_channels: NotifyChannelsConfig,
+}
+
+impl NotifyConfig {
+    /// Validated [`FallbackChain`] derived from the parsed config,
+    /// if the operator declared one. Empty `order` is treated as
+    /// "no chain" — single-channel fan-out via [`dispatch`]
+    /// remains the default.
+    #[must_use]
+    pub fn fallback_chain(&self) -> Option<FallbackChain> {
+        self.notify_channels
+            .fallback_chain
+            .clone()
+            .and_then(FallbackChainManifest::into_chain)
+    }
 }
 
 impl NotifyConfig {
@@ -227,15 +258,39 @@ pub async fn dispatch(
 
 /// Best-effort entry point called from the auto-approval gate's
 /// `Decision::Ask` arm. Loads `<cwd>/.skycot/notify.toml`, builds
-/// the envelope, fans out via [`EnvChannelSender`]. Returns the
-/// count of successful sends — callers ignore it; the value is
-/// surfaced for tests + future telemetry.
+/// the envelope, then either:
+///
+/// 1. Routes through [`worker_actions_notify_fallback::dispatch_with_fallback`]
+///    when `[notify_channels.fallback_chain]` is configured — first
+///    successful channel wins, subsequent channels not tried, and a
+///    [`DeliveryReport`] is appended to the JSONL log read by
+///    `argo doctor channels`. (V1.4)
+/// 2. Falls back to the v0 per-channel fan-out via
+///    [`EnvChannelSender`] otherwise — preserves the no-config
+///    default behaviour.
+///
+/// Returns the count of successful sends — callers ignore it; the
+/// value is surfaced for tests + future telemetry.
+///
+/// [`DeliveryReport`]: argo_channels::fallback::DeliveryReport
 pub async fn try_dispatch_on_ask(action: &ActionRecord, cwd: &Path) -> usize {
     let config = NotifyConfig::load(cwd);
     if config.channels.is_empty() {
         return 0;
     }
     let sender = EnvChannelSender;
+    if let Some(chain) = config.fallback_chain() {
+        let notification = build_notification(action);
+        let report = worker_actions_notify_fallback::dispatch_with_fallback(
+            &notification,
+            &chain,
+            &config.channels,
+            &sender,
+        )
+        .await;
+        worker_actions_notify_fallback::persist_report(cwd, &report);
+        return usize::from(report.ok());
+    }
     let results = dispatch(&config, action, &sender).await;
     results.iter().filter(|r| r.success).count()
 }

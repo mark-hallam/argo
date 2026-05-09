@@ -1,6 +1,7 @@
 //! Channel manifest parsing.
 
 use crate::email::QuietHours;
+use crate::fallback::FallbackChainManifest;
 use crate::{ChannelError, ChannelResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -113,6 +114,27 @@ pub struct ActionApprovalManifest {
     pub channels: Vec<String>,
 }
 
+/// `[notify_channels]` umbrella in `.skycot/notify.toml`. Parses
+/// only the `fallback_chain` sub-block today; other sub-blocks
+/// (parallel fan-out, per-action overrides) are out of scope per
+/// the V1.4 brief.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct NotifyChannelsManifest {
+    /// Optional `[notify_channels.fallback_chain]` block.
+    pub fallback_chain: Option<FallbackChainManifest>,
+}
+
+impl NotifyChannelsManifest {
+    /// Parse the `[notify_channels]` block from a TOML body. Body
+    /// must be the inner table, e.g. the value of `notify_channels`
+    /// as a top-level key.
+    pub fn parse(src: &str) -> ChannelResult<Self> {
+        toml::from_str(src)
+            .map_err(|e| ChannelError::Parse(format!("notify_channels manifest: {e}")))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +152,24 @@ channels = ["email"]
         let parsed = EmailChannelManifest::parse(src).expect("parse");
         assert_eq!(parsed.approval_channels_for("post_listing"), vec!["email"]);
         assert!(parsed.approval_channels_for("draft").is_empty());
+    }
+
+    #[test]
+    fn parses_notify_channels_fallback_chain() {
+        let src = r#"
+[fallback_chain]
+order = ["slack", "email", "webinbox"]
+per_step_timeout_secs = 12
+"#;
+        let parsed = NotifyChannelsManifest::parse(src).expect("parse");
+        let chain = parsed.fallback_chain.expect("fallback_chain present");
+        assert_eq!(chain.order, vec!["slack", "email", "webinbox"]);
+        assert_eq!(chain.per_step_timeout_secs, 12);
+    }
+
+    #[test]
+    fn notify_channels_manifest_omits_fallback_chain_when_absent() {
+        let parsed = NotifyChannelsManifest::parse("").expect("parse");
+        assert!(parsed.fallback_chain.is_none());
     }
 }
