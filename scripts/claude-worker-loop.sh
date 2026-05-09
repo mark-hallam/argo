@@ -128,8 +128,25 @@ while true; do
   mkdir -p "$LOG_DIR"
   LOG_FILE="$LOG_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$BRIEF_ID.ndjson"
 
+  # Worker heartbeat. The main-loop bash process touches a pulse file
+  # every 30s during the iteration. If the iteration wedges (e.g., hung
+  # cargo test, network partition, machine sleep), the pulse goes stale
+  # and the conductor's heartbeat-sweep can detect the wedged worker
+  # without waiting for the >2h-since-push proxy. See
+  # scripts/check-worker-heartbeats.sh for the conductor-side reader.
+  PULSE_DIR="/tmp/argo-worker-pulse"
+  mkdir -p "$PULSE_DIR"
+  PULSE_FILE="$PULSE_DIR/$BRIEF_ID"
+  touch "$PULSE_FILE"
+  ( while [ -f "$PULSE_FILE" ]; do
+      touch "$PULSE_FILE" 2>/dev/null
+      sleep 30
+    done ) &
+  PULSE_PID=$!
+
   echo "[$(date +%H:%M:%S)] Spawning fresh Claude session for $BRIEF_ID..."
   echo "[$(date +%H:%M:%S)] Log: $LOG_FILE"
+  echo "[$(date +%H:%M:%S)] Pulse: $PULSE_FILE (PID $PULSE_PID)"
   # --dangerously-skip-permissions: required for unattended headless mode.
   # The bash wrapper holds the boundary (worktree isolation, conductor merges,
   # HARD RULE 5 may-touch list) so per-tool prompts are not the right defense.
@@ -203,6 +220,11 @@ the next iteration.
   | tee >(grep --line-buffered -oE "You.ve hit your (limit|usage).+" \
           | head -1 > /tmp/argo-quota-hit) \
   || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
+
+  # Stop the heartbeat: clear the pulse file (background loop drops on next
+  # check) and explicitly kill the writer in case it's mid-sleep.
+  rm -f "$PULSE_FILE"
+  kill "$PULSE_PID" 2>/dev/null || true
 
   # Auto-resume on Anthropic 5h-quota exhaustion. The session prints e.g.
   # "You've hit your limit · resets 8:40pm (Australia/Melbourne)" and exits ~2s
