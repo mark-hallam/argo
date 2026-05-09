@@ -35,6 +35,7 @@ mod parse;
 pub mod quality;
 mod skill;
 mod store;
+mod store_lookups;
 mod store_vertical;
 pub mod success_metric;
 pub mod trust;
