@@ -43,6 +43,7 @@ mod routes_lists;
 mod routes_messages_rollups;
 mod routes_meta;
 mod routes_msgs;
+mod routes_msgs_pick;
 mod routes_orchestrator;
 mod routes_post; mod routes_post_admin; mod routes_post_costs; mod routes_post_forge; mod routes_post_judge; mod routes_post_messages; mod routes_post_runs; mod routes_post_sessions; mod routes_post_writes;
 mod routes_providers;
