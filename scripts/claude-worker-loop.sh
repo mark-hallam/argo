@@ -175,7 +175,87 @@ the next iteration.
     elif .type == "result" then "  ✅ result: " + (.subtype // "ok")
     elif .type == "system" and .subtype == "init" then "  ▶️  session started"
     else empty end' \
+  | tee >(grep --line-buffered -oE "You.ve hit your (limit|usage).+" \
+          | head -1 > /tmp/argo-quota-hit) \
   || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
+
+  # Auto-resume on Anthropic 5h-quota exhaustion. The session prints e.g.
+  # "You've hit your limit · resets 8:40pm (Australia/Melbourne)" and exits ~2s
+  # later. Without this guard the bash loop happily claims the next brief, hits
+  # quota again, and burns TODO rows into permanently-CLAIMED state. We:
+  #   1. Detect the quota line (sentinel /tmp/argo-quota-hit, written by tee>grep above)
+  #   2. Parse the reset time → seconds-to-sleep
+  #   3. Release the just-claimed row back to TODO with a salvage note
+  #   4. Sleep until quota reset (+5min buffer), then `continue` the outer loop.
+  if [ -f /tmp/argo-quota-hit ] && [ -s /tmp/argo-quota-hit ]; then
+    RESET_LINE=$(cat /tmp/argo-quota-hit)
+    echo "[$(date +%H:%M:%S)] Anthropic quota exhausted. $RESET_LINE"
+
+    # Compute seconds until reset; falls back to 1h on any parse failure.
+    SLEEP_SECS=$(python3 - <<'PY'
+import re, datetime, zoneinfo
+try:
+    line = open("/tmp/argo-quota-hit").read().strip()
+    m = re.search(r"resets\s+(\d+(?::\d+)?)\s*([ap]m)\s*\(([^)]+)\)", line, re.I)
+    if not m:
+        print(3600)
+    else:
+        hhmm, ampm, tz = m.groups()
+        hh, mm = (hhmm.split(":") + ["0"])[:2]
+        hh = (int(hh) % 12) + (12 if ampm.lower() == "pm" else 0)
+        zi = zoneinfo.ZoneInfo(tz)
+        now = datetime.datetime.now(zi)
+        target = now.replace(hour=hh, minute=int(mm), second=0, microsecond=0)
+        if target <= now:
+            target += datetime.timedelta(days=1)
+        secs = int((target - now).total_seconds()) + 300
+        print(max(secs, 60))
+except Exception:
+    print(3600)
+PY
+)
+
+    # Release the just-claimed row → TODO so a fresh worker (this loop, post-sleep)
+    # can re-claim. Salvage note points at /tmp/<brief-id> for any partial WIP.
+    set +e
+    python3 - "$BRIEF_ID" "$REPO" <<'PY'
+import re, sys, pathlib
+brief, repo = sys.argv[1:3]
+p = pathlib.Path(repo) / "docs/build-plan/BUILD_STATUS.md"
+text = p.read_text()
+note = (f" **RELEASED by worker-loop quota guard; auto-resume pending:** "
+        f"Anthropic 5h quota hit; session exited before opening PR. "
+        f"/tmp/{brief} may have salvageable WIP.")
+new, n = re.subn(
+    rf"^(\| {re.escape(brief)} \| (?:claude|codex)) \| CLAIMED \|(.*)$",
+    lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note}",
+    text, count=1, flags=re.MULTILINE,
+)
+if n:
+    p.write_text(new)
+PY
+
+    git -C "$REPO" add docs/build-plan/BUILD_STATUS.md
+    if ! git -C "$REPO" diff --cached --quiet; then
+      git -C "$REPO" commit -m "status: release $BRIEF_ID (quota; auto-resume pending)" 2>&1 | tail -1
+      git -C "$REPO" pull --rebase origin main 2>&1 | tail -2
+      git -C "$REPO" push origin main 2>&1 | tail -2
+    else
+      echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping release commit."
+    fi
+    set -e
+    rm -f /tmp/argo-quota-hit
+
+    # Resume time — best-effort across BSD (macOS) and GNU date.
+    RESUME_AT=$(date -v+"${SLEEP_SECS}"S +%H:%M:%S 2>/dev/null \
+             || date -d "@$(($(date +%s)+SLEEP_SECS))" +%H:%M:%S 2>/dev/null \
+             || echo "after sleep")
+    echo "[$(date +%H:%M:%S)] Sleeping ${SLEEP_SECS}s until quota reset (+5min buffer). Resume at ${RESUME_AT}."
+    sleep "$SLEEP_SECS"
+    echo "[$(date +%H:%M:%S)] Quota window expected open. Resuming loop."
+    continue
+  fi
+  rm -f /tmp/argo-quota-hit  # belt-and-braces cleanup if file existed but was empty
 
   JITTER=$((RANDOM % 26 + 5))
   echo "[$(date +%H:%M:%S)] Iteration done. Jittering ${JITTER}s..."
