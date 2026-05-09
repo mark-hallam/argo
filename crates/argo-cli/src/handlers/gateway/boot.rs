@@ -23,8 +23,8 @@ use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
 use super::{
-    metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice, streaming,
-    sweepers,
+    metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice,
+    security_headers, streaming, sweepers,
 };
 use crate::handlers::alerts;
 
@@ -173,6 +173,8 @@ pub(super) async fn start(
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
                 let src_ip = rate_limit_ip::extract_ip(req, peer, ip_limiter.trust_xff());
+                let https = security_headers::request_is_https(req);
+                let sec = security_headers::header_lines("application/json", https);
                 if let CheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
                     tracing::warn!(
                         target: "gateway::rate_limit_ip",
@@ -192,19 +194,19 @@ pub(super) async fn start(
                     let _ = stream.shutdown().await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
-                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
                 } else if routes_voice::is_voice_webhook(req) {
                     let (status_line, body) = routes_voice::voice_webhook_response(req).await;
-                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
                 } else if let Some((status_line, body)) = routes_orchestrator::dispatch_route(req, store.as_ref()).await {
-                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}", body.len(), body);
+                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await;
                     let _ = stream.shutdown().await;
                 } else if let Some((status_line, body)) = routes_skills::dispatch_route(req, store.as_ref()).await {
                     let resp = format!(
-                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}",
                         body.len(),
                         body
                     );
@@ -213,7 +215,7 @@ pub(super) async fn start(
                 } else {
                     let (status_line, body) = routes::dispatch_route(req, store.as_ref(), &shutdown_ctl).await;
                     let resp = format!(
-                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}",
                         body.len(),
                         body
                     );
