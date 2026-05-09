@@ -1,0 +1,36 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to candidate records, not the records
+# themselves. Resume text and forbidden-signal metadata stay in the
+# ATS — never copied into memory. Per-criterion rubric scores live
+# in the audit log, not memory.
+
+[[entry]]
+key = "candidate_history"
+type = "list-of-objects"
+purpose = "Per-candidate pipeline state. Each row: candidate_id, job_id, screening_status (new|screened|interviewing|offer|hired|rejected), entered_pipeline_at, last_action_at, ats_pointer."
+
+[[entry]]
+key = "screening_status"
+type = "list-of-objects"
+purpose = "Latest rubric result per (candidate_id, job_id). Each row: candidate_id, job_id, rubric_version, recommendation (advance|hold|pass), confidence (low|medium|high), scored_at."
+
+[[entry]]
+key = "interview_loop_state"
+type = "list-of-objects"
+purpose = "Active interview loops. Each row: candidate_id, job_id, stage (phone_screen|onsite|debrief), slot_iso, panel, status (scheduled|completed|cancelled|no_show), feedback_pointer."
+
+[[entry]]
+key = "offer_history"
+type = "list-of-objects"
+purpose = "Submitted offer packets — handed to a recruiter, NOT delivered by the worker. Each row: candidate_id, job_id, level, base_usd, equity_units, start_iso, submitted_at, approved_by, recruiter_owner, status (drafted|delivered|accepted|declined|expired)."
+
+[[entry]]
+key = "red_flag_log"
+type = "list-of-objects"
+purpose = "Recruiter-review queue. Each row: candidate_id, flag_type (employment_gap|fabrication_signal|inconsistency|portfolio_plagiarism|other), severity (low|medium|high), summary (one-line, no forbidden-signal references), source, routed_at, routed_to, outcome."
+
+[[entry]]
+key = "screening_emails"
+type = "list-of-objects"
+purpose = "Screening question sends. Each row: candidate_id, sent_at, recipient_email, subject, question_set, approved_by, message_id."

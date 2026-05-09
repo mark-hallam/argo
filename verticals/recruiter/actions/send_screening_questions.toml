@@ -1,0 +1,24 @@
+# Action: send_screening_questions (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Email. First candidate-facing comm; recruiter
+# approves the body before send. Stricter operators can flip
+# notify_channel to Human for fully-manual review.
+
+action_type       = "send_screening_questions"
+risk              = "medium"
+requires_approval = true
+notify_channel    = "Email"
+executor          = "mcp:gmail/gmail.send"
+budget_usd        = 0.05
+
+[payload_shape]
+candidate_id    = "string (CD-####)"
+recipient_email = "string — candidate@example.com (synthetic)"
+subject         = "string — leads with role + loop stage"
+body            = "string — drawn from inventory/question_bank.md"
+job_id          = "string (JOB-XX-#)"
+question_set    = "string — backend_screen | frontend_screen | infra_screen"
+
+[content_rules]
+allowed_topics = ["technical scope", "tooling experience", "scope of past work", "remote / location preferences", "authorization to work"]
+forbidden      = ["compensation specifics", "level guarantees", "interviewer names", "rubric score", "another candidate's status"]

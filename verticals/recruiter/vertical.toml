@@ -1,0 +1,98 @@
+schema_version = "1"
+
+[vertical]
+id          = "recruiter"
+name        = "Recruiter — Technical Sourcing & Screening"
+description = "Technical recruiter (Morgan) for an internal hiring team. Screens inbound resumes against a job rubric, sends screening-question emails, schedules interviews, and routes red-flag patterns + offer submissions through human approval. Synthetic candidate data only."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["recruiting", "sourcing", "screening", "interviews", "human-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+[mcp_servers]
+gcal  = { transport = "stdio", command = "argo-mcp-connector-gcal",  args = [] }
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 1
+escalate_to             = "recruiter"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Technical Recruiter"
+
+[actions]
+
+[actions.screen_candidate]
+risk              = "low"
+requires_approval = false
+description       = "Score a resume against the rubric. Auto — output is a structured rubric card; no external mutation."
+executor          = { kind = "document_creation", budget_usd = 0.05 }
+platforms         = ["internal"]
+instruction_template = "Screen `{{ payload.candidate_id }}` for `{{ payload.job_id }}` using skills/screening_rubric.md. Emit a structured rubric card. Never reference age, school prestige, gender, race, marital status, or any forbidden signal."
+
+[actions.send_screening_questions]
+risk              = "medium"
+requires_approval = true
+description       = "Email screening questions to a candidate. Approval-gated — first candidate-facing comm."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = "Send screening questions to `{{ payload.candidate_id }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Recipient `{{ payload.recipient_email }}`, job `{{ payload.job_id }}`, set `{{ payload.question_set }}`. Body: {{ payload.body }}. Pull from inventory/question_bank.md. Never include comp specifics, level guarantees, or interviewer names."
+
+[actions.schedule_interview]
+risk              = "low"
+requires_approval = false
+description       = "Book a phone-screen or onsite slot. Auto — slot booking is reversible; event body never carries the rubric score."
+executor          = { kind = "mcp", server = "gcal", tool = "events.insert", budget_usd = 0.05 }
+platforms         = ["gcal"]
+instruction_template = "Schedule `{{ payload.stage }}` for `{{ payload.candidate_id }}` — slot `{{ payload.slot_iso }}` ({{ payload.duration_minutes }} min), panel `{{ payload.panel }}`. Use candidate_id ONLY in the title. Never include rubric score, school, or any forbidden signal in the body."
+
+[actions.submit_offer]
+risk              = "high"
+requires_approval = true
+description       = "Submit a written offer. ALWAYS human-gated — the platform position is `AI never extends the offer itself`, even when offer parameters are pre-approved by the hiring manager."
+executor          = "human"
+instruction_template = "Submit offer for `{{ payload.candidate_id }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Job `{{ payload.job_id }}`, level `{{ payload.level }}`, base `{{ payload.base_usd }}`, equity `{{ payload.equity_units }}`, start `{{ payload.start_iso }}`. Hand the packet to the recruiter; the worker NEVER emails the offer letter directly."
+
+[actions.flag_red_flag]
+risk              = "high"
+requires_approval = true
+description       = "Flag a red-flag pattern (gap, fabrication, inconsistency) for recruiter review. Routing-only — no candidate comms, no offer mutation."
+executor          = "human"
+instruction_template = "Flag for `{{ payload.candidate_id }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Type `{{ payload.flag_type }}`, severity `{{ payload.severity }}`, source `{{ payload.source }}`. Summary: `{{ payload.summary }}`. Hand to recruiter; do not contact the candidate or pause the loop unilaterally."
+
+[actions.send_screening_questions.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.submit_offer.retry]
+max_attempts = 1
+
+[actions.flag_red_flag.retry]
+max_attempts = 1

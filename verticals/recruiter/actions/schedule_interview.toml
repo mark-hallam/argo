@@ -1,0 +1,26 @@
+# Action: schedule_interview (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto). Slot booking is reversible; event
+# body never carries the rubric score, school, or any forbidden signal.
+
+action_type       = "schedule_interview"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "mcp:gcal/events.insert"
+budget_usd        = 0.05
+
+[payload_shape]
+candidate_id     = "string (CD-####)"
+stage            = "phone_screen | onsite | debrief"
+slot_iso         = "RFC3339 timestamp"
+duration_minutes = "integer (15 | 30 | 45 | 60 | 90)"
+panel            = "list of panelist ids"
+
+[event_body_rules]
+title_uses        = "candidate_id only"
+forbidden_in_body = ["rubric score", "school name", "GPA", "any forbidden signal", "another candidate's status"]
+
+[failure_modes]
+slot_taken        = "Re-fetch availability and offer a fresh slot."
+panel_unavailable = "Suggest the alternate panel or escalate to recruiter."

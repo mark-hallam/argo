@@ -1,0 +1,28 @@
+# Action: submit_offer (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. ALWAYS human-gated. The platform position
+# is "AI never extends the offer itself." Even when offer parameters
+# (level, base, equity, start) are pre-approved by the hiring
+# manager, the recruiter delivers the letter.
+
+action_type       = "submit_offer"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+candidate_id  = "string (CD-####)"
+job_id        = "string (JOB-XX-#)"
+level         = "string — L4 | L5 | L6 | L7 (per req)"
+base_usd      = "integer — base annual salary in whole USD"
+equity_units  = "decimal — RSU units or option count"
+start_iso     = "ISO date — proposed start date"
+
+[gate_rationale]
+position = "AI never extends the offer itself, even when parameters are pre-approved. Candidate-facing message must come from a named recruiter — contract with candidates and a legal-review requirement, not a configurable policy."
+
+[refuse_paths]
+candidate_facing_send   = "If asked to email the offer letter directly, refuse and route through this action."
+unapproved_compensation = "Refuse if base / equity / level are absent; ask the recruiter."
+unauthorized_level      = "If `level` is not in the requisition's allowed levels, refuse and escalate."

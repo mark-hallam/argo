@@ -1,0 +1,27 @@
+# Action: flag_red_flag (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. Routing-only — hands the case to the
+# recruiter. No candidate comms, no offer mutation. Recruiter
+# decides whether to continue, pause, or reject.
+
+action_type       = "flag_red_flag"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+candidate_id = "string (CD-####)"
+flag_type    = "employment_gap | fabrication_signal | inconsistency | portfolio_plagiarism | other"
+severity     = "low | medium | high"
+source       = "resume | portfolio | reference | interview"
+summary      = "one-line. NEVER references a forbidden signal — even to deny one. Stick to: <flag_type> at <source>; recruiter decides."
+
+[routing_rules]
+fabrication_signal_high   = "Pause the loop pending recruiter review."
+employment_gap_medium     = "Recruiter decides whether to ask, continue, or pause."
+inconsistency_medium      = "Recruiter decides; do not infer the resolution."
+portfolio_plagiarism_high = "Pause the loop. Recruiter reviews source vs claim."
+
+[forbidden_in_summary]
+list = ["age", "school", "graduation year", "gender", "race", "ethnicity", "national origin", "marital status", "pregnancy", "religion", "disability", "sexual orientation", "salary history", "culture fit"]

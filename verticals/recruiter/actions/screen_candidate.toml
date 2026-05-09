@@ -1,0 +1,27 @@
+# Action: screen_candidate (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto). Output is a structured rubric card —
+# no candidate-facing comms, no calendar mutation, no offer.
+# Per-criterion scores land in the audit log; only the recommendation
+# + confidence band land in `screening_status` memory.
+
+action_type       = "screen_candidate"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "document_creation:rubric_card"
+budget_usd        = 0.05
+
+[payload_shape]
+candidate_id   = "string (CD-####)"
+job_id         = "string (JOB-XX-#)"
+resume_ref     = "string — ATS pointer; never resume text"
+rubric_version = "string — pinned in skills/screening_rubric.md"
+
+[forbidden_signals]
+list = ["age", "date of birth", "graduation year", "school prestige", "GPA", "gender", "pronouns", "race", "ethnicity", "national origin", "marital status", "family status", "pregnancy", "religion", "political affiliation", "disability", "sexual orientation", "criminal history", "salary history", "culture fit"]
+
+[failure_modes]
+incomplete_resume    = "Score on what's present; flag missing fields to recruiter."
+missing_rubric       = "Refuse without a pinned rubric_version; escalate."
+forbidden_signal_hit = "Do NOT score on it. Continue with rubric criteria only."

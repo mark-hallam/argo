@@ -1,0 +1,10 @@
+enabled = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Two autonomous-safe actions: screen_candidate (rubric output;
+# no external mutation) and schedule_interview (slot booking is
+# reversible; event body never carries rubric or forbidden signals).
+# Every other action runs through the human approval gate.
+# submit_offer is gated regardless of pre-approval state.
+wake_action_types = ["screen_candidate", "schedule_interview"]

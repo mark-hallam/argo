@@ -1,0 +1,21 @@
+{
+  "team": "Skycot Hiring (synthetic — demo only)",
+  "today_iso": "2026-05-10",
+  "open_reqs": [
+    {"job_id": "JOB-BE-7",  "title": "Senior Backend Engineer",  "level": "L5", "stack": ["Rust", "Go", "PostgreSQL"]},
+    {"job_id": "JOB-FE-3",  "title": "Staff Frontend Engineer",  "level": "L6", "stack": ["TypeScript", "React"]},
+    {"job_id": "JOB-INF-2", "title": "Infrastructure Engineer",  "level": "L5", "stack": ["Kubernetes", "Terraform"]}
+  ],
+  "candidates": [
+    {"candidate_id": "CD-1042", "applied_for": "JOB-BE-7",  "phone": "555-020-1042", "email": "cd1042@example.com", "years_experience": 7,  "skills": ["Rust", "Go", "tokio", "distributed-systems"], "ats_pointer": "ATS://candidate/CD-1042"},
+    {"candidate_id": "CD-2017", "applied_for": "JOB-FE-3",  "phone": "555-020-2017", "email": "cd2017@example.com", "years_experience": 6,  "skills": ["React", "TypeScript", "Webpack"], "ats_pointer": "ATS://candidate/CD-2017"},
+    {"candidate_id": "CD-3091", "applied_for": "JOB-BE-7",  "phone": "555-020-3091", "email": "cd3091@example.com", "years_experience": 22, "skills": ["Rust", "C++", "kernel-systems"], "ats_pointer": "ATS://candidate/CD-3091"},
+    {"candidate_id": "CD-4112", "applied_for": "JOB-INF-2", "phone": "555-020-4112", "email": "cd4112@example.com", "years_experience": 9,  "skills": ["Kubernetes", "Terraform", "AWS"], "ats_pointer": "ATS://candidate/CD-4112", "notes": "4-year gap 2021-2025; flagged for recruiter review"},
+    {"candidate_id": "CD-5208", "applied_for": "JOB-BE-7",  "phone": "555-020-5208", "email": "cd5208@example.com", "years_experience": 4,  "skills": ["Go", "Python"], "ats_pointer": "ATS://candidate/CD-5208", "notes": "Date inconsistency between LinkedIn and resume; flagged for review"},
+    {"candidate_id": "CD-6314", "applied_for": "JOB-FE-3",  "phone": "555-020-6314", "email": "cd6314@example.com", "years_experience": 8,  "skills": ["React", "Next.js", "GraphQL", "design-systems"], "ats_pointer": "ATS://candidate/CD-6314"},
+    {"candidate_id": "CD-7220", "applied_for": "JOB-INF-2", "phone": "555-020-7220", "email": "cd7220@example.com", "years_experience": 3,  "skills": ["Kubernetes", "Helm"], "ats_pointer": "ATS://candidate/CD-7220"},
+    {"candidate_id": "CD-8108", "applied_for": "JOB-BE-7",  "phone": "555-020-8108", "email": "cd8108@example.com", "years_experience": 5,  "skills": ["Rust", "axum", "PostgreSQL"], "ats_pointer": "ATS://candidate/CD-8108"},
+    {"candidate_id": "CD-9051", "applied_for": "JOB-FE-3",  "phone": "555-020-9051", "email": "cd9051@example.com", "years_experience": 11, "skills": ["TypeScript", "React", "platform-engineering", "tech-leadership"], "ats_pointer": "ATS://candidate/CD-9051"},
+    {"candidate_id": "CD-9904", "applied_for": "JOB-INF-2", "phone": "555-020-9904", "email": "cd9904@example.com", "years_experience": 6,  "skills": ["Terraform", "GCP", "observability"], "ats_pointer": "ATS://candidate/CD-9904"}
+  ]
+}
