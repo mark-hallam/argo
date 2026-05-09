@@ -14,6 +14,7 @@
 //!
 //! Each handler returns a `(status_line, body)` pair the listener
 //! loop formats into a single-line HTTP/1.1 response.
+use super::rate_limit;
 use super::routes_auth::{check_bearer_auth, is_public_get};
 use super::routes_dispatch_get::dispatch_get;
 use super::routes_dispatch_get_admin::dispatch_get_admin;
@@ -35,6 +36,12 @@ pub(super) async fn dispatch_route(
     // load balancers) can back off cleanly during the drain.
     if shutdown.is_shutting_down() {
         return shutting_down_response();
+    }
+    // Per-route, per-tenant token-bucket gate
+    // (claude-rate-limit-per-route). Independent + additive to the
+    // per-IP limiter (#1051) which runs upstream in `boot::start`.
+    if let Some(resp) = rate_limit_check(req) {
+        return resp;
     }
     // Drop-guard increments the in-flight counter for the lifetime of
     // this future and decrements on any return path (including panic
@@ -71,4 +78,33 @@ pub(super) async fn dispatch_route(
         return resp;
     }
     ("404 Not Found", "{\"error\":\"not found\"}".to_string())
+}
+
+/// Apply the per-route, per-tenant rate limit. Returns `Some(resp)`
+/// when the bucket is empty (caller should short-circuit), `None` when
+/// the request may proceed. The 429 body is built inline so that the
+/// `error: rate_limited` shape stays distinguishable from
+/// `error: quota_exceeded` (the separate
+/// `claude-tenant-quota-enforcement-stricter` brief).
+fn rate_limit_check(req: &str) -> Option<(&'static str, String)> {
+    let limiter = rate_limit::global()?;
+    let route = rate_limit::classify_request(req);
+    let tenant = rate_limit::extract_tenant(req);
+    match limiter.acquire(&route, &tenant) {
+        Ok(()) => None,
+        Err(retry) => {
+            tracing::warn!(
+                target: "gateway::rate_limit",
+                route = %route,
+                tenant = %tenant,
+                retry_after_ms = retry.retry_after_ms,
+                "per-route rate limit triggered"
+            );
+            let body = format!(
+                "{{\"error\":\"rate_limited\",\"scope\":\"route\",\"retry_after_ms\":{}}}",
+                retry.retry_after_ms
+            );
+            Some(("429 Too Many Requests", body))
+        }
+    }
 }

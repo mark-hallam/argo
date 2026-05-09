@@ -11,6 +11,7 @@
 mod boot;
 mod lifecycle;
 mod metrics;
+mod rate_limit;
 mod rate_limit_ip;
 mod metrics_actions;
 mod print_routes;
@@ -89,7 +90,13 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             max_requests,
             quiet,
             profile_startup,
-        } => boot::start(&bind, port, max_requests, quiet, profile_startup).await,
+        } => {
+            // Initialise the per-route, per-tenant token-bucket limiter
+            // and spawn its eviction sweep before the listener accepts.
+            // Idempotent — only the first caller actually wires state.
+            let _ = rate_limit::init();
+            boot::start(&bind, port, max_requests, quiet, profile_startup).await
+        }
         GatewayCmd::Stop => boot::stop().await,
         GatewayCmd::Routes {
             json,
