@@ -115,7 +115,7 @@ fn is_reconciled_versioned_raw(path: &Path) -> bool {
         .and_then(|s| s.to_str())
         .and_then(|s| s.split_once("__"))
         .and_then(|(n, _)| n.parse::<u32>().ok())
-        .is_some_and(|version| (12..=20).contains(&version))
+        .is_some_and(|version| (12..=26).contains(&version))
 }
 
 fn migration_files() -> Result<Vec<PathBuf>, String> {
@@ -171,6 +171,21 @@ fn expected_tables() -> &'static [&'static str] {
         "worker_anomaly_event",
         "skill_ab_test_run",
         "skill_ab_test_outcome",
+        "org_unit",
+        "org_member",
+        "org_member_alias",
+        "org_reports_to",
+        "roster",
+        "roster_member",
+        "handoff_routing_rule",
+        "workflow_checkpoint",
+        "operator_feedback",
+        "skill_quality_score",
+        "vertical_lifecycle",
+        "policy_files",
+        "data_classification_tag",
+        "worker_spend_baseline",
+        "worker_budget_alert",
     ]
 }
 

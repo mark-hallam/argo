@@ -16,6 +16,18 @@ mod v18;
 mod v19;
 mod v20;
 mod v21_skill_ab_tests;
+mod v22;
+mod v23;
+mod v24;
+mod v25;
+mod v26;
+mod v27;
+mod v28;
+mod v29;
+mod v30;
+mod v31;
+mod v32;
+mod v33;
 mod v6;
 mod v7;
 mod v8;
@@ -226,6 +238,66 @@ fn all_migrations() -> Vec<Migration> {
             version: 21,
             up: |tx| Box::pin(v21_skill_ab_tests::up(tx)),
             down: |tx| Box::pin(v21_skill_ab_tests::down(tx)),
+        },
+        Migration {
+            version: 22,
+            up: |tx| Box::pin(v22::up(tx)),
+            down: |tx| Box::pin(v22::down(tx)),
+        },
+        Migration {
+            version: 23,
+            up: |tx| Box::pin(v23::up(tx)),
+            down: |tx| Box::pin(v23::down(tx)),
+        },
+        Migration {
+            version: 24,
+            up: |tx| Box::pin(v24::up(tx)),
+            down: |tx| Box::pin(v24::down(tx)),
+        },
+        Migration {
+            version: 25,
+            up: |tx| Box::pin(v25::up(tx)),
+            down: |tx| Box::pin(v25::down(tx)),
+        },
+        Migration {
+            version: 26,
+            up: |tx| Box::pin(v26::up(tx)),
+            down: |tx| Box::pin(v26::down(tx)),
+        },
+        Migration {
+            version: 27,
+            up: |tx| Box::pin(v27::up(tx)),
+            down: |tx| Box::pin(v27::down(tx)),
+        },
+        Migration {
+            version: 28,
+            up: |tx| Box::pin(v28::up(tx)),
+            down: |tx| Box::pin(v28::down(tx)),
+        },
+        Migration {
+            version: 29,
+            up: |tx| Box::pin(v29::up(tx)),
+            down: |tx| Box::pin(v29::down(tx)),
+        },
+        Migration {
+            version: 30,
+            up: |tx| Box::pin(v30::up(tx)),
+            down: |tx| Box::pin(v30::down(tx)),
+        },
+        Migration {
+            version: 31,
+            up: |tx| Box::pin(v31::up(tx)),
+            down: |tx| Box::pin(v31::down(tx)),
+        },
+        Migration {
+            version: 32,
+            up: |tx| Box::pin(v32::up(tx)),
+            down: |tx| Box::pin(v32::down(tx)),
+        },
+        Migration {
+            version: 33,
+            up: |tx| Box::pin(v33::up(tx)),
+            down: |tx| Box::pin(v33::down(tx)),
         },
     ]
 }
