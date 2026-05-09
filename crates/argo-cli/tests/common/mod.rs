@@ -5,13 +5,16 @@
 
 #![allow(dead_code)]
 
+pub mod listener_signal;
 pub mod product_e2e_helpers;
+
+use listener_signal::{await_listener_signal, deadline_ms_from_env, StderrDrain, DEADLINE_ENV};
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStderr, Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 
@@ -169,27 +172,52 @@ pub fn body_of(resp: &str) -> &str {
     resp.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
 }
 
+/// Legacy polling helper, kept for callers that still own the
+/// stderr `BufReader` (e.g. custom boot helpers in
+/// `memory_vertical_gateway.rs`, `vertical_lint_gateway.rs`,
+/// `session_show_vertical.rs`). Hardened over the historical 2s
+/// version: the deadline now defaults to 10s and respects the
+/// `ARGO_TEST_LISTENER_DEADLINE_MS` env var, and a stderr EOF
+/// (gateway crash) is reported distinctly from a true timeout.
+///
+/// New call sites should prefer [`await_listener_signal`] /
+/// [`boot`], which use a background drain thread and a oneshot
+/// channel — see `listener_signal.rs` for the rationale.
 pub fn await_listening(stderr: &mut BufReader<impl Read>) {
+    let deadline_ms = deadline_ms_from_env();
+    let deadline = Instant::now() + Duration::from_millis(deadline_ms);
     let mut line = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
     loop {
-        if std::time::Instant::now() > deadline {
-            panic!("listener did not announce in 2s");
+        if Instant::now() > deadline {
+            panic!(
+                "listener did not announce in {deadline_ms}ms (set {DEADLINE_ENV} to extend)"
+            );
         }
         line.clear();
-        stderr.read_line(&mut line).expect("read line");
-        if line.contains("listening on") {
-            break;
+        match stderr.read_line(&mut line) {
+            Ok(0) => panic!(
+                "gateway crashed before listener bound (stderr closed without announce)"
+            ),
+            Ok(_) => {
+                if line.contains("listening on") {
+                    break;
+                }
+            }
+            Err(err) => panic!("read line: {err}"),
         }
     }
 }
 
-/// Start the gateway and return both the child handle + the
-/// stderr BufReader. The reader must stay alive for the whole
-/// test — dropping it before the child exits closes the pipe
-/// and breaks the gateway's stderr writes (manifest as
-/// `ConnectionReset` on the next HTTP request).
-pub fn boot(port: u16, max_requests: u32) -> (GatewayChild, BufReader<ChildStderr>) {
+/// Start the gateway and return both the child handle + a
+/// stderr drain handle. The drain holds a background thread
+/// that reads stderr to keep the gateway's pipe from filling up
+/// — drop it after the test (typically via shadowing or
+/// end-of-scope on the `_drain` binding).
+///
+/// Readiness is signaled via the channel-based helper in
+/// `listener_signal.rs`. The deadline defaults to 10s and is
+/// overridable via `ARGO_TEST_LISTENER_DEADLINE_MS`.
+pub fn boot(port: u16, max_requests: u32) -> (GatewayChild, StderrDrain) {
     let lock = gateway_lock();
     let home = tempfile::tempdir().unwrap().keep();
     let mut child = Command::new(argo_bin())
@@ -206,12 +234,12 @@ pub fn boot(port: u16, max_requests: u32) -> (GatewayChild, BufReader<ChildStder
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    await_listening(&mut stderr);
+    let stderr = child.stderr.take().expect("stderr piped");
+    let drain = await_listener_signal(stderr).expect("gateway listener signal");
     let resp = http_get(port, "/sessions");
     assert!(
         resp.contains("HTTP/1.1 200 OK"),
         "gateway store not ready: {resp}"
     );
-    (GatewayChild { child, _lock: lock }, stderr)
+    (GatewayChild { child, _lock: lock }, drain)
 }
