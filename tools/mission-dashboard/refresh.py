@@ -1182,6 +1182,16 @@ HTML_TEMPLATE = r"""<!doctype html>
   .filters input[type=text] { background: var(--panel-2); color: var(--ink); border: 1px solid var(--hairline-2); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 12px; min-width: 240px; }
   .filters select { background: var(--panel-2); color: var(--ink); border: 1px solid var(--hairline-2); padding: 6px 10px; border-radius: 6px; font: inherit; font-size: 12px; }
   .filters .count { color: var(--ink-3); font-size: 12px; margin-left: auto; }
+  /* live-ledger drill */
+  #ledger-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: ui-monospace, monospace; }
+  #ledger-table th { text-align: left; color: var(--ink-3); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 8px; border-bottom: 1px solid var(--hairline-2); }
+  #ledger-table td { padding: 5px 8px; border-bottom: 1px solid var(--hairline); }
+  #ledger-table tr:hover td { background: rgba(255,255,255,0.03); }
+  #ledger-table .lstate-pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+  #ledger-table .lphase { color: var(--ink-2); width: 50px; }
+  #ledger-table .lbrief { color: var(--ink); }
+  #ledger-table .lowner { color: var(--ink-3); width: 80px; }
+  #ledger-table .lpr { color: var(--accent); }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   table th { text-align: left; color: var(--ink-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; padding: 8px 10px; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--panel); }
   table td { padding: 8px 10px; border-bottom: 1px solid var(--hairline); color: var(--ink-2); vertical-align: top; }
@@ -1276,7 +1286,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 </div>
 
 <div class="panel" style="margin-bottom:16px;">
-  <h2>Mission claims (six load-bearing) <span class="right">% complete weighted · MISSION_BACKLOG-derived</span></h2>
+  <h2>Mission claims (six load-bearing) <span class="right">% complete weighted · scoped to the 41 brief-tagged items in MISSION_BACKLOG only · partial signal</span></h2>
   <div id="claims-compact"></div>
 </div>
 
@@ -1301,13 +1311,32 @@ HTML_TEMPLATE = r"""<!doctype html>
   <div id="section-bars"></div>
 </div>
 
+<div class="panel" style="margin-bottom:16px;">
+  <h2>Drill into ledger <span class="right">all <span id="ledger-drill-total"></span> live BUILD_STATUS rows · primary lens · search by brief id, filter by status / phase / owner</span></h2>
+  <div class="filters">
+    <input type="text" id="lq" placeholder="Search brief id…" />
+    <select id="lstate"><option value="">All statuses</option></select>
+    <select id="lphase"><option value="">All phases</option></select>
+    <select id="lowner"><option value="">All owners</option></select>
+    <span class="count" id="lcount"></span>
+  </div>
+  <div class="tablewrap">
+    <table id="ledger-table">
+      <thead>
+        <tr><th>Status</th><th>Phase</th><th>Brief</th><th>Owner</th><th>PR</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
 <div class="grid two">
   <div class="panel">
     <h2>Recent activity <span class="right">last 50 commits</span></h2>
     <div class="activity" id="activity"></div>
   </div>
   <div class="panel">
-    <h2>Drill into items <span class="right">280-item MISSION_BACKLOG view · for full ledger see "Live work outside" panel above</span></h2>
+    <h2>Drill into 280-item backlog <span class="right">secondary lens · MISSION_BACKLOG view</span></h2>
     <div class="filters">
       <input type="text" id="q" placeholder="Search title or brief id…" />
       <select id="fstate"><option value="">All states</option></select>
@@ -1464,7 +1493,13 @@ const cardsHTML = [
     delta: (lc.CLAIMED || 0) + " claimed · " + (lc.IN_REVIEW || 0) + " in review" },
   { label: "Blocked (live ledger)",
     value: fmt(ledgerBlockedTotal),
-    delta: ledgerBlockedTotal > 0 ? "needs unblock" : "all clear",
+    delta: ledgerBlockedTotal > 0
+      ? Object.entries(lps.by_phase || {})
+          .filter(([,info]) => (info.counts && info.counts.BLOCKED) > 0)
+          .sort((a,b) => (b[1].counts.BLOCKED||0) - (a[1].counts.BLOCKED||0))
+          .map(([p, info]) => `${p}: ${info.counts.BLOCKED}`)
+          .join(" · ") || "needs unblock"
+      : "all clear",
     cls: ledgerBlockedTotal > 0 ? "weak" : "" },
 ].map(c => `<div class="card ${c.cls||''}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="delta">${c.delta}</div></div>`).join("");
 $("#cards").innerHTML = cardsHTML;
@@ -1932,6 +1967,64 @@ function stackBar(counts, total, palette) {
   $("#q").addEventListener("input", render);
   fstate.addEventListener("change", render);
   fphase.addEventListener("change", render);
+  render();
+})();
+
+// ── live-ledger drill (PRIMARY lens · operates on the full 398-row ledger) ──
+(() => {
+  const ledger = DATA.ledger || {};
+  const briefs = Object.keys(ledger).sort();
+  const ledgerStateOrder = ["MERGED","IN_REVIEW","CLAIMED","TODO","BLOCKED","DEFERRED-v1.x"];
+  const ledgerStateColor = {
+    "MERGED":"#059669","IN_REVIEW":"#10b981","CLAIMED":"#2563eb",
+    "TODO":"#9ca3af","BLOCKED":"#dc2626","DEFERRED-v1.x":"#a3a3a3",
+  };
+  const lstate = $("#lstate");
+  const lphase = $("#lphase");
+  const lowner = $("#lowner");
+  if (!lstate) return;
+  ledgerStateOrder.forEach(s => { const o=document.createElement("option"); o.value=s; o.textContent=s; lstate.appendChild(o); });
+  // Phase options pulled from the live ledger phase stats so we don't hardcode A–F
+  Object.keys(DATA.ledger_phase_stats?.by_phase || {}).forEach(p => {
+    const o=document.createElement("option"); o.value=p; o.textContent="Phase "+p; lphase.appendChild(o);
+  });
+  // Owner options: real ones only (skip "(in landing PR)" etc.)
+  const owners = [...new Set(Object.values(ledger).map(r => (r.owner||"").trim()).filter(o => /^[a-z][a-z0-9_-]*$/i.test(o)))].sort();
+  owners.forEach(o => { const opt=document.createElement("option"); opt.value=o; opt.textContent=o; lowner.appendChild(opt); });
+  $("#ledger-drill-total").textContent = briefs.length;
+
+  function render() {
+    const q = $("#lq").value.trim().toLowerCase();
+    const sf = lstate.value;
+    const pf = lphase.value;
+    const of_ = lowner.value;
+    const tb = $("#ledger-table tbody");
+    const out = [];
+    let n = 0;
+    for (const b of briefs) {
+      const r = ledger[b];
+      if (q && !b.toLowerCase().includes(q)) continue;
+      if (sf && r.status !== sf) continue;
+      if (pf && r.phase !== pf) continue;
+      if (of_ && (r.owner||"").trim().toLowerCase() !== of_) continue;
+      n++;
+      const pr = (r.pr||"").trim().replace(/^\(|\)$/g,'');
+      const prCell = pr && pr !== "—" ? `<span class="lpr">${escapeHtml(pr)}</span>` : '';
+      out.push(`<tr>
+        <td><span class="lstate-pill" style="background:${ledgerStateColor[r.status]||'#444'}20;color:${ledgerStateColor[r.status]||'#aaa'};border:1px solid ${ledgerStateColor[r.status]||'#444'}40">${r.status}</span></td>
+        <td class="lphase">${r.phase||'—'}</td>
+        <td class="lbrief">${escapeHtml(b)}</td>
+        <td class="lowner">${escapeHtml(r.owner||'')}</td>
+        <td>${prCell}</td>
+      </tr>`);
+    }
+    tb.innerHTML = out.join("");
+    $("#lcount").textContent = n + " of " + briefs.length;
+  }
+  $("#lq").addEventListener("input", render);
+  lstate.addEventListener("change", render);
+  lphase.addEventListener("change", render);
+  lowner.addEventListener("change", render);
   render();
 })();
 
