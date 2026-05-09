@@ -71,17 +71,28 @@ while true; do
     git merge --ff-only FETCH_HEAD
   fi
 
-  # Find the first claimable TODO row. Owner column may be claude or
-  # codex; brief-id is the first table cell.
-  BRIEF_ID=$(awk -F'|' '
+  # Pick the first claimable TODO row whose may-touch ceiling check passes.
+  # Iterate candidates in ledger order; skip any refused by
+  # check-pre-claim-ceiling.sh (deterministic refusal — retrying won't help,
+  # but next candidate might be fine). Owner column may be claude or codex.
+  CEILING_CHECK="$REPO/scripts/check-pre-claim-ceiling.sh"
+  BRIEF_ID=""
+  while IFS= read -r candidate; do
+    if [ -z "$candidate" ]; then continue; fi
+    if [ -x "$CEILING_CHECK" ] && ! "$CEILING_CHECK" "$candidate" >/dev/null 2>&1; then
+      echo "[$(date +%H:%M:%S)] Skipping $candidate — pre-claim ceiling refusal (may-touch file at-risk of 500-LOC ceiling). Brief stays TODO; will become claimable after a split-prep lands."
+      continue
+    fi
+    BRIEF_ID="$candidate"
+    break
+  done < <(awk -F'|' '
     /^\| .* \| (claude|codex) \| TODO \|/ {
       gsub(/^[ \t]+|[ \t]+$/, "", $2)
       print $2
-      exit
     }' docs/build-plan/BUILD_STATUS.md)
 
   if [ -z "$BRIEF_ID" ]; then
-    echo "[$(date +%H:%M:%S)] No claimable TODO row. Sleeping 120s."
+    echo "[$(date +%H:%M:%S)] No claimable TODO row (or all remaining refused by ceiling check). Sleeping 120s."
     sleep 120
     continue
   fi
@@ -105,8 +116,14 @@ while true; do
 
     if [ "$LAST_BRIEF_FAILS" -ge "$MAX_SAME_BRIEF_FAILS" ]; then
       echo "[$(date +%H:%M:%S)] Same brief failed ${MAX_SAME_BRIEF_FAILS}× in a row. Exiting to prevent spin-loop."
-      echo "[$(date +%H:%M:%S)] Likely root cause: ledger row format the awk picks but claim-with-retry's regex rejects."
+      echo "[$(date +%H:%M:%S)] Likely causes (in order of frequency):"
+      echo "    - working tree dirty in $REPO (conductor mid-edit; check /tmp/argo-pause)"
+      echo "    - real race-loss to another tab (claim push 3× failed non-fast-forward)"
+      echo "    - phantom-mod rescue couldn't recover (real uncommitted edits present)"
+      echo "    - ledger row format the awk picks but claim-with-retry's regex rejects"
       echo "[$(date +%H:%M:%S)] Inspect: grep '$BRIEF_ID' $REPO/docs/build-plan/BUILD_STATUS.md"
+      echo "[$(date +%H:%M:%S)] Working tree state:"
+      git -C "$REPO" status --short 2>&1 | head -10
       exit 1
     fi
 
