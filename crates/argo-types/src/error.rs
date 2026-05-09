@@ -69,6 +69,10 @@ pub enum ArgoError {
     /// OCI error.
     #[error("oci error: {0}")]
     Oci(String),
+    /// The addressed entity does not exist. Maps to HTTP 404 at the
+    /// gateway boundary.
+    #[error("not found: {0}")]
+    NotFound(String),
 }
 
 impl From<std::io::Error> for ArgoError {

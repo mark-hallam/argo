@@ -3,6 +3,11 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod anomaly;
+/// Typed scaffold for blob storage — `AttachedBlob`, `BlobRef`,
+/// `BlobStore` trait, and an in-memory test impl. No persistence yet
+/// (Stream `claude-store-attached-blob-layer`); downstream
+/// `claude-cu-screenshot-storage` lands the SQLite-backed impl.
+pub mod attached_blob;
 /// Budget rollups over skills and spend.
 pub mod budget;
 /// Data classification tags (Stream `claude-data-classification`).
