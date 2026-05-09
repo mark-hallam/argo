@@ -277,6 +277,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 handlers::handoff_auctions_cancel::run(&id, json).await
             }
         },
+        Some(Command::HandoffPolicy { cmd }) => handlers::handoff_policy::run(cmd).await,
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Trajectory { cmd }) => match cmd {
             cli::TrajectoryCmd::Export {

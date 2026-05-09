@@ -58,4 +58,4 @@ pub use routing::{
     WhenClause,
 };
 pub use session::{Session, SessionId, SessionStatus};
-pub use walker::{HandoffNotifier, HandoffWalker, SweepReport};
+pub use walker::{HandoffNotifier, HandoffPolicyHook, HandoffWalker, SweepReport};

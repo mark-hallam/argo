@@ -52,6 +52,13 @@ use sqlx::SqlitePool;
 use std::str::FromStr;
 use std::sync::Arc;
 
+/// Policy hook consulted before [`RoutingEngine`] in
+/// [`HandoffWalker::routing_override`] (Stream `claude-worker-handoff-policy`).
+pub trait HandoffPolicyHook: Send + Sync {
+    /// `Some(w)` re-routes the next handoff to `w`; `None` defers to the engine.
+    fn override_target(&self, expected_outcome: &str) -> Option<WorkerId>;
+}
+
 /// How the walker reaches an external operator (email / slack /
 /// SMS / push) for a `Human` step. The walker doesn't care which
 /// channel handles which scheme — implementations route by the
@@ -99,6 +106,7 @@ pub struct HandoffWalker {
     /// the session to `Expired`. v1 doesn't run the auction
     /// in-process; bidding is the operator's hookup point.
     auction_store: Option<Arc<crate::auction::AuctionStore>>,
+    policy_hook: Option<Arc<dyn HandoffPolicyHook>>,
 }
 
 impl HandoffWalker {
@@ -119,6 +127,7 @@ impl HandoffWalker {
             default_deadline_secs: 60 * 60, // 1 hour
             routing_engine: None,
             auction_store: None,
+            policy_hook: None,
         }
     }
 
@@ -150,6 +159,12 @@ impl HandoffWalker {
     pub fn with_auction_store(mut self, store: Arc<crate::auction::AuctionStore>) -> Self {
         self.auction_store = Some(store);
         self
+    }
+
+    /// Attach a [`HandoffPolicyHook`] consulted before the routing engine.
+    #[must_use]
+    pub fn with_policy_hook(mut self, hook: Arc<dyn HandoffPolicyHook>) -> Self {
+        self.policy_hook = Some(hook); self
     }
 
     /// One sweep. Idempotent — repeated calls on the same database
@@ -289,6 +304,10 @@ impl HandoffWalker {
         expected_outcome: &str,
         now: DateTime<Utc>,
     ) -> Option<WorkerId> {
+        // policy hook (Stream `claude-worker-handoff-policy`)
+        if let Some(w) = self.policy_hook.as_ref().and_then(|h| h.override_target(expected_outcome)) {
+            return Some(w);
+        }
         let engine = self.routing_engine.as_ref()?;
         let ctx = RoutingContext::new(now, expected_outcome);
         match engine.route(&ctx)? {

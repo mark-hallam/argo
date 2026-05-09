@@ -105,6 +105,7 @@ pub mod duty_show;
 pub mod handoff_auctions_cancel;
 pub mod handoff_auctions_list;
 pub mod handoff_auctions_show;
+pub mod handoff_policy;
 pub mod handoff_rules_add;
 pub mod handoff_rules_list;
 pub mod handoff_rules_remove;

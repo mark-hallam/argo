@@ -190,6 +190,14 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_handoff_cmds::HandoffAuctionsCmd,
     },
+    /// Workspace-level handoff policy
+    /// (`claude-worker-handoff-policy`). Reads
+    /// `.skycot/handoff-policy.toml` and answers "should we hand
+    /// off at all?" via a first-match-wins rule list.
+    HandoffPolicy {
+        #[command(subcommand)]
+        cmd: cli_handoff_cmds::HandoffPolicyCmd,
+    },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +
     /// edges; runs each task as a Session with output binding

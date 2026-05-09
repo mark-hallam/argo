@@ -1,0 +1,57 @@
+# Skycot workspace handoff policy
+# Stream `claude-worker-handoff-policy` (V1.1).
+#
+# Drop this file at `<workspace-root>/.skycot/handoff-policy.toml`.
+# Argo loads it on every handoff-routing decision and answers the
+# question routing weights cannot: "should we hand off at all?".
+#
+# Evaluation is first-match-wins. Ordering matters — put specific
+# rules first, broad fall-throughs last. A missing file = no rules
+# matched = current routing-weights behaviour (graceful absence).
+#
+# Surface:
+#   argo handoff-policy show [--explain <action>]
+#   argo handoff-policy validate [<file>]
+
+
+# ----- defaults: workspace-wide knobs surfaced via `show`.
+# These are operator-facing tunables. The current orchestrator hook
+# only consumes the rule list; the defaults are kept here for
+# documentation + forward compatibility with richer evaluators.
+[defaults]
+# Inline retry budget before escalation auto-fires.
+inline_max_retries          = 2
+# Inline latency budget (seconds) before escalation auto-fires.
+inline_max_latency_seconds  = 30
+# Confidence floor below which escalation auto-fires.
+escalate_on_low_confidence  = 0.6
+
+
+# ----- rules: ordered list, first-match-wins.
+
+# Rule 1 — approval requests always go to a human reviewer. Routing
+# weights still pick the specific approver; the policy guarantees
+# we don't try to handle this inline.
+[[rules]]
+match  = { action_kind = "approval_request" }
+policy = "always_escalate"
+
+# Rule 2 — emails below 80% confidence escalate to a senior peer.
+# `confidence_lt` is strict less-than; at 0.8 exactly, no match.
+[[rules]]
+match  = { action_kind = "send_email", confidence_lt = 0.8 }
+policy = "escalate_to_senior"
+
+# Rule 3 — catch-all retry guard. After 3 inline retries on any
+# action kind, escalate. `*` = match-all wildcard.
+[[rules]]
+match  = { action_kind = "*", retry_count_gte = 3 }
+policy = "escalate"
+
+# Recognised `policy =` tags:
+#   inline             — handle inline; do not escalate
+#   escalate           — escalate via the existing routing chain
+#   always_escalate    — alias for `escalate` (intent-marker)
+#   escalate_to_senior — alias for `escalate`; resolved against
+#                        routing weights today, dedicated routing
+#                        target reserved for future iteration

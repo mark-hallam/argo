@@ -108,3 +108,34 @@ pub enum HandoffAuctionsCmd {
         json: bool,
     },
 }
+
+/// `argo handoff-policy` subcommands (Stream
+/// `claude-worker-handoff-policy`). Surfaced as a top-level
+/// command for the same reason as `handoff-rules` —
+/// `HandoffCmd` lives in `cli_session_cmds.rs` outside the
+/// brief's may-touch list.
+#[derive(Subcommand, Debug)]
+pub enum HandoffPolicyCmd {
+    /// Print the parsed `.skycot/handoff-policy.toml`. With
+    /// `--explain <action>`, also trace which rule (if any) fires
+    /// for that action_kind.
+    Show {
+        /// Trace the matched rule for this action kind.
+        #[arg(long, value_name = "action")]
+        explain: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Schema-check a handoff-policy file. Defaults to
+    /// `.skycot/handoff-policy.toml` under the current dir; pass a
+    /// path to validate a different file.
+    Validate {
+        /// Path to the policy file (defaults to
+        /// `.skycot/handoff-policy.toml`).
+        path: Option<std::path::PathBuf>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
