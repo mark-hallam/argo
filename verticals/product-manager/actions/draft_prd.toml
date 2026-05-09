@@ -1,0 +1,32 @@
+# Action: draft_prd (canonical declaration in ../vertical.toml)
+#
+# Notify channel: DocumentCreation. The PRD body is rendered through
+# the document_creation executor, which is approval-gated by default
+# (see crates/argo-executor-document) — a PRD is a cross-functional
+# artifact that PM, design, and engineering all read, so the gate
+# keeps a human in the loop on the exact body that lands.
+
+action_type       = "draft_prd"
+risk              = "medium"
+requires_approval = true
+notify_channel    = "DocumentCreation"
+executor          = "document_creation"
+budget_usd        = 0.10
+
+[payload_shape]
+prd_id        = "string — PRD-YYYY-NN"
+title         = "short string — feature name, customer-safe"
+theme_label   = "string — must match a row in the feedback_themes memory entry"
+severity      = "low | medium | high — inherited from the driver theme"
+target_quarter = "optional — Q1 | Q2 | Q3 | Q4 (no dated commitments)"
+
+[content_rules]
+template       = "skills/prd_template.skill.md"
+sections       = ["Problem", "Users", "Goals", "Non-goals", "UX outline", "Success metrics", "Risks", "Open questions"]
+output_path    = "<workspace>/.skycot/prds/<prd_id>.md"
+forbidden      = ["pricing decisions", "competitive claims", "dated commitments", "customer names", "participant names"]
+length_target  = "one screen of scroll on a laptop"
+
+[failure_modes]
+missing_theme   = "If theme_label is not in feedback_themes memory, refuse and route the operator to triage_feedback first."
+out_of_scope    = "Refuse pricing PRDs (separate finance sign-off); refuse competitive-response framing in the customer-facing copy."

@@ -1,0 +1,33 @@
+# Action: update_roadmap (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. The single external-commitment gate in the
+# vertical — the public roadmap is read by customers, partners, and
+# sales, so every change routes through a named human approver. The
+# audit trail lands in the `roadmap_state` memory entry.
+
+action_type       = "update_roadmap"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+line_item_id    = "string — stable id for the roadmap line"
+change_kind     = "add | reprioritize | cut | reword"
+target_quarter  = "Q1 | Q2 | Q3 | Q4 (current or next two)"
+summary         = "string — customer-safe copy for the public roadmap"
+prd_id          = "optional — PRD-YYYY-NN linked to the change"
+
+[content_rules]
+must_be_customer_safe = true
+forbidden = [
+  "internal codenames",
+  "dated commitments without explicit operator override",
+  "comparative claims about competitors",
+  "customer names",
+  "pricing details",
+]
+
+[failure_modes]
+unsafe_copy        = "Refuse if summary contains a customer name, competitive claim, or dated commitment."
+no_linked_evidence = "Warn (not refuse) when change_kind=add has no linked PRD; operator may approve anyway for small line items."

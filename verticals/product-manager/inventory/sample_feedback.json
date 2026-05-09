@@ -1,0 +1,26 @@
+{
+  "company": "Skycot (synthetic — demo only)",
+  "today_iso": "2026-05-09",
+  "rows": [
+    {"row_id": "FB-001", "kind": "support_ticket", "received_at": "2026-04-29", "participant_id": "RILEY-0011", "topic": "editor", "body": "Cmd-K palette would be huge. I lose ~10 minutes a day clicking around the toolbar."},
+    {"row_id": "FB-002", "kind": "support_ticket", "received_at": "2026-04-30", "participant_id": "RILEY-0017", "topic": "editor", "body": "Can we get keyboard shortcuts for bold/italic? The mouse round-trip is painful for long docs."},
+    {"row_id": "FB-003", "kind": "nps_comment", "received_at": "2026-05-01", "participant_id": "RILEY-0024", "score": 6, "body": "Love the product but onboarding was confusing — couldn't tell which tier I was on for my first three days."},
+    {"row_id": "FB-004", "kind": "interview_snippet", "received_at": "2026-05-02", "participant_id": "RILEY-0031", "topic": "onboarding", "body": "I almost churned on day two because the empty state didn't tell me what to do first. A guided tour would have helped."},
+    {"row_id": "FB-005", "kind": "support_ticket", "received_at": "2026-05-02", "participant_id": "RILEY-0042", "topic": "onboarding", "body": "Three of my teammates didn't know we had a paid plan. The free-tier banner is too subtle."},
+    {"row_id": "FB-006", "kind": "nps_comment", "received_at": "2026-05-03", "participant_id": "RILEY-0049", "score": 8, "body": "Inline collaboration would push this to a 10. Right now we paste links into Slack and lose context."},
+    {"row_id": "FB-007", "kind": "interview_snippet", "received_at": "2026-05-03", "participant_id": "RILEY-0053", "topic": "collaboration", "body": "We export to Google Docs whenever two people need to edit at once. That's a workflow break we live with."},
+    {"row_id": "FB-008", "kind": "support_ticket", "received_at": "2026-05-04", "participant_id": "RILEY-0058", "topic": "collaboration", "body": "Comments + @mentions would unblock a real pain. We're tracking review feedback in a separate doc."},
+    {"row_id": "FB-009", "kind": "support_ticket", "received_at": "2026-05-04", "participant_id": "RILEY-0064", "topic": "auth", "body": "SSO via Okta is a hard requirement for our IT team. Without it we can't roll out past the pilot."},
+    {"row_id": "FB-010", "kind": "interview_snippet", "received_at": "2026-05-05", "participant_id": "RILEY-0071", "topic": "auth", "body": "We're stuck because the security review can't approve a tool without SAML. We've been waiting six weeks."},
+    {"row_id": "FB-011", "kind": "nps_comment", "received_at": "2026-05-05", "participant_id": "RILEY-0078", "score": 5, "body": "Nice product, but the mobile experience is unusable. I can read but not edit on my phone."},
+    {"row_id": "FB-012", "kind": "support_ticket", "received_at": "2026-05-06", "participant_id": "RILEY-0083", "topic": "mobile", "body": "Tried to edit a doc on iPad during a flight — half the toolbar buttons don't render."},
+    {"row_id": "FB-013", "kind": "interview_snippet", "received_at": "2026-05-06", "participant_id": "RILEY-0091", "topic": "search", "body": "Finding a doc I wrote three months ago is hopeless. Search returns titles only and the title is rarely what I'd remember."},
+    {"row_id": "FB-014", "kind": "support_ticket", "received_at": "2026-05-07", "participant_id": "RILEY-0096", "topic": "search", "body": "Full-text search would save me ~15 min/day. Currently I scroll through the sidebar."},
+    {"row_id": "FB-015", "kind": "nps_comment", "received_at": "2026-05-07", "participant_id": "RILEY-0102", "score": 9, "body": "Best note app I've tried. One ask: dark mode that actually respects system theme."},
+    {"row_id": "FB-016", "kind": "support_ticket", "received_at": "2026-05-07", "participant_id": "RILEY-0108", "topic": "theme", "body": "Dark mode toggle exists but doesn't sync with macOS auto-switch. Eye strain in the morning."},
+    {"row_id": "FB-017", "kind": "interview_snippet", "received_at": "2026-05-08", "participant_id": "RILEY-0114", "topic": "export", "body": "Exporting to PDF mangles tables. We end up screenshotting the doc, which is silly."},
+    {"row_id": "FB-018", "kind": "support_ticket", "received_at": "2026-05-08", "participant_id": "RILEY-0119", "topic": "export", "body": "Can the markdown export preserve nested checkboxes? They flatten on the way out."},
+    {"row_id": "FB-019", "kind": "nps_comment", "received_at": "2026-05-08", "participant_id": "RILEY-0125", "score": 7, "body": "I love how fast the app feels. But the onboarding video auto-plays with sound — got me in trouble in a meeting."},
+    {"row_id": "FB-020", "kind": "support_ticket", "received_at": "2026-05-09", "participant_id": "RILEY-0131", "topic": "onboarding", "body": "First-run checklist would help. I poked around for 20 minutes before I found the templates section."}
+  ]
+}

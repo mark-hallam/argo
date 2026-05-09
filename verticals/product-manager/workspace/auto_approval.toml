@@ -1,0 +1,15 @@
+enabled = true
+max_usd_micros_per_action = 100000
+daily_budget_usd_micros   = 1500000
+
+# Highest auto-approval ratio in the demo catalogue (3/5). PMs are
+# trusted writers and most outputs are internal drafts that humans
+# review in next-step workflows. The two gated actions are draft_prd
+# (routes through document_creation, approval-gated by default) and
+# update_roadmap (the single external-commitment gate — public
+# roadmap changes affect customers, partners, and sales).
+wake_action_types = [
+  "triage_feedback",
+  "schedule_review",
+  "summarize_user_research",
+]

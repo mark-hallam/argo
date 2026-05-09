@@ -1,0 +1,26 @@
+schema_version = "1"
+
+# Memory entries hold synthesis state and pointers — not raw feedback
+# rows or full PRD bodies. The inventory is the corpus; the PRD doc
+# itself lives in <workspace>/.skycot/prds/. Memory tracks the *state*
+# of the work, not its bulk content.
+
+[[entry]]
+key = "feedback_themes"
+type = "list-of-objects"
+purpose = "Triaged feedback clusters. Each row carries: theme_label, first_seen_iso, last_seen_iso, evidence_count, severity (low|medium|high), exemplar_quotes (≤3, deduped, participant_id only), suspected_drivers (≤3 phrases), status (open|in_prd|shipped|cut)."
+
+[[entry]]
+key = "prd_drafts"
+type = "list-of-objects"
+purpose = "PRDs in flight. Each row carries: prd_id, title, theme_label, doc_path (workspace-relative), status (draft|in_review|approved|shipped|cut), reviewers, drafted_at, last_revised_at, approved_by."
+
+[[entry]]
+key = "roadmap_state"
+type = "list-of-objects"
+purpose = "Current public roadmap snapshot. Each row carries: line_item_id, target_quarter, summary (customer-safe copy), prd_id (if any), change_kind (add|reprioritize|cut|reword), committed_at, approved_by. Roadmap-line edits go through update_roadmap; this entry is the audit trail."
+
+[[entry]]
+key = "research_synthesis_log"
+type = "list-of-objects"
+purpose = "User-research interview read-outs. Each row carries: session_id, participant_id (NEVER a name), topic, conducted_at, top_findings (≤5), surprises (≤3), quotes (≤3, with timestamp), follow_up_questions (≤5), linked_themes."

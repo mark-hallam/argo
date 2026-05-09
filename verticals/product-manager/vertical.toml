@@ -1,0 +1,132 @@
+schema_version = "1"
+
+[vertical]
+id          = "product-manager"
+name        = "Product — Product Manager"
+description = "Product management worker (Riley) for an internal-knowledge-worker workflow. Triages inbound user feedback into themes, drafts PRDs from feature requests, schedules cross-functional reviews, summarizes user research, and updates the public roadmap. Three of five actions are auto-approved (PMs are trusted writers with internal-draft outputs); only roadmap commits and the document_creation gate route through human approval."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["product-management", "prd", "roadmap", "user-research", "internal-knowledge-worker", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+[mcp_servers]
+gcal = { transport = "stdio", command = "argo-mcp-connector-gcal", args = [] }
+
+[escalation]
+# Only update_roadmap is the external-commitment gate. draft_prd routes
+# through the document_creation executor, which is approval-gated by
+# default (see crates/argo-executor-document). Auto-approval ratio is
+# 3/5 — the highest in the demo catalogue, intentional for an internal
+# knowledge-worker persona.
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 1
+escalate_to             = "head_of_product"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Product Manager"
+
+# Action vocabulary. Per-action operator notes (NotifyChannel, payload
+# shapes) live in `actions/*.toml`; the inline declaration below is
+# what the OS validates emissions against.
+
+[actions]
+
+[actions.triage_feedback]
+risk              = "low"
+requires_approval = false
+description       = "Cluster inbound user feedback (support tickets, interview snippets, NPS comments) into themes. Auto-approved — pure synthesis with no external mutation."
+executor          = "human"
+instruction_template = """
+# Triage feedback batch `{{ payload.batch_id }}`
+Source rows: `{{ payload.row_count }}` from `inventory/sample_feedback.json`.
+Cluster into themes by user-stated need, not by surface keyword. For each theme record: theme_label, evidence_count, severity (low|medium|high), exemplar_quotes (≤3, deduped), suspected_drivers (≤3 short phrases).
+Append the cluster set to the `feedback_themes` memory entry. Do NOT draft a PRD or commit a roadmap change from this action.
+"""
+
+[actions.draft_prd]
+risk              = "medium"
+requires_approval = true
+description       = "Render a PRD draft via the document_creation executor following the standard template. Approval-gated — a PRD is a cross-functional artifact and the document_creation executor is approval-gated by default."
+executor          = { kind = "document_creation", budget_usd = 0.10 }
+platforms         = ["documents"]
+instruction_template = """
+# Draft PRD `{{ payload.prd_id }}` — `{{ payload.title }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Driver theme: `{{ payload.theme_label }}` — Severity: `{{ payload.severity }}`.
+Follow `skills/prd_template.skill.md`. Sections in order: Problem, Users, Goals, Non-goals, UX outline, Success metrics, Risks, Open questions.
+Output path: `<workspace>/.skycot/prds/{{ payload.prd_id }}.md`.
+Do NOT commit a roadmap line from this action — that is a separate update_roadmap emission.
+"""
+
+[actions.schedule_review]
+risk              = "low"
+requires_approval = false
+description       = "Book a cross-functional review meeting in the assigned reviewers' calendars. Auto-approved — slot bookings are reversible; event body never carries strategic detail."
+executor          = { kind = "mcp", server = "gcal", tool = "events.insert", budget_usd = 0.05 }
+platforms         = ["gcal"]
+instruction_template = """
+# Schedule review for `{{ payload.prd_id }}`
+Reviewers: `{{ payload.reviewers | join(sep=", ") }}` — Slot: `{{ payload.slot_iso }}` ({{ payload.duration_minutes }} min).
+Title format: `Review: <prd_id> — <short_title>`. Never include roadmap commitments, dollar figures, or competitive intel in the event body — those belong in the linked PRD doc.
+"""
+
+[actions.update_roadmap]
+risk              = "high"
+requires_approval = true
+description       = "Commit a change to the public roadmap (add / re-prioritize / cut a line item). Approval-gated — the public roadmap is an external commitment; changes affect customers, partners, and sales."
+executor          = "human"
+instruction_template = """
+# Update roadmap — `{{ payload.change_kind }}` for `{{ payload.line_item_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Change: `{{ payload.change_kind }}` (add | reprioritize | cut | reword) — Quarter: `{{ payload.target_quarter }}`.
+Summary: `{{ payload.summary }}`. Linked PRD: `{{ payload.prd_id | default(value="(none)") }}`.
+Public roadmap copy must be customer-safe — no internal codenames, no dated commitments unless explicitly approved, no comparative claims about competitors.
+"""
+
+[actions.summarize_user_research]
+risk              = "low"
+requires_approval = false
+description       = "Synthesize a user-research interview transcript into a structured read-out. Auto-approved — output is an internal draft that PM, design, and research review in next-step workflows."
+executor          = "human"
+instruction_template = """
+# Summarize research session `{{ payload.session_id }}`
+Participant: `{{ payload.participant_id }}` — Topic: `{{ payload.topic }}`.
+Produce: top_findings (≤5 bullets), surprises (≤3), quotes (≤3 verbatim with timestamp), follow_up_questions (≤5).
+Append to `research_synthesis_log` memory entry. Do NOT name the participant in any externally-shared field — use the participant_id only.
+"""
+
+[actions.draft_prd.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.update_roadmap.retry]
+max_attempts = 1
+
+[actions.schedule_review.retry]
+max_attempts = 2

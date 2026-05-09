@@ -1,0 +1,27 @@
+# Action: triage_feedback (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto-executed). Pure synthesis with no
+# external mutation — clusters inbound feedback rows into themes and
+# appends to the `feedback_themes` memory entry. Auto-approved
+# because the output is an internal artifact other actions consume.
+
+action_type       = "triage_feedback"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "human"
+
+[payload_shape]
+batch_id   = "string — short id for the triage run"
+row_count  = "integer — rows pulled from inventory"
+sources    = "list of strings — support_ticket | nps_comment | interview_snippet"
+
+[clustering_rules]
+group_by        = "user-stated need, not surface keyword"
+min_evidence    = "≥2 rows per theme (singletons go to a 'one-offs' bucket)"
+exemplar_quotes = "≤3 per theme, deduped, participant_id only — never a name"
+severity_floor  = "low (no severity inflation without explicit reasoning)"
+
+[failure_modes]
+empty_inventory = "If the inventory has zero rows, refuse and ask the operator."
+ambiguous_topic = "Tag the row to the closest theme; do NOT invent a new theme for a single row."

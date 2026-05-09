@@ -1,0 +1,29 @@
+# Action: summarize_user_research (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto-executed). Output is an internal draft
+# read-out that PM, design, and research review in next-step
+# workflows. Auto-approved — no external mutation, no participant
+# name leaves the worker boundary.
+
+action_type       = "summarize_user_research"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "human"
+
+[payload_shape]
+session_id      = "string — short id for the research session"
+participant_id  = "string — RILEY-#### (NEVER a name or email)"
+topic           = "string — short topic label"
+duration_min    = "integer — session length in minutes"
+
+[content_rules]
+top_findings        = "≤5 bullets — what the participant said, in their words"
+surprises           = "≤3 bullets — what contradicted prior assumptions"
+quotes              = "≤3 verbatim quotes with timestamp; participant_id only"
+follow_up_questions = "≤5 — what to ask the next participant"
+linked_themes       = "list of theme_label values from feedback_themes memory"
+
+[failure_modes]
+missing_transcript  = "Refuse if no transcript or notes provided — never invent findings."
+participant_named   = "Refuse if the operator passes a participant name; require participant_id."

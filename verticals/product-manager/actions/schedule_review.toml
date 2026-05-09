@@ -1,0 +1,29 @@
+# Action: schedule_review (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto-executed against the reviewers'
+# calendars). Slot bookings are reversible and the calendar event
+# body never carries strategic detail — that all lives in the linked
+# PRD doc. Auto-approved.
+
+action_type       = "schedule_review"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "mcp:gcal/events.insert"
+budget_usd        = 0.05
+
+[payload_shape]
+prd_id           = "string — PRD-YYYY-NN, must match a prd_drafts row"
+reviewers        = "list of strings — reviewer email addresses (synthetic in demo)"
+slot_iso         = "RFC3339 timestamp"
+duration_minutes = "integer (15 | 30 | 45 | 60)"
+short_title      = "string — customer-safe short label for the calendar event"
+
+[event_rules]
+title_format = "Review: <prd_id> — <short_title>"
+body_topics  = ["link to the PRD doc", "agenda bullets", "expected attendees"]
+forbidden    = ["roadmap commitments", "dollar figures", "competitive intel", "pricing"]
+
+[failure_modes]
+slot_taken   = "Re-fetch availability across the reviewer set and offer a fresh slot."
+no_reviewers = "Refuse and ask the operator for the reviewer list — never invent attendees."
