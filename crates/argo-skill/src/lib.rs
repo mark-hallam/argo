@@ -44,6 +44,8 @@ pub mod version;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_lifecycle;
+#[cfg(test)]
 mod sign_dep_smoke;
 
 pub use argo_judge::Judge;
