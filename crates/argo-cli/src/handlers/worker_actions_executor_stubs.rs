@@ -268,38 +268,87 @@ impl Executor for FilesystemExecutor {
         let op_str = payload
             .get("op")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                ArgoError::Provider(
-                    "filesystem executor requires action.payload.op \
-                     ∈ {read_file, write_file, list_dir, mkdir, remove, stat}"
-                        .into(),
-                )
-            })?;
+            .unwrap_or("(missing)");
         let path_str = payload.get("path").and_then(|v| v.as_str()).unwrap_or(".");
-        let op = parse_fs_op(op_str)?;
-        let fs_root = resolve_fs_root(cwd, &action.worker_id.to_string())?;
-        let sb = Sandbox::open(&fs_root)
-            .map_err(|e| ArgoError::Provider(format!("filesystem sandbox: {e}")))?;
-        let result = run_fs_op(&sb, op, path_str, payload)
-            .map_err(|e| ArgoError::Provider(format!("filesystem op {op_str}: {e}")))?;
-        let bundle_path = cwd
-            .join(".skycot")
-            .join("outputs")
-            .join(&action.job_id)
-            .join("actions")
-            .join(&action.action_id);
-        Ok(ActionOutcome::Completed {
-            bundle_path,
-            result_json: serde_json::json!({
-                "outcome": "completed",
-                "executor": "filesystem",
-                "fs_root": fs_root.display().to_string(),
-                "op": op_str,
-                "result": result,
-            }),
-        })
+        let result = run_fs_dispatch(action, cwd, op_str, path_str);
+        match &result {
+            Ok(_) => emit_fs_audit(&action.worker_id, op_str, path_str, "allowed", None),
+            Err(e) => emit_fs_audit(
+                &action.worker_id,
+                op_str,
+                path_str,
+                "denied",
+                Some(&e.to_string()),
+            ),
+        }
+        result
     }
 }
+
+fn run_fs_dispatch(
+    action: &ActionRecord,
+    cwd: &Path,
+    op_str: &str,
+    path_str: &str,
+) -> ArgoResult<ActionOutcome> {
+    if op_str == "(missing)" {
+        return Err(ArgoError::Provider(
+            "filesystem executor requires action.payload.op \
+             ∈ {read_file, write_file, list_dir, mkdir, remove, stat}"
+                .into(),
+        ));
+    }
+    let payload = &action.payload;
+    let op = parse_fs_op(op_str)?;
+    let fs_root = resolve_fs_root(cwd, &action.worker_id.to_string())?;
+    let sb = Sandbox::open(&fs_root)
+        .map_err(|e| ArgoError::Provider(format!("filesystem sandbox: {e}")))?;
+    let result = run_fs_op(&sb, op, path_str, payload)
+        .map_err(|e| ArgoError::Provider(format!("filesystem op {op_str}: {e}")))?;
+    let bundle_path = cwd
+        .join(".skycot")
+        .join("outputs")
+        .join(&action.job_id)
+        .join("actions")
+        .join(&action.action_id);
+    Ok(ActionOutcome::Completed {
+        bundle_path,
+        result_json: serde_json::json!({
+            "outcome": "completed",
+            "executor": "filesystem",
+            "fs_root": fs_root.display().to_string(),
+            "op": op_str,
+            "result": result,
+        }),
+    })
+}
+
+/// Emit one structured audit event per FS-executor dispatch under
+/// target `argo::fs::audit`. Tenant is hard-coded to `default-tenant`
+/// pending Stream E identity plumbing on `ActionRecord`; a follow-up
+/// audit-store brief will ingest these events.
+fn emit_fs_audit(
+    worker_id: &argo_identity::WorkerId,
+    op: &str,
+    path: &str,
+    decision: &str,
+    reason: Option<&str>,
+) {
+    tracing::info!(
+        target: "argo::fs::audit",
+        tenant = "default-tenant",
+        worker = %worker_id,
+        op = op,
+        path = path,
+        decision = decision,
+        reason = reason.unwrap_or(""),
+        "fs executor audit"
+    );
+}
+
+#[cfg(test)]
+#[path = "worker_actions_executor_stubs_audit_tests.rs"]
+mod audit_tests;
 
 fn parse_fs_op(s: &str) -> ArgoResult<FsOpKind> {
     match s {
