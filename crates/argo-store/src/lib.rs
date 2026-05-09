@@ -64,6 +64,9 @@ pub mod tenant_quota;
 /// Quota kind enums + error type for the tenant_quota gate
 /// (split from `tenant_quota.rs` for the 500-LOC budget).
 pub mod tenant_quota_kinds;
+/// Usage accounting + headroom-check methods for `TenantQuotaStore`
+/// (split from `tenant_quota.rs` for the 500-LOC budget).
+pub mod tenant_quota_usage;
 /// sqlx connection-pool tuning knobs (env-driven).
 pub mod pool_config;
 /// Worker archive (sleep / wake) — frozen JSON snapshot store
