@@ -75,6 +75,17 @@ case "$(row_status)" in
     todo) ;;  # proceed
 esac
 
+# Pre-claim ceiling check (added 2026-05-09 post-#1066 HARD RULE 6 violation).
+# Refuses claims on briefs whose may-touch list includes a .rs file at-risk
+# of breaching 500 LOC. Override with ARGO_CLAIM_FORCE=1.
+CEILING_CHECK="$(cd "$(dirname "$0")" && pwd)/check-pre-claim-ceiling.sh"
+if [[ -x "$CEILING_CHECK" ]]; then
+    if ! "$CEILING_CHECK" "$BRIEF_ID"; then
+        # Ceiling guard fired — exit 1 falls through HARD RULE 7
+        exit 1
+    fi
+fi
+
 HOST_TAG="$(hostname -s 2>/dev/null || echo unknown-host)"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 

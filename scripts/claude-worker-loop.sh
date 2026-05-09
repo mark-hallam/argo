@@ -49,6 +49,17 @@ while true; do
     exit 0
   fi
 
+  # Graceful pause: idle-sleep without releasing claims. Distinct from
+  # /tmp/argo-stop (kill switch). Useful when the operator wants to halt
+  # new claims temporarily — e.g., before a manual merge sweep, during a
+  # ledger refactor, or while fixing the swarm tooling. Resume via
+  # `rm /tmp/argo-pause`.
+  if [ -f /tmp/argo-pause ]; then
+    echo "[$(date +%H:%M:%S)] /tmp/argo-pause sentinel found. Idle-sleeping 60s. (rm to resume)"
+    sleep 60
+    continue
+  fi
+
   echo "[$(date +%H:%M:%S)] Sync main..."
   git checkout main
   # Defensive against stale multi-line FETCH_HEAD from a prior interrupted
@@ -109,7 +120,16 @@ while true; do
   LAST_BRIEF=""
   LAST_BRIEF_FAILS=0
 
+  # Per-iteration log retention. Each session's stream-json is teed to a
+  # timestamped NDJSON in ~/.argo/worker-logs/ for post-mortem search
+  # (e.g., "what did the worker actually do during the 5h-quota window?").
+  # Files are tiny (~tens of KB per iteration) and human-greppable.
+  LOG_DIR="${HOME}/.argo/worker-logs"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$BRIEF_ID.ndjson"
+
   echo "[$(date +%H:%M:%S)] Spawning fresh Claude session for $BRIEF_ID..."
+  echo "[$(date +%H:%M:%S)] Log: $LOG_FILE"
   # --dangerously-skip-permissions: required for unattended headless mode.
   # The bash wrapper holds the boundary (worktree isolation, conductor merges,
   # HARD RULE 5 may-touch list) so per-tool prompts are not the right defense.
@@ -169,7 +189,7 @@ If you cannot ship (premise wrong, may-touch too tight, 3-attempt fail):
 
 DO NOT loop. DO NOT claim another brief. The outer bash loop handles
 the next iteration.
-" 2>&1 | jq -rR --unbuffered '
+" 2>&1 | tee "$LOG_FILE" | jq -rR --unbuffered '
     fromjson? // empty |
     if .type == "assistant" and .message.content then
       (.message.content[]? | (
