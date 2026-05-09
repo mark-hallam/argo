@@ -97,7 +97,15 @@ pub(super) async fn dispatch_post(
                 return Some(resp);
             }
         }
-        return Some(create_session_response(req, store).await);
+        let resp = create_session_response(req, store).await;
+        // Peer-sync hint: when ARGO_GATEWAY_PEERS is set, fan out a
+        // POST /peer/poke so peers fast-resync instead of waiting
+        // for the next periodic poll. No-op when the mesh is not
+        // configured.
+        if resp.0.starts_with("200") || resp.0.starts_with("201") {
+            super::peer::notify_peers_of_local_change();
+        }
+        return Some(resp);
     }
     // POST /verticals/<id>/{sessions,run} — path-bound vertical
     // operations.

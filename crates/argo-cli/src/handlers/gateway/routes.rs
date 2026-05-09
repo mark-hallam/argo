@@ -18,6 +18,7 @@ use super::routes_auth::{check_bearer_auth, is_public_get};
 use super::routes_dispatch_get::dispatch_get;
 use super::routes_dispatch_get_admin::dispatch_get_admin;
 use super::routes_dispatch_post::dispatch_post;
+use super::routes_peer::dispatch as dispatch_peer;
 use super::routes_session_get::dispatch_session_get;
 use super::shutdown::{shutting_down_response, ShutdownController};
 use argo_store::SessionStore;
@@ -39,6 +40,13 @@ pub(super) async fn dispatch_route(
     // this future and decrements on any return path (including panic
     // unwind). The drain loop blocks on this counter.
     let _guard = shutdown.request_guard();
+    // Peer mesh runs ahead of the operator-facing bearer gate: it
+    // carries its own ARGO_PEER_SECRET-bearer check, distinct from
+    // ARGO_GATEWAY_BEARER_TOKEN. Routing /peer/* through the operator
+    // gate would require peer hosts to know both secrets.
+    if let Some(resp) = dispatch_peer(req, store).await {
+        return resp;
+    }
     // Bearer-token gate on every non-allowlisted GET. POST has its own
     // gate inside `dispatch_post` (#946); allowlist members (`/`,
     // `/health[/...]`, `/version`, `/routes`) stay anonymous so liveness
