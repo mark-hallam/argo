@@ -80,7 +80,10 @@ if command -v gh >/dev/null 2>&1; then
         brief=$(echo "$row" | awk -F'|' '{gsub(/^ +| +$/,"",$2); print $2}')
         update=$(gh pr view "$pr" --json updatedAt --jq '.updatedAt' 2>/dev/null)
         [[ -z "$update" ]] && continue
-        update_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$update" +%s 2>/dev/null \
+        # macOS `date -j -f` ignores the trailing Z and treats the input as
+        # local time. Force UTC interpretation by stripping the Z and setting
+        # TZ=UTC. GNU `date -d` honors the Z natively.
+        update_ts=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${update%Z}" +%s 2>/dev/null \
                     || date -d "$update" +%s 2>/dev/null)
         [[ -z "$update_ts" ]] && continue
         age_min=$(( (NOW_EPOCH - update_ts) / 60 ))

@@ -93,22 +93,40 @@ while IFS= read -r line; do
 done < "$BRIEF"
 
 # 5. May-touch LOC ceiling (≤ 480 LOC headroom; HARD)
+# Skip for split-prep briefs — they intentionally touch at-risk files to
+# reduce LOC. Detection: title or filename contains "-split", "-extract-",
+# or first H1 includes "split"/"refactor".
 echo "[5/8] Checking LOC ceiling on may-touch files..." >&2
-in_may_touch=0
-while IFS= read -r line; do
-    if [[ "$line" =~ ^"## Files you may touch" ]]; then in_may_touch=1; continue; fi
-    if [[ "$line" =~ ^"## " && $in_may_touch -eq 1 ]]; then in_may_touch=0; fi
-    if [[ $in_may_touch -eq 1 && "$line" =~ \`(crates/[^\`]+\.rs)\` ]]; then
-        path="${BASH_REMATCH[1]}"
-        if [[ "$line" =~ \(NEW ]]; then continue; fi
-        if [[ -f "$REPO_ROOT/$path" ]]; then
-            loc=$(wc -l < "$REPO_ROOT/$path" 2>/dev/null || echo 0)
-            if [[ "$loc" -gt 480 ]]; then
-                err "may-touch file at $loc LOC (>480) — author a split-prep brief first: $path"
+is_split_prep=0
+brief_basename=$(basename "$BRIEF" .md)
+case "$brief_basename" in
+    *-split|*-split-*|*-extract-helper|*-extract|*-refactor|*-refactor-*) is_split_prep=1 ;;
+esac
+if [[ "$is_split_prep" -eq 0 ]]; then
+    h1=$(head -1 "$BRIEF")
+    if [[ "$h1" =~ split|refactor|extract ]]; then
+        is_split_prep=1
+    fi
+fi
+if [[ "$is_split_prep" -eq 1 ]]; then
+    echo "  (split/refactor brief — LOC ceiling check skipped; brief's purpose is to reduce LOC)" >&2
+else
+    in_may_touch=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^"## Files you may touch" ]]; then in_may_touch=1; continue; fi
+        if [[ "$line" =~ ^"## " && $in_may_touch -eq 1 ]]; then in_may_touch=0; fi
+        if [[ $in_may_touch -eq 1 && "$line" =~ \`(crates/[^\`]+\.rs)\` ]]; then
+            path="${BASH_REMATCH[1]}"
+            if [[ "$line" =~ \(NEW ]]; then continue; fi
+            if [[ -f "$REPO_ROOT/$path" ]]; then
+                loc=$(wc -l < "$REPO_ROOT/$path" 2>/dev/null || echo 0)
+                if [[ "$loc" -gt 480 ]]; then
+                    err "may-touch file at $loc LOC (>480) — author a split-prep brief first: $path"
+                fi
             fi
         fi
-    fi
-done < "$BRIEF"
+    done < "$BRIEF"
+fi
 
 # 6. ArgoError variants exist
 echo "[6/8] Validating ArgoError variants..." >&2

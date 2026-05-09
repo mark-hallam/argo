@@ -38,6 +38,21 @@ if [[ ! -f "$BRIEF" ]]; then
     exit 2
 fi
 
+# Auto-skip for split-prep / extract-helper / refactor briefs. These
+# intentionally touch at-risk files because the brief's purpose is
+# to reduce LOC. Detection mirrors validate-brief.sh's logic.
+case "$BRIEF_ID" in
+    *-split|*-split-*|*-extract-helper|*-extract|*-refactor|*-refactor-*)
+        echo "check-pre-claim-ceiling: split/refactor brief — LOC check skipped" >&2
+        exit 0
+        ;;
+esac
+h1=$(head -1 "$BRIEF")
+if [[ "$h1" =~ split|refactor|extract ]]; then
+    echo "check-pre-claim-ceiling: split/refactor brief (H1) — LOC check skipped" >&2
+    exit 0
+fi
+
 VIOLATIONS=""
 in_may_touch=0
 while IFS= read -r line; do
