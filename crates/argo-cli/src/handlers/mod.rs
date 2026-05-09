@@ -8,6 +8,7 @@ pub mod alerts;
 mod alerts_tests;
 pub mod approval_deep_link;
 pub mod approval_export;
+pub mod approval_history;
 pub mod approval_policy;
 pub mod action_history;
 pub mod action_recent;

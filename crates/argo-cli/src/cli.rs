@@ -52,6 +52,11 @@ pub enum ToolsCmd {
 pub enum ApprovalCmd {
     /// Export approval audit rows to CSV, JSON, or JSONL.
     Export(ApprovalExportArgs),
+    /// Search the approval history with --since/--until/--decision/
+    /// --worker/--action-kind/--limit/--format flags. Read-only over
+    /// the worker-action ledger; mirrors the column set of `argo
+    /// approval export` minus the payload excerpt.
+    History(ApprovalHistoryArgs),
     /// Approval-policy starter templates (Stream
     /// `claude-approval-policy-templates`, V1.4): list bundled +
     /// repo-local templates, print one resolved against its
@@ -163,4 +168,29 @@ pub struct ApprovalExportArgs {
     /// Allow overwriting an existing output file.
     #[arg(long)]
     pub force: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ApprovalHistoryArgs {
+    /// Include approvals requested at or after this time (`7d`, `24h`, `30m`, or RFC3339).
+    #[arg(long)]
+    pub since: Option<String>,
+    /// Include approvals requested at or before this time (`7d`, `24h`, `30m`, or RFC3339).
+    #[arg(long)]
+    pub until: Option<String>,
+    /// Filter by decision; may be repeated. Values: approve, deny, pending, timeout.
+    #[arg(long)]
+    pub decision: Vec<String>,
+    /// Strict equality filter on emitting worker.
+    #[arg(long)]
+    pub worker: Option<String>,
+    /// Strict equality filter on action kind.
+    #[arg(long = "action-kind")]
+    pub action_kind: Option<String>,
+    /// Maximum rows to return; clamped to 1000.
+    #[arg(long, default_value_t = 50)]
+    pub limit: u32,
+    /// Output format: table, json (NDJSON), or markdown.
+    #[arg(long, default_value = "table")]
+    pub format: String,
 }
