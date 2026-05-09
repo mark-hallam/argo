@@ -32,6 +32,7 @@ mod overlays_replay;
 mod overlays_sessions;
 mod overlays_tool_errors;
 mod render;
+pub mod session_detail;
 mod text_input;
 pub mod theme;
 mod viewer;

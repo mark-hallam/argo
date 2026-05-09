@@ -175,6 +175,8 @@ pub struct ViewerState {
     /// Rendered as a `[ws=<name>]` prefix in the footer keymap
     /// so the user always knows which workspace is in focus.
     pub workspace_label: Option<String>,
+    /// Drill-in detail pane (Stream `claude-tui-session-detail-pane`).
+    pub session_detail: Option<crate::session_detail::SessionDetailPane>,
 }
 
 /// Which pane has navigation focus inside the TUI. When focus is
@@ -251,6 +253,7 @@ impl ViewerState {
             replay_overlay: None,
             dashboard_overlay: None,
             workspace_label: None,
+            session_detail: None,
         }
     }
 
