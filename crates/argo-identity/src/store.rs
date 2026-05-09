@@ -30,7 +30,7 @@ const _WORKER_CHARTER_SCHEMA: &str =
 /// # Ok(()) }
 /// ```
 pub struct IdentityStore<'a> {
-    store: &'a SessionStore,
+    pub(crate) store: &'a SessionStore,
 }
 
 impl<'a> IdentityStore<'a> {

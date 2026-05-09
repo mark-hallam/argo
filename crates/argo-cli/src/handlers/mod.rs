@@ -248,6 +248,7 @@ pub mod worker_anomalies;
 pub mod worker_archive;
 #[cfg(test)]
 mod worker_archive_tests;
+pub mod worker_channels;
 pub mod worker_charter;
 #[cfg(test)]
 mod worker_charter_tests;

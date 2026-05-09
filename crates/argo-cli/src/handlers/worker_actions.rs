@@ -1,5 +1,6 @@
 //! Worker v3 action ledger schema, read-side CLI, and dispatch.
 
+use crate::cli::cli_worker_channels_cmds::WorkerChannelsCmd;
 use crate::cli::cli_worker_cmds::{
     WorkerActionsCmd, WorkerArchiveCmd, WorkerCharterCmd, WorkerCmd, WorkerItemsCmd,
     WorkerPolicyCmd,
@@ -216,6 +217,17 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         WorkerCmd::Rehydrate { worker_id, tenant, json } => {
             super::worker_archive::rehydrate(&tenant, &worker_id, json).await
         }
+        WorkerCmd::Channels(channels_cmd) => match channels_cmd {
+            WorkerChannelsCmd::Add { worker_id, spec, tenant, json } => {
+                super::worker_channels::add(&tenant, &worker_id, &spec, json).await
+            }
+            WorkerChannelsCmd::Remove { worker_id, channel_id, tenant, json } => {
+                super::worker_channels::remove(&tenant, &worker_id, &channel_id, json).await
+            }
+            WorkerChannelsCmd::List { worker_id, tenant, json } => {
+                super::worker_channels::list(&tenant, &worker_id, json).await
+            }
+        },
         WorkerCmd::Items(items_cmd) => match items_cmd {
             WorkerItemsCmd::List { vertical, state, limit, json } => {
                 super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await

@@ -200,6 +200,12 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Add, remove, or list the worker's notification channels
+    /// (`Stream claude-worker-channels-cli`). Channels live as JSON
+    /// inside the worker row — no schema migration. Cap of 16 per
+    /// worker; `add` is idempotent on `<kind>:<identifier>` dup.
+    #[command(subcommand)]
+    Channels(crate::cli::cli_worker_channels_cmds::WorkerChannelsCmd),
 }
 
 // Charter/archive leaf enums live in sibling files so this module stays

@@ -28,6 +28,7 @@ pub mod policy;
 mod prompt;
 pub mod roster;
 mod store;
+mod store_channels;
 mod types;
 pub mod worker_budget;
 
