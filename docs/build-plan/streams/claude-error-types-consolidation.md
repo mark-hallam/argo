@@ -1,72 +1,70 @@
-# claude-error-types-consolidation — audit + standardize ArgoError variant usage
+# claude-error-types-consolidation — audit + doc-comment + CI script (no rewrites)
 
 **Owner**: claude. **Depends on**: nothing. **Phase B consistency narrow.**
 
+**Authored against**: origin/main b3949a73 on 2026-05-09 (rewrite v2 by conductor — original v1 bundled audit + workspace-wide rewrite into one brief; that's > 200 callsites and won't fit a single iteration. Splitting into audit-first, then a follow-up `claude-error-types-rewrite-callsites` for the mechanical phase).
+
 ## Why
 
-`ArgoError` variants (`Provider(_)`, `Internal(_)`, `InvalidInput(_)`, etc.) are used **inconsistently across the workspace**. Some crates wrap an HTTP 5xx as `Provider(_)`, others as `Internal(_)`. Some wrap an unparseable manifest as `InvalidInput(_)`, others as `Provider(_)`. Gateway clients can't reliably map `ArgoError` to HTTP status codes or to user-facing diagnostics because the variant ↔ semantics contract isn't documented or enforced.
+`ArgoError` variants (`Provider(_)`, `Internal(_)`, `InvalidInput(_)`, etc.) are used **inconsistently across the workspace**. Some crates wrap an HTTP 5xx as `Provider(_)`, others as `Internal(_)`. Some wrap an unparseable manifest as `InvalidInput(_)`, others as `Provider(_)`. Gateway clients can't reliably map `ArgoError` to HTTP status codes because the variant ↔ semantics contract isn't documented or enforced.
 
-This bites: error-mapping code in `crates/argo-cli/src/handlers/gateway/routes_*.rs` has multiple ad-hoc `match err { Provider(_) => 502, Internal(_) => 500, ... }` arms with subtly different mappings. Telemetry buckets misclassify failures.
+This brief produces the contract + the audit list + the CI guard. **No callsite rewrites.** The mechanical rewrites land via per-crate follow-up briefs after this merges.
 
 ## Approach (concrete)
 
-**Two-phase: audit + rewrite.**
-
-### Phase 1 — audit (read-only, write findings to a single doc)
-
-1. Locate `ArgoError` definition. Likely `crates/argo-error/src/lib.rs`; verify with `rg 'pub enum ArgoError' --type rust`.
-2. Enumerate every variant with its current intended semantics (read the doc-comments + every callsite).
-3. `rg 'ArgoError::(Provider|Internal|InvalidInput|...)\(' --type rust > /tmp/argo-error-callsites.txt`. Categorise each callsite by what kind of failure it is (input validation, network, manifest schema, downstream service, etc.).
-4. Identify mismatches — e.g. a `serde_json::from_str` parse failure wrapped as `Internal(_)` when the input came from the user (should be `InvalidInput(_)`), or a `reqwest` error wrapped as `Internal(_)` when it's a remote service failure (should be `Provider(_)`).
-
-### Phase 2 — rewrite (narrow edits)
-
-1. **Document the canonical contract** in `crates/argo-error/src/lib.rs` doc-comment for `ArgoError`:
+1. **Locate `ArgoError`** — likely `crates/argo-error/src/lib.rs`; verify with `rg 'pub enum ArgoError' --type rust`.
+2. **Document the canonical contract** in the `ArgoError` doc-comment:
    - `Provider(_)` — failure originating from a downstream service (HTTP, MCP, model API, action endpoint). Maps to HTTP 502 / 504.
    - `InvalidInput(_)` — caller-supplied data was malformed (bad JSON, missing required field, invalid manifest). Maps to HTTP 400.
    - `Internal(_)` — invariant violated, bug. Maps to HTTP 500. Should be rare.
    - `NotFound(_)` — addressed entity does not exist. Maps to HTTP 404.
    - `Conflict(_)` — concurrent modification, lock contention. Maps to HTTP 409.
    - (Add others verbatim from the actual enum.)
-2. **Rewrite mismatched callsites** identified in Phase 1. Narrow surgical edits — change only the variant, keep the message string identical (so log-grep doesn't break).
 3. **Add a doctest** demonstrating each variant's canonical use.
-4. **Add a workspace-wide CI check** (script under `scripts/check-error-variant-usage.sh`) that flags suspicious patterns (e.g. `ArgoError::Internal` wrapping a `reqwest::Error`).
+4. **NEW `scripts/check-error-variant-usage.sh`** (≤ 80 LOC, bash + rg) — heuristic flags:
+   - `ArgoError::Internal\(.*reqwest`
+   - `ArgoError::Internal\(.*serde_json`
+   - `ArgoError::Provider\(.*missing field`
+   - Other patterns the audit surfaces.
+5. **NEW `docs/skycot/ERROR_VARIANT_AUDIT.md`** — checked-in audit report listing every mismatched callsite (path:line + current variant + recommended variant + 1-line rationale). Becomes the input for the follow-up rewrite brief.
+6. **Wire CI**: add 1 step to existing CI workflow invoking `check-error-variant-usage.sh`. The CI step warns on mismatches but does NOT fail (until the rewrite brief lands and zeroes the count).
 
 ## Files you may touch
 
-- `crates/argo-error/src/lib.rs` (or wherever ArgoError lives) — narrowly: add canonical contract doc-comment + ≤ 1 doctest per variant
-- `crates/argo-cli/src/handlers/**/*.rs` — narrowly: rewrite mismatched callsites
-- `crates/argo-channels/src/**/*.rs` — narrowly: rewrite mismatched callsites
-- `crates/argo-marketplace/src/**/*.rs` — narrowly: same
-- `crates/argo-vertical/src/**/*.rs` — narrowly: same
-- `crates/argo-store/src/**/*.rs` — narrowly: same
+- `crates/argo-error/src/lib.rs` (or wherever `ArgoError` lives) — narrowly: add canonical contract doc-comment + 1 doctest per variant
 - `scripts/check-error-variant-usage.sh` (NEW, ≤ 80 LOC)
-- `.github/workflows/*.yml` (existing CI workflow) — narrowly: add 1 step invoking the new script
+- `docs/skycot/ERROR_VARIANT_AUDIT.md` (NEW, the audit report)
+- `.github/workflows/ci.yml` — narrowly: 1 step (warning-only) invoking the new script
 
 ## Files you must NOT touch
 
-- Any test file other than to add doctests on `ArgoError` itself
-- Tracing span names (separate brief)
-- Any error type *other than* `ArgoError`
+- **Any callsite of `ArgoError::*` in any crate** — rewrites belong to the follow-up brief `claude-error-types-rewrite-callsites`. This brief is doc + audit + CI-warning only.
+- Any test file other than the new doctests on `ArgoError`
+- Tracing span names
 
 ## Acceptance criteria
 
 - [ ] `ArgoError` carries a doc-block with the canonical contract (one bullet per variant + HTTP-status mapping)
-- [ ] Every `ArgoError::*` callsite in the workspace matches the contract (verified by re-running the audit script)
-- [ ] `scripts/check-error-variant-usage.sh` runs in CI and is green
-- [ ] `cargo build && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` clean
-- [ ] No public API change (variant names + signatures unchanged; only callsite variants flipped)
+- [ ] `docs/skycot/ERROR_VARIANT_AUDIT.md` exists with one row per mismatched callsite (or a "no mismatches found" note + the audit invocation that produced it)
+- [ ] `scripts/check-error-variant-usage.sh` runs and reports a count
+- [ ] CI workflow has a new warning-only step invoking the script
+- [ ] `cargo build && cargo clippy -p argo-error --all-targets -- -D warnings && cargo test -p argo-error` clean (single-crate scope — no callsite changes elsewhere)
+- [ ] No public API change
 - [ ] Every modified file ≤ 500 LOC
 - [ ] `gh pr view --json mergeable` returns MERGEABLE post-push
 
 ## Branch + PR
 
 - Branch: `claude-error-types-consolidation`
-- PR title: `error: standardize ArgoError variant usage across workspace (claude-error-types-consolidation)`
+- PR title: `error: ArgoError canonical contract + variant-usage audit + CI guard (claude-error-types-consolidation)`
 
 ## Notes for the implementer
 
-- The audit step is the long pole. Budget ~60% of effort to it. The rewrite is mechanical once the mismatches are identified.
-- If the audit surfaces a missing variant (e.g. there's no `Conflict(_)` and several callsites would benefit), file a **separate follow-up brief** — DO NOT widen scope here.
-- Keep error message strings byte-identical — log-grep regressions are silent and painful.
-- The CI check should be a `grep` / `rg` based heuristic, not a full AST analysis. False-positive tolerance: < 5%.
+- The audit step is the deliverable. The output (`ERROR_VARIANT_AUDIT.md`) is what the follow-up rewrite brief consumes.
+- Keep CI warning-only here so this brief lands without forcing the rewrite to land in the same iteration. The follow-up brief will flip CI to fail.
+- The doc-comment + doctest go on the `ArgoError` enum itself. Single-crate change.
+- If the audit surfaces a missing variant (e.g. no `Conflict(_)` and several callsites would benefit), note it in the audit report — DO NOT add the variant here. That's a separate brief.
+
+## Follow-up
+
+Once this lands, the conductor will queue `claude-error-types-rewrite-callsites` whose only job is to mechanically apply the audit report's recommendations + flip CI from warning to fail. That brief depends on this one.
