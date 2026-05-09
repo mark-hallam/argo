@@ -255,6 +255,7 @@ mod work_artifacts;
 mod work_emission;
 mod work_jobs;
 mod work_loop;
+mod work_loop_stop_marker;
 mod work_shutdown;
 mod work_steps;
 pub mod worker_actions;
