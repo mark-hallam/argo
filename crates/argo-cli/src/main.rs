@@ -359,7 +359,17 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Session { cmd }) => handlers::session::run(cmd).await,
         Some(Command::Handoff { cmd }) => handlers::session::run_handoff(cmd).await,
         Some(Command::Skill { cmd }) => handlers::skill::run(cmd).await,
-        Some(Command::Trace { turn, session }) => handlers::trace::run(turn, session).await,
+        Some(Command::Trace {
+            cmd: Some(cli::TraceCmd::Explore { session, format, path }),
+            ..
+        }) => {
+            let fmt = handlers::trace_explore::TraceFormat::parse(&format)?;
+            let path_buf = path.map(std::path::PathBuf::from);
+            handlers::trace_explore::run(&session, fmt, path_buf.as_deref())
+        }
+        Some(Command::Trace { cmd: None, turn, session }) => {
+            handlers::trace::run(turn, session).await
+        }
         Some(Command::Tui) => handlers::tui::run().await,
         Some(Command::Tools { cmd }) => handlers::tools::run(cmd).await,
         Some(Command::Recover { session_id, json }) => {

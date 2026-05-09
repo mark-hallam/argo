@@ -54,6 +54,24 @@ pub enum ApprovalCmd {
     Export(ApprovalExportArgs),
 }
 
+#[derive(Subcommand, Debug)]
+pub enum TraceCmd {
+    /// Walk a session's local OTLP trace tree from
+    /// `.skycot/traces/<session>.ndjson` and render it as markdown
+    /// (default) or nested JSON. Read-only consumer of the local
+    /// NDJSON sink emitted alongside the OTLP/HTTP exporter (#938).
+    Explore {
+        /// Session id (matches the NDJSON filename stem).
+        session: String,
+        /// Output format: `markdown` (default) or `json`.
+        #[arg(long, default_value = "markdown")]
+        format: String,
+        /// Override the default `.skycot/traces/` lookup directory.
+        #[arg(long)]
+        path: Option<String>,
+    },
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct ComplianceSoc2Args {
     /// Window start, RFC3339. Inclusive.

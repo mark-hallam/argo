@@ -213,6 +213,7 @@ pub mod tenant_show;
 pub mod tenant_transfer;
 pub mod tools;
 pub mod trace;
+pub mod trace_explore;
 pub mod trajectory_export;
 mod trajectory_export_render;
 pub mod tui;

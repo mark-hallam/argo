@@ -327,7 +327,13 @@ pub enum Command {
         session_id: String,
         text: String,
     },
+    /// Inspect session traces. Without a subcommand, renders the
+    /// audit-log timeline (`--session`) or one turn's span tree
+    /// (`--turn`); with `explore <session>`, walks the local OTLP
+    /// NDJSON sink and renders a markdown or JSON tree.
     Trace {
+        #[command(subcommand)]
+        cmd: Option<TraceCmd>,
         #[arg(long)]
         turn: Option<String>,
         #[arg(long)]
