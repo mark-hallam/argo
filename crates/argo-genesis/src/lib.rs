@@ -35,6 +35,7 @@
 //! ```
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod action_suggest;
 pub mod archetype;
 pub mod charter_dialogue;
 pub mod conflict;

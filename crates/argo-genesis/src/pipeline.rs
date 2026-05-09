@@ -11,7 +11,7 @@ use crate::prompt_writer::write_artefacts;
 use crate::safety_judge;
 use crate::templates::match_template;
 use crate::worker_config::WorkerConfig;
-use argo_vertical::VerticalManifest;
+use argo_vertical::{ActionDeclaration, ActionRiskLevel, ExecutorDeclaration, VerticalManifest};
 use chrono::Utc;
 use std::path::Path;
 
@@ -45,7 +45,8 @@ pub fn plan(charter: &str, persona: &str) -> Result<GenesisPlan, GenesisError> {
         archetype.slug().replace('_', "-"),
         persona.to_lowercase().replace('_', "-")
     );
-    let manifest = build_manifest(charter, archetype, persona, &vertical_id)?;
+    let mut manifest = build_manifest(charter, archetype, persona, &vertical_id)?;
+    add_suggested_actions(&mut manifest, charter)?;
     Ok(GenesisPlan {
         charter: charter.to_string(),
         persona: persona.to_string(),
@@ -53,6 +54,49 @@ pub fn plan(charter: &str, persona: &str) -> Result<GenesisPlan, GenesisError> {
         vertical_id,
         manifest,
     })
+}
+
+fn add_suggested_actions(
+    manifest: &mut VerticalManifest,
+    charter: &str,
+) -> Result<(), GenesisError> {
+    let suggested = match crate::action_suggest::suggest(charter, 3) {
+        Ok(actions) => actions,
+        Err(err) => {
+            tracing::warn!(
+                target: "argo_genesis::pipeline",
+                error = %err,
+                "action suggestion failed; keeping archetype seed actions",
+            );
+            return Ok(());
+        }
+    };
+    let Some(actions) = manifest.actions.as_mut() else {
+        return Ok(());
+    };
+    for suggestion in suggested {
+        let action_type = crate::action_suggest::manifest_action_type(&suggestion.id);
+        if actions.actions.contains_key(&action_type) {
+            continue;
+        }
+        let requires_approval = crate::safety_judge::matches_sensitive_verb(&action_type);
+        actions.actions.insert(
+            action_type,
+            ActionDeclaration {
+                risk: if requires_approval {
+                    ActionRiskLevel::High
+                } else {
+                    ActionRiskLevel::Low
+                },
+                requires_approval,
+                description: format!("Genesis-suggested action: {}", suggestion.reason),
+                executor: ExecutorDeclaration::default(),
+                ..ActionDeclaration::default()
+            },
+        );
+    }
+    safety_judge::auto_fix(actions);
+    safety_judge::judge(actions)
 }
 
 /// Build a plan AND run the quality gate in one shot. Returns
