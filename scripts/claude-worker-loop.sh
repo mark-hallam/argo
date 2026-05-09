@@ -30,6 +30,13 @@ set -euo pipefail
 REPO="${REPO:-~/code/argo}"
 FAMILY="${FAMILY:-claude}"
 
+# Per-bash-process sentinel for quota detection. Using a shared
+# /tmp/argo-quota-hit causes a race when multiple worker tabs run:
+# each tab's `tee >(grep ... > sentinel)` truncates the file at session
+# start, which can clobber another tab's just-written quota signal
+# before its auto-resume guard reads it. Per-PID isolation fixes that.
+QUOTA_HIT="/tmp/argo-quota-hit-$$"
+
 cd "$REPO"
 
 # Spin-loop guard: if the SAME brief fails to claim N times in a row, exit
@@ -235,7 +242,7 @@ the next iteration.
     elif .type == "system" and .subtype == "init" then "  ▶️  session started"
     else empty end' \
   | tee >(grep --line-buffered -oE "You.ve hit your (limit|usage).+" \
-          | head -1 > /tmp/argo-quota-hit) \
+          | head -1 > "$QUOTA_HIT") \
   || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
 
   # Stop the heartbeat: clear the pulse file (background loop drops on next
@@ -247,19 +254,19 @@ the next iteration.
   # "You've hit your limit · resets 8:40pm (Australia/Melbourne)" and exits ~2s
   # later. Without this guard the bash loop happily claims the next brief, hits
   # quota again, and burns TODO rows into permanently-CLAIMED state. We:
-  #   1. Detect the quota line (sentinel /tmp/argo-quota-hit, written by tee>grep above)
+  #   1. Detect the quota line (per-PID sentinel $QUOTA_HIT, written by tee>grep above)
   #   2. Parse the reset time → seconds-to-sleep
   #   3. Release the just-claimed row back to TODO with a salvage note
   #   4. Sleep until quota reset (+5min buffer), then `continue` the outer loop.
-  if [ -f /tmp/argo-quota-hit ] && [ -s /tmp/argo-quota-hit ]; then
-    RESET_LINE=$(cat /tmp/argo-quota-hit)
+  if [ -f "$QUOTA_HIT" ] && [ -s "$QUOTA_HIT" ]; then
+    RESET_LINE=$(cat "$QUOTA_HIT")
     echo "[$(date +%H:%M:%S)] Anthropic quota exhausted. $RESET_LINE"
 
     # Compute seconds until reset; falls back to 1h on any parse failure.
-    SLEEP_SECS=$(python3 - <<'PY'
-import re, datetime, zoneinfo
+    SLEEP_SECS=$(QUOTA_HIT="$QUOTA_HIT" python3 - <<'PY'
+import os, re, datetime, zoneinfo
 try:
-    line = open("/tmp/argo-quota-hit").read().strip()
+    line = open(os.environ["QUOTA_HIT"]).read().strip()
     m = re.search(r"resets\s+(\d+(?::\d+)?)\s*([ap]m)\s*\(([^)]+)\)", line, re.I)
     if not m:
         print(3600)
@@ -313,7 +320,7 @@ PY
       echo "[$(date +%H:%M:%S)] Row already non-CLAIMED; skipping release commit."
     fi
     set -e
-    rm -f /tmp/argo-quota-hit
+    rm -f "$QUOTA_HIT"
 
     # Resume time — best-effort across BSD (macOS) and GNU date.
     RESUME_AT=$(date -v+"${SLEEP_SECS}"S +%H:%M:%S 2>/dev/null \
@@ -324,7 +331,7 @@ PY
     echo "[$(date +%H:%M:%S)] Quota window expected open. Resuming loop."
     continue
   fi
-  rm -f /tmp/argo-quota-hit  # belt-and-braces cleanup if file existed but was empty
+  rm -f "$QUOTA_HIT"  # belt-and-braces cleanup if file existed but was empty
 
   JITTER=$((RANDOM % 26 + 5))
   echo "[$(date +%H:%M:%S)] Iteration done. Jittering ${JITTER}s..."

@@ -48,11 +48,23 @@ if [[ -n "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]]; th
     fi
 fi
 
-# Sync to remote tip before we classify.
+# Sync to remote tip before we classify. Multi-tab swarms can leave a
+# stale multi-line FETCH_HEAD that breaks `git pull --ff-only` with
+# "Cannot fast-forward to multiple branches". Mirror the worker-loop's
+# explicit fetch+merge fallback in that case.
 if ! git -C "$REPO_ROOT" pull --ff-only "$REMOTE" "$BRANCH" >/dev/null 2>/tmp/argo-claim-fetch.log; then
-    echo "FAIL: git pull --ff-only $REMOTE $BRANCH failed:" >&2
-    cat /tmp/argo-claim-fetch.log >&2
-    exit 1
+    if grep -q "Cannot fast-forward to multiple branches\|cannot fast-forward to multiple branches" /tmp/argo-claim-fetch.log; then
+        if ! git -C "$REPO_ROOT" fetch "$REMOTE" "$BRANCH" >/dev/null 2>>/tmp/argo-claim-fetch.log \
+             || ! git -C "$REPO_ROOT" merge --ff-only FETCH_HEAD >/dev/null 2>>/tmp/argo-claim-fetch.log; then
+            echo "FAIL: explicit fetch+merge fallback failed:" >&2
+            cat /tmp/argo-claim-fetch.log >&2
+            exit 1
+        fi
+    else
+        echo "FAIL: git pull --ff-only $REMOTE $BRANCH failed:" >&2
+        cat /tmp/argo-claim-fetch.log >&2
+        exit 1
+    fi
 fi
 
 row_status() {
