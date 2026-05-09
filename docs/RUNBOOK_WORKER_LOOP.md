@@ -62,12 +62,19 @@ You'll see time-stamped iteration lines:
 Open N terminal tabs, run the same command in each. They share
 `BUILD_STATUS.md` as the lock — `claim-with-retry.sh` handles
 race-loss correctly, so two workers won't ship the same brief.
-4–6 parallel workers is the sweet spot per `PROTOCOL.md`.
 
 ```bash
 # In each new terminal:
 bash ~/code/argo/scripts/claude-worker-loop.sh
 ```
+
+**Empirical guidance: start with one worker.** Per `PROTOCOL.md`,
+4–6 is a "sweet spot" but observation on this machine shows
+concurrent cargo+claude load + multiple worktrees can cause
+integration smoke tests to hang on gateway boot (documented in
+multiple worker self-exit notes). Single-worker iterations finish
+faster than two competing under load. Add a second worker only after
+the first is steady-state and your machine has CPU headroom.
 
 ## Stop
 
@@ -132,6 +139,30 @@ shared cache warms.
 **Brief BLOCKED with "premise stale" reason:** an older brief whose
 file paths or assumptions don't match current main. The conductor
 will rewrite or release at next tick. Loop continues.
+
+**Loop exits with `Same brief failed 2× in a row`:** a brief's
+ledger row is shaped in a way that `claim-with-retry.sh`'s python
+regex rejects but the bash awk picks. Usually means the description
+contains a markdown-quirk character the regex isn't expecting.
+Inspect with `grep '<brief-id>' ~/code/argo/docs/build-plan/BUILD_STATUS.md`.
+Fix the row (escape problem characters or relax the regex), then
+relaunch the loop. The 2-strikes guard exists to prevent runaway
+spin-loops at 1Hz (which previously hammered git fetches enough to
+break worktree state).
+
+**Integration smoke test hangs (gateway boot):** documented pattern
+in worker self-exit notes — under heavy concurrent cargo load, the
+gateway-boot listener can hang for hours. If the loop output shows
+many repeated `🔧 TaskOutput {"task_id":"...","block":true,...}`
+calls, the smoke test is hung. Ctrl-C the loop, release the stuck
+CLAIM via the BUILD_STATUS row (flip CLAIMED → TODO), reduce
+concurrent worker count, restart.
+
+**Stuck CLAIM from a dead worker:** if a previous worker tab died
+mid-iteration, its CLAIM row stays in the ledger. The conductor
+sweeps these in step 7 of its tick, but you can manually flip
+CLAIMED → TODO faster. Edit the row, commit + push to main with
+message `status: release <brief-id> (stale CLAIM)`.
 
 ## What this loop does NOT do
 
