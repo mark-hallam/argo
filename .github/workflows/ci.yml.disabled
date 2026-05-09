@@ -161,6 +161,13 @@ jobs:
       - name: Enforce sqlx prepared-statement caching on hot-path query sites
         run: bash scripts/check-prepared-statements.sh
 
+  error-variant-usage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit ArgoError variant usage (warning-only)
+        run: bash scripts/check-error-variant-usage.sh || true
+
   deny:
     runs-on: ubuntu-latest
     steps:
