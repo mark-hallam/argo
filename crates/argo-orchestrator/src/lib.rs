@@ -39,6 +39,7 @@ pub mod persist;
 /// Audit-row writers for handoff transitions
 /// (Stream `claude-worker-handoff-record`).
 pub mod persist_audit;
+mod persist_handoffs;
 pub mod routing;
 mod session;
 mod walker;
