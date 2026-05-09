@@ -14,6 +14,7 @@
 use crate::cli::SkillReviewCmd;
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::{LifecycleState, Skill, SkillStore};
+use argo_store::feedback::{latest_vote_for_action, Vote};
 use argo_types::{ArgoError, ArgoResult, SkillId};
 use uuid::Uuid;
 
@@ -53,7 +54,11 @@ pub async fn run(skills: &SkillStore, cmd: SkillReviewCmd) -> ArgoResult<()> {
             )
             .await
         }
-        SkillReviewCmd::Promote { memory_id, json } => promote(skills, &memory_id, json).await,
+        SkillReviewCmd::Promote {
+            memory_id,
+            feedback_action,
+            json,
+        } => promote(skills, &memory_id, feedback_action.as_deref(), json).await,
         SkillReviewCmd::Export {
             skill_id,
             output,
@@ -68,29 +73,77 @@ pub async fn run(skills: &SkillStore, cmd: SkillReviewCmd) -> ArgoResult<()> {
 /// Materialise a memory-backed candidate into a `pending_review`
 /// skill row (#697). The new skill is NOT auto-active — operator
 /// must run `argo skill review approve <new-skill-id>` next.
-async fn promote(skills: &SkillStore, memory_id: &str, json: bool) -> ArgoResult<()> {
-    let new_skill = super::skill_review_candidates::promote_candidate(skills, memory_id).await?;
+async fn promote(
+    skills: &SkillStore,
+    memory_id: &str,
+    feedback_action: Option<&str>,
+    json: bool,
+) -> ArgoResult<()> {
+    let feedback = confirm_feedback(skills, feedback_action).await?;
+    let new_skill =
+        super::skill_review_candidates::promote_candidate(skills, memory_id, feedback).await?;
     if json {
+        let mut body = serde_json::json!({
+            "ok": true,
+            "skill_id": new_skill.id.0.to_string(),
+            "name": new_skill.frontmatter.name,
+            "vertical_id": new_skill.vertical_id,
+            "lifecycle_state": "pending_review",
+            "memory_entry_id": memory_id,
+        });
+        if let Some(feedback) = feedback {
+            body["feedback"] = serde_json::json!({
+                "action_id": feedback.action_id,
+                "vote": feedback.vote.as_str(),
+            });
+        }
         println!(
             "{}",
-            serde_json::to_string(&serde_json::json!({
-                "ok": true,
-                "skill_id": new_skill.id.0.to_string(),
-                "name": new_skill.frontmatter.name,
-                "vertical_id": new_skill.vertical_id,
-                "lifecycle_state": "pending_review",
-                "memory_entry_id": memory_id,
-            }))
-            .unwrap_or_default()
+            serde_json::to_string(&body).unwrap_or_default()
         );
     } else {
         println!(
             "promoted memory candidate `{memory_id}` -> skill `{}` (id={}) in pending_review",
             new_skill.frontmatter.name, new_skill.id.0,
         );
+        if let Some(feedback) = feedback {
+            println!(
+                "feedback confirmed: action `{}` latest vote `{}`",
+                feedback.action_id,
+                feedback.vote.as_str()
+            );
+        }
         println!("approve next: argo skill review approve {}", new_skill.id.0);
     }
     Ok(())
+}
+
+async fn confirm_feedback<'a>(
+    skills: &SkillStore,
+    action_id: Option<&'a str>,
+) -> ArgoResult<Option<super::skill_review_candidates::PromotionFeedback<'a>>> {
+    let Some(action_id) = action_id else {
+        return Ok(None);
+    };
+    let store = skills.store_arc();
+    super::feedback_common::ensure_feedback_schema(&store).await?;
+    let vote = latest_vote_for_action(store.pool(), action_id)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("read operator feedback: {e}")))?;
+    match vote {
+        Some(Vote::Up) => Ok(Some(
+            super::skill_review_candidates::PromotionFeedback {
+                action_id,
+                vote: Vote::Up,
+            },
+        )),
+        Some(Vote::Down) => Err(ArgoError::Provider(format!(
+            "latest operator feedback for action '{action_id}' is down; promotion requires an up vote"
+        ))),
+        None => Err(ArgoError::Provider(format!(
+            "no operator feedback found for action '{action_id}'; promotion requires an up vote"
+        ))),
+    }
 }
 
 async fn list_pending(

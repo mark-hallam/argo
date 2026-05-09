@@ -22,6 +22,7 @@
 use argo_audit::{AuditKind, AuditSink};
 use argo_memory::{parse_skill_candidate, MemoryEntry, MemoryStore, SkillCandidate};
 use argo_skill::{Skill, SkillStore};
+use argo_store::feedback::Vote;
 use argo_types::{ArgoError, ArgoResult};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -33,6 +34,12 @@ pub(super) struct CandidateRow {
     pub(super) vertical_id: String,
     pub(super) entry: MemoryEntry,
     pub(super) candidate: SkillCandidate,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct PromotionFeedback<'a> {
+    pub(super) action_id: &'a str,
+    pub(super) vote: Vote,
 }
 
 /// Walk every loaded vertical + collect memory-backed candidates
@@ -106,6 +113,7 @@ pub(super) async fn collect_memory_candidates(
 pub(super) async fn promote_candidate(
     skills: &SkillStore,
     memory_id_str: &str,
+    feedback: Option<PromotionFeedback<'_>>,
 ) -> ArgoResult<Skill> {
     let memory_id = Uuid::parse_str(memory_id_str)
         .map_err(|e| ArgoError::Provider(format!("invalid memory id '{memory_id_str}': {e}")))?;
@@ -132,12 +140,18 @@ pub(super) async fn promote_candidate(
         .propose_for_review(&raw, learned_in, vertical_id)
         .await?;
     let audit = AuditSink::new(Arc::clone(&store));
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "skill_id": new_skill.id.0.to_string(),
         "name": new_skill.frontmatter.name,
         "vertical_id": vertical_id,
         "memory_entry_id": memory_id.to_string(),
     });
+    if let Some(feedback) = feedback {
+        payload["feedback"] = serde_json::json!({
+            "action_id": feedback.action_id,
+            "vote": feedback.vote.as_str(),
+        });
+    }
     audit
         .write(Some(learned_in), AuditKind::SkillCandidatePromoted, payload)
         .await?;

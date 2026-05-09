@@ -67,6 +67,10 @@ pub enum SkillReviewCmd {
         /// The memory entry's UUID. Use `argo skill review
         /// list --json` to discover candidate ids.
         memory_id: String,
+        /// Require the latest operator feedback for this action
+        /// to be an up-vote before promoting the candidate.
+        #[arg(long, value_name = "ACTION_ID")]
+        feedback_action: Option<String>,
         #[arg(long)]
         json: bool,
     },

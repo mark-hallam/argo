@@ -68,8 +68,9 @@ async fn promote_materialises_pending_review_skill_with_vertical_id() {
         )
         .await
         .unwrap();
-    let new_skill =
-        promote_candidate(&skills, &entry.id.to_string()).await.unwrap();
+    let new_skill = promote_candidate(&skills, &entry.id.to_string(), None)
+        .await
+        .unwrap();
     assert_eq!(new_skill.frontmatter.name, "technical_founder_outreach");
     assert_eq!(new_skill.vertical_id.as_deref(), Some("gtm-engineer"));
     assert_eq!(
@@ -92,7 +93,9 @@ async fn promote_attributes_audit_row_to_originating_session() {
         )
         .await
         .unwrap();
-    promote_candidate(&skills, &entry.id.to_string()).await.unwrap();
+    promote_candidate(&skills, &entry.id.to_string(), None)
+        .await
+        .unwrap();
     // The promote helper writes a SkillCandidatePromoted audit
     // row attributed to `sid`. Verify it landed in the per-
     // session chain.
@@ -109,6 +112,41 @@ async fn promote_attributes_audit_row_to_originating_session() {
 }
 
 #[tokio::test]
+async fn promote_records_feedback_in_audit_payload_when_present() {
+    let (skills, memory, sid, ws) = fresh_setup().await;
+    let entry = memory
+        .append_for_vertical(
+            ws,
+            MemoryFile::Memory,
+            candidate_body("feedback_audit_target"),
+            Some(sid),
+            "gtm-engineer",
+        )
+        .await
+        .unwrap();
+    promote_candidate(
+        &skills,
+        &entry.id.to_string(),
+        Some(PromotionFeedback {
+            action_id: "action-123",
+            vote: argo_store::feedback::Vote::Up,
+        }),
+    )
+    .await
+    .unwrap();
+
+    let rows = argo_audit::rows_for_session(&skills.store_arc(), sid)
+        .await
+        .unwrap();
+    let promoted = rows
+        .iter()
+        .find(|r| r.kind == "skill.candidate.promoted")
+        .expect("expected promoted audit row");
+    assert_eq!(promoted.payload["feedback"]["action_id"], "action-123");
+    assert_eq!(promoted.payload["feedback"]["vote"], "up");
+}
+
+#[tokio::test]
 async fn promote_refuses_when_memory_entry_has_no_vertical_id() {
     let (skills, memory, sid, ws) = fresh_setup().await;
     // Use the workspace-global append (no vertical_id).
@@ -116,7 +154,9 @@ async fn promote_refuses_when_memory_entry_has_no_vertical_id() {
         .append(ws, MemoryFile::Memory, candidate_body("orphan"), Some(sid))
         .await
         .unwrap();
-    let err = promote_candidate(&skills, &entry.id.to_string()).await.unwrap_err();
+    let err = promote_candidate(&skills, &entry.id.to_string(), None)
+        .await
+        .unwrap_err();
     let msg = format!("{err}");
     assert!(
         msg.contains("no vertical_id"),
@@ -140,7 +180,9 @@ async fn promote_refuses_when_body_is_not_a_candidate_row() {
         )
         .await
         .unwrap();
-    let err = promote_candidate(&skills, &entry.id.to_string()).await.unwrap_err();
+    let err = promote_candidate(&skills, &entry.id.to_string(), None)
+        .await
+        .unwrap_err();
     assert!(
         format!("{err}").contains("learned_skill_candidates"),
         "wrong schema_key should be flagged: {err}"
@@ -150,7 +192,9 @@ async fn promote_refuses_when_body_is_not_a_candidate_row() {
 #[tokio::test]
 async fn promote_refuses_when_memory_entry_id_is_invalid_uuid() {
     let (skills, _memory, _sid, _ws) = fresh_setup().await;
-    let err = promote_candidate(&skills, "not-a-uuid").await.unwrap_err();
+    let err = promote_candidate(&skills, "not-a-uuid", None)
+        .await
+        .unwrap_err();
     assert!(
         format!("{err}").contains("invalid memory id"),
         "non-UUID input should be rejected with a clear message: {err}"
