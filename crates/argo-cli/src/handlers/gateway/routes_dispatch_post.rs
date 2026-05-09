@@ -31,8 +31,49 @@ use super::routes_session_skills::{
     session_reopen_response, session_set_title_response,
 };
 use super::routes_skill_refine::skill_refine_response;
+use argo_store::tenant_quota::TenantQuotaStore;
+use argo_store::tenant_quota_kinds::{QuotaActionKind, QuotaError};
 use argo_store::SessionStore;
 use std::sync::Arc;
+
+/// Resolve the cwd-derived tenant id and ask the quota store
+/// whether one more `kind` action would exceed the configured
+/// cap. Returns `Some((status, body))` to short-circuit dispatch
+/// with HTTP 429; returns `None` on pass or on internal error
+/// (fail-open — the gate is not authoritative when the store is
+/// unreachable; observability still records the underlying
+/// failure via the existing summary read path).
+async fn check_quota_or_reject(
+    store: &Arc<SessionStore>,
+    kind: QuotaActionKind,
+) -> Option<(&'static str, String)> {
+    let cwd = std::env::current_dir().ok()?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
+    let tenant_id = tenant.0.to_string();
+    let quotas = TenantQuotaStore::new(store.pool());
+    match quotas
+        .check_or_reject(&tenant_id, kind, 1, chrono::Utc::now())
+        .await
+    {
+        Ok(()) => None,
+        Err(QuotaError::Exceeded {
+            kind,
+            current,
+            limit,
+        }) => Some((
+            "429 Too Many Requests",
+            format!(
+                "{{\"error\":\"quota_exceeded\",\"kind\":\"{kind}\",\"current\":{current},\"limit\":{limit}}}"
+            ),
+        )),
+        Err(QuotaError::Internal(_)) => None,
+    }
+}
 
 /// Dispatch every POST verb. Returns `None` when no match,
 /// letting `dispatch_route` fall through to its other branches
@@ -51,6 +92,11 @@ pub(super) async fn dispatch_post(
         ));
     }
     if req.starts_with("POST /sessions ") {
+        if let Some(s) = store {
+            if let Some(resp) = check_quota_or_reject(s, QuotaActionKind::Sessions).await {
+                return Some(resp);
+            }
+        }
         return Some(create_session_response(req, store).await);
     }
     // POST /verticals/<id>/{sessions,run} — path-bound vertical
@@ -100,6 +146,11 @@ pub(super) async fn dispatch_post(
         }
     }
     if req.starts_with("POST /forge/optimize ") || req.starts_with("POST /forge/optimize?") {
+        if let Some(s) = store {
+            if let Some(resp) = check_quota_or_reject(s, QuotaActionKind::ForgeRuns).await {
+                return Some(resp);
+            }
+        }
         return Some(forge_optimize_response(req, store).await);
     }
     if req.starts_with("POST /forge/bench ") {
@@ -148,6 +199,13 @@ pub(super) async fn dispatch_post(
                 return Some(skill_unlock_response(name, store).await);
             }
             if tail.starts_with("refine ") {
+                if let Some(s) = store {
+                    if let Some(resp) =
+                        check_quota_or_reject(s, QuotaActionKind::SkillInvocations).await
+                    {
+                        return Some(resp);
+                    }
+                }
                 return Some(skill_refine_response(name, req, store).await);
             }
         }
@@ -181,6 +239,13 @@ pub(super) async fn dispatch_post(
     if let Some(rest) = req.strip_prefix("POST /sessions/") {
         if let Some((sid, tail)) = rest.split_once('/') {
             if tail.starts_with("messages ") {
+                if let Some(s) = store {
+                    if let Some(resp) =
+                        check_quota_or_reject(s, QuotaActionKind::Messages).await
+                    {
+                        return Some(resp);
+                    }
+                }
                 return Some(append_message_response(sid, req, store).await);
             }
             if tail.starts_with("runs ") {

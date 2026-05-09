@@ -3,6 +3,7 @@
 //! Schema is owned by `migrations/v38.rs`; callers must run
 //! `SessionStore::migrate` before constructing a `TenantQuotaStore`.
 
+pub use crate::tenant_quota_kinds::{QuotaActionKind, QuotaError, TenantQuotaKind};
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Datelike, Utc};
 use serde::Serialize;
@@ -114,17 +115,6 @@ pub struct TenantQuotaSummary {
     pub usage: TenantUsage,
     /// Remaining headroom for each configured cap.
     pub remaining: TenantQuotaRemaining,
-}
-
-/// Resource dimension checked by [`TenantQuotaStore::has_headroom_for`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TenantQuotaKind {
-    /// USD micros against `max_usd_micros`.
-    UsdMicros,
-    /// Action count against `max_actions`.
-    Actions,
-    /// Worker count against `max_workers`.
-    Workers,
 }
 
 /// Result of a quota headroom check.
@@ -329,6 +319,35 @@ impl<'a> TenantQuotaStore<'a> {
             limit,
             reason,
         })
+    }
+
+    /// Hard-enforce a quota gate. Returns `Exceeded` when
+    /// `current + delta > limit`, `Ok(())` otherwise. Read-only —
+    /// `record_usage` (via `worker_budget` inserts) remains the
+    /// write path. Returns `Internal` if the summary read fails;
+    /// the dispatcher decides whether to fail-open.
+    pub async fn check_or_reject(
+        &self,
+        tenant_id: &str,
+        kind: QuotaActionKind,
+        delta: u64,
+        now: DateTime<Utc>,
+    ) -> Result<(), QuotaError> {
+        let summary = self
+            .summary(tenant_id, now)
+            .await
+            .map_err(|e| QuotaError::Internal(e.to_string()))?;
+        let (current, limit) = kind.usage_pair(&summary);
+        let Some(limit) = limit else { return Ok(()) };
+        if current.saturating_add(delta) > limit {
+            Err(QuotaError::Exceeded {
+                kind: kind.as_str().to_string(),
+                current,
+                limit,
+            })
+        } else {
+            Ok(())
+        }
     }
 
     /// Resolve a worker id to its tenant id, if the identity table exists.
