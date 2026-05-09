@@ -32,9 +32,11 @@ mod overlays_sessions;
 mod overlays_tool_errors;
 mod render;
 mod text_input;
+pub mod theme;
 mod viewer;
 
 pub use app::ViewerState;
+pub use theme::{from_config as theme_from_config, Theme};
 pub use viewer::run_session_viewer;
 
 /// Aux-overlay close-key dispatcher consolidating h_stack +

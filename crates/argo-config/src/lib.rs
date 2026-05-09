@@ -19,6 +19,9 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod cred;
+pub mod tui;
+
+pub use tui::{TuiConfig, TuiThemeConfig};
 
 use argo_core::RestartPolicy;
 use argo_types::{ArgoError, ArgoResult, CostCeilings};
@@ -58,6 +61,8 @@ pub struct ArgoConfig {
     pub loop_: LoopConfig,
     /// `[plugin]`.
     pub plugin: PluginConfig,
+    /// `[tui]` (interactive TUI surface).
+    pub tui: TuiConfig,
 }
 
 /// `[core]`.
@@ -432,6 +437,7 @@ pub struct PluginConfig {
     /// Plugins to launch on startup.
     pub auto_load: Vec<String>,
 }
+
 
 impl ArgoConfig {
     /// Load `argo.toml` from `path`. Missing file ⇒ shipped defaults.
