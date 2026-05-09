@@ -3,7 +3,7 @@
 //! mod tests;`) so that `vertical_workflow.rs` stays under the
 //! 500-LOC budget as the runner grows.
 use super::*;
-use argo_vertical::{Workflow, WorkflowHeader};
+use argo_vertical::{Workflow, WorkflowHeader, WorkflowStep};
 
 fn empty_set() -> std::collections::HashSet<String> {
     std::collections::HashSet::new()
