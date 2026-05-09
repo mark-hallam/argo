@@ -50,6 +50,10 @@ sha2 = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 csv = "1"
+# Concurrent map for the per-IP token-bucket rate limiter
+# (claude-security-rate-limit-by-ip). DashMap is not yet a workspace
+# dep, so pin the latest 5.x line here.
+dashmap = "5"
 hex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

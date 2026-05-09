@@ -16,6 +16,9 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use super::lifecycle::{pid_is_alive, shutdown_signal, signal_term, PidGuard};
+use super::rate_limit_ip::{
+    self, rate_limited_response_bytes, CheckResult, IpRateLimiter,
+};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
 use super::{
@@ -145,6 +148,10 @@ pub(super) async fn start(
         return Ok(());
     }
 
+    // Per-IP rate limiter (claude-security-rate-limit-by-ip): cheap
+    // pre-route reject for traffic spikes from a single source IP. See
+    // `rate_limit_ip` for the env knobs and trust-model docs.
+    let ip_limiter = Arc::new(IpRateLimiter::from_env());
     let mut served = 0_u64;
     let shutdown = shutdown_signal();
     tokio::pin!(shutdown);
@@ -156,12 +163,23 @@ pub(super) async fn start(
                 return Ok(());
             }
             accept = listener.accept() => {
-                let (mut stream, _peer) = accept
+                let (mut stream, peer) = accept
                     .map_err(|e| ArgoError::Provider(format!("accept: {e}")))?;
                 let mut buf = [0_u8; 4096];
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
-                if streaming::is_streaming_runs_request(req) {
+                let src_ip = rate_limit_ip::extract_ip(req, peer, ip_limiter.trust_xff());
+                if let CheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
+                    tracing::warn!(
+                        target: "gateway::rate_limit_ip",
+                        ip = %src_ip,
+                        retry_after_secs,
+                        "per-IP rate limit triggered"
+                    );
+                    let bytes = rate_limited_response_bytes(retry_after_secs);
+                    let _ = stream.write_all(&bytes).await;
+                    let _ = stream.shutdown().await;
+                } else if streaming::is_streaming_runs_request(req) {
                     let _ = streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
                     let _ = stream.shutdown().await;
                 } else if metrics::is_metrics_request(req) {

@@ -11,6 +11,7 @@
 mod boot;
 mod lifecycle;
 mod metrics;
+mod rate_limit_ip;
 mod metrics_actions;
 mod print_routes;
 mod routes;
