@@ -291,6 +291,7 @@ pub mod worker_costs;
 pub mod worker_list;
 pub mod worker_onboard;
 pub mod worker_portrait;
+mod worker_portrait_render;
 mod worker_resume;
 pub mod worker_show;
 mod worker_show_render;
