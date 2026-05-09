@@ -51,7 +51,14 @@ while true; do
 
   echo "[$(date +%H:%M:%S)] Sync main..."
   git checkout main
-  git pull --ff-only origin main
+  # Defensive against stale multi-line FETCH_HEAD from a prior interrupted
+  # fetch (which causes `git pull --ff-only` to fail with
+  # "Cannot fast-forward to multiple branches"). Fetch + ff-merge explicit.
+  if ! git pull --ff-only origin main 2>&1; then
+    echo "[$(date +%H:%M:%S)] git pull failed; falling back to explicit fetch+merge"
+    git fetch origin main
+    git merge --ff-only FETCH_HEAD
+  fi
 
   # Find the first claimable TODO row. Owner column may be claude or
   # codex; brief-id is the first table cell.
