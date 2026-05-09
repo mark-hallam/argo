@@ -14,6 +14,7 @@
 
 mod actions;
 mod app;
+mod app_navigation;
 mod clipboard;
 mod input;
 mod input_dashboard;
