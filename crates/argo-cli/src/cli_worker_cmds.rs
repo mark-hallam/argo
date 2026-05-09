@@ -206,11 +206,19 @@ pub enum WorkerCmd {
     /// worker; `add` is idempotent on `<kind>:<identifier>` dup.
     #[command(subcommand)]
     Channels(crate::cli::cli_worker_channels_cmds::WorkerChannelsCmd),
+    /// Set or inspect the worker's daily / monthly spend caps
+    /// (Stream `claude-worker-budget-cli`). Caps land on the
+    /// worker's auto-approval policy JSON; period-to-date spend
+    /// rolls up the existing `worker_budget` ledger.
+    #[command(subcommand)]
+    Budget(crate::cli::cli_worker_budget_cmds::WorkerBudgetCmd),
 }
 
 // Charter/archive leaf enums live in sibling files so this module stays
 // under the 500-LOC per-file ceiling. Re-exported below for the
-// corresponding `WorkerCmd` variants.
+// corresponding `WorkerCmd` variants. The budget enum is reached through
+// its sibling path directly — this dispatcher hands the whole cmd to
+// `handlers::worker_budget::run` rather than pattern-matching here.
 pub use crate::cli::cli_worker_archive_cmds::WorkerArchiveCmd;
 pub use crate::cli::cli_worker_charter_cmds::WorkerCharterCmd;
 

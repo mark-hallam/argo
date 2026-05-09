@@ -228,6 +228,7 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 super::worker_channels::list(&tenant, &worker_id, json).await
             }
         },
+        WorkerCmd::Budget(budget_cmd) => super::worker_budget::run(budget_cmd).await,
         WorkerCmd::Items(items_cmd) => match items_cmd {
             WorkerItemsCmd::List { vertical, state, limit, json } => {
                 super::worker_actions_items::list(vertical.as_deref(), &state, limit, json).await

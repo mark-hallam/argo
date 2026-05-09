@@ -47,6 +47,11 @@ pub mod pool_config;
 /// Worker archive (sleep / wake) — frozen JSON snapshot store
 /// (Stream `claude-worker-archive-rehydrate`).
 pub mod worker_archive;
+/// Per-worker spend cap write helpers — `argo worker budget set/show`
+/// (Stream `claude-worker-budget-cli`). Caps live on the worker's
+/// `auto_approval_json` column; the spend totals come from the
+/// existing `worker_budget` ledger.
+pub mod worker_budget_write;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
