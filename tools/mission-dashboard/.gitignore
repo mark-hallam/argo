@@ -1,0 +1,11 @@
+# Generated dashboard artifact (regenerated on every server GET / one-shot run).
+dashboard.html
+
+# Detached server log
+serve.log
+
+# Python bytecode cache
+__pycache__/
+
+# Recovery backups left by the move script
+*.bak
