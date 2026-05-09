@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# gen-runbook-quickref.sh — render docs/skycot/quickref.html from RUNBOOK.md.
+# gen-runbook-quickref.sh — render docs/skycot/quickref.html from the runbook.
 #
 # Hot-incident operators don't want to scroll a 1k-line runbook. This
-# script extracts two named blocks from docs/skycot/RUNBOOK.md and
-# renders them into a single self-contained HTML page (inline CSS, no
-# external assets) at docs/skycot/quickref.html.
+# script extracts two named blocks from the topic-grouped runbook
+# files under docs/skycot/runbook/ and renders them into a single
+# self-contained HTML page (inline CSS, no external assets) at
+# docs/skycot/quickref.html.
 #
-# Markers expected in RUNBOOK.md (must each sit on their own line):
+# Markers expected in the runbook sources (must each sit on their own line):
 #   <!-- quickref:commands:start --> ... <!-- quickref:commands:end -->
 #   <!-- quickref:errors:start -->   ... <!-- quickref:errors:end -->
 # Either marker pair missing → exit 2 with a clear message.
@@ -21,17 +22,22 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ROOT/docs/skycot/RUNBOOK.md"
+SRCS=(
+  "$ROOT/docs/skycot/RUNBOOK.md"
+  "$ROOT/docs/skycot/runbook"/*.md
+)
 OUT="$ROOT/docs/skycot/quickref.html"
 
-if [[ ! -f "$SRC" ]]; then
-  echo "gen-runbook-quickref: source not found: $SRC" >&2
-  exit 1
-fi
+for src in "${SRCS[@]}"; do
+  if [[ ! -f "$src" ]]; then
+    echo "gen-runbook-quickref: source not found: $src" >&2
+    exit 1
+  fi
+done
 
 require_marker() {
-  if ! grep -qF "$1" "$SRC"; then
-    echo "gen-runbook-quickref: missing marker '$1' in $SRC" >&2
+  if ! grep -qF -- "$1" "${SRCS[@]}"; then
+    echo "gen-runbook-quickref: missing marker '$1' in runbook sources" >&2
     exit 2
   fi
 }
@@ -40,14 +46,17 @@ require_marker "<!-- quickref:commands:end -->"
 require_marker "<!-- quickref:errors:start -->"
 require_marker "<!-- quickref:errors:end -->"
 
-# Extract lines strictly between (and excluding) the marker pair.
+# Extract lines strictly between (and excluding) the marker pair,
+# scanning every runbook source so the markers can live in any
+# topic-grouped sub-file.
 extract_section() {
-  awk -v start="<!-- quickref:$1:start -->" \
-      -v end="<!-- quickref:$1:end -->" '
-    $0 == start { capture = 1; next }
-    $0 == end   { exit }
-    capture     { print }
-  ' "$SRC"
+  cat "${SRCS[@]}" \
+    | awk -v start="<!-- quickref:$1:start -->" \
+          -v end="<!-- quickref:$1:end -->" '
+        $0 == start { capture = 1; next }
+        $0 == end   { exit }
+        capture     { print }
+      '
 }
 
 CMDS_RAW=$(extract_section commands)
@@ -174,8 +183,9 @@ cat > "$OUT" <<EOF
   <h1>SKYCOT quick reference</h1>
   <p class="subtitle">
     Hot-incident card pulled from
-    <code>docs/skycot/RUNBOOK.md</code>. Open the runbook for the
-    full walkthrough.
+    <code>docs/skycot/RUNBOOK.md</code> and its topic sub-files
+    under <code>docs/skycot/runbook/</code>. Open the runbook for
+    the full walkthrough.
   </p>
 
   <section class="commands">
