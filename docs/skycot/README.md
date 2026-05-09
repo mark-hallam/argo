@@ -123,6 +123,10 @@ list-archetypes` are the standard-template starting points.
   9-section spec: states + transitions, action model, lifecycle,
   approval boundary, CLI design, artifact system, vertical binding
   layer, marketplace mapping, execution-mode v1, future executors.
+- **[Plugin system design](PLUGIN_SYSTEM.md)** — V3.x extension
+  points (executors, NotifyChannels, Genesis packs), loading model
+  recommendation (subprocess + JSON-RPC), ABI/SemVer policy,
+  security model, registry/install flow, dogfood migration plan.
 
 ## Hard safety boundaries (enforced in code)
 
