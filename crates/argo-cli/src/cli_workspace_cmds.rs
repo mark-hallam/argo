@@ -220,6 +220,21 @@ pub enum CostsCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Linear extrapolation of end-of-period spend from current
+    /// trajectory: `rate = sum(spend in lookback) / lookback_seconds`,
+    /// `projected_additional = rate × time-remaining`. The ±20% band
+    /// is a flat v1 heuristic.
+    Forecast {
+        /// Horizon: end-of-day, end-of-month, or end-of-quarter.
+        #[arg(long, value_enum, default_value_t = crate::handlers::costs_forecast::Horizon::Eom)]
+        horizon: crate::handlers::costs_forecast::Horizon,
+        /// Lookback window. Suffixes: `s|m|h|d` (e.g. `24h`, `7d`, `30d`).
+        #[arg(long, default_value = "24h")]
+        lookback: String,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t = crate::handlers::costs_forecast::ForecastFormat::Markdown)]
+        format: crate::handlers::costs_forecast::ForecastFormat,
+    },
     /// Read-only spend anomaly table view.
     Anomalies {
         /// Filter to anomalies observed after RFC3339 or YYYY-MM-DD.

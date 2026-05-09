@@ -348,6 +348,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 .await,
         },
         Some(Command::Activity { cmd }) => handlers::activity_tail::run(cmd).await,
+        Some(Command::Costs {
+            cmd: Some(cli::CostsCmd::Forecast { horizon, lookback, format }),
+        }) => handlers::costs_forecast::run(horizon, &lookback, format).await,
         Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,
         Some(Command::Budget { cmd }) => handlers::budget::run(cmd).await,
         Some(Command::Eval { cmd }) => handlers::eval_run::run(cmd).await,

@@ -55,6 +55,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
         }) => {
             super::costs_anomalies::run(since.as_deref(), limit, format, tenant.as_deref()).await
         }
+        Some(CostsCmd::Forecast { .. }) => unreachable!("Forecast dispatched in main.rs"),
         Some(CostsCmd::Cap {
             session,
             day,

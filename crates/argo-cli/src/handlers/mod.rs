@@ -51,6 +51,7 @@ pub mod costs_by_day;
 pub mod costs_by_model;
 pub mod costs_by_provider;
 pub mod costs_by_session;
+pub mod costs_forecast;
 pub mod costs_recent;
 pub mod cron;
 pub mod cred_clear;
