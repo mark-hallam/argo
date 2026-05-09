@@ -245,3 +245,7 @@ mod turn_memory;
 #[cfg(test)]
 #[path = "turn_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "turn_tests_max_rounds.rs"]
+mod tests_max_rounds;
