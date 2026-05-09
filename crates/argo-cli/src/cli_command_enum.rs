@@ -508,5 +508,12 @@ pub enum Command {
         #[arg(long, default_value = "markdown")]
         format: String,
     },
+    /// Computer-use trajectory inspection
+    /// (`claude-cu-action-replay-cli`). `replay <session-id>`
+    /// renders a recorded CU dispatch as markdown (+ optional GIF).
+    Cu {
+        #[command(subcommand)]
+        cmd: cli_cu_cmds::CuCmd,
+    },
     Update,
 }

@@ -263,6 +263,20 @@ fn forge_runs_sweep_renders_help_and_advertises_older_than_minutes() {
 }
 
 #[test]
+fn cu_replay_renders_help_with_session_id_and_flags() {
+    // Pins `argo cu replay --help` (claude-cu-action-replay-cli):
+    // session_id positional + --out / --gif / --gif-fps / --from /
+    // --to / --inline / --format. Catches a clap regression where
+    // the `Cu` variant or any `Replay` flag is dropped.
+    let h = help(&["cu", "replay"]);
+    assert!(h.contains("Usage:"), "argo cu replay --help: {h}");
+    assert!(h.contains("<SESSION_ID>"), "missing positional: {h}");
+    for flag in ["--out", "--gif", "--gif-fps", "--from", "--to", "--inline", "--format"] {
+        assert!(h.contains(flag), "argo cu replay --help missing {flag}: {h}");
+    }
+}
+
+#[test]
 fn version_flag_round_trips_through_main() {
     let out = Command::new(argo_bin())
         .arg("--version")

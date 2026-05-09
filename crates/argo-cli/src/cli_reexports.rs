@@ -21,6 +21,8 @@ pub mod cli_plan_cmds;
 pub mod cli_budget_cmds;
 #[path = "cli_cred_cmds.rs"]
 pub mod cli_cred_cmds;
+#[path = "cli_cu_cmds.rs"]
+pub mod cli_cu_cmds;
 #[path = "cli_daemon_cmds.rs"]
 pub mod cli_daemon_cmds;
 #[path = "cli_doctor_cmds.rs"]

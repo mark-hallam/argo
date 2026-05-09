@@ -74,6 +74,13 @@ toml = { workspace = true }
 tracing = { workspace = true }
 flate2 = "1"
 tar = "0.4"
+# `argo cu replay --gif` decodes per-step PNG screenshots and
+# encodes them as a GIF; `--inline` base64-encodes the PNG bytes
+# into data URLs. Both deps are unique to the CU-replay handler;
+# scoping them to argo-cli keeps the workspace tree lean
+# (claude-cu-action-replay-cli).
+image = { version = "0.25", default-features = false, features = ["png", "gif"] }
+base64 = "0.22"
 # Used by `argo vertical install` (#675) to extract `.tar`
 # sources into a temp dir before recursing through the
 # directory-source code path.

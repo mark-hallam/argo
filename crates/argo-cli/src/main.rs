@@ -419,6 +419,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             std::process::exit(code);
         }
         Some(Command::Latency { format }) => handlers::latency::run(&format).await,
+        Some(Command::Cu { cmd }) => handlers::cu_replay::run(cmd).await,
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");
