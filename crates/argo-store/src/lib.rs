@@ -17,6 +17,7 @@ pub mod feedback;
 mod forge_meta;
 /// GDPR erasure helpers.
 pub mod gdpr;
+mod gdpr_apply;
 mod grants;
 mod marketplace_meta;
 mod message_query;
