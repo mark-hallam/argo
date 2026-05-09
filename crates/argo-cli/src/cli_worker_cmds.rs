@@ -369,8 +369,12 @@ pub enum WorkerActionsCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Approve multiple actions in one call. Each id is processed
-    /// independently — one failure does not stop the rest.
+    /// Apply one decision (approve, or deny via `--deny`) to
+    /// every listed `action_id`. Each id processes independently;
+    /// one failure doesn't abort the rest. Confirms before
+    /// writing unless `--confirm` (`-y`) is set, or `--dry-run`
+    /// lists the ids without writing
+    /// (`claude-approval-batch-decisions-cli`).
     ApproveBatch {
         /// Space-separated list of `action_id`s.
         action_ids: Vec<String>,
@@ -378,6 +382,15 @@ pub enum WorkerActionsCmd {
         approved_by: Option<String>,
         #[arg(long)]
         note: Option<String>,
+        /// Cancel each pending action instead of approving.
+        #[arg(long)]
+        deny: bool,
+        /// Skip the interactive confirmation prompt.
+        #[arg(long, short = 'y')]
+        confirm: bool,
+        /// Preview ids without writing.
+        #[arg(long)]
+        dry_run: bool,
         #[arg(long)]
         json: bool,
     },

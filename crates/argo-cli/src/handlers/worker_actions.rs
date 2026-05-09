@@ -293,12 +293,18 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 action_ids,
                 approved_by,
                 note,
+                deny,
+                confirm,
+                dry_run,
                 json,
             } => {
                 super::worker_actions_dispatch::approve_batch(
                     &action_ids,
                     approved_by.as_deref(),
                     note.as_deref(),
+                    deny,
+                    confirm,
+                    dry_run,
                     json,
                 )
                 .await

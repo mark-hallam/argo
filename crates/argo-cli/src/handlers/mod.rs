@@ -272,6 +272,7 @@ mod worker_show_tests;
 pub mod worker_update;
 mod worker_actions_anomaly;
 mod worker_actions_auto_approval;
+mod worker_actions_batch;
 mod worker_actions_dispatch;
 mod worker_actions_dry_run;
 pub(crate) mod worker_actions_emit;

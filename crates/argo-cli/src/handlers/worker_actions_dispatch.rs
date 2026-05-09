@@ -66,46 +66,37 @@ pub(crate) async fn approve_batch(
     action_ids: &[String],
     approved_by: Option<&str>,
     note: Option<&str>,
+    deny: bool,
+    confirm: bool,
+    dry_run: bool,
     json: bool,
 ) -> ArgoResult<()> {
+    use super::worker_actions_batch::{self, BatchDecision};
     if action_ids.is_empty() {
         return Err(ArgoError::Provider(
             "approve-batch requires at least one action_id".into(),
         ));
     }
+    let decision = BatchDecision::from_flag(deny);
+    if dry_run {
+        return worker_actions_batch::print_dry_run(action_ids, decision, json);
+    }
+    if !confirm && !worker_actions_batch::prompt_confirms(action_ids.len(), decision)? {
+        eprintln!("aborted: no decision applied");
+        return Ok(());
+    }
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     let by = default_approver(approved_by);
-    let mut ok = Vec::new();
-    let mut failed: Vec<(String, String)> = Vec::new();
-    for id in action_ids {
-        match worker_actions_transitions::approve(&memory, ws, id, &by, note).await {
-            Ok(rec) => ok.push(rec),
-            Err(e) => failed.push((id.clone(), e.to_string())),
-        }
-    }
-    if json {
-        let payload = serde_json::json!({
-            "approved": ok,
-            "failed": failed.iter().map(|(id, e)| serde_json::json!({"action_id": id, "error": e})).collect::<Vec<_>>(),
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
-        );
-    } else {
-        for r in &ok {
-            println!("approved {} (job {})", r.action_id, r.job_id);
-        }
-        for (id, err) in &failed {
-            eprintln!("FAILED {id}: {err}");
-        }
-    }
+    let (ok, failed) =
+        worker_actions_batch::apply_decisions(&memory, ws, action_ids, &by, note, decision).await;
+    worker_actions_batch::print_summary(&ok, &failed, decision, json);
     auto_refresh_ledger(&memory, ws).await;
     if !failed.is_empty() {
         return Err(ArgoError::Provider(format!(
-            "{}/{} approvals failed",
+            "{}/{} {} decisions failed",
             failed.len(),
-            action_ids.len()
+            action_ids.len(),
+            decision.label(),
         )));
     }
     Ok(())
