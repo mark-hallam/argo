@@ -1,6 +1,8 @@
 # V1.4 — Approval batch decisions CLI
 
-**Owner**: claude. **Depends on**: H-auto-approval merged,
+**Owner**: claude.
+
+**Authored against**: origin/main 2026-05-09 (rewrite v2 by conductor — original v1 referenced a non-existent `apply_decision` API and assumed an `argo approval` top-level command. The actual surface is `argo worker actions approve-batch` (in `cli_worker_cmds.rs::WorkerActionsCmd::ApproveBatch`); this v2 narrows to extending it with `--deny` / `--confirm` / `--dry-run` flags). **Depends on**: H-auto-approval merged,
 session_approval.rs handlers stable.
 
 ## Why
@@ -48,16 +50,10 @@ modifying decision storage schema.
 
 ## Files you may touch
 
-- `crates/argo-cli/src/handlers/approval_batch.rs` (NEW, ≤ 320 LOC)
-- `crates/argo-cli/src/handlers/approval_batch_tests.rs` (NEW, ≤ 250 LOC)
-- `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
-- `crates/argo-cli/src/cli.rs` — narrowly: add `Batch` variant to
-  `ApprovalCmd` enum + dispatch arm (BLANKET CLI ALLOWLIST)
-- `crates/argo-cli/src/main.rs` — narrowly: dispatch handler
-  (BLANKET CLI ALLOWLIST)
-- `crates/argo-cli/tests/approval_batch_smoke.rs` (NEW) — one
-  end-to-end test: seed 5 pending, batch approve, verify all 5
-  marked Approved + exit 0
+- `crates/argo-cli/src/cli_worker_cmds.rs` — narrowly: extend the existing `WorkerActionsCmd::ApproveBatch` variant with `--deny`, `--confirm`, `--dry-run` flags. Do NOT introduce a new top-level `argo approval` command — the existing surface is `argo worker actions approve-batch`.
+- `crates/argo-cli/src/handlers/worker_actions.rs` — narrowly: dispatch arm for the new flags.
+- `crates/argo-cli/src/handlers/worker_actions_dispatch.rs` — narrowly: extend `approve_batch` to honour the new flags. Do NOT reference a non-existent `apply_decision` API; the dispatch already knows how to approve/deny.
+- `crates/argo-cli/src/handlers/worker_actions_tests.rs` (or sibling) — narrowly: tests for the new flag behaviour.
 
 ## Files you must NOT touch
 

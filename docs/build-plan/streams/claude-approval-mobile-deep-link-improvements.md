@@ -1,6 +1,8 @@
 # V1.4 — Mobile approval deep-link improvements
 
-**Owner**: claude. **Depends on**: claude-mobile-approval-app-tauri
+**Owner**: claude.
+
+**Authored against**: origin/main 2026-05-09 (split-note v2 by conductor — original v1 bundled deep-link handler code refactor + on-device manual QA into one brief. The QA gate cannot be satisfied by current workers (no mobile-build environment). Split: this brief stays BLOCKED on device-QA; the code-only prep portion lands via NEW sibling `claude-approval-mobile-deep-link-prep`). **Depends on**: claude-mobile-approval-app-tauri
 (#943) merged.
 
 ## Why

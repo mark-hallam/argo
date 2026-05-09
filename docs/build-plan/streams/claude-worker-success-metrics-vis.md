@@ -1,6 +1,8 @@
 # V1.1 — Per-worker success metrics from auto-approval outcomes
 
-**Owner**: claude. **Depends on**: auto-approval Decision recording
+**Owner**: claude.
+
+**Authored against**: origin/main 2026-05-09 (rewrite v2 by conductor — original v1 assumed an `auto_approval_decision` table that doesn't exist on main. v2 retargets to roll up over the existing `audit_record` table, filtering by typed `argo_audit::AuditKind` variants ApprovalGranted / ApprovalRevoked / ApprovalConsumed via worker-bound session_id). **Depends on**: auto-approval Decision recording
 on main (search for `Decision::Approve` in
 `worker_actions_auto_approval.rs`).
 
@@ -18,7 +20,7 @@ Without this, the promotion workflow + KPI tracker have no canonical
 ## Scope
 
 - Read-side aggregator only — no new schema. Reads from existing
-  `auto_approval_decision` table (or whatever the canonical name is —
+  `audit_record (auto_approval_decision table doesn't exist; rollup is over typed audit-kind variants from argo-audit)` table (or whatever the canonical name is —
   inspect `worker_actions_auto_approval.rs` for the table).
 - CLI:
   - `argo worker success <id> [--since <duration>] [--bucket none|day|
@@ -43,11 +45,11 @@ Without this, the promotion workflow + KPI tracker have no canonical
 
 ## Files you may touch
 
-- BLANKET CLI ALLOWLIST applies
-- EXHAUSTIVE-MATCH amendment applies
-- `crates/argo-cli/src/handlers/worker_success.rs` (NEW)
-- `crates/argo-cli/src/cli_worker_cmds.rs` — `Success` variant
-- `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 pub mod line
+- `crates/argo-cli/src/handlers/worker_metrics.rs` (NEW) — read-only rollup over the `audit_record` table, aggregating ApprovalGranted / ApprovalRevoked / ApprovalConsumed kinds (typed `argo_audit::AuditKind` variants), filtered by worker-bound session_id. Query via `SessionStore`'s existing `sqlx::Pool<Sqlite>` directly — no argo-store schema changes.
+- `crates/argo-cli/src/handlers/worker_metrics_tests.rs` (NEW sibling) — unit tests for the rollup logic.
+- `crates/argo-cli/src/cli_worker_cmds.rs` — narrowly: new `WorkerCmd::Metrics` variant (or sibling enum if at-ceiling).
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly: 1 `pub mod` line.
+- `crates/argo-cli/src/main.rs` — narrowly: dispatch arm.
 
 ## Files you must NOT touch
 
