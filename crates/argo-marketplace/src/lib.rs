@@ -28,14 +28,13 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod bundle;
+mod bundle_vertical;
 mod oci_auth;
 mod oci_distribution;
 mod registry;
 
-pub use bundle::{
-    build_bundle, build_vertical_bundle, manifests_match, unpack_vertical_bundle, BundleEntry,
-    BundleManifest, BUNDLE_PATHS,
-};
+pub use bundle::{build_bundle, manifests_match, BundleEntry, BundleManifest, BUNDLE_PATHS};
+pub use bundle_vertical::{build_vertical_bundle, unpack_vertical_bundle};
 pub use oci_auth::{resolve_registry_auth, BearerChallenge, ResolvedRegistryAuth};
 pub use oci_distribution::{
     OciDescriptor, OciDistributionRegistry, OciImageManifest, CONFIG_MEDIA_TYPE, LAYER_MEDIA_TYPE,
