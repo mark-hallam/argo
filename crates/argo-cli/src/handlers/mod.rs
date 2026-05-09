@@ -91,6 +91,7 @@ pub mod forge_daemon;
 pub mod forge_enqueue;
 mod forge_mutator;
 mod forge_optimize;
+mod forge_optimize_helpers;
 pub(crate) mod forge_optimize_judge;
 mod forge_subject;
 pub mod gateway;

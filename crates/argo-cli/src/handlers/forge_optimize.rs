@@ -1,30 +1,27 @@
-//! `argo forge optimize` — score-driven candidate sweep.
-//! Lives in its own module so `forge.rs` stays under the
-//! 500-LOC ceiling.
-//!
-//! Iter 0 benches the *baseline* active skill; iters 1..N each:
-//! 1. mutate the baseline body with a per-iteration hint,
-//! 2. supersede the active row with the candidate,
-//! 3. run the bench against the same examples,
-//! 4. record the score.
-//!
-//! At the end, the highest-scoring version is promoted to
-//! active so the next agent turn picks it up. Mutation is
-//! mechanical (a templated `Refinement attempt N` block
-//! appended to the body); LLM-driven mutation is a follow-up.
+//! `argo forge optimize` — score-driven candidate sweep. Iter 0
+//! benches the baseline active skill; iters 1..N mutate the body,
+//! supersede the active row with the candidate, run the bench
+//! against the same examples, and record the score. The
+//! highest-scoring version is promoted to active so the next
+//! agent turn picks it up. Leaf and stage helpers live in
+//! `forge_optimize_helpers.rs`.
 use super::forge_mutator::mutate_via_llm;
-use super::forge_optimize_judge::{
-    self, evaluate_promote_gates, write_promote_blocked_audit, PromoteDecision,
+use super::forge_optimize_helpers::{
+    build_skill_md, bump_version, check_iter_budget, emit_event, evaluate_promote_decision,
+    mechanical_refinement, report_summary,
 };
+use super::forge_optimize_judge::PromoteDecision;
 use super::forge_subject::{open_store, BenchSubject};
 use crate::home::resolve_home;
 use argo_audit::{AuditKind, AuditSink};
 use argo_eval::{load_jsonl, run_eval, EvalRecord};
 use argo_judge::Judge;
 use argo_skill::{PrincipalOverride, SkillStore};
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
 use std::sync::Arc;
+
+pub(crate) use super::forge_optimize_helpers::spawn_optimize;
 
 pub(super) async fn run(
     skill_name: &str,
@@ -187,7 +184,7 @@ async fn run_with_events_and_run_id(
     let mut best_score: f64 = f64::NEG_INFINITY;
     let mut best_version = baseline.frontmatter.version.clone();
     let mut completed = 0_i64;
-    let mut last_status = "succeeded";
+    let mut last_status: &'static str = "succeeded";
     let budget_micros = (budget_usd * 1_000_000.0).round() as i64;
     // Records from the previous iter — used to drive the next
     // mutation by feeding the meta-prompt the failed examples.
@@ -271,77 +268,44 @@ async fn run_with_events_and_run_id(
         // climbing + the best-so-far score moving while the
         // loop is still in flight. The WHERE clause guards
         // against clobbering an already-aborted row.
-        let best_so_far = if best_score.is_finite() {
-            Some(best_score)
-        } else {
-            None
-        };
+        let best_so_far = best_score.is_finite().then_some(best_score);
         let _ = store
-            .update_forge_run_progress(
-                run_id,
-                completed,
-                best_so_far,
-                Some(&version_for_iter),
-            )
+            .update_forge_run_progress(run_id, completed, best_so_far, Some(&version_for_iter))
             .await;
 
-        if let Ok(Some(row)) = store.get_forge_run(run_id).await {
-            if budget_micros > 0 && row.spend_usd_micros >= budget_micros {
-                last_status = "partial";
-                if interactive_text {
-                    println!(
-                        "  (over budget after iter {iter}: spend=${:.2} > cap=${budget_usd:.2})",
-                        row.spend_usd_micros as f64 / 1_000_000.0
-                    );
-                } else {
-                    dispatch(serde_json::json!({
-                        "event": "budget_exceeded",
-                        "run_id": run_id.to_string(),
-                        "iter": iter,
-                        "spend_usd_micros": row.spend_usd_micros,
-                        "cap_usd_micros": budget_micros,
-                    }));
-                }
-                break;
-            }
+        if let Some(status) = check_iter_budget(
+            &store,
+            run_id,
+            iter,
+            budget_micros,
+            budget_usd,
+            interactive_text,
+            events_tx.as_ref(),
+            stream,
+        )
+        .await
+        {
+            last_status = status;
+            break;
         }
     }
 
-    // Gates: threshold + judge must both pass before promote.
-    // Fail-CLOSED on judge availability — promotion is consequential.
-    let promote_decision = if best_version != baseline.frontmatter.version || iterations > 1 {
-        let candidate_body = resolve_candidate_body(&skills, skill_name, &best_version, &baseline)
-            .await
-            .unwrap_or_else(|| baseline.body.clone());
-        let decision = evaluate_promote_gates(
-            best_score,
-            forge_optimize_judge::promote_threshold(),
-            judge,
-            SessionId::new(),
-            skill_name,
-            &baseline.frontmatter.version,
-            &candidate_body,
-        )
-        .await;
-        if matches!(decision, PromoteDecision::Allow) {
-            let _ = skills.promote(skill_name, &best_version).await;
-        } else {
-            write_promote_blocked_audit(&store, run_id, skill_name, &best_version, &decision).await;
-            if last_status == "succeeded" {
-                last_status = decision.run_status().unwrap_or(last_status);
-            }
-        }
-        decision
-    } else {
-        PromoteDecision::Allow
-    };
+    let (promote_decision, last_status) = evaluate_promote_decision(
+        &skills,
+        &store,
+        &baseline,
+        skill_name,
+        &best_version,
+        best_score,
+        iterations,
+        run_id,
+        judge,
+        last_status,
+    )
+    .await;
     let promoted = matches!(promote_decision, PromoteDecision::Allow);
 
-    let final_score = if best_score.is_finite() {
-        Some(best_score)
-    } else {
-        None
-    };
+    let final_score = best_score.is_finite().then_some(best_score);
     let _ = store
         .finish_forge_run(run_id, last_status, final_score, completed)
         .await;
@@ -359,137 +323,19 @@ async fn run_with_events_and_run_id(
             }),
         )
         .await;
-    if interactive_text {
-        println!(
-            "\nsummary: status={last_status} best_score={best_score:.3} \
-             best_version={best_version} iters_run={completed}/{iterations} (run_id={run_id})"
-        );
-        if promoted {
-            println!("  → promoted {skill_name} v{best_version} to active");
-        } else {
-            println!("  → promotion refused ({last_status}); active version unchanged");
-        }
-    } else {
-        dispatch(serde_json::json!({
-            "event": "done",
-            "run_id": run_id.to_string(),
-            "status": last_status,
-            "best_score": final_score,
-            "best_version": best_version,
-            "iterations_run": completed,
-            "iterations_planned": iterations,
-            "promoted": promoted,
-        }));
-    }
+    report_summary(
+        interactive_text,
+        skill_name,
+        last_status,
+        best_score,
+        &best_version,
+        completed,
+        iterations,
+        final_score,
+        promoted,
+        run_id,
+        events_tx.as_ref(),
+        stream,
+    );
     Ok(())
-}
-
-/// Look up the on-disk body of the variant that won the optimize
-/// sweep, so the judge can adjudicate against the actual prompt
-/// the agent would inherit. Falls back to the baseline body when
-/// the lookup misses (defensive — the row was just superseded by
-/// the loop a moment ago, so this should always find the row).
-async fn resolve_candidate_body(
-    skills: &SkillStore,
-    skill_name: &str,
-    best_version: &str,
-    baseline: &argo_skill::Skill,
-) -> Option<String> {
-    if best_version == baseline.frontmatter.version {
-        return Some(baseline.body.clone());
-    }
-    let versions = skills.versions_for_name(skill_name).await.ok()?;
-    versions
-        .into_iter()
-        .find(|s| s.frontmatter.version == best_version)
-        .map(|s| s.body)
-}
-
-/// Async kick-off used by the gateway's `POST /forge/optimize`.
-/// Spawns a Tokio task that runs the optimize sweep with
-/// `stream=false`; the forge_run row is queryable via
-/// `GET /forge/runs` as it progresses. Errors hit the gateway
-/// log (eprintln) — the caller has already gone home with their
-/// 202 Accepted.
-pub(crate) fn spawn_optimize(skill: String, examples: String, iterations: u32, budget_usd: f64) {
-    tokio::spawn(async move {
-        if let Err(e) = run(&skill, &examples, iterations, budget_usd, false).await {
-            eprintln!("argo gateway: forge optimize ({skill}) failed: {e}");
-        }
-    });
-}
-
-/// Emit one NDJSON event line on stdout. Used by the `--stream`
-/// mode so the TUI / watch scripts / gateway can consume forge
-/// progress without parsing the table.
-fn emit_event(value: &serde_json::Value) {
-    use std::io::Write;
-    if let Ok(line) = serde_json::to_string(value) {
-        let mut out = std::io::stdout().lock();
-        let _ = writeln!(out, "{line}");
-        let _ = out.flush();
-    }
-}
-
-/// Fallback mutator: append a fixed `## Refinement attempt N`
-/// block. Used when the LLM mutator can't or shouldn't run
-/// (transport build failure, no failed examples to learn from,
-/// etc).
-fn mechanical_refinement(baseline_body: &str, iter: u32) -> String {
-    format!(
-        "{}\n\n## Refinement attempt {iter}\n\
-         Be precise, structured, and avoid filler. Cite tool \
-         outputs verbatim when relevant.\n",
-        baseline_body.trim_end()
-    )
-}
-
-/// Bump the trailing numeric segment of a semver-ish version
-/// by `delta` (e.g. `bump_version("0.1", 3) == "0.4"`).
-pub(super) fn bump_version(v: &str, delta: u32) -> String {
-    let mut parts: Vec<String> = v.split('.').map(String::from).collect();
-    if let Some(last) = parts.last_mut() {
-        if let Ok(n) = last.parse::<u64>() {
-            *last = (n + u64::from(delta)).to_string();
-            return parts.join(".");
-        }
-    }
-    format!("{v}-cand{delta}")
-}
-
-/// Render a skill-doc string back into the on-disk SKILL.md
-/// shape `argo_skill::parse_skill_md` accepts.
-fn build_skill_md(name: &str, version: &str, description: &str, body: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(body.as_bytes());
-    let hash = hex::encode(h.finalize());
-    format!(
-        "---\nname: {name}\nversion: \"{version}\"\ndescription: {description}\n\
-         lock: none\nprovenance:\n  source: forge-optimize\n  hash: sha256-{hash}\n---\n{body}"
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bump_version_increments_trailing_number() {
-        assert_eq!(bump_version("0.1", 1), "0.2");
-        assert_eq!(bump_version("0.1", 3), "0.4");
-        assert_eq!(bump_version("1.5.3", 2), "1.5.5");
-    }
-
-    #[test]
-    fn bump_version_falls_back_for_non_numeric_tail() {
-        assert_eq!(bump_version("alpha", 1), "alpha-cand1");
-    }
-
-    #[test]
-    fn mechanical_refinement_appends_a_block() {
-        let refined = mechanical_refinement("base body", 3);
-        assert!(refined.contains("base body"));
-        assert!(refined.contains("## Refinement attempt 3"));
-    }
 }
