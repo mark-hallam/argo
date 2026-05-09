@@ -447,7 +447,7 @@ async fn max_rounds_returns_ok_with_stopped_on_tool_budget_flag() {
     let approval = std::collections::HashSet::new();
     let grants = SessionGrantState::default();
 
-    let r = run_turn_with_tools(
+    let r = super::turn_helpers::run_turn_with_tools(
         &store,
         &transport,
         cwd.path(),
