@@ -22,9 +22,11 @@ use crate::e2b::{E2bClient, Sandbox};
 use crate::executor_types::default_bundle_dir;
 use crate::pool::{PoolKey, SandboxPool};
 use crate::profile::{Profile, ProfileRegistry};
+use crate::restart::{self, emit_restart_event, RestartCoordinator, RestartDecision};
 use crate::CuError;
 use argo_skill::SkillStore;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub use crate::executor_types::{Outcome, RunRequest, RunResult};
 
@@ -216,15 +218,18 @@ impl ComputerUseExecutor {
         let anthropic = self.anthropic_for(profile)?;
         let mut prior_actions: Vec<String> = Vec::new();
         let mut last_text: Option<String> = None;
+        let mut sandbox = sandbox.clone();
+        let mut system_prompt = req.system_prompt.clone();
+        let mut coordinator = RestartCoordinator::new(profile.restart.clone());
 
         // Step 0: capture the initial screenshot before sending
         // the first message.
-        let mut screenshot = self.e2b.screenshot(sandbox).await?;
+        let mut screenshot = self.e2b.screenshot(&sandbox).await?;
 
         loop {
             let resp = anthropic
                 .step(CuStepRequest {
-                    system_prompt: &req.system_prompt,
+                    system_prompt: &system_prompt,
                     screenshot_png: &screenshot,
                     prior_actions: &prior_actions,
                     screen_width: profile.screen_width,
@@ -234,7 +239,22 @@ impl ComputerUseExecutor {
             let resp = match resp {
                 Ok(r) => r,
                 Err(e) if e.is_recoverable_to_handoff() => {
-                    return Ok(LoopExit::Handoff(format!("anthropic call failed: {e}")));
+                    match self
+                        .handle_restart(
+                            &e,
+                            "anthropic_step",
+                            profile,
+                            &mut coordinator,
+                            &mut sandbox,
+                            &mut screenshot,
+                            &mut system_prompt,
+                            &req.system_prompt,
+                        )
+                        .await?
+                    {
+                        Some(handoff) => return Ok(LoopExit::Handoff(handoff)),
+                        None => continue,
+                    }
                 }
                 Err(e) => return Err(e),
             };
@@ -271,13 +291,30 @@ impl ComputerUseExecutor {
                         return Ok(LoopExit::Handoff(stringify_verdict(verdict)));
                     }
                     let summary = action.summary();
-                    let result = match self.e2b.execute_action(sandbox, &action).await {
+                    let result = match self.e2b.execute_action(&sandbox, &action).await {
                         Ok(r) => r,
                         Err(e) if e.is_recoverable_to_handoff() => {
-                            return Ok(LoopExit::Handoff(format!(
-                                "sandbox action failed at step {}: {e}",
-                                tracker.step()
-                            )));
+                            match self
+                                .handle_restart(
+                                    &e,
+                                    "sandbox_action",
+                                    profile,
+                                    &mut coordinator,
+                                    &mut sandbox,
+                                    &mut screenshot,
+                                    &mut system_prompt,
+                                    &req.system_prompt,
+                                )
+                                .await?
+                            {
+                                Some(handoff) => {
+                                    return Ok(LoopExit::Handoff(format!(
+                                        "{handoff} (step {})",
+                                        tracker.step()
+                                    )))
+                                }
+                                None => continue,
+                            }
                         }
                         Err(e) => return Err(e),
                     };
@@ -286,8 +323,8 @@ impl ComputerUseExecutor {
                     }
                     // Capture a fresh screenshot for next step.
                     screenshot = match result.screenshot_b64.as_deref() {
-                        Some(_b64) => self.e2b.screenshot(sandbox).await?,
-                        None => self.e2b.screenshot(sandbox).await?,
+                        Some(_b64) => self.e2b.screenshot(&sandbox).await?,
+                        None => self.e2b.screenshot(&sandbox).await?,
                     };
                     let relpath = audit.save_screenshot(tracker.step(), &screenshot)?;
                     audit.append(&AuditRow {
@@ -300,7 +337,74 @@ impl ComputerUseExecutor {
                         budget: tracker.snapshot(),
                     })?;
                     prior_actions.push(format!("step {}: {summary}", tracker.step()));
+                    // Take a snapshot at the configured cadence so a
+                    // SnapshotResetRetry has fresh state to seed from.
+                    if coordinator.should_snapshot(tracker.step()) {
+                        coordinator.record_snapshot(restart::take_snapshot(
+                            &screenshot,
+                            tracker.step(),
+                            &req.system_prompt,
+                            &prior_actions,
+                        ));
+                    }
                 }
+            }
+        }
+    }
+
+    /// Consult the restart coordinator on a transient failure. Returns
+    /// `Ok(None)` when the loop should retry (state has already been
+    /// reset / context restored), `Ok(Some(reason))` when the caller
+    /// should fall through to handoff with the given reason. Errors
+    /// only on a fresh sandbox open / restore failure.
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_restart(
+        &self,
+        err: &CuError,
+        stage: &'static str,
+        profile: &Profile,
+        coordinator: &mut RestartCoordinator,
+        sandbox: &mut Sandbox,
+        screenshot: &mut Vec<u8>,
+        system_prompt: &mut String,
+        base_system_prompt: &str,
+    ) -> Result<Option<String>, CuError> {
+        match coordinator.should_restart(err) {
+            RestartDecision::Continue => Ok(Some(format!("{stage} failed: {err}"))),
+            RestartDecision::Bail => {
+                emit_restart_event(stage, coordinator.attempts(), Some(false));
+                Ok(Some(format!(
+                    "{stage} failed (retries exhausted): {err}"
+                )))
+            }
+            RestartDecision::Retry { with_context } => {
+                emit_restart_event(stage, coordinator.attempts(), None);
+                if !with_context {
+                    if let Some(snap) = coordinator.last_snapshot().cloned() {
+                        // Re-seed prompt + screenshot from snapshot.
+                        // Map the static-string Invariant into a
+                        // CuError::Protocol so the loop can surface it
+                        // through the existing taxonomy.
+                        restart::restore_from(&snap, system_prompt, screenshot)
+                            .map_err(|e| CuError::Protocol(e.to_string()))?;
+                    } else {
+                        // No snapshot yet — reset the prompt to the
+                        // base; the first fresh step starts clean.
+                        *system_prompt = base_system_prompt.to_string();
+                    }
+                    // Best-effort close of the wedged sandbox; open a
+                    // fresh one. The pool slot keeps the original
+                    // entry — its TTL reaper will evict it. The fresh
+                    // sandbox lives only for this dispatch.
+                    let _ = self.e2b.close_sandbox(sandbox).await;
+                    *sandbox = self.e2b.open_sandbox(&profile.sandbox_template).await?;
+                    *screenshot = self.e2b.screenshot(sandbox).await?;
+                }
+                let backoff = u64::from(coordinator.backoff_ms());
+                if backoff > 0 {
+                    tokio::time::sleep(Duration::from_millis(backoff)).await;
+                }
+                Ok(None)
             }
         }
     }

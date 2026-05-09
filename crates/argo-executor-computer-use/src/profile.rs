@@ -9,6 +9,7 @@
 //! support-triage worker needs `desktop_full` it adds a profile
 //! row in the TOML manifest, no code change here).
 
+use crate::restart::RestartStrategy;
 use crate::CuError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -64,6 +65,13 @@ pub struct Profile {
     /// per-profile so a model upgrade is an explicit edit.
     #[serde(default = "default_model")]
     pub model: String,
+    /// Optional restart strategy. When absent, defaults to
+    /// [`RestartStrategy::None`] — pre-existing one-shot dispatch
+    /// behaviour. Operators opt into snapshot/reset/retry-with-context
+    /// recovery by adding a `[profiles.<name>.restart]` block. See
+    /// [`crate::restart`] for the full schema.
+    #[serde(default)]
+    pub restart: RestartStrategy,
 }
 
 impl Default for Profile {
@@ -82,6 +90,7 @@ impl Default for Profile {
             screen_width: default_screen_width(),
             screen_height: default_screen_height(),
             model: default_model(),
+            restart: RestartStrategy::default(),
         }
     }
 }

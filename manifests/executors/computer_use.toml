@@ -21,3 +21,19 @@ max_steps = 50
 screen_width = 1280
 screen_height = 800
 model = "claude-opus-4-7"
+
+# Optional restart strategy. When absent, defaults to one-shot dispatch
+# (existing behaviour). See `crates/argo-executor-computer-use/src/restart.rs`.
+#
+# Re-prompt the same sandbox up to 3 times with a 500ms backoff:
+# [profiles.marketplace_browser.restart]
+# kind = "retry_with_context"
+# max_attempts = 3
+# backoff_ms = 500
+#
+# Or: snapshot every 3 successful steps, allow up to 2 fresh-sandbox
+# resets per dispatch:
+# [profiles.marketplace_browser.restart]
+# kind = "snapshot_reset_retry"
+# max_attempts = 2
+# snapshot_every_n_steps = 3
