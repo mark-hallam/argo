@@ -1,0 +1,23 @@
+# Action: flag_risk_factor (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. Routing-only — hands the case to the on-call
+# clinician. No patient comms and no EMR write fire from this action;
+# the clinician decides next steps via their existing tools.
+
+action_type       = "flag_risk_factor"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+patient_id  = "string (PT-####)"
+flag_type   = "allergy | contraindication | red_flag_symptom"
+severity    = "low | medium | high"
+source      = "intake_form | phone | portal_message"
+summary     = "one-line, NO clinical detail or free-text quotes"
+
+[routing_rules]
+red_flag_symptom_high  = "Page on-call clinician immediately; tell caller to call 911 if symptom is active."
+allergy_medium         = "Queue clinician review; do not auto-update the EMR allergy list."
+contraindication_medium = "Queue clinician review before the booked procedure."

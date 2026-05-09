@@ -1,0 +1,140 @@
+schema_version = "1"
+
+[vertical]
+id          = "healthcare-intake"
+name        = "Healthcare — Intake Coordinator"
+description = "Front-desk intake (Avery) for an outpatient clinic. Schedules appointments, verifies insurance benefits via a mocked payer, sends pre-visit prep, flags risk factors for clinician review, and updates patient records — every action that touches PHI is human-gated. Synthetic patient data only; no real PHI in repo."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["healthcare", "intake", "scheduling", "insurance", "phi-gated", "demo"]
+
+[role]
+system_prompt = "system_prompt.md"
+persona       = "persona.toml"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory_schema.toml"
+
+[skills]
+bundle = "skills/"
+
+[evaluation]
+suites = ["eval/seeds.jsonl"]
+
+[mcp_servers]
+gcal  = { transport = "stdio", command = "argo-mcp-connector-gcal",  args = [] }
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
+
+[escalation]
+# Action-level approval gates live in [actions.<name>].requires_approval
+# below — this section names the BUILT-IN TOOLS that always require
+# human approval (matches the finance-ar shape). Healthcare-intake
+# uses delegate_task as its escalation tool because flag_risk_factor
+# routing flows through it.
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 1
+escalate_to             = "clinician"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Healthcare Intake"
+
+# Action vocabulary. Per-action operator notes (NotifyChannel, payload
+# shapes) live in `actions/*.toml`; the inline declaration is what the
+# OS validates emissions against (see crates/argo-vertical).
+
+[actions]
+
+[actions.schedule_appointment]
+risk              = "low"
+requires_approval = false
+description       = "Book a slot in the provider's calendar. Auto-approved — slot bookings are reversible; event body never carries clinical detail."
+executor          = { kind = "mcp", server = "gcal", tool = "events.insert", budget_usd = 0.05 }
+platforms         = ["gcal"]
+instruction_template = """
+# Schedule appointment for `{{ payload.patient_id }}`
+Provider: `{{ payload.provider }}` — Slot: `{{ payload.slot_iso }}` ({{ payload.duration_minutes }} min) — Reason: `{{ payload.reason }}`.
+Use patient_id ONLY in the calendar event title. Never include diagnoses, medications, or free-text clinical notes in the event body.
+"""
+
+[actions.verify_insurance]
+risk              = "high"
+requires_approval = true
+description       = "Verify a patient's insurance coverage and benefits against a mocked payer. Approval-gated — the payer response can flip downstream billing."
+executor          = "human"
+platforms         = ["payer"]
+instruction_template = """
+# Verify insurance for `{{ payload.patient_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Payer: `{{ payload.payer }}` — Member: `{{ payload.member_id }}` — Service: `{{ payload.service_date }}`.
+Record coverage + copay + deductible in `insurance_status` memory. Do NOT email the patient or post to the EMR — both are separate gates.
+"""
+
+[actions.send_prep_instructions]
+risk              = "medium"
+requires_approval = true
+description       = "Email pre-visit prep instructions (fasting, paperwork, parking). Approval-gated patient-facing comms."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = """
+# Send prep instructions for `{{ payload.appointment_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Recipient: `{{ payload.recipient_email }}` — Visit: `{{ payload.visit_type }}` on `{{ payload.appointment_iso }}`.
+
+Body to send:
+
+{{ payload.body }}
+
+Use only patient-facing prep facts. Never include lab results, diagnoses, or medication history in the body.
+"""
+
+[actions.flag_risk_factor]
+risk              = "high"
+requires_approval = true
+description       = "Flag an allergy / contraindication / red-flag symptom for clinician review. Routing-only — no patient comms, no EMR write."
+executor          = "human"
+instruction_template = """
+# Flag risk factor for `{{ payload.patient_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Type: `{{ payload.flag_type }}` — Severity: `{{ payload.severity }}` — Source: `{{ payload.source }}`.
+Summary: `{{ payload.summary }}`.
+Hand the case to the on-call clinician. Do not contact the patient and do not edit the EMR from this action.
+"""
+
+[actions.update_patient_record]
+risk              = "high"
+requires_approval = true
+description       = "Apply a non-clinical correction (contact info, insurance card, preferred name). Approval-gated — EMR audit chain demands a named approver."
+executor          = "human"
+instruction_template = """
+# Update patient record for `{{ payload.patient_id }}`
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+Field: `{{ payload.field }}` — Old: `{{ payload.old_value | default(value="(blank)") }}` — New: `{{ payload.new_value }}` — Source: `{{ payload.source }}`.
+Only non-clinical corrections are valid. Diagnosis / medication / allergy edits go through the EMR's clinical-edit path — refuse and escalate.
+"""
+
+[actions.send_prep_instructions.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.verify_insurance.retry]
+max_attempts = 2
+
+[actions.flag_risk_factor.retry]
+max_attempts = 1
+
+[actions.update_patient_record.retry]
+max_attempts = 1

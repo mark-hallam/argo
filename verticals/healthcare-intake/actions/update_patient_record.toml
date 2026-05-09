@@ -1,0 +1,22 @@
+# Action: update_patient_record (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. Non-clinical corrections only. The audit
+# chain on the EMR demands a named approver per edit, so even the
+# innocuous "phone number changed" path runs through the gate.
+
+action_type       = "update_patient_record"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+patient_id  = "string (PT-####)"
+field       = "name | preferred_name | phone | email | address | insurance_card | preferred_pronoun"
+old_value   = "previous value (may be blank)"
+new_value   = "new value"
+source      = "phone | portal | written_request"
+
+[refuse_paths]
+clinical_field = "Diagnoses, medications, allergies, lab values are NOT valid here. Refuse and escalate to a clinician via the EMR's clinical-edit path."
+identity_field = "Legal-name changes require a written request + ID; refuse phone-only requests."

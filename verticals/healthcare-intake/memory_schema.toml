@@ -1,0 +1,36 @@
+schema_version = "1"
+
+# Memory entries hold POINTERS to patient records, not the records
+# themselves. No clinical free-text, lab values, or medication lists
+# live here — that data stays in the EMR. The patient_id is the only
+# identifier permitted to leave the audit boundary.
+
+[[entry]]
+key = "patient_history"
+type = "list-of-objects"
+purpose = "Per-patient intake state. Each row carries: patient_id, last_visit_iso, last_intake_iso, preferred_provider, status (active|inactive|deceased), notes_pointer (EMR ref string only — no free-text)."
+
+[[entry]]
+key = "appointment_history"
+type = "list-of-objects"
+purpose = "Booked appointments. Each row carries: appointment_id, patient_id, provider, slot_iso, duration_minutes, visit_type, status (booked|completed|cancelled|no_show), source_ref."
+
+[[entry]]
+key = "insurance_status"
+type = "list-of-objects"
+purpose = "Verified insurance results. Each row carries: patient_id, payer, member_id, plan, coverage_status (active|inactive|pending), copay_usd, deductible_remaining_usd, verified_at, approved_by, evidence_ref."
+
+[[entry]]
+key = "risk_flags"
+type = "list-of-objects"
+purpose = "Clinician-review queue. Each row carries: patient_id, flag_type (allergy|contraindication|red_flag_symptom), severity (low|medium|high), summary (one-line, no clinical detail), source (intake_form|phone|portal_message), routed_at, routed_to, outcome."
+
+[[entry]]
+key = "prep_sends"
+type = "list-of-objects"
+purpose = "Pre-visit prep email history. Each row carries: appointment_id, sent_at, recipient_email, subject, visit_type, approved_by, message_id."
+
+[[entry]]
+key = "record_updates"
+type = "list-of-objects"
+purpose = "Audit trail for non-clinical record edits. Each row carries: patient_id, field, old_value, new_value, source, applied_at, approved_by."

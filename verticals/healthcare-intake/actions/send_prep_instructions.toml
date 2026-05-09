@@ -1,0 +1,25 @@
+# Action: send_prep_instructions (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Email. Pre-visit prep emails are templated and
+# low-risk — the operator approves the body before send. Stricter
+# operators can flip notify_channel to Human for fully-manual review
+# without changing the executor wiring.
+
+action_type       = "send_prep_instructions"
+risk              = "medium"
+requires_approval = true
+notify_channel    = "Email"
+executor          = "mcp:gmail/gmail.send"
+budget_usd        = 0.05
+
+[payload_shape]
+appointment_id    = "string"
+recipient_email   = "string — patient or guardian (pediatric)"
+subject           = "string — leads with appointment date + visit type"
+body              = "string — fasting, paperwork, parking. NO clinical detail."
+visit_type        = "string — physical | bloodwork | imaging | follow_up | new_patient"
+appointment_iso   = "RFC3339 timestamp"
+
+[content_rules]
+allowed_topics = ["fasting", "what to bring", "paperwork", "parking", "arrival window"]
+forbidden      = ["lab values", "diagnosis names", "medication lists", "allergy lists", "prior visit notes"]

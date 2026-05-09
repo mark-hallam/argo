@@ -1,0 +1,81 @@
+{
+  "clinic": "Birchwood Family Practice (synthetic — demo only)",
+  "today_iso": "2026-05-09",
+  "providers": [
+    {"id": "DR-PATEL", "name": "Dr. R. Patel", "specialty": "Family medicine"},
+    {"id": "DR-LIM",   "name": "Dr. M. Lim",   "specialty": "Internal medicine"},
+    {"id": "DR-NUNEZ", "name": "Dr. S. Nunez", "specialty": "Pediatrics"}
+  ],
+  "patients": [
+    {
+      "patient_id": "PT-1042",
+      "preferred_name": "M.",
+      "dob_iso": "1979-04-12",
+      "phone": "555-010-2210",
+      "email": "pt1042@example.com",
+      "insurance": {
+        "payer": "Aetna",
+        "member_id": "AET-X9-XXXXXXX",
+        "verified_at": "2026-04-02"
+      },
+      "preferred_provider": "DR-LIM",
+      "notes_pointer": "EMR://patient/PT-1042"
+    },
+    {
+      "patient_id": "PT-2017",
+      "preferred_name": "J.",
+      "dob_iso": "1965-09-23",
+      "phone": "555-010-3344",
+      "email": "pt2017@example.com",
+      "insurance": {
+        "payer": "BlueShield",
+        "member_id": "BS-44-XXXXXXX",
+        "verified_at": "2026-03-18"
+      },
+      "preferred_provider": "DR-PATEL",
+      "notes_pointer": "EMR://patient/PT-2017"
+    },
+    {
+      "patient_id": "PT-3091",
+      "preferred_name": "K.",
+      "dob_iso": "1991-12-04",
+      "phone": "555-010-7711",
+      "email": "pt3091@example.com",
+      "insurance": {
+        "payer": "UnitedHealth",
+        "member_id": "UHC-77-XXXXXXX",
+        "verified_at": "2026-02-25"
+      },
+      "preferred_provider": "DR-PATEL",
+      "notes_pointer": "EMR://patient/PT-3091"
+    },
+    {
+      "patient_id": "PT-4112",
+      "preferred_name": "T.",
+      "dob_iso": "1948-07-30",
+      "phone": "555-010-9988",
+      "email": "pt4112@example.com",
+      "insurance": {
+        "payer": "Medicare",
+        "member_id": "MCR-2A-XXXXXXX",
+        "verified_at": "2026-04-29"
+      },
+      "preferred_provider": "DR-LIM",
+      "notes_pointer": "EMR://patient/PT-4112"
+    },
+    {
+      "patient_id": "PT-5208",
+      "preferred_name": "A.",
+      "dob_iso": "2018-01-15",
+      "phone": "555-010-4400",
+      "email": "guardian-pt5208@example.com",
+      "insurance": {
+        "payer": "Cigna",
+        "member_id": "CIG-83-XXXXXXX",
+        "verified_at": "2026-03-04"
+      },
+      "preferred_provider": "DR-NUNEZ",
+      "notes_pointer": "EMR://patient/PT-5208"
+    }
+  ]
+}

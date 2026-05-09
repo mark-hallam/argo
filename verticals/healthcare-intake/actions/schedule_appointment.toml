@@ -1,0 +1,26 @@
+# Action: schedule_appointment (canonical declaration in ../vertical.toml)
+#
+# Notify channel: none (auto-executed against the provider's calendar).
+# This is the single autonomous-safe action in the vertical — the
+# slot booking is reversible and the calendar event body never carries
+# PHI beyond the patient_id.
+
+action_type       = "schedule_appointment"
+risk              = "low"
+requires_approval = false
+notify_channel    = "none"
+executor          = "mcp:gcal/events.insert"
+budget_usd        = 0.05
+
+# Payload shape the worker emits.
+[payload_shape]
+patient_id        = "string (PT-####)"
+provider          = "string (DR-####)"
+slot_iso          = "RFC3339 timestamp"
+duration_minutes  = "integer (15 | 30 | 45 | 60)"
+reason            = "short string — visit type, NEVER a diagnosis"
+source_ref        = "optional — phone | portal | walk_in"
+
+[failure_modes]
+slot_taken           = "Re-fetch availability and offer a fresh slot."
+provider_unavailable = "Suggest the patient's secondary provider or escalate to operator."

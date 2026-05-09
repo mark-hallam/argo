@@ -1,0 +1,25 @@
+# Action: verify_insurance (canonical declaration in ../vertical.toml)
+#
+# Notify channel: Human. The mocked payer response can flip downstream
+# billing decisions — coverage, copay, deductible — so the operator
+# approves the result before it lands in the `insurance_status` memory
+# entry. Real payer integrations (837/270/271) are deferred to a v3
+# brief; this action runs against a synthetic payer fixture.
+
+action_type       = "verify_insurance"
+risk              = "high"
+requires_approval = true
+notify_channel    = "Human"
+executor          = "human"
+
+[payload_shape]
+patient_id    = "string (PT-####)"
+payer         = "string — Aetna | BlueShield | UnitedHealth | Medicare | Cigna"
+member_id     = "string — MASKED in audit logs at INFO"
+plan          = "optional — plan name"
+service_date  = "ISO date — must match the booked appointment"
+
+[failure_modes]
+payer_unavailable      = "Try once more, then escalate to operator with the request envelope."
+coverage_inactive      = "Record `inactive`; do NOT email the patient — operator decides next step."
+member_id_not_found    = "Refuse and route to update_patient_record so the operator can correct the card on file."
