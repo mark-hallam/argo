@@ -29,6 +29,7 @@ mod prompt;
 pub mod roster;
 mod store;
 mod store_channels;
+mod store_sql;
 mod types;
 pub mod worker_budget;
 

@@ -1,0 +1,177 @@
+//! SQL plumbing for [`IdentityStore`](crate::store::IdentityStore):
+//! schema-ensure helpers, the `worker` SELECT projection, row decoding,
+//! and shared serde helpers. Extracted so `store.rs` stays under the
+//! 500-LOC ceiling; mirrors prior splits like `app.rs` + `app_navigation.rs`.
+//!
+//! All items are crate-private — the public API is unchanged.
+
+use crate::{CircuitState, Duty, MemoryNs, MemoryScope, Persona, Role, VoiceProfile, Worker, WorkerId};
+use argo_types::{ArgoError, ArgoResult, TenantId};
+use serde::Serialize;
+use sqlx::Row;
+use uuid::Uuid;
+
+pub(crate) const IDENTITY_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/12__worker_identity.sql");
+// Documentation-only: ALTER TABLE statements applied via
+// `ensure_worker_charter_columns` (PRAGMA-based idempotent path,
+// mirroring `ensure_role_columns`).
+const _WORKER_CHARTER_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/30__worker_charter.sql");
+
+pub(crate) const WORKER_SELECT: &str = "SELECT
+    w.id, w.tenant_id, w.vertical_id, w.memory_scope,
+    w.auto_approval_json, w.channels_json,
+    w.charter_md, w.kpi_json,
+    p.name, p.voice_preamble, p.avatar, p.bio, p.builder_attribution,
+    p.provenance_chain_json,
+    r.charter, r.kpis_json, r.escalation
+FROM worker w
+JOIN persona p ON p.id = w.persona_id
+JOIN role r ON r.worker_id = w.id
+WHERE w.id = ? AND w.tenant_id = ?";
+
+pub(crate) async fn ensure_worker_charter_columns(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    for (name, ty) in [("charter_md", "TEXT"), ("kpi_json", "TEXT")] {
+        if !columns.iter().any(|existing| existing == name) {
+            let sql = format!("ALTER TABLE worker ADD COLUMN {name} {ty}");
+            sqlx::query(&sql)
+                .execute(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("add worker.{name}: {e}")))?;
+        }
+    }
+    Ok(())
+}
+
+pub(crate) async fn ensure_role_columns(pool: &sqlx::Pool<sqlx::Sqlite>) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(role)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("role table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    for (name, ty) in [
+        ("worker_id", "TEXT"),
+        ("charter", "TEXT"),
+        ("kpis_json", "TEXT"),
+        ("escalation", "TEXT"),
+    ] {
+        if !columns.iter().any(|existing| existing == name) {
+            let sql = format!("ALTER TABLE role ADD COLUMN {name} {ty}");
+            sqlx::query(&sql)
+                .execute(pool)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("add role.{name}: {e}")))?;
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn kpis_to_json(kpis: Option<&serde_json::Value>) -> ArgoResult<Option<String>> {
+    kpis.map(|v| {
+        serde_json::to_string(v)
+            .map_err(|e| ArgoError::Provider(format!("serialize kpis: {e}")))
+    })
+    .transpose()
+}
+
+pub(crate) async fn insert_duty(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    worker: &Worker,
+    role_id: &str,
+    duty: &Duty,
+    now: i64,
+) -> ArgoResult<()> {
+    sqlx::query(
+        "INSERT INTO duty (
+            id, worker_id, role_id, tenant_id, cron, entry_action, description, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(Uuid::now_v7().to_string())
+    .bind(worker.id.to_string())
+    .bind(role_id)
+    .bind(worker.tenant_id.to_string())
+    .bind(&duty.cron)
+    .bind(&duty.entry_action)
+    .bind(&duty.description)
+    .bind(now)
+    .execute(&mut **tx)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("insert duty: {e}")))?;
+    Ok(())
+}
+
+pub(crate) fn worker_from_row(
+    row: sqlx::sqlite::SqliteRow,
+    duties: Vec<Duty>,
+) -> ArgoResult<Worker> {
+    let id = parse_worker_id(row.get("id"))?;
+    let tenant_id = parse_tenant_id(row.get("tenant_id"))?;
+    let scope = MemoryScope::parse(row.get("memory_scope"))
+        .ok_or_else(|| ArgoError::Provider("unknown memory scope".into()))?;
+    let persona = Persona {
+        name: row.get("name"),
+        voice_profile: VoiceProfile {
+            preamble: row.get("voice_preamble"),
+        },
+        avatar: row.get("avatar"),
+        bio: row.get("bio"),
+        builder_attribution: row.get("builder_attribution"),
+        provenance_chain: from_json(row.get("provenance_chain_json"), "persona provenance")?,
+    };
+    let role = Role {
+        charter: row.get("charter"),
+        duties,
+        kpis: from_json(row.get("kpis_json"), "role kpis")?,
+        escalation: row.get("escalation"),
+    };
+    let charter: Option<String> = row.get("charter_md");
+    let kpis = match row.get::<Option<String>, _>("kpi_json") {
+        Some(raw) => Some(
+            serde_json::from_str(&raw)
+                .map_err(|e| ArgoError::Provider(format!("parse worker kpi_json: {e}")))?,
+        ),
+        None => None,
+    };
+    Ok(Worker {
+        id,
+        tenant_id,
+        vertical_id: row.get("vertical_id"),
+        memory_namespace: MemoryNs::new(tenant_id, id, scope),
+        persona,
+        role,
+        auto_approval: from_json(row.get("auto_approval_json"), "auto approval")?,
+        circuit_state: CircuitState::Closed,
+        channels: from_json(row.get("channels_json"), "channels")?,
+        charter,
+        kpis,
+    })
+}
+
+pub(crate) fn to_json<T: Serialize>(value: &T, label: &str) -> ArgoResult<String> {
+    serde_json::to_string(value)
+        .map_err(|e| ArgoError::Provider(format!("serialize {label}: {e}")))
+}
+
+pub(crate) fn from_json<T: serde::de::DeserializeOwned>(value: &str, label: &str) -> ArgoResult<T> {
+    serde_json::from_str(value).map_err(|e| ArgoError::Provider(format!("parse {label}: {e}")))
+}
+
+pub(crate) fn parse_worker_id(value: &str) -> ArgoResult<WorkerId> {
+    value
+        .parse()
+        .map_err(|e| ArgoError::Provider(format!("worker id '{value}': {e}")))
+}
+
+pub(crate) fn parse_tenant_id(value: &str) -> ArgoResult<TenantId> {
+    Uuid::parse_str(value)
+        .map(TenantId)
+        .map_err(|e| ArgoError::Provider(format!("tenant id '{value}': {e}")))
+}
