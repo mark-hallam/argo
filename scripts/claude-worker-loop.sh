@@ -138,8 +138,13 @@ Your job — ONE brief, then exit:
   2. cd /tmp/$BRIEF_ID && git checkout -b $FAMILY-$BRIEF_ID
   3. Implement the brief inside its may-touch list.
   4. Run verification per SWARM_PROTOCOL.md — crate-scoped clippy +
-     tests for crates in the may-touch list. Claude tabs are exempt
-     from the workspace clippy step (codex-only via pre-push gate).
+     tests for crates in the may-touch list (~30s-2min each).
+  4b. Run cross-crate drift check before pushing:
+        bash scripts/workspace-clippy-fast-fail.sh
+      Cold first run ~9min; warm after that. With codex offline this
+      is the only workspace-clippy gate; per-crate clippy alone misses
+      cross-crate drift (struct fields, exhaustive matches, trait
+      signature changes). Run in background while drafting PR body.
   5. Apply HARD RULE 8 pre-push flight check.
   6. git push -u origin $FAMILY-$BRIEF_ID
   7. gh pr create with title and body matching the brief.

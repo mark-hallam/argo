@@ -1,0 +1,5 @@
+// BUILD_STATUS_HISTORY.ndjson — append-only log of ledger row transitions.
+// Each subsequent line is a single JSON object; this header line is ignored.
+// Format: {"ts","brief","actor","transition","pr","note"}
+// Populated forward-only by scripts/append-history.sh starting 2026-05-09.
+// Older transitions live in their original BUILD_STATUS.md row notes.

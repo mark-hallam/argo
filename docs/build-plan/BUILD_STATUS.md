@@ -30,6 +30,17 @@ When you claim or update a row, commit BUILD_STATUS.md with
 message `status: <action> <brief-id>` (e.g. `status: claim
 C-gmail`, `status: C-gmail in review (#812)`).
 
+> **Row-note discipline (forward-only, 2026-05-09 amendment):** When
+> writing or rewriting a row note, keep it ≤ 2 sentences capturing
+> CURRENT state only. Append historical detail (worker self-exit
+> notes, sweep recovery details, prior PR rebase narratives) to
+> `BUILD_STATUS_HISTORY.ndjson` via `scripts/append-history.sh`. This
+> reduces ledger merge churn and keeps the table greppable. Rows
+> with pre-amendment long notes are NOT migrated — they age out
+> naturally as their next status transition rewrites them with the
+> new convention. Conductors and workers both follow this rule on
+> any row they touch from now on.
+
 ---
 
 ## Active queue
