@@ -23,6 +23,7 @@
 pub mod ab_test;
 mod ab_test_stats;
 mod artifact;
+pub mod audit_reader;
 pub mod canary;
 pub mod conflicts;
 pub mod deps;
@@ -76,6 +77,7 @@ pub use publish::{
     list_mock_skill_tags, mock_registry_root, publish_mock_skill, unpublish_mock_skill_tag,
     SkillPublishRecord, SkillPublishSource, SkillTag, SkillUnpublishRecord,
 };
+pub use audit_reader::{AuditRow, AuditStoreReader, SessionStoreAuditReader};
 pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore};
 pub use eval_runner::{
     run_evals, ActualOutcome, EvalExecutor, EvalReport, DEFAULT_EVAL_PASS_RATE_THRESHOLD,

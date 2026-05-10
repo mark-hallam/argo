@@ -27,6 +27,7 @@
 //! Final score = `clamp(base - retry_penalty - latency_penalty -
 //! p99_penalty, 0, 100)` cast to `u8`.
 
+use crate::audit_reader::AuditStoreReader;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SkillId};
 use chrono::{DateTime, Utc};
@@ -64,6 +65,110 @@ impl Default for QualityInputs {
             p99_latency_ms: 0.0,
         }
     }
+}
+
+impl QualityInputs {
+    /// Derive operational inputs from the audit log for one skill.
+    ///
+    /// Walks the rows returned by the [`AuditStoreReader`],
+    /// aggregating `tool_result` payloads into:
+    /// - `success_rate` = `succeeded / total` across rows whose
+    ///   `is_error` field is `false` vs `true`.
+    /// - `avg_latency_ms` = arithmetic mean of `duration_ms`.
+    /// - `p99_latency_ms` = 99th percentile of `duration_ms`
+    ///   (nearest-rank).
+    /// - `retry_count` = number of failed rows (i.e. rows with
+    ///   `is_error == true`). The platform records one
+    ///   `tool_result` per dispatch attempt, so re-issued failed
+    ///   calls are counted naturally without a separate retry
+    ///   audit kind.
+    ///
+    /// `since` is forwarded to the reader; the aggregator also
+    /// drops any row dated before the cutoff as defence in depth.
+    ///
+    /// Rows missing the expected payload fields (`is_error`,
+    /// `duration_ms`) are skipped with a TRACE log line — a single
+    /// malformed historical row must not fail a periodic
+    /// recompute (the audit table is append-only and may carry
+    /// payloads written by an older schema).
+    ///
+    /// When the reader returns zero rows for the skill, the
+    /// constructor returns [`QualityInputs::default`] (`Ok`, not
+    /// `Err`) — a never-run skill has no quality data, not
+    /// unknowable quality.
+    ///
+    /// # Errors
+    /// Propagates errors from the [`AuditStoreReader`].
+    pub async fn from_audit_history(
+        skill_id: &SkillId,
+        store: &dyn AuditStoreReader,
+        since: Option<DateTime<Utc>>,
+    ) -> ArgoResult<Self> {
+        let rows = store.rows_for_skill(skill_id, since).await?;
+        let mut total: u32 = 0;
+        let mut failed: u32 = 0;
+        let mut durations: Vec<f64> = Vec::with_capacity(rows.len());
+        for row in &rows {
+            if row.kind != "tool_result" {
+                continue;
+            }
+            if let Some(cutoff) = since {
+                if row.created_at < cutoff {
+                    continue;
+                }
+            }
+            let Some(is_error) = row.payload.get("is_error").and_then(serde_json::Value::as_bool)
+            else {
+                tracing::trace!(
+                    target: "argo_skill::quality",
+                    skill_id = %skill_id,
+                    "skipping audit row: missing is_error"
+                );
+                continue;
+            };
+            let Some(duration_ms) =
+                row.payload.get("duration_ms").and_then(serde_json::Value::as_f64)
+            else {
+                tracing::trace!(
+                    target: "argo_skill::quality",
+                    skill_id = %skill_id,
+                    "skipping audit row: missing duration_ms"
+                );
+                continue;
+            };
+            total = total.saturating_add(1);
+            if is_error {
+                failed = failed.saturating_add(1);
+            }
+            durations.push(duration_ms);
+        }
+        if total == 0 {
+            return Ok(Self::default());
+        }
+        let succeeded = total - failed;
+        let success_rate = f64::from(succeeded) / f64::from(total);
+        let sum_ms: f64 = durations.iter().copied().sum();
+        let avg_latency_ms = sum_ms / durations.len() as f64;
+        let p99_latency_ms = nearest_rank_percentile(&mut durations, 0.99);
+        Ok(Self {
+            success_rate,
+            avg_latency_ms,
+            retry_count: failed,
+            p99_latency_ms,
+        })
+    }
+}
+
+fn nearest_rank_percentile(values: &mut [f64], p: f64) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    // Nearest-rank: index = ceil(p * N) - 1, clamped into [0, N-1].
+    let n = values.len();
+    let raw = (p * n as f64).ceil() as usize;
+    let idx = raw.saturating_sub(1).min(n - 1);
+    values[idx]
 }
 
 /// Compute the quality score from inputs. See module docs for the

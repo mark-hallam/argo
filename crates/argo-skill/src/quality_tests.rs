@@ -1,6 +1,8 @@
 //! Unit tests for `crate::quality`.
 
 use super::*;
+use crate::audit_reader::{AuditRow, AuditStoreReader};
+use async_trait::async_trait;
 use chrono::TimeZone;
 
 fn at(hour: u32) -> DateTime<Utc> {
@@ -221,4 +223,167 @@ async fn latest_returns_none_for_unscored_skill() {
     let store = open_store().await;
     let skill = SkillId::new();
     assert!(store.latest(skill).await.unwrap().is_none());
+}
+
+/// In-memory [`AuditStoreReader`] for unit tests. Rows are
+/// returned verbatim; the caller is responsible for excluding
+/// rows older than `since` (matching the trait contract).
+struct FakeAuditReader {
+    rows: Vec<AuditRow>,
+}
+
+#[async_trait]
+impl AuditStoreReader for FakeAuditReader {
+    async fn rows_for_skill(
+        &self,
+        _skill_id: &SkillId,
+        since: Option<DateTime<Utc>>,
+    ) -> ArgoResult<Vec<AuditRow>> {
+        Ok(self
+            .rows
+            .iter()
+            .filter(|r| match since {
+                Some(cutoff) => r.created_at >= cutoff,
+                None => true,
+            })
+            .cloned()
+            .collect())
+    }
+}
+
+fn tool_result(is_error: bool, duration_ms: f64, at: DateTime<Utc>) -> AuditRow {
+    AuditRow {
+        kind: "tool_result".to_string(),
+        payload: serde_json::json!({
+            "tool": "demo",
+            "call_id": "abc",
+            "is_error": is_error,
+            "duration_ms": duration_ms,
+        }),
+        created_at: at,
+    }
+}
+
+#[tokio::test]
+async fn from_audit_empty_history_yields_default() {
+    let reader = FakeAuditReader { rows: Vec::new() };
+    let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, None)
+        .await
+        .unwrap();
+    assert_eq!(inputs, QualityInputs::default());
+}
+
+#[tokio::test]
+async fn from_audit_counts_success_and_failure() {
+    let rows = vec![
+        tool_result(false, 100.0, at(10)),
+        tool_result(false, 200.0, at(11)),
+        tool_result(true, 500.0, at(12)),
+        tool_result(false, 300.0, at(13)),
+    ];
+    let reader = FakeAuditReader { rows };
+    let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, None)
+        .await
+        .unwrap();
+    // 3 of 4 succeeded → 0.75
+    assert!((inputs.success_rate - 0.75).abs() < 1e-9);
+    // retry_count = number of failures = 1
+    assert_eq!(inputs.retry_count, 1);
+    // avg = (100 + 200 + 500 + 300) / 4 = 275
+    assert!((inputs.avg_latency_ms - 275.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn from_audit_since_excludes_old_rows() {
+    let rows = vec![
+        tool_result(true, 100.0, at(8)), // older than cutoff
+        tool_result(false, 200.0, at(10)),
+        tool_result(false, 400.0, at(11)),
+    ];
+    let reader = FakeAuditReader { rows };
+    let cutoff = at(9);
+    let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, Some(cutoff))
+        .await
+        .unwrap();
+    // Only the two newer rows count; both succeeded.
+    assert!((inputs.success_rate - 1.0).abs() < 1e-9);
+    assert_eq!(inputs.retry_count, 0);
+    assert!((inputs.avg_latency_ms - 300.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn from_audit_p99_uses_nearest_rank() {
+    // 10 rows: 9 fast + 1 slow. Nearest-rank p99 over 10
+    // samples lands on the top value (index 9, the slow one),
+    // so the constructor must surface the tail latency.
+    let mut rows = Vec::new();
+    for i in 0..9 {
+        rows.push(tool_result(false, 50.0, at(10) + chrono::Duration::seconds(i)));
+    }
+    rows.push(tool_result(false, 10_000.0, at(10) + chrono::Duration::seconds(20)));
+    let reader = FakeAuditReader { rows };
+    let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, None)
+        .await
+        .unwrap();
+    // 1.0 success rate; p99 picks the slow tail value.
+    assert!((inputs.success_rate - 1.0).abs() < 1e-9);
+    assert!(
+        (inputs.p99_latency_ms - 10_000.0).abs() < 1e-9,
+        "p99={} expected 10000",
+        inputs.p99_latency_ms
+    );
+}
+
+#[tokio::test]
+async fn from_audit_skips_malformed_rows_without_error() {
+    let rows = vec![
+        AuditRow {
+            kind: "tool_result".to_string(),
+            // missing is_error + duration_ms entirely
+            payload: serde_json::json!({"tool": "demo"}),
+            created_at: at(10),
+        },
+        tool_result(false, 100.0, at(11)),
+        AuditRow {
+            kind: "tool_result".to_string(),
+            // is_error present but duration_ms missing
+            payload: serde_json::json!({"tool": "demo", "is_error": false}),
+            created_at: at(12),
+        },
+        tool_result(true, 200.0, at(13)),
+    ];
+    let reader = FakeAuditReader { rows };
+    let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, None)
+        .await
+        .unwrap();
+    // Two well-formed rows: 1 success + 1 failure → 0.5 success
+    assert!((inputs.success_rate - 0.5).abs() < 1e-9);
+    assert_eq!(inputs.retry_count, 1);
+    assert!((inputs.avg_latency_ms - 150.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn from_audit_ignores_non_tool_result_rows() {
+    let rows = vec![
+        AuditRow {
+            kind: "tool_call".to_string(),
+            payload: serde_json::json!({"tool": "demo", "call_id": "x"}),
+            created_at: at(10),
+        },
+        tool_result(false, 200.0, at(11)),
+        AuditRow {
+            kind: "turn_start".to_string(),
+            payload: serde_json::json!({}),
+            created_at: at(12),
+        },
+        tool_result(true, 400.0, at(13)),
+    ];
+    let reader = FakeAuditReader { rows };
+    let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, None)
+        .await
+        .unwrap();
+    // Only the two tool_result rows count: 1/2 success, 1 retry.
+    assert!((inputs.success_rate - 0.5).abs() < 1e-9);
+    assert_eq!(inputs.retry_count, 1);
+    assert!((inputs.avg_latency_ms - 300.0).abs() < 1e-9);
 }
