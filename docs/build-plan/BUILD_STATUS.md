@@ -19,6 +19,20 @@
 > Target depth after replenishment: 30-40 total claude briefs.
 > **Skipping this rule has happened twice this session and is not
 > acceptable.**
+>
+> **CONDUCTOR HARD RULE — PR REVIEW AUTOMATION (operator directive
+> 2026-05-10):** at the START of every tick, after the queue-depth
+> check, count open PRs (`gh pr list --state open --json number --jq
+> '. | length'`). If **> 5**, spawn a `general-purpose` review agent
+> to triage them in parallel with the rest of the tick. The agent's
+> brief: per-PR status (mergeable/conflicting/stale), recommendation
+> (MERGE-NOW / FIX-with-recipe / CLOSE-AS-OBSOLETE / ESCALATE), under
+> 250 words per PR, total report under 1000 words. Conductor reads the
+> report and actions it (merge clean PRs, post fix-requests, close
+> obsolete, escalate as needed). This stops the long-tail of stale
+> PRs from accumulating unmonitored. The agent runs read-only — no
+> merges, no closes, no code changes; the conductor reserves all
+> mutation authority.
 
 **Updated by every agent on every state transition.** Always
 read from origin/main; never trust a stale local copy.
