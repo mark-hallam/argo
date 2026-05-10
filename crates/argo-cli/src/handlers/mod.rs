@@ -289,6 +289,7 @@ pub mod worker_metrics;
 pub mod worker_okr;
 pub mod worker_review;
 mod worker_review_md;
+mod worker_review_query;
 #[allow(dead_code)]
 pub mod worker_create;
 pub mod worker_costs;
