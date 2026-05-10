@@ -298,6 +298,8 @@ mod worker_review_md;
 mod worker_review_query;
 #[allow(dead_code)]
 pub mod worker_create;
+#[allow(dead_code)]
+mod worker_create_store;
 pub mod worker_costs;
 pub mod worker_list;
 pub mod worker_onboard;
