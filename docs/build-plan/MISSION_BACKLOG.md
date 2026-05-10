@@ -142,7 +142,7 @@ unblocks a mission claim.
 
 ### Claim 1: Real teammate
 
-39. Add `IdentityStore::update_worker` typed mutation API. `[NEW]`
+39. Add `IdentityStore::update_worker` typed mutation API. `[BRIEF: mission-identity-update-worker]`
 40. Add `IdentityStore::archive_worker` / `delete_worker`. `[NEW]`
 41. Wire `MemoryNs::compose_context` to layered hydration.
     `[BRIEF: mission-wire-memory-compose-context]`
@@ -223,7 +223,7 @@ unblocks a mission claim.
     `[NEW]`
 81. Build cross-tenant trust graph. `[NEW]`
 82. Build skill regression detector (quality drops >X% → demote).
-    `[NEW]`
+    `[BRIEF: mission-skill-regression-detector]`
 83. Build Forge as cron tick that picks lowest-quality skills. `[NEW]`
 84. Replace `StubForge` trait OR delete trait + rename
     `forge_optimize` as canonical. `[NEW]`
@@ -282,7 +282,7 @@ unblocks a mission claim.
 115. Wire outbound notify on Decision::Ask.
      `[BRIEF: mission-wire-outbound-notify-on-ask]`
 116. Add `is_imessage_webhook` to gateway dispatcher. `[BRIEF: mission-imessage-webhook-dispatcher]`
-117. Move voice route into channels dispatcher consistency. `[NEW]`
+117. Move voice route into channels dispatcher consistency. `[BRIEF: mission-voice-route-consistency]`
 118. Implement multi-step approval N-of-M.
      `[BRIEF: codex-multi-step-approval — DEFERRED-v1.x]`
 119. Build Discord channel.
