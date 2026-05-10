@@ -13,3 +13,4 @@ node_modules/
 .argo-test/
 BURST_PLAN.md
 book-output/
+.claude/

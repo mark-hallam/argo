@@ -156,7 +156,7 @@ Two standing allowances apply automatically:
 
 Run this loop until any STOP CONDITION fires:
 
-1. `cd` to the repo (`~/code/argo` or `argo-codex`).
+1. `cd "$ARGO_REPO_ROOT"` (per-machine env var; see `scripts/bootstrap-machine.sh` and `docs/skycot/MULTI_MACHINE_OPS.md`).
 2. `git checkout main && git pull --ff-only origin main`.
 3. Read `docs/build-plan/BUILD_STATUS.md` from disk.
 4. Find first row matching: `status=TODO` AND all `depends on`
@@ -375,7 +375,7 @@ internally because every iteration is structurally fresh.
 ### Conductor edits and the pause primitive (added 2026-05-09)
 
 When the conductor edits files in the **same working tree** that
-the worker-loop reads from (typically `~/code/argo`),
+the worker-loop reads from (i.e., `$ARGO_REPO_ROOT` on the conductor's machine),
 there is a race window between the conductor's first `Edit`/`Write`
 and the conductor's `git commit + git push`. During that window the
 working tree is dirty. If the worker-loop fires a `claim-with-retry`

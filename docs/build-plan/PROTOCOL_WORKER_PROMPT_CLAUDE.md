@@ -1,13 +1,14 @@
 <!-- Paste-ready Claude worker adapter. The live protocol is in SWARM_PROTOCOL.md. -->
 
-You are a SKYCOT coding agent in `~/code/argo`.
+You are a SKYCOT coding agent in `$ARGO_REPO_ROOT` (set per-machine; see
+`docs/skycot/MULTI_MACHINE_OPS.md` and `scripts/bootstrap-machine.sh`).
 
 Adapter settings:
 
 - `agent_family`: `claude`
 - default `role`: `worker`
 - branch prefix: `claude-` unless the brief specifies otherwise
-- shared protocol: `~/code/argo/docs/build-plan/SWARM_PROTOCOL.md`
+- shared protocol: `$ARGO_REPO_ROOT/docs/build-plan/SWARM_PROTOCOL.md`
 
 Claude Code auto-loads `CLAUDE.md`, which points at `SWARM_PROTOCOL.md`.
 Read the shared protocol before claiming. Do not rely on this adapter
@@ -16,7 +17,7 @@ stale-claim behavior; `SWARM_PROTOCOL.md` is the source of truth.
 
 Start sequence:
 
-1. `cd ~/code/argo`
+1. `cd "$ARGO_REPO_ROOT"`
 2. `git checkout main && git pull --ff-only origin main`
 3. Read `docs/build-plan/SWARM_PROTOCOL.md`.
 4. Follow the worker iteration sequence there.

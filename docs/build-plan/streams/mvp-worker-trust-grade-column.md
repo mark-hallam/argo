@@ -21,9 +21,14 @@ prereq merges.
 
 ## Approach (concrete)
 
-1. **Migration v47 + raw `47__worker_trust_grade.sql`.** Next free slot
-   on current main (39-46 occupied with multiple v45 collisions; 46 =
-   audit_principal). Adds two columns:
+1. **Migration v48 + raw `48__worker_trust_grade.sql`** (priority slot;
+   slot 47 is reserved for `mvp-identity-archive-worker` which was
+   authored first). At claim time, run `ls crates/argo-store/migrations/`
+   and `ls crates/argo-store/src/migrations/` — if v47 has already
+   merged, slot 48 is correct; if v47 has NOT merged but is CLAIMED,
+   still use 48 (siblings can land in either order). If 48 is also
+   taken, use the next free slot and renumber both filenames + the
+   versioned `mod.rs` match arm. Adds two columns:
    ```sql
    ALTER TABLE worker ADD COLUMN trust_grade INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE worker ADD COLUMN last_used_at TEXT NULL;
@@ -56,10 +61,10 @@ prereq merges.
 
 ## Files you may touch
 
-- `crates/argo-store/migrations/47__worker_trust_grade.sql` (NEW)
-- `crates/argo-store/src/migrations/v47.rs` (NEW, ≤ 80 LOC)
+- `crates/argo-store/migrations/48__worker_trust_grade.sql` (NEW; rename if 48 taken at claim time)
+- `crates/argo-store/src/migrations/v48.rs` (NEW, ≤ 80 LOC; rename if 48 taken)
 - `crates/argo-store/src/migrations/mod.rs` (1 mod decl, 1 match arm)
-- `crates/argo-store/src/lib_tests.rs` (schema-tip 46→47)
+- `crates/argo-store/src/lib_tests.rs` (schema-tip 46→48 if 47 already merged, else 46→48 directly)
 - `crates/argo-store/src/migration_reconciliation_tests.rs` (schema-tip)
 - `crates/argo-identity/src/store_sql.rs` (extend IDENTITY_SCHEMA)
 - `crates/argo-identity/src/store.rs` (new methods + worker_from_row)
@@ -76,7 +81,7 @@ prereq merges.
 
 ## Acceptance criteria
 
-- [ ] Migration v47 applies cleanly on fresh DB AND on a v46-state DB
+- [ ] Migration v48 (or whichever slot was free at claim time) applies cleanly on fresh DB AND on the prior-version-state DB
 - [ ] `set_worker_trust_grade` + `touch_worker_last_used` work
 - [ ] `Worker` struct exposes `trust_grade: u8` + `last_used_at: Option<...>`
 - [ ] 5 unit tests pass

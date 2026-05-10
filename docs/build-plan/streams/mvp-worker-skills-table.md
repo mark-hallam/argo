@@ -17,9 +17,11 @@ in this brief** — that lands in M4 once this prereq merges.
 
 ## Approach (concrete)
 
-1. **Migration v48 (or next free after v47 if `mvp-worker-trust-grade-column`
-   lands first; check at claim time and renumber if needed).** Raw +
-   versioned:
+1. **Migration v49 (priority slot; v47 reserved for `mvp-identity-archive-worker`,
+   v48 reserved for `mvp-worker-trust-grade-column`). Check at claim
+   time and use the next free slot if 49 is taken — renumber both
+   filenames + the versioned `mod.rs` match arm + schema-tip bumps.**
+   Raw + versioned:
    ```sql
    CREATE TABLE worker_skill (
      worker_id BLOB NOT NULL REFERENCES worker(id) ON DELETE CASCADE,
@@ -48,10 +50,8 @@ in this brief** — that lands in M4 once this prereq merges.
 
 ## Files you may touch
 
-- `crates/argo-store/migrations/4N__worker_skill.sql` (NEW; pick next
-  free slot at claim time — currently 47 free, will be 48 if trust-grade
-  prereq lands first)
-- `crates/argo-store/src/migrations/v4N.rs` (NEW, ≤ 80 LOC)
+- `crates/argo-store/migrations/49__worker_skill.sql` (NEW; rename to next free slot if 49 taken)
+- `crates/argo-store/src/migrations/v49.rs` (NEW, ≤ 80 LOC; rename if 49 taken)
 - `crates/argo-store/src/migrations/mod.rs` (1 mod decl, 1 match arm)
 - `crates/argo-store/src/lib_tests.rs` + `migration_reconciliation_tests.rs`
   (schema-tip bump)

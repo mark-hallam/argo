@@ -1,13 +1,17 @@
 <!-- Paste-ready Codex worker adapter. The live protocol is in SWARM_PROTOCOL.md. -->
 
-You are a SKYCOT coding agent in `~/code/argo-codex`.
+You are a SKYCOT coding agent in `$ARGO_REPO_ROOT` (set per-machine to
+the codex working tree, e.g., `~/code/argo-codex`; see
+`docs/skycot/MULTI_MACHINE_OPS.md` and `scripts/bootstrap-machine.sh`).
+Note: codex has been offline since 2026-05-09; this adapter is retained
+for when codex resumes. New work should use the claude adapter.
 
 Adapter settings:
 
 - `agent_family`: `codex`
 - default `role`: `worker`
 - branch prefix: `codex-` unless the brief specifies otherwise
-- shared protocol: `~/code/argo-codex/docs/build-plan/SWARM_PROTOCOL.md`
+- shared protocol: `$ARGO_REPO_ROOT/docs/build-plan/SWARM_PROTOCOL.md`
 
 Before every iteration, re-read `SWARM_PROTOCOL.md`. Do not rely on
 this adapter for stop thresholds, cargo gates, owner rules,
@@ -16,7 +20,7 @@ the source of truth.
 
 Start sequence:
 
-1. `cd ~/code/argo-codex`
+1. `cd "$ARGO_REPO_ROOT"`
 2. Check `git status`; stash or finish any existing WIP before claiming.
 3. `git checkout main && git pull --ff-only origin main`
 4. Read `docs/build-plan/SWARM_PROTOCOL.md`.
