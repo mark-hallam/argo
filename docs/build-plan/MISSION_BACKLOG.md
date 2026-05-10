@@ -246,11 +246,11 @@ unblocks a mission claim.
     `[BRIEF: mission-wire-api-action-executor]`
 92. Build `skycot/marketplace-browser:latest` E2B sandbox image. `[NEW]`
 93. Update CU tool variant from `computer_20241022` to current.
-    `[NEW]`
-94. Fix CU output parser to handle multi-action turns. `[NEW]`
+    `[BRIEF: mission-cu-tool-variant-update]`
+94. Fix CU output parser to handle multi-action turns. `[BRIEF: mission-cu-parser-multi-action]`
 95. Avoid double-screenshot. `[NEW]`
 96. Wire CU sandbox pool reaper (`reap_idle` exists, no caller).
-    `[NEW]`
+    `[BRIEF: mission-cu-sandbox-pool-reaper]`
 97. Add Webdriver-style test harness for CU loop. `[NEW]`
 98. Resolve Sandbox naming hazard (argo-sandbox vs E2B
     Sandbox). `[NEW]`
