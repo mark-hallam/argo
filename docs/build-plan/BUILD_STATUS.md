@@ -51,9 +51,23 @@
 > mission-mvp.mp4` exists + extended `./scripts/smoke-skycot.sh`
 > passes including BrowserExecutor + Slack-approval scenarios. CI
 > re-enable (P1) is deferred until GitHub Actions billing restored.
-
-**Updated by every agent on every state transition.** Always
-read from origin/main; never trust a stale local copy.
+>
+> **CONDUCTOR HARD RULE — ZOMBIE-CLAIM SWEEP (multi-machine
+> amendment 2026-05-10):** workers may run on multiple machines
+> (Mac/PC/Linux); pulse files at `/tmp/argo-worker-pulse/<brief-id>`
+> are LOCAL-ONLY signals. The conductor's prior pulse-presence
+> check produces false-positive zombie demotions when a worker is
+> alive on a different machine. **New rule:** a CLAIMED row is a
+> zombie ONLY if BOTH (a) its `claimed_at` timestamp in the row
+> note is **>2h** old AND (b) no PR exists on the branch AND no
+> recent push to the branch in the last 30min. Pulse-file presence
+> is informational ONLY (sufficient evidence of alive, but absence
+> is NOT evidence of dead). When in doubt, leave CLAIMED — workers
+> have HARD RULE 7 race-loss recovery and will release their own
+> claim if they hit the 3-attempt-fail rule. **Conductor singleton
+> rule:** exactly ONE conductor process across all machines. Two
+> conductors WILL race on ledger flips and corrupt rows. Workers
+> can run on N machines; conductor cannot.
 
 Status values: `TODO` (claim me) · `CLAIMED` (someone is
 working) · `IN_REVIEW` (PR open) · `MERGED` (on main) ·
