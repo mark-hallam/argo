@@ -440,7 +440,7 @@ unblocks a mission claim.
 208. Build skill quality trend dashboard.
      `[SHIPPED]`
 209. Build retro-review UI. `[NEW]`
-210. Build self-evaluation honesty test. `[NEW]`
+210. Build self-evaluation honesty test. `[BRIEF: mission-eval-self-honesty-test]`
 
 ---
 
