@@ -248,6 +248,7 @@ pub mod vertical_delete;
 pub mod vertical_doctor;
 pub mod vertical_eval;
 mod vertical_eval_judge_backends;
+mod vertical_eval_judge_backends_anthropic;
 mod vertical_eval_judge_live;
 mod vertical_eval_score;
 pub mod vertical_install;
