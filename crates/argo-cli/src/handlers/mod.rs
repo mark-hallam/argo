@@ -327,6 +327,8 @@ pub(crate) mod worker_actions_emit;
 mod worker_actions_emit_plan;
 mod worker_actions_executor;
 mod worker_actions_executor_api;
+mod worker_actions_executor_browser;
+mod worker_actions_executor_browser_binding;
 mod worker_actions_executor_code;
 mod worker_actions_executor_cu_macos;
 mod worker_actions_executor_document;

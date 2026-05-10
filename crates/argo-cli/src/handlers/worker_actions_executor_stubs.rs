@@ -18,6 +18,7 @@
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
 use super::worker_actions_executor_api;
+use super::worker_actions_executor_browser;
 use super::worker_actions_executor_mcp;
 use argo_executor_computer_use::{
     ComputerUseExecutor as CuExecutorImpl, CuConfig, Outcome, ProfileRegistry, RunRequest,
@@ -268,5 +269,43 @@ impl Executor for ApiExecutor {
             )
         })?;
         worker_actions_executor_api::dispatch_blocking(action, cwd, decl)
+    }
+}
+
+/// Real action-level Browser executor wired by
+/// `mission-wire-browser-action-executor`. Carries the action's
+/// manifest declaration so dispatch can read `executor.binding`
+/// (target_url, mode, steps, instruction_template, session_scope).
+pub(crate) struct BrowserExecutor {
+    declaration: Option<ActionDeclaration>,
+}
+
+impl BrowserExecutor {
+    /// Production constructor used by `resolve_executor`.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // let exec = BrowserExecutor::with_manifest(decl.clone());
+    /// ```
+    pub(crate) fn with_manifest(decl: ActionDeclaration) -> Self {
+        Self {
+            declaration: Some(decl),
+        }
+    }
+}
+
+impl Executor for BrowserExecutor {
+    fn kind(&self) -> ExecutorKind {
+        ExecutorKind::Browser
+    }
+    fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
+        let decl = self.declaration.as_ref().ok_or_else(|| {
+            ArgoError::Provider(
+                "BrowserExecutor needs an ActionDeclaration; \
+                 resolve_executor must build it via `with_manifest`"
+                    .into(),
+            )
+        })?;
+        worker_actions_executor_browser::dispatch_blocking(action, cwd, decl)
     }
 }

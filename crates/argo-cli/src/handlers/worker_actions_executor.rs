@@ -30,7 +30,7 @@ use super::worker_actions_executor_code::CodeExecutor;
 use super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor;
 use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_stubs::{
-    ApiExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
+    ApiExecutor, BrowserExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
 };
 use super::worker_actions_executor_timing::TimedExecutor;
 use argo_types::{ArgoError, ArgoResult};
@@ -72,6 +72,13 @@ pub(crate) enum ExecutorKind {
     /// Calls a registered REST API binding directly. Wired by
     /// Stream H connectors that ship as `ApiExecutor` flavours.
     Api,
+    /// Drives a stateful headless browser via the existing 16-tool
+    /// browser MCP server. Wired by
+    /// `mission-wire-browser-action-executor` for autonomous
+    /// posting / form-fill flows on Marketplace, eBay, and similar
+    /// SaaS surfaces. Sticky sessions persist login + cookies per
+    /// `(tenant, worker)`.
+    Browser,
     /// Sandboxed filesystem operations rooted at `worker.fs_root`.
     /// Wired by `claude-filesystem-executor` (V1.2 capability).
     Filesystem,
@@ -94,13 +101,15 @@ impl ExecutorKind {
             "computer_use" => Ok(Self::ComputerUse),
             "computer_use_macos" | "computer-use-macos" => Ok(Self::ComputerUseMacOS),
             "api" => Ok(Self::Api),
+            "browser" => Ok(Self::Browser),
             "filesystem" => Ok(Self::Filesystem),
             "code_execution" => Ok(Self::CodeExecution),
             "document_creation" => Ok(Self::DocumentCreation),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
                  valid: human | mcp | computer_use | computer_use_macos | \
-                 api | filesystem | code_execution | document_creation"
+                 api | browser | filesystem | code_execution | \
+                 document_creation"
             ))),
         }
     }
@@ -115,6 +124,7 @@ impl ExecutorKind {
             Self::ComputerUse => "computer_use",
             Self::ComputerUseMacOS => "computer_use_macos",
             Self::Api => "api",
+            Self::Browser => "browser",
             Self::Filesystem => "filesystem",
             Self::CodeExecution => "code_execution",
             Self::DocumentCreation => "document_creation",
@@ -219,6 +229,7 @@ pub(crate) fn resolve_executor(
             Box::new(ComputerUseMacOSExecutor::with_declaration(decl.clone()))
         }
         ExecutorKind::Api => Box::new(ApiExecutor::with_manifest(decl.clone())),
+        ExecutorKind::Browser => Box::new(BrowserExecutor::with_manifest(decl.clone())),
         ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
         ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
         ExecutorKind::DocumentCreation => Box::new(DocumentExecutor::new()),

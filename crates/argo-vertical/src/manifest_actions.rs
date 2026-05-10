@@ -228,3 +228,38 @@ pub enum ActionRiskLevel {
     /// AND a human-readable preview before execution.
     High,
 }
+
+#[cfg(test)]
+mod browser_kind_serde_tests {
+    use super::*;
+
+    #[test]
+    fn browser_executor_round_trips_through_serde() {
+        // Wired by `mission-wire-browser-action-executor`. The brief's
+        // contract: vertical authors declare the new kind via the
+        // tagged form with an inline-JSON `binding` carrying
+        // `target_url` / `mode` / `steps` / `session_scope`. This
+        // test locks the schema in at the manifest layer so future
+        // edits to ExecutorTagged surface the round-trip break here
+        // before they break the dispatch shim or every browser-using
+        // vertical.
+        let mut t = ExecutorTagged {
+            kind: "browser".into(),
+            ..Default::default()
+        };
+        t.binding = Some(
+            r#"{"target_url":"https://example.com/post","mode":"script","session_scope":"per_worker"}"#
+                .into(),
+        );
+        let decl = ExecutorDeclaration::Tagged(t);
+        let toml_str = toml::to_string(&decl).expect("serialize");
+        let round: ExecutorDeclaration = toml::from_str(&toml_str).expect("deserialize");
+        assert_eq!(round.kind_str(), "browser");
+        let binding = round.api_binding().expect("binding present");
+        assert!(
+            binding.contains("\"target_url\":\"https://example.com/post\""),
+            "binding round-trip lost target_url: {binding}"
+        );
+        assert!(binding.contains("\"mode\":\"script\""), "got: {binding}");
+    }
+}

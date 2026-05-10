@@ -39,6 +39,7 @@ pub const KNOWN_EXECUTOR_KINDS: &[&str] = &[
     "computer_use_macos",
     "computer-use-macos",
     "api",
+    "browser",
     "filesystem",
     "code_execution",
     "document_creation",
@@ -177,6 +178,8 @@ fn check_executor_binding_shape(
         }
     } else if kind == "api" && is_empty(&t.binding) {
         push_missing(errors, "binding", "api");
+    } else if kind == "browser" && is_empty(&t.binding) {
+        push_missing(errors, "binding", "browser");
     } else if matches!(
         kind,
         "computer_use" | "computer_use_macos" | "computer-use-macos"

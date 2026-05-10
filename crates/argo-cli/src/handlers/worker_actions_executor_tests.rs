@@ -160,7 +160,12 @@ executor = "human"
 
 #[test]
 fn resolve_executor_rejects_unknown_executor_kind() {
-    let manifest = argo_vertical::parse(
+    // Sentinel `telepathic` stands in for any kind the dispatch shim
+    // doesn't know how to wire. Uses the legacy string form so strict
+    // mode catches it at parse time (the contract this test pins).
+    // The original fixture used `"browser"`, which became a real
+    // executor kind in mission-wire-browser-action-executor.
+    let err = argo_vertical::parse(
         r#"
 schema_version = "1"
 
@@ -173,16 +178,14 @@ version = "0.0.1"
 risk = "medium"
 requires_approval = true
 description = "x"
-executor = "browser"
+executor = "telepathic"
 "#,
     )
-    .expect("manifest parses");
-    let err = resolve_executor(&manifest, "post_listing")
-        .map(|_| ())
-        .expect_err("'browser' is not a valid executor kind");
+    .map(|_| ())
+    .expect_err("'telepathic' is not a known executor kind");
     let msg = err.to_string();
     assert!(msg.contains("unknown executor kind"), "got: {msg}");
-    assert!(msg.contains("browser"), "got: {msg}");
+    assert!(msg.contains("telepathic"), "got: {msg}");
 }
 
 // ───────────────── template renderer (#732) ────────────
