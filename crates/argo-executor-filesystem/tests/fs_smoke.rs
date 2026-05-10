@@ -2,12 +2,12 @@
 //! end-to-end against a real `tempdir()` sandbox and checks the
 //! sandbox-violation paths fail-closed before any I/O lands.
 
-use argo_executor_filesystem::{ops, FsExecutorError, FsOpKind, Sandbox};
+use argo_executor_filesystem::{ops, FsExecutorError, FsOpKind, Sandbox as FsSandbox};
 
 #[test]
 fn full_sandbox_lifecycle_six_ops() {
     let dir = tempfile::tempdir().unwrap();
-    let sb = Sandbox::open(dir.path()).unwrap();
+    let sb = FsSandbox::open(dir.path()).unwrap();
 
     // 1. mkdir + 2. write_file
     ops::mkdir(&sb, "a/b").unwrap();
@@ -43,7 +43,7 @@ fn full_sandbox_lifecycle_six_ops() {
 #[test]
 fn sandbox_refuses_three_known_escape_attempts() {
     let dir = tempfile::tempdir().unwrap();
-    let sb = Sandbox::open(dir.path()).unwrap();
+    let sb = FsSandbox::open(dir.path()).unwrap();
 
     // Absolute path
     let abs_err = ops::read_file(&sb, "/etc/passwd").unwrap_err();
@@ -54,7 +54,7 @@ fn sandbox_refuses_three_known_escape_attempts() {
     assert!(matches!(parent_err, FsExecutorError::PathEscape(_)));
 
     // Per-op size cap
-    let tiny = Sandbox::open(dir.path()).unwrap().with_caps(4, 1024);
+    let tiny = FsSandbox::open(dir.path()).unwrap().with_caps(4, 1024);
     let cap_err = ops::write_file(&tiny, "big.bin", b"five!").unwrap_err();
     assert!(matches!(cap_err, FsExecutorError::OpSizeCap { .. }));
 }

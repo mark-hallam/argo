@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::anthropic::{AnthropicClient, CuStepRequest, CuStepResponse, StopReason};
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{decode_inline_screenshot, E2bClient, Sandbox};
+use crate::e2b::{decode_inline_screenshot, E2bClient, Sandbox as E2bSandbox};
 use crate::executor::AnthropicClientTemplate;
 use crate::executor_loop_exit::{handle_restart, stringify_verdict, LoopExit};
 use crate::executor_types::{RunRequest, RunResult};
@@ -39,7 +39,7 @@ pub(crate) async fn run_loop(
     screenshot_persister: Option<&Arc<dyn ScreenshotPersister>>,
     req: &RunRequest,
     profile: &Profile,
-    sandbox: &Sandbox,
+    sandbox: &E2bSandbox,
     audit: &AuditLog,
     tracker: &mut BudgetTracker,
 ) -> Result<LoopExit, CuError> {

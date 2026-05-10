@@ -17,7 +17,7 @@
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::{ActionOutcome, Executor, ExecutorKind};
 use crate::home::{db_path, resolve_home};
-use argo_executor_filesystem::{ops as fs_ops, FsOpKind, Sandbox};
+use argo_executor_filesystem::{ops as fs_ops, FsOpKind, Sandbox as FsSandbox};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::{Path, PathBuf};
@@ -73,7 +73,7 @@ fn run_fs_dispatch(
     let payload = &action.payload;
     let op = parse_fs_op(op_str)?;
     let fs_root = resolve_fs_root(cwd, &action.worker_id.to_string())?;
-    let sb = Sandbox::open(&fs_root)
+    let sb = FsSandbox::open(&fs_root)
         .map_err(|e| ArgoError::Provider(format!("filesystem sandbox: {e}")))?;
     let result = run_fs_op(&sb, op, path_str, payload)
         .map_err(|e| ArgoError::Provider(format!("filesystem op {op_str}: {e}")))?;
@@ -138,7 +138,7 @@ fn parse_fs_op(s: &str) -> ArgoResult<FsOpKind> {
 }
 
 fn run_fs_op(
-    sb: &Sandbox,
+    sb: &FsSandbox,
     op: FsOpKind,
     rel: &str,
     payload: &serde_json::Value,

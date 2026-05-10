@@ -10,7 +10,7 @@
 //! more than one worker daemon per tenant; until then the
 //! single-binary invariant means all dispatches share this map.
 
-use crate::e2b::{E2bClient, Sandbox};
+use crate::e2b::{E2bClient, Sandbox as E2bSandbox};
 use crate::CuError;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,7 +30,7 @@ pub struct PoolKey {
 
 #[derive(Debug)]
 struct Slot {
-    sandbox: Sandbox,
+    sandbox: E2bSandbox,
     last_used: Instant,
 }
 
@@ -76,7 +76,7 @@ impl SandboxPool {
         &self,
         key: PoolKey,
         sandbox_template: &str,
-    ) -> Result<Sandbox, CuError> {
+    ) -> Result<E2bSandbox, CuError> {
         // First pass: hit the pool while holding the lock.
         {
             let mut inner = self.inner.lock().await;
@@ -127,7 +127,7 @@ impl SandboxPool {
     /// closed so callers can log a breadcrumb.
     pub async fn reap_idle(&self) -> Result<usize, CuError> {
         let now = Instant::now();
-        let evicted: Vec<(PoolKey, Sandbox)> = {
+        let evicted: Vec<(PoolKey, E2bSandbox)> = {
             let mut inner = self.inner.lock().await;
             let mut to_evict = Vec::new();
             inner.slots.retain(|k, slot| {

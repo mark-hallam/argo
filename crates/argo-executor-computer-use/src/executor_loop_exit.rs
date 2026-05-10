@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use crate::budget::BudgetVerdict;
-use crate::e2b::{E2bClient, Sandbox};
+use crate::e2b::{E2bClient, Sandbox as E2bSandbox};
 use crate::executor_types::RunResult;
 use crate::profile::Profile;
 use crate::restart::{self, emit_restart_event, RestartCoordinator, RestartDecision};
@@ -38,7 +38,7 @@ pub(crate) async fn handle_restart(
     stage: &'static str,
     profile: &Profile,
     coordinator: &mut RestartCoordinator,
-    sandbox: &mut Sandbox,
+    sandbox: &mut E2bSandbox,
     screenshot: &mut Vec<u8>,
     system_prompt: &mut String,
     base_system_prompt: &str,

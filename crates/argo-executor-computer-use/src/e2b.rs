@@ -233,6 +233,12 @@ impl E2bClient {
 
 /// Opaque sandbox handle. The id is a UUID-like string the E2B
 /// service stamps at open time.
+///
+/// Import this type as `E2bSandbox` at use sites — three distinct
+/// `Sandbox` types coexist in the workspace (`argo_sandbox::Sandbox`
+/// is the canonical workspace seam; `argo_executor_filesystem::Sandbox`
+/// is the filesystem isolation primitive). Aliasing at the use site
+/// keeps the type's role obvious in the code body.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Sandbox {
     pub id: String,

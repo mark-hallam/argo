@@ -22,7 +22,7 @@
 use crate::anthropic::{AnthropicCall, CuStepRequest, CuStepResponse, StopReason};
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall, Sandbox};
+use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall, Sandbox as E2bSandbox};
 use crate::executor::{Outcome, RunRequest, RunResult};
 use crate::profile::Profile;
 use crate::CuError;
@@ -156,13 +156,13 @@ impl MockE2bClient {
 
 #[async_trait]
 impl E2bCall for MockE2bClient {
-    async fn open_sandbox(&self, _template: &str) -> Result<Sandbox, CuError> {
-        Ok(Sandbox {
+    async fn open_sandbox(&self, _template: &str) -> Result<E2bSandbox, CuError> {
+        Ok(E2bSandbox {
             id: "mock-sandbox".into(),
         })
     }
 
-    async fn screenshot(&self, _sandbox: &Sandbox) -> Result<Vec<u8>, CuError> {
+    async fn screenshot(&self, _sandbox: &E2bSandbox) -> Result<Vec<u8>, CuError> {
         if let Ok(mut g) = self.screenshot_calls.lock() {
             *g += 1;
         }
@@ -171,7 +171,7 @@ impl E2bCall for MockE2bClient {
 
     async fn execute_action(
         &self,
-        _sandbox: &Sandbox,
+        _sandbox: &E2bSandbox,
         action: &CuAction,
     ) -> Result<ActionResult, CuError> {
         let mut actions = match self.actions.lock() {
@@ -195,7 +195,7 @@ impl E2bCall for MockE2bClient {
         Ok(scripted.response)
     }
 
-    async fn close_sandbox(&self, _sandbox: &Sandbox) -> Result<(), CuError> {
+    async fn close_sandbox(&self, _sandbox: &E2bSandbox) -> Result<(), CuError> {
         Ok(())
     }
 }
