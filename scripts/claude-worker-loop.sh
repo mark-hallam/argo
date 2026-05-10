@@ -338,36 +338,14 @@ the next iteration.
     echo "╚═══════════════════════════════════════════════════════════════════╝"
     echo ""
 
-    # Compute seconds until reset; falls back to 15min on any parse failure.
-    #
-    # CAP at 5h (the Anthropic rolling-window length). The "You've hit your
-    # limit · resets X" message is sometimes misleading:
-    #   - May show a daily anchor time (e.g. 4am) when the actual rolling-
-    #     window reset is sooner.
-    #   - May show a date prefix ("resets May 12 at 4am") that fooled the
-    #     earlier regex into falling back to 1h, while a later occurrence
-    #     without the date prefix parsed correctly but pointed at the NEXT
-    #     day's 4am — producing a 23h sleep when the real reset was ~4h away.
-    #   - May fire on transient rate-limits that clear in minutes, not hours.
-    #
-    # Capping at 5h means a worst-case sleep of 5 hours regardless of what
-    # the message says. If we wake up and the limit is still hit, the next
-    # iteration sleeps again. That's strictly better than over-sleeping.
+    # Compute seconds until reset; falls back to 1h on any parse failure.
     SLEEP_SECS=$(QUOTA_HIT="$QUOTA_HIT" python3 - <<'PY'
 import os, re, datetime, zoneinfo
-MAX_SLEEP_SECS = 5 * 60 * 60   # 5h — Anthropic rolling-window worst case
-DEFAULT_SLEEP_SECS = 15 * 60   # 15min — short enough to recover fast from false-positives
 try:
     line = open(os.environ["QUOTA_HIT"]).read().strip()
-    # Handles both formats Claude Code emits:
-    #   "resets 4am (Australia/Melbourne)"
-    #   "resets May 12 at 4am (Australia/Melbourne)"
-    m = re.search(
-        r"resets\s+(?:\w+\s+\d+\s+at\s+)?(\d+(?::\d+)?)\s*([ap]m)\s*\(([^)]+)\)",
-        line, re.I,
-    )
+    m = re.search(r"resets\s+(\d+(?::\d+)?)\s*([ap]m)\s*\(([^)]+)\)", line, re.I)
     if not m:
-        print(DEFAULT_SLEEP_SECS)
+        print(3600)
     else:
         hhmm, ampm, tz = m.groups()
         hh, mm = (hhmm.split(":") + ["0"])[:2]
@@ -378,11 +356,9 @@ try:
         if target <= now:
             target += datetime.timedelta(days=1)
         secs = int((target - now).total_seconds()) + 300
-        # Cap at 5h — never over-sleep based on a misleading reset time.
-        secs = min(secs, MAX_SLEEP_SECS)
         print(max(secs, 60))
 except Exception:
-    print(DEFAULT_SLEEP_SECS)
+    print(3600)
 PY
 )
 
