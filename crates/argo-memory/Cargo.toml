@@ -37,3 +37,10 @@ dreams-backend = ["dep:async-trait", "dep:reqwest"]
 tokio = { workspace = true }
 proptest = { workspace = true }
 tempfile = "3"
+# Bench-only — `compose_context` p50/p95/p99 latency harness
+# (claude-bench-memory-query-perf).
+criterion = { workspace = true }
+
+[[bench]]
+name = "query_perf"
+harness = false

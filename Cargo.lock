@@ -1005,6 +1005,7 @@ dependencies = [
  "argo-types",
  "async-trait",
  "chrono",
+ "criterion",
  "hex",
  "proptest",
  "reqwest 0.12.28",
