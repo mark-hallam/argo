@@ -10,6 +10,7 @@ description = "Argo — tool registry + in-core tools (§9, Phase 3 baseline + H
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
+argo-identity = { path = "../argo-identity", version = "0.0.1" }
 argo-memory = { path = "../argo-memory", version = "0.0.1" }
 argo-sandbox = { path = "../argo-sandbox", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }

@@ -1214,6 +1214,7 @@ name = "argo-tool"
 version = "0.0.1"
 dependencies = [
  "argo-capability",
+ "argo-identity",
  "argo-memory",
  "argo-sandbox",
  "argo-store",

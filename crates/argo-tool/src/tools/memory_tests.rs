@@ -6,9 +6,10 @@
 //! out of `memory.rs` keep that file under the 500-LOC cap.
 
 use super::*;
-use argo_memory::MemoryStore;
+use argo_identity::{MemoryNs, MemoryScope, WorkerId};
+use argo_memory::{MemoryLayer, MemoryStore};
 use argo_store::SessionStore;
-use argo_types::{Lock, Principal};
+use argo_types::{Lock, Principal, TenantId};
 
 async fn fresh_store() -> (Arc<MemoryStore>, WorkspaceId) {
     let store = SessionStore::open(":memory:").await.expect("open");
@@ -244,4 +245,179 @@ fn first_text(result: &ToolCallResult) -> String {
             _ => None,
         })
         .unwrap_or_default()
+}
+
+// ───────────────── query_scored ─────────────────
+
+fn ns_for() -> MemoryNs {
+    MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::WorkerSelf)
+}
+
+/// Seed `bodies` into the indexed layer of `ns` so `query_scored`
+/// has rows to rank. Indexed-layer rows are persisted via the
+/// public `append_in_namespace_with_layer` helper, identical to
+/// the path the nightly promoter takes.
+async fn seed_indexed(
+    store: &MemoryStore,
+    ns: &MemoryNs,
+    ws: WorkspaceId,
+    bodies: &[&str],
+) {
+    for body in bodies {
+        store
+            .append_in_namespace_with_layer(
+                ns,
+                ws,
+                MemoryFile::Memory,
+                (*body).to_string(),
+                None,
+                MemoryLayer::Indexed,
+            )
+            .await
+            .expect("seed");
+    }
+}
+
+#[tokio::test]
+async fn query_scored_default_namespace_returns_hits_ranked_by_score() {
+    let (store, ws) = fresh_store().await;
+    let ns = ns_for();
+    seed_indexed(
+        &store,
+        &ns,
+        ws,
+        &[
+            "alpha bravo charlie",
+            "delta echo foxtrot",
+            "alpha alpha alpha",
+        ],
+    )
+    .await;
+    let tool = Memory::with_namespace(store, ws, None, ns.clone());
+    let r = tool
+        .dispatch(
+            serde_json::json!({"action": "query_scored", "query": "alpha"}),
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    assert!(!r.is_error, "got: {:?}", r.content);
+    let body = first_text(&r);
+    let hits: Vec<serde_json::Value> = serde_json::from_str(&body).expect("json");
+    assert_eq!(hits.len(), 3, "all 3 entries match (token overlap)");
+    // First hit should be the entry with the most `alpha` tokens.
+    assert_eq!(hits[0]["snippet"].as_str().unwrap(), "alpha alpha alpha");
+    let score0 = hits[0]["score"].as_f64().unwrap();
+    let score1 = hits[1]["score"].as_f64().unwrap();
+    assert!(score0 >= score1, "scores must be descending: {score0} {score1}");
+}
+
+#[tokio::test]
+async fn query_scored_explicit_namespace_defers_to_followup_brief() {
+    let (store, ws) = fresh_store().await;
+    let tool = Memory::with_namespace(store, ws, None, ns_for());
+    let err = tool
+        .dispatch(
+            serde_json::json!({
+                "action": "query_scored",
+                "query": "alpha",
+                "namespace": "worker:other-id",
+            }),
+            &ctx(),
+        )
+        .await
+        .expect_err("explicit namespace not yet supported in v1");
+    let msg = err.to_string();
+    assert!(msg.contains("mission-memory-namespace-addressing"), "got: {msg}");
+    assert!(msg.contains("#43"), "got: {msg}");
+}
+
+#[tokio::test]
+async fn query_scored_respects_limit() {
+    let (store, ws) = fresh_store().await;
+    let ns = ns_for();
+    seed_indexed(
+        &store,
+        &ns,
+        ws,
+        &["alpha one", "alpha two", "alpha three", "alpha four", "alpha five"],
+    )
+    .await;
+    let tool = Memory::with_namespace(store, ws, None, ns);
+    let r = tool
+        .dispatch(
+            serde_json::json!({"action": "query_scored", "query": "alpha", "limit": 2}),
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    let hits: Vec<serde_json::Value> = serde_json::from_str(&first_text(&r)).unwrap();
+    assert_eq!(hits.len(), 2);
+}
+
+#[tokio::test]
+async fn query_scored_clamps_limit_to_20() {
+    let (store, ws) = fresh_store().await;
+    let ns = ns_for();
+    let bodies: Vec<String> = (0..25).map(|i| format!("alpha row {i}")).collect();
+    let refs: Vec<&str> = bodies.iter().map(String::as_str).collect();
+    seed_indexed(&store, &ns, ws, &refs).await;
+    let tool = Memory::with_namespace(store, ws, None, ns);
+    let r = tool
+        .dispatch(
+            serde_json::json!({"action": "query_scored", "query": "alpha", "limit": 100}),
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    let hits: Vec<serde_json::Value> = serde_json::from_str(&first_text(&r)).unwrap();
+    assert_eq!(hits.len(), 20, "limit clamps to 20, never errors");
+}
+
+#[tokio::test]
+async fn query_scored_zero_limit_returns_empty_vec() {
+    let (store, ws) = fresh_store().await;
+    let ns = ns_for();
+    seed_indexed(&store, &ns, ws, &["alpha", "beta"]).await;
+    let tool = Memory::with_namespace(store, ws, None, ns);
+    let r = tool
+        .dispatch(
+            serde_json::json!({"action": "query_scored", "query": "alpha", "limit": 0}),
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    assert!(!r.is_error, "k=0 is not an error");
+    let hits: Vec<serde_json::Value> = serde_json::from_str(&first_text(&r)).unwrap();
+    assert!(hits.is_empty(), "k=0 returns empty Vec");
+}
+
+#[tokio::test]
+async fn query_scored_unwired_errors_with_historical_message() {
+    let r = Memory::default()
+        .dispatch(
+            serde_json::json!({"action": "query_scored", "query": "alpha"}),
+            &ctx(),
+        )
+        .await
+        .unwrap();
+    assert!(r.is_error);
+    let body = first_text(&r);
+    assert!(body.contains("memory store not wired"), "got: {body}");
+}
+
+#[tokio::test]
+async fn query_scored_wired_without_namespace_explains_binding() {
+    let (store, ws) = fresh_store().await;
+    let tool = Memory::new(store, ws, None);
+    let err = tool
+        .dispatch(
+            serde_json::json!({"action": "query_scored", "query": "alpha"}),
+            &ctx(),
+        )
+        .await
+        .expect_err("must reject when no namespace bound");
+    let msg = err.to_string();
+    assert!(msg.contains("not bound to a worker namespace"), "got: {msg}");
+    assert!(msg.contains("Memory::with_namespace"), "got: {msg}");
 }

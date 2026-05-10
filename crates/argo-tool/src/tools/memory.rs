@@ -8,10 +8,11 @@
 //! through `MemoryStore::append` / `append_for_vertical` /
 //! `list_active` honouring `Lock::UserProtected` rejection.
 use crate::tool::{error_text, success_text, Tool, ToolContext};
-use argo_memory::{MemoryFile, MemoryStore, PrincipalOverride};
+use argo_identity::MemoryNs;
+use argo_memory::{MemoryFile, MemoryStore, PrincipalOverride, ScoredMemoryEntry};
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, ToolCallResult, WorkspaceId};
 use async_trait::async_trait;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -33,6 +34,11 @@ struct WiredMemory {
     /// reads (`list_for_vertical`) see them. When `None`, writes
     /// stay workspace-global (NULL `vertical_id`).
     vertical_id: Option<String>,
+    /// Worker namespace this tool instance is bound to. Required
+    /// by the `query_scored` action; legacy `list` / `read` /
+    /// `write` actions ignore it. Older callers of [`Memory::new`]
+    /// leave this `None`; new callers use [`Memory::with_namespace`].
+    namespace: Option<MemoryNs>,
 }
 
 impl Memory {
@@ -50,6 +56,47 @@ impl Memory {
                 store,
                 workspace_id,
                 vertical_id,
+                namespace: None,
+            }),
+        }
+    }
+
+    /// Build a Memory tool wired to a live `MemoryStore` AND bound
+    /// to a worker [`MemoryNs`]. The `query_scored` action requires
+    /// the namespace to know which tenant/worker/scope to query;
+    /// callers that don't yet plumb a namespace can keep using
+    /// [`Memory::new`] for the legacy `list` / `read` / `write`
+    /// actions.
+    ///
+    /// ```
+    /// # use std::sync::Arc;
+    /// # async fn doc() -> argo_types::ArgoResult<()> {
+    /// use argo_identity::{MemoryNs, MemoryScope, WorkerId};
+    /// use argo_memory::MemoryStore;
+    /// use argo_store::SessionStore;
+    /// use argo_tool::Memory;
+    /// use argo_types::TenantId;
+    /// let session = SessionStore::open(":memory:").await?;
+    /// session.migrate().await?;
+    /// let (_tenant, ws) = session.ensure_workspace("ws", "/tmp/ws").await?;
+    /// let store = Arc::new(MemoryStore::new(Arc::new(session)));
+    /// let ns = MemoryNs::new(TenantId::new(), WorkerId::new(), MemoryScope::WorkerSelf);
+    /// let _tool = Memory::with_namespace(store, ws, None, ns);
+    /// # Ok(()) }
+    /// ```
+    #[must_use]
+    pub fn with_namespace(
+        store: Arc<MemoryStore>,
+        workspace_id: WorkspaceId,
+        vertical_id: Option<String>,
+        namespace: MemoryNs,
+    ) -> Self {
+        Self {
+            wired: Some(WiredMemory {
+                store,
+                workspace_id,
+                vertical_id,
+                namespace: Some(namespace),
             }),
         }
     }
@@ -64,25 +111,86 @@ struct Args {
     content: Option<String>,
 }
 
+/// Arguments for the `query_scored` action. Parsed once the
+/// `dispatch` arm has confirmed the action name, so a missing
+/// `query` surfaces as a clear tool-level error rather than a
+/// JSON-schema rejection.
+#[derive(Debug, Deserialize)]
+struct QueryScoredArgs {
+    /// Search text to rank against. Required.
+    query: String,
+    /// Top-k cap. Defaults to `5`; values > [`MAX_QUERY_SCORED_LIMIT`]
+    /// clamp silently. A literal `0` returns an empty hit list (no
+    /// error) — the runtime layer already short-circuits on `k == 0`.
+    #[serde(default)]
+    limit: Option<usize>,
+    /// Explicit namespace selector. Not yet wired in v1 (see brief
+    /// `mission-memory-namespace-addressing`, #43). When `Some`, the
+    /// action returns a clear error pointing at that follow-up
+    /// brief. When `None`, the wired tool's bound namespace is used.
+    #[serde(default)]
+    namespace: Option<String>,
+}
+
+/// Per-hit envelope returned by `query_scored`. Intentionally
+/// narrower than [`argo_memory::ScoredMemoryEntry`] so internal
+/// fields (vector cache, raw row id, lock state) stay invisible
+/// to the agent.
+#[derive(Debug, Serialize)]
+struct MemoryHit {
+    entry_id: uuid::Uuid,
+    snippet: String,
+    score: f32,
+    namespace: String,
+    written_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Soft cap on `query_scored.limit` — protects the prompt from a
+/// runaway top-k. The action clamps silently rather than erroring
+/// so a model that asks for 100 still gets a useful answer.
+const MAX_QUERY_SCORED_LIMIT: usize = 20;
+/// Default top-k when the caller omits `limit`.
+const DEFAULT_QUERY_SCORED_LIMIT: usize = 5;
+
 #[async_trait]
 impl Tool for Memory {
     fn name(&self) -> &str {
         "memory"
     }
     fn description(&self) -> &str {
-        "List, read, or write entries in Argo's memory store. \
-         `action` is one of `list`, `read`, or `write`. `entry` \
-         is one of `MEMORY.md` / `USER.md` / `SOUL.md` / `AGENTS.md` \
-         (or the bare form `memory` / `user` / `soul` / `agents`)."
+        "List, read, write, or rank entries in Argo's memory store. \
+         `action` is one of `list`, `read`, `write`, or `query_scored`. \
+         For `list` / `read` / `write`, `entry` selects one of \
+         `MEMORY.md` / `USER.md` / `SOUL.md` / `AGENTS.md` (or the bare \
+         form). For `query_scored`, `query` is required, `limit` caps \
+         top-k (default 5, max 20)."
     }
     fn parameters(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
             "required": ["action"],
             "properties": {
-                "action": { "type": "string", "enum": ["list", "read", "write"] },
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "read", "write", "query_scored"],
+                },
                 "entry": { "type": "string", "description": "Entry name (`read`, `write`)." },
                 "content": { "type": "string", "description": "Body to write (`write`)." },
+                "query": {
+                    "type": "string",
+                    "description": "Search text (`query_scored`).",
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Top-k cap (`query_scored`, default 5, max 20).",
+                },
+                "namespace": {
+                    "type": "string",
+                    "description":
+                        "Optional explicit namespace (`query_scored`). \
+                         Not yet wired; omit to query the worker's bound namespace.",
+                },
             },
             "additionalProperties": false,
         })
@@ -125,9 +233,12 @@ impl Tool for Memory {
                 )
                 .await
             }
+            "query_scored" => query_scored_action(wired, &args).await,
             other => Err(ArgoError::Tool {
                 tool: "memory".into(),
-                msg: format!("invalid action '{other}' (expected list / read / write)"),
+                msg: format!(
+                    "invalid action '{other}' (expected list / read / write / query_scored)"
+                ),
             }),
         }?;
         Ok(success_text(
@@ -247,6 +358,70 @@ async fn write_action(
         written.body.len(),
         written.id
     ))
+}
+
+/// `query_scored` — agent-callable hybrid lexical/vector retrieval
+/// against the worker's bound namespace.
+///
+/// v1 scope (mission-memory-query-scored-action): the bound namespace
+/// only. Explicit-namespace addressing (`namespace: Some("worker:…")`)
+/// returns a typed error pointing at the follow-up brief
+/// `mission-memory-namespace-addressing` (#43).
+async fn query_scored_action(
+    wired: &WiredMemory,
+    args: &serde_json::Value,
+) -> ArgoResult<String> {
+    let parsed: QueryScoredArgs =
+        serde_json::from_value(args.clone()).map_err(|e| ArgoError::Tool {
+            tool: "memory".into(),
+            msg: format!("invalid query_scored arguments: {e}"),
+        })?;
+    if parsed.namespace.is_some() {
+        return Err(ArgoError::Tool {
+            tool: "memory".into(),
+            msg: "explicit `namespace` not yet supported by query_scored — \
+                 omit it to query the worker's bound namespace. \
+                 Tracked by mission-memory-namespace-addressing (#43)."
+                .into(),
+        });
+    }
+    let ns = wired.namespace.as_ref().ok_or_else(|| ArgoError::Tool {
+        tool: "memory".into(),
+        msg: "memory tool not bound to a worker namespace — \
+             register via `Memory::with_namespace(store, ws, vertical_id, ns)` \
+             instead of `Memory::new(store, ws, vertical_id)`."
+            .into(),
+    })?;
+    let k = parsed
+        .limit
+        .unwrap_or(DEFAULT_QUERY_SCORED_LIMIT)
+        .min(MAX_QUERY_SCORED_LIMIT);
+    let hits = wired.store.query_scored(ns, &parsed.query, k).await?;
+    let ns_label = format_namespace(ns);
+    let envelope: Vec<MemoryHit> = hits.into_iter().map(|h| to_hit(h, &ns_label)).collect();
+    serde_json::to_string(&envelope).map_err(|e| ArgoError::Tool {
+        tool: "memory".into(),
+        msg: format!("query_scored serialise: {e}"),
+    })
+}
+
+fn to_hit(scored: ScoredMemoryEntry, namespace: &str) -> MemoryHit {
+    MemoryHit {
+        entry_id: scored.entry.id,
+        snippet: scored.entry.body,
+        score: scored.score,
+        namespace: namespace.to_string(),
+        written_at: scored.entry.learned_at,
+    }
+}
+
+fn format_namespace(ns: &MemoryNs) -> String {
+    let scope = match ns.scope {
+        argo_identity::MemoryScope::WorkerSelf => "worker_self",
+        argo_identity::MemoryScope::Role => "role",
+        argo_identity::MemoryScope::SharedTeam => "shared_team",
+    };
+    format!("{}/{}/{}", ns.tenant_id.0, ns.worker_id.0, scope)
 }
 
 /// `MemoryStore::supersede` returns `ArgoError::UserProtected` when
