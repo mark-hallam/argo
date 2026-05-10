@@ -508,7 +508,7 @@ unblocks a mission claim.
 251. Connector auto-retry with exponential backoff. `[BRIEF: mission-connector-auto-retry-backoff]`
 252. Connection pooling for MCP connectors (currently per-turn).
      `[NEW]`
-253. LLM call deduplication. `[NEW]`
+253. LLM call deduplication. `[BRIEF: mission-llm-call-dedup-cache]`
 254. Per-action-type throttling. `[NEW]`
 255. Burst pre-warming (predictive sandbox creation). `[NEW]`
 
