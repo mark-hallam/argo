@@ -184,6 +184,13 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_handoff_cmds::HandoffPolicyCmd,
     },
+    /// Aggregate metrics over the orchestrator's `handoff` table
+    /// (Stream `codex-handoff-stats-cli`). Markdown report by
+    /// default; `--histogram` switches to an ASCII volume readout.
+    HandoffStats {
+        #[command(flatten)]
+        args: cli_handoff_cmds::HandoffStatsArgs,
+    },
     /// Declarative DAG workflows across multiple workers (Stream
     /// `claude-workflow-dag`). YAML schema describing tasks +
     /// edges; runs each task as a Session with output binding

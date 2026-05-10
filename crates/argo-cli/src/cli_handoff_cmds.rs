@@ -6,7 +6,7 @@
 //! `HandoffCmd` enum lives in `cli_session_cmds.rs` (outside this
 //! brief's may-touch list). Functionally equivalent.
 
-use clap::Subcommand;
+use clap::{Args, Subcommand};
 
 #[derive(Subcommand, Debug)]
 pub enum HandoffRulesCmd {
@@ -138,4 +138,44 @@ pub enum HandoffPolicyCmd {
         #[arg(long)]
         json: bool,
     },
+}
+
+/// `argo handoff-stats` arguments (Stream `codex-handoff-stats-cli`).
+///
+/// Surfaced as the top-level `argo handoff-stats` for the same
+/// reason as `handoff-rules` / `handoff-auctions` / `handoff-policy`
+/// — the existing `HandoffCmd` enum lives in `cli_session_cmds.rs`,
+/// which is outside this brief's may-touch list.
+///
+/// Two modes:
+///   - default: aggregate markdown report (overview + top-N + breakdown)
+///   - `--histogram`: ASCII volume histogram, one bar per
+///     `--bucket-mins` window
+#[derive(Args, Debug)]
+pub struct HandoffStatsArgs {
+    /// Tenant uuid. Falls back to `ARGO_DEFAULT_TENANT`.
+    #[arg(long)]
+    pub tenant: Option<String>,
+    /// Window size as `<n><unit>` (`s`/`m`/`h`/`d`). Default `7d`
+    /// for the report mode and `1d` for `--histogram`.
+    #[arg(long)]
+    pub since: Option<String>,
+    /// Group axis for the breakdown table: `worker` (handed-off-FROM,
+    /// the default), `skill` (groups by `expected_outcome` since
+    /// handoff rows do not carry a typed skill column), or
+    /// `destination` (handed-off-TO, projected to a worker id or
+    /// `human:<addr>` label).
+    #[arg(long)]
+    pub by: Option<String>,
+    /// Switch to ASCII volume histogram mode.
+    #[arg(long)]
+    pub histogram: bool,
+    /// Bucket size in minutes for `--histogram`. Default 60 (a
+    /// 24-bucket day at the default `--since 1d`). Clamped to
+    /// `>= 1`.
+    #[arg(long, default_value_t = 60)]
+    pub bucket_mins: u32,
+    /// Emit a JSON envelope instead of the markdown rendering.
+    #[arg(long)]
+    pub json: bool,
 }

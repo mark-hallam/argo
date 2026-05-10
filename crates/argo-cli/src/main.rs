@@ -318,6 +318,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             }
         },
         Some(Command::HandoffPolicy { cmd }) => handlers::handoff_policy::run(cmd).await,
+        Some(Command::HandoffStats { args }) => handlers::handoff_stats::run(args).await,
         Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
         Some(Command::Trajectory { cmd }) => match cmd {
             cli::TrajectoryCmd::Export {

@@ -23,6 +23,9 @@ pub mod feedback;
 mod forge_meta;
 /// GDPR erasure helpers.
 pub mod gdpr;
+/// Aggregate query helpers over the `handoff` table for the
+/// `argo handoff-stats` CLI surface (Stream `codex-handoff-stats-cli`).
+pub mod handoff_stats_query;
 mod gdpr_apply;
 mod grants;
 mod marketplace_meta;
@@ -388,3 +391,6 @@ mod tests;
 #[cfg(test)]
 #[path = "migration_reconciliation_tests.rs"]
 mod migration_reconciliation_tests;
+#[cfg(test)]
+#[path = "handoff_stats_query_tests.rs"]
+mod handoff_stats_query_tests;

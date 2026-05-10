@@ -131,6 +131,7 @@ pub mod handoff_rules_list;
 pub mod handoff_rules_remove;
 pub mod handoff_rules_show;
 pub mod handoff_rules_test;
+pub mod handoff_stats;
 pub mod health;
 pub mod incident;
 #[cfg(test)]
