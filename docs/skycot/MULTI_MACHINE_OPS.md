@@ -57,12 +57,29 @@ Run on each machine before starting any worker / conductor.
 
 ### Per-machine env (one-time)
 
-Add to `~/.zshrc` (macOS) or `~/.bashrc` (Linux/WSL2):
+**Where to put these vars matters.** Claude Code's Bash tool runs commands
+in non-interactive subshells, which do **not** source `~/.zshrc` or
+`~/.bashrc`. If you persist swarm env vars there, swarm tooling (worker
+loop, conductor tick, helper scripts invoked from a Claude Code session)
+will see them as unset. Use the file each shell sources for
+non-interactive sessions:
+
+- **macOS (zsh, the default):** put non-secret vars in `~/.zshenv`. zsh
+  sources `~/.zshenv` for every invocation, including non-interactive
+  ones; `~/.zshrc` is interactive-only.
+- **Linux / WSL2 (bash):** put non-secret vars in `~/.profile` (sourced
+  by login shells and most launchers), or set `BASH_ENV=~/.bash_env`
+  globally and put exports in `~/.bash_env`. `~/.bashrc` is
+  interactive-only and won't be seen by Bash tool subshells.
+- **`ANTHROPIC_API_KEY` is a secret** — prefer `direnv` (with a
+  gitignored `.envrc` in `$ARGO_REPO_ROOT`) or a sourced gitignored
+  `~/.argo-env` file. Avoid persisting raw secrets in `~/.zshenv` /
+  `~/.profile` if you can; those files often get backed up, synced, or
+  accidentally screen-shared.
+
+Add to `~/.zshenv` (macOS) or `~/.profile` (Linux/WSL2):
 
 ```bash
-# Anthropic API key for this machine (use the account whose quota you want to consume here)
-export ANTHROPIC_API_KEY='sk-ant-...'
-
 # Skycot/Argo repo location — derived at runtime, NOT hardcoded
 export ARGO_REPO_ROOT="$HOME/code/argo"   # adjust to wherever you cloned
 
@@ -73,7 +90,31 @@ export CARGO_TARGET_DIR=/tmp/argo-shared-target
 export RUSTC_WRAPPER=sccache
 ```
 
-Then reload: `source ~/.zshrc` (or `~/.bashrc`).
+For the Anthropic API key, recommended pattern is direnv:
+
+```bash
+# In $ARGO_REPO_ROOT/.envrc  (gitignored — verify it's in .gitignore)
+export ANTHROPIC_API_KEY='sk-ant-...'
+```
+
+Then `direnv allow` once. Or, if you don't use direnv, source a
+gitignored `~/.argo-env` from a wrapper script before launching workers.
+
+Then reload: open a new terminal, or `source ~/.zshenv` / `source
+~/.profile`. Verify with `env | grep ARGO_REPO_ROOT` from inside Claude
+Code's Bash tool, not just your interactive shell.
+
+#### Common pitfalls
+
+- **Set vars in `~/.zshrc`, swarm scripts can't see them.** Symptom:
+  `bootstrap-machine.sh` reports `ANTHROPIC_API_KEY not set` even though
+  `echo $ANTHROPIC_API_KEY` works in your terminal. Fix: move the export
+  to `~/.zshenv`.
+- **`source ~/.zshenv` in your current shell ≠ persisted.** A new Claude
+  Code Bash tool subshell starts fresh; if the export isn't in a file
+  zsh re-reads on every spawn (i.e. `~/.zshenv`), it won't be there.
+- **Linux+systemd launchers** may not source `~/.profile` either; use a
+  user-level systemd `Environment=` directive or wrap your launcher.
 
 ### Repo bootstrap
 

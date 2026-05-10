@@ -72,7 +72,7 @@ bold "Environment:"
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   check_ok "ANTHROPIC_API_KEY set (last 6 chars: ...${ANTHROPIC_API_KEY: -6})"
 else
-  check_fail "ANTHROPIC_API_KEY not set — export in shell rc"
+  check_fail "ANTHROPIC_API_KEY not set — export in ~/.zshenv (macOS) or ~/.profile (Linux/WSL2). Non-interactive shells (Claude Code's Bash tool, scripts) do NOT source ~/.zshrc / ~/.bashrc, so vars set there will be invisible to swarm tooling. For the API key specifically, prefer direnv or a sourced gitignored env file rather than persisting a secret in ~/.zshenv."
 fi
 
 if [ -n "${ARGO_REPO_ROOT:-}" ]; then
@@ -82,7 +82,7 @@ if [ -n "${ARGO_REPO_ROOT:-}" ]; then
     check_fail "ARGO_REPO_ROOT=$ARGO_REPO_ROOT does not contain a .git directory"
   fi
 else
-  check_warn "ARGO_REPO_ROOT not set — defaulting to current directory"
+  check_warn "ARGO_REPO_ROOT not set — defaulting to current directory. Persist via ~/.zshenv (macOS) or ~/.profile (Linux/WSL2); ~/.zshrc / ~/.bashrc won't be seen by Claude Code's non-interactive Bash subshells."
   ARGO_REPO_ROOT="$(pwd)"
 fi
 
@@ -90,7 +90,7 @@ if [ -n "${CARGO_TARGET_DIR:-}" ]; then
   check_ok "CARGO_TARGET_DIR=$CARGO_TARGET_DIR"
 else
   check_warn "CARGO_TARGET_DIR not set — workers will create per-worktree target dirs (slower; ~28min cold each)"
-  yellow "  recommended: export CARGO_TARGET_DIR=/tmp/argo-shared-target"
+  yellow "  recommended: export CARGO_TARGET_DIR=/tmp/argo-shared-target in ~/.zshenv (macOS) or ~/.profile (Linux/WSL2) so non-interactive shells inherit it"
 fi
 
 echo
@@ -182,7 +182,10 @@ bold "To start a worker on this machine:"
 echo "  cd \$ARGO_REPO_ROOT && bash scripts/claude-worker-loop.sh"
 echo
 bold "To start the conductor on this machine (only ONE conductor across ALL machines):"
-echo "  cd \$ARGO_REPO_ROOT && bash scripts/claude-conductor-loop.sh   # if it exists"
-echo "  # or run the cron prompt manually with: bash scripts/claude-conductor-tick.sh"
+echo "  The conductor runs as a Claude Code session, not a shell script."
+echo "  1. Open the canonical conductor tick prompt: \$ARGO_REPO_ROOT/docs/build-plan/PROTOCOL_LOOP_PROMPT.md"
+echo "  2. Substitute the Part-B operator-specific blocks (machine, accounts, focus)."
+echo "  3. In a Claude Code session, run:  /loop 5m <paste the substituted prompt>"
+echo "  Re-read PROTOCOL_LOOP_PROMPT.md before each new conductor session — it evolves."
 
 exit 0

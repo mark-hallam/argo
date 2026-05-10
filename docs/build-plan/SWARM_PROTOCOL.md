@@ -17,6 +17,12 @@ A conductor tab must not write feature code; if it previously claimed
 worker work, release or finish that worker state before making
 conductor mutations.
 
+> **Note (2026-05-09):** Codex agent family is currently offline (out
+> of credit). All `codex` TODO rows have been re-assigned to `claude`
+> per the BUILD_STATUS.md header amendment. Codex-specific rules below
+> (pre-push gate, codex-prefixed branches, etc.) apply when/if codex
+> resumes; until then, only the claude-side rules are active.
+
 Companion docs:
 - `PROTOCOL.md` — architecture and anti-patterns (the "why").
 - `PROTOCOL_LOOP_PROMPT.md` — the conductor tick prompt.
@@ -58,13 +64,30 @@ Before launching workers, the operator should set:
 export CARGO_TARGET_DIR=/tmp/argo-shared-target
 ```
 
-Add to `~/.zshrc` or `~/.bashrc`. Without this, every `/tmp/<brief-id>`
-worktree gets its own `target/` and rebuilds all 56 crates from
-scratch (~28 min cold) every time a worker starts a brief. With the
-shared target dir, worktrees reuse compiled crates across briefs;
-first brief is cold (~28 min one-time), subsequent briefs touching
-1-3 crates compile in ~30s-2min. Cargo's lockfile handles concurrent
-worker contention cleanly.
+**Where to put it:**
+
+- **macOS (zsh):** add to `~/.zshenv`, NOT `~/.zshrc`. Non-interactive
+  shells spawned by automation tools (Claude Code's Bash tool, cron,
+  CI runners, scheduled scripts) do not source `.zshrc` — only login
+  shells and interactive shells do. `.zshenv` is sourced for every
+  zsh invocation, interactive or not, so env vars set there are
+  visible to every tool.
+- **Linux (bash):** add to `~/.profile` or `~/.bashrc`. Non-interactive
+  bash sources whatever `BASH_ENV` points at (commonly `~/.bashrc` via
+  distro defaults), so either file works on most distros — confirm
+  with `bash -c 'echo $CARGO_TARGET_DIR'` after editing.
+- **Project-local secrets** (e.g. `ANTHROPIC_API_KEY`): use
+  [`direnv`](https://direnv.net) with a per-repo `.envrc`. Avoids
+  leaking secrets into your global shell environment, and direnv's
+  hook runs for every shell invocation that enters the directory.
+
+Without `CARGO_TARGET_DIR`, every `/tmp/<brief-id>` worktree gets its
+own `target/` and rebuilds all 56 crates from scratch (~28 min cold)
+every time a worker starts a brief. With the shared target dir,
+worktrees reuse compiled crates across briefs; first brief is cold
+(~28 min one-time), subsequent briefs touching 1-3 crates compile in
+~30s-2min. Cargo's lockfile handles concurrent worker contention
+cleanly.
 
 Optional but recommended: `brew install sccache` and
 `export RUSTC_WRAPPER=sccache` for cross-machine / cross-tab
@@ -156,7 +179,7 @@ Two standing allowances apply automatically:
 
 Run this loop until any STOP CONDITION fires:
 
-1. `cd "$ARGO_REPO_ROOT"` (per-machine env var; see `scripts/bootstrap-machine.sh` and `docs/skycot/MULTI_MACHINE_OPS.md`).
+1. `cd "${ARGO_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null)}"` (per-machine env var; see `scripts/bootstrap-machine.sh` and `docs/skycot/MULTI_MACHINE_OPS.md`. The fallback to `git rev-parse` keeps the step robust when env vars haven't loaded yet — common in non-interactive shells before the `.zshenv`/`direnv` setup is in place).
 2. `git checkout main && git pull --ff-only origin main`.
 3. Read `docs/build-plan/BUILD_STATUS.md` from disk.
 4. Find first row matching: `status=TODO` AND all `depends on`

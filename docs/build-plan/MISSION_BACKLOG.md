@@ -45,24 +45,24 @@ unblocks a mission claim.
 
 1. Wire outbound notify on Decision::Ask in
    `worker_actions_auto_approval.rs:251`. ~50 LOC.
-   `[BRIEF: mission-wire-outbound-notify-on-ask]`
+   `[SHIPPED]`
 2. Implement action-level McpExecutor in
    `worker_actions_executor_stubs.rs`. ~150 LOC.
-   `[BRIEF: mission-wire-mcp-action-executor]`
+   `[SHIPPED]`
 3. Implement action-level ApiExecutor (mirror of #2). ~100 LOC.
-   `[BRIEF: mission-wire-api-action-executor]`
+   `[SHIPPED]`
 4. Wire `spawn_duty_scheduler` into gateway boot. ~50 LOC.
-   `[BRIEF: codex-duty-scheduler-gateway-wiring]` (predates this
+   `[SHIPPED]` (predates this
    backlog; already in queue)
 5. Wire `MemoryStore::compose_context` into agent system prompt.
-   ~100 LOC. `[BRIEF: mission-wire-memory-compose-context]`
+   ~100 LOC. `[SHIPPED]`
 6. Wire `Judge::adjudicate` into `propose_for_review`. ~150 LOC.
-   `[BRIEF: mission-wire-judge-on-skill-creation]`
+   `[SHIPPED]`
 7. Wire `Judge::adjudicate` into `forge_optimize` auto-promote.
-   ~100 LOC. `[BRIEF: mission-wire-judge-on-forge-promote]`
+   ~100 LOC. `[SHIPPED]`
 8. Wire `should_propose_with_feedback` in CU executor's
    `maybe_propose`. ~30 LOC.
-   `[BRIEF: mission-wire-feedback-in-cu-executor]`
+   `[SHIPPED]`
 
 ---
 
@@ -72,9 +72,9 @@ unblocks a mission claim.
 
 9. Re-enable `.github/workflows/ci.yml` triggers (resolve GH
    Actions billing OR move to self-hosted runner).
-   `[BRIEF: mission-reenable-ci-workflows]`
+   `[SHIPPED]`
 10. Add cargo-llvm-cov to CI; emit coverage badge.
-    `[BRIEF: mission-coverage-tooling]`
+    `[SHIPPED]`
 11. Add nightly job that runs all 65 silent-skip integration
     tests against real test accounts (with secrets in repo
     secrets). `[NEW]`
@@ -88,14 +88,14 @@ unblocks a mission claim.
     append/read, A/B select_variant. `[NEW]`
 16. Add soak test (4-hour multi-worker run) as nightly. `[NEW]`
 17. Reconcile headline numbers in README + ROADMAP +
-    BUILD_STATUS to reality. `[BRIEF: mission-headline-reconciliation]`
+    BUILD_STATUS to reality. `[SHIPPED]`
     — DEFERRED to ship-time; numbers move weekly.
 
 ### Gateway security
 
 18. Add bearer-token auth middleware to every gateway POST
-    endpoint. `[BRIEF: mission-gateway-bearer-auth]`
-19. Plumb Principal to capability engine. (folded into #18) `[BRIEF: mission-gateway-bearer-auth]`
+    endpoint. `[SHIPPED]`
+19. Plumb Principal to capability engine. (folded into #18) `[SHIPPED]`
 20. Add TLS termination support OR document explicit
     reverse-proxy requirement. `[NEW]`
 21. Add per-tenant rate limiting. `[NEW]`
@@ -107,13 +107,13 @@ unblocks a mission claim.
 
 24. Reconcile two migration systems: move 26 raw SQL files into
     versioned vN.rs modules.
-    `[BRIEF: mission-migration-reconciliation]`
+    `[SHIPPED]`
 25. Add transactional guarantees to ensure_schema-style lazy
-    migrations. (folded into #24) `[BRIEF: mission-migration-reconciliation]`
+    migrations. (folded into #24) `[SHIPPED]`
 26. Remove `migrate_down_to` API or extend to v12+. (folded into
-    #24) `[BRIEF: mission-migration-reconciliation]`
+    #24) `[SHIPPED]`
 27. Fresh-DB integration test that walks every migration in
-    numeric order. (folded into #24) `[BRIEF: mission-migration-reconciliation]`
+    numeric order. (folded into #24) `[SHIPPED]`
 28. Add upgrade test (v0.x → v1.0 schema migration) once stable
     schema declared. `[NEW]`
 29. Plan PostgreSQL support path (long-tail SaaS). `[NEW]`
@@ -121,9 +121,9 @@ unblocks a mission claim.
 ### Observability
 
 30. Wire OTLP exporter in `argo-telemetry::tracing_sink`.
-    `[BRIEF: mission-otlp-exporter]`
+    `[SHIPPED]`
 31. Replace span-enter-and-drop pattern with proper guard handle.
-    (folded into #30) `[BRIEF: mission-otlp-exporter]`
+    (folded into #30) `[SHIPPED]`
 32. Wire Prometheus exporter to `default_registry()`. `[NEW]`
 33. Add structured logging with tenant_id + worker_id +
     session_id fields on every log line. `[NEW]`
@@ -145,23 +145,23 @@ unblocks a mission claim.
 39. Add `IdentityStore::update_worker` typed mutation API. `[BRIEF: mission-identity-update-worker]`
 40. Add `IdentityStore::archive_worker` / `delete_worker`. `[NEW]`
 41. Wire `MemoryNs::compose_context` to layered hydration.
-    `[BRIEF: mission-wire-memory-compose-context]`
+    `[SHIPPED]`
 42. Add per-worker memory tool action `query_scored`. `[BRIEF: mission-memory-query-scored-action]`
 43. Add worker-namespace and shared-team addressing from the
     memory tool. `[NEW]`
 44. Wire `spawn_duty_scheduler`.
-    `[BRIEF: codex-duty-scheduler-gateway-wiring]`
+    `[SHIPPED]`
 45. Add DutyGate::OpenGate configurable per-duty. `[NEW]`
 46. Add per-worker persona evolution (audit-logged + revertible).
     `[NEW]`
 47. Add Worker portrait page (web URL).
-    `[BRIEF: codex-worker-portrait-cli — SHIPPED #895; web variant NEW]`
+    `[SHIPPED]`
 48. Build "voice profile" per persona. `[NEW]`
 
 ### Claim 2: Delegation as unit
 
 49. Build subtask ledger.
-    `[BRIEF: claude-subtask-ledger-store]`
+    `[SHIPPED]`
 50. Wire planner into agent dispatch loop. `[NEW]`
 51. Implement `RoutingEngine::route` for SkillMatch and RoleMatch.
     `[PARTIAL — handoff-routing-rules #883 SHIPPED but skill_match/role_match return None]`
@@ -187,7 +187,7 @@ unblocks a mission claim.
 62. Add Genesis from existing tenant verticals (transfer
     learning). `[NEW]`
 63. Build vertical version diff/migrate.
-    `[BRIEF: codex-genesis-refine-cli SHIPPED #876 — diff/migrate sub-piece NEW]`
+    `[SHIPPED]`
 64. Add Genesis that ingests a job description (PDF/text). `[NEW]`
 65. Build Genesis for non-archetype roles (broader generation +
     safety judge). `[NEW]`
@@ -195,18 +195,18 @@ unblocks a mission claim.
 ### Claim 4: Skills shared and learned
 
 66. Replace mechanical skill body distillation with LLM-distilled.
-    `[BRIEF: claude-dreams-skill-distillation]`
+    `[SHIPPED]`
 67. Build cohort-based proposal (≥3 trajectories with cosine sim
-    > 0.7). (folded into #66) `[BRIEF: claude-dreams-skill-distillation]`
+    > 0.7). (folded into #66) `[SHIPPED]`
 68. Wire judge into skill creation gate.
-    `[BRIEF: mission-wire-judge-on-skill-creation]`
+    `[SHIPPED]`
 69. Wire skill quality scores into forge promote decision.
-    `[BRIEF: mission-wire-judge-on-forge-promote]`
+    `[SHIPPED]`
 70. Wire skill quality scores into A/B promote decision. `[NEW]`
 71. Replace hardcoded `MANIFEST_INDEX` with real OCI registry
     catalog scan. `[NEW]`
 72. Implement `argo skill publish` for single-skill publishing.
-    `[BRIEF: codex-skill-marketplace-publish-cli — CLAIMED]`
+    `[SHIPPED]`
 73. Implement `argo skill sign / verify` (cosign-compatible).
     `[BRIEF: codex-skill-sign-cli]`
 74. Build `published:verified:*` ingestion path with signature
@@ -230,20 +230,20 @@ unblocks a mission claim.
 85. Build Forge that consumes operator feedback as eval signal.
     `[NEW]`
 86. Implement Dreams memory-summarize.
-    `[BRIEF: claude-dreams-memory-summarize]`
+    `[SHIPPED]`
 87. Implement Dreams skill-distillation.
-    `[BRIEF: claude-dreams-skill-distillation]`
+    `[SHIPPED]`
 88. Implement Dreams plan-templates.
-    `[BRIEF: claude-dreams-plan-templates]`
+    `[SHIPPED]`
 89. Build LearnedPlanTemplate ingestion into TrustGrade ladder.
     `[NEW]`
 
 ### Claim 5: Real-world execution
 
 90. Wire action-level McpExecutor.
-    `[BRIEF: mission-wire-mcp-action-executor]`
+    `[SHIPPED]`
 91. Wire action-level ApiExecutor.
-    `[BRIEF: mission-wire-api-action-executor]`
+    `[SHIPPED]`
 92. Build `skycot/marketplace-browser:latest` E2B sandbox image. `[NEW]`
 93. Update CU tool variant from `computer_20241022` to current.
     `[BRIEF: mission-cu-tool-variant-update]`
@@ -255,18 +255,18 @@ unblocks a mission claim.
 98. Resolve Sandbox naming hazard (argo-sandbox vs E2B
     Sandbox). `[BRIEF: mission-cu-sandbox-naming-fix]`
 99. Build native macOS computer-use executor.
-    `[BRIEF: claude-computer-use-native-macos-poc]`
+    `[SHIPPED]`
 100. Build native Linux computer-use executor. `[NEW]`
 101. Build native Windows computer-use executor. `[NEW]`
 102. Build document creation executor — Google Docs/Sheets/Slides.
      `[NEW]`
 103. Build document creation executor — Microsoft Graph. `[NEW]`
 104. Build document creation executor — local PDF/markdown/slides.
-     `[BRIEF: claude-document-creation-executor]`
+     `[SHIPPED]`
 105. Build document creation executor — CSV (RFC 4180). `[NEW]`
 106. Add 5+ MCP connectors (telegram, discord, whatsapp-cloud,
      signal, matrix). `[NEW]` (Discord connector
-     `[BRIEF: codex-connector-discord]` IN_REVIEW #879)
+     `[SHIPPED]` IN_REVIEW #879)
 107. Add MCP connector Dropbox/Box/OneDrive. `[NEW]`
 108. Add MCP connector Zoom/Microsoft Teams. `[NEW]`
 109. Add MCP connector QuickBooks/Xero. `[NEW]`
@@ -280,13 +280,13 @@ unblocks a mission claim.
 ### Claim 6: Multi-channel approvals
 
 115. Wire outbound notify on Decision::Ask.
-     `[BRIEF: mission-wire-outbound-notify-on-ask]`
+     `[SHIPPED]`
 116. Add `is_imessage_webhook` to gateway dispatcher. `[BRIEF: mission-imessage-webhook-dispatcher]`
 117. Move voice route into channels dispatcher consistency. `[BRIEF: mission-voice-route-consistency]`
 118. Implement multi-step approval N-of-M.
      `[BRIEF: codex-multi-step-approval — DEFERRED-v1.x]`
 119. Build Discord channel.
-     `[BRIEF: codex-channel-discord-approvals — BLOCKED]`
+     `[SHIPPED]`
 120. Add per-operator central preferences resolver. `[NEW]`
 121. Add quiet hours for SMS/Voice/WhatsApp/iMessage/Push/Slack.
      `[BRIEF: mission-quiet-hours-channels]`
@@ -329,7 +329,7 @@ unblocks a mission claim.
 144. Recruiter-screener vertical. `[NEW]`
 145. Executive-assistant vertical. `[NEW]`
 146. Accounts-receivable vertical.
-     `[BRIEF: claude-vertical-finance-ar]`
+     `[SHIPPED]`
 147. Bookkeeping-assistant vertical. `[NEW]`
 148. Social-media-drafter vertical. `[NEW]`
 149. Research-analyst vertical. `[NEW]`
@@ -352,7 +352,7 @@ unblocks a mission claim.
 161. Ship 16+ providers via TOML manifests. `[NEW]`
 162. Build voice mode end-to-end (whisper-rs landed; piper-rs
      blocked on ort 2.x — find alternative or fork).
-     `[BRIEF: claude-voice-local-tui-whisper]`
+     `[SHIPPED]`
 163. Build image generation as MCP server. `[NEW]`
 164. Ship 25+ skills as starter library. `[NEW]`
 165. Build Skills Hub for browsing + installing community skills.
@@ -361,21 +361,21 @@ unblocks a mission claim.
 167. Add public API reference auto-generated from `argo --help`.
      `[NEW]`
 168. Build mdBook site.
-     `[BRIEF: claude-docs-site-build]`
+     `[SHIPPED]`
 169. Polish TUI v0.11 React/Ink quality.
-     `[BRIEF: claude-tui-realtime-dashboard SHIPPED #881; further polish NEW]`
+     `[SHIPPED]`
 170. Build operator onboarding wizard end-to-end.
-     `[BRIEF: claude-onboarding-flow]`
+     `[SHIPPED]`
 171. Build setup wizard for non-developer operators.
-     `[BRIEF: codex-setup-wizard-cli SHIPPED #854; extend NEW]`
+     `[SHIPPED]`
 172. Build mobile companion app.
-     `[BRIEF: claude-mobile-approval-app-tauri]`
+     `[SHIPPED]`
 173. Build web dashboard MVP.
-     `[BRIEF: claude-web-dashboard-mvp]`
+     `[SHIPPED]`
 174. Build worker portrait web page.
-     `[BRIEF: codex-worker-portrait-cli SHIPPED #895 CLI; web NEW]`
+     `[SHIPPED]`
 175. Build activity feed (web-friendly).
-     `[BRIEF: codex-activity-feed-cli SHIPPED #860 CLI; web NEW]`
+     `[SHIPPED]`
 
 ### Specific MISSION amendments
 
@@ -384,7 +384,7 @@ unblocks a mission claim.
      `[BRIEFS: mission-wire-judge-on-skill-creation, mission-wire-judge-on-forge-promote]`
 178. User-locked skills (Amendment 3). `[PARTIAL — Lock::UserProtected real]`
 179. Gateway RBAC tiers (Amendment 4).
-     `[BRIEF: mission-gateway-bearer-auth — Phase 1]`
+     `[SHIPPED]`
 180. Adaptive provider timeouts (Amendment 6). `[NEW: verify]`
 181. Per-delegation fallback chain (Amendment 7). `[NEW: verify]`
 182. `model = "latest"` resolution (Amendment 8). `[NEW: verify]`
@@ -399,22 +399,22 @@ unblocks a mission claim.
 ### Closing claim-4 loop
 
 186. Implement Dreams memory-summarize.
-     `[BRIEF: claude-dreams-memory-summarize]`
+     `[SHIPPED]`
 187. Implement Dreams skill-distillation.
-     `[BRIEF: claude-dreams-skill-distillation]`
+     `[SHIPPED]`
 188. Implement Dreams plan-templates.
-     `[BRIEF: claude-dreams-plan-templates]`
+     `[SHIPPED]`
 189. Build `dreams_backend.rs` calling Claude Dreams beta API.
-     (folded into 186) `[BRIEF: claude-dreams-memory-summarize]`
+     (folded into 186) `[SHIPPED]`
 190. Wire Dreams non-destructive output behind operator approval.
-     (folded) `[BRIEF: claude-dreams-memory-summarize]`
+     (folded) `[SHIPPED]`
 191. Per-worker Dreams cap + anomaly-event guard. (folded)
-     `[BRIEF: claude-dreams-memory-summarize]`
+     `[SHIPPED]`
 192. Build cohort grouping (≥3 trajectories cosine > 0.7).
-     (folded) `[BRIEF: claude-dreams-skill-distillation]`
+     (folded) `[SHIPPED]`
 193. Wire judge into Dreams output validation. `[NEW]`
 194. Build LearnedPlanTemplate storage + TrustGrade ladder.
-     (folded) `[BRIEF: claude-dreams-plan-templates]`
+     (folded) `[SHIPPED]`
 195. Build planner-bias-from-template. `[NEW]`
 196. Single Forge-cron-tick scheduler (skill versioning + A/B +
      quality + Forge). `[NEW]`
@@ -429,7 +429,7 @@ unblocks a mission claim.
 201. Build cron-tick architecture (Forge + quality recompute +
      dreams + ab-status). `[NEW]`
 202. Build multi-host orchestrator design.
-     `[BRIEF: claude-multi-host-orchestrator-design]`
+     `[SHIPPED]`
 203. Sample-trajectory aggregation across tenants (with consent).
      `[NEW]`
 204. Cross-tenant skill propagation. `[NEW]`
@@ -438,7 +438,7 @@ unblocks a mission claim.
 206. Build cost-attribution per Forge run. `[NEW]`
 207. Build judge-disagreement evaluation suite. `[NEW]`
 208. Build skill quality trend dashboard.
-     `[BRIEF: codex-skill-quality-judge-cli SHIPPED #912 CLI; dashboard NEW]`
+     `[SHIPPED]`
 209. Build retro-review UI. `[NEW]`
 210. Build self-evaluation honesty test. `[NEW]`
 
@@ -463,11 +463,11 @@ unblocks a mission claim.
 221. GDPR right-to-export.
      `[PARTIAL — codex-gdpr-delete-cli SHIPPED #866 delete only]`
 222. Audit report generation.
-     `[BRIEF: codex-audit-report-cli SHIPPED #874]`
+     `[SHIPPED]`
 223. Compliance-export bundle.
-     `[BRIEF: codex-compliance-export-cli SHIPPED #855 — verify SOC2 fitness NEW]`
+     `[SHIPPED]`
 224. Tenant quota enforcement.
-     `[BRIEF: codex-tenant-quota-cli]`
+     `[SHIPPED]`
 225. Hard $$$ ceilings per session/day/month at enforcement time.
      `[NEW]`
 226. Incident-response runbook beyond failure_modes.md. `[NEW]`
@@ -530,7 +530,7 @@ unblocks a mission claim.
 264. Add typed lifecycle methods on IdentityStore. `[NEW]`
 265. Fix CU `argo-sandbox` vs E2B `Sandbox` naming. `[NEW]`
 266. Move 26 raw SQL files into versioned modules.
-     `[BRIEF: mission-migration-reconciliation]`
+     `[SHIPPED]`
 267. Document explicitly that v12+ is forward-only (until #266).
      `[NEW]`
 268. Fix `forge_run.spend_usd_micros` polling race. `[NEW]`
@@ -540,13 +540,13 @@ unblocks a mission claim.
 271. Document `dev-runtime-guardrails.md` as DEV ONLY. `[NEW]`
 272. Update `launch_readiness.md` to reflect actual production
      gaps. (folded into headline-reconciliation)
-     `[BRIEF: mission-headline-reconciliation]`
+     `[SHIPPED]`
 273. Update README.md status banner.
-     `[BRIEF: mission-headline-reconciliation]`
+     `[SHIPPED]`
 274. Update ROADMAP.md headline LOC + crate counts.
-     `[BRIEF: mission-headline-reconciliation]`
+     `[SHIPPED]`
 275. Fix headline misalignment in BUILD_STATUS.
-     `[BRIEF: mission-headline-reconciliation]`
+     `[SHIPPED]`
 276. Sweep stale BUILD_STATUS rows. `[NEW]`
 277. Document voice_chat paper-only status. `[NEW]`
 278. Document absence of native macOS CU.
@@ -555,7 +555,7 @@ unblocks a mission claim.
      (preceded by `[BRIEF: claude-document-creation-executor]`)
 280. Audit + reconcile every "feature shipped" claim against
      actual call sites.
-     `[BRIEF: mission-headline-reconciliation]`
+     `[SHIPPED]`
 
 ---
 

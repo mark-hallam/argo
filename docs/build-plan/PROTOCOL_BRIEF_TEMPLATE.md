@@ -196,7 +196,8 @@ to land). Reuse the OAuth refresh + token cache pattern from
       on 401
 - [ ] Integration test gated on `<CONNECTOR>_TEST_TOKEN` env var
 - [ ] Manifest registration in `manifests/connectors/<connector>.toml`
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` clean
+- [ ] `cargo clippy -p <vertical>-<connector> --all-targets -- -D warnings` clean (crate-scoped — claude tabs are exempt from the workspace gate per `SWARM_PROTOCOL.md` Verification)
+- [ ] Final `cargo clippy --workspace --all-targets -- -D warnings` clean (or `scripts/workspace-clippy-fast-fail.sh` equivalent) — claim explicitly in PR body
 - [ ] `cargo test -p <vertical>-<connector>` passes
 - [ ] Every file < 500 LOC
 

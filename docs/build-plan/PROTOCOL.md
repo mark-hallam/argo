@@ -98,7 +98,9 @@ In text:
 6. Continue any conductor-owned in-progress work (rare)
 7. For each BLOCKED row: investigate, expand may-touch, split, or
    escalate
-8. Queue replenishment: count owner.TODO; if either ≤8 brainstorm
+8. Queue replenishment: count owner.TODO; if either ≤25 (target
+   depth 30-40; threshold per BUILD_STATUS.md operator amendment
+   2026-05-10 — verify the live header at run time) brainstorm
    3-5 new briefs and push as one commit per owner. See
    "Queue replenishment" below for details.
 9. If nothing to do, report briefly + end the tick
@@ -271,9 +273,13 @@ pushed them as a single commit. The queue refilled in one tick.
         ▼
 count(owner.TODO)
         │
-        ├── ≤ 8  → brainstorm + write 3-5 briefs → push one commit
-        └── > 3  → skip
+        ├── ≤ 25 → brainstorm + write 3-5 briefs → push one commit
+        └── > 25 → skip
 ```
+
+(Threshold per BUILD_STATUS.md operator amendment 2026-05-10;
+verify the live header at run time — operator amendments override
+this template.)
 
 Concretely, at step 8 the conductor runs:
 
@@ -283,10 +289,13 @@ claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
 ```
 
 and fires the replenishment branch for each owner whose count is
-≤8. Both queues above 8 → the step is a no-op. (Tick 59 raised
-this threshold from the original ≤3 — workers can drain ~3 briefs
-in a single tick window, so ≤3 risked workers running out of
-queued work between ticks; ≤8 keeps both pools busy.)
+≤25 (target depth 30-40). Both queues above 25 → the step is a
+no-op. (Tick 59 raised this threshold from the original ≤3 to ≤8
+— workers can drain ~3 briefs in a single tick window, so ≤3 risked
+workers running out of queued work between ticks. The 2026-05-10
+operator amendment in BUILD_STATUS.md raised it again from ≤8 to
+≤25 with target depth 30-40, reflecting higher worker concurrency.
+Re-check the live ledger header — that is authoritative.)
 
 ### Idea sources
 
@@ -700,14 +709,16 @@ v2.2  Demo verticals         (prove >1 use case)
 ### The Step-8 source list, post-v1
 
 Queue replenishment (Step 8 of the conductor tick) was originally
-sourced from `MISSION.md`, recent PR-body deferrals, the v1-demo
+sourced from `docs/skycot/MISSION.md`, recent PR-body deferrals, the v1-demo
 gap list, and `git log -100`. After tick 57, it adds a fifth
 source:
 
 5. **`BUILD_PLAN_V11.md` phased plan** — when either TODO queue
-   dips ≤8, the conductor reads the phase that matches "what's
-   active right now" (initially v1.1; later v1.2+v1.3 in
-   parallel) and turns one or two un-shipped bullets into briefs.
+   dips below the live threshold (≤25 per the 2026-05-10
+   BUILD_STATUS.md operator amendment; verify the live header),
+   the conductor reads the phase that matches "what's active
+   right now" (initially v1.1; later v1.2+v1.3 in parallel) and
+   turns one or two un-shipped bullets into briefs.
 
 The trigger and stop-condition are unchanged. The replenishment
 loop is the same one. Only the idea sources are richer.
@@ -755,6 +766,9 @@ The protocol survives the v1-to-v2 transition unchanged in
 shape; only the queue-source list grows.
 
 ### Phase 2 in flight (snapshot, tick 58)
+
+*(historical snapshot — most items below are now MERGED; see
+`BUILD_STATUS.md` for live state.)*
 
 12 mission-gap briefs queued in `streams/` straight off
 BUILD_PLAN_V11 (6 codex + 6 claude). Spread across:

@@ -65,9 +65,27 @@ When in doubt:
 - Question the requirement. If something doesn't make sense, raise it; do not invent.
 - Ship the 80% solution. Working software beats the perfect solution that arrives late.
 
-The master spec is `docs/plan/argo-build-plan.md` (v0.2) for the
-core-platform layer. The vertical-template system is documented in
-its own design doc once Phase 1 lands.
+Plan documents, in order of operative precedence:
+
+- `docs/plan/argo-build-plan.md` (v0.2) — original architecture
+  reference for the core-platform layer. Still valid for that scope,
+  but no longer the operative phased plan.
+- `docs/build-plan/BUILD_PLAN_V11.md` — current operative phased
+  plan (v1.1 production hardening through v2.2 demo verticals).
+  This is what the swarm is building against today.
+- `docs/build-plan/BUILD_STATUS.md` — the live ledger (rows + state
+  transitions, edited every tick).
+- `docs/build-plan/MISSION_BACKLOG.md` — canonical source of
+  un-shipped work, status-tagged for queue replenishment.
+
+The vertical-template system is documented in its own design doc
+once Phase 1 lands.
+
+**Fresh agents: read `docs/build-plan/BUILD_STATUS.md` (first 60
+lines) before making any decisions.** The header carries operator
+amendments (queue thresholds, agent-family availability, paused
+streams, etc.) that override doc-template instructions. Memory and
+template defaults are not authoritative; the live ledger is.
 
 PR title format: `<phase> — <section> — <one-line summary>`
 

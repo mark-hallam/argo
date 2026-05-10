@@ -30,7 +30,7 @@ Iterate the 18 stale IN_REVIEW PRs (snapshot below). For each:
 
 ## Files you may touch
 
-- `docs/build-plan/STALE_IN_REVIEW_TRIAGE_2026-05-09.md` (NEW, ≤ 800 LOC — long but bounded by 18 PRs × ~40 LOC each)
+- `docs/build-plan/archive/STALE_IN_REVIEW_TRIAGE_2026-05-09.md` (NEW, ≤ 800 LOC — long but bounded by 18 PRs × ~40 LOC each)
 
 ## Files you must NOT touch
 
