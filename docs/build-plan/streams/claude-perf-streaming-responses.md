@@ -2,6 +2,8 @@
 
 **Owner**: claude. **Depends on**: none.
 
+> **MAY-TOUCH EXPANDED 2026-05-10 by conductor (BLOCKED-audit pass).** Original brief assumed axum-style handlers; gateway uses raw TcpStream + manual chunked HTTP, so streaming wire requires a new `is_streaming_*` branch in `boot.rs` listener loop. `boot.rs` was outside may-touch in the original, blocking implementation. Per worker re-scope note, may-touch now includes `boot.rs`. Implementer may rename existing `streaming.rs` → `runs_streaming.rs` to avoid collision; flag as sensible deviation if mid-implementation.
+
 > Several gateway GET routes today materialise their full result set
 > into memory before serialising — fine at 100 rows, problematic at
 > 100k. This brief introduces a small streaming helper and wires it
@@ -65,6 +67,11 @@ response.
   swap three handler bodies to use streaming
 - existing route files (e.g. `routes_audit.rs`) — narrowly: the
   three target handlers
+- `crates/argo-cli/src/handlers/gateway/boot.rs` — narrowly: ADD
+  the `is_streaming_*` branch in the TcpStream listener loop so the
+  three target GET routes dispatch through the streaming helper.
+  No other edits to `boot.rs`. **Added 2026-05-10 by conductor**
+  to unblock the brief.
 
 ## Files you must NOT touch
 
