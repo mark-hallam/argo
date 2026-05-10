@@ -26,6 +26,7 @@
 /// `claude-dreams-plan-templates`.
 pub mod dreams_plan_templates;
 mod planner;
+mod planner_templates;
 
 #[cfg(test)]
 mod planner_tests;
