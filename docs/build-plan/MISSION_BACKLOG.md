@@ -146,7 +146,7 @@ unblocks a mission claim.
 40. Add `IdentityStore::archive_worker` / `delete_worker`. `[NEW]`
 41. Wire `MemoryNs::compose_context` to layered hydration.
     `[BRIEF: mission-wire-memory-compose-context]`
-42. Add per-worker memory tool action `query_scored`. `[NEW]`
+42. Add per-worker memory tool action `query_scored`. `[BRIEF: mission-memory-query-scored-action]`
 43. Add worker-namespace and shared-team addressing from the
     memory tool. `[NEW]`
 44. Wire `spawn_duty_scheduler`.
@@ -248,7 +248,7 @@ unblocks a mission claim.
 93. Update CU tool variant from `computer_20241022` to current.
     `[BRIEF: mission-cu-tool-variant-update]`
 94. Fix CU output parser to handle multi-action turns. `[BRIEF: mission-cu-parser-multi-action]`
-95. Avoid double-screenshot. `[NEW]`
+95. Avoid double-screenshot. `[BRIEF: mission-cu-double-screenshot-fix]`
 96. Wire CU sandbox pool reaper (`reap_idle` exists, no caller).
     `[BRIEF: mission-cu-sandbox-pool-reaper]`
 97. Add Webdriver-style test harness for CU loop. `[NEW]`
@@ -281,7 +281,7 @@ unblocks a mission claim.
 
 115. Wire outbound notify on Decision::Ask.
      `[BRIEF: mission-wire-outbound-notify-on-ask]`
-116. Add `is_imessage_webhook` to gateway dispatcher. `[NEW]`
+116. Add `is_imessage_webhook` to gateway dispatcher. `[BRIEF: mission-imessage-webhook-dispatcher]`
 117. Move voice route into channels dispatcher consistency. `[NEW]`
 118. Implement multi-step approval N-of-M.
      `[BRIEF: codex-multi-step-approval — DEFERRED-v1.x]`
