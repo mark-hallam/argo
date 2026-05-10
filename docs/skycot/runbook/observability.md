@@ -224,6 +224,157 @@ treat 78 as a configuration problem rather than crash-loop spam.
 For dev / recovery only, `--skip-startup-check` bypasses every
 check. Don't ship that flag to production.
 
----
+### 9.8 Log aggregation
 
-Next: [Security](security.md) · [Where to next + reference](reference.md).
+`argo gateway serve` writes log lines to **stderr** by default, formatted
+by [`SecretsScrubberLayer`](../../crates/argo-cli/src/secrets_scrubber.rs).
+This section covers shipping those logs to a real aggregator (Loki,
+Grafana, ELK), file rotation, and the field reference operators need to
+write parsers and dashboards.
+
+**Trace data vs log data — keep them separate.** Spans, counters, and
+histograms ship via the OTLP exporter (see [§9.3.1](#931-opentelemetry--otlp-exporter)
+and [#938 mission-otlp-exporter](https://github.com/anthropics/argo/pull/938)).
+This section is only about the textual log stream — `tracing::info!` /
+`error!` / etc. lines emitted to stderr. The two paths are intentionally
+split: traces → OTLP collector, logs → stdout/file → Promtail → Loki.
+Don't try to scrape spans out of stderr or push log lines through OTLP.
+
+#### 9.8.1 Output format and env vars
+
+Two env vars control current output:
+
+- `RUST_LOG` — standard `tracing-subscriber` env-filter directive.
+  Default `warn,argo=info` (warn floor, info for `argo` targets).
+  Examples: `RUST_LOG=info`, `RUST_LOG=argo_runtime=debug,warn`.
+- `ARGO_TRACING_SCRUB` — set to `0` to disable the secrets-scrubbing
+  layer. **Production must leave this unset.** When `0`, output falls
+  back to `tracing-subscriber`'s plain `fmt::layer()` and the binary
+  prints a `secrets scrubbing DISABLED` warning to stderr.
+
+Today's line format (scrubber on, the production path) is:
+
+```
+<LEVEL> <target> <message> <key>=<value> <key>=<value> ...
+```
+
+Example:
+
+```
+INFO argo_gateway::serve listening port=7676
+WARN argo_runtime::router provider fell back from anthropic to openai reason=rate_limit attempt=2
+```
+
+> **Status — structured JSON output:** not yet wired (verified
+> 2026-05-11 with `rg -n 'tracing.*json' crates/argo-cli/src` — no
+> matches in `tracing_setup.rs`; `SecretsScrubberLayer` formats
+> events as plain text). The brief's intent was to document an
+> existing JSON flag; that flag does not exist on main. JSON-mode
+> wiring (timestamp, span ids, trace ids in a stable envelope) is a
+> follow-up code brief — track as `claude-tracing-json-mode`. The
+> Field reference below documents both today's text-format keys and
+> the planned JSON envelope so operators can choose a parser strategy
+> now and migrate forward without re-writing label maps.
+
+#### 9.8.2 File rotation
+
+The simplest production path is to redirect stderr to a file under
+systemd's logging or a logrotate-managed path. Both are stable
+operating-system primitives — they do not depend on any argo build
+flag.
+
+**Option A — `logrotate` (Linux, BSD).** Add the snippet to
+`/etc/logrotate.d/argo`:
+
+```
+/var/log/argo/gateway.log {
+    daily
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su argo argo
+}
+```
+
+`copytruncate` is required because `argo gateway serve` does not
+re-open its log fd on `SIGHUP` today. Daily + 14-day retention is the
+SKYCOT default; tune `rotate` and `daily`/`hourly` to your storage
+budget.
+
+**Option B — `journald` (systemd).** If you run argo as a systemd
+unit, journald rotates and indexes for free. Example unit drop-in:
+
+```ini
+[Service]
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=argo-gateway
+```
+
+Tail with `journalctl -u argo-gateway -f`. Promtail can pull from
+journald directly via its `journal:` source; see the example file
+in `docs/skycot/log-aggregation/promtail-example.yaml`.
+
+#### 9.8.3 Shipping to Loki + Grafana
+
+Promtail is the recommended shipper for Loki because it handles
+rotation, label management, and back-pressure cleanly. A complete
+ready-to-paste config lives at
+[`docs/skycot/log-aggregation/promtail-example.yaml`](../log-aggregation/promtail-example.yaml).
+Two label conventions to keep in mind:
+
+- **Static labels only:** `app="argo"`, `component="gateway"`,
+  `env="${ENVIRONMENT}"`. These three identify the stream.
+- **No per-session, per-worker, or per-action labels.** Loki's index
+  cardinality is the dominant cost — keep dynamic data in the line
+  body, not the labels. Use `logfmt` parsing in your LogQL queries
+  to filter by `worker_id` / `action_id` at query time.
+
+For Grafana, point a Loki datasource at your collector and start with:
+
+```
+{app="argo", component="gateway"} |= "error"
+{app="argo"} | logfmt | level="WARN"
+```
+
+#### 9.8.4 Field reference
+
+Two-column reference: which keys are stable in **today's text format**
+(scrubber output) versus the **planned JSON envelope** (follow-up).
+Operators writing a parser today should target the text-format
+column; the JSON-mode rollout will preserve the same key names so
+dashboards and alerts migrate cleanly.
+
+| Key | Today (text) | Planned (JSON) | Notes |
+|---|---|---|---|
+| `timestamp` | not in line (use ingest time) | RFC 3339 UTC | Ingest-time timestamp from journald / Promtail is the substitute today |
+| `level` | first whitespace token | string `"INFO"` etc. | Stable; match against `INFO\|WARN\|ERROR\|DEBUG\|TRACE` |
+| `target` | second whitespace token | string | Tracing target — module path, e.g. `argo_runtime::router` |
+| `msg` | text between target and first `k=v` | string | Free-form message; may contain spaces |
+| `span_name` | not present | string | Innermost span at event time (planned) |
+| `span_id` | not present | hex string | OTLP-compatible span id (planned) |
+| `trace_id` | not present | hex string | OTLP-compatible trace id (planned) |
+| `fields` | space-separated `k=v` tail | object | Per-event `tracing` fields; values may contain `<scrubbed:*>` markers |
+
+Three caveats:
+
+1. **Scrubbed values.** Any field whose name matches `password`,
+   `api_key`, `bearer`, `*_secret`, `access_token`, `refresh_token`
+   (and a few inline patterns — JWTs, `Bearer …`) is replaced with
+   `<scrubbed:kind>` before any writer sees it. Don't write alerts
+   that match on the scrubbed marker — match on the field key
+   instead.
+2. **Field names are best-effort.** `tracing::info!(worker_id = "…")`
+   call sites use whatever key the author wrote. The runtime does
+   not enforce a schema; treat unfamiliar keys as informational, not
+   missing.
+3. **Multi-line messages.** Errors with embedded newlines (panic
+   backtraces in particular) span multiple log lines. Promtail's
+   default config in `promtail-example.yaml` includes a multiline
+   stage that joins continuation lines until the next leading
+   `INFO|WARN|...` token.
+
+---

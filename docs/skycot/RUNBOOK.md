@@ -57,6 +57,8 @@ separate files now.
   [Observability §9.1](runbook/observability.md#91-argo-audit-query)
 - **Wiring up Prometheus or OTLP?** →
   [Observability §9.3](runbook/observability.md#93-prometheus)
+- **Shipping logs to Loki / Grafana / ELK?** →
+  [Observability §9.8](runbook/observability.md#98-log-aggregation)
 - **Gateway exits 78 on boot?** →
   [Observability §9.7](runbook/observability.md#97-startup-health-check-exit-78)
 - **Setting a gateway bearer token?** →

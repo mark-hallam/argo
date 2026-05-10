@@ -1,0 +1,59 @@
+# Promtail config for shipping argo gateway logs to Loki.
+# Drop on the host as /etc/promtail/argo.yaml and run:
+#   promtail --config.file=/etc/promtail/argo.yaml
+#
+# Two scrape sources: file-based (logrotate) and journald (systemd).
+# Enable whichever matches your deploy. Reference:
+# docs/skycot/runbook/observability.md §9.8.
+#
+# Keep label cardinality low. The three labels (app, component, env)
+# are the only ones that should appear at scrape time. Worker-id,
+# action-id, etc. live in the line body and are filtered at query
+# time via `| logfmt` in LogQL.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Source A: file-based (use with logrotate, §9.8.2 Option A).
+  - job_name: argo-gateway-file
+    static_configs:
+      - targets: [localhost]
+        labels:
+          app: argo
+          component: gateway
+          env: production
+          __path__: /var/log/argo/gateway.log
+    pipeline_stages:
+      # Join multiline panic backtraces. The scrubber's text format
+      # starts every event with a level token; continuations don't.
+      - multiline:
+          firstline: '^(INFO|WARN|ERROR|DEBUG|TRACE)\s'
+          max_wait_time: 3s
+      - regex:
+          expression: '^(?P<level>INFO|WARN|ERROR|DEBUG|TRACE)\s+(?P<target>\S+)\s+(?P<body>.*)$'
+      - labels:
+          level:
+
+  # Source B: journald (use with systemd, §9.8.2 Option B).
+  - job_name: argo-gateway-journal
+    journal:
+      json: false
+      max_age: 12h
+      labels:
+        app: argo
+        component: gateway
+        env: production
+    relabel_configs:
+      - source_labels: ['__journal__systemd_unit']
+        regex: 'argo-gateway\.service'
+        action: keep
+      - source_labels: ['__journal_priority_keyword']
+        target_label: 'level'
