@@ -134,6 +134,7 @@ pub mod mcp_registry;
 pub mod mcp_tools;
 pub mod memory;
 pub mod memory_dream_now;
+pub mod memory_query;
 pub mod memory_shared_team;
 pub mod messages;
 pub mod messages_by_day;
