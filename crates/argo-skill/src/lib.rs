@@ -39,6 +39,7 @@ mod skill;
 mod store;
 mod store_lookups;
 mod store_vertical;
+mod store_vertical_judge;
 pub mod success_metric;
 pub mod trust;
 pub mod version;

@@ -175,7 +175,7 @@ fn classify_verdict_floor_is_configurable() {
     // parallel-unsafe `std::env::set_var` between tests — env
     // mutation in one test races with reads in sibling tests
     // because cargo runs them on multiple threads.
-    use crate::store_vertical::{classify_verdict, JudgeOutcome};
+    use crate::store_vertical_judge::{classify_verdict, JudgeOutcome};
 
     let strict = 0.6;
     let lenient = 0.3;
