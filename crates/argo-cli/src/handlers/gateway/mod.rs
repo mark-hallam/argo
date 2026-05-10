@@ -26,6 +26,7 @@ mod start_banner_config;
 mod sweepers;
 mod routes_audit;
 mod routes_audit_rollups;
+mod routes_audit_rollups_tools;
 mod routes_audit_session;
 mod routes_audit_stream;
 mod routes_auth;
