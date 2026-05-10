@@ -62,6 +62,11 @@ pub mod subtask;
 /// + `roster_member` for the `argo team` CLI surface (Stream
 /// `claude-worker-team-roster-cli`).
 pub mod team_roster;
+/// Mutation surface for the team-roster primitive (split from
+/// `team_roster.rs` for the 500-LOC budget). Public symbols are
+/// re-exported from `team_roster` so external imports remain
+/// `argo_store::team_roster::create_team`.
+pub mod team_roster_mutations;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Quota kind enums + error type for the tenant_quota gate
