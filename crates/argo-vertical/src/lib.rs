@@ -53,6 +53,7 @@ mod eval_score;
 mod eval_score_actuals;
 mod eval_score_heuristics;
 mod eval_score_judge;
+mod eval_score_judge_live;
 mod isolation;
 mod loader;
 mod manifest;
