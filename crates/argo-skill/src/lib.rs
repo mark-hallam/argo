@@ -26,6 +26,7 @@ pub mod conflicts;
 pub mod deps;
 pub mod dreams_distillation;
 pub mod eval_runner;
+mod eval_runner_gate;
 pub mod feedback;
 pub mod learn;
 pub mod library;
