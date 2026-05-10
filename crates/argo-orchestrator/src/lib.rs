@@ -30,6 +30,8 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod auction;
+mod auction_persist;
+mod auction_query;
 /// Worker duty scheduler — autonomous cron-driven actions
 /// (Stream `claude-worker-duty-scheduler`, V1.3).
 pub mod duty_scheduler;
