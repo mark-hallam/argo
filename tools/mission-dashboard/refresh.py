@@ -696,7 +696,9 @@ def velocity_stats(burn: list[dict]) -> dict:
                 "idle_hours": 0.0, "merged_now": burn[-1]["merged"] if burn else 0}
 
     def parse_iso(s: str) -> datetime:
-        return datetime.fromisoformat(s)
+        # Python 3.10's fromisoformat doesn't accept the trailing-Z UTC marker;
+        # older BUILD_STATUS commits use that form.
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
     pts = [(parse_iso(p["ts"]), p["merged"]) for p in burn]
     now = datetime.now(timezone.utc)
