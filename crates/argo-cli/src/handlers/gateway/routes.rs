@@ -15,6 +15,7 @@
 //! Each handler returns a `(status_line, body)` pair the listener
 //! loop formats into a single-line HTTP/1.1 response.
 use super::rate_limit;
+use super::rate_limit_tenant;
 use super::routes_auth::{check_bearer_auth, is_public_get};
 use super::routes_dispatch_get::dispatch_get;
 use super::routes_dispatch_get_admin::dispatch_get_admin;
@@ -36,6 +37,14 @@ pub(super) async fn dispatch_route(
     // load balancers) can back off cleanly during the drain.
     if shutdown.is_shutting_down() {
         return shutting_down_response();
+    }
+    // Per-tenant cross-route token-bucket gate (mvp-rate-limit). Runs
+    // upstream of the per-route gate so a single tenant burning their
+    // per-minute budget across many endpoints is rejected before any
+    // route bucket is consulted. Independent + additive to per-IP
+    // (#1051) and per-route (#1077) layers.
+    if let Some(resp) = rate_limit_tenant::check_request(req) {
+        return resp;
     }
     // Per-route, per-tenant token-bucket gate
     // (claude-rate-limit-per-route). Independent + additive to the

@@ -17,6 +17,7 @@ mod metrics_json;
 mod metrics_text;
 mod rate_limit;
 mod rate_limit_ip;
+mod rate_limit_tenant;
 mod metrics_actions;
 mod print_routes;
 mod peer;
