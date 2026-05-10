@@ -12,6 +12,8 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
 
+use crate::circuit::{is_breaker_failure, Breaker};
+
 /// One turn's worth of input: messages + tools + sampling knobs.
 #[derive(Debug, Clone)]
 pub struct ProviderRequest {
@@ -194,4 +196,95 @@ pub fn build_http_client(
         .map_err(|e| {
             argo_types::ArgoError::Provider(format!("reqwest client build: {e}"))
         })
+}
+
+/// [`Transport`] adapter that gates calls through a per-provider circuit
+/// [`Breaker`].
+///
+/// Wrap any concrete transport with [`BreakerTransport::new`]; calls
+/// short-circuit when the breaker is Open or HalfOpen-with-probe-in-flight.
+/// Errors are classified by [`is_breaker_failure`] (HTTP 5xx + network-layer
+/// failures count; HTTP 4xx / 429 are ignored).
+///
+/// ```
+/// # async fn example<T: argo_provider::Transport>(inner: T) {
+/// use argo_provider::{Breaker, BreakerConfig, transport::BreakerTransport};
+/// let breaker = Breaker::new(BreakerConfig::default());
+/// let _wrapped = BreakerTransport::new(inner, breaker);
+/// # }
+/// ```
+pub struct BreakerTransport<T: Transport> {
+    inner: T,
+    breaker: Breaker,
+}
+
+impl<T: Transport> BreakerTransport<T> {
+    /// Wrap an inner transport with a breaker.
+    pub fn new(inner: T, breaker: Breaker) -> Self {
+        Self { inner, breaker }
+    }
+
+    /// Borrowed inner transport.
+    pub fn inner(&self) -> &T {
+        &self.inner
+    }
+
+    /// Borrowed breaker.
+    pub fn breaker(&self) -> &Breaker {
+        &self.breaker
+    }
+}
+
+#[async_trait]
+impl<T: Transport> Transport for BreakerTransport<T> {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+
+    fn capabilities(&self) -> &CapabilitySet {
+        self.inner.capabilities()
+    }
+
+    async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
+        let permit = self.breaker.try_acquire(self.inner.id())?;
+        match self.inner.complete(req).await {
+            Ok(resp) => {
+                permit.record_success();
+                Ok(resp)
+            }
+            Err(e) => {
+                if is_breaker_failure(&e) {
+                    permit.record_failure();
+                } else {
+                    permit.record_ignored();
+                }
+                Err(e)
+            }
+        }
+    }
+
+    async fn complete_stream(
+        &self,
+        req: &ProviderRequest,
+    ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>> {
+        // The breaker gates stream *establishment* — the thundering-herd
+        // failure mode this brief targets. Mid-stream deltas ride the
+        // existing long-lived connection and are not metered here; a
+        // mid-stream Err surfaces to the caller unchanged.
+        let permit = self.breaker.try_acquire(self.inner.id())?;
+        match self.inner.complete_stream(req).await {
+            Ok(stream) => {
+                permit.record_success();
+                Ok(stream)
+            }
+            Err(e) => {
+                if is_breaker_failure(&e) {
+                    permit.record_failure();
+                } else {
+                    permit.record_ignored();
+                }
+                Err(e)
+            }
+        }
+    }
 }

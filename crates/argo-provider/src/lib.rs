@@ -24,6 +24,8 @@
 
 mod anthropic;
 mod bedrock;
+/// Per-provider circuit breaker (Anthropic / OpenAI / Bedrock / …).
+pub mod circuit;
 mod discovery;
 mod extractors;
 mod heartbeat;
@@ -38,6 +40,7 @@ pub mod transport;
 
 pub use anthropic::AnthropicTransport;
 pub use bedrock::BedrockTransport;
+pub use circuit::{Breaker, BreakerConfig, CircuitState, Permit};
 pub use discovery::resolve_latest;
 pub use extractors::{
     anthropic_tool_use, bedrock_tool_use, extract_tool_calls, llm_extracted, openai_response_tools,
