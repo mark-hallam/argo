@@ -122,6 +122,7 @@ pub(super) async fn start(
     let _cu_screenshot_sweep = store
         .as_ref()
         .map(|s| spawn_cu_screenshot_sweep(Arc::clone(s)));
+    let _audit_watchdog = store.as_ref().map(|s| spawn_audit_watchdog(Arc::clone(s)));
     let _mcp_health = crate::handlers::mcp_health::spawn_from_env();
     phases.mark("spawn_bg_tasks");
 
@@ -284,6 +285,24 @@ async fn finish_shutdown(
     if let Some(w) = watchdog {
         w.abort();
     }
+}
+
+fn spawn_audit_watchdog(store: Arc<SessionStore>) -> AbortOnDrop {
+    let cb: Arc<dyn Fn(argo_audit::ChainBreak) + Send + Sync> = Arc::new(|b| {
+        tracing::error!(
+            target: "gateway::audit_watchdog",
+            seq = b.seq,
+            kind = %b.kind,
+            reason = %b.reason,
+            "audit chain break detected"
+        );
+    });
+    eprintln!("argo gateway: audit chain watchdog enabled");
+    AbortOnDrop::new(argo_audit::spawn_watchdog(
+        store,
+        argo_audit::WatchdogConfig::default(),
+        cb,
+    ))
 }
 
 fn spawn_alerts_loop(store: Arc<SessionStore>) -> AbortOnDrop {
