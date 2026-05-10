@@ -33,7 +33,10 @@ separate files now.
    audit stream, coverage, common failure modes (§9).
 5. [Security](runbook/security.md) — gateway bearer-token auth,
    public read-only allowlist, integration-test bypass (§11).
-6. [Reference](runbook/reference.md) — where to next (§10), CLI
+6. [Production deploy](runbook/production-deploy.md) — Nginx,
+   Caddy, systemd, and Docker Compose recipes for putting the
+   gateway in front of real traffic (§12).
+7. [Reference](runbook/reference.md) — where to next (§10), CLI
    command index (Appendix A), customer-demo file checklist
    (Appendix B).
 
@@ -56,5 +59,7 @@ separate files now.
   [Observability §9.3](runbook/observability.md#93-prometheus)
 - **Setting a gateway bearer token?** →
   [Security §11.1](runbook/security.md#111-gateway-bearer-token-auth)
+- **Putting the gateway behind a reverse proxy?** →
+  [Production deploy §12](runbook/production-deploy.md#12-production-deploy)
 - **Customer-demo readiness check?** →
   [Reference Appendix B](runbook/reference.md#appendix-b--file-checklist-for-a-customer-demo)
