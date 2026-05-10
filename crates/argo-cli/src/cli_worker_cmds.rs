@@ -264,6 +264,13 @@ pub enum WorkerCmd {
         #[arg(long, default_value = "markdown")]
         format: String,
     },
+    /// Manage declared inter-worker dependencies with per-kind cycle
+    /// detection (Stream `claude-worker-dependency-tracking`,
+    /// V1.1). Distinct from `handoff_routing` runtime weights;
+    /// this is *declared intent* — what the operator says one
+    /// worker structurally needs from another.
+    #[command(subcommand)]
+    Deps(crate::cli::cli_worker_deps_cmds::WorkerDepsCmd),
     /// Per-worker auto-approval success rollup over typed `AuditKind`
     /// approval kinds. Read-only join over `audit_record` +
     /// `session.worker_id` (mission claim 2 KPI seed).

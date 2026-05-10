@@ -5,6 +5,7 @@ use crate::cli::cli_worker_cmds::{
     WorkerActionsCmd, WorkerArchiveCmd, WorkerCharterCmd, WorkerCmd, WorkerItemsCmd,
     WorkerKpiCmd, WorkerOkrCmd, WorkerPolicyCmd,
 };
+use crate::cli::cli_worker_deps_cmds::WorkerDepsCmd;
 use argo_identity::WorkerId;
 use argo_types::ArgoResult;
 use serde::{Deserialize, Serialize};
@@ -258,6 +259,23 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
             }
             WorkerKpiCmd::Series { worker_id, kpi, tenant, bucket, json } => {
                 super::worker_kpi::series(&worker_id, &kpi, &tenant, &bucket, json).await
+            }
+        },
+        WorkerCmd::Deps(deps_cmd) => match deps_cmd {
+            WorkerDepsCmd::Add { a, b, kind, note, json } => {
+                super::worker_deps::add(&a, &b, &kind, note.as_deref(), json).await
+            }
+            WorkerDepsCmd::Remove { a, b, kind, json } => {
+                super::worker_deps::remove(&a, &b, &kind, json).await
+            }
+            WorkerDepsCmd::List { worker_id, direction, format } => {
+                super::worker_deps::list(&worker_id, &direction, &format).await
+            }
+            WorkerDepsCmd::Graph { format } => {
+                super::worker_deps::graph(&format).await
+            }
+            WorkerDepsCmd::Impact { worker_id, json } => {
+                super::worker_deps::impact(&worker_id, json).await
             }
         },
         WorkerCmd::Okr(okr_cmd) => match okr_cmd {

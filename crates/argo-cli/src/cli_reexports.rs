@@ -107,6 +107,8 @@ pub mod cli_worker_actions_cmds;
 pub mod cli_worker_items_cmds;
 #[path = "cli_worker_okr_cmds.rs"]
 pub mod cli_worker_okr_cmds;
+#[path = "cli_worker_deps_cmds.rs"]
+pub mod cli_worker_deps_cmds;
 #[path = "cli_worker_policy_cmds.rs"]
 pub mod cli_worker_policy_cmds;
 #[path = "cli_workspace_cmds.rs"]

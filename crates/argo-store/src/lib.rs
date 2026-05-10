@@ -80,6 +80,10 @@ pub mod pool_config;
 /// Worker archive (sleep / wake) — frozen JSON snapshot store
 /// (Stream `claude-worker-archive-rehydrate`).
 pub mod worker_archive;
+/// Worker dependency graph — declared inter-worker dependencies with
+/// per-kind cycle detection and downstream impact closure
+/// (Stream `claude-worker-dependency-tracking`).
+pub mod worker_deps;
 /// Per-worker KPI time-series store — append-only observations
 /// recorded against KPI names from the worker's charter
 /// (Stream `claude-worker-kpi-tracker`, mission claim 2).

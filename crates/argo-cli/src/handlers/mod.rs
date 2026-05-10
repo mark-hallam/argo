@@ -285,6 +285,7 @@ pub mod worker_channels;
 pub mod worker_charter;
 #[cfg(test)]
 mod worker_charter_tests;
+pub mod worker_deps;
 pub mod worker_kpi;
 pub mod worker_metrics;
 pub mod worker_okr;
