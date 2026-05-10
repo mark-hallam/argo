@@ -171,7 +171,7 @@ unblocks a mission claim.
 54. Add KPI primitives — declarative KPI definitions in vertical
     manifest. `[BRIEF: mission-vertical-kpi-declarative]`
 55. Add real-time tokio broadcast bidder loops to Auction
-    (currently CLI only — claude-skill-auction #900 SHIPPED). `[NEW]`
+    (currently CLI only — claude-skill-auction #900 SHIPPED). `[BRIEF: mission-auction-tokio-broadcast-bidder]`
 56. Add `delegate_task` inheritance of fallback chain. `[BRIEF: mission-delegate-task-fallback-chain]`
 57. Add per-delegation budget tree. `[NEW]`
 
@@ -221,7 +221,7 @@ unblocks a mission claim.
     notify). `[NEW]`
 80. Build skill ratings (operator thumbs propagate to publisher).
     `[NEW]`
-81. Build cross-tenant trust graph. `[NEW]`
+81. Build cross-tenant trust graph. `[BRIEF: mission-cross-tenant-trust-graph]`
 82. Build skill regression detector (quality drops >X% → demote).
     `[BRIEF: mission-skill-regression-detector]`
 83. Build Forge as cron tick that picks lowest-quality skills. `[BRIEF: mission-forge-cron-lowest-quality]`
