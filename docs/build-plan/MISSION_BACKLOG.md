@@ -169,7 +169,7 @@ unblocks a mission claim.
     escalation. `[BRIEF: mission-handoffwalker-manager-chain]`
 53. Wire roster lookup before `resolve_effective_policy`. `[BRIEF: mission-roster-resolve-policy]`
 54. Add KPI primitives — declarative KPI definitions in vertical
-    manifest. `[NEW]`
+    manifest. `[BRIEF: mission-vertical-kpi-declarative]`
 55. Add real-time tokio broadcast bidder loops to Auction
     (currently CLI only — claude-skill-auction #900 SHIPPED). `[NEW]`
 56. Add `delegate_task` inheritance of fallback chain. `[BRIEF: mission-delegate-task-fallback-chain]`
@@ -179,7 +179,7 @@ unblocks a mission claim.
 
 58. Replace 12-archetype hardcoded keyword classifier with
     model-driven classifier. `[BRIEF: mission-genesis-llm-classifier]`
-59. Allow LLM refinement to add MORE than 3 actions. `[NEW]`
+59. Allow LLM refinement to add MORE than 3 actions. `[BRIEF: mission-llm-refine-uncap-actions]`
 60. Allow LLM refinement to evolve the seed action vocabulary.
     `[NEW]`
 61. Add interactive Genesis with multi-turn refinement.
