@@ -7,6 +7,43 @@ use argo_types::{ArgoResult, CapabilitySet, ContentBlock, Principal, ToolCallRes
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio::sync::mpsc;
+
+/// Per-line streaming event emitted by tools that opt into progress
+/// reporting. The `terminal` tool is the first subscriber; other tools
+/// (`code_execute`, `delegate_task`, …) can opt in incrementally.
+///
+/// Each `Stdout` / `Stderr` payload is a single line (sans trailing
+/// newline). Lines longer than [`STREAM_CHUNK_MAX_BYTES`] are split so
+/// the channel can't memory-explode on a runaway stream. A final
+/// `Exited` event marks the end of the run; receivers can use it as a
+/// completion sentinel.
+///
+/// ```
+/// use argo_tool::ToolProgressEvent;
+/// let ev = ToolProgressEvent::Stdout("hello".into());
+/// assert!(matches!(ev, ToolProgressEvent::Stdout(_)));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolProgressEvent {
+    /// One stdout line (no trailing newline). May be split if longer
+    /// than [`STREAM_CHUNK_MAX_BYTES`].
+    Stdout(String),
+    /// One stderr line (no trailing newline). May be split if longer
+    /// than [`STREAM_CHUNK_MAX_BYTES`].
+    Stderr(String),
+    /// Child process exited; emitted exactly once after both streams
+    /// drain. `exit_code` is `-1` if the process was killed by a signal.
+    Exited {
+        /// Process exit code (`-1` if killed by signal).
+        exit_code: i32,
+    },
+}
+
+/// Maximum byte size of a single `Stdout`/`Stderr` event. A producer
+/// that reads a line longer than this splits it into multiple events
+/// so a single pathological line can't flood the channel.
+pub const STREAM_CHUNK_MAX_BYTES: usize = 4 * 1024;
 
 /// Per-call context handed to a tool's `dispatch` method.
 #[derive(Debug, Clone)]
@@ -20,6 +57,26 @@ pub struct ToolContext {
     pub call_id: argo_types::ToolCallId,
     /// Wall-clock deadline for the call.
     pub deadline: Option<std::time::Instant>,
+    /// Optional per-line progress channel. When `Some`, tools that
+    /// support streaming (currently `terminal`) emit
+    /// [`ToolProgressEvent`]s as output is produced. When `None`, tools
+    /// fall through to their non-streaming code path and behavior is
+    /// byte-for-byte identical to before this field existed.
+    ///
+    /// ```
+    /// use argo_tool::{ToolContext, ToolProgressEvent};
+    /// use argo_types::Principal;
+    /// use tokio::sync::mpsc;
+    ///
+    /// let (tx, _rx) = mpsc::channel::<ToolProgressEvent>(64);
+    /// let ctx = ToolContext::new(
+    ///     Principal::Local { os_user: "demo".into() },
+    ///     std::path::PathBuf::from("/tmp"),
+    /// )
+    /// .with_progress_tx(tx);
+    /// assert!(ctx.progress_tx.is_some());
+    /// ```
+    pub progress_tx: Option<mpsc::Sender<ToolProgressEvent>>,
 }
 
 impl ToolContext {
@@ -31,7 +88,16 @@ impl ToolContext {
             workspace_root,
             call_id: argo_types::ToolCallId::new(),
             deadline: None,
+            progress_tx: None,
         }
+    }
+
+    /// Builder helper attaching a [`ToolProgressEvent`] sender.
+    /// Defaults to `None`; existing call sites compile unchanged.
+    #[must_use]
+    pub fn with_progress_tx(mut self, tx: mpsc::Sender<ToolProgressEvent>) -> Self {
+        self.progress_tx = Some(tx);
+        self
     }
 }
 

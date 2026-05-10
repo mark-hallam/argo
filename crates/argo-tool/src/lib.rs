@@ -31,7 +31,10 @@ mod tools;
 
 pub use path_guard::confine_path;
 pub use registry::ToolRegistry;
-pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
+pub use tool::{
+    error_text, success_text, Concurrency, Tool, ToolContext, ToolProgressEvent, ToolSchema,
+    STREAM_CHUNK_MAX_BYTES,
+};
 pub use tools::{
     builtin_tools, builtin_tools_with_memory, risk_tier, CodeExecute, DelegateTask, FilePatch,
     FileRead, FileWrite, Memory, MessageDispatcher, ResolvedImage, SendMessage, SendOutcome,

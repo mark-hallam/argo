@@ -7,6 +7,7 @@ use super::*;
 use argo_sandbox::RunRequest;
 use argo_types::Principal;
 use std::sync::Mutex;
+use tokio::sync::mpsc;
 
 fn ctx(dir: &std::path::Path) -> ToolContext {
     ToolContext::new(
@@ -220,4 +221,122 @@ fn schema_exposes_backend_enum_with_local_default() {
     assert_eq!(backend["type"], "string");
     assert_eq!(backend["default"], "local");
     assert_eq!(backend["enum"], serde_json::json!(["local", "sandbox"]));
+}
+
+#[test]
+fn split_chunks_handles_oversize_lines() {
+    let chunks = split_chunks("aaaaaaaaaa", 3);
+    assert_eq!(chunks, vec!["aaa", "aaa", "aaa", "a"]);
+    let chunks = split_chunks("hi", 8);
+    assert_eq!(chunks, vec!["hi"]);
+}
+
+#[test]
+fn render_capped_marker_matches_buffered_path() {
+    assert_eq!(render_capped(b"abcd", 4), "abcd");
+    assert_eq!(
+        render_capped(b"abcd", 100),
+        "abcd\n... [truncated 96 bytes from this stream]"
+    );
+}
+
+/// `progress_tx = None` is a no-op: dispatch goes through the
+/// sandbox seam exactly as before.
+#[cfg(unix)]
+#[tokio::test]
+async fn no_progress_tx_routes_through_sandbox_seam() {
+    let local = Arc::new(RecordingSandbox::new("local"));
+    let sandboxed = Arc::new(RecordingSandbox::new("sandbox"));
+    let t = Terminal::with_sandboxes(local.clone(), sandboxed.clone());
+    let dir = tempfile::tempdir().unwrap();
+    let r = t
+        .dispatch(serde_json::json!({"command": "echo hi"}), &ctx(dir.path()))
+        .await
+        .unwrap();
+    assert!(!r.is_error);
+    assert_eq!(local.calls(), vec!["echo hi".to_string()]);
+}
+
+/// `progress_tx = Some(tx)` on the local backend bypasses the
+/// sandbox seam (so the recording sandbox sees no calls) and emits
+/// per-line `Stdout` events plus a final `Exited` sentinel.
+#[cfg(unix)]
+#[tokio::test]
+async fn streaming_local_bypasses_sandbox_seam_and_emits_events() {
+    let local = Arc::new(RecordingSandbox::new("local"));
+    let sandboxed = Arc::new(RecordingSandbox::new("sandbox"));
+    let t = Terminal::with_sandboxes(local.clone(), sandboxed.clone());
+    let dir = tempfile::tempdir().unwrap();
+    let (tx, mut rx) = mpsc::channel::<ToolProgressEvent>(32);
+    let r = {
+        // Scoped so `context` (and its tx clone) drops before we
+        // drain `rx` — otherwise `recv()` would never see `None`.
+        let context = ctx(dir.path()).with_progress_tx(tx);
+        t.dispatch(
+            serde_json::json!({"command": "printf 'a\\nb\\n'"}),
+            &context,
+        )
+        .await
+        .unwrap()
+    };
+    assert!(!r.is_error);
+    assert!(local.calls().is_empty(), "streaming should bypass seam");
+
+    let mut stdouts = Vec::new();
+    let mut exited = None;
+    while let Some(ev) = rx.recv().await {
+        match ev {
+            ToolProgressEvent::Stdout(s) => stdouts.push(s),
+            ToolProgressEvent::Exited { exit_code } => exited = Some(exit_code),
+            ToolProgressEvent::Stderr(_) => {}
+        }
+    }
+    assert_eq!(stdouts, vec!["a".to_string(), "b".to_string()]);
+    assert_eq!(exited, Some(0));
+}
+
+/// Streaming on the sandbox backend keeps the buffered seam path
+/// (streaming through container backends is a follow-up).
+#[cfg(unix)]
+#[tokio::test]
+async fn streaming_sandbox_backend_still_uses_seam() {
+    let local = Arc::new(RecordingSandbox::new("local"));
+    let sandboxed = Arc::new(RecordingSandbox::new("sandbox"));
+    let t = Terminal::with_sandboxes(local.clone(), sandboxed.clone());
+    let dir = tempfile::tempdir().unwrap();
+    let (tx, _rx) = mpsc::channel::<ToolProgressEvent>(8);
+    let context = ctx(dir.path()).with_progress_tx(tx);
+    let _ = t
+        .dispatch(
+            serde_json::json!({"command": "echo hi", "backend": "sandbox"}),
+            &context,
+        )
+        .await
+        .unwrap();
+    assert_eq!(sandboxed.calls(), vec!["echo hi".to_string()]);
+    assert!(local.calls().is_empty());
+}
+
+/// Backpressure: a tiny channel with no consumer must not block the
+/// child. The dispatch must still complete and return a valid result.
+#[cfg(unix)]
+#[tokio::test]
+async fn streaming_backpressure_does_not_deadlock() {
+    let dir = tempfile::tempdir().unwrap();
+    let (tx, _rx) = mpsc::channel::<ToolProgressEvent>(1);
+    let context = ctx(dir.path()).with_progress_tx(tx);
+    let r = tokio::time::timeout(
+        Duration::from_secs(10),
+        Terminal::default().dispatch(
+            serde_json::json!({
+                "command": "for i in $(seq 1 1000); do echo line-$i; done",
+                "timeout_ms": 9000
+            }),
+            &context,
+        ),
+    )
+    .await
+    .expect("dispatch must complete despite full channel")
+    .unwrap();
+    assert!(!r.is_error);
 }

@@ -261,6 +261,7 @@ impl Agent {
             workspace_root: opts.workspace_root.clone(),
             call_id: call.id,
             deadline: None,
+            progress_tx: None,
         };
         let result = self
             .deps
