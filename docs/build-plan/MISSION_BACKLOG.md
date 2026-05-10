@@ -500,7 +500,7 @@ unblocks a mission claim.
      `[NEW]`
 245. Sticky-session affinity (worker reuses same session warm
      cache). `[NEW]`
-246. Prompt cache hit rate observability. `[NEW]`
+246. Prompt cache hit rate observability. `[BRIEF: mission-prompt-cache-hit-rate-observability]`
 247. Context-window-aware compression (Amendment §5.8). `[NEW]`
 248. Adaptive context truncation. `[NEW]`
 249. Streaming-aware retry (don't lose mid-stream content). `[NEW]`
