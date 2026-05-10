@@ -4,6 +4,7 @@
 //! differentiation.
 
 use super::*;
+use crate::tool::ToolProgressEvent;
 use argo_sandbox::RunRequest;
 use argo_types::Principal;
 use std::sync::Mutex;

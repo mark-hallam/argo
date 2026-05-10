@@ -36,7 +36,7 @@ async fn terminal_background_then_process_list_tail_kill_round_trip() {
     let ctx = ctx_with_registry(registry.clone(), dir.path());
 
     // 1. Spawn via `terminal { background: true }`.
-    let r = Terminal
+    let r = Terminal::default()
         .dispatch(
             serde_json::json!({
                 "command": "for i in 1 2 3 4 5; do echo line-$i; sleep 0.1; done; sleep 30",
