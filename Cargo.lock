@@ -395,6 +395,7 @@ version = "0.0.1"
 dependencies = [
  "argo-config",
  "argo-skill",
+ "argo-store",
  "argo-types",
  "async-trait",
  "chrono",

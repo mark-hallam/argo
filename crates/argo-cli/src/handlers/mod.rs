@@ -59,6 +59,7 @@ pub mod costs_forecast;
 pub mod costs_recent;
 pub mod costs_show;
 pub mod cron;
+pub mod cu_screenshots;
 pub mod cred_clear;
 pub mod cred_export;
 pub mod cred_import;

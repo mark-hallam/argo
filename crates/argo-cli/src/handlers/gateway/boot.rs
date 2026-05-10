@@ -10,7 +10,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -27,8 +27,18 @@ use super::{
     security_headers, streaming, sweepers,
 };
 use crate::handlers::alerts;
+use crate::handlers::cu_screenshots::CuScreenshotStore;
+use argo_store::attached_blob::{BlobStore, MemoryAttachedBlob};
 
 const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
+/// Sweep cadence for the `cu_screenshot` retention task. Hourly is
+/// the brief's target — short enough to keep the index lean,
+/// long enough that the sweep cost is negligible against the
+/// `(retention_until)` index.
+const CU_SCREENSHOT_SWEEP_SECS: u64 = 3_600;
+/// Default retention horizon for CU screenshots: 14 days. Operator
+/// override via `ARGO_CU_SCREENSHOT_RETENTION_DAYS`.
+const DEFAULT_CU_SCREENSHOT_RETENTION_DAYS: u64 = 14;
 
 struct AbortOnDrop {
     handle: JoinHandle<()>,
@@ -97,6 +107,9 @@ pub(super) async fn start(
         .as_ref()
         .map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
     let _alerts_loop = store.as_ref().map(|s| spawn_alerts_loop(Arc::clone(s)));
+    let _cu_screenshot_sweep = store
+        .as_ref()
+        .map(|s| spawn_cu_screenshot_sweep(Arc::clone(s)));
     let _mcp_health = crate::handlers::mcp_health::spawn_from_env();
     phases.mark("spawn_bg_tasks");
 
@@ -277,6 +290,55 @@ fn spawn_alerts_loop(store: Arc<SessionStore>) -> AbortOnDrop {
         );
     }
     AbortOnDrop::new(tokio::spawn(alerts::run_alerts_loop(store, cfg)))
+}
+
+fn spawn_cu_screenshot_sweep(store: Arc<SessionStore>) -> AbortOnDrop {
+    let retention_days = std::env::var("ARGO_CU_SCREENSHOT_RETENTION_DAYS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|d| *d > 0)
+        .unwrap_or(DEFAULT_CU_SCREENSHOT_RETENTION_DAYS);
+    let retention = Duration::from_secs(retention_days.saturating_mul(86_400));
+    // The gateway boots without an injected `BlobStore` yet; the
+    // memory-backed store keeps the API available end-to-end and
+    // can be replaced by a SQLite-backed `BlobStore` in a follow-up
+    // brief without changing this wiring. Sweep operates on the
+    // index, which is durable, so the choice of blob backing only
+    // affects bytes-level retention (which the trait deliberately
+    // doesn't expose).
+    let blobs: Arc<dyn BlobStore> = Arc::new(MemoryAttachedBlob::new());
+    let pool = store.pool().clone();
+    let cu_store = CuScreenshotStore::new(blobs, pool, retention);
+    eprintln!(
+        "argo gateway: cu_screenshot sweep enabled (interval={}s, retention={} days)",
+        CU_SCREENSHOT_SWEEP_SECS, retention_days
+    );
+    AbortOnDrop::new(tokio::spawn(async move {
+        if let Err(e) = cu_store.ensure_schema().await {
+            tracing::warn!(target: "gateway::cu_screenshot_sweep", error = %e, "ensure_schema failed; skipping");
+            return;
+        }
+        let mut ticker = tokio::time::interval(Duration::from_secs(CU_SCREENSHOT_SWEEP_SECS));
+        // First tick fires immediately; skip it so boot doesn't
+        // race the migrate() call.
+        ticker.tick().await;
+        loop {
+            ticker.tick().await;
+            match cu_store.sweep_expired(SystemTime::now(), retention).await {
+                Ok(n) if n > 0 => tracing::info!(
+                    target: "gateway::cu_screenshot_sweep",
+                    deleted = n,
+                    "cu_screenshot sweep removed expired index rows"
+                ),
+                Ok(_) => {}
+                Err(e) => tracing::warn!(
+                    target: "gateway::cu_screenshot_sweep",
+                    error = %e,
+                    "cu_screenshot sweep failed; will retry on next tick"
+                ),
+            }
+        }
+    }))
 }
 
 fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnDrop {

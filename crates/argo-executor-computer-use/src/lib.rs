@@ -64,6 +64,7 @@ pub mod learn;
 pub mod pool;
 pub mod profile;
 pub mod restart;
+pub mod screenshot_persist;
 pub mod success_metric;
 
 pub use config::CuConfig;

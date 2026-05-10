@@ -23,6 +23,7 @@ use crate::executor_types::default_bundle_dir;
 use crate::pool::{PoolKey, SandboxPool};
 use crate::profile::{Profile, ProfileRegistry};
 use crate::restart::{self, emit_restart_event, RestartCoordinator, RestartDecision};
+use crate::screenshot_persist::ScreenshotPersister;
 use crate::CuError;
 use argo_skill::SkillStore;
 use std::sync::Arc;
@@ -52,6 +53,13 @@ pub struct ComputerUseExecutor {
     /// is worth proposing as a learned skill. Caller can override
     /// via [`ComputerUseExecutor::with_skill_threshold`].
     skill_threshold: f64,
+    /// Optional screenshot-persistence hook (Stream
+    /// `claude-cu-screenshot-storage`). When set, every step's
+    /// screenshot is also pushed through the persister so replay
+    /// can fetch historical shots after the worker box recycles.
+    /// Persister errors are logged + swallowed so a flaky blob
+    /// backend never fails an in-progress action.
+    screenshot_persister: Option<Arc<dyn ScreenshotPersister>>,
 }
 
 /// Template for building per-profile Anthropic clients (each
@@ -99,7 +107,19 @@ impl ComputerUseExecutor {
             profiles,
             skill_store: None,
             skill_threshold: crate::learn::DEFAULT_THRESHOLD,
+            screenshot_persister: None,
         }
+    }
+
+    /// Attach a screenshot-persistence hook (Stream
+    /// `claude-cu-screenshot-storage`). When set, each captured
+    /// screenshot is pushed through the persister; the returned
+    /// `BlobRef` is stamped into the `AuditRow`. Persister errors
+    /// are logged + swallowed.
+    #[must_use]
+    pub fn with_screenshot_persister(mut self, persister: Arc<dyn ScreenshotPersister>) -> Self {
+        self.screenshot_persister = Some(persister);
+        self
     }
 
     /// Attach a skill-learning hook. When set, a successful CU
@@ -225,6 +245,7 @@ impl ComputerUseExecutor {
         // Step 0: capture the initial screenshot before sending
         // the first message.
         let mut screenshot = self.e2b.screenshot(&sandbox).await?;
+        self.persist_screenshot(req, 0, &screenshot).await;
 
         loop {
             let resp = anthropic
@@ -326,6 +347,7 @@ impl ComputerUseExecutor {
                         Some(_b64) => self.e2b.screenshot(&sandbox).await?,
                         None => self.e2b.screenshot(&sandbox).await?,
                     };
+                    self.persist_screenshot(req, tracker.step(), &screenshot).await;
                     let relpath = audit.save_screenshot(tracker.step(), &screenshot)?;
                     audit.append(&AuditRow {
                         step: tracker.step(),
@@ -407,6 +429,21 @@ impl ComputerUseExecutor {
                 Ok(None)
             }
         }
+    }
+
+    /// Forwards to [`crate::screenshot_persist::try_persist`]; the
+    /// helper lives in the sibling module to keep `executor.rs`
+    /// under the 500-LOC ceiling.
+    async fn persist_screenshot(&self, req: &RunRequest, step: u32, png: &[u8]) {
+        crate::screenshot_persist::try_persist(
+            self.screenshot_persister.as_ref(),
+            &req.tenant_id,
+            &req.action_id,
+            req.session_id.as_ref(),
+            step,
+            png,
+        )
+        .await;
     }
 
     fn anthropic_for(&self, profile: &Profile) -> Result<AnthropicClient, CuError> {
