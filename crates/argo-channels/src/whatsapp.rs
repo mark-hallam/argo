@@ -1,9 +1,10 @@
 //! Twilio-backed WhatsApp approval channel.
 
+use crate::quiet_hours::QuietHours;
 use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
-    ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
-    Notification, NotifyChannel, RiskLevel,
+    quiet_hours_deferred_receipt, ChannelError, ChannelId, ChannelResult, DeliveryReceipt,
+    DeliveryStatus, InboundEvent, Notification, NotifyChannel, RiskLevel,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -30,6 +31,10 @@ pub struct WhatsAppApprovalChannelConfig {
     /// (5/sec, 30/min).
     #[serde(default)]
     pub rate_limit: RateLimitConfig,
+    /// Operator quiet hours. `None` means quiet hours are not configured
+    /// for this channel — today's behavior preserved.
+    #[serde(default)]
+    pub quiet_hours: Option<QuietHours>,
 }
 
 impl WhatsAppApprovalChannelConfig {
@@ -48,6 +53,7 @@ impl WhatsAppApprovalChannelConfig {
             from_number: whatsapp_address(&from_number),
             operator_whatsapp_numbers,
             rate_limit: RateLimitConfig::default(),
+            quiet_hours: None,
         })
     }
 
@@ -62,6 +68,7 @@ impl WhatsAppApprovalChannelConfig {
             endpoint: "http://127.0.0.1:9/Messages.json".into(),
             operator_whatsapp_numbers,
             rate_limit: RateLimitConfig::unlimited(),
+            quiet_hours: None,
         }
     }
 }
@@ -125,6 +132,19 @@ impl NotifyChannel for WhatsAppApprovalChannel {
         if let Err(retry_after) = self.rate_limit.try_acquire() {
             return Err(ChannelError::RateLimited { retry_after });
         }
+        if let Some(quiet) = self.config.quiet_hours.as_ref() {
+            if quiet.contains(Utc::now()) {
+                tracing::info!(
+                    channel = %self.config.channel_id,
+                    approval_id = %notification.approval_id,
+                    "deferred-send: quiet_hours"
+                );
+                return Ok(quiet_hours_deferred_receipt(
+                    self.id(),
+                    notification.approval_id,
+                ));
+            }
+        }
         if notification.risk_level != RiskLevel::High {
             return Ok(DeliveryReceipt {
                 channel_id: self.id(),
@@ -180,6 +200,10 @@ impl NotifyChannel for WhatsAppApprovalChannel {
 
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
         Ok(Vec::new())
+    }
+
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        self.config.quiet_hours.as_ref()
     }
 }
 

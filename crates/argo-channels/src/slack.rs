@@ -1,9 +1,10 @@
 //! Slack Block Kit approval notification channel.
 
+use crate::quiet_hours::QuietHours;
 use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
-    ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
-    Notification, NotifyChannel,
+    quiet_hours_deferred_receipt, ChannelError, ChannelId, ChannelResult, DeliveryReceipt,
+    DeliveryStatus, InboundEvent, Notification, NotifyChannel,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -47,6 +48,10 @@ pub struct SlackApprovalChannelConfig {
     /// (5/sec, 60/min).
     #[serde(default)]
     pub rate_limit: RateLimitConfig,
+    /// Operator quiet hours. `None` means quiet hours are not configured
+    /// for this channel — today's behavior preserved.
+    #[serde(default)]
+    pub quiet_hours: Option<QuietHours>,
 }
 
 impl SlackApprovalChannelConfig {
@@ -62,6 +67,7 @@ impl SlackApprovalChannelConfig {
             endpoint: "https://slack.com/api/chat.postMessage".into(),
             operator_routes,
             rate_limit: RateLimitConfig::default(),
+            quiet_hours: None,
         })
     }
 }
@@ -143,6 +149,19 @@ impl NotifyChannel for SlackApprovalChannel {
         if let Err(retry_after) = self.rate_limit.try_acquire() {
             return Err(ChannelError::RateLimited { retry_after });
         }
+        if let Some(quiet) = self.config.quiet_hours.as_ref() {
+            if quiet.contains(Utc::now()) {
+                tracing::info!(
+                    channel = %self.config.channel_id,
+                    approval_id = %notification.approval_id,
+                    "deferred-send: quiet_hours"
+                );
+                return Ok(quiet_hours_deferred_receipt(
+                    self.id(),
+                    notification.approval_id,
+                ));
+            }
+        }
         if self.config.bot_token.is_empty() {
             return Err(ChannelError::Config(
                 "SLACK_APPROVALS_BOT_TOKEN must not be empty".into(),
@@ -186,6 +205,10 @@ impl NotifyChannel for SlackApprovalChannel {
 
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
         Ok(Vec::new())
+    }
+
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        self.config.quiet_hours.as_ref()
     }
 }
 
@@ -233,6 +256,7 @@ mod tests {
             endpoint: "http://127.0.0.1:9".into(),
             operator_routes,
             rate_limit: RateLimitConfig::unlimited(),
+            quiet_hours: None,
         })
     }
 

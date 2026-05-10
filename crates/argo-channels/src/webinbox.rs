@@ -1,8 +1,9 @@
 //! File-backed web inbox approval notification channel.
 
+use crate::quiet_hours::QuietHours;
 use crate::{
-    ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
-    Notification, NotifyChannel, RiskLevel,
+    quiet_hours_deferred_receipt, ChannelError, ChannelId, ChannelResult, DeliveryReceipt,
+    DeliveryStatus, InboundEvent, Notification, NotifyChannel, RiskLevel,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -19,6 +20,10 @@ pub struct WebInboxChannelConfig {
     pub inbox_path: PathBuf,
     /// Gateway base URL operators open in a browser.
     pub gateway_base_url: String,
+    /// Operator quiet hours. `None` means quiet hours are not configured
+    /// for this channel — today's behavior preserved.
+    #[serde(default)]
+    pub quiet_hours: Option<QuietHours>,
 }
 
 impl WebInboxChannelConfig {
@@ -29,6 +34,7 @@ impl WebInboxChannelConfig {
             channel_id: ChannelId::new("webinbox"),
             inbox_path: inbox_path.into(),
             gateway_base_url: "http://127.0.0.1:8734".into(),
+            quiet_hours: None,
         }
     }
 }
@@ -92,6 +98,19 @@ impl NotifyChannel for WebInboxChannel {
     }
 
     async fn send(&self, notification: Notification) -> ChannelResult<DeliveryReceipt> {
+        if let Some(quiet) = self.config.quiet_hours.as_ref() {
+            if quiet.contains(Utc::now()) {
+                tracing::info!(
+                    channel = %self.config.channel_id,
+                    approval_id = %notification.approval_id,
+                    "deferred-send: quiet_hours"
+                );
+                return Ok(quiet_hours_deferred_receipt(
+                    self.id(),
+                    notification.approval_id,
+                ));
+            }
+        }
         if let Some(parent) = self.config.inbox_path.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
@@ -125,6 +144,10 @@ impl NotifyChannel for WebInboxChannel {
 
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
         Ok(Vec::new())
+    }
+
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        self.config.quiet_hours.as_ref()
     }
 }
 

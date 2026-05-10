@@ -1,9 +1,10 @@
 //! Twilio-backed SMS approval channel.
 
+use crate::quiet_hours::QuietHours;
 use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
-    ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
-    Notification, NotifyChannel, RiskLevel,
+    quiet_hours_deferred_receipt, ChannelError, ChannelId, ChannelResult, DeliveryReceipt,
+    DeliveryStatus, InboundEvent, Notification, NotifyChannel, RiskLevel,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -29,6 +30,10 @@ pub struct SmsApprovalChannelConfig {
     /// Missing fields fall back to the SMS default (1/sec, 10/min).
     #[serde(default)]
     pub rate_limit: RateLimitConfig,
+    /// Operator quiet hours. `None` means quiet hours are not configured
+    /// for this channel — today's behavior preserved.
+    #[serde(default)]
+    pub quiet_hours: Option<QuietHours>,
 }
 
 impl SmsApprovalChannelConfig {
@@ -47,6 +52,7 @@ impl SmsApprovalChannelConfig {
             from_number,
             operator_phone_numbers,
             rate_limit: RateLimitConfig::default(),
+            quiet_hours: None,
         })
     }
 
@@ -61,6 +67,7 @@ impl SmsApprovalChannelConfig {
             endpoint: "http://127.0.0.1:9/Messages.json".into(),
             operator_phone_numbers,
             rate_limit: RateLimitConfig::unlimited(),
+            quiet_hours: None,
         }
     }
 }
@@ -122,6 +129,19 @@ impl NotifyChannel for SmsApprovalChannel {
         if let Err(retry_after) = self.rate_limit.try_acquire() {
             return Err(ChannelError::RateLimited { retry_after });
         }
+        if let Some(quiet) = self.config.quiet_hours.as_ref() {
+            if quiet.contains(Utc::now()) {
+                tracing::info!(
+                    channel = %self.config.channel_id,
+                    approval_id = %notification.approval_id,
+                    "deferred-send: quiet_hours"
+                );
+                return Ok(quiet_hours_deferred_receipt(
+                    self.id(),
+                    notification.approval_id,
+                ));
+            }
+        }
         if notification.risk_level != RiskLevel::High {
             return Ok(DeliveryReceipt {
                 channel_id: self.id(),
@@ -176,6 +196,10 @@ impl NotifyChannel for SmsApprovalChannel {
 
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
         Ok(Vec::new())
+    }
+
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        self.config.quiet_hours.as_ref()
     }
 }
 
@@ -258,6 +282,7 @@ mod tests {
             from_number: from,
             operator_phone_numbers: phones,
             rate_limit: RateLimitConfig::unlimited(),
+            quiet_hours: None,
         });
         let receipt = channel.send(notification(RiskLevel::High)).await.unwrap();
         assert_eq!(receipt.status, DeliveryStatus::Sent);

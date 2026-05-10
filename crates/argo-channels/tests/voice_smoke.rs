@@ -43,6 +43,7 @@ async fn twilio_voice_integration_gated_on_env() {
             .unwrap_or_else(|_| "voice-smoke-test-secret".into()),
         operator_phone_numbers: phones,
         rate_limit: RateLimitConfig::unlimited(),
+        quiet_hours: None,
     });
     let receipt = channel
         .send(Notification {

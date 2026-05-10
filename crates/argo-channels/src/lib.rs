@@ -25,9 +25,11 @@ pub mod imessage;
 pub mod manifest;
 pub mod push;
 pub mod push_format;
+pub mod quiet_hours;
 pub mod rate_limit;
 pub mod slack;
 pub mod slack_inbound;
+pub mod sms;
 pub mod token;
 pub mod voice;
 pub mod voice_format;
@@ -35,6 +37,7 @@ pub mod webinbox;
 pub mod whatsapp;
 
 pub use discord::DiscordChannel;
+pub use quiet_hours::QuietHours;
 pub use rate_limit::{RateLimit, RateLimitConfig};
 pub use slack_inbound::InboundChannel;
 
@@ -224,4 +227,40 @@ pub trait NotifyChannel: Send + Sync {
     /// Email returns an empty list because inbound replies are
     /// webhook-driven.
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>>;
+
+    /// Operator quiet-hours window for this channel, if configured.
+    ///
+    /// Default returns `None`. Channels that respect quiet hours
+    /// override this to surface their config field, and their `send`
+    /// implementations check it before attempting delivery — returning
+    /// a `DeliveryStatus::Deferred` receipt with `deferred_reason =
+    /// Some("quiet_hours".into())` when the window matches.
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        None
+    }
 }
+
+/// Build the standard "deferred for quiet hours" delivery receipt.
+///
+/// Channels call this from `send` when their `quiet_hours()` window
+/// matches `now`, before attempting any provider call. The
+/// `deferred_reason` string is `"quiet_hours"` byte-for-byte across
+/// every channel — operators grep this string in audit logs.
+#[must_use]
+pub fn quiet_hours_deferred_receipt(
+    channel_id: ChannelId,
+    notification_id: String,
+) -> DeliveryReceipt {
+    DeliveryReceipt {
+        channel_id,
+        notification_id,
+        provider_message_id: None,
+        status: DeliveryStatus::Deferred,
+        deferred_reason: Some("quiet_hours".into()),
+        delivered_at: Utc::now(),
+    }
+}
+
+#[cfg(test)]
+#[path = "quiet_hours_tests.rs"]
+mod quiet_hours_tests;

@@ -10,11 +10,12 @@
 //! # Ok(()) }
 //! ```
 
+use crate::quiet_hours::QuietHours;
 use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::token::verify_approval_token;
 use crate::{
-    ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
-    Notification, NotifyChannel,
+    quiet_hours_deferred_receipt, ChannelError, ChannelId, ChannelResult, DeliveryReceipt,
+    DeliveryStatus, InboundEvent, Notification, NotifyChannel,
 };
 use argo_bluebubbles_client::{
     parse_webhook_event, validate_webhook_signature, BlueBubblesClient, SendMessageRequest,
@@ -42,6 +43,9 @@ pub struct IMessageChannelConfig {
     /// Missing fields fall back to the iMessage default
     /// (5/sec, 60/min).
     pub rate_limit: RateLimitConfig,
+    /// Operator quiet hours. `None` means quiet hours are not configured
+    /// for this channel — today's behavior preserved.
+    pub quiet_hours: Option<QuietHours>,
 }
 
 impl IMessageChannelConfig {
@@ -56,6 +60,7 @@ impl IMessageChannelConfig {
             webhook_secret: argo_config::cred::get("BLUE_BUBBLES_WEBHOOK_SECRET").ok(),
             operator_routes: BTreeMap::new(),
             rate_limit: RateLimitConfig::default(),
+            quiet_hours: None,
         })
     }
 
@@ -70,6 +75,7 @@ impl IMessageChannelConfig {
             webhook_secret: Some("webhook-secret".into()),
             operator_routes: BTreeMap::new(),
             rate_limit: RateLimitConfig::unlimited(),
+            quiet_hours: None,
         }
     }
 }
@@ -151,6 +157,19 @@ impl NotifyChannel for IMessageChannel {
         if let Err(retry_after) = self.rate_limit.try_acquire() {
             return Err(ChannelError::RateLimited { retry_after });
         }
+        if let Some(quiet) = self.config.quiet_hours.as_ref() {
+            if quiet.contains(Utc::now()) {
+                tracing::info!(
+                    channel = %self.config.channel_id,
+                    approval_id = %notification.approval_id,
+                    "deferred-send: quiet_hours"
+                );
+                return Ok(quiet_hours_deferred_receipt(
+                    self.id(),
+                    notification.approval_id,
+                ));
+            }
+        }
         let chat_guid = self.chat_guid_for(&notification)?;
         let message = render_approval_message(&notification);
         let sent = self
@@ -174,6 +193,10 @@ impl NotifyChannel for IMessageChannel {
 
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
         Ok(Vec::new())
+    }
+
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        self.config.quiet_hours.as_ref()
     }
 }
 

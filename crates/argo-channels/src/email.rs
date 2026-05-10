@@ -1,12 +1,17 @@
 //! Postmark-backed email notification channel.
 
+// Back-compat re-export: prior to the channel-wide quiet-hours lift,
+// `QuietHours` lived in this module. Downstream crates and siblings
+// (notably `crate::manifest`) imported it from `crate::email`. Keep
+// the alias here so that those import paths still resolve.
+pub use crate::quiet_hours::QuietHours;
 use crate::rate_limit::{RateLimit, RateLimitConfig};
 use crate::{
-    ChannelError, ChannelId, ChannelResult, DeliveryReceipt, DeliveryStatus, InboundEvent,
-    Notification, NotifyChannel,
+    quiet_hours_deferred_receipt, ChannelError, ChannelId, ChannelResult, DeliveryReceipt,
+    DeliveryStatus, InboundEvent, Notification, NotifyChannel,
 };
 use async_trait::async_trait;
-use chrono::{DateTime, Datelike, Duration, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for [`EmailChannel`].
@@ -143,14 +148,10 @@ impl NotifyChannel for EmailChannel {
                 approval_id = %notification.approval_id,
                 "deferred-send: quiet_hours"
             );
-            return Ok(DeliveryReceipt {
-                channel_id: self.id(),
-                notification_id: notification.approval_id,
-                provider_message_id: None,
-                status: DeliveryStatus::Deferred,
-                deferred_reason: Some("quiet_hours".into()),
-                delivered_at: Utc::now(),
-            });
+            return Ok(quiet_hours_deferred_receipt(
+                self.id(),
+                notification.approval_id,
+            ));
         }
         let mut payload = serde_json::json!({
             "From": &self.config.from_address,
@@ -206,104 +207,8 @@ impl NotifyChannel for EmailChannel {
     async fn poll(&self) -> ChannelResult<Vec<InboundEvent>> {
         Ok(Vec::new())
     }
-}
 
-/// Quiet-hours preference for an operator.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default, deny_unknown_fields)]
-pub struct QuietHours {
-    /// Whether quiet hours are active.
-    pub enabled: bool,
-    /// Start time, `HH:MM`, in the configured fixed offset.
-    pub start: String,
-    /// End time, `HH:MM`, in the configured fixed offset.
-    pub end: String,
-    /// Fixed offset from UTC in minutes.
-    pub timezone_offset_minutes: i32,
-    /// Days where quiet hours apply. Empty means every day.
-    pub days: Vec<String>,
-}
-
-impl Default for QuietHours {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            start: "18:00".into(),
-            end: "08:00".into(),
-            timezone_offset_minutes: 0,
-            days: Vec::new(),
-        }
-    }
-}
-
-impl QuietHours {
-    /// Return true when `now` lands inside the configured window.
-    #[must_use]
-    pub fn contains(&self, now: DateTime<Utc>) -> bool {
-        if !self.enabled {
-            return false;
-        }
-        let Some(start) = parse_hhmm(&self.start) else {
-            return false;
-        };
-        let Some(end) = parse_hhmm(&self.end) else {
-            return false;
-        };
-        let local = now + Duration::minutes(i64::from(self.timezone_offset_minutes));
-        if !self.days.is_empty() {
-            let day = format!("{:?}", local.weekday()).to_lowercase();
-            let short = day.chars().take(3).collect::<String>();
-            if !self.days.iter().any(|d| d.eq_ignore_ascii_case(&short)) {
-                return false;
-            }
-        }
-        let mins = local.hour_minute();
-        if start <= end {
-            mins >= start && mins < end
-        } else {
-            mins >= start || mins < end
-        }
-    }
-}
-
-trait HourMinute {
-    fn hour_minute(&self) -> u32;
-}
-
-impl HourMinute for DateTime<Utc> {
-    fn hour_minute(&self) -> u32 {
-        use chrono::Timelike;
-        self.hour() * 60 + self.minute()
-    }
-}
-
-fn parse_hhmm(s: &str) -> Option<u32> {
-    let (h, m) = s.split_once(':')?;
-    let h = h.parse::<u32>().ok()?;
-    let m = m.parse::<u32>().ok()?;
-    if h < 24 && m < 60 {
-        Some(h * 60 + m)
-    } else {
-        None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::TimeZone;
-
-    #[test]
-    fn quiet_hours_handles_overnight_window() {
-        let q = QuietHours {
-            enabled: true,
-            start: "18:00".into(),
-            end: "08:00".into(),
-            timezone_offset_minutes: 0,
-            days: Vec::new(),
-        };
-        assert!(q.contains(Utc.with_ymd_and_hms(2026, 5, 6, 22, 0, 0).unwrap()));
-        assert!(q.contains(Utc.with_ymd_and_hms(2026, 5, 6, 7, 59, 0).unwrap()));
-        assert!(!q.contains(Utc.with_ymd_and_hms(2026, 5, 6, 12, 0, 0).unwrap()));
+    fn quiet_hours(&self) -> Option<&QuietHours> {
+        Some(&self.config.quiet_hours)
     }
 }

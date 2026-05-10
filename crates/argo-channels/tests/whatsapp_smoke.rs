@@ -58,6 +58,7 @@ async fn twilio_whatsapp_integration_gated_on_env() {
         from_number: from,
         operator_whatsapp_numbers: phones,
         rate_limit: RateLimitConfig::unlimited(),
+        quiet_hours: None,
     });
     let receipt = channel
         .send(Notification {
