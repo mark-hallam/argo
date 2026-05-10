@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argo Dashboard — <<title>></title>
+  <link rel="stylesheet" href="/dashboard/assets/style.css">
+  <script src="/dashboard/assets/htmx.min.js"></script>
+</head>
+<body>
+  <header class="argo-nav">
+    <strong class="argo-brand">argo</strong>
+    <a href="/dashboard/workers" class="<<workers_active>>">Workers</a>
+    <a href="/dashboard/sessions" class="<<sessions_active>>">Sessions</a>
+    <a href="/dashboard/approvals" class="<<approvals_active>>">Approvals</a>
+    <a href="/dashboard/spend" class="<<spend_active>>">Spend</a>
+    <span class="argo-version"><<version>></span>
+  </header>
+  <main>
+    <section id="live-actions" class="live-actions"
+             hx-get="/dashboard/actions/live"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML">
+      <p class="muted">Loading live actions…</p>
+    </section>
+    <<content>>
+  </main>
+</body>
+</html>

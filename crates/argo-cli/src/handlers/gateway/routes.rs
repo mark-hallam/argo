@@ -54,6 +54,16 @@ pub(super) async fn dispatch_route(
     if let Some(resp) = dispatch_peer(req, store).await {
         return resp;
     }
+    // Web dashboard MVP (`claude-web-dashboard-mvp`). Mounted ahead
+    // of the bearer-token gate so the operator UX works in a browser
+    // without provisioning a per-tab token; mutating actions still
+    // route through `/inbox/approve|reject`, which carry their own
+    // operator-token gate.
+    if super::routes_dashboard::is_dashboard(req) {
+        if let Some(resp) = super::routes_dashboard::dispatch(req, store).await {
+            return resp;
+        }
+    }
     // Bearer-token gate on every non-allowlisted GET. POST has its own
     // gate inside `dispatch_post` (#946); allowlist members (`/`,
     // `/health[/...]`, `/version`, `/routes`) stay anonymous so liveness

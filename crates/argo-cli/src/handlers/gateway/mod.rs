@@ -9,6 +9,8 @@
 //!   - `print_routes`:         `argo gateway routes` CLI subcommand printer.
 //!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
 mod boot;
+mod dashboard;
+mod routes_dashboard;
 mod lifecycle;
 mod metrics;
 mod metrics_json;
