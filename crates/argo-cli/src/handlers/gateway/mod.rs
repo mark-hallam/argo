@@ -40,7 +40,7 @@ mod routes_auth;
 mod routes_auth_principal;
 mod routes_request_audit;
 pub(crate) mod routes_catalog;
-mod routes_channels; mod routes_channels_discord; mod routes_channels_email; mod routes_channels_push; mod routes_channels_slack; mod routes_channels_webinbox; mod routes_channels_whatsapp;
+mod routes_channels; mod routes_channels_discord; mod routes_channels_email; mod routes_channels_imessage; mod routes_channels_push; mod routes_channels_slack; mod routes_channels_webinbox; mod routes_channels_whatsapp;
 mod routes_costs_by_day;
 mod routes_counts;
 mod routes_cron;

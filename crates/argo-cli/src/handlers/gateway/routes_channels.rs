@@ -10,6 +10,7 @@
 
 use super::routes_channels_email::handle_email_webhook;
 use super::routes_channels_discord::{discord_decision_response, is_discord_decision};
+use super::routes_channels_imessage::{imessage_webhook_response, is_imessage_webhook};
 use super::routes_channels_push::{is_push, push_response};
 use super::routes_channels_slack::{is_slack_webhook, slack_webhook_response};
 use super::routes_channels_webinbox::{is_webinbox, webinbox_response};
@@ -37,6 +38,7 @@ pub(super) fn is_email_webhook(req: &str) -> bool {
         || is_webinbox(req)
         || is_push(req)
         || is_whatsapp_webhook(req)
+        || is_imessage_webhook(req)
 }
 
 /// Dispatch to the matching channel handler. Falls through to
@@ -56,6 +58,9 @@ pub(super) async fn email_webhook_response(req: &str) -> (&'static str, String) 
     }
     if is_whatsapp_webhook(req) {
         return whatsapp_webhook_response(req).await;
+    }
+    if is_imessage_webhook(req) {
+        return imessage_webhook_response(req).await;
     }
     handle_email_webhook(req).await
 }
