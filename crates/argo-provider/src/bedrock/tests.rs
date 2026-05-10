@@ -1,5 +1,5 @@
+use super::streaming::{handle_stream_event, StreamCore};
 use super::wire::{build_request_body, document_to_json};
-use super::{handle_stream_event, StreamCore};
 use crate::manifest::ProviderManifest;
 use crate::transport::{ProviderRequest, ProviderResponseDelta, Sampling, StopReason, ToolSchema};
 use argo_types::Message;
