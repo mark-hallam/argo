@@ -18,7 +18,7 @@ fallback  = "openai/gpt-4o"
 cost_tier = "balanced"
 
 [tools]
-allowed = ["file_read", "web_search", "memory", "vision_analyze"]
+allowed = ["file_read", "web_search", "memory", "vision_analyze", "send_message"]
 denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
 
 [memory]

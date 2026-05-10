@@ -33,7 +33,7 @@ pub use path_guard::confine_path;
 pub use registry::ToolRegistry;
 pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
 pub use tools::{
-    builtin_tools, builtin_tools_with_memory, CodeExecute, DelegateTask, FilePatch, FileRead,
-    FileWrite, Memory, ResolvedImage, Terminal, Vision, VisionAnswer, VisionDispatcher,
-    WebExtract, WebSearch,
+    builtin_tools, builtin_tools_with_memory, risk_tier, CodeExecute, DelegateTask, FilePatch,
+    FileRead, FileWrite, Memory, MessageDispatcher, ResolvedImage, SendMessage, SendOutcome,
+    Terminal, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
 };
