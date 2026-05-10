@@ -1525,13 +1525,64 @@ function etaLine(p) {
 const refreshBtn = document.getElementById("refresh-btn");
 const refreshNote = document.getElementById("refresh-mode-note");
 const isServed = location.protocol === "http:" || location.protocol === "https:";
+
+// ── refresh state preservation ──
+// Plain location.reload() blows away scroll position, open drawers, and
+// every <input>/<select> filter value the user has set on the page. That
+// makes the Refresh button feel destructive even though the regenerated
+// page is identical in structure. We persist the user's view state to
+// sessionStorage on click, restore it after the reload. Sub-50 LOC, no
+// fetch/render-pipeline refactor required.
+const STATE_KEY = "skycot-dashboard-state-v1";
+
+function captureState() {
+  const drawer = document.getElementById("phase-detail-drawer");
+  const out = {
+    scrollY: window.scrollY,
+    filters: {},
+    drawerPhase: drawer && drawer.classList.contains("open") ? drawer.dataset.openPhase : null,
+  };
+  // Every filter input/select that has an id — both 280-item drill and live-ledger drill
+  ["q","fstate","fphase","lq","lstate","lphase","ltier","lowner"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) out.filters[id] = el.value;
+  });
+  return out;
+}
+
+function restoreState() {
+  try {
+    const raw = sessionStorage.getItem(STATE_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(STATE_KEY);
+    const s = JSON.parse(raw);
+    Object.entries(s.filters || {}).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && val) {
+        el.value = val;
+        el.dispatchEvent(new Event(el.tagName === "INPUT" ? "input" : "change"));
+      }
+    });
+    if (s.drawerPhase) {
+      const card = document.querySelector(`[data-ledger-phase="${s.drawerPhase}"]`);
+      if (card) card.click();
+    }
+    if (typeof s.scrollY === "number") {
+      // Defer scroll until after re-render settles
+      window.requestAnimationFrame(() => window.scrollTo(0, s.scrollY));
+    }
+  } catch (e) {}
+}
+window.addEventListener("load", restoreState);
+
 if (isServed) {
-  // one-click: just reload; the server regenerates fresh data on every GET
   refreshBtn.textContent = "Refresh";
-  refreshNote.textContent = "served · click to regenerate";
+  refreshNote.textContent = "served · click to regenerate (state preserved)";
   refreshBtn.addEventListener("click", () => {
+    sessionStorage.setItem(STATE_KEY, JSON.stringify(captureState()));
     refreshBtn.textContent = "Refreshing…";
     refreshBtn.classList.add("copied");
+    refreshBtn.disabled = true;
     location.reload();
   });
 } else {
