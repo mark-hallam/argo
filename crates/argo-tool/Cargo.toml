@@ -38,3 +38,7 @@ tokio = { workspace = true }
 # Captured-HTML fixtures live under `tests/fixtures/`; no live HTTP
 # is hit in CI. The opt-in live tests (gated on `ARGO_LIVE_WEB=1`)
 # go through reqwest directly — no mock-server crate needed.
+# `session_search` integration + unit tests seed an in-memory
+# `SessionStore` and need raw sqlx for the foreign-key workspace
+# row insert (no public store helper for that today).
+sqlx = { workspace = true }

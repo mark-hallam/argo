@@ -140,6 +140,10 @@ pub struct MessageSearchHit {
     pub role: String,
     /// FTS5-rendered snippet with `[match]` highlights.
     pub snippet: String,
+    /// Message creation timestamp (UTC epoch microseconds). Sourced
+    /// from the joined `message.created_at` column so callers can
+    /// filter by recency without a second round-trip.
+    pub created_at_micros: i64,
 }
 
 /// Raw FTS5 row.
@@ -149,6 +153,7 @@ pub(crate) struct MessageSearchHitRow {
     pub seq: i64,
     pub role: String,
     pub snippet: String,
+    pub created_at: i64,
 }
 
 impl From<MessageSearchHitRow> for MessageSearchHit {
@@ -158,6 +163,7 @@ impl From<MessageSearchHitRow> for MessageSearchHit {
             seq: r.seq,
             role: r.role,
             snippet: r.snippet,
+            created_at_micros: r.created_at,
         }
     }
 }

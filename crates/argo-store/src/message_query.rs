@@ -99,7 +99,8 @@ impl SessionStore {
     ) -> StoreResult<Vec<MessageSearchHit>> {
         let rows: Vec<MessageSearchHitRow> = sqlx::query_as::<_, MessageSearchHitRow>(
             "SELECT m.session_id, m.seq, m.role, \
-             snippet(message_fts, 0, '[', ']', '…', 32) AS snippet \
+             snippet(message_fts, 0, '[', ']', '…', 32) AS snippet, \
+             m.created_at \
              FROM message_fts JOIN message m ON m.rowid = message_fts.rowid \
              WHERE message_fts MATCH ? ORDER BY rank LIMIT ?",
         )
@@ -121,7 +122,8 @@ impl SessionStore {
     ) -> StoreResult<Vec<MessageSearchHit>> {
         let rows: Vec<MessageSearchHitRow> = sqlx::query_as::<_, MessageSearchHitRow>(
             "SELECT m.session_id, m.seq, m.role, \
-             snippet(message_fts, 0, '[', ']', '…', 32) AS snippet \
+             snippet(message_fts, 0, '[', ']', '…', 32) AS snippet, \
+             m.created_at \
              FROM message_fts JOIN message m ON m.rowid = message_fts.rowid \
              WHERE message_fts MATCH ? AND m.session_id = ? \
              ORDER BY rank LIMIT ?",

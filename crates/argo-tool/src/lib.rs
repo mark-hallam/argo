@@ -40,6 +40,6 @@ pub use tool::{
 pub use tools::{
     builtin_tools, builtin_tools_with_memory, risk_tier, Clarify, ClarifyAnswer, ClarifyDispatcher,
     CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite, Memory, MessageDispatcher,
-    ResolvedImage, SendMessage, SendOutcome, Terminal, Todo, TodoItem, Vision, VisionAnswer,
-    VisionDispatcher, WebExtract, WebSearch,
+    ResolvedImage, SendMessage, SendOutcome, SessionSearch, Terminal, Todo, TodoItem, Vision,
+    VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
 };

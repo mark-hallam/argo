@@ -22,7 +22,7 @@ cost_tier = "balanced"
 # explicit deny list is the security boundary; the allow list is
 # the discoverability hint to the agent.
 [tools]
-allowed = ["file_read", "web_extract", "web_search", "memory"]
+allowed = ["file_read", "web_extract", "web_search", "memory", "session_search"]
 denied  = ["file_write", "file_patch", "terminal", "delegate_task"]
 
 [memory]

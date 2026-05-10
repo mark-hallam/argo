@@ -20,6 +20,7 @@ mod file_read;
 mod file_write;
 mod memory;
 mod send_message;
+mod session_search;
 mod terminal;
 mod todo;
 mod vision;
@@ -33,6 +34,7 @@ pub use file_read::FileRead;
 pub use file_write::FileWrite;
 pub use memory::Memory;
 pub use send_message::{risk_tier, MessageDispatcher, SendMessage, SendOutcome};
+pub use session_search::SessionSearch;
 pub use terminal::Terminal;
 pub use todo::{Todo, TodoItem};
 pub use vision::{ResolvedImage, Vision, VisionAnswer, VisionDispatcher};
@@ -68,6 +70,7 @@ pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
         Arc::new(Vision::default()),
         Arc::new(CodeExecute::default()),
         Arc::new(SendMessage::default()),
+        Arc::new(SessionSearch::default()),
         Arc::new(Todo),
         Arc::new(Clarify::default()),
     ]
@@ -98,6 +101,7 @@ pub fn builtin_tools_with_memory(
         Arc::new(Vision::default()),
         Arc::new(CodeExecute::default()),
         Arc::new(SendMessage::default()),
+        Arc::new(SessionSearch::default()),
         Arc::new(Todo),
         Arc::new(Clarify::default()),
     ]
@@ -110,7 +114,7 @@ mod tests {
     #[test]
     fn builtin_tools_returns_unique_names() {
         let tools = builtin_tools(PathBuf::from("/tmp"));
-        assert_eq!(tools.len(), 13);
+        assert_eq!(tools.len(), 14);
         let mut names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         names.sort_unstable();
         let mut deduped = names.clone();
@@ -127,6 +131,7 @@ mod tests {
                 "file_write",
                 "memory",
                 "send_message",
+                "session_search",
                 "terminal",
                 "todo",
                 "vision_analyze",
