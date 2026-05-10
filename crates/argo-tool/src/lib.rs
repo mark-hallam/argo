@@ -8,7 +8,8 @@
 //! Phase 3 ships four tools end-to-end (`file_read`, `file_write`,
 //! `file_patch`, `terminal`) and four schema-only stubs whose backends
 //! land later (`web_search`, `web_extract` → MCP §12; `memory` → Agent H;
-//! `delegate_task` → Agent K / §16).
+//! `delegate_task` → Agent K / §16). Hermes-parity tools `vision_analyze`
+//! and `code_execute` ship alongside.
 //!
 //! ```
 //! # use std::path::PathBuf;
@@ -17,9 +18,8 @@
 //! for t in builtin_tools(PathBuf::from("/tmp")) {
 //!     reg.register(t);
 //! }
-//! // Eight base in-core tools (§9) plus `vision_analyze`
-//! // (Hermes parity, brief `tool-vision-analyze`).
-//! assert_eq!(reg.names().len(), 9);
+//! assert!(reg.names().contains(&"code_execute"));
+//! assert!(reg.names().contains(&"vision_analyze"));
 //! ```
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
@@ -33,6 +33,7 @@ pub use path_guard::confine_path;
 pub use registry::ToolRegistry;
 pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
 pub use tools::{
-    builtin_tools, builtin_tools_with_memory, DelegateTask, FilePatch, FileRead, FileWrite, Memory,
-    ResolvedImage, Terminal, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
+    builtin_tools, builtin_tools_with_memory, CodeExecute, DelegateTask, FilePatch, FileRead,
+    FileWrite, Memory, ResolvedImage, Terminal, Vision, VisionAnswer, VisionDispatcher,
+    WebExtract, WebSearch,
 };

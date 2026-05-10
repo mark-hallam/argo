@@ -1212,6 +1212,7 @@ version = "0.0.1"
 dependencies = [
  "argo-capability",
  "argo-memory",
+ "argo-sandbox",
  "argo-store",
  "argo-types",
  "async-trait",

@@ -11,6 +11,7 @@ description = "Argo — tool registry + 8 in-core tools (§9)"
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-memory = { path = "../argo-memory", version = "0.0.1" }
+argo-sandbox = { path = "../argo-sandbox", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -28,10 +29,12 @@ scraper = "0.20"
 # `NodeRef` / `NodeId` types in function signatures, so it's a
 # direct dep too.
 ego-tree = "0.6"
+# `code_execute` stages source + side-cars in a fresh tempdir per
+# call; tempfile is the same crate the dev tests use.
+tempfile = "3"
 
 [dev-dependencies]
 tokio = { workspace = true }
-tempfile = "3"
 # Captured-HTML fixtures live under `tests/fixtures/`; no live HTTP
 # is hit in CI. The opt-in live tests (gated on `ARGO_LIVE_WEB=1`)
 # go through reqwest directly — no mock-server crate needed.
