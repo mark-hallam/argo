@@ -14,6 +14,7 @@ mod file_read;
 mod file_write;
 mod memory;
 mod terminal;
+mod vision;
 mod web;
 
 pub use delegate_task::DelegateTask;
@@ -22,6 +23,7 @@ pub use file_read::FileRead;
 pub use file_write::FileWrite;
 pub use memory::Memory;
 pub use terminal::Terminal;
+pub use vision::{ResolvedImage, Vision, VisionAnswer, VisionDispatcher};
 pub use web::{WebExtract, WebSearch};
 
 use crate::tool::Tool;
@@ -51,6 +53,7 @@ pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
         Arc::new(WebExtract),
         Arc::new(Memory::default()),
         Arc::new(DelegateTask),
+        Arc::new(Vision::default()),
     ]
 }
 
@@ -76,6 +79,7 @@ pub fn builtin_tools_with_memory(
         Arc::new(WebExtract),
         Arc::new(Memory::new(store, workspace_id, vertical_id)),
         Arc::new(DelegateTask),
+        Arc::new(Vision::default()),
     ]
 }
 
@@ -84,9 +88,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn builtin_tools_returns_eight_unique_names() {
+    fn builtin_tools_returns_unique_names_with_vision() {
         let tools = builtin_tools(PathBuf::from("/tmp"));
-        assert_eq!(tools.len(), 8);
+        assert_eq!(tools.len(), 9);
         let mut names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         names.sort_unstable();
         let mut deduped = names.clone();
@@ -101,6 +105,7 @@ mod tests {
                 "file_write",
                 "memory",
                 "terminal",
+                "vision_analyze",
                 "web_extract",
                 "web_search",
             ]

@@ -17,7 +17,9 @@
 //! for t in builtin_tools(PathBuf::from("/tmp")) {
 //!     reg.register(t);
 //! }
-//! assert_eq!(reg.names().len(), 8);
+//! // Eight base in-core tools (§9) plus `vision_analyze`
+//! // (Hermes parity, brief `tool-vision-analyze`).
+//! assert_eq!(reg.names().len(), 9);
 //! ```
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
@@ -32,5 +34,5 @@ pub use registry::ToolRegistry;
 pub use tool::{error_text, success_text, Concurrency, Tool, ToolContext, ToolSchema};
 pub use tools::{
     builtin_tools, builtin_tools_with_memory, DelegateTask, FilePatch, FileRead, FileWrite, Memory,
-    Terminal, WebExtract, WebSearch,
+    ResolvedImage, Terminal, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
 };
