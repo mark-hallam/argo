@@ -21,6 +21,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod ab_test;
+mod ab_test_stats;
 mod artifact;
 pub mod conflicts;
 pub mod deps;
