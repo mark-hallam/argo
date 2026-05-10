@@ -31,7 +31,7 @@ async fn create_show_list_workers() {
     assert_eq!(shown.role.duties[0].cron, "0 8 * * 1-5");
     assert_eq!(shown.memory_namespace.tenant_id, tenant);
 
-    let listed = identities.list_workers(tenant).await.unwrap();
+    let listed = identities.list_workers(tenant, false).await.unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, worker.id);
 }

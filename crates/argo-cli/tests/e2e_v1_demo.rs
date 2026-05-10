@@ -98,7 +98,7 @@ async fn full_v1_demo_flow_passes_offline() {
     );
     identities.create_worker(&worker).await.expect("create_worker");
     let listed = identities
-        .list_workers(tenant)
+        .list_workers(tenant, false)
         .await
         .expect("list_workers");
     assert!(

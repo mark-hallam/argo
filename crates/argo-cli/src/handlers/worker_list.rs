@@ -58,7 +58,7 @@ pub async fn list(tenant: &str, persona: Option<&str>, json: bool) -> ArgoResult
     let created = created_at_by_worker(&store, tenant_id).await?;
     let mut rows = Vec::new();
 
-    for worker in identities.list_workers(tenant_id).await? {
+    for worker in identities.list_workers(tenant_id, false).await? {
         if let Some(name) = persona {
             if worker.persona.name != name {
                 continue;

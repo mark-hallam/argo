@@ -213,6 +213,11 @@ impl<'a> IdentityStore<'a> {
 
     /// List workers for one tenant, newest first.
     ///
+    /// Pass `include_archived = false` to filter out soft-deleted
+    /// workers (`worker.archived_at IS NOT NULL`); `true` returns the
+    /// full set including retired rows. Default operator listings use
+    /// `false`; audit/export paths pass `true`.
+    ///
     /// ```
     /// # async fn demo() -> argo_types::ArgoResult<()> {
     /// use argo_identity::{IdentityStore, Persona, Role, Worker};
@@ -223,18 +228,27 @@ impl<'a> IdentityStore<'a> {
     /// store.migrate().await?;
     /// let identities = IdentityStore::new(&store);
     /// identities.create_worker(&Worker::draft(tenant, "gtm", Persona::named("Maya", "op"), Role::new("Sell."))).await?;
-    /// assert_eq!(identities.list_workers(tenant).await?.len(), 1);
+    /// assert_eq!(identities.list_workers(tenant, false).await?.len(), 1);
     /// # Ok(()) }
     /// ```
-    pub async fn list_workers(&self, tenant_id: TenantId) -> ArgoResult<Vec<Worker>> {
+    pub async fn list_workers(
+        &self,
+        tenant_id: TenantId,
+        include_archived: bool,
+    ) -> ArgoResult<Vec<Worker>> {
         self.ensure_schema().await?;
-        let ids: Vec<String> = sqlx::query_scalar(
-            "SELECT id FROM worker WHERE tenant_id = ? ORDER BY created_at DESC, id ASC",
-        )
-        .bind(tenant_id.to_string())
-        .fetch_all(self.store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("list workers: {e}")))?;
+        let sql = if include_archived {
+            "SELECT id FROM worker WHERE tenant_id = ? ORDER BY created_at DESC, id ASC"
+        } else {
+            "SELECT id FROM worker \
+             WHERE tenant_id = ? AND archived_at IS NULL \
+             ORDER BY created_at DESC, id ASC"
+        };
+        let ids: Vec<String> = sqlx::query_scalar(sql)
+            .bind(tenant_id.to_string())
+            .fetch_all(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("list workers: {e}")))?;
 
         let mut workers = Vec::with_capacity(ids.len());
         for id in ids {
@@ -327,6 +341,57 @@ impl<'a> IdentityStore<'a> {
         }
         Ok(())
     }
+
+    /// Soft-delete a worker by setting `worker.archived_at` to the
+    /// current ISO-8601 timestamp (Stream `mvp-identity-archive-worker`,
+    /// MISSION_BACKLOG #40 archive half). Audit and handoff history
+    /// reference the textual `worker_id` and are deliberately left
+    /// intact.
+    ///
+    /// Idempotent: a second call on an already-archived worker is a
+    /// no-op (returns `Ok(())` without rewriting the timestamp).
+    /// Returns `ArgoError::Provider` when the
+    /// (`tenant_id`, `worker_id`) pair does not match any row.
+    ///
+    /// Distinct from `argo_store::worker_archive::archive_worker`,
+    /// which is the heavier freeze/wake snapshot mechanism (deletes
+    /// the live row after copying it into a sibling `worker_archive`
+    /// table). This method only flips the soft-delete flag.
+    pub async fn archive_worker(
+        &self,
+        tenant_id: TenantId,
+        worker_id: WorkerId,
+    ) -> ArgoResult<()> {
+        self.ensure_schema().await?;
+        let updated = sqlx::query(
+            "UPDATE worker SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id = ? AND tenant_id = ? AND archived_at IS NULL",
+        )
+        .bind(worker_id.to_string())
+        .bind(tenant_id.to_string())
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("archive worker: {e}")))?;
+        if updated.rows_affected() > 0 {
+            return Ok(());
+        }
+        // 0 rows touched: either the worker doesn't exist (NotFound),
+        // or it was already archived (idempotent no-op).
+        let existing: Option<String> = sqlx::query_scalar(
+            "SELECT id FROM worker WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(worker_id.to_string())
+        .bind(tenant_id.to_string())
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("archive worker lookup: {e}")))?;
+        if existing.is_none() {
+            return Err(ArgoError::Provider(format!(
+                "worker {worker_id} not found in tenant {tenant_id}"
+            )));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -353,6 +418,10 @@ mod tests {
             .unwrap();
         assert_eq!(loaded.persona.name, "Maya");
         assert_eq!(loaded.role.duties[0].entry_action, "follow_up");
-        assert_eq!(identities.list_workers(tenant).await.unwrap().len(), 1);
+        assert_eq!(identities.list_workers(tenant, false).await.unwrap().len(), 1);
     }
 }
+
+#[cfg(test)]
+#[path = "store_archive_tests.rs"]
+mod archive_tests;

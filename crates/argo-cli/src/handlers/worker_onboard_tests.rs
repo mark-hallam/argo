@@ -95,7 +95,7 @@ async fn too_many_channels_fail_before_db_write() {
         .unwrap_err();
     assert!(err.to_string().contains("at most 8"));
     let workers = IdentityStore::new(&store)
-        .list_workers(tenant)
+        .list_workers(tenant, false)
         .await
         .unwrap();
     assert!(workers.is_empty());
@@ -115,7 +115,7 @@ async fn unsupported_channel_fails_after_worker_create() {
         .unwrap_err();
     assert!(err.to_string().contains("fax:+15551234567"));
     let workers = IdentityStore::new(&store)
-        .list_workers(tenant)
+        .list_workers(tenant, false)
         .await
         .unwrap();
     assert_eq!(workers.len(), 1);
