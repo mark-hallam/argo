@@ -8,8 +8,8 @@
 //! Phase 3 ships four tools end-to-end (`file_read`, `file_write`,
 //! `file_patch`, `terminal`) and four schema-only stubs whose backends
 //! land later (`web_search`, `web_extract` → MCP §12; `memory` → Agent H;
-//! `delegate_task` → Agent K / §16). Hermes-parity tools `vision_analyze`
-//! and `code_execute` ship alongside.
+//! `delegate_task` → Agent K / §16). Hermes-parity tools `vision_analyze`,
+//! `code_execute`, `send_message`, `todo`, and `clarify` ship alongside.
 //!
 //! ```
 //! # use std::path::PathBuf;
@@ -20,6 +20,8 @@
 //! }
 //! assert!(reg.names().contains(&"code_execute"));
 //! assert!(reg.names().contains(&"vision_analyze"));
+//! assert!(reg.names().contains(&"todo"));
+//! assert!(reg.names().contains(&"clarify"));
 //! ```
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
@@ -36,7 +38,8 @@ pub use tool::{
     STREAM_CHUNK_MAX_BYTES,
 };
 pub use tools::{
-    builtin_tools, builtin_tools_with_memory, risk_tier, CodeExecute, DelegateTask, FilePatch,
-    FileRead, FileWrite, Memory, MessageDispatcher, ResolvedImage, SendMessage, SendOutcome,
-    Terminal, Vision, VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
+    builtin_tools, builtin_tools_with_memory, risk_tier, Clarify, ClarifyAnswer, ClarifyDispatcher,
+    CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite, Memory, MessageDispatcher,
+    ResolvedImage, SendMessage, SendOutcome, Terminal, Todo, TodoItem, Vision, VisionAnswer,
+    VisionDispatcher, WebExtract, WebSearch,
 };

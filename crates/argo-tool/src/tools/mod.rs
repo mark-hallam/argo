@@ -12,6 +12,7 @@
 //! Hermes-parity tools layered on the §9 base: `vision_analyze`
 //! (provider multimodal) and `code_execute` (sandboxed python /
 //! node / bash through `argo-sandbox`).
+mod clarify;
 mod code_execute;
 mod delegate_task;
 mod file_patch;
@@ -20,9 +21,11 @@ mod file_write;
 mod memory;
 mod send_message;
 mod terminal;
+mod todo;
 mod vision;
 mod web;
 
+pub use clarify::{Clarify, ClarifyAnswer, ClarifyDispatcher};
 pub use code_execute::CodeExecute;
 pub use delegate_task::DelegateTask;
 pub use file_patch::FilePatch;
@@ -31,6 +34,7 @@ pub use file_write::FileWrite;
 pub use memory::Memory;
 pub use send_message::{risk_tier, MessageDispatcher, SendMessage, SendOutcome};
 pub use terminal::Terminal;
+pub use todo::{Todo, TodoItem};
 pub use vision::{ResolvedImage, Vision, VisionAnswer, VisionDispatcher};
 pub use web::{WebExtract, WebSearch};
 
@@ -64,6 +68,8 @@ pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
         Arc::new(Vision::default()),
         Arc::new(CodeExecute::default()),
         Arc::new(SendMessage::default()),
+        Arc::new(Todo),
+        Arc::new(Clarify::default()),
     ]
 }
 
@@ -92,6 +98,8 @@ pub fn builtin_tools_with_memory(
         Arc::new(Vision::default()),
         Arc::new(CodeExecute::default()),
         Arc::new(SendMessage::default()),
+        Arc::new(Todo),
+        Arc::new(Clarify::default()),
     ]
 }
 
@@ -102,7 +110,7 @@ mod tests {
     #[test]
     fn builtin_tools_returns_unique_names() {
         let tools = builtin_tools(PathBuf::from("/tmp"));
-        assert_eq!(tools.len(), 11);
+        assert_eq!(tools.len(), 13);
         let mut names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         names.sort_unstable();
         let mut deduped = names.clone();
@@ -111,6 +119,7 @@ mod tests {
         assert_eq!(
             names,
             vec![
+                "clarify",
                 "code_execute",
                 "delegate_task",
                 "file_patch",
@@ -119,6 +128,7 @@ mod tests {
                 "memory",
                 "send_message",
                 "terminal",
+                "todo",
                 "vision_analyze",
                 "web_extract",
                 "web_search",

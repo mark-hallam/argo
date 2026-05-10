@@ -18,7 +18,7 @@ fallback  = "openai/gpt-4o"
 cost_tier = "balanced"
 
 [tools]
-allowed = ["file_read", "memory", "image-gen.generate_image", "code_execute"]
+allowed = ["file_read", "memory", "image-gen.generate_image", "code_execute", "todo"]
 denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
 
 [memory]
