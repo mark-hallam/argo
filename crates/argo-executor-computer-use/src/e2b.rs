@@ -14,7 +14,51 @@
 //! a follow-up PR alongside the photo_paths feature).
 
 use crate::CuError;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+
+/// The E2B sandbox calls the executor makes. Production
+/// implemented by [`E2bClient`] over real HTTP;
+/// [`crate::testing::MockE2bClient`] is the scripted offline
+/// counterpart used by `tests/cu_harness_offline.rs`.
+///
+/// The trait mirrors exactly what the executor needs today; new
+/// E2B primitives land here in lockstep with the call site.
+#[async_trait]
+pub trait E2bCall: Send + Sync {
+    /// Open a fresh sandbox of the requested template.
+    async fn open_sandbox(&self, template: &str) -> Result<Sandbox, CuError>;
+    /// Capture a fresh screenshot.
+    async fn screenshot(&self, sandbox: &Sandbox) -> Result<Vec<u8>, CuError>;
+    /// Execute one CU primitive in the sandbox.
+    async fn execute_action(
+        &self,
+        sandbox: &Sandbox,
+        action: &CuAction,
+    ) -> Result<ActionResult, CuError>;
+    /// Close + reclaim the sandbox.
+    async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError>;
+}
+
+#[async_trait]
+impl E2bCall for E2bClient {
+    async fn open_sandbox(&self, template: &str) -> Result<Sandbox, CuError> {
+        E2bClient::open_sandbox(self, template).await
+    }
+    async fn screenshot(&self, sandbox: &Sandbox) -> Result<Vec<u8>, CuError> {
+        E2bClient::screenshot(self, sandbox).await
+    }
+    async fn execute_action(
+        &self,
+        sandbox: &Sandbox,
+        action: &CuAction,
+    ) -> Result<ActionResult, CuError> {
+        E2bClient::execute_action(self, sandbox, action).await
+    }
+    async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError> {
+        E2bClient::close_sandbox(self, sandbox).await
+    }
+}
 
 /// Thin HTTP client. Holds a `reqwest::Client` so connection
 /// reuse + tls config are shared across calls. Cloneable so the

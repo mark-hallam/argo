@@ -16,6 +16,28 @@
 use crate::anthropic_parse::parse_response;
 use crate::e2b::CuAction;
 use crate::CuError;
+use async_trait::async_trait;
+
+/// One CU loop step against an Anthropic-style backend. The
+/// production [`AnthropicClient`] implements it over real HTTP;
+/// [`crate::testing::MockAnthropic`] implements it with a scripted
+/// sequence of canned responses for the offline test harness.
+///
+/// The surface is intentionally minimal — exactly the single
+/// call the executor makes today. Adding methods should be a
+/// coordinated change, not a "while we're here" expansion.
+#[async_trait]
+pub trait AnthropicCall: Send + Sync {
+    /// Send one CU loop step and parse the reply.
+    async fn step<'a>(&self, req: CuStepRequest<'a>) -> Result<CuStepResponse, CuError>;
+}
+
+#[async_trait]
+impl AnthropicCall for AnthropicClient {
+    async fn step<'a>(&self, req: CuStepRequest<'a>) -> Result<CuStepResponse, CuError> {
+        AnthropicClient::step(self, req).await
+    }
+}
 
 /// Thin client over Anthropic's `/v1/messages`.
 #[derive(Debug, Clone)]

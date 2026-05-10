@@ -67,6 +67,8 @@ pub mod profile;
 pub mod restart;
 pub mod screenshot_persist;
 pub mod success_metric;
+#[cfg(any(test, feature = "test-harness"))]
+pub mod testing;
 
 pub use config::CuConfig;
 pub use error::CuError;

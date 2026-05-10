@@ -22,6 +22,17 @@ argo-types = { path = "../argo-types" }
 argo-skill = { path = "../argo-skill" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 
+[features]
+# Re-exports the offline `testing` module so downstream crates
+# (e.g. future vertical-template integration tests) can reuse
+# `MockAnthropic` + `MockE2bClient` without rolling their own
+# scripted stubs. Always on inside `cargo test` for this crate.
+test-harness = []
+
 [dev-dependencies]
+# Self path-dep with `test-harness` enabled so integration tests
+# in `tests/` see `pub mod testing` (which is gated behind the
+# feature in production builds).
+argo-executor-computer-use = { path = ".", features = ["test-harness"] }
 tempfile = "3"
 uuid = { workspace = true }

@@ -394,6 +394,7 @@ name = "argo-executor-computer-use"
 version = "0.0.1"
 dependencies = [
  "argo-config",
+ "argo-executor-computer-use",
  "argo-skill",
  "argo-store",
  "argo-types",
