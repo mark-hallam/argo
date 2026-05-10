@@ -1,15 +1,22 @@
 //! Tenant inspection and id-rename SQL helpers.
+//!
+//! `show_tenant` and `rename_tenant` live in
+//! [`crate::tenant_query_inspect`] (split out for the 500-LOC ceiling)
+//! and are re-exported here so external callers keep importing from
+//! `argo_store::tenant_query::*`.
 
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::{DateTime, Datelike, TimeZone, Utc};
 use serde_json::{json, Value};
-use sqlx::{Row, Sqlite};
+use sqlx::Row;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
 use crate::SessionStore;
 
-const BLOB_TENANT_TABLES: &[&str] = &[
+pub use crate::tenant_query_inspect::{rename_tenant, show_tenant};
+
+pub(crate) const BLOB_TENANT_TABLES: &[&str] = &[
     "agent",
     "memory_entry",
     "role",
@@ -22,7 +29,7 @@ const BLOB_TENANT_TABLES: &[&str] = &[
     "workspace",
 ];
 
-const TEXT_TENANT_TABLES: &[&str] = &[
+pub(crate) const TEXT_TENANT_TABLES: &[&str] = &[
     "duty",
     "handoff_routing_rule",
     "org_member",
@@ -70,94 +77,9 @@ pub async fn list_tenants_with_stats(
     Ok(rows)
 }
 
-/// Load one tenant detail object.
-pub async fn show_tenant(
+pub(crate) async fn collect_tenants(
     store: &SessionStore,
-    tenant: TenantId,
-    now: DateTime<Utc>,
-) -> ArgoResult<Option<Value>> {
-    let Some(summary) = list_tenants_with_stats(store, true, now)
-        .await?
-        .into_iter()
-        .find(|row| row["id"].as_str() == Some(&tenant.to_string()))
-    else {
-        return Ok(None);
-    };
-    Ok(Some(json!({
-        "summary": summary,
-        "name": workspace_text(store, tenant, "name").await?,
-        "root_path": workspace_text(store, tenant, "root_path").await?,
-        "owner_email": workspace_text(store, tenant, "owner_email").await?,
-        "workspace_count": count_blob(store, "workspace", tenant).await?,
-        "session_count": count_blob(store, "session", tenant).await?,
-        "roster": roster_summary(store, tenant).await?,
-        "recent_activity": recent_activity(store, tenant).await?,
-        "channels": channel_presence(store, tenant).await?,
-        "classification_rules": [],
-    })))
-}
-
-/// Atomically rename a tenant id across known tenant-scoped tables.
-pub async fn rename_tenant(
-    store: &SessionStore,
-    old: TenantId,
-    new: TenantId,
-    renamed_at: i64,
-) -> ArgoResult<Value> {
-    if old == new {
-        return Err(ArgoError::Provider("tenant rename: ids are identical".into()));
-    }
-    if !tenant_exists(store, old).await? {
-        return Err(ArgoError::Provider(format!("no tenant '{old}'")));
-    }
-    if tenant_exists(store, new).await? {
-        return Err(ArgoError::Provider(format!(
-            "tenant rename: destination '{new}' already exists"
-        )));
-    }
-
-    let mut tx = store
-        .pool()
-        .begin()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant rename tx: {e}")))?;
-    let mut updated = Vec::new();
-    for table in TEXT_TENANT_TABLES {
-        if has_column(store, table, "tenant_id").await? {
-            updated.push(update_text(&mut tx, table, old, new).await?);
-        }
-    }
-    for table in BLOB_TENANT_TABLES {
-        if has_column(store, table, "tenant_id").await? {
-            updated.push(update_blob(&mut tx, table, old, new).await?);
-        }
-    }
-    if table_exists(store, "audit_record").await? {
-        let rows = sqlx::query(
-            "UPDATE audit_record SET payload_json = replace(payload_json, ?, ?) \
-             WHERE instr(payload_json, ?) > 0",
-        )
-        .bind(old.to_string())
-        .bind(new.to_string())
-        .bind(old.to_string())
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant rename audit_record: {e}")))?
-        .rows_affected();
-        updated.push(json!({"table": "audit_record", "rows": rows}));
-    }
-    tx.commit()
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant rename commit: {e}")))?;
-    Ok(json!({
-        "old_id": old.to_string(),
-        "new_id": new.to_string(),
-        "renamed_at": renamed_at,
-        "updated_tables": updated,
-    }))
-}
-
-async fn collect_tenants(store: &SessionStore) -> ArgoResult<BTreeMap<String, TenantId>> {
+) -> ArgoResult<BTreeMap<String, TenantId>> {
     let mut out = BTreeMap::new();
     for table in BLOB_TENANT_TABLES {
         if has_column(store, table, "tenant_id").await? {
@@ -199,12 +121,6 @@ async fn query_all(
         .map_err(|e| ArgoError::Provider(format!("tenant query {label}: {e}")))
 }
 
-async fn tenant_exists(store: &SessionStore, tenant: TenantId) -> ArgoResult<bool> {
-    Ok(collect_tenants(store)
-        .await?
-        .contains_key(&tenant.to_string()))
-}
-
 async fn tenant_created_at(store: &SessionStore, tenant: TenantId) -> ArgoResult<Option<i64>> {
     let mut values = Vec::new();
     values.push(min_blob(store, "workspace", "created_at", tenant).await?);
@@ -213,7 +129,11 @@ async fn tenant_created_at(store: &SessionStore, tenant: TenantId) -> ArgoResult
     Ok(values.into_iter().flatten().min_by_key(|v| normalize_epoch_micros(*v)))
 }
 
-async fn workspace_text(store: &SessionStore, tenant: TenantId, column: &str) -> ArgoResult<Option<String>> {
+pub(crate) async fn workspace_text(
+    store: &SessionStore,
+    tenant: TenantId,
+    column: &str,
+) -> ArgoResult<Option<String>> {
     if !has_column(store, "workspace", column).await? {
         return Ok(None);
     }
@@ -241,7 +161,11 @@ async fn workspace_i64(store: &SessionStore, tenant: TenantId, column: &str) -> 
     Ok(row.and_then(|row| row.get(column)))
 }
 
-async fn count_blob(store: &SessionStore, table: &str, tenant: TenantId) -> ArgoResult<i64> {
+pub(crate) async fn count_blob(
+    store: &SessionStore,
+    table: &str,
+    tenant: TenantId,
+) -> ArgoResult<i64> {
     if !has_column(store, table, "tenant_id").await? {
         return Ok(0);
     }
@@ -254,7 +178,11 @@ async fn count_blob(store: &SessionStore, table: &str, tenant: TenantId) -> Argo
         .map_err(|e| ArgoError::Provider(format!("tenant count {table}: {e}")))
 }
 
-async fn count_text(store: &SessionStore, table: &str, tenant: TenantId) -> ArgoResult<i64> {
+pub(crate) async fn count_text(
+    store: &SessionStore,
+    table: &str,
+    tenant: TenantId,
+) -> ArgoResult<i64> {
     if !has_column(store, table, "tenant_id").await? {
         return Ok(0);
     }
@@ -308,144 +236,7 @@ async fn spend_since(store: &SessionStore, tenant: TenantId, since: i64) -> Argo
     .map_err(|e| ArgoError::Provider(format!("tenant spend: {e}")))
 }
 
-async fn roster_summary(store: &SessionStore, tenant: TenantId) -> ArgoResult<Value> {
-    let roster_count = count_text(store, "roster", tenant).await?;
-    let roster_member_count = if table_exists(store, "roster_member").await?
-        && table_exists(store, "roster").await?
-    {
-        sqlx::query_scalar(
-            "SELECT COUNT(*) FROM roster_member rm \
-             JOIN roster r ON r.id = rm.roster_id WHERE r.tenant_id = ?",
-        )
-        .bind(tenant.to_string())
-        .fetch_one(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant roster members: {e}")))?
-    } else {
-        0
-    };
-    Ok(json!({"roster_count": roster_count, "roster_member_count": roster_member_count}))
-}
-
-async fn recent_activity(store: &SessionStore, tenant: TenantId) -> ArgoResult<Vec<Value>> {
-    if !table_exists(store, "audit_record").await? {
-        return Ok(Vec::new());
-    }
-    let rows = sqlx::query(
-        "SELECT a.seq, a.kind, a.payload_json, a.created_at FROM audit_record a \
-         LEFT JOIN session s ON s.id = a.session_id \
-         WHERE s.tenant_id = ? OR instr(a.payload_json, ?) > 0 \
-         ORDER BY a.created_at DESC, a.seq DESC LIMIT 5",
-    )
-    .bind(tenant.0.as_bytes().as_slice())
-    .bind(tenant.to_string())
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("tenant audit: {e}")))?;
-    Ok(rows.into_iter().map(audit_json).collect())
-}
-
-fn audit_json(row: sqlx::sqlite::SqliteRow) -> Value {
-    let raw: String = row.get("payload_json");
-    let created_at = row.get("created_at");
-    json!({
-        "seq": row.get::<i64, _>("seq"),
-        "kind": row.get::<String, _>("kind"),
-        "created_at": created_at,
-        "created_at_rfc3339": format_epoch_auto(created_at),
-        "payload": serde_json::from_str::<Value>(&raw).unwrap_or(Value::String(raw)),
-    })
-}
-
-async fn channel_presence(store: &SessionStore, tenant: TenantId) -> ArgoResult<Vec<Value>> {
-    let mut counts: BTreeMap<String, (i64, i64)> = BTreeMap::new();
-    if has_column(store, "worker", "channels_json").await? {
-        for row in sqlx::query("SELECT channels_json FROM worker WHERE tenant_id = ?")
-            .bind(tenant.to_string())
-            .fetch_all(store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("tenant worker channels: {e}")))?
-        {
-            add_channels(row.get("channels_json"), true, &mut counts);
-        }
-    }
-    if has_column(store, "roster", "channels_json").await? {
-        for row in sqlx::query("SELECT channels_json FROM roster WHERE tenant_id = ?")
-            .bind(tenant.to_string())
-            .fetch_all(store.pool())
-            .await
-            .map_err(|e| ArgoError::Provider(format!("tenant roster channels: {e}")))?
-        {
-            add_channels(row.get("channels_json"), false, &mut counts);
-        }
-    }
-    Ok(counts
-        .into_iter()
-        .map(|(channel, (worker_refs, roster_refs))| {
-            json!({
-                "channel": channel,
-                "worker_refs": worker_refs,
-                "roster_refs": roster_refs,
-                "manifest_present": false,
-                "manifest_path": null,
-            })
-        })
-        .collect())
-}
-
-fn add_channels(raw: String, worker: bool, counts: &mut BTreeMap<String, (i64, i64)>) {
-    let Ok(Value::Array(items)) = serde_json::from_str::<Value>(&raw) else {
-        return;
-    };
-    for item in items {
-        if let Some(channel) = item.get("channel").and_then(Value::as_str) {
-            let entry = counts.entry(channel.to_string()).or_default();
-            if worker {
-                entry.0 += 1;
-            } else {
-                entry.1 += 1;
-            }
-        }
-    }
-}
-
-async fn update_text(
-    tx: &mut sqlx::Transaction<'_, Sqlite>,
-    table: &str,
-    old: TenantId,
-    new: TenantId,
-) -> ArgoResult<Value> {
-    // audit-allow: identifier substitution
-    let sql = format!("UPDATE {table} SET tenant_id = ? WHERE tenant_id = ?");
-    let rows = sqlx::query(&sql)
-        .bind(new.to_string())
-        .bind(old.to_string())
-        .execute(&mut **tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant rename {table}: {e}")))?
-        .rows_affected();
-    Ok(json!({"table": table, "rows": rows}))
-}
-
-async fn update_blob(
-    tx: &mut sqlx::Transaction<'_, Sqlite>,
-    table: &str,
-    old: TenantId,
-    new: TenantId,
-) -> ArgoResult<Value> {
-    // audit-allow: identifier substitution
-    let sql = format!("UPDATE {table} SET tenant_id = ? WHERE tenant_id = ?");
-    let rows = sqlx::query(&sql)
-        .bind(new.0.as_bytes().as_slice())
-        .bind(old.0.as_bytes().as_slice())
-        .execute(&mut **tx)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("tenant rename {table}: {e}")))?
-        .rows_affected();
-    Ok(json!({"table": table, "rows": rows}))
-}
-
-async fn table_exists(store: &SessionStore, table: &str) -> ArgoResult<bool> {
+pub(crate) async fn table_exists(store: &SessionStore, table: &str) -> ArgoResult<bool> {
     let count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?")
             .bind(table)
@@ -455,7 +246,11 @@ async fn table_exists(store: &SessionStore, table: &str) -> ArgoResult<bool> {
     Ok(count > 0)
 }
 
-async fn has_column(store: &SessionStore, table: &str, column: &str) -> ArgoResult<bool> {
+pub(crate) async fn has_column(
+    store: &SessionStore,
+    table: &str,
+    column: &str,
+) -> ArgoResult<bool> {
     if !table_exists(store, table).await? {
         return Ok(false);
     }
@@ -497,7 +292,7 @@ fn normalize_epoch_micros(value: i64) -> i64 {
     }
 }
 
-fn format_epoch_auto(value: i64) -> Option<String> {
+pub(crate) fn format_epoch_auto(value: i64) -> Option<String> {
     DateTime::<Utc>::from_timestamp_micros(normalize_epoch_micros(value)).map(|dt| dt.to_rfc3339())
 }
 

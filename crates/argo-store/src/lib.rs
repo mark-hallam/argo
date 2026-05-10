@@ -106,6 +106,11 @@ pub mod worker_budget_write;
 pub mod worker_presence;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
+/// `show_tenant` + `rename_tenant` family — split out from
+/// `tenant_query.rs` for the 500-LOC ceiling. Public symbols are
+/// re-exported through `tenant_query`; external callers keep
+/// importing from `argo_store::tenant_query::*`.
+pub(crate) mod tenant_query_inspect;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;
 mod workspace;
