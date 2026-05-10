@@ -2,7 +2,7 @@
 //! manifest → prompts → eval seed → worker config → safety
 //! judge → disk write into one entry point.
 
-use crate::archetype::{classify_charter, Archetype};
+use crate::archetype::{classify_charter, classify_llm, Archetype, ProviderClient};
 use crate::conflict::{detect as detect_conflicts, highest_score};
 use crate::error::GenesisError;
 use crate::eval_seed::{generate as generate_eval_seeds, suggested_actions_from_manifest, to_toml};
@@ -30,14 +30,80 @@ pub struct GenesisPlan {
     pub manifest: VerticalManifest,
 }
 
+/// Pipeline-level knobs. Defaults preserve the v1 deterministic
+/// behaviour (`use_llm_classifier=false`); a caller that wires a
+/// provider can opt in via [`plan_with`].
+#[derive(Debug, Clone, Default)]
+pub struct GenesisConfig {
+    /// When `true` AND a `ProviderClient` is passed to [`plan_with`],
+    /// the pipeline calls [`classify_llm`] before [`classify_charter`];
+    /// any error or unknown slug falls back to keyword. When `false`
+    /// (the default) the LLM is skipped entirely and behaviour is
+    /// byte-identical to the synchronous [`plan`] entry point.
+    pub use_llm_classifier: bool,
+}
+
 /// Build a `GenesisPlan` from a charter + persona. Runs:
 /// archetype classification → manifest assembly → safety judge.
+///
+/// Synchronous, keyword-only path — preserved for the long tail of
+/// existing call sites. New callers wanting the LLM classifier
+/// should use [`plan_with`].
 pub fn plan(charter: &str, persona: &str) -> Result<GenesisPlan, GenesisError> {
     validate_persona(persona)?;
     let archetype = match match_template(charter).and_then(|template| template.archetype()) {
         Some(archetype) => archetype,
         None => classify_charter(charter)?,
     };
+    assemble_plan(charter, persona, archetype)
+}
+
+/// Async variant of [`plan`] that honours [`GenesisConfig`] and an
+/// optional [`ProviderClient`]. When `config.use_llm_classifier` is
+/// `true` AND `llm` is `Some`, the LLM picks the archetype with the
+/// keyword classifier as a fallback on any error or unknown slug.
+/// All other code paths are byte-identical to [`plan`].
+pub async fn plan_with(
+    charter: &str,
+    persona: &str,
+    config: &GenesisConfig,
+    llm: Option<&dyn ProviderClient>,
+) -> Result<GenesisPlan, GenesisError> {
+    validate_persona(persona)?;
+    let archetype = resolve_archetype(charter, config, llm).await?;
+    assemble_plan(charter, persona, archetype)
+}
+
+async fn resolve_archetype(
+    charter: &str,
+    config: &GenesisConfig,
+    llm: Option<&dyn ProviderClient>,
+) -> Result<Archetype, GenesisError> {
+    if let Some(template_archetype) = match_template(charter).and_then(|t| t.archetype()) {
+        return Ok(template_archetype);
+    }
+    if config.use_llm_classifier {
+        if let Some(client) = llm {
+            // `classify_llm` already falls back to the keyword
+            // classifier on any provider error or unknown slug. The
+            // only remaining error path is "keyword fallback also
+            // failed" (e.g. empty/unmatchable charter); re-run the
+            // sync keyword path here so the caller gets a clean
+            // `GenesisError` variant rather than a wrapped `ArgoError`.
+            return match classify_llm(charter, client).await {
+                Ok(a) => Ok(a),
+                Err(_) => classify_charter(charter),
+            };
+        }
+    }
+    classify_charter(charter)
+}
+
+fn assemble_plan(
+    charter: &str,
+    persona: &str,
+    archetype: Archetype,
+) -> Result<GenesisPlan, GenesisError> {
     // The vertical-id validator allows lowercase ASCII letters,
     // digits, and `-` only. Convert the slug + persona to a
     // dash-joined id so the round-trip load passes.
@@ -312,5 +378,68 @@ mod tests {
         std::fs::write(out.join("preexisting.txt"), "do not delete").unwrap();
         let err = write_vertical(&p, &out).expect_err("must refuse");
         assert!(matches!(err, GenesisError::OutputDirNotEmpty(_)));
+    }
+
+    // ---- LLM-classifier dispatch (mission-genesis-llm-classifier) ----
+
+    use argo_types::ArgoResult;
+    use async_trait::async_trait;
+
+    struct StubProvider {
+        slug: &'static str,
+    }
+
+    #[async_trait]
+    impl ProviderClient for StubProvider {
+        async fn classify(&self, _prompt: &str) -> ArgoResult<String> {
+            Ok(self.slug.to_string())
+        }
+    }
+
+    #[tokio::test]
+    async fn plan_with_uses_llm_classifier_when_enabled() {
+        // Charter would classify to MarketingIntern via keyword; the
+        // LLM stub forces a different archetype to prove the LLM path
+        // ran instead of the keyword fallback.
+        let cfg = GenesisConfig { use_llm_classifier: true };
+        let llm = StubProvider { slug: "ops_on_call" };
+        let p = plan_with(
+            "be my marketing intern, run weekly campaigns to cold leads",
+            "maya",
+            &cfg,
+            Some(&llm),
+        )
+        .await
+        .expect("plan_with builds");
+        assert_eq!(p.archetype, Archetype::OpsOnCall);
+    }
+
+    #[tokio::test]
+    async fn plan_with_falls_back_to_keyword_when_llm_disabled() {
+        let cfg = GenesisConfig::default(); // use_llm_classifier=false
+        let llm = StubProvider { slug: "ops_on_call" };
+        let p = plan_with(
+            "be my marketing intern, run weekly campaigns to cold leads",
+            "maya",
+            &cfg,
+            Some(&llm),
+        )
+        .await
+        .expect("plan_with builds");
+        assert_eq!(p.archetype, Archetype::MarketingIntern);
+    }
+
+    #[tokio::test]
+    async fn plan_with_falls_back_to_keyword_when_no_provider() {
+        let cfg = GenesisConfig { use_llm_classifier: true };
+        let p = plan_with(
+            "be my marketing intern, run weekly campaigns to cold leads",
+            "maya",
+            &cfg,
+            None,
+        )
+        .await
+        .expect("plan_with builds");
+        assert_eq!(p.archetype, Archetype::MarketingIntern);
     }
 }

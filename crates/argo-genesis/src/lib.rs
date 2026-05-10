@@ -52,14 +52,15 @@ pub mod safety_judge;
 pub mod templates;
 pub mod worker_config;
 
-pub use archetype::{classify_charter, Archetype};
+pub use archetype::{classify_charter, classify_llm, Archetype, ProviderClient};
 pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
 };
 pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, ConflictReport};
 pub use error::GenesisError;
 pub use pipeline::{
-    plan, plan_with_quality, write_vertical, write_vertical_with_overlap, GenesisPlan,
+    plan, plan_with, plan_with_quality, write_vertical, write_vertical_with_overlap, GenesisConfig,
+    GenesisPlan,
 };
 pub use quality::{
     check_plan, require_pass, CheckResult, QualityReport, ACTION_MIN, EVAL_SEED_MIN,

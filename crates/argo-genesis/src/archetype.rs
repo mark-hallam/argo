@@ -4,10 +4,17 @@
 //! classifier picks one archetype per charter; the generator
 //! pipeline uses the archetype's seed vocab + system prompt.
 //!
-//! v1 ships an offline keyword classifier — fast, deterministic,
-//! testable without an API key.
+//! Two classifiers coexist:
+//! - `classify_charter` — offline keyword scorer. Fast, deterministic,
+//!   no API key. Always available; doubles as the safety net under
+//!   the LLM path.
+//! - `classify_llm` — model-driven via the narrow [`ProviderClient`]
+//!   trait below. Falls back to the keyword scorer on any error
+//!   (network, parse, empty response, unknown slug) so a transient
+//!   model hiccup never breaks Genesis.
 
 use crate::error::GenesisError;
+use argo_types::ArgoResult;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -61,6 +68,15 @@ impl Archetype {
             Self::ProjectPm => "project_pm",
             Self::GtmEngineer => "gtm_engineer",
         }
+    }
+
+    /// Lookup an archetype by its canonical snake_case slug.
+    /// Tolerates leading/trailing whitespace, uppercase, and `-` in
+    /// place of `_` so model output like `"Sales-SDR"` still resolves.
+    #[must_use]
+    pub fn from_slug(slug: &str) -> Option<Self> {
+        let canon = slug.trim().to_lowercase().replace('-', "_");
+        Self::ALL.iter().copied().find(|a| a.slug() == canon)
     }
 
     /// Human-readable label.
@@ -317,6 +333,67 @@ fn count_occurrences(haystack: &str, needle: &str) -> usize {
     haystack.matches(needle).count()
 }
 
+/// Narrow provider abstraction used by [`classify_llm`]. Kept in this
+/// crate so `argo-genesis` does not have to depend on the much larger
+/// `argo-provider` crate just to call one model. A real impl (e.g.
+/// adapting `argo-provider`'s router) ships in a follow-up brief; for
+/// now, tests inject a mock and production callers can wrap whatever
+/// client they already hold.
+#[async_trait::async_trait]
+pub trait ProviderClient: Send + Sync {
+    /// Send a one-shot classification prompt and return the raw model
+    /// response text. Implementations MUST set temperature to 0 (or
+    /// the model's nearest deterministic equivalent) so a charter
+    /// classifies the same way on every call.
+    async fn classify(&self, prompt: &str) -> ArgoResult<String>;
+}
+
+/// Build the deterministic classifier prompt. Lists the 12 valid
+/// slugs and asks for exactly one back. The prompt is intentionally
+/// small so it stays under any reasonable token cap.
+fn build_classifier_prompt(charter: &str) -> String {
+    let slugs = Archetype::ALL
+        .iter()
+        .map(|a| a.slug())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "You are an archetype classifier for a worker-agent charter. \
+         Respond with EXACTLY ONE slug from this list and nothing else \
+         (no punctuation, no prose, no quotes): {slugs}.\n\nCharter: {charter}",
+    )
+}
+
+/// Classify a charter into one of the 12 archetypes via the LLM.
+/// Falls back to [`classify_charter`] on **any** failure path —
+/// network/provider error, empty response, or a slug the model
+/// returned that doesn't match a known archetype. The fallback is
+/// load-bearing: a transient model hiccup must never break Genesis.
+///
+/// Returns `Err` only if the keyword fallback itself errors (e.g.
+/// the charter is empty), so callers may treat this as a strict
+/// upgrade over `classify_charter`.
+pub async fn classify_llm(
+    charter: &str,
+    llm: &dyn ProviderClient,
+) -> ArgoResult<Archetype> {
+    if charter.trim().is_empty() {
+        return Err(GenesisError::EmptyCharter.into());
+    }
+    let prompt = build_classifier_prompt(charter);
+    match llm.classify(&prompt).await {
+        Ok(raw) => match Archetype::from_slug(&raw) {
+            Some(a) => Ok(a),
+            None => fallback_to_keyword(charter),
+        },
+        Err(_) => fallback_to_keyword(charter),
+    }
+}
+
+fn fallback_to_keyword(charter: &str) -> ArgoResult<Archetype> {
+    classify_charter(charter).map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,3 +438,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "archetype_tests.rs"]
+mod llm_tests;
