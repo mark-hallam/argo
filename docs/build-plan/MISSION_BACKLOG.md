@@ -260,7 +260,7 @@ unblocks a mission claim.
 101. Build native Windows computer-use executor. `[NEW]`
 102. Build document creation executor — Google Docs/Sheets/Slides.
      `[NEW]`
-103. Build document creation executor — Microsoft Graph. `[NEW]`
+103. Build document creation executor — Microsoft Graph. `[BRIEF: mission-doc-executor-msgraph]`
 104. Build document creation executor — local PDF/markdown/slides.
      `[SHIPPED]`
 105. Build document creation executor — CSV (RFC 4180). `[NEW]`
@@ -505,7 +505,7 @@ unblocks a mission claim.
 248. Adaptive context truncation. `[NEW]`
 249. Streaming-aware retry (don't lose mid-stream content). `[NEW]`
 250. WebSocket-based live audit stream (currently snapshot). `[NEW]`
-251. Connector auto-retry with exponential backoff. `[NEW]`
+251. Connector auto-retry with exponential backoff. `[BRIEF: mission-connector-auto-retry-backoff]`
 252. Connection pooling for MCP connectors (currently per-turn).
      `[NEW]`
 253. LLM call deduplication. `[NEW]`
