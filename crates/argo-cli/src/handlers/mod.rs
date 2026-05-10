@@ -253,6 +253,7 @@ pub mod vertical_archive;
 pub mod vertical_attach;
 pub mod vertical_delete;
 pub mod vertical_doctor;
+mod vertical_doctor_scored;
 pub mod vertical_eval;
 mod vertical_eval_judge_backends;
 mod vertical_eval_judge_backends_anthropic;
