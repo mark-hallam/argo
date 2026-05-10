@@ -32,6 +32,7 @@
 //! `work_loop::parse_stop_marker`.
 
 use std::future::Future;
+use tracing::Instrument;
 
 pub(crate) use super::work_loop_stop_marker::parse_stop_marker;
 
@@ -127,7 +128,17 @@ where
     let mut last_text = String::new();
     let mut steps_completed = 0u32;
     for step in 1..=max_steps {
-        let result = step_fn(step, prompt).await;
+        // mvp-structured-logging — open a per-step span so
+        // emissions inside `step_fn` (which calls `chat::run_turn`
+        // → `argo_agent_runner::turn::run_turn_with_events`,
+        // itself wrapped in a `turn` span carrying session_id /
+        // worker_id / tenant_id) inherit the iteration context
+        // too. Together the parent worker_job span + this step
+        // span + the agent-runner turn span give every emission
+        // the full {tenant_id, vertical_id, job_id, step,
+        // session_id, worker_id} set.
+        let step_span = tracing::info_span!("step", step = step, max_steps = max_steps);
+        let result = step_fn(step, prompt).instrument(step_span).await;
         steps_completed = step;
         last_text = result.text;
         if let Some(reason) = parse_stop_marker(&last_text) {

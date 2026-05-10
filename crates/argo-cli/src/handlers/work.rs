@@ -32,6 +32,7 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::Instrument;
 use uuid::Uuid;
 
 pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
@@ -183,6 +184,18 @@ async fn serve(
             .await?;
         match pick_next_pending_job(&entries) {
             Some(job) => {
+                // mvp-structured-logging — wrap the per-job dispatch
+                // in a span so any `info!`/`warn!`/`error!` emitted
+                // below inherits `tenant_id`, `vertical_id`, and the
+                // job's own id. Per-session_id and per-worker_id
+                // fields land on the agent-runner's nested `turn`
+                // span (opened in `argo_agent_runner::turn`).
+                let job_span = tracing::info_span!(
+                    "worker_job",
+                    tenant_id = %tenant.0,
+                    vertical_id = %vertical_id,
+                    job_id = %job.id,
+                );
                 super::work_dispatch::process_job(
                     &store_arc,
                     &memory,
@@ -196,6 +209,7 @@ async fn serve(
                     max_tool_rounds,
                     json_out,
                 )
+                .instrument(job_span)
                 .await?;
             }
             None => {

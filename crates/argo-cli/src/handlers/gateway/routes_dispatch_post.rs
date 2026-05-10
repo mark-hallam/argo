@@ -4,7 +4,7 @@
 //! module. Returns `Some(resp)` on a match, `None` otherwise so
 //! `routes.rs` can fall through to its 404 default.
 use super::routes_auth::check_bearer_auth;
-use super::routes_auth_principal::parse_principal_header;
+use super::routes_auth_principal::{parse_principal_header, principal_id_for_audit};
 use super::routes_cron::{cron_create_response, cron_delete_response};
 use super::routes_forge_promote::{
     forge_abort_all_response, forge_promote_response, forge_requeue_response, forge_sweep_response,
@@ -35,6 +35,37 @@ use argo_store::tenant_quota::TenantQuotaStore;
 use argo_store::tenant_quota_kinds::{QuotaActionKind, QuotaError};
 use argo_store::SessionStore;
 use std::sync::Arc;
+use tracing::Instrument;
+
+/// HTTP header carrying a caller-supplied request correlation id
+/// for log/audit cross-referencing. Optional — emissions get an
+/// empty string when the header is absent.
+const REQUEST_ID_HEADER: &str = "X-Request-Id";
+
+/// Extract the request line's `<verb> <path>` (no HTTP version).
+/// `req` is the raw HTTP wire form; the first line is always the
+/// request line per RFC 9112. Returns `""` on a malformed prefix.
+fn request_route(req: &str) -> &str {
+    let line = req.lines().next().unwrap_or("");
+    line.rsplit_once(' ').map_or(line, |(head, _)| head)
+}
+
+/// Read `X-Request-Id` from the header block. Returns the trimmed
+/// value or an empty string when the header is missing.
+fn request_id_header(req: &str) -> &str {
+    let headers = req
+        .split_once("\r\n\r\n")
+        .map_or(req, |(headers, _body)| headers);
+    headers
+        .lines()
+        .skip(1)
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case(REQUEST_ID_HEADER)
+                .then(|| value.trim())
+        })
+        .unwrap_or("")
+}
 
 /// Resolve the cwd-derived tenant id and ask the quota store
 /// whether one more `kind` action would exceed the configured
@@ -78,7 +109,25 @@ async fn check_quota_or_reject(
 /// Dispatch every POST verb. Returns `None` when no match,
 /// letting `dispatch_route` fall through to its other branches
 /// (and ultimately the 404 default).
+///
+/// Wrapped in `tracing::info_span!("request", …)` so every
+/// `info!`/`warn!`/`error!` emission below this point inherits
+/// `route`, `principal_id`, and `request_id` fields without a
+/// per-callsite change (mvp-structured-logging).
 pub(super) async fn dispatch_post(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    let span = tracing::info_span!(
+        "request",
+        route = %request_route(req),
+        principal_id = %principal_id_for_audit(req).unwrap_or_default(),
+        request_id = %request_id_header(req),
+    );
+    dispatch_post_inner(req, store).instrument(span).await
+}
+
+async fn dispatch_post_inner(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {

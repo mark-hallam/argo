@@ -26,6 +26,7 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, MessageRole, SessionId, TenantId};
 use std::path::Path;
 use std::sync::Arc;
+use tracing::Instrument;
 use uuid::Uuid;
 
 /// Default cap on tool-dispatch rounds within a single `run_turn`
@@ -99,8 +100,35 @@ pub async fn run_turn(
 /// streaming endpoint passes a real `UnboundedSender`; the CLI +
 /// non-streaming gateway pass `None`. Each event mirrors the audit
 /// emission that just landed.
+///
+/// Wrapped in `tracing::info_span!("turn", …)` so every emission
+/// inside the agent loop inherits `session_id`, `tenant_id`, and
+/// `worker_id` without per-callsite changes
+/// (mvp-structured-logging). `tenant_id`/`worker_id` are recorded
+/// after the session row loads.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_turn_with_events(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    session_id: SessionId,
+    user: Option<&str>,
+    stream: bool,
+    max_rounds: usize,
+    events: Option<&RunEventSink>,
+) -> ArgoResult<TurnResult> {
+    let span = tracing::info_span!(
+        "turn",
+        session_id = %session_id.0,
+        tenant_id = tracing::field::Empty,
+        worker_id = tracing::field::Empty,
+    );
+    run_turn_with_events_inner(store, cwd, session_id, user, stream, max_rounds, events)
+        .instrument(span)
+        .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_turn_with_events_inner(
     store: &Arc<SessionStore>,
     cwd: &Path,
     session_id: SessionId,
@@ -113,6 +141,11 @@ pub async fn run_turn_with_events(
         .get_session(session_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no session {}", session_id.0)))?;
+    let span = tracing::Span::current();
+    span.record("tenant_id", tracing::field::display(&session.tenant_id.0));
+    if let Some(w) = session.worker_id {
+        span.record("worker_id", tracing::field::display(&w.0));
+    }
 
     if let Some(text) = user {
         let content = serde_json::json!([{"type": "text", "text": text}]);
