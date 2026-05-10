@@ -107,6 +107,26 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             json,
         } => super::skill_rollback::run(&skills, &name, &to, dry_run, reason.as_deref(), json).await,
         SkillCmd::Review { cmd } => super::skill_review::run(&skills, cmd).await,
+        SkillCmd::Catalog {
+            vertical,
+            tag,
+            installed_only,
+            not_installed,
+            all: _,
+            json,
+        } => {
+            super::skill_catalog::run(
+                &skills,
+                super::skill_catalog::CatalogFilters {
+                    vertical: vertical.as_deref(),
+                    tag: tag.as_deref(),
+                    installed_only,
+                    not_installed,
+                },
+                json,
+            )
+            .await
+        }
         SkillCmd::Search(args) => super::skill_search::run(
             &args.query,
             args.trust_min.as_deref(),

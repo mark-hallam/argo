@@ -95,6 +95,42 @@ pub enum SkillCmd {
     },
     /// Search the cross-tenant OCI skill registry.
     Search(super::cli_skill_search_cmds::SkillSearchCmd),
+    /// Browse marketplace skills with local-install status marks
+    /// (mission-cli-skill-catalog). Unlike `skill list` (local-only)
+    /// and `skill search` (query-driven), this prints every
+    /// marketplace entry and joins it against the locally-installed
+    /// set so operators can see at a glance what is installable.
+    /// `--vertical` is matched against the marketplace `tenant`
+    /// field (no separate vertical column exists yet on
+    /// `IndexedSkill`); `--tag` is a substring match against the
+    /// marketplace entry description.
+    Catalog {
+        /// Filter to marketplace entries whose tenant (vertical
+        /// analog) matches this id (case-insensitive). Unknown
+        /// values surface a `vertical <id> not found` error.
+        #[arg(long)]
+        vertical: Option<String>,
+        /// Substring match (case-insensitive) against the
+        /// marketplace entry description.
+        #[arg(long)]
+        tag: Option<String>,
+        /// Show only locally-installed marketplace entries.
+        #[arg(long, conflicts_with = "not_installed")]
+        installed_only: bool,
+        /// Show only entries that are NOT locally installed.
+        #[arg(long)]
+        not_installed: bool,
+        /// Explicit no-filter flag. Present for parity with the
+        /// brief; the default behaviour is already to show all
+        /// entries.
+        #[arg(long)]
+        all: bool,
+        /// Emit a JSON array `[{ id, name, vertical, tags,
+        /// installed, version, installed_version? }]` instead of
+        /// the human-readable table.
+        #[arg(long)]
+        json: bool,
+    },
     /// Publish a local skill to the marketplace registry.
     Publish(SkillPublishCmd),
     /// Remove a mutable marketplace tag while preserving blobs.
