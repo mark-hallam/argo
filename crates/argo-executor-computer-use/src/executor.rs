@@ -14,20 +14,19 @@
 //!   ledger row stays at `executing` and the operator finishes
 //!   manually.
 
-use crate::anthropic::{AnthropicClient, CuStepRequest, CuStepResponse, StopReason};
-use crate::audit::{AuditLog, AuditRow};
-use crate::budget::{BudgetTracker, BudgetVerdict};
+use crate::audit::AuditLog;
+use crate::budget::BudgetTracker;
 use crate::config::CuConfig;
-use crate::e2b::{E2bClient, Sandbox};
+use crate::e2b::E2bClient;
+use crate::executor_loop_exit::LoopExit;
+use crate::executor_step_helpers::run_loop;
 use crate::executor_types::default_bundle_dir;
 use crate::pool::{PoolKey, SandboxPool};
-use crate::profile::{Profile, ProfileRegistry};
-use crate::restart::{self, emit_restart_event, RestartCoordinator, RestartDecision};
+use crate::profile::ProfileRegistry;
 use crate::screenshot_persist::ScreenshotPersister;
 use crate::CuError;
 use argo_skill::SkillStore;
 use std::sync::Arc;
-use std::time::Duration;
 
 pub use crate::executor_types::{Outcome, RunRequest, RunResult};
 
@@ -36,8 +35,8 @@ pub use crate::executor_types::{Outcome, RunRequest, RunResult};
 /// workers.
 #[derive(Debug, Clone)]
 pub struct ComputerUseExecutor {
-    e2b: E2bClient,
-    anthropic_template: AnthropicClientTemplate,
+    pub(crate) e2b: E2bClient,
+    pub(crate) anthropic_template: AnthropicClientTemplate,
     pool: SandboxPool,
     profiles: ProfileRegistry,
     /// Optional skill-learning hook (Stream
@@ -59,18 +58,18 @@ pub struct ComputerUseExecutor {
     /// can fetch historical shots after the worker box recycles.
     /// Persister errors are logged + swallowed so a flaky blob
     /// backend never fails an in-progress action.
-    screenshot_persister: Option<Arc<dyn ScreenshotPersister>>,
+    pub(crate) screenshot_persister: Option<Arc<dyn ScreenshotPersister>>,
 }
 
 /// Template for building per-profile Anthropic clients (each
 /// profile may pin a different model). Cheaper than holding one
 /// client per profile up-front.
 #[derive(Debug, Clone)]
-struct AnthropicClientTemplate {
-    base_url: String,
-    api_key: String,
-    tool_variant: String,
-    per_request_timeout_seconds: u32,
+pub(crate) struct AnthropicClientTemplate {
+    pub(crate) base_url: String,
+    pub(crate) api_key: String,
+    pub(crate) tool_variant: String,
+    pub(crate) per_request_timeout_seconds: u32,
 }
 
 impl ComputerUseExecutor {
@@ -195,7 +194,17 @@ impl ComputerUseExecutor {
             tracker = tracker.with_usd_cap(usd, 100_000);
         }
 
-        let outcome = self.run_loop(&req, &profile, &sandbox, &audit, &mut tracker).await;
+        let outcome = run_loop(
+            &self.e2b,
+            &self.anthropic_template,
+            self.screenshot_persister.as_ref(),
+            &req,
+            &profile,
+            &sandbox,
+            &audit,
+            &mut tracker,
+        )
+        .await;
         self.pool.release(&pool_key).await;
         let final_outcome = outcome.map(|o| match o {
             LoopExit::Success(result) => Outcome::Completed {
@@ -227,248 +236,6 @@ impl ComputerUseExecutor {
             .await;
         }
         final_outcome
-    }
-
-    async fn run_loop(
-        &self,
-        req: &RunRequest,
-        profile: &Profile,
-        sandbox: &Sandbox,
-        audit: &AuditLog,
-        tracker: &mut BudgetTracker,
-    ) -> Result<LoopExit, CuError> {
-        let anthropic = self.anthropic_for(profile)?;
-        let mut prior_actions: Vec<String> = Vec::new();
-        let mut last_text: Option<String> = None;
-        let mut sandbox = sandbox.clone();
-        let mut system_prompt = req.system_prompt.clone();
-        let mut coordinator = RestartCoordinator::new(profile.restart.clone());
-
-        // Step 0: capture the initial screenshot before sending
-        // the first message.
-        let mut screenshot = self.e2b.screenshot(&sandbox).await?;
-        self.persist_screenshot(req, 0, &screenshot).await;
-
-        loop {
-            let resp = anthropic
-                .step(CuStepRequest {
-                    system_prompt: &system_prompt,
-                    screenshot_png: &screenshot,
-                    prior_actions: &prior_actions,
-                    screen_width: profile.screen_width,
-                    screen_height: profile.screen_height,
-                })
-                .await;
-            let resp = match resp {
-                Ok(r) => r,
-                Err(e) if e.is_recoverable_to_handoff() => {
-                    match self
-                        .handle_restart(
-                            &e,
-                            "anthropic_step",
-                            profile,
-                            &mut coordinator,
-                            &mut sandbox,
-                            &mut screenshot,
-                            &mut system_prompt,
-                            &req.system_prompt,
-                        )
-                        .await?
-                    {
-                        Some(handoff) => return Ok(LoopExit::Handoff(handoff)),
-                        None => continue,
-                    }
-                }
-                Err(e) => return Err(e),
-            };
-
-            match resp {
-                CuStepResponse::Stop {
-                    reason,
-                    text,
-                    tokens_used,
-                } => {
-                    let verdict = tracker.charge_step(tokens_used);
-                    if matches!(verdict, BudgetVerdict::Exhausted { .. }) {
-                        return Ok(LoopExit::Handoff(stringify_verdict(verdict)));
-                    }
-                    last_text = text.or(last_text);
-                    return Ok(match reason {
-                        StopReason::Success => LoopExit::Success(RunResult {
-                            final_text: last_text,
-                            actions_taken: prior_actions,
-                            tokens_used: tracker.tokens_used(),
-                        }),
-                        StopReason::Failure => LoopExit::Handoff(format!(
-                            "model emitted stop_failure: {}",
-                            last_text.unwrap_or_default()
-                        )),
-                    });
-                }
-                CuStepResponse::ToolCall {
-                    action,
-                    tokens_used,
-                } => {
-                    let verdict = tracker.charge_step(tokens_used);
-                    if let BudgetVerdict::Exhausted { .. } = verdict {
-                        return Ok(LoopExit::Handoff(stringify_verdict(verdict)));
-                    }
-                    let summary = action.summary();
-                    let result = match self.e2b.execute_action(&sandbox, &action).await {
-                        Ok(r) => r,
-                        Err(e) if e.is_recoverable_to_handoff() => {
-                            match self
-                                .handle_restart(
-                                    &e,
-                                    "sandbox_action",
-                                    profile,
-                                    &mut coordinator,
-                                    &mut sandbox,
-                                    &mut screenshot,
-                                    &mut system_prompt,
-                                    &req.system_prompt,
-                                )
-                                .await?
-                            {
-                                Some(handoff) => {
-                                    return Ok(LoopExit::Handoff(format!(
-                                        "{handoff} (step {})",
-                                        tracker.step()
-                                    )))
-                                }
-                                None => continue,
-                            }
-                        }
-                        Err(e) => return Err(e),
-                    };
-                    if let Some(t) = result.text.clone() {
-                        last_text = Some(t);
-                    }
-                    // Capture a fresh screenshot for next step.
-                    screenshot = match result.screenshot_b64.as_deref() {
-                        Some(_b64) => self.e2b.screenshot(&sandbox).await?,
-                        None => self.e2b.screenshot(&sandbox).await?,
-                    };
-                    self.persist_screenshot(req, tracker.step(), &screenshot).await;
-                    let relpath = audit.save_screenshot(tracker.step(), &screenshot)?;
-                    audit.append(&AuditRow {
-                        step: tracker.step(),
-                        at: chrono::Utc::now().to_rfc3339(),
-                        action,
-                        result,
-                        screenshot_relpath: relpath,
-                        tokens_used,
-                        budget: tracker.snapshot(),
-                    })?;
-                    prior_actions.push(format!("step {}: {summary}", tracker.step()));
-                    // Take a snapshot at the configured cadence so a
-                    // SnapshotResetRetry has fresh state to seed from.
-                    if coordinator.should_snapshot(tracker.step()) {
-                        coordinator.record_snapshot(restart::take_snapshot(
-                            &screenshot,
-                            tracker.step(),
-                            &req.system_prompt,
-                            &prior_actions,
-                        ));
-                    }
-                }
-            }
-        }
-    }
-
-    /// Consult the restart coordinator on a transient failure. Returns
-    /// `Ok(None)` when the loop should retry (state has already been
-    /// reset / context restored), `Ok(Some(reason))` when the caller
-    /// should fall through to handoff with the given reason. Errors
-    /// only on a fresh sandbox open / restore failure.
-    #[allow(clippy::too_many_arguments)]
-    async fn handle_restart(
-        &self,
-        err: &CuError,
-        stage: &'static str,
-        profile: &Profile,
-        coordinator: &mut RestartCoordinator,
-        sandbox: &mut Sandbox,
-        screenshot: &mut Vec<u8>,
-        system_prompt: &mut String,
-        base_system_prompt: &str,
-    ) -> Result<Option<String>, CuError> {
-        match coordinator.should_restart(err) {
-            RestartDecision::Continue => Ok(Some(format!("{stage} failed: {err}"))),
-            RestartDecision::Bail => {
-                emit_restart_event(stage, coordinator.attempts(), Some(false));
-                Ok(Some(format!(
-                    "{stage} failed (retries exhausted): {err}"
-                )))
-            }
-            RestartDecision::Retry { with_context } => {
-                emit_restart_event(stage, coordinator.attempts(), None);
-                if !with_context {
-                    if let Some(snap) = coordinator.last_snapshot().cloned() {
-                        // Re-seed prompt + screenshot from snapshot.
-                        // Map the static-string Invariant into a
-                        // CuError::Protocol so the loop can surface it
-                        // through the existing taxonomy.
-                        restart::restore_from(&snap, system_prompt, screenshot)
-                            .map_err(|e| CuError::Protocol(e.to_string()))?;
-                    } else {
-                        // No snapshot yet — reset the prompt to the
-                        // base; the first fresh step starts clean.
-                        *system_prompt = base_system_prompt.to_string();
-                    }
-                    // Best-effort close of the wedged sandbox; open a
-                    // fresh one. The pool slot keeps the original
-                    // entry — its TTL reaper will evict it. The fresh
-                    // sandbox lives only for this dispatch.
-                    let _ = self.e2b.close_sandbox(sandbox).await;
-                    *sandbox = self.e2b.open_sandbox(&profile.sandbox_template).await?;
-                    *screenshot = self.e2b.screenshot(sandbox).await?;
-                }
-                let backoff = u64::from(coordinator.backoff_ms());
-                if backoff > 0 {
-                    tokio::time::sleep(Duration::from_millis(backoff)).await;
-                }
-                Ok(None)
-            }
-        }
-    }
-
-    /// Forwards to [`crate::screenshot_persist::try_persist`]; the
-    /// helper lives in the sibling module to keep `executor.rs`
-    /// under the 500-LOC ceiling.
-    async fn persist_screenshot(&self, req: &RunRequest, step: u32, png: &[u8]) {
-        crate::screenshot_persist::try_persist(
-            self.screenshot_persister.as_ref(),
-            &req.tenant_id,
-            &req.action_id,
-            req.session_id.as_ref(),
-            step,
-            png,
-        )
-        .await;
-    }
-
-    fn anthropic_for(&self, profile: &Profile) -> Result<AnthropicClient, CuError> {
-        AnthropicClient::new(
-            self.anthropic_template.base_url.clone(),
-            self.anthropic_template.api_key.clone(),
-            profile.model.clone(),
-            self.anthropic_template.tool_variant.clone(),
-            self.anthropic_template.per_request_timeout_seconds,
-        )
-    }
-}
-
-#[derive(Debug)]
-enum LoopExit {
-    Success(RunResult),
-    Handoff(String),
-}
-
-fn stringify_verdict(v: BudgetVerdict) -> String {
-    match v {
-        BudgetVerdict::Exhausted { reason } => reason,
-        BudgetVerdict::Ok => "(unexpected ok verdict)".into(),
     }
 }
 

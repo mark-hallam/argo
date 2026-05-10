@@ -60,6 +60,8 @@ pub mod budget;
 pub mod config;
 pub mod e2b;
 pub mod executor;
+pub(crate) mod executor_loop_exit;
+pub(crate) mod executor_step_helpers;
 pub mod executor_types;
 pub mod learn;
 pub mod pool;
