@@ -64,6 +64,7 @@ def repo_root() -> Path:
 ROOT = repo_root()
 BACKLOG = ROOT / "docs/build-plan/MISSION_BACKLOG.md"
 LEDGER = ROOT / "docs/build-plan/BUILD_STATUS.md"
+STREAMS_DIR = ROOT / "docs/build-plan/streams"
 PLAN = ROOT / "docs/build-plan/BUILD_PLAN_V11.md"
 MISSION = ROOT / "docs/skycot/MISSION.md"
 
@@ -268,6 +269,82 @@ def compute_ledger_phase_stats(ledger: dict[str, dict], phase_titles: dict[str, 
         "total_blocked": total_blocked,
         "pct_total": pct_total,
         "unphased_count": len(unphased),
+    }
+
+
+# ─── Tier parser (reads docs/build-plan/streams/*.md) ──────────────────────
+
+# Tier markers live in the brief stream files, not in BUILD_STATUS.md. The
+# operator's 2026-05-10 strategic-priority directive defines four tiers:
+#   M — Mission MVP critical path (v1.0 ship gate)
+#   A — tool-ship Tier A (must-have tools)
+#   B — tool-ship Tier B (nice-to-have tools)
+#   P — Platform / split-prep / cleanup (deferred)
+# Pattern in stream files: `**Tier M — ...**` or `**Tier M (...) — ...**`
+TIER_MARKER_RE = re.compile(r"\*\*\s*Tier\s+([MABP])\b", re.I)
+
+
+def parse_tier_map() -> dict[str, str]:
+    """Walk docs/build-plan/streams/*.md and return {brief_id: 'M'|'A'|'B'|'P'}.
+
+    Briefs without an explicit tier marker are absent from the map. This is
+    one filesystem walk + one small read per stream file (only the first ~50
+    lines are searched — the marker reliably appears near the top).
+    """
+    out: dict[str, str] = {}
+    if not STREAMS_DIR.is_dir():
+        return out
+    for p in STREAMS_DIR.iterdir():
+        if not p.is_file() or not p.name.endswith(".md"):
+            continue
+        brief = p.name[:-3]  # strip .md
+        try:
+            with p.open("r", encoding="utf-8", errors="ignore") as f:
+                head = "".join(next(f, "") for _ in range(50))
+        except OSError:
+            continue
+        m = TIER_MARKER_RE.search(head)
+        if m:
+            out[brief] = m.group(1).upper()
+    return out
+
+
+def compute_tier_stats(ledger: dict[str, dict], tier_map: dict[str, str]) -> dict:
+    """Group ledger rows by tier (M / A / B / P / untiered) with status
+    breakdowns. Tier M is the v1.0 ship-gate; surfaced prominently in the UI."""
+    tiers: dict[str, dict] = {
+        t: {"n": 0, "counts": defaultdict(int), "rows": []}
+        for t in ("M", "A", "B", "P")
+    }
+    for brief, row in ledger.items():
+        tier = tier_map.get(brief)
+        if tier is None:
+            continue
+        bucket = tiers[tier]
+        bucket["n"] += 1
+        bucket["counts"][row.get("status", "")] += 1
+        bucket["rows"].append({
+            "brief": brief,
+            "status": row.get("status", ""),
+            "owner": row.get("owner", ""),
+            "phase": row.get("phase"),
+            "pr": row.get("pr", ""),
+        })
+    # Sort rows: MERGED first, then IN_REVIEW, CLAIMED, TODO, BLOCKED, DEFERRED
+    status_rank = {"MERGED": 0, "IN_REVIEW": 1, "CLAIMED": 2, "TODO": 3, "BLOCKED": 4, "DEFERRED-v1.x": 5}
+    for bucket in tiers.values():
+        bucket["counts"] = dict(bucket["counts"])
+        bucket["rows"].sort(key=lambda r: (status_rank.get(r["status"], 99), r["brief"]))
+        merged = bucket["counts"].get("MERGED", 0)
+        bucket["pct"] = (merged / bucket["n"] * 100.0) if bucket["n"] else 0.0
+    return {
+        "by_tier": tiers,
+        "tier_titles": {
+            "M": "v1.0 ship gate (Mission MVP critical path)",
+            "A": "Tool-ship Tier A (must-have)",
+            "B": "Tool-ship Tier B (nice-to-have)",
+            "P": "Platform / split-prep / cleanup",
+        },
     }
 
 
@@ -1156,6 +1233,20 @@ HTML_TEMPLATE = r"""<!doctype html>
   .sc-list .sc-owner { color: var(--ink-3); }
   .sc-list .sc-phase { color: var(--ink-3); font-size: 10px; }
   .sc-list .sc-age { font-weight: 600; min-width: 40px; text-align: right; }
+  /* Tier M v1.0 ship-gate panel */
+  .tm-list { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 11px; }
+  .tm-list li { display: grid; grid-template-columns: 100px 1fr auto auto auto; gap: 12px; padding: 7px 8px; border-bottom: 1px solid var(--hairline); align-items: center; border-radius: 4px; }
+  .tm-list li:hover { background: rgba(255,255,255,0.03); }
+  .tm-list li:last-child { border-bottom: none; }
+  .tm-list .tm-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; text-align: center; }
+  .tm-list .tm-brief { color: var(--ink); }
+  .tm-list .tm-phase { color: var(--ink-3); font-size: 10px; }
+  .tm-list .tm-owner { color: var(--ink-3); font-size: 10px; min-width: 60px; text-align: right; }
+  .tm-list .tm-pr { color: var(--accent); min-width: 56px; text-align: right; }
+  .tm-list .tm-pr-empty { color: var(--mute); min-width: 56px; text-align: right; }
+  .tm-tier-letter { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; margin-right: 4px; }
+  /* tier badge in live-ledger drill */
+  #ledger-table .ltier { color: var(--ink-3); width: 30px; text-align: center; font-weight: 600; }
   /* backlog-gap panel */
   .bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
   .bg-stat { background: var(--panel-2); border: 1px solid var(--hairline-2); border-radius: 8px; padding: 14px; }
@@ -1249,6 +1340,13 @@ HTML_TEMPLATE = r"""<!doctype html>
 </div>
 
 
+<div class="panel" style="margin-bottom:16px;">
+  <h2>Tier M · v1.0 ship gate <span class="right" id="tier-m-note">Mission MVP critical path · operator strategic priority 2026-05-10</span></h2>
+  <div id="tier-m-roadmap"></div>
+  <div id="tier-other" style="margin-top:14px;color:var(--ink-3);font-size:11px;"></div>
+</div>
+
+
 <div class="grid two">
   <div class="panel">
     <h2>Run rate <span class="right" id="rate-window-note">items merged per hour, derived from BUILD_STATUS commit history</span></h2>
@@ -1319,13 +1417,14 @@ HTML_TEMPLATE = r"""<!doctype html>
     <input type="text" id="lq" placeholder="Search brief id…" />
     <select id="lstate"><option value="">All statuses</option></select>
     <select id="lphase"><option value="">All phases</option></select>
+    <select id="ltier"><option value="">All tiers</option></select>
     <select id="lowner"><option value="">All owners</option></select>
     <span class="count" id="lcount"></span>
   </div>
   <div class="tablewrap">
     <table id="ledger-table">
       <thead>
-        <tr><th>Status</th><th>Phase</th><th>Brief</th><th>Owner</th><th>PR</th></tr>
+        <tr><th>Status</th><th>Tier</th><th>Phase</th><th>Brief</th><th>Owner</th><th>PR</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -1800,6 +1899,50 @@ function stackBar(counts, total, palette) {
   });
 })();
 
+// ── Tier M v1.0 ship-gate panel ──
+(() => {
+  const ts = DATA.tier_stats;
+  if (!ts) return;
+  const tierColor = {"M":"#f59e0b","A":"#10b981","B":"#34d399","P":"#9ca3af"};
+  const ledgerStateColor = {
+    "MERGED": "#059669",
+    "IN_REVIEW": "#10b981",
+    "CLAIMED": "#2563eb",
+    "TODO": "#9ca3af",
+    "BLOCKED": "#dc2626",
+    "DEFERRED-v1.x": "#a3a3a3",
+  };
+  const m = ts.by_tier.M || {n:0, counts:{}, rows:[], pct:0};
+  const counts = m.counts || {};
+  $("#tier-m-note").innerHTML =
+    `<b>${counts.MERGED||0}/${m.n}</b> MERGED · ${m.pct.toFixed(0)}% · ` +
+    `${counts.IN_REVIEW||0} in review · ${counts.CLAIMED||0} claimed · ` +
+    `<span style="color:var(--weak);font-weight:600">${counts.BLOCKED||0} blocked</span>`;
+  const rowsHTML = (m.rows || []).map(r => {
+    const pr = (r.pr||"").trim().replace(/^\(|\)$/g,'');
+    const prCell = pr && pr !== "—" ? `<span class="tm-pr">${pr}</span>` : '<span class="tm-pr-empty">—</span>';
+    const sc = ledgerStateColor[r.status] || "#777";
+    return `<li>
+      <span class="tm-pill" style="background:${sc}20;color:${sc};border:1px solid ${sc}50">${r.status}</span>
+      <span class="tm-brief">${r.brief}</span>
+      <span class="tm-phase">phase ${r.phase||'—'}</span>
+      <span class="tm-owner">${r.owner||''}</span>
+      ${prCell}
+    </li>`;
+  }).join("");
+  $("#tier-m-roadmap").innerHTML = `<ul class="tm-list">${rowsHTML}</ul>`;
+  // Compact summary for Tier A / B / P below
+  const others = ["A","B","P"].map(t => {
+    const b = ts.by_tier[t] || {n:0,counts:{},pct:0};
+    if (!b.n) return '';
+    return `<span style="margin-right:18px;">
+      <span class="tm-tier-letter" style="background:${tierColor[t]}20;color:${tierColor[t]};border:1px solid ${tierColor[t]}50">Tier ${t}</span>
+      ${b.counts.MERGED||0}/${b.n} merged (${b.pct.toFixed(0)}%) · ${ts.tier_titles[t]}
+    </span>`;
+  }).join("");
+  $("#tier-other").innerHTML = others || '';
+})();
+
 // ── backlog-gap panel ──
 (() => {
   const g = DATA.backlog_gap;
@@ -1983,12 +2126,19 @@ function stackBar(counts, total, palette) {
   };
   const lstate = $("#lstate");
   const lphase = $("#lphase");
+  const ltier = $("#ltier");
   const lowner = $("#lowner");
   if (!lstate) return;
+  const tierMap = DATA.tier_map || {};
+  const tierColor = {"M":"#f59e0b","A":"#10b981","B":"#34d399","P":"#9ca3af"};
   ledgerStateOrder.forEach(s => { const o=document.createElement("option"); o.value=s; o.textContent=s; lstate.appendChild(o); });
   // Phase options pulled from the live ledger phase stats so we don't hardcode A–F
   Object.keys(DATA.ledger_phase_stats?.by_phase || {}).forEach(p => {
     const o=document.createElement("option"); o.value=p; o.textContent="Phase "+p; lphase.appendChild(o);
+  });
+  // Tier options
+  ["M","A","B","P"].forEach(t => {
+    const o=document.createElement("option"); o.value=t; o.textContent="Tier "+t; ltier.appendChild(o);
   });
   // Owner options: real ones only (skip "(in landing PR)" etc.)
   const owners = [...new Set(Object.values(ledger).map(r => (r.owner||"").trim()).filter(o => /^[a-z][a-z0-9_-]*$/i.test(o)))].sort();
@@ -1999,21 +2149,28 @@ function stackBar(counts, total, palette) {
     const q = $("#lq").value.trim().toLowerCase();
     const sf = lstate.value;
     const pf = lphase.value;
+    const tf = ltier.value;
     const of_ = lowner.value;
     const tb = $("#ledger-table tbody");
     const out = [];
     let n = 0;
     for (const b of briefs) {
       const r = ledger[b];
+      const tier = tierMap[b] || "";
       if (q && !b.toLowerCase().includes(q)) continue;
       if (sf && r.status !== sf) continue;
       if (pf && r.phase !== pf) continue;
+      if (tf && tier !== tf) continue;
       if (of_ && (r.owner||"").trim().toLowerCase() !== of_) continue;
       n++;
       const pr = (r.pr||"").trim().replace(/^\(|\)$/g,'');
       const prCell = pr && pr !== "—" ? `<span class="lpr">${escapeHtml(pr)}</span>` : '';
+      const tierCell = tier
+        ? `<span class="tm-tier-letter" style="background:${tierColor[tier]}20;color:${tierColor[tier]};border:1px solid ${tierColor[tier]}50">${tier}</span>`
+        : '<span style="color:var(--mute)">—</span>';
       out.push(`<tr>
         <td><span class="lstate-pill" style="background:${ledgerStateColor[r.status]||'#444'}20;color:${ledgerStateColor[r.status]||'#aaa'};border:1px solid ${ledgerStateColor[r.status]||'#444'}40">${r.status}</span></td>
+        <td class="ltier">${tierCell}</td>
         <td class="lphase">${r.phase||'—'}</td>
         <td class="lbrief">${escapeHtml(b)}</td>
         <td class="lowner">${escapeHtml(r.owner||'')}</td>
@@ -2026,6 +2183,7 @@ function stackBar(counts, total, palette) {
   $("#lq").addEventListener("input", render);
   lstate.addEventListener("change", render);
   lphase.addEventListener("change", render);
+  ltier.addEventListener("change", render);
   lowner.addEventListener("change", render);
   render();
 })();
@@ -2060,6 +2218,8 @@ def build_payload() -> dict:
             stale_ledger_count += 1
     stats = compute_stats(items, ledger, phase_map)
     ledger_phase_stats = compute_ledger_phase_stats(ledger, ledger_phase_titles)
+    tier_map = parse_tier_map()
+    tier_stats = compute_tier_stats(ledger, tier_map)
     backlog_brief_ids = {it["brief_id"] for it in items if it.get("brief_id")}
     ledger_brief_ids = set(ledger.keys())
     outside_brief_ids = sorted(ledger_brief_ids - backlog_brief_ids)
@@ -2105,6 +2265,8 @@ def build_payload() -> dict:
         "stats": stats,
         "ledger_phase_stats": ledger_phase_stats,
         "ledger_phase_titles": ledger_phase_titles,
+        "tier_stats": tier_stats,
+        "tier_map": tier_map,
         "backlog_gap": backlog_gap,
         "owner_velocity": owners,
         "stale_claims": stales,
