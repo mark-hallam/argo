@@ -34,6 +34,7 @@ mod store_sql;
 mod store_trust_grade;
 mod types;
 pub mod worker_budget;
+mod worker_update;
 
 pub use circuit::CircuitState;
 pub use classification::{ClassRule, ClassificationRules, DataClass};
@@ -46,6 +47,7 @@ pub use types::{
     AutoApprovalPolicy, Duty, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role, VoiceProfile,
     Worker, WorkerId, WorkerLevel, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,
 };
+pub use worker_update::WorkerUpdate;
 
 impl WorkerId {
     /// All-zero `WorkerId` sentinel — used as the v1 platform-default

@@ -3,7 +3,7 @@ use crate::store_sql::{
     ensure_worker_trust_grade_columns, insert_duty, kpis_to_json, parse_worker_id, to_json,
     worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
 };
-use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel};
+use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel, WorkerUpdate};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
@@ -397,6 +397,66 @@ impl<'a> IdentityStore<'a> {
         }
         Ok(())
     }
+
+    /// Apply a partial update to a worker row (MISSION_BACKLOG #39,
+    /// Stream `mission-identity-update-worker`). Unset fields on
+    /// [`WorkerUpdate`] preserve their current values via a single
+    /// COALESCE-based `UPDATE`. Returns the post-update [`Worker`].
+    ///
+    /// Errors: [`ArgoError::NotFound`] when the (`tenant_id`,
+    /// `worker_id`) pair does not match a stored row.
+    /// [`ArgoError::Schema`] when a supplied value is structurally
+    /// invalid — today only an empty `vertical_id` triggers this; the
+    /// `argo-types` audit (see `argo-types/src/error.rs`) makes
+    /// `Schema` the canonical "caller-supplied data malformed"
+    /// variant.
+    ///
+    /// No-op semantics: if every field on `updates` is `None`, the
+    /// method short-circuits, skips the UPDATE, and returns the
+    /// current row (still surfacing [`ArgoError::NotFound`] if the
+    /// worker does not exist).
+    pub async fn update_worker(
+        &self,
+        tenant_id: TenantId,
+        worker_id: WorkerId,
+        updates: WorkerUpdate,
+    ) -> ArgoResult<Worker> {
+        self.ensure_schema().await?;
+        if let Some(vertical) = updates.vertical_id.as_deref() {
+            if vertical.is_empty() {
+                return Err(ArgoError::Schema(
+                    "worker.vertical_id must not be empty".into(),
+                ));
+            }
+        }
+        if !updates.is_empty() {
+            let result = sqlx::query(
+                "UPDATE worker SET \
+                    vertical_id = COALESCE(?, vertical_id), \
+                    level = COALESCE(?, level), \
+                    trust_grade = COALESCE(?, trust_grade), \
+                    last_used_at = COALESCE(?, last_used_at) \
+                 WHERE id = ? AND tenant_id = ?",
+            )
+            .bind(updates.vertical_id.as_deref())
+            .bind(updates.level.map(|l| l.as_str()))
+            .bind(updates.trust_grade.map(i64::from))
+            .bind(updates.last_used_at.map(|ts| ts.to_rfc3339()))
+            .bind(worker_id.to_string())
+            .bind(tenant_id.to_string())
+            .execute(self.store.pool())
+            .await
+            .map_err(|e| ArgoError::Provider(format!("update worker: {e}")))?;
+            if result.rows_affected() == 0 {
+                return Err(ArgoError::NotFound(format!(
+                    "worker {worker_id} in tenant {tenant_id}"
+                )));
+            }
+        }
+        self.get_worker(tenant_id, worker_id).await?.ok_or_else(|| {
+            ArgoError::NotFound(format!("worker {worker_id} in tenant {tenant_id}"))
+        })
+    }
 }
 
 #[cfg(test)]
@@ -430,3 +490,7 @@ mod tests {
 #[cfg(test)]
 #[path = "store_archive_tests.rs"]
 mod archive_tests;
+
+#[cfg(test)]
+#[path = "worker_update_tests.rs"]
+mod worker_update_tests;
