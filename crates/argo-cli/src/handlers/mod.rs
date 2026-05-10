@@ -68,6 +68,7 @@ pub mod cred_import;
 pub mod cred_list;
 pub mod cred_set;
 pub mod cu_replay;
+mod cu_replay_render;
 pub mod daemon_install;
 pub mod daemon_uninstall;
 pub mod connector_authorize;
