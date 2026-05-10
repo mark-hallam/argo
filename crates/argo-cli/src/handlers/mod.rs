@@ -255,6 +255,7 @@ mod vertical_eval_judge_backends;
 mod vertical_eval_judge_backends_anthropic;
 mod vertical_eval_judge_live;
 mod vertical_eval_score;
+mod vertical_eval_score_output;
 pub mod vertical_install;
 pub mod vertical_list;
 pub mod vertical_lint;
