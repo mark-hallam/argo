@@ -11,6 +11,10 @@
 //! not call out a tenant flag explicitly; the surrounding `argo
 //! org` and `argo roster` CLIs both require it, so requiring it
 //! here is the documented sensible deviation.
+//!
+//! Mutating subcommands (add / remove / rename / create) live in
+//! the sibling [`super::team_mutations`] module so this file stays
+//! under the 500-LOC ceiling.
 
 use crate::cli::cli_team_cmds::TeamCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
@@ -23,6 +27,8 @@ use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde::Serialize;
 use std::str::FromStr;
 use uuid::Uuid;
+
+use super::team_mutations;
 
 /// Top-level dispatch for `argo team ...`.
 pub async fn run(cmd: TeamCmd) -> ArgoResult<()> {
@@ -39,25 +45,25 @@ pub async fn run(cmd: TeamCmd) -> ArgoResult<()> {
             worker_id,
             role,
             json,
-        } => add(&tenant, &team_id, &worker_id, role.as_deref(), json).await,
+        } => team_mutations::add(&tenant, &team_id, &worker_id, role.as_deref(), json).await,
         TeamCmd::Remove {
             tenant,
             team_id,
             worker_id,
             json,
-        } => remove(&tenant, &team_id, &worker_id, json).await,
+        } => team_mutations::remove(&tenant, &team_id, &worker_id, json).await,
         TeamCmd::Rename {
             tenant,
             team_id,
             new_name,
             json,
-        } => rename(&tenant, &team_id, &new_name, json).await,
+        } => team_mutations::rename(&tenant, &team_id, &new_name, json).await,
         TeamCmd::Create {
             tenant,
             name,
             parent,
             json,
-        } => create(&tenant, &name, parent.as_deref(), json).await,
+        } => team_mutations::create(&tenant, &name, parent.as_deref(), json).await,
     }
 }
 
@@ -157,170 +163,6 @@ async fn lookup_charter_summary(
     }
 }
 
-#[derive(Debug, Serialize)]
-struct AddPayload<'a> {
-    ok: bool,
-    team_id: &'a str,
-    worker_id: &'a str,
-    role: Option<&'a str>,
-}
-
-async fn add(
-    tenant: &str,
-    team_id: &str,
-    worker_id: &str,
-    role: Option<&str>,
-    json: bool,
-) -> ArgoResult<()> {
-    let store = open_store().await?;
-    store.ensure_team_roster_schema().await?;
-    let tenant_id = parse_tenant(tenant)?;
-    require_team(&store, tenant_id, team_id).await?;
-    team_roster::add_team_member(store.pool(), team_id, worker_id, role).await?;
-    let payload = AddPayload {
-        ok: true,
-        team_id,
-        worker_id,
-        role,
-    };
-    if json {
-        print_json(&payload)?;
-    } else {
-        let role_str = role.unwrap_or("(none)");
-        println!(
-            "ok: added worker {worker_id} to team {team_id} (role: {role_str})"
-        );
-    }
-    Ok(())
-}
-
-#[derive(Debug, Serialize)]
-struct RemovePayload<'a> {
-    ok: bool,
-    team_id: &'a str,
-    worker_id: &'a str,
-    soft_deleted: bool,
-}
-
-async fn remove(
-    tenant: &str,
-    team_id: &str,
-    worker_id: &str,
-    json: bool,
-) -> ArgoResult<()> {
-    let store = open_store().await?;
-    store.ensure_team_roster_schema().await?;
-    let tenant_id = parse_tenant(tenant)?;
-    require_team(&store, tenant_id, team_id).await?;
-    let did = team_roster::remove_team_member(store.pool(), team_id, worker_id).await?;
-    let payload = RemovePayload {
-        ok: did,
-        team_id,
-        worker_id,
-        soft_deleted: did,
-    };
-    if json {
-        print_json(&payload)?;
-    } else if did {
-        println!("ok: soft-removed worker {worker_id} from team {team_id}");
-    } else {
-        println!(
-            "no-op: worker {worker_id} was not an active member of team {team_id}"
-        );
-    }
-    Ok(())
-}
-
-#[derive(Debug, Serialize)]
-struct RenamePayload<'a> {
-    ok: bool,
-    team_id: &'a str,
-    name: &'a str,
-}
-
-async fn rename(
-    tenant: &str,
-    team_id: &str,
-    new_name: &str,
-    json: bool,
-) -> ArgoResult<()> {
-    let store = open_store().await?;
-    store.ensure_team_roster_schema().await?;
-    let tenant_id = parse_tenant(tenant)?;
-    let updated = team_roster::rename_team(store.pool(), tenant_id, team_id, new_name).await?;
-    if !updated {
-        return Err(ArgoError::Provider(format!(
-            "no team '{team_id}' in tenant '{tenant}'"
-        )));
-    }
-    let payload = RenamePayload {
-        ok: true,
-        team_id,
-        name: new_name,
-    };
-    if json {
-        print_json(&payload)?;
-    } else {
-        println!("ok: renamed team {team_id} → {new_name}");
-    }
-    Ok(())
-}
-
-#[derive(Debug, Serialize)]
-struct CreatePayload<'a> {
-    ok: bool,
-    team_id: &'a str,
-    name: &'a str,
-    parent: Option<&'a str>,
-}
-
-async fn create(
-    tenant: &str,
-    name: &str,
-    parent: Option<&str>,
-    json: bool,
-) -> ArgoResult<()> {
-    let store = open_store().await?;
-    store.ensure_team_roster_schema().await?;
-    let tenant_id = parse_tenant(tenant)?;
-    let outcome = team_roster::create_team(store.pool(), tenant_id, name, parent).await?;
-    let payload = CreatePayload {
-        ok: true,
-        team_id: &outcome.id,
-        name: &outcome.name,
-        parent: outcome.parent_id.as_deref(),
-    };
-    if json {
-        print_json(&payload)?;
-    } else {
-        match parent {
-            Some(p) => println!(
-                "ok: created team {} ({}) under parent {}",
-                outcome.name, outcome.id, p
-            ),
-            None => println!(
-                "ok: created team {} ({}) at root",
-                outcome.name, outcome.id
-            ),
-        }
-    }
-    Ok(())
-}
-
-async fn require_team(
-    store: &SessionStore,
-    tenant: TenantId,
-    team_id: &str,
-) -> ArgoResult<()> {
-    let exists = team_roster::get_team(store.pool(), tenant, team_id).await?;
-    if exists.is_none() {
-        return Err(ArgoError::Provider(format!(
-            "no team '{team_id}' in tenant '{tenant}'"
-        )));
-    }
-    Ok(())
-}
-
 fn print_list_markdown(teams: &[TeamRow]) {
     print!("{}", render_list_markdown(teams));
 }
@@ -388,7 +230,7 @@ fn escape_md(s: &str) -> String {
     s.replace('|', "\\|").replace('\n', " ")
 }
 
-fn print_json<T: Serialize>(payload: &T) -> ArgoResult<()> {
+pub(super) fn print_json<T: Serialize>(payload: &T) -> ArgoResult<()> {
     let s = serde_json::to_string_pretty(payload)
         .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?;
     println!("{s}");
@@ -413,7 +255,7 @@ impl OutputFormat {
     }
 }
 
-async fn open_store() -> ArgoResult<SessionStore> {
+pub(super) async fn open_store() -> ArgoResult<SessionStore> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -422,7 +264,7 @@ async fn open_store() -> ArgoResult<SessionStore> {
     Ok(store)
 }
 
-fn parse_tenant(value: &str) -> ArgoResult<TenantId> {
+pub(super) fn parse_tenant(value: &str) -> ArgoResult<TenantId> {
     Uuid::from_str(value)
         .map(TenantId)
         .map_err(|e| ArgoError::Provider(format!("tenant id '{value}': {e}")))

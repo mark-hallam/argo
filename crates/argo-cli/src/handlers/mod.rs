@@ -168,6 +168,7 @@ pub mod roster_list;
 pub mod roster_remove_member;
 pub mod roster_show;
 pub mod team;
+mod team_mutations;
 pub mod route;
 pub mod session;
 mod session_aggregates;
