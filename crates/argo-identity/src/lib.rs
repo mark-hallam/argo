@@ -27,6 +27,7 @@ pub mod org_ingest;
 pub mod policy;
 mod prompt;
 pub mod roster;
+mod roster_store;
 mod store;
 mod store_channels;
 mod store_sql;
