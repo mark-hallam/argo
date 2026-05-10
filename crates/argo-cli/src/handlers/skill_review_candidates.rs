@@ -153,7 +153,7 @@ pub(super) async fn promote_candidate(
         });
     }
     audit
-        .write(Some(learned_in), AuditKind::SkillCandidatePromoted, payload)
+        .write(Some(learned_in), AuditKind::SkillCandidatePromoted, payload, None)
         .await?;
     Ok(new_skill)
 }

@@ -92,11 +92,18 @@ impl AuditSink {
     }
 
     /// Write one event.
+    ///
+    /// `principal_id` carries the resolved gateway caller (per
+    /// `mvp-audit-principal-stamp`, the X-Argo-Principal header
+    /// parsed at the bearer-auth gate). Pass `None` for
+    /// system-internal writes (background jobs, CLI, tests) — the
+    /// row's `principal_id` column lands NULL.
     pub async fn write(
         &self,
         session_id: Option<SessionId>,
         kind: AuditKind,
         payload: serde_json::Value,
+        principal_id: Option<String>,
     ) -> ArgoResult<()> {
         let id = Uuid::now_v7();
         let parent_hash = self.last_hash_for(session_id).await?;
@@ -110,7 +117,8 @@ impl AuditSink {
         let now = Utc::now();
         sqlx::query(
             "INSERT INTO audit_record (id, session_id, kind, payload_json, \
-             parent_hash, self_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+             parent_hash, self_hash, created_at, principal_id) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id.as_bytes().as_slice())
         .bind(session_id.map(|s| s.0.as_bytes().to_vec()))
@@ -119,6 +127,7 @@ impl AuditSink {
         .bind(parent_hash.as_slice())
         .bind(self_hash.as_slice())
         .bind(now.timestamp_micros())
+        .bind(principal_id.as_deref())
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;

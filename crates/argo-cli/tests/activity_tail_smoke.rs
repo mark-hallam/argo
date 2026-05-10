@@ -34,6 +34,7 @@ async fn activity_since_filters_and_emits_ndjson() {
             "decision": "ask",
             "message": "draft needs approval"
         }),
+        None,
     )
     .await
     .unwrap();

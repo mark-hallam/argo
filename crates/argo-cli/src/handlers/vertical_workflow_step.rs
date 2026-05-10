@@ -202,7 +202,7 @@ async fn emit_audit(
     };
     // Best-effort — a failed audit write must not abort the
     // workflow. The chain verifier will flag any breaks.
-    let _ = ctx.audit.write(Some(ctx.session_id), kind, payload).await;
+    let _ = ctx.audit.write(Some(ctx.session_id), kind, payload, None).await;
 }
 
 pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowAuditCtx> {

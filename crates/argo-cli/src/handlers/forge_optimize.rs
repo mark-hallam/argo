@@ -168,6 +168,7 @@ async fn run_with_events_and_run_id(
                 "iterations": iterations,
                 "budget_usd": budget_usd,
             }),
+            None,
         )
         .await;
 
@@ -321,6 +322,7 @@ async fn run_with_events_and_run_id(
                 "iterations_run": completed,
                 "promoted": promoted,
             }),
+            None,
         )
         .await;
     report_summary(

@@ -12,7 +12,7 @@
 //! `note` is optional; the rest of the contract matches the
 //! CLI verbatim — same audit kinds, same SQLite write path,
 //! same precedence rules.
-use super::routes_auth_principal::principal_payload;
+use super::routes_auth_principal::{principal_id_for_audit, principal_payload};
 use super::{body_from_request, store_unavailable};
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
@@ -81,8 +81,9 @@ pub(super) async fn session_approve_response(
         Ok(payload) => payload,
         Err(_) => return bad_request("bad principal"),
     };
+    let principal_id = principal_id_for_audit(req);
     if let Err(e) = audit
-        .write(Some(sid), AuditKind::ApprovalGranted, payload)
+        .write(Some(sid), AuditKind::ApprovalGranted, payload, principal_id)
         .await
     {
         return server_error(&format!("audit write: {e}"));
@@ -139,8 +140,9 @@ pub(super) async fn session_revoke_approval_response(
         Ok(payload) => payload,
         Err(_) => return bad_request("bad principal"),
     };
+    let principal_id = principal_id_for_audit(req);
     if let Err(e) = audit
-        .write(Some(sid), AuditKind::ApprovalRevoked, payload)
+        .write(Some(sid), AuditKind::ApprovalRevoked, payload, principal_id)
         .await
     {
         return server_error(&format!("audit write: {e}"));

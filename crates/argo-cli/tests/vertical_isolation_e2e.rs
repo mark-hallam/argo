@@ -299,6 +299,7 @@ async fn repeated_denial_records_signal_but_does_not_install_skill() {
             Some(sid),
             AuditKind::RbacDeny,
             serde_json::json!({"tool": "delegate_task", "denied_by": "vertical_manifest"}),
+            None,
         )
         .await
         .unwrap();

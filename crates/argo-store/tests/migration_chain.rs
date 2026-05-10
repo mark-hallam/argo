@@ -40,6 +40,7 @@ async fn apply_sql_file_migrations(store: &SessionStore, idempotent: bool) -> Re
                 }
                 Err(e) if is_session_worker_id_duplicate(stmt, &e) => {}
                 Err(e) if is_skill_shared_duplicate(stmt, &e) => {}
+                Err(e) if is_audit_principal_duplicate(stmt, &e) => {}
                 Err(e) if idempotent && is_clean_idempotent_error(&e) => {}
                 Err(e) => return Err(format!("{}: {e}", path.display())),
             }
@@ -322,6 +323,11 @@ fn is_skill_shared_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
     stmt.contains("ALTER TABLE skill ADD COLUMN shared")
         && (err.to_string().contains("duplicate column name: shared")
             || err.to_string().contains("duplicate column name: shared_with_cluster"))
+}
+
+fn is_audit_principal_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
+    stmt.contains("ALTER TABLE audit_record ADD COLUMN principal_id")
+        && err.to_string().contains("duplicate column name: principal_id")
 }
 
 fn is_clean_idempotent_error(err: &sqlx::Error) -> bool {

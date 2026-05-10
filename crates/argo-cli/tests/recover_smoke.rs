@@ -54,12 +54,14 @@ async fn seed_session_with_failing_chain(
         Some(session),
         AuditKind::ToolCall,
         serde_json::json!({"tool": "shell", "args": ["echo", "hi"]}),
+        None,
     )
     .await?;
     sink.write(
         Some(session),
         AuditKind::ToolResult,
         serde_json::json!({"is_error": true, "reason": "exit code 1"}),
+        None,
     )
     .await?;
     let chain_hash = compute_chain_hash_from_db(home, session).await?;

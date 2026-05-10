@@ -224,7 +224,7 @@ mod tests {
         store.migrate().await.unwrap();
         let sink = crate::AuditSink::new(Arc::clone(&store));
         for i in 0..3 {
-            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}))
+            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
                 .await
                 .unwrap();
         }
@@ -246,7 +246,7 @@ mod tests {
         let sink = crate::AuditSink::new(Arc::clone(&store));
         // 3 turn_start, 2 assistant_message — interleaved.
         for i in 0..3 {
-            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}))
+            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
                 .await
                 .unwrap();
             if i < 2 {
@@ -254,6 +254,7 @@ mod tests {
                     None,
                     AuditKind::AssistantMessage,
                     serde_json::json!({"i": i}),
+                    None,
                 )
                 .await
                 .unwrap();
@@ -366,7 +367,7 @@ mod tests {
         store.migrate().await.unwrap();
         let sink = crate::AuditSink::new(Arc::clone(&store));
         for i in 0..5 {
-            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}))
+            sink.write(None, AuditKind::TurnStart, serde_json::json!({"i": i}), None)
                 .await
                 .unwrap();
         }

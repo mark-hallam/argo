@@ -78,6 +78,7 @@ async fn write_audit(
             to.learned_in.or(from.learned_in),
             AuditKind::SkillRolledBack,
             payload,
+            None,
         )
         .await
 }

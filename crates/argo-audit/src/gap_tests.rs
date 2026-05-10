@@ -35,6 +35,7 @@ async fn write_deny(sink: &AuditSink, sid: argo_types::SessionId, tool: &str) {
         Some(sid),
         AuditKind::RbacDeny,
         serde_json::json!({"tool": tool, "denied_by": "test"}),
+        None,
     )
     .await
     .unwrap();
@@ -98,6 +99,7 @@ async fn detector_ignores_non_deny_audit_rows() {
         Some(sid),
         AuditKind::EscalationRequired,
         serde_json::json!({"tool": "x"}),
+        None,
     )
     .await
     .unwrap();
@@ -132,7 +134,7 @@ async fn detector_can_emit_back_to_audit_chain_as_capability_gap() {
     }
     let gaps = detect_policy_denials(&store, sid, 0, 2).await.unwrap();
     assert_eq!(gaps.len(), 1);
-    sink.write(Some(sid), AuditKind::CapabilityGap, gaps[0].to_json())
+    sink.write(Some(sid), AuditKind::CapabilityGap, gaps[0].to_json(), None)
         .await
         .unwrap();
     // Chain still verifies and the new row carries the right

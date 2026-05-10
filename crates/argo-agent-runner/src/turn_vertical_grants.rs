@@ -126,6 +126,7 @@ pub(crate) async fn consume_one_shot_if_present(
                 Some(session_id),
                 argo_audit::AuditKind::ApprovalConsumed,
                 payload.clone(),
+                None,
             )
             .await?;
         crate::helpers::emit_event(events, "ApprovalConsumed", payload);

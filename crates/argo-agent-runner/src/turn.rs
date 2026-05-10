@@ -130,7 +130,7 @@ pub async fn run_turn_with_events(
         session.vertical_id.as_deref(),
     );
     audit
-        .write(Some(session_id), AuditKind::TurnStart, turn_start.clone())
+        .write(Some(session_id), AuditKind::TurnStart, turn_start.clone(), None)
         .await?;
     emit_event(events, "TurnStart", turn_start);
     let spend_ctx = SpendCtx {
@@ -165,7 +165,7 @@ pub async fn run_turn_with_events(
     };
     let kind_label = if result.is_ok() { "TurnEnd" } else { "Halt" };
     let _ = audit
-        .write(Some(session_id), kind, serde_json::json!({}))
+        .write(Some(session_id), kind, serde_json::json!({}), None)
         .await;
     emit_event(events, kind_label, serde_json::json!({}));
     result

@@ -39,6 +39,7 @@ async fn five_rows_round_trip_in_seq_order() {
             Some(session),
             AuditKind::AssistantMessage,
             serde_json::json!({"i": i, "phase": format!("step-{i}")}),
+            None,
         )
         .await
         .unwrap();
@@ -88,6 +89,7 @@ async fn from_seq_filter_drops_earlier_rows() {
             Some(session),
             AuditKind::AssistantMessage,
             serde_json::json!({"i": i}),
+            None,
         )
         .await
         .unwrap();

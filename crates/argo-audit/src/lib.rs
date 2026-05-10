@@ -19,7 +19,7 @@
 //! let store = Arc::new(SessionStore::open(":memory:").await?);
 //! store.migrate().await?;
 //! let sink = AuditSink::new(store);
-//! sink.write(None, AuditKind::TurnStart, serde_json::json!({"k": 1})).await?;
+//! sink.write(None, AuditKind::TurnStart, serde_json::json!({"k": 1}), None).await?;
 //! # Ok(()) }
 //! ```
 #![warn(missing_docs)]

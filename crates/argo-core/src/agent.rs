@@ -128,6 +128,7 @@ impl Agent {
                     "model": opts.model,
                     "principal": opts.principal,
                 }),
+                None,
             )
             .await?;
         let user_msg = build_user_message(session_id, &user_input);
@@ -167,6 +168,7 @@ impl Agent {
                             .sum::<usize>(),
                         "tool_calls": resp.tool_calls.len(),
                     }),
+                    None,
                 )
                 .await?;
             if resp.tool_calls.is_empty() {
@@ -196,6 +198,7 @@ impl Agent {
                             "by_principal": opts.principal,
                             "count": steers.len(),
                         }),
+                        None,
                     )
                     .await?;
                 history.push(steer_msg);
@@ -211,6 +214,7 @@ impl Agent {
                     "tokens_in": tokens_in,
                     "tokens_out": tokens_out,
                 }),
+                None,
             )
             .await?;
         Ok(TurnOutcome {
@@ -228,6 +232,7 @@ impl Agent {
                 Some(session_id),
                 AuditKind::Halt,
                 serde_json::json!({"reason": reason}),
+                None,
             )
             .await
     }
@@ -248,6 +253,7 @@ impl Agent {
                     "call_id": call.id.to_string(),
                     "provider_call_id": call.provider_call_id,
                 }),
+                None,
             )
             .await?;
         let ctx = ToolContext {
@@ -277,6 +283,7 @@ impl Agent {
                     "is_error": result.is_error,
                     "duration_ms": result.duration_ms,
                 }),
+                None,
             )
             .await?;
         Ok(build_tool_message(session_id, call.id, result))

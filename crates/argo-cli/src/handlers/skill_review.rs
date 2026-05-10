@@ -329,7 +329,7 @@ async fn transition(
         LifecycleState::Rejected => AuditKind::SkillRejected,
         _ => AuditKind::SkillApproved,
     };
-    audit.write(pre.learned_in, kind, payload.clone()).await?;
+    audit.write(pre.learned_in, kind, payload.clone(), None).await?;
 
     if json {
         println!(

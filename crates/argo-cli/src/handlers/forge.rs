@@ -165,6 +165,7 @@ async fn bench(
                 "examples": examples_path,
                 "n": tasks.len(),
             }),
+            None,
         )
         .await;
 
@@ -200,6 +201,7 @@ async fn bench(
                 "pass_rate": summary.pass_rate,
                 "errors": summary.errors,
             }),
+            None,
         )
         .await;
 
@@ -249,6 +251,7 @@ async fn promote(skill_name: &str, version: &str) -> ArgoResult<()> {
                 "skill_id": promoted.id.0.to_string(),
                 "by": "cli",
             }),
+            None,
         )
         .await?;
     println!(

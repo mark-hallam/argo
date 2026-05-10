@@ -123,6 +123,7 @@ mod tests {
             Some(session),
             AuditKind::ToolCall,
             serde_json::json!({"worker_id":"worker-tail","tool":"shell"}),
+            None,
         )
         .await
         .unwrap();

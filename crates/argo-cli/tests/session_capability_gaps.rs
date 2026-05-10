@@ -43,6 +43,7 @@ async fn seed_session_with_denials(
             Some(sid),
             AuditKind::RbacDeny,
             serde_json::json!({"tool": tool, "denied_by": "vertical_manifest"}),
+            None,
         )
         .await
         .unwrap();

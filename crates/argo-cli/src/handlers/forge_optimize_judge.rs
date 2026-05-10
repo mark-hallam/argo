@@ -227,6 +227,7 @@ pub(crate) async fn write_promote_blocked_audit(
                         "score": score,
                         "threshold": threshold,
                     }),
+                    None,
                 )
                 .await;
         }
@@ -242,6 +243,7 @@ pub(crate) async fn write_promote_blocked_audit(
                         "best_version": best_version,
                         "reason": reason,
                     }),
+                    None,
                 )
                 .await;
         }
@@ -257,6 +259,7 @@ pub(crate) async fn write_promote_blocked_audit(
                         "best_version": best_version,
                         "reason": reason,
                     }),
+                    None,
                 )
                 .await;
         }

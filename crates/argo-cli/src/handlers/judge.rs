@@ -54,6 +54,7 @@ async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
                 "new_verdict": trimmed,
                 "by": "cli",
             }),
+            None,
         )
         .await?;
     println!(

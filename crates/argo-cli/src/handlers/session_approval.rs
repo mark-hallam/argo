@@ -70,7 +70,7 @@ pub async fn approve(
         "one_shot": once,
     });
     audit
-        .write(Some(sid), AuditKind::ApprovalGranted, payload)
+        .write(Some(sid), AuditKind::ApprovalGranted, payload, None)
         .await?;
 
     if json {
@@ -178,7 +178,7 @@ pub async fn revoke_approval(
         "source": "cli",
     });
     audit
-        .write(Some(sid), AuditKind::ApprovalRevoked, payload)
+        .write(Some(sid), AuditKind::ApprovalRevoked, payload, None)
         .await?;
 
     if json {

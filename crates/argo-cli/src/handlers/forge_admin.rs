@@ -70,6 +70,7 @@ pub(super) async fn abort_all_runs() -> ArgoResult<()> {
                         "by": "cli",
                         "via": "abort-all",
                     }),
+                    None,
                 )
                 .await?;
         }
@@ -109,6 +110,7 @@ pub(super) async fn sweep_stalled(older_than_minutes: i64) -> ArgoResult<()> {
                         "by": "cli",
                         "older_than_minutes": older_than_minutes,
                     }),
+                    None,
                 )
                 .await?;
         }
@@ -135,6 +137,7 @@ pub(super) async fn abort_run(raw: &str) -> ArgoResult<()> {
                 "run_id": id.to_string(),
                 "by": "cli",
             }),
+            None,
         )
         .await?;
     println!("argo forge runs abort: {raw} → status=aborted");

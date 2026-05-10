@@ -32,6 +32,7 @@ async fn write_then_verify_clean_chain() {
         Some(session),
         AuditKind::TurnStart,
         serde_json::json!({"a": 1}),
+        None,
     )
     .await
     .unwrap();
@@ -39,6 +40,7 @@ async fn write_then_verify_clean_chain() {
         Some(session),
         AuditKind::AssistantMessage,
         serde_json::json!({"text_len": 4}),
+        None,
     )
     .await
     .unwrap();
@@ -46,10 +48,11 @@ async fn write_then_verify_clean_chain() {
         Some(session),
         AuditKind::ToolCall,
         serde_json::json!({"tool": "ls"}),
+        None,
     )
     .await
     .unwrap();
-    sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}))
+    sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}), None)
         .await
         .unwrap();
     let report = verify_session(&store, session).await.unwrap();
@@ -62,7 +65,7 @@ async fn write_emits_each_v02_kind_and_chain_verifies() {
     let (store, session) = fresh().await;
     let sink = AuditSink::new(store.clone());
     for k in AuditKind::all() {
-        sink.write(Some(session), k, serde_json::json!({"k": k.label()}))
+        sink.write(Some(session), k, serde_json::json!({"k": k.label()}), None)
             .await
             .unwrap();
     }
@@ -87,10 +90,11 @@ async fn tampered_payload_breaks_chain() {
         Some(session),
         AuditKind::TurnStart,
         serde_json::json!({"a": 1}),
+        None,
     )
     .await
     .unwrap();
-    sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}))
+    sink.write(Some(session), AuditKind::TurnEnd, serde_json::json!({}), None)
         .await
         .unwrap();
     // Tamper with the first row's payload.
@@ -113,7 +117,7 @@ async fn tampered_parent_hash_breaks_chain() {
     let (store, session) = fresh().await;
     let sink = AuditSink::new(store.clone());
     for _ in 0..3 {
-        sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}))
+        sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
             .await
             .unwrap();
     }
@@ -130,7 +134,7 @@ async fn tampered_parent_hash_breaks_chain() {
 async fn unknown_kind_label_is_flagged() {
     let (store, session) = fresh().await;
     let sink = AuditSink::new(store.clone());
-    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}))
+    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
         .await
         .unwrap();
     // Manually rewrite the kind to something the enum doesn't know.
@@ -169,7 +173,7 @@ async fn verify_all_walks_every_session() {
     let sink = AuditSink::new(store.clone());
     for s in [session_a, session_b] {
         for _ in 0..3 {
-            sink.write(Some(s), AuditKind::TurnStart, serde_json::json!({}))
+            sink.write(Some(s), AuditKind::TurnStart, serde_json::json!({}), None)
                 .await
                 .unwrap();
         }
@@ -194,7 +198,7 @@ async fn rapid_writes_one_thousand_rows_verify_clean() {
         } else {
             AuditKind::AssistantMessage
         };
-        sink.write(Some(session), kind, serde_json::json!({"i": i}))
+        sink.write(Some(session), kind, serde_json::json!({"i": i}), None)
             .await
             .unwrap();
     }
@@ -216,6 +220,7 @@ async fn broadcast_subscribers_receive_writes_in_order() {
             Some(session),
             AuditKind::AssistantMessage,
             serde_json::json!({"i": i}),
+            None,
         )
         .await
         .unwrap();
@@ -240,6 +245,7 @@ async fn broadcast_subscribers_added_late_only_see_subsequent_writes() {
         Some(session),
         AuditKind::TurnStart,
         serde_json::json!({"phase": "first"}),
+        None,
     )
     .await
     .unwrap();
@@ -248,6 +254,7 @@ async fn broadcast_subscribers_added_late_only_see_subsequent_writes() {
         Some(session),
         AuditKind::TurnEnd,
         serde_json::json!({"phase": "second"}),
+        None,
     )
     .await
     .unwrap();
@@ -267,6 +274,7 @@ async fn broadcast_event_carries_kind_and_session_id() {
         Some(session),
         AuditKind::ToolCall,
         serde_json::json!({"tool": "shell"}),
+        None,
     )
     .await
     .unwrap();
@@ -274,4 +282,47 @@ async fn broadcast_event_carries_kind_and_session_id() {
     assert_eq!(ev.kind, "tool_call");
     assert_eq!(ev.session_id, Some(session.0.to_string()));
     assert!(ev.payload.get("tool").is_some());
+}
+
+#[tokio::test]
+async fn write_with_principal_stamps_audit_record_column() {
+    // Stream `mvp-audit-principal-stamp` (Tier 1 MVP — closes
+    // mission claim "everything is auditable"). Asserts the
+    // resolved gateway caller lands in the new `principal_id`
+    // column, that NULL stays NULL for system-internal writes,
+    // and that the chain still verifies after both row kinds
+    // intermix.
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new(store.clone());
+    sink.write(
+        Some(session),
+        AuditKind::TurnStart,
+        serde_json::json!({}),
+        Some("human:operator@example.com".to_string()),
+    )
+    .await
+    .unwrap();
+    sink.write(
+        Some(session),
+        AuditKind::TurnEnd,
+        serde_json::json!({}),
+        None,
+    )
+    .await
+    .unwrap();
+
+    let rows: Vec<(i64, Option<String>)> = sqlx::query_as(
+        "SELECT seq, principal_id FROM audit_record \
+         WHERE session_id = ? ORDER BY seq ASC",
+    )
+    .bind(session.0.as_bytes().as_slice())
+    .fetch_all(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].1.as_deref(), Some("human:operator@example.com"));
+    assert!(rows[1].1.is_none(), "system-internal write must land NULL");
+
+    let report = verify_session(&store, session).await.unwrap();
+    assert!(report.ok, "{:?}", report.breaks);
 }

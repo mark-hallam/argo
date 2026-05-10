@@ -138,6 +138,7 @@ pub(super) async fn run_turn_with_tools(
                 Some(session_id),
                 AuditKind::AssistantMessage,
                 assistant_payload.clone(),
+                None,
             )
             .await?;
         emit_event(events, "AssistantMessage", assistant_payload);
@@ -156,7 +157,7 @@ pub(super) async fn run_turn_with_tools(
         for call in &resp.tool_calls {
             let call_payload = serde_json::json!({"tool": call.name, "call_id": call.id});
             audit
-                .write(Some(session_id), AuditKind::ToolCall, call_payload.clone())
+                .write(Some(session_id), AuditKind::ToolCall, call_payload.clone(), None)
                 .await?;
             emit_event(events, "ToolCall", call_payload);
 
@@ -172,7 +173,7 @@ pub(super) async fn run_turn_with_tools(
                     "denied_by": "vertical_manifest",
                 });
                 audit
-                    .write(Some(session_id), AuditKind::RbacDeny, deny_payload.clone())
+                    .write(Some(session_id), AuditKind::RbacDeny, deny_payload.clone(), None)
                     .await?;
                 emit_event(events, "RbacDeny", deny_payload);
                 argo_tool::error_text(
@@ -200,6 +201,7 @@ pub(super) async fn run_turn_with_tools(
                         Some(session_id),
                         AuditKind::EscalationRequired,
                         escalation_payload.clone(),
+                        None,
                     )
                     .await?;
                 emit_event(events, "EscalationRequired", escalation_payload);
@@ -241,6 +243,7 @@ pub(super) async fn run_turn_with_tools(
                     Some(session_id),
                     AuditKind::ToolResult,
                     result_payload.clone(),
+                    None,
                 )
                 .await?;
             emit_event(events, "ToolResult", result_payload);
@@ -265,7 +268,7 @@ pub(super) async fn run_turn_with_tools(
         "max_rounds": max_rounds,
     });
     audit
-        .write(Some(session_id), AuditKind::Halt, halt_payload.clone())
+        .write(Some(session_id), AuditKind::Halt, halt_payload.clone(), None)
         .await?;
     emit_event(events, "Halt", halt_payload);
     Ok(TurnResult {

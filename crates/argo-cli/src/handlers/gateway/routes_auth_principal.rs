@@ -27,6 +27,17 @@ impl Principal {
             Self::Anonymous => "anonymous".to_string(),
         }
     }
+
+    /// Wire form for the `audit_record.principal_id` column
+    /// (`mvp-audit-principal-stamp`). `None` for anonymous calls so
+    /// the column lands NULL — distinct from `"anonymous"` which
+    /// would imply a resolved-but-unauthenticated principal.
+    fn audit_id(&self) -> Option<String> {
+        match self {
+            Self::Anonymous => None,
+            other => Some(other.as_payload_value()),
+        }
+    }
 }
 
 pub(super) fn parse_principal_header(req: &str) -> Result<Principal, &'static str> {
@@ -59,6 +70,16 @@ pub(super) fn principal_payload(req: &str, mut payload: Value) -> Result<Value, 
     };
     obj.insert("principal".to_string(), Value::String(principal));
     Ok(payload)
+}
+
+/// Resolve the `audit_record.principal_id` column value for `req`
+/// (`mvp-audit-principal-stamp`). Returns `None` when the request
+/// has no `X-Argo-Principal` header (or the header is malformed —
+/// the gateway dispatcher already short-circuits malformed values
+/// to 400 before calling handlers, so this returns `None` only on
+/// the anonymous path in practice).
+pub(super) fn principal_id_for_audit(req: &str) -> Option<String> {
+    parse_principal_header(req).ok().and_then(|p| p.audit_id())
 }
 
 fn principal_header_value(req: &str) -> Option<&str> {
