@@ -15,6 +15,10 @@ path = "src/main.rs"
 name = "session_throughput"
 harness = false
 
+[[bench]]
+name = "message_write"
+harness = false
+
 [dependencies]
 argo-agent-runner = { path = "../argo-agent-runner", version = "0.0.1" }
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
