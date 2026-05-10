@@ -36,7 +36,6 @@
 //! full spec.
 
 use super::worker_actions::{ActionRecord, ActionState};
-use crate::handlers::vertical::resolve_verticals_dir;
 use crate::home::{db_path, ensure_dir, resolve_home};
 #[cfg(not(test))]
 use argo_identity::circuit;
@@ -46,88 +45,9 @@ use argo_types::{ArgoError, ArgoResult, WorkspaceId};
 use serde_json::Value;
 use std::sync::Arc;
 
-/// Lookup result: the latest snapshot of an action plus the
-/// vertical_id its memory rows live under. Knowing the
-/// vertical is required to write the next state-row back into
-/// the correct namespace.
-#[derive(Clone)]
-pub(crate) struct LocatedAction {
-    pub record: ActionRecord,
-    pub vertical_id: String,
-}
-
-/// Walk every loaded vertical's memory namespace looking for
-/// rows whose body's `action_id` matches. Returns the latest-
-/// wins snapshot + the vertical_id that owns it.
-pub(crate) async fn find_action(
-    memory: &MemoryStore,
-    workspace: WorkspaceId,
-    action_id: &str,
-) -> ArgoResult<Option<LocatedAction>> {
-    let dir = resolve_verticals_dir();
-    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-    let mut latest: Option<LocatedAction> = None;
-    for (vid, _loaded) in registry.list() {
-        let rows = memory
-            .list_for_vertical(workspace, MemoryFile::Memory, vid)
-            .await?;
-        for e in rows {
-            let Ok(rec) = serde_json::from_str::<ActionRecord>(&e.body) else {
-                continue;
-            };
-            if rec.schema_key != ActionRecord::SCHEMA_KEY {
-                continue;
-            }
-            if rec.action_id != action_id {
-                continue;
-            }
-            let take = match &latest {
-                None => true,
-                Some(prev) => rec.created_at > prev.record.created_at,
-            };
-            if take {
-                latest = Some(LocatedAction {
-                    record: rec,
-                    vertical_id: vid.to_string(),
-                });
-            }
-        }
-    }
-    Ok(latest)
-}
-
-/// Walk every loaded vertical and return every persisted state-row
-/// for `action_id` in time order (oldest first). Used by `status`
-/// to render the full transition history. Empty when the
-/// action_id is unknown.
-pub(crate) async fn full_history(
-    memory: &MemoryStore,
-    workspace: WorkspaceId,
-    action_id: &str,
-) -> ArgoResult<Vec<ActionRecord>> {
-    let dir = resolve_verticals_dir();
-    let (registry, _errors) = argo_vertical::load_dir(&dir)?;
-    let mut out = Vec::new();
-    for (vid, _loaded) in registry.list() {
-        let rows = memory
-            .list_for_vertical(workspace, MemoryFile::Memory, vid)
-            .await?;
-        for e in rows {
-            let Ok(rec) = serde_json::from_str::<ActionRecord>(&e.body) else {
-                continue;
-            };
-            if rec.schema_key != ActionRecord::SCHEMA_KEY {
-                continue;
-            }
-            if rec.action_id != action_id {
-                continue;
-            }
-            out.push(rec);
-        }
-    }
-    out.sort_by(|a, b| a.created_at.cmp(&b.created_at));
-    Ok(out)
-}
+pub(crate) use super::worker_actions_transitions_lookup::{
+    find_action, full_history, LocatedAction,
+};
 
 /// Workspace bootstrap shared by every transition handler. Opens
 /// the session store, resolves the canonical workspace, returns a
