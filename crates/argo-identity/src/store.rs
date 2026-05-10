@@ -1,6 +1,7 @@
 use crate::store_sql::{
-    ensure_role_columns, ensure_worker_charter_columns, ensure_worker_level_columns, insert_duty,
-    kpis_to_json, parse_worker_id, to_json, worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
+    ensure_role_columns, ensure_worker_charter_columns, ensure_worker_level_columns,
+    ensure_worker_trust_grade_columns, insert_duty, kpis_to_json, parse_worker_id, to_json,
+    worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
 };
 use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel};
 use argo_store::SessionStore;
@@ -70,6 +71,7 @@ impl<'a> IdentityStore<'a> {
         ensure_role_columns(self.store.pool()).await?;
         ensure_worker_charter_columns(self.store.pool()).await?;
         ensure_worker_level_columns(self.store.pool()).await?;
+        ensure_worker_trust_grade_columns(self.store.pool()).await?;
         Ok(())
     }
 
@@ -137,12 +139,13 @@ impl<'a> IdentityStore<'a> {
         .map_err(|e| ArgoError::Provider(format!("insert role: {e}")))?;
 
         let kpis_json = kpis_to_json(worker.kpis.as_ref())?;
+        let last_used_iso = worker.last_used_at.map(|ts| ts.to_rfc3339());
         sqlx::query(
             "INSERT INTO worker (
                 id, tenant_id, vertical_id, persona_id, role_id, memory_scope,
                 auto_approval_json, channels_json, created_at,
-                charter_md, kpi_json
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                charter_md, kpi_json, trust_grade, last_used_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(worker.id.to_string())
         .bind(worker.tenant_id.to_string())
@@ -155,6 +158,8 @@ impl<'a> IdentityStore<'a> {
         .bind(now)
         .bind(worker.charter.as_deref())
         .bind(kpis_json)
+        .bind(i64::from(worker.trust_grade))
+        .bind(last_used_iso)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("insert worker: {e}")))?;

@@ -31,6 +31,7 @@ mod roster_store;
 mod store;
 mod store_channels;
 mod store_sql;
+mod store_trust_grade;
 mod types;
 pub mod worker_budget;
 

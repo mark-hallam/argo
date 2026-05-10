@@ -1,5 +1,6 @@
 use crate::CircuitState;
 use argo_types::TenantId;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -345,6 +346,19 @@ pub struct Worker {
     /// column / serialised field.
     #[serde(default)]
     pub level: WorkerLevel,
+    /// Worker-side trust grade on the same numeric ladder as
+    /// [`argo_skill::trust::TrustGrade`] — `0` = unknown / fresh row.
+    /// Stream `mvp-worker-trust-grade-column`; the routing engine
+    /// consumes this to rank candidates for `TargetSelector::SkillMatch`
+    /// / `RoleMatch` resolution. Defaults to `0` for older rows.
+    #[serde(default)]
+    pub trust_grade: u8,
+    /// Most-recent assignment timestamp (UTC). `None` when the
+    /// worker has never been used. Stream
+    /// `mvp-worker-trust-grade-column`. Defaults to `None` for older
+    /// rows lacking the column.
+    #[serde(default)]
+    pub last_used_at: Option<DateTime<Utc>>,
 }
 
 impl Worker {
@@ -377,6 +391,8 @@ impl Worker {
             charter: None,
             kpis: None,
             level: WorkerLevel::Entry,
+            trust_grade: 0,
+            last_used_at: None,
         }
     }
 

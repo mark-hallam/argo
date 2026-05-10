@@ -10,6 +10,7 @@ use crate::{
     WorkerLevel,
 };
 use argo_types::{ArgoError, ArgoResult, TenantId};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::Row;
 use std::str::FromStr;
@@ -27,11 +28,17 @@ const _WORKER_CHARTER_SCHEMA: &str =
 // `claude-worker-promotion-workflow`.
 const _WORKER_LEVEL_SCHEMA: &str =
     include_str!("../../argo-store/migrations/45__worker_level.sql");
+// Documentation-only: ALTER TABLE for `trust_grade` + `last_used_at`,
+// applied via `ensure_worker_trust_grade_columns`. Stream
+// `mvp-worker-trust-grade-column`.
+const _WORKER_TRUST_GRADE_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/50__worker_trust_grade.sql");
 
 pub(crate) const WORKER_SELECT: &str = "SELECT
     w.id, w.tenant_id, w.vertical_id, w.memory_scope,
     w.auto_approval_json, w.channels_json,
     w.charter_md, w.kpi_json, w.level,
+    w.trust_grade, w.last_used_at,
     p.name, p.voice_preamble, p.avatar, p.bio, p.builder_attribution,
     p.provenance_chain_json,
     r.charter, r.kpis_json, r.escalation
@@ -83,6 +90,48 @@ pub(crate) async fn ensure_worker_level_columns(
         .execute(pool)
         .await
         .map_err(|e| ArgoError::Provider(format!("create idx_worker_level: {e}")))?;
+    Ok(())
+}
+
+/// Idempotent additive migration for `worker.trust_grade` +
+/// `worker.last_used_at` (Stream `mvp-worker-trust-grade-column`).
+/// Mirrors [`ensure_worker_charter_columns`] / [`ensure_worker_level_columns`]:
+/// PRAGMA-checks each column, `ALTER TABLE ADD COLUMN ...` if missing,
+/// best-effort creates the supporting DESC indexes.
+pub(crate) async fn ensure_worker_trust_grade_columns(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    if !columns.iter().any(|existing| existing == "trust_grade") {
+        sqlx::query("ALTER TABLE worker ADD COLUMN trust_grade INTEGER NOT NULL DEFAULT 0")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add worker.trust_grade: {e}")))?;
+    }
+    if !columns.iter().any(|existing| existing == "last_used_at") {
+        sqlx::query("ALTER TABLE worker ADD COLUMN last_used_at TEXT")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add worker.last_used_at: {e}")))?;
+    }
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_worker_trust_grade \
+         ON worker(trust_grade DESC)",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("create idx_worker_trust_grade: {e}")))?;
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_worker_last_used_at \
+         ON worker(last_used_at DESC)",
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("create idx_worker_last_used_at: {e}")))?;
     Ok(())
 }
 
@@ -178,6 +227,17 @@ pub(crate) fn worker_from_row(
     let level_raw: String = row.get("level");
     let level = WorkerLevel::from_str(&level_raw)
         .map_err(|e| ArgoError::Provider(format!("parse worker.level: {e}")))?;
+    let trust_grade_raw: i64 = row.get("trust_grade");
+    let trust_grade = u8::try_from(trust_grade_raw)
+        .map_err(|e| ArgoError::Provider(format!("parse worker.trust_grade {trust_grade_raw}: {e}")))?;
+    let last_used_at = match row.get::<Option<String>, _>("last_used_at") {
+        Some(raw) => Some(
+            DateTime::parse_from_rfc3339(&raw)
+                .map_err(|e| ArgoError::Provider(format!("parse worker.last_used_at: {e}")))?
+                .with_timezone(&Utc),
+        ),
+        None => None,
+    };
     Ok(Worker {
         id,
         tenant_id,
@@ -191,6 +251,8 @@ pub(crate) fn worker_from_row(
         charter,
         kpis,
         level,
+        trust_grade,
+        last_used_at,
     })
 }
 
