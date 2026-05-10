@@ -20,6 +20,11 @@ tracing = { workspace = true }
 opentelemetry = { version = "0.27", optional = true, default-features = false, features = ["trace", "metrics"] }
 opentelemetry_sdk = { version = "0.27", optional = true, default-features = false, features = ["trace", "metrics", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.27", optional = true, default-features = false, features = ["http-proto", "reqwest-client", "trace", "metrics"] }
+# Bridge from the `tracing` ecosystem (`#[instrument]` etc.) to the
+# OpenTelemetry tracer registered by `otlp_exporter::init()`. Pinned
+# to the 0.28 series to match `opentelemetry 0.27`.
+tracing-opentelemetry = { version = "0.28", optional = true, default-features = false }
+tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
@@ -28,7 +33,16 @@ tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [features]
-# Enables the OTLP exporter wiring in `otlp_exporter.rs`. Off by
-# default; when on, callers are expected to call
-# `argo_telemetry::otlp_exporter::init()` once on process start.
-otlp = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp"]
+# Enables the OTLP exporter wiring in `otlp_exporter.rs` and the
+# `tracing-opentelemetry` bridge in `otlp_bridge.rs`. Off by default;
+# when on, callers are expected to call
+# `argo_telemetry::otlp_exporter::init()` once on process start and
+# install the layer returned by `otlp_bridge::otlp_layer()` on their
+# `tracing-subscriber` registry.
+otlp = [
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+    "dep:tracing-subscriber",
+]

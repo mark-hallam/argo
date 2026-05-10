@@ -17,7 +17,12 @@ mod sink;
 mod tracing_sink;
 
 #[cfg(feature = "otlp")]
+pub mod otlp_bridge;
+#[cfg(feature = "otlp")]
 pub mod otlp_exporter;
+
+#[cfg(feature = "otlp")]
+pub use otlp_bridge::{otlp_layer, otlp_layer_boxed};
 
 #[cfg(test)]
 mod tests;

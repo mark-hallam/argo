@@ -125,6 +125,29 @@ For backends that need auth headers (e.g. Honeycomb's
 collector that adds the headers — first-party header config is a
 follow-up item.
 
+#### Bridging `#[instrument]` spans automatically
+
+In addition to the in-loop spans wired through `TracingTelemetry`,
+the OTLP exporter can pick up every `#[instrument]`-decorated
+function across the workspace via the `tracing-opentelemetry`
+bridge layer. After calling `otlp_exporter::init()`, install
+`argo_telemetry::otlp_bridge::otlp_layer()` on your
+`tracing-subscriber` registry:
+
+```rust,ignore
+use tracing_subscriber::prelude::*;
+
+let _guard = argo_telemetry::otlp_exporter::init()?;
+tracing_subscriber::registry()
+    .with(tracing_subscriber::fmt::layer())
+    .with(argo_telemetry::otlp_bridge::otlp_layer())
+    .init();
+```
+
+Span attributes recorded via `#[instrument(fields(...))]` propagate
+as OTLP span attributes. The bridge is feature-gated under `otlp`
+so default builds incur no extra dependencies.
+
 ### 9.4 Live audit stream
 
 For real-time monitoring (live ops dashboard, on-call):

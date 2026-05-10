@@ -18,15 +18,38 @@
 //! - `OTEL_SERVICE_NAME` — service.name resource attribute (default
 //!   `argo`).
 
-use opentelemetry::{global, trace::Tracer, KeyValue};
+use opentelemetry::{global, trace::Tracer, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::{MetricExporter, Protocol, SpanExporter, WithExportConfig};
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime,
-    trace::TracerProvider,
+    trace::{Tracer as SdkTracer, TracerProvider},
     Resource,
 };
+use parking_lot::Mutex;
 use std::{env, fmt};
+
+/// Tracer name used for both the manual mirror in
+/// [`crate::tracing_sink`] and the bridge layer in
+/// [`crate::otlp_bridge`]. Sharing the name keeps both export paths
+/// in the same instrumentation scope so collectors don't see two
+/// separate tracer entries for the same binary.
+pub(crate) const TRACER_NAME: &str = "argo";
+
+/// Stash of the SDK [`SdkTracer`] built by the most recent [`init`]
+/// call. The bridge layer reads it via [`sdk_tracer`] to construct
+/// `OpenTelemetryLayer`, which requires a real SDK tracer (not the
+/// global `BoxedTracer`) because `tracing-opentelemetry`'s
+/// `PreSampledTracer` impl is gated on the SDK type.
+static SDK_TRACER: Mutex<Option<SdkTracer>> = Mutex::new(None);
+
+/// Hand back the SDK tracer registered by the most recent [`init`]
+/// call. Returns `None` if [`init`] has not yet been called; callers
+/// in that case typically fall back to a no-op layer.
+#[must_use]
+pub fn sdk_tracer() -> Option<SdkTracer> {
+    SDK_TRACER.lock().clone()
+}
 
 const DEFAULT_ENDPOINT: &str = "http://localhost:4318";
 const DEFAULT_SERVICE_NAME: &str = "argo";
@@ -57,6 +80,13 @@ pub fn init() -> Result<ShutdownGuard, OtlpInitError> {
         .with_batch_exporter(span_exporter, runtime::Tokio)
         .with_resource(resource.clone())
         .build();
+    // Stash the SDK tracer so `crate::otlp_bridge::otlp_layer()` can
+    // build an `OpenTelemetryLayer` against it. We must capture it
+    // BEFORE moving the provider into the global registry because
+    // `global::tracer(...)` returns the boxed wrapper and we need
+    // the concrete SDK type for the bridge.
+    let sdk_tracer = tracer_provider.tracer(TRACER_NAME);
+    *SDK_TRACER.lock() = Some(sdk_tracer);
     global::set_tracer_provider(tracer_provider.clone());
 
     let metrics_endpoint = format!("{}/v1/metrics", endpoint.trim_end_matches('/'));
