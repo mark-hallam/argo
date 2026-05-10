@@ -22,7 +22,7 @@
 use crate::anthropic::{AnthropicCall, CuStepRequest, CuStepResponse, StopReason};
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{ActionResult, CuAction, E2bCall, Sandbox};
+use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall, Sandbox};
 use crate::executor::{Outcome, RunRequest, RunResult};
 use crate::profile::Profile;
 use crate::CuError;
@@ -114,6 +114,7 @@ pub struct MockE2bClient {
     actions: Mutex<VecDeque<ScriptedAction>>,
     received: Mutex<Vec<CuAction>>,
     screenshot_png: Vec<u8>,
+    screenshot_calls: Mutex<u32>,
 }
 
 impl MockE2bClient {
@@ -126,6 +127,7 @@ impl MockE2bClient {
             actions: Mutex::new(actions.into_iter().collect()),
             received: Mutex::new(Vec::new()),
             screenshot_png,
+            screenshot_calls: Mutex::new(0),
         }
     }
 
@@ -138,6 +140,18 @@ impl MockE2bClient {
             Err(p) => p.into_inner().clone(),
         }
     }
+
+    /// Number of `screenshot()` HTTP calls the mock observed. The
+    /// double-screenshot regression guard reads this back via
+    /// [`TestRun::screenshot_calls`] to confirm the loop reuses
+    /// inline `screenshot_b64` instead of paying a second round-trip.
+    #[must_use]
+    pub fn screenshot_calls(&self) -> u32 {
+        self.screenshot_calls
+            .lock()
+            .map(|g| *g)
+            .unwrap_or(0)
+    }
 }
 
 #[async_trait]
@@ -149,6 +163,9 @@ impl E2bCall for MockE2bClient {
     }
 
     async fn screenshot(&self, _sandbox: &Sandbox) -> Result<Vec<u8>, CuError> {
+        if let Ok(mut g) = self.screenshot_calls.lock() {
+            *g += 1;
+        }
         Ok(self.screenshot_png.clone())
     }
 
@@ -229,6 +246,11 @@ pub struct TestRun {
     pub audit_rows: Vec<AuditRow>,
     /// Final step count when the loop returned.
     pub steps: u32,
+    /// Number of `screenshot()` HTTP calls the mock observed.
+    /// Used by `mission-cu-double-screenshot-fix` regression tests
+    /// to assert the loop reuses inline `screenshot_b64` instead
+    /// of paying a second round-trip per action.
+    pub screenshot_calls: u32,
 }
 
 /// Drive one harness invocation end-to-end. Builds tempdir-backed
@@ -251,6 +273,7 @@ pub async fn cu_harness_run(script: TestScript) -> TestRun {
         anthropic_calls: mock_anthropic.calls_observed(),
         audit_rows,
         steps,
+        screenshot_calls: mock_e2b.screenshot_calls(),
     }
 }
 
@@ -378,10 +401,16 @@ async fn drive_loop(
                 if let Some(t) = result.text.clone() {
                     last_text = Some(t);
                 }
-                // Always re-screenshot — mirrors the production
-                // loop's behaviour (both inline-b64 and absent
-                // branches do the same thing today).
-                screenshot = e2b.screenshot(&sandbox).await?;
+                // Mirror production: if the sandbox shipped a
+                // screenshot inline with the action response,
+                // reuse it; otherwise fall back to a fresh HTTP
+                // fetch. Keeps the harness's call cadence in sync
+                // with `run_loop` so cu_harness_offline regression
+                // tests catch double-fetch regressions.
+                screenshot = match result.screenshot_b64.as_deref() {
+                    Some(b64) => decode_inline_screenshot(b64)?,
+                    None => e2b.screenshot(&sandbox).await?,
+                };
                 let relpath = audit.save_screenshot(tracker.step(), &screenshot)?;
                 audit.append(&AuditRow {
                     step: tracker.step(),

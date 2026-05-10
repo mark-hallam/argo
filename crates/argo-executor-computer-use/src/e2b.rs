@@ -296,6 +296,23 @@ pub struct ActionResult {
     pub screenshot_b64: Option<String>,
 }
 
+/// Decode an inline `screenshot_b64` payload from an `ActionResult`
+/// into raw PNG bytes. Used by the CU loop to reuse the
+/// post-action screenshot the sandbox already shipped inline,
+/// avoiding a second HTTP round-trip to `screenshot`. Malformed
+/// base64 surfaces as `CuError::Protocol` so callers don't
+/// silently fall back to an HTTP fetch — that would mask an
+/// upstream bug in the E2B response shape.
+pub(crate) fn decode_inline_screenshot(b64: &str) -> Result<Vec<u8>, CuError> {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    STANDARD.decode(b64).map_err(|e| {
+        CuError::Protocol(format!(
+            "e2b returned malformed inline screenshot: {e}"
+        ))
+    })
+}
+
 async fn read_body_truncated(resp: reqwest::Response) -> String {
     match resp.text().await {
         Ok(t) => {
@@ -382,5 +399,39 @@ mod tests {
         // call; it just stamps the reqwest::Client.
         let c = E2bClient::new("http://localhost:1".into(), "k".into(), 5);
         assert!(c.is_ok());
+    }
+
+    #[test]
+    fn decode_inline_screenshot_returns_raw_bytes_for_valid_b64() {
+        // Standard-alphabet base64 of the canonical PNG signature
+        // header bytes — exercises the success path the CU loop
+        // takes when E2B ships `screenshot_b64` inline.
+        let png_header: &[u8] = b"\x89PNG\r\n\x1a\n";
+        use base64::engine::general_purpose::STANDARD;
+        use base64::Engine;
+        let encoded = STANDARD.encode(png_header);
+        let bytes = decode_inline_screenshot(&encoded).expect("valid b64 decodes");
+        assert_eq!(bytes, png_header);
+    }
+
+    #[test]
+    fn decode_inline_screenshot_surfaces_protocol_error_for_malformed_b64() {
+        // Trailing `!` is not a valid base64 character; decode
+        // must surface `CuError::Protocol` rather than silently
+        // falling back to a fresh HTTP fetch (which would mask
+        // the upstream bug).
+        let err = match decode_inline_screenshot("not_valid_base64!!!") {
+            Err(e) => e,
+            Ok(bytes) => panic!("malformed b64 must error; got {} bytes", bytes.len()),
+        };
+        match err {
+            CuError::Protocol(msg) => {
+                assert!(
+                    msg.contains("malformed inline screenshot"),
+                    "expected protocol message, got: {msg}",
+                );
+            }
+            other => panic!("expected CuError::Protocol; got: {other:?}"),
+        }
     }
 }

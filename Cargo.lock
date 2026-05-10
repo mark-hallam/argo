@@ -399,6 +399,7 @@ dependencies = [
  "argo-store",
  "argo-types",
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "reqwest 0.12.28",
  "serde",

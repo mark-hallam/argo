@@ -10,6 +10,7 @@ description = "Argo Stream B — ComputerUseExecutor + E2B sandbox driver for th
 [dependencies]
 argo-config = { path = "../argo-config", version = "0.0.1" }
 async-trait = { workspace = true }
+base64 = "0.22"
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

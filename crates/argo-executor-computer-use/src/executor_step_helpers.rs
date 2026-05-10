@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::anthropic::{AnthropicClient, CuStepRequest, CuStepResponse, StopReason};
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{E2bClient, Sandbox};
+use crate::e2b::{decode_inline_screenshot, E2bClient, Sandbox};
 use crate::executor::AnthropicClientTemplate;
 use crate::executor_loop_exit::{handle_restart, stringify_verdict, LoopExit};
 use crate::executor_types::{RunRequest, RunResult};
@@ -150,9 +150,12 @@ pub(crate) async fn run_loop(
                 if let Some(t) = result.text.clone() {
                     last_text = Some(t);
                 }
-                // Capture a fresh screenshot for next step.
+                // Capture a fresh screenshot for next step. If
+                // E2B shipped one inline with the action response,
+                // reuse it; only fall back to a fresh HTTP fetch
+                // when absent. Saves one round-trip per step.
                 screenshot = match result.screenshot_b64.as_deref() {
-                    Some(_b64) => e2b.screenshot(&sandbox).await?,
+                    Some(b64) => decode_inline_screenshot(b64)?,
                     None => e2b.screenshot(&sandbox).await?,
                 };
                 persist_step(screenshot_persister, req, tracker.step(), &screenshot).await;

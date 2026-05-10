@@ -186,6 +186,46 @@ async fn inline_screenshot_path_does_not_break_step_trail() {
     assert_eq!(row.step, 1);
 }
 
+/// Regression 3b: `mission-cu-double-screenshot-fix` — when the
+/// sandbox embeds `screenshot_b64: Some(...)` in the action
+/// response, the loop must reuse the decoded inline bytes and
+/// skip the post-action `e2b.screenshot()` HTTP fetch. With one
+/// scripted action the call cadence is: 1 pre-loop screenshot,
+/// 0 post-action screenshot HTTP calls = 1 total. The fallback
+/// path is also asserted: with `screenshot_b64: None`, the loop
+/// must call `e2b.screenshot()` post-action = 2 total.
+#[tokio::test]
+async fn inline_screenshot_b64_skips_post_action_http_fetch() {
+    let inline_script = TestScript::new(
+        vec![click(1, 2, 30), stop_success("inline ok", 10)],
+        vec![scripted(
+            CuAction::Click { x: 1, y: 2 },
+            ok_inline_screenshot(),
+        )],
+    );
+    let inline = cu_harness_run(inline_script).await;
+    assert!(matches!(inline.outcome, Ok(Outcome::Completed { .. })));
+    assert_eq!(
+        inline.screenshot_calls, 1,
+        "inline screenshot path must skip post-action HTTP fetch \
+         (1 pre-loop + 0 post-action); got {} calls",
+        inline.screenshot_calls,
+    );
+
+    let fallback_script = TestScript::new(
+        vec![click(3, 4, 30), stop_success("fallback ok", 10)],
+        vec![scripted(CuAction::Click { x: 3, y: 4 }, ok_response())],
+    );
+    let fallback = cu_harness_run(fallback_script).await;
+    assert!(matches!(fallback.outcome, Ok(Outcome::Completed { .. })));
+    assert_eq!(
+        fallback.screenshot_calls, 2,
+        "absent screenshot_b64 must fall back to post-action HTTP \
+         fetch (1 pre-loop + 1 post-action); got {} calls",
+        fallback.screenshot_calls,
+    );
+}
+
 /// Regression 4: malformed Anthropic reply mid-loop. The mock
 /// returns a `CannedResponse::Protocol` on the second turn; the
 /// loop must surface a `CuError::Protocol` cleanly, not silently
