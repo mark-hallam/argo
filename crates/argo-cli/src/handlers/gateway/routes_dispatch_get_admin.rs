@@ -80,7 +80,7 @@ pub(super) async fn dispatch_get_admin(
         return Some(doctor_response(format.as_deref()).await);
     }
     if req.starts_with("GET /metrics/json ") || req.starts_with("GET /metrics/json?") {
-        let body = super::metrics::render_json(store).await;
+        let body = super::metrics_json::render_json(store).await;
         return Some(("200 OK", body));
     }
     if req.starts_with("GET /routes ") || req.starts_with("GET /routes?") {

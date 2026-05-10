@@ -11,6 +11,10 @@
 //! not implement the full OpenMetrics spec (no exemplars, no
 //! histograms) — just the gauges + counters that map cleanly
 //! onto the rows already in the store.
+//!
+//! Sibling modules share the per-file 500-LOC budget:
+//!   - `metrics_text`: SQL→Prometheus text helpers used here.
+//!   - `metrics_json`: the JSON variant served at `/metrics/json`.
 use argo_store::SessionStore;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -45,11 +49,25 @@ pub(super) fn reset_scrape_count() -> u64 {
     SCRAPE_COUNT.swap(0, Ordering::Relaxed)
 }
 
+/// Increment + return the next scrape number. Shared between
+/// the text + JSON renderers so both formats see the same
+/// monotonic counter.
+pub(super) fn next_scrape_n() -> u64 {
+    SCRAPE_COUNT.fetch_add(1, Ordering::Relaxed) + 1
+}
+
+/// Seconds since `init_boot_time` (or first call, if startup
+/// forgot). Lazily initialises so an uninstrumented test
+/// harness still gets a sensible reading.
+pub(super) fn uptime_seconds() -> u64 {
+    BOOT_TIME.get_or_init(Instant::now).elapsed().as_secs()
+}
+
 /// Returns the rendered exposition body. Errors from any single
 /// query are surfaced as `# error: …` comment lines + a `0`
 /// fallback so a partial DB never breaks the whole scrape.
 pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
-    let scrape_n = SCRAPE_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+    let scrape_n = next_scrape_n();
     let mut out = String::with_capacity(1024);
     let _ = writeln!(
         out,
@@ -58,13 +76,12 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
          argo_build_info{{version=\"{}\"}} 1",
         env!("CARGO_PKG_VERSION")
     );
-    let boot = BOOT_TIME.get_or_init(Instant::now);
     let _ = writeln!(
         out,
         "\n# HELP argo_uptime_seconds Seconds since the gateway started serving /metrics\n\
          # TYPE argo_uptime_seconds gauge\n\
          argo_uptime_seconds {}",
-        boot.elapsed().as_secs()
+        uptime_seconds()
     );
     let _ = writeln!(
         out,
@@ -90,6 +107,7 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
     );
 
     let pool = store.pool();
+    use super::metrics_text::{push_count, push_forge_runs_by_status, push_sum};
     push_count(
         &mut out,
         pool,
@@ -216,251 +234,6 @@ pub(super) async fn render(store: Option<&Arc<SessionStore>>) -> String {
         }
     }
     out
-}
-
-/// `GET /metrics/json` — JSON variant of /metrics for clients
-/// that don't speak Prometheus text exposition (TUI dashboards,
-/// log-shippers, ad-hoc curl scripts). Returns a single object
-/// keyed by metric name with the same numbers /metrics emits.
-/// Errors from individual SQL queries surface as
-/// `{metric_name: null, _errors: [...]}` so a partial DB never
-/// breaks the whole response.
-pub(super) async fn render_json(store: Option<&Arc<SessionStore>>) -> String {
-    let scrape_n = SCRAPE_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-    let boot = BOOT_TIME.get_or_init(Instant::now);
-    let mut payload = serde_json::Map::new();
-    payload.insert(
-        "argo_build_info".into(),
-        serde_json::json!({"version": env!("CARGO_PKG_VERSION")}),
-    );
-    payload.insert(
-        "argo_uptime_seconds".into(),
-        serde_json::json!(boot.elapsed().as_secs()),
-    );
-    payload.insert(
-        "argo_metrics_scrapes_total".into(),
-        serde_json::json!(scrape_n),
-    );
-    let mut errors: Vec<String> = Vec::new();
-    let Some(store) = store else {
-        payload.insert("argo_store_available".into(), serde_json::json!(0));
-        return finalize_json(payload, errors);
-    };
-    payload.insert("argo_store_available".into(), serde_json::json!(1));
-    let pool = store.pool();
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_sessions_total",
-        "SELECT COUNT(*) FROM session",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_sessions_open",
-        "SELECT COUNT(*) FROM session WHERE ended_at IS NULL",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_messages_total",
-        "SELECT COUNT(*) FROM message",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_audit_rows_total",
-        "SELECT COUNT(*) FROM audit_record",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_skills_active_total",
-        "SELECT COUNT(*) FROM skill WHERE superseded_by IS NULL",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_workspace_artifacts_total",
-        "SELECT COUNT(*) FROM marketplace_artifact",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_forge_runs_running",
-        "SELECT COUNT(*) FROM forge_run WHERE status = 'running'",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_workspaces_total",
-        "SELECT COUNT(*) FROM workspace",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_memory_entries_total",
-        "SELECT COUNT(*) FROM memory_entry WHERE superseded_by IS NULL",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_judge_records_total",
-        "SELECT COUNT(*) FROM judge_record",
-    )
-    .await;
-    insert_count(
-        &mut payload,
-        &mut errors,
-        pool,
-        "argo_spend_usd_micros_total",
-        "SELECT COALESCE(SUM(amount_usd_micros), 0) FROM spend_ledger",
-    )
-    .await;
-    let by_status: Result<Vec<(String, i64)>, _> =
-        sqlx::query_as("SELECT status, COUNT(*) FROM forge_run GROUP BY status")
-            .fetch_all(pool)
-            .await;
-    let mut status_map = serde_json::Map::new();
-    match by_status {
-        Ok(rows) => {
-            for (s, n) in rows {
-                status_map.insert(s, serde_json::json!(n));
-            }
-        }
-        Err(e) => {
-            errors.push(format!("forge_runs_by_status: {e}"));
-        }
-    }
-    payload.insert(
-        "argo_forge_runs_total".into(),
-        serde_json::Value::Object(status_map),
-    );
-    // Worker action ledger gauges (#757) — same shape as the
-    // text exposition's action block, packaged into the JSON
-    // payload so consumers don't have to parse the Prometheus
-    // text format.
-    let action_counts = super::metrics_actions::gather(store).await;
-    super::metrics_actions::render_json(&mut payload, &action_counts);
-    match argo_audit::verify_all(store).await {
-        Ok(report) => {
-            payload.insert(
-                "argo_audit_chain_ok".into(),
-                serde_json::json!(if report.ok { 1 } else { 0 }),
-            );
-            payload.insert(
-                "argo_audit_chain_breaks".into(),
-                serde_json::json!(report.breaks.len()),
-            );
-        }
-        Err(e) => {
-            errors.push(format!("verify_all: {e}"));
-            payload.insert("argo_audit_chain_ok".into(), serde_json::json!(0));
-            payload.insert("argo_audit_chain_breaks".into(), serde_json::json!(0));
-        }
-    }
-    finalize_json(payload, errors)
-}
-
-fn finalize_json(
-    mut payload: serde_json::Map<String, serde_json::Value>,
-    errors: Vec<String>,
-) -> String {
-    if !errors.is_empty() {
-        payload.insert("_errors".into(), serde_json::json!(errors));
-    }
-    serde_json::to_string(&serde_json::Value::Object(payload)).unwrap_or_else(|_| "{}".to_string())
-}
-
-async fn insert_count(
-    payload: &mut serde_json::Map<String, serde_json::Value>,
-    errors: &mut Vec<String>,
-    pool: &sqlx::SqlitePool,
-    name: &str,
-    sql: &str,
-) {
-    match sqlx::query_scalar::<_, i64>(sql).fetch_one(pool).await {
-        Ok(n) => {
-            payload.insert(name.into(), serde_json::json!(n));
-        }
-        Err(e) => {
-            errors.push(format!("{name}: {e}"));
-            payload.insert(name.into(), serde_json::Value::Null);
-        }
-    }
-}
-
-async fn push_count(out: &mut String, pool: &sqlx::SqlitePool, name: &str, help: &str, sql: &str) {
-    let _ = writeln!(out, "\n# HELP {name} {help}\n# TYPE {name} counter");
-    match sqlx::query_scalar::<_, i64>(sql).fetch_one(pool).await {
-        Ok(n) => {
-            let _ = writeln!(out, "{name} {n}");
-        }
-        Err(e) => {
-            let _ = writeln!(out, "# error: {e}\n{name} 0");
-        }
-    }
-}
-
-async fn push_sum(out: &mut String, pool: &sqlx::SqlitePool, name: &str, help: &str, sql: &str) {
-    let _ = writeln!(out, "\n# HELP {name} {help}\n# TYPE {name} counter");
-    match sqlx::query_scalar::<_, i64>(sql).fetch_one(pool).await {
-        Ok(n) => {
-            let _ = writeln!(out, "{name} {n}");
-        }
-        Err(e) => {
-            let _ = writeln!(out, "# error: {e}\n{name} 0");
-        }
-    }
-}
-
-async fn push_forge_runs_by_status(out: &mut String, pool: &sqlx::SqlitePool) {
-    let _ = writeln!(
-        out,
-        "\n# HELP argo_forge_runs_total Recorded forge runs grouped by terminal status\n\
-         # TYPE argo_forge_runs_total counter"
-    );
-    let rows: Result<Vec<(String, i64)>, _> =
-        sqlx::query_as("SELECT status, COUNT(*) FROM forge_run GROUP BY status")
-            .fetch_all(pool)
-            .await;
-    match rows {
-        Ok(rows) if rows.is_empty() => {
-            let _ = writeln!(out, "argo_forge_runs_total{{status=\"none\"}} 0");
-        }
-        Ok(rows) => {
-            for (status, n) in rows {
-                let safe = status.replace('"', "");
-                let _ = writeln!(out, "argo_forge_runs_total{{status=\"{safe}\"}} {n}");
-            }
-        }
-        Err(e) => {
-            let _ = writeln!(
-                out,
-                "# error: forge_run group-by status failed: {e}\n\
-                 argo_forge_runs_total{{status=\"unknown\"}} 0"
-            );
-        }
-    }
 }
 
 /// Build the full HTTP response (status line + headers + body)
