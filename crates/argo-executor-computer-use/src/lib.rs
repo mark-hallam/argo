@@ -54,6 +54,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod anthropic;
+mod anthropic_parse;
 pub mod audit;
 pub mod budget;
 pub mod config;
