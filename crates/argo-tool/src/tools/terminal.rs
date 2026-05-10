@@ -1,28 +1,133 @@
-//! `terminal` — run a shell command in the workspace.
+//! `terminal` — run a shell command in the workspace via `argo-sandbox`.
 //!
-//! Argo runs commands through `bash -c` for portability; full sandboxing
-//! is §15 / Phase 5. Phase 3 enforces:
+//! Argo runs commands through `bash -c` for portability; full sandbox
+//! isolation is §15 / Phase 5. Phase 3 enforces:
 //!
-//! - `Capability::Spawn { kind: Subprocess }` — checked at dispatch.
+//! - `Capability::Spawn { kind: Subprocess }` (or `Container` for the
+//!   sandbox backend) — checked at dispatch.
 //! - Per-call wall-clock timeout, defaulted to 60s.
 //! - Output capped at 64 KB per stream so a runaway command can't OOM
 //!   the agent loop.
+//!
+//! ## Backends
+//!
+//! `backend = "local"` (default) routes through
+//! [`argo_sandbox::LocalSandbox`] — `bash -c` in the current OS
+//! namespace. Suitable for trusted workspaces. Requires
+//! `Capability::Spawn { kind: Subprocess }`.
+//!
+//! `backend = "sandbox"` opt-in container-grade isolation. Today the
+//! dispatch still routes through `LocalSandbox` (the structural seam
+//! is in place; the real Docker / E2B microVM backends land in a
+//! follow-up brief). The dispatch logs a `terminal_sandbox_requested`
+//! event so audit can confirm intent and operators see when a vertical
+//! requests sandboxed exec while the isolation backend is still
+//! pending. Requires `Capability::Spawn { kind: Container }`.
+//!
+//! ```
+//! use argo_tool::{Terminal, Tool};
+//! let t = Terminal::default();
+//! assert_eq!(t.name(), "terminal");
+//! // {"command": "echo hi"}                       — Spawn::Subprocess
+//! // {"command": "npm install", "backend": "sandbox"} — Spawn::Container
+//! ```
 use crate::tool::{error_text, success_text, Concurrency, Tool, ToolContext};
-use argo_types::{ArgoResult, Capability, CapabilitySet, SpawnKind, ToolCallResult};
+use argo_sandbox::{LocalSandbox, RunRequest, RunResult, Sandbox};
+use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, SpawnKind, ToolCallResult};
 use async_trait::async_trait;
 use serde::Deserialize;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
-/// Cap per stream — generous enough for normal output, hard enough to
-/// stop a `yes` loop from filling memory.
-const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 
-/// Run a shell command via `bash -c`. Output capped at 64 KB / stream
-/// and 60 s wall-clock by default.
-#[derive(Debug, Default)]
-pub struct Terminal;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Backend {
+    Local,
+    Sandbox,
+}
 
+impl Backend {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "local" => Ok(Self::Local),
+            "sandbox" => Ok(Self::Sandbox),
+            other => Err(format!(
+                "unknown backend '{other}': supported = local | sandbox"
+            )),
+        }
+    }
+
+    fn from_args(args: &serde_json::Value) -> Result<Self, String> {
+        match args.get("backend") {
+            None | Some(serde_json::Value::Null) => Ok(Self::Local),
+            Some(serde_json::Value::String(s)) => Self::parse(s),
+            Some(other) => Err(format!(
+                "invalid backend type: expected string, got {other}"
+            )),
+        }
+    }
+
+    fn capability(self) -> Capability {
+        match self {
+            Self::Local => Capability::Spawn {
+                spawn_kind: SpawnKind::Subprocess,
+            },
+            Self::Sandbox => Capability::Spawn {
+                spawn_kind: SpawnKind::Container,
+            },
+        }
+    }
+}
+
+/// Run a shell command via `bash -c` through the
+/// [`argo_sandbox::Sandbox`] seam.
+///
+/// Output is capped at 64 KB per stream and the wall-clock defaults
+/// to 60s. The `backend` argument (`"local"` default | `"sandbox"`)
+/// picks between the local-process and (today still local-backed)
+/// container seam, with capability requirements differentiated
+/// accordingly.
+#[derive(Debug, Clone)]
+pub struct Terminal {
+    local: Arc<dyn Sandbox>,
+    sandboxed: Arc<dyn Sandbox>,
+}
+
+impl Default for Terminal {
+    fn default() -> Self {
+        // Today both backends share `LocalSandbox`; the seam is in
+        // place so a future Docker / E2B / Firecracker backend slots
+        // into `sandboxed` without touching the tool surface.
+        let local: Arc<dyn Sandbox> = Arc::new(LocalSandbox::new());
+        Self {
+            local: local.clone(),
+            sandboxed: local,
+        }
+    }
+}
+
+impl Terminal {
+    /// Inject custom sandbox instances. Used by tests (and by future
+    /// runtime wiring once the Docker / E2B backend lands) to swap the
+    /// `"sandbox"` backend without touching the tool surface.
+    #[must_use]
+    pub fn with_sandboxes(local: Arc<dyn Sandbox>, sandboxed: Arc<dyn Sandbox>) -> Self {
+        Self { local, sandboxed }
+    }
+
+    fn pick(&self, backend: Backend) -> &Arc<dyn Sandbox> {
+        match backend {
+            Backend::Local => &self.local,
+            Backend::Sandbox => &self.sandboxed,
+        }
+    }
+}
+
+// `backend` is read directly off the raw JSON in
+// [`Backend::from_args`] (and again at capability time) so it does
+// not appear in this struct, but the JSON schema still advertises it
+// to the model.
 #[derive(Debug, Deserialize)]
 struct Args {
     command: String,
@@ -40,7 +145,9 @@ impl Tool for Terminal {
     fn description(&self) -> &str {
         "Run a shell command in the workspace via `bash -c`. Returns \
          stdout, stderr, and exit code. Output capped at 64 KB per \
-         stream; default timeout 60s."
+         stream; default timeout 60s. `backend` selects `local` \
+         (default; Spawn::Subprocess) or `sandbox` (Spawn::Container — \
+         routes through the argo-sandbox seam for isolation-grade exec)."
     }
     fn parameters(&self) -> serde_json::Value {
         serde_json::json!({
@@ -50,6 +157,12 @@ impl Tool for Terminal {
                 "command": { "type": "string" },
                 "working_dir": { "type": "string", "description": "Workspace-relative." },
                 "timeout_ms": { "type": "integer", "minimum": 100 },
+                "backend": {
+                    "type": "string",
+                    "enum": ["local", "sandbox"],
+                    "default": "local",
+                    "description": "`local` runs directly under bash (Spawn::Subprocess). `sandbox` routes through the argo-sandbox seam (Spawn::Container)."
+                },
             },
             "additionalProperties": false,
         })
@@ -58,10 +171,12 @@ impl Tool for Terminal {
         Concurrency::Serial
     }
 
-    fn required_capabilities(&self, _args: &serde_json::Value) -> ArgoResult<CapabilitySet> {
-        Ok(CapabilitySet(vec![Capability::Spawn {
-            spawn_kind: SpawnKind::Subprocess,
-        }]))
+    fn required_capabilities(&self, args: &serde_json::Value) -> ArgoResult<CapabilitySet> {
+        let backend = Backend::from_args(args).map_err(|msg| ArgoError::Tool {
+            tool: "terminal".into(),
+            msg,
+        })?;
+        Ok(CapabilitySet(vec![backend.capability()]))
     }
 
     async fn dispatch(
@@ -70,66 +185,72 @@ impl Tool for Terminal {
         ctx: &ToolContext,
     ) -> ArgoResult<ToolCallResult> {
         let started = Instant::now();
-        let parsed: Args =
-            serde_json::from_value(args).map_err(|e| argo_types::ArgoError::Tool {
-                tool: "terminal".into(),
-                msg: format!("invalid arguments: {e}"),
-            })?;
+        let backend = match Backend::from_args(&args) {
+            Ok(b) => b,
+            Err(msg) => return Ok(err(ctx, started, msg)),
+        };
+        let parsed: Args = match serde_json::from_value(args) {
+            Ok(a) => a,
+            Err(e) => return Ok(err(ctx, started, format!("invalid arguments: {e}"))),
+        };
         let cwd = parsed
             .working_dir
             .map(|d| ctx.workspace_root.join(d))
             .unwrap_or_else(|| ctx.workspace_root.clone());
         let timeout = Duration::from_millis(parsed.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
-        let exec = run_command(&parsed.command, &cwd, timeout);
-        match tokio::time::timeout(timeout, exec).await {
-            Ok(Ok((stdout, stderr, code))) => Ok(success_text(
-                ctx.call_id,
-                format_output(&stdout, &stderr, code),
-                started.elapsed().as_millis() as u64,
-            )),
-            Ok(Err(e)) => Ok(error_text(
-                ctx.call_id,
-                format!("terminal exec failed: {e}"),
-                started.elapsed().as_millis() as u64,
-            )),
-            Err(_) => Ok(error_text(
-                ctx.call_id,
-                format!(
-                    "terminal exec exceeded {} ms timeout (`{}`)",
-                    timeout.as_millis(),
-                    truncate(&parsed.command, 200)
-                ),
-                started.elapsed().as_millis() as u64,
-            )),
+
+        if backend == Backend::Sandbox {
+            // Audit hook: explicit log so operators see when a vertical
+            // requests sandboxed exec while the Docker / E2B backend is
+            // still pending. The `resolved_backend_id` field reveals
+            // whether the seam has been swapped (e.g. `"docker"`) or
+            // is still falling back to local execution.
+            tracing::info!(
+                target: "argo.tool.terminal",
+                event = "terminal_sandbox_requested",
+                tool = "terminal",
+                backend = "sandbox",
+                resolved_backend_id = self.pick(backend).id(),
+                command_preview = truncate(&parsed.command, 200).as_str(),
+                "terminal sandbox-mode requested"
+            );
+        }
+
+        let mut req = RunRequest::new(parsed.command.clone(), cwd);
+        req.timeout = Some(timeout);
+        match self.pick(backend).run(&req).await {
+            Ok(result) => Ok(into_call_result(ctx, started, &parsed.command, timeout, &result)),
+            Err(e) => Ok(err(ctx, started, format!("terminal exec failed: {e}"))),
         }
     }
 }
 
-async fn run_command(
-    command: &str,
-    cwd: &std::path::Path,
-    _timeout: Duration,
-) -> std::io::Result<(String, String, i32)> {
-    let output = tokio::process::Command::new("bash")
-        .arg("-c")
-        .arg(command)
-        .current_dir(cwd)
-        .output()
-        .await?;
-    let stdout = truncate_bytes_to_string(&output.stdout, MAX_OUTPUT_BYTES);
-    let stderr = truncate_bytes_to_string(&output.stderr, MAX_OUTPUT_BYTES);
-    let code = output.status.code().unwrap_or(-1);
-    Ok((stdout, stderr, code))
+fn err(ctx: &ToolContext, started: Instant, msg: String) -> ToolCallResult {
+    error_text(ctx.call_id, msg, started.elapsed().as_millis() as u64)
 }
 
-fn truncate_bytes_to_string(bytes: &[u8], cap: usize) -> String {
-    if bytes.len() <= cap {
-        return String::from_utf8_lossy(bytes).into_owned();
+fn into_call_result(
+    ctx: &ToolContext,
+    started: Instant,
+    command: &str,
+    timeout: Duration,
+    result: &RunResult,
+) -> ToolCallResult {
+    if result.timed_out {
+        return error_text(
+            ctx.call_id,
+            format!(
+                "terminal exec exceeded {} ms timeout (`{}`)",
+                timeout.as_millis(),
+                truncate(command, 200)
+            ),
+            started.elapsed().as_millis() as u64,
+        );
     }
-    let head = String::from_utf8_lossy(&bytes[..cap]).into_owned();
-    format!(
-        "{head}\n... [truncated {} bytes from this stream]",
-        bytes.len() - cap
+    success_text(
+        ctx.call_id,
+        format_output(&result.stdout, &result.stderr, result.exit_code),
+        started.elapsed().as_millis() as u64,
     )
 }
 
@@ -149,90 +270,5 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use argo_types::Principal;
-
-    fn ctx(dir: &std::path::Path) -> ToolContext {
-        ToolContext::new(
-            Principal::Local {
-                os_user: "u".into(),
-            },
-            dir.to_path_buf(),
-        )
-    }
-
-    // The three tests below shell out to Unix-shell built-ins
-    // (`echo`, `exit`, `sleep`) and don't translate to cmd.exe;
-    // gated to Unix runners. Schema/dispatcher checks below are
-    // platform-agnostic.
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn echoes_stdout() {
-        let dir = tempfile::tempdir().unwrap();
-        let r = Terminal
-            .dispatch(serde_json::json!({"command": "echo hi"}), &ctx(dir.path()))
-            .await
-            .unwrap();
-        assert!(!r.is_error);
-        let body = match &r.content[0] {
-            argo_types::ContentBlock::Text { text } => text.clone(),
-            _ => panic!("text"),
-        };
-        assert!(body.contains("exit_code: 0"));
-        assert!(body.contains("hi"));
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn captures_nonzero_exit() {
-        let dir = tempfile::tempdir().unwrap();
-        let r = Terminal
-            .dispatch(serde_json::json!({"command": "exit 7"}), &ctx(dir.path()))
-            .await
-            .unwrap();
-        assert!(!r.is_error); // exec succeeded; exit code is content not failure.
-        let body = match &r.content[0] {
-            argo_types::ContentBlock::Text { text } => text.clone(),
-            _ => panic!("text"),
-        };
-        assert!(body.contains("exit_code: 7"));
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn timeout_reports_clearly() {
-        let dir = tempfile::tempdir().unwrap();
-        let r = Terminal
-            .dispatch(
-                serde_json::json!({"command": "sleep 5", "timeout_ms": 100}),
-                &ctx(dir.path()),
-            )
-            .await
-            .unwrap();
-        assert!(r.is_error);
-        let body = match &r.content[0] {
-            argo_types::ContentBlock::Text { text } => text.clone(),
-            _ => panic!("text"),
-        };
-        assert!(body.contains("timeout"));
-    }
-
-    #[test]
-    fn required_capability_is_subprocess_spawn() {
-        let caps = Terminal
-            .required_capabilities(&serde_json::json!({"command": "x"}))
-            .unwrap();
-        assert!(caps.covers(&Capability::Spawn {
-            spawn_kind: SpawnKind::Subprocess,
-        }));
-    }
-
-    #[test]
-    fn truncate_bytes_caps_stream_size() {
-        let big = vec![b'x'; MAX_OUTPUT_BYTES * 2];
-        let s = truncate_bytes_to_string(&big, MAX_OUTPUT_BYTES);
-        assert!(s.contains("[truncated"));
-        assert!(s.contains(&format!("{MAX_OUTPUT_BYTES} bytes")));
-    }
-}
+#[path = "terminal_tests.rs"]
+mod tests;
