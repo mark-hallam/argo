@@ -7,10 +7,14 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum EvalCmd {
-    /// Validate a generic argo-eval task JSONL file.
+    /// Validate eval seeds. Accepts either a JSONL path (legacy
+    /// generic task format) or a vertical id; the latter loads the
+    /// vertical's eval suites and reports a pass-rate envelope
+    /// (`mvp-vertical-eval-harness`).
     Validate {
-        /// Path to a JSONL file containing argo-eval tasks.
-        path: String,
+        /// Either a path to a JSONL fixtures file, or the id of a
+        /// vertical loadable from `$ARGO_VERTICALS_DIR`/`./verticals`.
+        target: String,
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,

@@ -86,6 +86,7 @@ pub mod eval_compare;
 pub mod eval_list;
 pub mod eval_run;
 pub mod eval_show;
+mod eval_validate_vertical;
 pub mod forge;
 mod forge_admin;
 pub mod forge_by_day;

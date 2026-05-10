@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
     match cmd {
-        EvalCmd::Validate { path, json } => validate(&PathBuf::from(path), json).await,
+        EvalCmd::Validate { target, json } => validate_target(&target, json).await,
         EvalCmd::List {
             vertical,
             limit,
@@ -60,7 +60,20 @@ pub async fn run(cmd: EvalCmd) -> ArgoResult<()> {
     }
 }
 
-async fn validate(path: &Path, json_out: bool) -> ArgoResult<()> {
+/// Dispatches the brief's `<vertical-name-or-path>` argument:
+/// existing files fall through to the legacy JSONL validator;
+/// otherwise we attempt to load `target` as a vertical id and run
+/// the vertical-eval-harness pass-rate report (sibling module
+/// `eval_validate_vertical`).
+async fn validate_target(target: &str, json_out: bool) -> ArgoResult<()> {
+    let path = PathBuf::from(target);
+    if path.is_file() {
+        return validate_jsonl(&path, json_out).await;
+    }
+    super::eval_validate_vertical::run(target, json_out)
+}
+
+async fn validate_jsonl(path: &Path, json_out: bool) -> ArgoResult<()> {
     let tasks = load_jsonl(path).await?;
     let mut by_metric: BTreeMap<&'static str, usize> = BTreeMap::new();
     for t in &tasks {
@@ -232,7 +245,9 @@ fn emit_streaming_line(
     }
 }
 
-fn load_vertical(id: &str) -> ArgoResult<(argo_vertical::Registry, LoadedVertical)> {
+pub(super) fn load_vertical(
+    id: &str,
+) -> ArgoResult<(argo_vertical::Registry, LoadedVertical)> {
     let dir = super::vertical::resolve_verticals_dir();
     let (registry, errors) = argo_vertical::load_dir(&dir)?;
     let loaded = registry.get(id).cloned().ok_or_else(|| {
@@ -254,16 +269,16 @@ fn load_vertical(id: &str) -> ArgoResult<(argo_vertical::Registry, LoadedVertica
 }
 
 #[derive(Clone)]
-struct FixtureRow {
-    id: String,
-    input: String,
-    expected: Value,
-    raw: Value,
-    suite: String,
-    line: usize,
+pub(super) struct FixtureRow {
+    pub(super) id: String,
+    pub(super) input: String,
+    pub(super) expected: Value,
+    pub(super) raw: Value,
+    pub(super) suite: String,
+    pub(super) line: usize,
 }
 
-fn collect_fixtures(loaded: &LoadedVertical) -> ArgoResult<Vec<FixtureRow>> {
+pub(super) fn collect_fixtures(loaded: &LoadedVertical) -> ArgoResult<Vec<FixtureRow>> {
     let suites = loaded
         .manifest
         .evaluation
@@ -329,7 +344,7 @@ fn required_str(raw: &Value, suite: &str, line: usize, key: &str) -> ArgoResult<
     Ok(value.to_string())
 }
 
-fn dry_run_actual(expected: &Value) -> String {
+pub(super) fn dry_run_actual(expected: &Value) -> String {
     let mut parts = vec!["dry-run worker pipeline result".to_string()];
     if let Some(items) = expected.get("must_include").and_then(Value::as_array) {
         let included: Vec<&str> = items.iter().filter_map(Value::as_str).collect();
