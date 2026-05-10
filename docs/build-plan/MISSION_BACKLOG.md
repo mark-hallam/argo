@@ -185,7 +185,7 @@ unblocks a mission claim.
 61. Add interactive Genesis with multi-turn refinement.
     `[PARTIAL — claude-genesis-charter-conversation #885 SHIPPED single-turn]`
 62. Add Genesis from existing tenant verticals (transfer
-    learning). `[NEW]`
+    learning). `[BRIEF: mission-genesis-transfer-from-tenant]`
 63. Build vertical version diff/migrate.
     `[SHIPPED]`
 64. Add Genesis that ingests a job description (PDF/text). `[BRIEF: mission-genesis-job-description-ingest]`
