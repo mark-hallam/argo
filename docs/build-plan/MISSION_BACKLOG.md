@@ -143,15 +143,15 @@ unblocks a mission claim.
 ### Claim 1: Real teammate
 
 39. Add `IdentityStore::update_worker` typed mutation API. `[BRIEF: mission-identity-update-worker]`
-40. Add `IdentityStore::archive_worker` / `delete_worker`. `[NEW]`
+40. Add `IdentityStore::archive_worker` / `delete_worker`. `[BRIEF: mission-identity-delete-worker]`
 41. Wire `MemoryNs::compose_context` to layered hydration.
     `[SHIPPED]`
 42. Add per-worker memory tool action `query_scored`. `[BRIEF: mission-memory-query-scored-action]`
 43. Add worker-namespace and shared-team addressing from the
-    memory tool. `[NEW]`
+    memory tool. `[BRIEF: mission-memory-tool-namespace-action]`
 44. Wire `spawn_duty_scheduler`.
     `[SHIPPED]`
-45. Add DutyGate::OpenGate configurable per-duty. `[NEW]`
+45. Add DutyGate::OpenGate configurable per-duty. `[BRIEF: mission-duty-gate-per-duty-config]`
 46. Add per-worker persona evolution (audit-logged + revertible).
     `[NEW]`
 47. Add Worker portrait page (web URL).
