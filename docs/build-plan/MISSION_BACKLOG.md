@@ -166,13 +166,13 @@ unblocks a mission claim.
 51. Implement `RoutingEngine::route` for SkillMatch and RoleMatch.
     `[PARTIAL — handoff-routing-rules #883 SHIPPED but skill_match/role_match return None]`
 52. Wire org chart `manager_id` chain into HandoffWalker
-    escalation. `[NEW]`
-53. Wire roster lookup before `resolve_effective_policy`. `[NEW]`
+    escalation. `[BRIEF: mission-handoffwalker-manager-chain]`
+53. Wire roster lookup before `resolve_effective_policy`. `[BRIEF: mission-roster-resolve-policy]`
 54. Add KPI primitives — declarative KPI definitions in vertical
     manifest. `[NEW]`
 55. Add real-time tokio broadcast bidder loops to Auction
     (currently CLI only — claude-skill-auction #900 SHIPPED). `[NEW]`
-56. Add `delegate_task` inheritance of fallback chain. `[NEW]`
+56. Add `delegate_task` inheritance of fallback chain. `[BRIEF: mission-delegate-task-fallback-chain]`
 57. Add per-delegation budget tree. `[NEW]`
 
 ### Claim 3: Platform builds workers (Genesis)
