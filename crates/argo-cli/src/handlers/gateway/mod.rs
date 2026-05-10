@@ -10,6 +10,7 @@
 //!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
 mod boot;
 mod dashboard;
+mod dashboard_fleet;
 mod routes_dashboard;
 mod lifecycle;
 mod metrics;

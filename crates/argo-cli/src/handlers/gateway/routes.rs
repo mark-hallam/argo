@@ -68,6 +68,13 @@ pub(super) async fn dispatch_route(
     // without provisioning a per-tab token; mutating actions still
     // route through `/inbox/approve|reject`, which carry their own
     // operator-token gate.
+    // Fleet view (`claude-dashboard-fleet-view-html`) is its own
+    // handler so it stays decoupled from the single-session
+    // dashboard module. Mounted ahead of the bearer-token gate for
+    // the same operator-UX reason as the dashboard MVP.
+    if super::dashboard_fleet::is_fleet(req) {
+        return super::dashboard_fleet::handle(store).await;
+    }
     if super::routes_dashboard::is_dashboard(req) {
         if let Some(resp) = super::routes_dashboard::dispatch(req, store).await {
             return resp;
