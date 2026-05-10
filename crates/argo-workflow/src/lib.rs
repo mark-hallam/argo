@@ -48,6 +48,8 @@
 
 mod checkpoint;
 mod dag;
+#[cfg(test)]
+mod dag_tests;
 mod executor;
 mod executor_checkpoint;
 mod expr;
