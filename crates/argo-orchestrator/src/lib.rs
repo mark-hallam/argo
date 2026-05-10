@@ -45,6 +45,7 @@ pub mod persist;
 pub mod persist_audit;
 mod persist_handoffs;
 pub mod routing;
+mod routing_store;
 mod session;
 mod walker;
 mod walker_helpers;
