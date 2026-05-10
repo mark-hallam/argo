@@ -153,7 +153,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 45. Add DutyGate::OpenGate configurable per-duty. `[BRIEF: mission-duty-gate-per-duty-config]`
 46. Add per-worker persona evolution (audit-logged + revertible).
-    `[NEW]`
+    `[BRIEF: mission-persona-evolution-audit-revert]`
 47. Add Worker portrait page (web URL).
     `[SHIPPED]`
 48. Build "voice profile" per persona. `[NEW]`
@@ -188,7 +188,7 @@ unblocks a mission claim.
     learning). `[NEW]`
 63. Build vertical version diff/migrate.
     `[SHIPPED]`
-64. Add Genesis that ingests a job description (PDF/text). `[NEW]`
+64. Add Genesis that ingests a job description (PDF/text). `[BRIEF: mission-genesis-job-description-ingest]`
 65. Build Genesis for non-archetype roles (broader generation +
     safety judge). `[NEW]`
 
