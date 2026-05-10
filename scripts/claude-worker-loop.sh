@@ -39,6 +39,62 @@ QUOTA_HIT="/tmp/argo-quota-hit-$$"
 
 cd "$REPO"
 
+# --- Clean-stop trap (SIGHUP/SIGTERM/SIGINT) -------------------------------
+# If the operator closes the tab (SIGHUP), kills the loop (SIGTERM), or
+# Ctrl-C's it (SIGINT) while a brief is CLAIMED, release the claim back to
+# TODO so the swarm doesn't leave a zombie row. Best-effort — if the push
+# races, the conductor's >2h stale-sweep will catch it.
+#
+# BRIEF_ID and PULSE_FILE are set inside the iteration. If the trap fires
+# before they're set, the conditionals below silently no-op.
+release_on_signal() {
+  local sig="${1:-EXIT}"
+  echo "" >&2
+  echo "[$(date +%H:%M:%S)] === worker-loop received $sig — clean shutdown ===" >&2
+  if [ -n "${BRIEF_ID:-}" ] && [ -n "${PULSE_FILE:-}" ] && [ -f "$PULSE_FILE" ]; then
+    echo "[$(date +%H:%M:%S)] Releasing claim on $BRIEF_ID (if still CLAIMED)..." >&2
+    rm -f "$PULSE_FILE"
+    [ -n "${PULSE_PID:-}" ] && kill "$PULSE_PID" 2>/dev/null || true
+    # Best-effort claim release. Skip if not still CLAIMED (worker may have
+    # opened a PR + pushed IN_REVIEW already).
+    set +e
+    git -C "$REPO" fetch origin main 2>/dev/null
+    git -C "$REPO" checkout main 2>/dev/null
+    git -C "$REPO" pull --ff-only origin main 2>/dev/null
+    if grep -qE "^\| ${BRIEF_ID} \| (claude|codex) \| CLAIMED \|" \
+         "$REPO/docs/build-plan/BUILD_STATUS.md" 2>/dev/null; then
+      python3 - "$BRIEF_ID" "$REPO" <<'PY' 2>/dev/null
+import re, sys, pathlib
+brief, repo = sys.argv[1:3]
+p = pathlib.Path(repo) / "docs/build-plan/BUILD_STATUS.md"
+text = p.read_text()
+note = (f" **RELEASED by worker-loop signal-trap (SIGHUP/SIGTERM/SIGINT):** "
+        f"tab closed mid-iteration. /tmp/{brief} may have salvageable WIP.")
+new, n = re.subn(
+    rf"^(\| {re.escape(brief)} \| (?:claude|codex)) \| CLAIMED \|(.*) \|$",
+    lambda m: f"{m.group(1)} | TODO |{m.group(2)}{note} |",
+    text, count=1, flags=re.MULTILINE,
+)
+if n:
+    p.write_text(new)
+PY
+      git -C "$REPO" add docs/build-plan/BUILD_STATUS.md 2>/dev/null
+      if ! git -C "$REPO" diff --cached --quiet 2>/dev/null; then
+        git -C "$REPO" commit -m "status: release $BRIEF_ID (worker-loop signal trap)" 2>&1 | tail -1 >&2
+        git -C "$REPO" pull --rebase origin main 2>&1 | tail -1 >&2
+        git -C "$REPO" push origin main 2>&1 | tail -1 >&2
+      fi
+    fi
+    set -e
+  fi
+  rm -f "$QUOTA_HIT" 2>/dev/null
+  echo "[$(date +%H:%M:%S)] Exiting cleanly." >&2
+  exit 0
+}
+trap 'release_on_signal HUP'  HUP
+trap 'release_on_signal TERM' TERM
+trap 'release_on_signal INT'  INT
+
 # Spin-loop guard: if the SAME brief fails to claim N times in a row, exit
 # rather than burning CPU. claim-with-retry exit codes:
 #   0 = claimed
@@ -241,8 +297,6 @@ the next iteration.
     elif .type == "result" then "  ✅ result: " + (.subtype // "ok")
     elif .type == "system" and .subtype == "init" then "  ▶️  session started"
     else empty end' \
-  | tee >(grep --line-buffered -oE "You.ve hit your (limit|usage).+" \
-          | head -1 > "$QUOTA_HIT") \
   || echo "[$(date +%H:%M:%S)] Claude session exited non-zero for $BRIEF_ID. Conductor will see the stale state on next tick."
 
   # Stop the heartbeat: clear the pulse file (background loop drops on next
@@ -250,17 +304,39 @@ the next iteration.
   rm -f "$PULSE_FILE"
   kill "$PULSE_PID" 2>/dev/null || true
 
+  # Quota detection — race-free. Previously this used `tee >(grep ... > sentinel)`
+  # process substitution, which bash does NOT wait for; the [ -s "$QUOTA_HIT" ]
+  # check ran before grep flushed its match, so when claude exited with
+  # `result: success` (which it does when the limit message is rendered as a
+  # successful assistant turn), the auto-resume guard silently fell through and
+  # the next iteration also hit quota. Result: tabs that hit quota a second
+  # time never auto-recovered.
+  #
+  # Fix: $LOG_FILE is the raw stream-json, fully synced to disk by the inline
+  # `tee "$LOG_FILE"` above. Grep it AFTER the pipeline closes — no race.
+  RESET_LINE=$(grep -oE "You.ve hit your (limit|usage)[^\\\"]+" "$LOG_FILE" 2>/dev/null | head -1 || true)
+  if [ -n "$RESET_LINE" ]; then
+    echo "$RESET_LINE" > "$QUOTA_HIT"
+  fi
+
   # Auto-resume on Anthropic 5h-quota exhaustion. The session prints e.g.
   # "You've hit your limit · resets 8:40pm (Australia/Melbourne)" and exits ~2s
   # later. Without this guard the bash loop happily claims the next brief, hits
   # quota again, and burns TODO rows into permanently-CLAIMED state. We:
-  #   1. Detect the quota line (per-PID sentinel $QUOTA_HIT, written by tee>grep above)
+  #   1. Detect the quota line (post-pipeline grep of $LOG_FILE)
   #   2. Parse the reset time → seconds-to-sleep
   #   3. Release the just-claimed row back to TODO with a salvage note
   #   4. Sleep until quota reset (+5min buffer), then `continue` the outer loop.
   if [ -f "$QUOTA_HIT" ] && [ -s "$QUOTA_HIT" ]; then
     RESET_LINE=$(cat "$QUOTA_HIT")
-    echo "[$(date +%H:%M:%S)] Anthropic quota exhausted. $RESET_LINE"
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════════════╗"
+    echo "║  🛑  ANTHROPIC QUOTA EXHAUSTED — $(date +%H:%M:%S)                       ║"
+    echo "║  $RESET_LINE"
+    echo "║  Tab will sleep until reset + 5min buffer, then auto-resume.       ║"
+    echo "║  Heartbeat every 5min so you can see the tab is alive.             ║"
+    echo "╚═══════════════════════════════════════════════════════════════════╝"
+    echo ""
 
     # Compute seconds until reset; falls back to 1h on any parse failure.
     SLEEP_SECS=$(QUOTA_HIT="$QUOTA_HIT" python3 - <<'PY'
@@ -327,8 +403,23 @@ PY
              || date -d "@$(($(date +%s)+SLEEP_SECS))" +%H:%M:%S 2>/dev/null \
              || echo "after sleep")
     echo "[$(date +%H:%M:%S)] Sleeping ${SLEEP_SECS}s until quota reset (+5min buffer). Resume at ${RESUME_AT}."
-    sleep "$SLEEP_SECS"
-    echo "[$(date +%H:%M:%S)] Quota window expected open. Resuming loop."
+    # Heartbeat every 5 min during the long sleep so the operator sees that
+    # the tab is alive and waiting (instead of looking like a dead terminal).
+    # SIGHUP/TERM/INT trap above still applies — the tab can be Ctrl-C'd
+    # cleanly during this sleep and the claim will be released.
+    REMAINING=$SLEEP_SECS
+    HEARTBEAT_INTERVAL=300  # 5 minutes
+    while [ "$REMAINING" -gt 0 ]; do
+      THIS_TICK=$REMAINING
+      [ "$THIS_TICK" -gt "$HEARTBEAT_INTERVAL" ] && THIS_TICK=$HEARTBEAT_INTERVAL
+      sleep "$THIS_TICK"
+      REMAINING=$((REMAINING - THIS_TICK))
+      if [ "$REMAINING" -gt 0 ]; then
+        MINS=$((REMAINING / 60))
+        echo "[$(date +%H:%M:%S)] 💤 quota-sleep — ${MINS}min remaining (resume ~${RESUME_AT})"
+      fi
+    done
+    echo "[$(date +%H:%M:%S)] ✅ Quota window expected open. Resuming loop."
     continue
   fi
   rm -f "$QUOTA_HIT"  # belt-and-braces cleanup if file existed but was empty
