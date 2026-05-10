@@ -433,8 +433,6 @@ read-only inspections) don't need the pause. Use it for:
 - Authoring or amending brief files in `docs/build-plan/streams/`
 - Scripts in `scripts/` (workspace tooling)
 - `BUILD_STATUS_HISTORY.ndjson` appends via
-  `scripts/append-history.sh`
-
 Skip it for:
 
 - Pure read tools (`scripts/conductor-status.sh`,
