@@ -288,6 +288,13 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 Ok(())
             }
             cli::ComplianceCmd::Export(args) => handlers::compliance_export::run(args).await,
+            cli::ComplianceCmd::Delete(args) => {
+                let rc = handlers::compliance_delete::run(args).await?;
+                if rc != 0 {
+                    std::process::exit(rc);
+                }
+                Ok(())
+            }
         },
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
         Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,

@@ -13,6 +13,9 @@
 //! skipped — the migration set evolves and this surface should not
 //! force-link to a particular schema version.
 use crate::cli::ComplianceExportArgs;
+use crate::handlers::compliance_tenant_tables::{
+    BLOB_TENANT_TABLES, SESSION_FK_TABLES_FOR_EXPORT, TEXT_TENANT_TABLES,
+};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::compute_chain_hash;
 use argo_store::SessionStore;
@@ -26,43 +29,6 @@ use uuid::Uuid;
 
 const FORMAT_GDPR: &str = "gdpr";
 const AUDIT_KIND: &str = "compliance.export";
-
-/// Tables that scope rows via a BLOB `tenant_id` column.
-const BLOB_TENANT_TABLES: &[&str] = &[
-    "agent",
-    "memory_entry",
-    "role",
-    "role_binding",
-    "role_duty",
-    "session",
-    "shared_team_memory",
-    "spend_ledger",
-    "worker_budget",
-    "workspace",
-];
-
-/// Tables that scope rows via a TEXT `tenant_id` column.
-const TEXT_TENANT_TABLES: &[&str] = &[
-    "duty",
-    "handoff_routing_rule",
-    "org_member",
-    "org_unit",
-    "persona",
-    "roster",
-    "tenant_quota",
-    "worker",
-    "worker_archive",
-];
-
-/// Tables that scope rows via `session_id` → `session.tenant_id`.
-const SESSION_FK_TABLES: &[&str] = &[
-    "audit_record",
-    "handoff",
-    "judge_record",
-    "message",
-    "routing_decision",
-    "tool_call",
-];
 
 #[derive(Clone, Copy, Debug)]
 enum ColAffinity {
@@ -110,7 +76,7 @@ async fn build_envelope(store: &SessionStore, tenant: TenantId) -> ArgoResult<Va
             tables.insert((*table).to_string(), entry);
         }
     }
-    for table in SESSION_FK_TABLES {
+    for table in SESSION_FK_TABLES_FOR_EXPORT {
         if let Some(entry) = export_session_fk_table(store, table, tenant).await? {
             tables.insert((*table).to_string(), entry);
         }

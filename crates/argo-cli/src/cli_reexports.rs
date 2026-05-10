@@ -118,7 +118,7 @@ pub mod cli_workspace_cmds;
 
 pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;
-pub use cli_compliance_cmds::{ComplianceCmd, ComplianceExportArgs};
+pub use cli_compliance_cmds::{ComplianceCmd, ComplianceDeleteArgs, ComplianceExportArgs};
 pub use cli_budget_cmds::*;
 pub use cli_doctor_cmds::DoctorCmd;
 pub use cli_feedback_cmds::FeedbackCmd;
