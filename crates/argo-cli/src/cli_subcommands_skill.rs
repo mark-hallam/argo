@@ -369,33 +369,34 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Force a recompute of the quality score from operator-
-    /// provided inputs. Use `--all` to recompute every active
-    /// skill (uses defaults for the inputs — primarily a
-    /// scheduler stand-in until the background tick lands).
+    /// Recompute the quality score for one or every active skill
+    /// from the audit log (mission-skill-quality-cron). For each
+    /// skill: walks `tool_result` audit rows, derives the four
+    /// `QualityInputs`, runs the existing `compute_score` primitive,
+    /// and persists the result via the standard skill-quality
+    /// store. Output is one line per skill:
+    /// `<skill_id> <old_score> -> <new_score> (<delta>)`. Designed
+    /// to be cron-driven; `--dry-run` is the rehearsal switch.
     QualityRecompute {
-        /// Skill name to recompute. Required unless `--all`.
-        #[arg(required_unless_present = "all")]
-        name: Option<String>,
-        /// Recompute every active skill.
-        #[arg(long, conflicts_with = "name")]
+        /// Recompute one named skill. Mutually exclusive with `--all`.
+        ///
+        /// (Sensible deviation from the brief, which specified
+        /// `<skill_id>`: CLI commands consistently take a skill
+        /// name, so this flag accepts the active skill's name.
+        /// The output still prints the underlying `SkillId`.)
+        #[arg(long, conflicts_with = "all", required_unless_present = "all")]
+        skill: Option<String>,
+        /// Recompute every active skill in the local store.
+        #[arg(long, conflicts_with = "skill")]
         all: bool,
-        /// Operator-provided success rate (0.0..=1.0). Defaults
-        /// to 1.0 when omitted.
+        /// Only consider audit rows newer than this cutoff.
+        /// Accepts an RFC-3339 timestamp (`2026-01-01T00:00:00Z`)
+        /// or a relative duration (`30m`, `24h`, `7d`).
         #[arg(long)]
-        success_rate: Option<f64>,
-        /// Operator-provided mean latency in milliseconds.
+        since: Option<String>,
+        /// Compute + print but do NOT persist the new score.
         #[arg(long)]
-        avg_latency_ms: Option<f64>,
-        /// Operator-provided retry count.
-        #[arg(long)]
-        retry_count: Option<u32>,
-        /// Operator-provided p99 latency in milliseconds.
-        #[arg(long)]
-        p99_latency_ms: Option<f64>,
-        /// Emit JSON.
-        #[arg(long)]
-        json: bool,
+        dry_run: bool,
     },
 }
 

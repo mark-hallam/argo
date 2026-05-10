@@ -203,22 +203,16 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             json,
         } => super::skill_quality_list::run(threshold, worst, json).await,
         SkillCmd::QualityRecompute {
-            name,
+            skill,
             all,
-            success_rate,
-            avg_latency_ms,
-            retry_count,
-            p99_latency_ms,
-            json,
+            since,
+            dry_run,
         } => {
             super::skill_quality_recompute::run(
-                name.as_deref(),
+                skill.as_deref(),
                 all,
-                success_rate,
-                avg_latency_ms,
-                retry_count,
-                p99_latency_ms,
-                json,
+                since.as_deref(),
+                dry_run,
             )
             .await
         }
