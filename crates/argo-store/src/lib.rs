@@ -135,6 +135,13 @@ use std::str::FromStr;
 /// Result alias.
 pub type StoreResult<T> = Result<T, ArgoError>;
 
+/// Highest migration version this binary knows how to apply. The
+/// gateway startup health check (`claude-startup-health-check`)
+/// compares this to the on-disk `schema_version` and refuses to bind
+/// when the two diverge. Bump this whenever a new `vNN` migration is
+/// added.
+pub const EXPECTED_SCHEMA_VERSION: u32 = 43;
+
 /// A SQLite-backed session store.
 ///
 /// One DB per tenant. WAL mode. Migrations applied on `migrate()`.
@@ -183,6 +190,27 @@ impl SessionStore {
     /// Current schema version (0 if uninitialized).
     pub async fn schema_version(&self) -> StoreResult<u32> {
         migrations::current_version(&self.pool).await
+    }
+
+    /// Strictly compare on-disk schema to [`EXPECTED_SCHEMA_VERSION`].
+    /// Returns `Ok(())` when they match exactly; otherwise returns a
+    /// directional `ArgoError::Provider` distinguishing "schema is
+    /// behind the binary" (ran an older `argo db migrate`?) from
+    /// "schema is ahead of the binary" (binary needs rolling back).
+    /// Used by the gateway startup health check.
+    pub async fn verify_schema_version(&self) -> StoreResult<()> {
+        let actual = self.schema_version().await?;
+        match actual.cmp(&EXPECTED_SCHEMA_VERSION) {
+            std::cmp::Ordering::Equal => Ok(()),
+            std::cmp::Ordering::Less => Err(ArgoError::Provider(format!(
+                "schema_version={actual} but binary expects {EXPECTED_SCHEMA_VERSION}; \
+                 schema is behind the binary — run `argo db migrate`"
+            ))),
+            std::cmp::Ordering::Greater => Err(ArgoError::Provider(format!(
+                "schema_version={actual} but binary expects {EXPECTED_SCHEMA_VERSION}; \
+                 schema is ahead of the binary — binary is too old, roll back"
+            ))),
+        }
     }
 
     /// Cleanly tear the pool down so SQLite can checkpoint the WAL,

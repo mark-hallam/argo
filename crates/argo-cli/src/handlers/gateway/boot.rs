@@ -22,6 +22,7 @@ use super::rate_limit_ip::{
 use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
+use super::startup_check::{run_startup_checks, STARTUP_CHECK_EXIT};
 use super::{
     metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice,
     security_headers, streaming, sweepers,
@@ -78,8 +79,16 @@ pub(super) async fn start(
     max_requests: Option<u64>,
     cli_quiet: bool,
     profile_startup: bool,
+    skip_startup_check: bool,
 ) -> ArgoResult<()> {
     let mut phases = StartupPhases::new();
+    let cwd_for_check =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    if let Err(e) = run_startup_checks(skip_startup_check, &cwd_for_check).await {
+        eprintln!("argo gateway: STARTUP CHECK FAILED ({e}); refusing to bind");
+        std::process::exit(STARTUP_CHECK_EXIT);
+    }
+    phases.mark("startup_check");
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await

@@ -26,6 +26,7 @@ mod routes_peer;
 mod shutdown;
 mod start_banner;
 mod start_banner_config;
+mod startup_check;
 mod sweepers;
 mod routes_audit;
 mod routes_audit_rollups;
@@ -105,12 +106,21 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             max_requests,
             quiet,
             profile_startup,
+            skip_startup_check,
         } => {
             // Initialise the per-route, per-tenant token-bucket limiter
             // and spawn its eviction sweep before the listener accepts.
             // Idempotent — only the first caller actually wires state.
             let _ = rate_limit::init();
-            boot::start(&bind, port, max_requests, quiet, profile_startup).await
+            boot::start(
+                &bind,
+                port,
+                max_requests,
+                quiet,
+                profile_startup,
+                skip_startup_check,
+            )
+            .await
         }
         GatewayCmd::Stop => boot::stop().await,
         GatewayCmd::Routes {

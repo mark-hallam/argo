@@ -281,6 +281,13 @@ fn gateway_post_runs_returns_500_when_anthropic_key_missing() {
         .current_dir(workspace.path())
         .env("ARGO_HOME", home.path())
         .env_remove("ANTHROPIC_API_KEY")
+        // The gateway's pre-bind startup health check
+        // (claude-startup-health-check) refuses to bind when neither
+        // ANTHROPIC_API_KEY nor OPENAI_API_KEY is set. This test
+        // wants to exercise the runtime path where the Anthropic
+        // call fails for lack of a key, not the boot-time refuse —
+        // satisfy the boot check with a placeholder OpenAI key.
+        .env("OPENAI_API_KEY", "sk-test-only-not-real")
         .args([
             "gateway",
             "start",

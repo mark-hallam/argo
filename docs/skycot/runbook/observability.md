@@ -202,6 +202,28 @@ is rendered to a self-contained one-screen card at
 | `action {id}: approval required (state pending, requires_approval=true)` | Trying to execute before approval | Run `argo worker actions approve <id>` first, or set up an auto-approval policy |
 <!-- quickref:errors:end -->
 
+### 9.7 Startup health check (exit 78)
+
+`argo gateway start` runs a synchronous pre-bind health check before
+the TCP listener accepts. It verifies (1) the SQLite store is
+reachable, (2) `schema_version` matches the binary's expected
+version, (3) at least one of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`
+is set, and (4) lists configured channel adapters (warn-only).
+
+On critical failure the gateway prints `STARTUP CHECK FAILED: <reason>`
+to stderr and exits **78** (BSD `EX_CONFIG`). Pod orchestrators
+treat 78 as a configuration problem rather than crash-loop spam.
+
+| Stderr message fragment | Meaning | Fix |
+|---|---|---|
+| `store unreachable` | SQLite open / `SELECT 1` failed | Check that `ARGO_HOME` exists and is writable |
+| `schema is behind the binary` | DB at older `schema_version` | Run `argo db migrate` |
+| `schema is ahead of the binary` | DB at newer `schema_version` | Roll the binary back to the matching release |
+| `no provider API key set` | Neither Anthropic nor OpenAI key in env | Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` |
+
+For dev / recovery only, `--skip-startup-check` bypasses every
+check. Don't ship that flag to production.
+
 ---
 
 Next: [Security](security.md) · [Where to next + reference](reference.md).

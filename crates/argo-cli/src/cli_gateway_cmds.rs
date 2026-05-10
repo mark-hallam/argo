@@ -31,6 +31,15 @@ pub enum GatewayCmd {
         /// claude-perf-startup-time).
         #[arg(long, hide = true)]
         profile_startup: bool,
+        /// Hidden escape hatch — bypass the four critical startup
+        /// health checks (store reachable, schema version match,
+        /// provider key present, channels reachable). Use only for
+        /// dev / recovery scenarios where the gateway must boot
+        /// against a degraded environment. Production should leave
+        /// the checks enabled and let exit code 78 trigger a
+        /// CrashLoopBackoff.
+        #[arg(long, hide = true)]
+        skip_startup_check: bool,
     },
     Stop,
     /// One-line status: running PID + listening address.
