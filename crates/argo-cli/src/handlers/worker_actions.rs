@@ -250,6 +250,20 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         } => {
             super::worker_review::run(&worker_id, &period, since.as_deref(), &format).await
         }
+        WorkerCmd::Promote { worker_id, tenant, to, force, reason, json } => {
+            super::worker_promote::promote(
+                &worker_id,
+                &tenant,
+                to.as_deref(),
+                force,
+                reason.as_deref(),
+                json,
+            )
+            .await
+        }
+        WorkerCmd::Level { worker_id, tenant, json } => {
+            super::worker_promote::level(&worker_id, &tenant, json).await
+        }
         WorkerCmd::Kpi(kpi_cmd) => match kpi_cmd {
             WorkerKpiCmd::Record { worker_id, kpi, value, tenant, note, json } => {
                 super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await

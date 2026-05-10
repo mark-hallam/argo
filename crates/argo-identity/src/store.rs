@@ -1,8 +1,8 @@
 use crate::store_sql::{
-    ensure_role_columns, ensure_worker_charter_columns, insert_duty, kpis_to_json, parse_worker_id,
-    to_json, worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
+    ensure_role_columns, ensure_worker_charter_columns, ensure_worker_level_columns, insert_duty,
+    kpis_to_json, parse_worker_id, to_json, worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
 };
-use crate::{circuit, Duty, Worker, WorkerId};
+use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use chrono::Utc;
@@ -69,6 +69,7 @@ impl<'a> IdentityStore<'a> {
         }
         ensure_role_columns(self.store.pool()).await?;
         ensure_worker_charter_columns(self.store.pool()).await?;
+        ensure_worker_level_columns(self.store.pool()).await?;
         Ok(())
     }
 
@@ -264,6 +265,36 @@ impl<'a> IdentityStore<'a> {
                 )
             })
             .collect())
+    }
+
+    /// Set the tenure `level` for a worker (Stream
+    /// `claude-worker-promotion-workflow`). The promotion handler
+    /// gates eligibility before calling in; this is the persistence
+    /// primitive only and trusts the caller. Returns
+    /// `ArgoError::Provider` when the `(tenant_id, worker_id)` pair
+    /// does not match a stored row.
+    pub async fn update_level(
+        &self,
+        tenant_id: TenantId,
+        worker_id: WorkerId,
+        level: WorkerLevel,
+    ) -> ArgoResult<()> {
+        self.ensure_schema().await?;
+        let result = sqlx::query(
+            "UPDATE worker SET level = ? WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(level.as_str())
+        .bind(worker_id.to_string())
+        .bind(tenant_id.to_string())
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("update level: {e}")))?;
+        if result.rows_affected() == 0 {
+            return Err(ArgoError::Provider(format!(
+                "worker {worker_id} not found in tenant {tenant_id}"
+            )));
+        }
+        Ok(())
     }
 
     /// Update the per-instance charter and/or KPIs for a worker

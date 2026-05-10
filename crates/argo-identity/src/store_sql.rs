@@ -5,10 +5,14 @@
 //!
 //! All items are crate-private — the public API is unchanged.
 
-use crate::{CircuitState, Duty, MemoryNs, MemoryScope, Persona, Role, VoiceProfile, Worker, WorkerId};
+use crate::{
+    CircuitState, Duty, MemoryNs, MemoryScope, Persona, Role, VoiceProfile, Worker, WorkerId,
+    WorkerLevel,
+};
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use serde::Serialize;
 use sqlx::Row;
+use std::str::FromStr;
 use uuid::Uuid;
 
 pub(crate) const IDENTITY_SCHEMA: &str =
@@ -18,11 +22,16 @@ pub(crate) const IDENTITY_SCHEMA: &str =
 // mirroring `ensure_role_columns`).
 const _WORKER_CHARTER_SCHEMA: &str =
     include_str!("../../argo-store/migrations/30__worker_charter.sql");
+// Documentation-only: ALTER TABLE for the tenure `level` column,
+// applied via `ensure_worker_level_columns`. Stream
+// `claude-worker-promotion-workflow`.
+const _WORKER_LEVEL_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/45__worker_level.sql");
 
 pub(crate) const WORKER_SELECT: &str = "SELECT
     w.id, w.tenant_id, w.vertical_id, w.memory_scope,
     w.auto_approval_json, w.channels_json,
-    w.charter_md, w.kpi_json,
+    w.charter_md, w.kpi_json, w.level,
     p.name, p.voice_preamble, p.avatar, p.bio, p.builder_attribution,
     p.provenance_chain_json,
     r.charter, r.kpis_json, r.escalation
@@ -48,6 +57,32 @@ pub(crate) async fn ensure_worker_charter_columns(
                 .map_err(|e| ArgoError::Provider(format!("add worker.{name}: {e}")))?;
         }
     }
+    Ok(())
+}
+
+/// Idempotent additive migration for `worker.level` (Stream
+/// `claude-worker-promotion-workflow`). Mirrors
+/// [`ensure_worker_charter_columns`]: PRAGMA-checks the column,
+/// `ALTER TABLE ADD COLUMN ... NOT NULL DEFAULT 'entry'` if missing,
+/// and best-effort creates the supporting index.
+pub(crate) async fn ensure_worker_level_columns(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    if !columns.iter().any(|existing| existing == "level") {
+        sqlx::query("ALTER TABLE worker ADD COLUMN level TEXT NOT NULL DEFAULT 'entry'")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add worker.level: {e}")))?;
+    }
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_worker_level ON worker(level)")
+        .execute(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("create idx_worker_level: {e}")))?;
     Ok(())
 }
 
@@ -140,6 +175,9 @@ pub(crate) fn worker_from_row(
         ),
         None => None,
     };
+    let level_raw: String = row.get("level");
+    let level = WorkerLevel::from_str(&level_raw)
+        .map_err(|e| ArgoError::Provider(format!("parse worker.level: {e}")))?;
     Ok(Worker {
         id,
         tenant_id,
@@ -152,6 +190,7 @@ pub(crate) fn worker_from_row(
         channels: from_json(row.get("channels_json"), "channels")?,
         charter,
         kpis,
+        level,
     })
 }
 

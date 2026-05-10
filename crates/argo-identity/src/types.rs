@@ -210,6 +210,95 @@ pub const MAX_CHARTER_BYTES: usize = 16 * 1024;
 /// Maximum byte length of the serialised `Worker::kpis` JSON.
 pub const MAX_KPIS_BYTES: usize = 8 * 1024;
 
+/// Worker tenure level (Stream `claude-worker-promotion-workflow`,
+/// mission claim 2). Workers start at [`WorkerLevel::Entry`] and can
+/// be promoted up the ladder via `argo worker promote`. Auto-approval
+/// downstream consumption (gating riskier policies behind seniority)
+/// is a follow-up brief.
+///
+/// ```
+/// use argo_identity::WorkerLevel;
+/// use std::str::FromStr;
+/// assert_eq!(WorkerLevel::Entry.next(), Some(WorkerLevel::Junior));
+/// assert_eq!(WorkerLevel::Lead.next(), None);
+/// assert_eq!(WorkerLevel::from_str("junior").unwrap(), WorkerLevel::Junior);
+/// assert_eq!(WorkerLevel::Senior.to_string(), "senior");
+/// ```
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkerLevel {
+    /// Newly-created worker. Default for every fresh row.
+    #[default]
+    Entry,
+    /// Promoted from `Entry` once the tenure / sessions / success-rate
+    /// gate is cleared.
+    Junior,
+    /// Promoted from `Junior`. Usually the threshold for unattended
+    /// auto-approval scenarios.
+    Senior,
+    /// Highest level. Promotion to `Lead` always requires explicit
+    /// operator confirmation (`--force`).
+    Lead,
+}
+
+impl WorkerLevel {
+    /// Stable wire label persisted in `worker.level`.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Entry => "entry",
+            Self::Junior => "junior",
+            Self::Senior => "senior",
+            Self::Lead => "lead",
+        }
+    }
+
+    /// Next level on the promotion ladder, or `None` if already at the top.
+    #[must_use]
+    pub fn next(self) -> Option<Self> {
+        match self {
+            Self::Entry => Some(Self::Junior),
+            Self::Junior => Some(Self::Senior),
+            Self::Senior => Some(Self::Lead),
+            Self::Lead => None,
+        }
+    }
+
+    /// Ordinal rank — higher means more senior. Useful for guarding
+    /// against demotion or skip-level promotions.
+    #[must_use]
+    pub fn rank(self) -> u8 {
+        match self {
+            Self::Entry => 0,
+            Self::Junior => 1,
+            Self::Senior => 2,
+            Self::Lead => 3,
+        }
+    }
+}
+
+impl fmt::Display for WorkerLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for WorkerLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "entry" => Ok(Self::Entry),
+            "junior" => Ok(Self::Junior),
+            "senior" => Ok(Self::Senior),
+            "lead" => Ok(Self::Lead),
+            other => Err(format!(
+                "invalid worker level '{other}' (expected entry|junior|senior|lead)"
+            )),
+        }
+    }
+}
+
 /// Runtime worker instance.
 ///
 /// `charter` (markdown body, ≤ 16 KB) and `kpis` (free-form JSON,
@@ -251,6 +340,11 @@ pub struct Worker {
     /// Per-instance KPIs (free-form JSON, ≤ `MAX_KPIS_BYTES` serialised).
     #[serde(default)]
     pub kpis: Option<serde_json::Value>,
+    /// Tenure level (Stream `claude-worker-promotion-workflow`).
+    /// Defaults to [`WorkerLevel::Entry`] for older rows lacking the
+    /// column / serialised field.
+    #[serde(default)]
+    pub level: WorkerLevel,
 }
 
 impl Worker {
@@ -282,6 +376,7 @@ impl Worker {
             channels: Vec::new(),
             charter: None,
             kpis: None,
+            level: WorkerLevel::Entry,
         }
     }
 

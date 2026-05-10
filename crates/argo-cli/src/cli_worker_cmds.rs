@@ -286,6 +286,47 @@ pub enum WorkerCmd {
         #[arg(long, default_value = "markdown")]
         format: String,
     },
+    /// Promote a worker up the `entry → junior → senior → lead`
+    /// tenure ladder (Stream `claude-worker-promotion-workflow`,
+    /// mission claim 2). Without `--to`, advances to the next level.
+    /// `--force` overrides the criteria gate (sessions / success-rate
+    /// / tenure-days); promotion to `lead` always requires `--force`.
+    Promote {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Tenant id whose worker namespace owns the row.
+        #[arg(long)]
+        tenant: String,
+        /// Explicit target level (`junior` / `senior` / `lead`). When
+        /// omitted, the worker is advanced to the next level above
+        /// its current one.
+        #[arg(long)]
+        to: Option<String>,
+        /// Bypass the criteria gate (records the override + reason in
+        /// the audit row). Required for `--to lead` regardless of
+        /// numeric thresholds.
+        #[arg(long)]
+        force: bool,
+        /// Operator note recorded in the promotion audit row.
+        #[arg(long)]
+        reason: Option<String>,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show the worker's current level and the numeric gap to the
+    /// next promotion (e.g. "23 sessions short, 4d tenure short").
+    /// Read-only.
+    Level {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Tenant id whose worker namespace owns the row.
+        #[arg(long)]
+        tenant: String,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // Leaf enums live in sibling files so this module stays well below
