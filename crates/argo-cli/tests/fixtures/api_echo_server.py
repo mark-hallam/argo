@@ -13,6 +13,16 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw) if raw else None
         except Exception:
             body = raw
+        # Paths under /fail/ return 500 so smoke tests can exercise the
+        # non-2xx → Provider-error branch end-to-end.
+        if self.path.startswith("/fail/"):
+            data = json.dumps({"error": "synthetic upstream failure"}).encode("utf-8")
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         response = {
             "method": self.command,
             "path": self.path,

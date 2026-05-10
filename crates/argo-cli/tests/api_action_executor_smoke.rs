@@ -43,8 +43,14 @@ fn start_server(python: &str) -> (Child, u16) {
 fn write_vertical_manifest(verticals_dir: &Path, port: u16) {
     let dir = verticals_dir.join(VERTICAL_ID);
     std::fs::create_dir_all(&dir).expect("verticals/<id> dir");
-    let binding = serde_json::json!({
+    let ok_binding = serde_json::json!({
         "url": format!("http://127.0.0.1:{port}/run/{{{{ action_id }}}}"),
+        "method": "POST",
+        "headers": {"X-Api-Smoke": "{{ secret.API_SMOKE_TOKEN }}"},
+        "body_template": r#"{"message":"{{ payload.message }}","id":"{{ action_id }}"}"#,
+    });
+    let fail_binding = serde_json::json!({
+        "url": format!("http://127.0.0.1:{port}/fail/{{{{ action_id }}}}"),
         "method": "POST",
         "headers": {"X-Api-Smoke": "{{ secret.API_SMOKE_TOKEN }}"},
         "body_template": r#"{"message":"{{ payload.message }}","id":"{{ action_id }}"}"#,
@@ -62,12 +68,51 @@ description = "Drives the action-level API executor against a Python HTTP fixtur
 risk = "low"
 requires_approval = false
 description = "Calls the Python HTTP echo fixture and round-trips the payload."
-executor = {{ kind = "api", binding = '''{binding}''' }}
+executor = {{ kind = "api", binding = '''{ok_binding}''' }}
+
+[actions.echo_api_fail]
+risk = "low"
+requires_approval = false
+description = "Drives the same fixture against a /fail/ path that responds 500."
+executor = {{ kind = "api", binding = '''{fail_binding}''' }}
 "#,
         vid = VERTICAL_ID,
-        binding = binding,
+        ok_binding = ok_binding,
+        fail_binding = fail_binding,
     );
     std::fs::write(dir.join("vertical.toml"), manifest).expect("write vertical.toml");
+}
+
+fn append_action(home: &Path, work: &Path, verticals_dir: &Path, action_type: &str) -> String {
+    let action_id = uuid::Uuid::now_v7().to_string();
+    let body = serde_json::json!({
+        "schema_key": "worker_action",
+        "action_id": action_id,
+        "job_id": "api-smoke-job",
+        "action_type": action_type,
+        "risk_level": "low",
+        "requires_approval": false,
+        "state": "pending",
+        "payload": {"message": "hello-api"},
+        "created_at": chrono::Utc::now().to_rfc3339(),
+    });
+    let body_str = serde_json::to_string(&body).expect("serialize action");
+    let append = Command::new(env!("CARGO_BIN_EXE_argo"))
+        .env("ARGO_HOME", home)
+        .env("ARGO_VERTICALS_DIR", verticals_dir)
+        .current_dir(work)
+        .args([
+            "memory",
+            "append",
+            "--vertical",
+            VERTICAL_ID,
+            "memory",
+            &body_str,
+        ])
+        .output()
+        .expect("spawn argo memory append");
+    assert_success(&format!("memory append {action_type}"), &append);
+    action_id
 }
 
 #[test]
@@ -85,47 +130,48 @@ fn api_action_executor_smoke_completes_via_argo_binary() {
     let init = run_argo(home.path(), work.path(), &["workspace", "init"]);
     assert_success("step 1: workspace init", &init);
 
-    let action_id = uuid::Uuid::now_v7().to_string();
-    let body = serde_json::json!({
-        "schema_key": "worker_action",
-        "action_id": action_id,
-        "job_id": "api-smoke-job",
-        "action_type": "echo_api",
-        "risk_level": "low",
-        "requires_approval": false,
-        "state": "pending",
-        "payload": {"message": "hello-api"},
-        "created_at": chrono::Utc::now().to_rfc3339(),
-    });
-    let body_str = serde_json::to_string(&body).expect("serialize action");
-    let append = Command::new(env!("CARGO_BIN_EXE_argo"))
-        .env("ARGO_HOME", home.path())
-        .env("ARGO_VERTICALS_DIR", &verticals_dir)
-        .current_dir(work.path())
-        .args([
-            "memory",
-            "append",
-            "--vertical",
-            VERTICAL_ID,
-            "memory",
-            &body_str,
-        ])
-        .output()
-        .expect("spawn argo memory append");
-    assert_success("step 2: memory append", &append);
-
-    let execute = Command::new(env!("CARGO_BIN_EXE_argo"))
+    // Success path: 200 from the fixture → action auto-completes.
+    let ok_id = append_action(home.path(), work.path(), &verticals_dir, "echo_api");
+    let execute_ok = Command::new(env!("CARGO_BIN_EXE_argo"))
         .env("ARGO_HOME", home.path())
         .env("ARGO_VERTICALS_DIR", &verticals_dir)
         .env("API_SMOKE_TOKEN", "smoke-secret")
         .current_dir(work.path())
-        .args(["worker", "actions", "execute", &action_id, "--json"])
+        .args(["worker", "actions", "execute", &ok_id, "--json"])
         .output()
-        .expect("spawn argo worker actions execute");
-    assert_success("step 3: execute", &execute);
+        .expect("spawn argo worker actions execute (ok)");
+    assert_success("execute ok", &execute_ok);
+    let ok_state = current_state(home.path(), work.path(), &verticals_dir, &ok_id);
+    assert_eq!(ok_state, "completed");
 
-    let state = current_state(home.path(), work.path(), &verticals_dir, &action_id);
-    assert_eq!(state, "completed");
+    // Failure path: 500 from the fixture → Provider error, action stays
+    // in `executing` (no `completed` row written).
+    let fail_id = append_action(home.path(), work.path(), &verticals_dir, "echo_api_fail");
+    let execute_fail = Command::new(env!("CARGO_BIN_EXE_argo"))
+        .env("ARGO_HOME", home.path())
+        .env("ARGO_VERTICALS_DIR", &verticals_dir)
+        .env("API_SMOKE_TOKEN", "smoke-secret")
+        .current_dir(work.path())
+        .args(["worker", "actions", "execute", &fail_id, "--json"])
+        .output()
+        .expect("spawn argo worker actions execute (fail)");
+    assert!(
+        !execute_fail.status.success(),
+        "expected `execute` to fail on 500; stdout=<{}> stderr=<{}>",
+        String::from_utf8_lossy(&execute_fail.stdout),
+        String::from_utf8_lossy(&execute_fail.stderr),
+    );
+    let fail_stderr = String::from_utf8_lossy(&execute_fail.stderr);
+    assert!(
+        fail_stderr.contains("HTTP 500"),
+        "expected Provider error to mention HTTP 500; stderr=<{fail_stderr}>"
+    );
+    let fail_state = current_state(home.path(), work.path(), &verticals_dir, &fail_id);
+    assert_eq!(
+        fail_state, "executing",
+        "action should remain in `executing` after Provider error"
+    );
+
     let _ = server.kill();
 }
 
