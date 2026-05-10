@@ -44,6 +44,7 @@ mod routes_dispatch_rollups;
 mod routes_forge;
 mod routes_forge_promote;
 mod routes_forge_rollups;
+mod routes_forge_runs_list;
 mod routes_health;
 mod routes_lists;
 mod routes_messages_rollups;
