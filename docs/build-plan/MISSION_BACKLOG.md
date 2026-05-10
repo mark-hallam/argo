@@ -115,7 +115,7 @@ unblocks a mission claim.
 27. Fresh-DB integration test that walks every migration in
     numeric order. (folded into #24) `[SHIPPED]`
 28. Add upgrade test (v0.x → v1.0 schema migration) once stable
-    schema declared. `[NEW]`
+    schema declared. `[BRIEF: mission-migration-upgrade-test]`
 29. Plan PostgreSQL support path (long-tail SaaS). `[NEW]`
 
 ### Observability
