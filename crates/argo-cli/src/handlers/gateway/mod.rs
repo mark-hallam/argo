@@ -63,6 +63,7 @@ mod routes_session_audit_rollups;
 mod routes_session_clone;
 mod routes_session_get;
 mod routes_session_skills;
+mod routes_session_skills_lifecycle;
 mod routes_session_stats;
 mod routes_sessions_rollups;
 mod routes_skill_refine;
