@@ -11,6 +11,8 @@
 mod boot;
 mod dashboard;
 mod dashboard_fleet;
+mod marketplace;
+mod marketplace_render;
 mod routes_dashboard;
 mod lifecycle;
 mod metrics;

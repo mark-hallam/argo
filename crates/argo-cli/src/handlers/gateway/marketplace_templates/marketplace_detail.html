@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill — <<name>></title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { margin: 0 0 .25rem; }
+    .muted { color: #666; font-size: .9rem; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 1rem 0; }
+    dt { font-weight: 600; color: #444; }
+    dd { margin: 0; }
+    .banner { padding: .5rem .75rem; border-radius: .25rem; margin: .5rem 0; }
+    .banner.ok { background: #d4edda; color: #155724; }
+    .btn { padding: .5rem 1rem; font-size: 1rem; cursor: pointer; }
+    .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+    a { color: #0066cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back { display: inline-block; margin-bottom: 1rem; }
+    code { background: #f4f4f4; padding: .15rem .3rem; border-radius: .2rem; }
+  </style>
+</head>
+<body>
+  <a class="back" href="/marketplace">← Back to marketplace</a>
+  <h1><<name>></h1>
+  <p class="muted">by <<tenant>></p>
+  <<banner>>
+  <p><<description>></p>
+  <dl>
+    <dt>Version</dt>      <dd><<version>></dd>
+    <dt>Trust grade</dt>  <dd><<trust>></dd>
+    <dt>Published</dt>    <dd><<last_published_at>></dd>
+    <dt>OCI reference</dt><dd><code><<oci_ref>></code></dd>
+  </dl>
+  <<install_form>>
+</body>
+</html>

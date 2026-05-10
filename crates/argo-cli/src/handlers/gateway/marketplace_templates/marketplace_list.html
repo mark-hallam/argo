@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill marketplace</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { margin: 0 0 .25rem; }
+    .muted { color: #666; }
+    form.filters { margin: 1rem 0; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    form.filters input[type=text], form.filters select { padding: .4rem .5rem; font-size: 1rem; }
+    form.filters button { padding: .4rem .8rem; font-size: 1rem; cursor: pointer; }
+    table.argo-table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+    table.argo-table th, table.argo-table td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid #eee; }
+    table.argo-table th { background: #fafafa; font-weight: 600; }
+    .badge { display: inline-block; padding: .15rem .5rem; border-radius: .25rem; font-size: .8rem; background: #eef; }
+    .badge.installed { background: #d4edda; color: #155724; }
+    a { color: #0066cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Skill marketplace</h1>
+  <p class="muted">Browse and install community + verified skills. <<count>> result(s).</p>
+  <form class="filters" method="get" action="/marketplace">
+    <input type="text" name="q" placeholder="Search skills" value="<<q>>">
+    <select name="vertical">
+      <option value="">All verticals</option>
+      <<vertical_options>>
+    </select>
+    <select name="executor">
+      <option value="">All executors</option>
+      <<executor_options>>
+    </select>
+    <button type="submit">Search</button>
+  </form>
+  <table class="argo-table">
+    <thead>
+      <tr>
+        <th>Skill</th>
+        <th>Publisher</th>
+        <th>Version</th>
+        <th>Trust</th>
+        <th>Description</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <<rows>>
+    </tbody>
+  </table>
+</body>
+</html>

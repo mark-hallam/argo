@@ -10,6 +10,10 @@ pub enum GatewayCmd {
     /// Bind a TCP listener and serve the JSON HTTP gateway. The
     /// first cut answers `GET /health` + `GET /version`; the
     /// `Adapter` routing surface from `argo-gateway` lands later.
+    /// Browser-facing surfaces mounted ahead of the bearer gate:
+    /// `/dashboard/*` (operator dashboard) and `/marketplace/*`
+    /// (skill marketplace MVP — browse + install cross-tenant
+    /// skills).
     Start {
         #[arg(long, default_value = "127.0.0.1")]
         bind: String,

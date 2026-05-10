@@ -80,6 +80,15 @@ pub(super) async fn dispatch_route(
             return resp;
         }
     }
+    // Skill marketplace MVP (`claude-skill-marketplace-mvp`). Same
+    // pre-bearer-gate mount as the dashboard: browser POSTs work
+    // without per-tab tokens. Tenant isolation is enforced inside
+    // the install handler via the `x-tenant-id` request header.
+    if super::marketplace::is_marketplace(req) {
+        if let Some(resp) = super::marketplace::dispatch(req, store).await {
+            return resp;
+        }
+    }
     // Bearer-token gate on every non-allowlisted GET. POST has its own
     // gate inside `dispatch_post` (#946); allowlist members (`/`,
     // `/health[/...]`, `/version`, `/routes`) stay anonymous so liveness
