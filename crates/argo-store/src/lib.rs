@@ -4,6 +4,11 @@
 
 pub mod anomaly;
 mod anomaly_persistence;
+/// First-class approval requests for the auto-approval gate
+/// (Stream `claude-approval-request-store`). Records pending grants,
+/// who can decide them, and a deadline + `default_decision` the
+/// downstream timeout sweep promotes stale rows by.
+pub mod approvals;
 /// Typed scaffold for blob storage — `AttachedBlob`, `BlobRef`,
 /// `BlobStore` trait, and an in-memory test impl. No persistence yet
 /// (Stream `claude-store-attached-blob-layer`); downstream
