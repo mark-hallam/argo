@@ -15,6 +15,8 @@ pub mod cli_backup_cmds;
 pub mod cli_classify_cmds;
 #[path = "cli_compliance_cmds.rs"]
 pub mod cli_compliance_cmds;
+#[path = "cli_contract_cmds.rs"]
+pub mod cli_contract_cmds;
 #[path = "cli_plan_cmds.rs"]
 pub mod cli_plan_cmds;
 #[path = "cli_budget_cmds.rs"]

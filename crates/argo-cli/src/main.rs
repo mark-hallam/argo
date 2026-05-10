@@ -237,6 +237,32 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Connector { cmd }) => handlers::connector_authorize::run(cmd).await,
         Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
         Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
+        Some(Command::Contract { cmd }) => match cmd {
+            cli::cli_contract_cmds::ContractCmd::Apply {
+                file,
+                tenant,
+                worker,
+                dry_run,
+                json,
+            } => {
+                handlers::contract::apply(
+                    &file,
+                    tenant.as_deref(),
+                    worker.as_deref(),
+                    dry_run,
+                    json,
+                )
+                .await
+            }
+            cli::cli_contract_cmds::ContractCmd::Validate { file, json } => {
+                handlers::contract::validate(&file, json).await
+            }
+            cli::cli_contract_cmds::ContractCmd::Show {
+                worker_id,
+                tenant,
+                json,
+            } => handlers::contract::show(&worker_id, &tenant, json).await,
+        },
         Some(Command::Approval { cmd }) => match cmd {
             cli::ApprovalCmd::Export(args) => handlers::approval_export::run(args).await,
             cli::ApprovalCmd::History(args) => handlers::approval_history::run(args).await,

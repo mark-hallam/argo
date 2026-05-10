@@ -324,6 +324,18 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_cu_cmds::CuCmd,
     },
+    /// Apply / validate / show a `<role>.contract.toml` delegation
+    /// contract (Stream `claude-delegation-contract-template`,
+    /// V1.1 mission claim 2). Single artefact that captures
+    /// charter + duties + KPI definitions + objectives + KRs +
+    /// success criteria; `apply` materialises it into an existing
+    /// worker through the same identity / OKR primitives that
+    /// `argo worker charter set` and `argo worker okr set` already
+    /// use.
+    Contract {
+        #[command(subcommand)]
+        cmd: cli_contract_cmds::ContractCmd,
+    },
     /// Direct-action operator commands (session lifecycle, runtime
     /// diagnostics, system ops). Flattened into the top-level
     /// `--help` subcommand list — `argo new`, `argo chat`,

@@ -72,6 +72,8 @@ mod cu_replay_render;
 pub mod daemon_install;
 pub mod daemon_uninstall;
 pub mod connector_authorize;
+pub mod contract;
+pub(crate) mod contract_schema;
 pub mod connector_list;
 pub mod connector_list_status;
 pub mod connector_revoke;

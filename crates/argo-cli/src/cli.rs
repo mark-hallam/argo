@@ -4,8 +4,8 @@
 mod cli_reexports;
 pub use cli_reexports::*;
 pub use cli_reexports::{
-    cli_duty_cmds, cli_eval_cmds, cli_handoff_cmds, cli_org_cmds, cli_policy_cmds,
-    cli_recover_cmds, cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
+    cli_contract_cmds, cli_duty_cmds, cli_eval_cmds, cli_handoff_cmds, cli_org_cmds,
+    cli_policy_cmds, cli_recover_cmds, cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
 };
 #[path = "cli_runtime_cmds.rs"]
 pub mod cli_runtime_cmds;
