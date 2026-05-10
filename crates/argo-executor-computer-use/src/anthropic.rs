@@ -1,5 +1,6 @@
-//! Anthropic computer-use loop driver. Pinned to the
-//! `computer_20241022` tool variant; the loop sends a chat
+//! Anthropic computer-use loop driver. The variant string sent
+//! as `tools[0].type` is configurable via
+//! [`crate::CuConfig::tool_variant`]; the loop sends a chat
 //! message containing the system prompt + the latest screenshot
 //! and parses the response. The model emits either a
 //! `tool_use` block with one of the CU primitives or a
@@ -22,6 +23,7 @@ pub struct AnthropicClient {
     base_url: String,
     api_key: String,
     model: String,
+    tool_variant: String,
     http: reqwest::Client,
 }
 
@@ -30,6 +32,7 @@ impl AnthropicClient {
         base_url: String,
         api_key: String,
         model: String,
+        tool_variant: String,
         per_request_timeout_seconds: u32,
     ) -> Result<Self, CuError> {
         let http = reqwest::Client::builder()
@@ -45,6 +48,7 @@ impl AnthropicClient {
             base_url,
             api_key,
             model,
+            tool_variant,
             http,
         })
     }
@@ -53,13 +57,13 @@ impl AnthropicClient {
     /// either a tool call (next CU action) or a stop signal.
     pub async fn step(&self, req: CuStepRequest<'_>) -> Result<CuStepResponse, CuError> {
         let url = format!("{}/v1/messages", self.base_url);
-        let body = build_messages_body(req, &self.model);
+        let body = build_messages_body(req, &self.model, &self.tool_variant);
         let resp = self
             .http
             .post(&url)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
-            .header("anthropic-beta", "computer-use-2024-10-22")
+            .header("anthropic-beta", beta_header_for(&self.tool_variant))
             .json(&body)
             .send()
             .await
@@ -132,7 +136,11 @@ pub enum StopReason {
     Failure,
 }
 
-fn build_messages_body(req: CuStepRequest<'_>, model: &str) -> serde_json::Value {
+fn build_messages_body(
+    req: CuStepRequest<'_>,
+    model: &str,
+    tool_variant: &str,
+) -> serde_json::Value {
     let screenshot_b64 = encode_b64(req.screenshot_png);
     let prior_actions_text = if req.prior_actions.is_empty() {
         "(none yet)".to_string()
@@ -149,7 +157,7 @@ fn build_messages_body(req: CuStepRequest<'_>, model: &str) -> serde_json::Value
         "max_tokens": 4096,
         "system": req.system_prompt,
         "tools": [{
-            "type": "computer_20241022",
+            "type": tool_variant,
             "name": "computer",
             "display_width_px": req.screen_width,
             "display_height_px": req.screen_height,
@@ -176,6 +184,19 @@ fn build_messages_body(req: CuStepRequest<'_>, model: &str) -> serde_json::Value
             ]
         }]
     })
+}
+
+/// Map a computer-use tool variant to its required
+/// `anthropic-beta` header value. Unknown variants fall through
+/// to the current default header, which lets a config-only bump
+/// to a same-family variant work without a code change.
+pub(crate) fn beta_header_for(tool_variant: &str) -> &'static str {
+    match tool_variant {
+        "computer_20250124" => "computer-use-2025-01-24",
+        // Default: current Anthropic-published header (paired
+        // with `DEFAULT_TOOL_VARIANT` in `config.rs`).
+        _ => "computer-use-2025-11-24",
+    }
 }
 
 /// Minimal base64 encoder. We don't pull in the `base64` crate

@@ -69,6 +69,7 @@ pub struct ComputerUseExecutor {
 struct AnthropicClientTemplate {
     base_url: String,
     api_key: String,
+    tool_variant: String,
     per_request_timeout_seconds: u32,
 }
 
@@ -101,6 +102,7 @@ impl ComputerUseExecutor {
             anthropic_template: AnthropicClientTemplate {
                 base_url: config.anthropic_base_url,
                 api_key: config.anthropic_api_key,
+                tool_variant: config.tool_variant,
                 per_request_timeout_seconds: config.per_request_timeout_seconds,
             },
             pool,
@@ -451,6 +453,7 @@ impl ComputerUseExecutor {
             self.anthropic_template.base_url.clone(),
             self.anthropic_template.api_key.clone(),
             profile.model.clone(),
+            self.anthropic_template.tool_variant.clone(),
             self.anthropic_template.per_request_timeout_seconds,
         )
     }

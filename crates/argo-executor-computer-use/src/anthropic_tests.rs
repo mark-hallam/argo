@@ -140,6 +140,39 @@ fn parse_response_errors_when_neither_tool_nor_stop_text() {
 }
 
 #[test]
+fn build_messages_body_uses_configured_tool_variant_and_beta_header() {
+    let req = CuStepRequest {
+        system_prompt: "do the thing",
+        screenshot_png: b"PNGBYTES",
+        prior_actions: &[],
+        screen_width: 1024,
+        screen_height: 768,
+    };
+    let body = build_messages_body(req, "claude-opus-4-7", "computer_20251124");
+    assert_eq!(body["tools"][0]["type"], "computer_20251124");
+    assert_eq!(body["tools"][0]["name"], "computer");
+    assert_eq!(body["model"], "claude-opus-4-7");
+    assert_eq!(beta_header_for("computer_20251124"), "computer-use-2025-11-24");
+
+    // Override path: a caller pinning the older 2025-01-24
+    // variant must round-trip through the request body and the
+    // matching beta header.
+    let req2 = CuStepRequest {
+        system_prompt: "x",
+        screenshot_png: b"",
+        prior_actions: &[],
+        screen_width: 800,
+        screen_height: 600,
+    };
+    let body2 = build_messages_body(req2, "claude-sonnet-4-5", "computer_20250124");
+    assert_eq!(body2["tools"][0]["type"], "computer_20250124");
+    assert_eq!(beta_header_for("computer_20250124"), "computer-use-2025-01-24");
+    // Unknown variants fall back to the current default header
+    // so a future config-only bump still produces a valid call.
+    assert_eq!(beta_header_for("computer_99999999"), "computer-use-2025-11-24");
+}
+
+#[test]
 fn encode_b64_round_trips_a_known_vector() {
     // RFC 4648: "Man" → "TWFu"; "Ma" → "TWE="; "M" → "TQ=="
     assert_eq!(encode_b64(b"Man"), "TWFu");

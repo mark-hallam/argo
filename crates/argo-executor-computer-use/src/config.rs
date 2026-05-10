@@ -13,9 +13,21 @@
 //!   loads `computer_use.toml` from. Defaults to
 //!   `manifests/executors/computer_use.toml` (cwd-relative) or
 //!   the built-in `marketplace_browser` if the file is absent.
+//! - `SKYCOT_CU_TOOL_VARIANT` — overrides the Anthropic
+//!   computer-use tool variant string sent in the `tools[0].type`
+//!   field. Defaults to [`DEFAULT_TOOL_VARIANT`]. The matching
+//!   `anthropic-beta` header is derived from the variant inside
+//!   `anthropic.rs`.
 
 use crate::CuError;
 use std::path::PathBuf;
+
+/// Current Anthropic-published computer-use tool variant. Paired
+/// with the `computer-use-2025-11-24` beta header. Supports the
+/// Claude Opus 4.x / Sonnet 4.6 model family. When Anthropic
+/// ships a newer variant, bump this constant and the matching
+/// arm in `anthropic::beta_header_for`.
+pub const DEFAULT_TOOL_VARIANT: &str = "computer_20251124";
 
 /// Resolved runtime config. Built once at executor startup.
 #[derive(Debug, Clone)]
@@ -35,6 +47,12 @@ pub struct CuConfig {
     /// HTTP call honours this; the wallclock budget honoured by
     /// [`crate::budget::BudgetTracker`] is the cumulative cap.
     pub per_request_timeout_seconds: u32,
+    /// Anthropic computer-use tool variant. Sent verbatim as
+    /// `tools[0].type` in `/v1/messages`. Defaults to
+    /// [`DEFAULT_TOOL_VARIANT`]; override via
+    /// `SKYCOT_CU_TOOL_VARIANT` when Anthropic ships a newer
+    /// variant before this crate bumps its default.
+    pub tool_variant: String,
 }
 
 impl CuConfig {
@@ -56,6 +74,8 @@ impl CuConfig {
                 .map(PathBuf::from)
                 .unwrap_or_else(|_| PathBuf::from("manifests/executors/computer_use.toml")),
             per_request_timeout_seconds: 30,
+            tool_variant: std::env::var("SKYCOT_CU_TOOL_VARIANT")
+                .unwrap_or_else(|_| DEFAULT_TOOL_VARIANT.into()),
         })
     }
 
@@ -71,6 +91,7 @@ impl CuConfig {
             anthropic_base_url,
             profiles_path: PathBuf::from("manifests/executors/computer_use.toml"),
             per_request_timeout_seconds: 5,
+            tool_variant: DEFAULT_TOOL_VARIANT.into(),
         }
     }
 }
@@ -78,6 +99,11 @@ impl CuConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Serialise env-mutating tests in this module so cargo's
+    // parallel test runner doesn't race on the shared process env.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn for_tests_uses_supplied_urls() {
@@ -89,7 +115,42 @@ mod tests {
     }
 
     #[test]
+    fn for_tests_defaults_tool_variant_to_current() {
+        let c = CuConfig::for_tests("http://e2b.local".into(), "http://anth.local".into());
+        assert_eq!(c.tool_variant, DEFAULT_TOOL_VARIANT);
+        assert_eq!(c.tool_variant, "computer_20251124");
+    }
+
+    #[test]
+    fn from_env_reads_tool_variant_override() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let prev_e2b = std::env::var("E2B_API_KEY").ok();
+        let prev_anth = std::env::var("ANTHROPIC_API_KEY").ok();
+        let prev_variant = std::env::var("SKYCOT_CU_TOOL_VARIANT").ok();
+        std::env::set_var("E2B_API_KEY", "stub-e2b");
+        std::env::set_var("ANTHROPIC_API_KEY", "stub-anth");
+        std::env::set_var("SKYCOT_CU_TOOL_VARIANT", "computer_20250124");
+        let cfg = CuConfig::from_env().expect("from_env succeeds with stub creds");
+        assert_eq!(cfg.tool_variant, "computer_20250124");
+        std::env::remove_var("SKYCOT_CU_TOOL_VARIANT");
+        if let Some(v) = prev_e2b {
+            std::env::set_var("E2B_API_KEY", v);
+        } else {
+            std::env::remove_var("E2B_API_KEY");
+        }
+        if let Some(v) = prev_anth {
+            std::env::set_var("ANTHROPIC_API_KEY", v);
+        } else {
+            std::env::remove_var("ANTHROPIC_API_KEY");
+        }
+        if let Some(v) = prev_variant {
+            std::env::set_var("SKYCOT_CU_TOOL_VARIANT", v);
+        }
+    }
+
+    #[test]
     fn from_env_errors_when_keys_missing() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         // Snapshot + clear the env so this test is hermetic
         // against ambient credentials in dev environments.
         let prev_e2b = std::env::var("E2B_API_KEY").ok();
