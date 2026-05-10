@@ -1,0 +1,18 @@
+# Mission auto-approval-budget-e2e fixture.
+#
+# Encodes a $5/action + $50/day cap with a Mon–Fri business-hours
+# window. The brief specifies "America/New_York 09:00–17:00";
+# AutoApprovalPolicy stores TimeWindow start/end in the same UTC
+# clock the evaluator reads, so we pre-translate to UTC. May 2026
+# is in EDT (UTC-4), so 09:00–17:00 NY ≡ 13:00–21:00 UTC. The
+# test fires actions at 18:00 UTC (= 14:00 NY, inside) and
+# 15:00 UTC on a Saturday (= 11:00 NY, outside the weekday set).
+
+enabled = true
+max_usd_micros_per_action = 5000000   # $5.00 per action
+daily_budget_usd_micros   = 50000000  # $50.00 per day
+
+[[time_windows]]
+days  = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+start = "13:00:00"
+end   = "21:00:00"
