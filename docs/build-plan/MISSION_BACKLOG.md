@@ -215,7 +215,7 @@ unblocks a mission claim.
 76. Wire `select_variant` and `record_outcome` into runtime
     skill load. `[NEW]`
 77. Build `QualityInputs::from_audit_history` so quality-recompute
-    runs as cron. `[NEW]`
+    runs as cron. `[BRIEF: mission-skill-quality-from-audit]`
 78. Build cron tick `argo skill quality-recompute --all`. `[NEW]`
 79. Build skill version migration path (v1 → v2 → downstream
     notify). `[NEW]`
@@ -253,7 +253,7 @@ unblocks a mission claim.
     `[BRIEF: mission-cu-sandbox-pool-reaper]`
 97. Add Webdriver-style test harness for CU loop. `[NEW]`
 98. Resolve Sandbox naming hazard (argo-sandbox vs E2B
-    Sandbox). `[NEW]`
+    Sandbox). `[BRIEF: mission-cu-sandbox-naming-fix]`
 99. Build native macOS computer-use executor.
     `[BRIEF: claude-computer-use-native-macos-poc]`
 100. Build native Linux computer-use executor. `[NEW]`
@@ -289,7 +289,7 @@ unblocks a mission claim.
      `[BRIEF: codex-channel-discord-approvals — BLOCKED]`
 120. Add per-operator central preferences resolver. `[NEW]`
 121. Add quiet hours for SMS/Voice/WhatsApp/iMessage/Push/Slack.
-     `[NEW]`
+     `[BRIEF: mission-quiet-hours-channels]`
 122. Add operator-specific risk overrides. `[NEW]`
 123. Replace `setInterval(reload, 5000)` with real WebSocket on
      `/inbox/ws`. `[NEW]`
