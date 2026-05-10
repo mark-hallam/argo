@@ -150,6 +150,15 @@ pub const EXPECTED_SCHEMA_VERSION: u32 = 43;
 /// A SQLite-backed session store.
 ///
 /// One DB per tenant. WAL mode. Migrations applied on `migrate()`.
+///
+/// ```
+/// # async fn doc() -> argo_store::StoreResult<()> {
+/// use argo_store::SessionStore;
+/// let store = SessionStore::open(":memory:").await?;
+/// store.migrate().await?;
+/// assert!(store.schema_version().await? > 0);
+/// # Ok(()) }
+/// ```
 pub struct SessionStore {
     pub(crate) pool: Pool<Sqlite>,
 }
@@ -157,6 +166,13 @@ pub struct SessionStore {
 impl SessionStore {
     /// Open a store at `path`. Creates the file if it doesn't exist.
     /// Use `":memory:"` for in-memory (tests).
+    ///
+    /// ```
+    /// # async fn doc() -> argo_store::StoreResult<()> {
+    /// let store = argo_store::SessionStore::open(":memory:").await?;
+    /// store.migrate().await?;
+    /// # Ok(()) }
+    /// ```
     pub async fn open(path: impl AsRef<Path>) -> StoreResult<Self> {
         let path_str = path.as_ref().to_string_lossy().to_string();
         let opts = SqliteConnectOptions::from_str(&path_str)

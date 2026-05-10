@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// One of the four canonical memory files (§14.1).
+///
+/// ```
+/// use argo_memory::MemoryFile;
+/// assert_eq!(MemoryFile::Memory.filename(), "MEMORY.md");
+/// assert_eq!(MemoryFile::parse("USER.md"), Some(MemoryFile::User));
+/// assert_eq!(MemoryFile::parse("nope.md"), None);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MemoryFile {

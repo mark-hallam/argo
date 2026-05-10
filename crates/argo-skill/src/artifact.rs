@@ -267,6 +267,14 @@ impl SkillArtifact {
 }
 
 /// Hash a skill body as `sha256-<hex>`.
+///
+/// ```
+/// use argo_skill::skill_body_sha256;
+/// let h = skill_body_sha256("hello");
+/// assert!(h.starts_with("sha256-"));
+/// assert_eq!(h, skill_body_sha256("hello"));
+/// assert_ne!(h, skill_body_sha256("world"));
+/// ```
 #[must_use]
 pub fn skill_body_sha256(body: &str) -> String {
     let mut h = Sha256::new();

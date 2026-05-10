@@ -77,6 +77,14 @@ pub const ENV_VERTICALS_DIR: &str = "ARGO_VERTICALS_DIR";
 /// Resolve the default verticals discovery directory.
 /// `$ARGO_VERTICALS_DIR` wins; default is `./verticals`
 /// (cwd-relative). Pure policy — does no I/O.
+///
+/// ```
+/// // The env var is process-global, so this example uses
+/// // `default_dir` only after the test owns it. We just check
+/// // that the function returns a path of some kind.
+/// let dir = argo_vertical::default_dir();
+/// assert!(!dir.as_os_str().is_empty());
+/// ```
 #[must_use]
 pub fn default_dir() -> PathBuf {
     if let Ok(p) = std::env::var(ENV_VERTICALS_DIR) {

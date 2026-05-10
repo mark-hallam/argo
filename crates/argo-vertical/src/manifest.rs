@@ -271,6 +271,21 @@ pub struct TuiSection {
 /// Parse a manifest from a TOML string. Schema-version + structure
 /// enforced; cross-references against on-disk files are checked by
 /// the validator instead.
+///
+/// ```
+/// use argo_vertical::parse;
+/// let toml = r#"
+/// schema_version = "1"
+/// [vertical]
+/// id = "demo"
+/// name = "Demo"
+/// version = "0.1.0"
+/// "#;
+/// let manifest = parse(toml).unwrap();
+/// assert_eq!(manifest.vertical.id, "demo");
+/// assert_eq!(manifest.vertical.version, "0.1.0");
+/// assert!(parse("schema_version = \"99\"\n[vertical]\nid = \"x\"\nname = \"X\"\nversion = \"0.1\"\n").is_err());
+/// ```
 pub fn parse(src: &str) -> ArgoResult<VerticalManifest> {
     let m: VerticalManifest =
         toml::from_str(src).map_err(|e| ArgoError::Schema(format!("vertical manifest: {e}")))?;

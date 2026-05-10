@@ -9,6 +9,24 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 /// Content-addressed memory store with append-only history + locks.
+///
+/// ```
+/// # async fn doc() -> argo_types::ArgoResult<()> {
+/// use std::sync::Arc;
+/// use argo_memory::{MemoryFile, MemoryStore};
+/// use argo_store::SessionStore;
+/// use argo_types::WorkspaceId;
+/// let store = Arc::new(SessionStore::open(":memory:").await?);
+/// store.migrate().await?;
+/// let memory = MemoryStore::new(store);
+/// let workspace = WorkspaceId::new();
+/// let entry = memory.append(workspace, MemoryFile::Memory, "first note".into(), None).await?;
+/// assert_eq!(entry.body, "first note");
+/// assert!(entry.superseded_by.is_none());
+/// let listed = memory.list_active(workspace, MemoryFile::Memory).await?;
+/// assert_eq!(listed.len(), 1);
+/// # Ok(()) }
+/// ```
 pub struct MemoryStore {
     store: Arc<SessionStore>,
 }

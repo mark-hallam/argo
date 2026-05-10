@@ -72,11 +72,25 @@ pub enum ChannelError {
 }
 
 /// Stable identifier for a notification channel implementation.
+///
+/// ```
+/// use argo_channels::ChannelId;
+/// let id = ChannelId::new("email");
+/// assert_eq!(id.to_string(), "email");
+/// let json = serde_json::to_string(&id).unwrap();
+/// let back: ChannelId = serde_json::from_str(&json).unwrap();
+/// assert_eq!(back, id);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChannelId(pub String);
 
 impl ChannelId {
     /// Construct a channel id from a string.
+    ///
+    /// ```
+    /// use argo_channels::ChannelId;
+    /// assert_eq!(ChannelId::new("push"), ChannelId("push".into()));
+    /// ```
     #[must_use]
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
@@ -99,6 +113,14 @@ pub struct OperatorTarget {
 }
 
 /// Risk level attached to the action awaiting approval.
+///
+/// ```
+/// use argo_channels::RiskLevel;
+/// assert_eq!(RiskLevel::Low.to_string(), "low");
+/// assert_eq!(RiskLevel::High.to_string(), "high");
+/// let json = serde_json::to_string(&RiskLevel::Medium).unwrap();
+/// assert_eq!(json, "\"medium\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {

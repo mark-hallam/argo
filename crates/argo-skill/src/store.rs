@@ -19,6 +19,20 @@ use std::sync::Arc;
 pub(crate) use crate::store_lookups::RawSkill;
 
 /// Content-addressed skill store with append-only history + locks.
+///
+/// ```
+/// # async fn doc() -> argo_types::ArgoResult<()> {
+/// use std::sync::Arc;
+/// use argo_skill::SkillStore;
+/// use argo_store::SessionStore;
+/// let store = Arc::new(SessionStore::open(":memory:").await?);
+/// store.migrate().await?;
+/// let skills = SkillStore::new(store);
+/// let raw = "---\nname: greet\nversion: \"0.1.0\"\ndescription: \"hi\"\nprovenance:\n  source: builtin\n  hash: sha256-x\n---\nbody";
+/// let installed = skills.install(raw, None).await?;
+/// assert_eq!(installed.frontmatter.name, "greet");
+/// # Ok(()) }
+/// ```
 pub struct SkillStore {
     store: Arc<SessionStore>,
 }

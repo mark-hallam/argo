@@ -9,6 +9,13 @@ use std::{fmt, str::FromStr};
 use uuid::Uuid;
 
 /// Stable worker id stored on a session row.
+///
+/// ```
+/// use argo_store::WorkerId;
+/// use std::str::FromStr;
+/// let id = WorkerId::from_str("00000000-0000-0000-0000-000000000001").unwrap();
+/// assert_eq!(id.to_string(), "00000000-0000-0000-0000-000000000001");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorkerId(
     /// UUID payload stored as a 16-byte SQLite BLOB.
@@ -17,6 +24,14 @@ pub struct WorkerId(
 
 impl WorkerId {
     /// Parse a 16-byte SQLite BLOB into a worker id.
+    ///
+    /// ```
+    /// use argo_store::WorkerId;
+    /// let blob = vec![0u8; 16];
+    /// let id = WorkerId::from_blob(&blob).unwrap();
+    /// assert_eq!(id.to_string(), "00000000-0000-0000-0000-000000000000");
+    /// assert!(WorkerId::from_blob(&[0u8; 8]).is_err());
+    /// ```
     pub fn from_blob(blob: &[u8]) -> Result<Self, ArgoError> {
         if blob.len() != 16 {
             return Err(ArgoError::Schema(format!(

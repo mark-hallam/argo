@@ -35,6 +35,22 @@ pub const BUNDLE_PATHS: &[&str] = &[
 ];
 
 /// Manifest emitted alongside the tar (digest + entries).
+///
+/// Round-trips through serde so `argo workspace push` / `pull` can
+/// persist or transmit it as JSON next to the tarball:
+///
+/// ```
+/// use argo_marketplace::{BundleEntry, BundleManifest};
+/// let m = BundleManifest {
+///     digest: "deadbeef".into(),
+///     workspace_name: "demo".into(),
+///     tag: "0.1.0".into(),
+///     entries: vec![BundleEntry { path: "argo.toml".into(), size: 12, digest: "abc".into() }],
+/// };
+/// let json = serde_json::to_string(&m).unwrap();
+/// let back: BundleManifest = serde_json::from_str(&json).unwrap();
+/// assert_eq!(back.entries[0].path, "argo.toml");
+/// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BundleManifest {
     /// SHA-256 of the tar in hex.
@@ -84,6 +100,15 @@ pub async fn build_bundle(
 }
 
 /// Two manifests' digests match → byte-identical bundle (§23.3).
+///
+/// ```
+/// use argo_marketplace::{manifests_match, BundleManifest};
+/// let m1 = BundleManifest { digest: "abc".into(), workspace_name: "x".into(), tag: "1".into(), entries: vec![] };
+/// let mut m2 = m1.clone();
+/// assert!(manifests_match(&m1, &m2));
+/// m2.digest = "different".into();
+/// assert!(!manifests_match(&m1, &m2));
+/// ```
 #[must_use]
 pub fn manifests_match(a: &BundleManifest, b: &BundleManifest) -> bool {
     a.digest == b.digest

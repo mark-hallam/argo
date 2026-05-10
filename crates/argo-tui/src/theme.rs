@@ -58,6 +58,12 @@ impl Theme {
     /// terminal's own defaults bleed through. This is what the TUI
     /// rendered before the theme system landed; PR1 must be a
     /// zero-visual-diff change.
+    ///
+    /// ```
+    /// use argo_tui::Theme;
+    /// let dark = Theme::dark();
+    /// assert_eq!(dark.name, "dark");
+    /// ```
     #[must_use]
     pub fn dark() -> Self {
         Self {

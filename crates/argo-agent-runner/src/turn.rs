@@ -32,11 +32,30 @@ use uuid::Uuid;
 /// when callers don't pass an explicit `max_rounds`. Generous
 /// enough for legitimate planning chains; small enough that an
 /// accidental loop fails fast.
+///
+/// ```
+/// use argo_agent_runner::MAX_TOOL_ROUNDS;
+/// assert_eq!(MAX_TOOL_ROUNDS, 8);
+/// ```
 pub const MAX_TOOL_ROUNDS: usize = 8;
 
 /// Outcome of one agent-loop turn. Consumed by both the CLI
 /// handler (which prints) and the gateway's
 /// `POST /sessions/<id>/runs` endpoint (which serializes to JSON).
+///
+/// ```
+/// use argo_agent_runner::TurnResult;
+/// use uuid::Uuid;
+/// let r = TurnResult {
+///     assistant_id: Uuid::nil(),
+///     text: "hello".into(),
+///     tokens_in: Some(10),
+///     tokens_out: Some(5),
+///     stopped_on_tool_budget: false,
+/// };
+/// assert_eq!(r.text, "hello");
+/// assert!(!r.stopped_on_tool_budget);
+/// ```
 pub struct TurnResult {
     /// Persisted assistant message id.
     pub assistant_id: Uuid,

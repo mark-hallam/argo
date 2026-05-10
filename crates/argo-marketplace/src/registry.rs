@@ -10,6 +10,15 @@ use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
 
 /// Registry reference — `<host>/<repo>:<tag>`.
+///
+/// ```
+/// use argo_marketplace::OciReference;
+/// let r = OciReference::parse("ghcr.io/argo-agents/demo:0.3.0").unwrap();
+/// assert_eq!(r.host, "ghcr.io");
+/// assert_eq!(r.repo, "argo-agents/demo");
+/// assert_eq!(r.tag, "0.3.0");
+/// assert_eq!(r.to_canonical(), "ghcr.io/argo-agents/demo:0.3.0");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OciReference {
     /// Host (e.g. `"ghcr.io"`).
@@ -22,6 +31,12 @@ pub struct OciReference {
 
 impl OciReference {
     /// Parse `host/repo:tag`. Defaults tag to `"latest"` when absent.
+    ///
+    /// ```
+    /// use argo_marketplace::OciReference;
+    /// assert_eq!(OciReference::parse("ghcr.io/x/y").unwrap().tag, "latest");
+    /// assert!(OciReference::parse("missing-slash").is_err());
+    /// ```
     pub fn parse(s: &str) -> ArgoResult<Self> {
         let (left, tag) = match s.rsplit_once(':') {
             // Avoid splitting on the host's `:port`.
@@ -93,6 +108,25 @@ impl OciRegistry for StubRegistry {
 /// real OCI registry. Callers that want a real registry will slot
 /// in `oci-distribution` (or the eventual workspace `--registry-url`
 /// flag) here.
+///
+/// ```
+/// use argo_marketplace::{MemoryRegistry, OciReference, OciRegistry};
+/// # async fn demo() -> argo_types::ArgoResult<()> {
+/// let registry = MemoryRegistry::new();
+/// assert!(registry.is_empty().await);
+/// let reference = OciReference::parse("ghcr.io/x/y:1")?;
+/// let manifest = argo_marketplace::BundleManifest {
+///     digest: "abc".into(),
+///     workspace_name: "y".into(),
+///     tag: "1".into(),
+///     entries: vec![],
+/// };
+/// registry.push(&reference, b"tar bytes", &manifest).await?;
+/// assert_eq!(registry.len().await, 1);
+/// let (bytes, _) = registry.pull(&reference).await?;
+/// assert_eq!(bytes, b"tar bytes");
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Default)]
 pub struct MemoryRegistry {
     inner: tokio::sync::Mutex<std::collections::HashMap<String, (Vec<u8>, BundleManifest)>>,

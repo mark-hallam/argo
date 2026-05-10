@@ -115,6 +115,13 @@ impl ArgoConfig {
     ///
     /// # Errors
     /// Returns [`ArgoError::Provider`] on parse failure.
+    ///
+    /// ```
+    /// use argo_config::ArgoConfig;
+    /// let cfg = ArgoConfig::from_toml("[gateway]\nport = 7777\n").unwrap();
+    /// assert_eq!(cfg.gateway.port, 7777);
+    /// assert!(ArgoConfig::from_toml("not = [valid").is_err());
+    /// ```
     pub fn from_toml(s: &str) -> ArgoResult<Self> {
         toml::from_str(s).map_err(|e| ArgoError::Provider(format!("parse: {e}")))
     }
@@ -184,6 +191,14 @@ impl ArgoConfig {
     /// `other` explicitly set (per its `overrides` mask). Used by
     /// [`load_from`] to layer env > project-local > user-level >
     /// defaults.
+    ///
+    /// ```
+    /// use argo_config::ArgoConfig;
+    /// let mut base = ArgoConfig::from_toml_with_overrides("[gateway]\nport = 7000\n").unwrap();
+    /// let layer = ArgoConfig::from_toml_with_overrides("[gateway]\nport = 9000\n").unwrap();
+    /// base.merge(layer);
+    /// assert_eq!(base.gateway.port, 9000);
+    /// ```
     pub fn merge(&mut self, other: Self) {
         let o = &other.overrides;
         if o.core_home {
