@@ -25,6 +25,11 @@ use serde_json::Value;
 use sqlx::SqlitePool;
 use std::str::FromStr;
 
+/// Cap on manager-chain hops walked by [`try_advance_via_org_chart`].
+/// Mirrors the 64-hop cycle guard in
+/// `argo_identity::OrgStore::reports_to_chain`.
+const ORG_CHAIN_HOP_GUARD: usize = 64;
+
 #[derive(sqlx::FromRow)]
 struct RawOverdue {
     handoff_id: String,
@@ -142,6 +147,19 @@ pub(crate) fn parse_index_from_payload(payload: &Value) -> usize {
         .unwrap_or(0)
 }
 
+/// Pull the `org_chain_index` counter out of a handoff payload.
+/// Defaults to `0` when absent (i.e. the first time the walker
+/// falls through to the org-chart escalation path for a session).
+/// Each subsequent fallback emit bumps this by one so the next
+/// sweep walks one more manager up.
+pub(crate) fn parse_org_chain_index_from_payload(payload: &Value) -> usize {
+    payload
+        .get("org_chain_index")
+        .and_then(Value::as_u64)
+        .map(|n| n as usize)
+        .unwrap_or(0)
+}
+
 pub(crate) fn stringify_step(step: &EscalationStep) -> String {
     match step {
         EscalationStep::Worker(id) => format!("worker:{id}"),
@@ -182,6 +200,87 @@ pub(crate) async fn write_escalation_exhausted_audit(
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
     Ok(())
+}
+
+/// Probe the org-chart manager chain for the originating worker
+/// and produce the `current_index`-th manager (0 == direct manager,
+/// 1 == grand-manager, etc.) as an [`EscalationStep::Worker`].
+///
+/// Returns `Ok(None)` when (a) the originator has no `org_member`
+/// row in this tenant (i.e. the tenant never adopted the org chart
+/// for this worker), (b) the slice index is past the topmost
+/// manager, or (c) the manager at that slot is a `human`-kind row
+/// with no backing `worker_id` (per brief scope — `Human(addr)`
+/// nodes still come only from the explicit chain).
+///
+/// Walks raw SQL on `pool` instead of going through `OrgStore` to
+/// avoid plumbing a `SessionStore` handle into the walker — the
+/// same shortcut [`find_overdue_handoffs`] takes. The 64-hop guard
+/// matches `OrgStore::reports_to_chain`'s cycle protection.
+pub(crate) async fn try_advance_via_org_chart(
+    pool: &SqlitePool,
+    tenant: &TenantId,
+    originator: &WorkerId,
+    current_index: usize,
+) -> ArgoResult<Option<EscalationStep>> {
+    let tenant_str = tenant.to_string();
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT id FROM org_member WHERE tenant_id = ? AND worker_id = ? LIMIT 1",
+    )
+    .bind(&tenant_str)
+    .bind(originator.to_string())
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("org chart member lookup: {e}")))?;
+    let Some((member_id,)) = row else {
+        return Ok(None);
+    };
+
+    // Walk the chain, stopping at the (current_index)-th manager
+    // (0-based). The intermediate `worker_id` values are ignored;
+    // only the final slot decides whether we surface a step.
+    let mut cur = member_id;
+    let mut last_worker_id: Option<String> = None;
+    for _ in 0..=current_index {
+        let mgr: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT manager_id FROM org_member WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(&cur)
+        .bind(&tenant_str)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("org chart manager lookup: {e}")))?;
+        let Some((Some(mgr_id),)) = mgr else {
+            return Ok(None);
+        };
+        let row: Option<(String, Option<String>)> = sqlx::query_as(
+            "SELECT id, worker_id FROM org_member WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(&mgr_id)
+        .bind(&tenant_str)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("org chart manager row: {e}")))?;
+        let Some((next_id, worker_id)) = row else {
+            return Ok(None);
+        };
+        last_worker_id = worker_id;
+        cur = next_id;
+        // Safety: refuse to loop forever even if the chain length
+        // exceeds `current_index`. The hop guard runs in addition
+        // to the for-loop bound to defend against malformed input.
+        if current_index >= ORG_CHAIN_HOP_GUARD {
+            return Err(ArgoError::Provider(
+                "org chart slice index exceeds 64-hop guard".into(),
+            ));
+        }
+    }
+    let Some(worker_id_str) = last_worker_id else {
+        return Ok(None);
+    };
+    let worker_id = WorkerId::from_str(&worker_id_str)
+        .map_err(|e| ArgoError::Schema(format!("org member worker_id: {e}")))?;
+    Ok(Some(EscalationStep::Worker(worker_id)))
 }
 
 async fn last_session_hash(pool: &SqlitePool, session: &uuid::Uuid) -> ArgoResult<[u8; 32]> {

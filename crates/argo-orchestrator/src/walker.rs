@@ -51,7 +51,8 @@ use crate::persist::OrchestratorStore;
 use crate::routing::{RoutingContext, RoutingEngine};
 use crate::session::SessionStatus;
 use crate::walker_helpers::{
-    find_overdue_handoffs, parse_chain_from_payload, parse_index_from_payload, stringify_step,
+    find_overdue_handoffs, parse_chain_from_payload, parse_index_from_payload,
+    parse_org_chain_index_from_payload, stringify_step, try_advance_via_org_chart,
     write_escalation_exhausted_audit, OverdueRow,
 };
 use argo_identity::WorkerId;
@@ -203,13 +204,13 @@ impl HandoffWalker {
         let payload = &row.handoff.payload;
         let current_index = parse_index_from_payload(payload);
         let Some(chain) = parse_chain_from_payload(payload) else {
-            self.exhaust_chain(&row).await?;
-            report.chain_exhausted += 1;
+            self.fallback_or_exhaust(&row, current_index, now, report)
+                .await?;
             return Ok(());
         };
         let Some((next_index, next_step)) = chain.advance(current_index) else {
-            self.exhaust_chain(&row).await?;
-            report.chain_exhausted += 1;
+            self.fallback_or_exhaust(&row, current_index, now, report)
+                .await?;
             return Ok(());
         };
         match next_step {
@@ -254,6 +255,88 @@ impl HandoffWalker {
             "user_payload": row.handoff.payload.get("user_payload")
                 .cloned()
                 .unwrap_or_else(|| row.handoff.payload.clone()),
+        });
+        let mut next = Handoff::new(
+            row.handoff.session_id.clone(),
+            row.handoff.from,
+            EscalationStep::Worker(next_worker),
+            row.handoff.expected_outcome.clone(),
+            next_payload,
+        );
+        next.deadline = Some(now + Duration::seconds(self.default_deadline_secs));
+        self.store.insert_handoff(row.tenant_id, &next).await?;
+        Ok(())
+    }
+
+    /// Chain-exhaust path: probe the org chart for a manager step
+    /// before giving up. When `try_advance_via_org_chart` produces a
+    /// `Worker(...)` step, emit a fresh Pending handoff with both
+    /// `escalation_index` and `org_chain_index` bumped, reusing the
+    /// existing `advance_to_worker` audit shape (no new audit kind).
+    /// Only when the org-chart slice is also exhausted does this
+    /// fall through to `exhaust_chain`.
+    async fn fallback_or_exhaust(
+        &self,
+        row: &OverdueRow,
+        current_index: usize,
+        now: DateTime<Utc>,
+        report: &mut SweepReport,
+    ) -> ArgoResult<()> {
+        let org_idx = parse_org_chain_index_from_payload(&row.handoff.payload);
+        let step = try_advance_via_org_chart(
+            &self.pool,
+            &row.tenant_id,
+            &row.handoff.from,
+            org_idx,
+        )
+        .await?;
+        if let Some(EscalationStep::Worker(mgr)) = step {
+            let target = self
+                .routing_override(&row.handoff.expected_outcome, now)
+                .unwrap_or(mgr);
+            self.advance_to_org_manager(row, current_index + 1, org_idx + 1, target, now)
+                .await?;
+            report.re_handed_off += 1;
+            return Ok(());
+        }
+        self.exhaust_chain(row).await?;
+        report.chain_exhausted += 1;
+        Ok(())
+    }
+
+    /// Emit a new Pending handoff for an org-chart fallback step.
+    /// Mirrors `advance_to_worker` but advances both
+    /// `escalation_index` and the org-chart-specific
+    /// `org_chain_index` so subsequent sweeps keep walking the
+    /// reports-to chain. The original `escalation_chain` array is
+    /// preserved verbatim so audit-trail readers can still see the
+    /// explicit chain that was tried first.
+    async fn advance_to_org_manager(
+        &self,
+        row: &OverdueRow,
+        next_index: usize,
+        next_org_idx: usize,
+        next_worker: WorkerId,
+        now: DateTime<Utc>,
+    ) -> ArgoResult<()> {
+        let chain_arr = row
+            .handoff
+            .payload
+            .get("escalation_chain")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([]));
+        let user_payload = row
+            .handoff
+            .payload
+            .get("user_payload")
+            .cloned()
+            .unwrap_or_else(|| row.handoff.payload.clone());
+        let next_payload = serde_json::json!({
+            "escalation_chain": chain_arr,
+            "escalation_index": next_index,
+            "org_chain_index": next_org_idx,
+            "previous_handoff_id": row.handoff.id.as_str(),
+            "user_payload": user_payload,
         });
         let mut next = Handoff::new(
             row.handoff.session_id.clone(),
@@ -337,3 +420,7 @@ impl HandoffWalker {
 #[cfg(test)]
 #[path = "walker_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "walker_org_tests.rs"]
+mod org_tests;
