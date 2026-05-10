@@ -18,6 +18,7 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod email;
+pub mod email_inbound;
 pub mod discord;
 pub mod fallback;
 pub mod imessage;
@@ -26,6 +27,7 @@ pub mod push;
 pub mod push_format;
 pub mod rate_limit;
 pub mod slack;
+pub mod slack_inbound;
 pub mod token;
 pub mod voice;
 pub mod voice_format;
@@ -34,6 +36,7 @@ pub mod whatsapp;
 
 pub use discord::DiscordChannel;
 pub use rate_limit::{RateLimit, RateLimitConfig};
+pub use slack_inbound::InboundChannel;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

@@ -1,0 +1,17 @@
+{
+  "type": "block_actions",
+  "user": {"id": "U7HUMANOP", "username": "mark.hallam"},
+  "channel": {"id": "C7DEMO", "name": "approvals"},
+  "team": {"id": "T1WS"},
+  "actions": [
+    {
+      "action_id": "approve",
+      "block_id": "approval_buttons",
+      "type": "button",
+      "value": "TOKEN_PLACEHOLDER",
+      "text": {"type": "plain_text", "text": "Approve"}
+    }
+  ],
+  "trigger_id": "trig-123",
+  "response_url": "https://hooks.slack.com/actions/T1WS/abc"
+}
