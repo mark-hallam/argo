@@ -181,7 +181,7 @@ unblocks a mission claim.
     model-driven classifier. `[BRIEF: mission-genesis-llm-classifier]`
 59. Allow LLM refinement to add MORE than 3 actions. `[BRIEF: mission-llm-refine-uncap-actions]`
 60. Allow LLM refinement to evolve the seed action vocabulary.
-    `[NEW]`
+    `[BRIEF: mission-llm-refine-evolve-vocab]`
 61. Add interactive Genesis with multi-turn refinement.
     `[PARTIAL — claude-genesis-charter-conversation #885 SHIPPED single-turn]`
 62. Add Genesis from existing tenant verticals (transfer
@@ -224,7 +224,7 @@ unblocks a mission claim.
 81. Build cross-tenant trust graph. `[NEW]`
 82. Build skill regression detector (quality drops >X% → demote).
     `[BRIEF: mission-skill-regression-detector]`
-83. Build Forge as cron tick that picks lowest-quality skills. `[NEW]`
+83. Build Forge as cron tick that picks lowest-quality skills. `[BRIEF: mission-forge-cron-lowest-quality]`
 84. Replace `StubForge` trait OR delete trait + rename
     `forge_optimize` as canonical. `[NEW]`
 85. Build Forge that consumes operator feedback as eval signal.
