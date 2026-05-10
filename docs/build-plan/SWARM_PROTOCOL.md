@@ -81,6 +81,16 @@ export CARGO_TARGET_DIR=/tmp/argo-shared-target
   leaking secrets into your global shell environment, and direnv's
   hook runs for every shell invocation that enters the directory.
 
+**⚠️ Do NOT set `ANTHROPIC_API_KEY` for worker loops.** Workers must
+use Claude Code subscription OAuth (account auth), never an API key.
+When `ANTHROPIC_API_KEY` is set, `claude -p` silently routes through
+API-key billing and burns paid credits instead of consuming Max-plan
+quota — this caused the 2026-05-10 credit-burn incident. The worker
+loop (`scripts/claude-worker-loop.sh`) refuses to start while this
+var is non-empty; `scripts/bootstrap-machine.sh` flags it as a fail.
+If you have legitimate need for API-key auth in some other workflow,
+scope it via `direnv` to a non-worker directory, never global env.
+
 Without `CARGO_TARGET_DIR`, every `/tmp/<brief-id>` worktree gets its
 own `target/` and rebuilds all 56 crates from scratch (~28 min cold)
 every time a worker starts a brief. With the shared target dir,

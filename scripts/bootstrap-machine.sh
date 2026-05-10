@@ -70,9 +70,9 @@ echo
 bold "Environment:"
 
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-  check_ok "ANTHROPIC_API_KEY set (last 6 chars: ...${ANTHROPIC_API_KEY: -6})"
+  check_fail "ANTHROPIC_API_KEY is set (last 6: ...${ANTHROPIC_API_KEY: -6}) — workers MUST use Claude Code subscription OAuth (account auth), never an API key. API-key billing burns paid credits instead of consuming Max-plan quota; this caused the 2026-05-10 credit-burn incident. Comment out the export in ~/.zshenv / ~/.zshrc / wherever, open a fresh terminal, and run \`claude /login\` to verify subscription auth. scripts/claude-worker-loop.sh will refuse to start while this var is set."
 else
-  check_fail "ANTHROPIC_API_KEY not set — export in ~/.zshenv (macOS) or ~/.profile (Linux/WSL2). Non-interactive shells (Claude Code's Bash tool, scripts) do NOT source ~/.zshrc / ~/.bashrc, so vars set there will be invisible to swarm tooling. For the API key specifically, prefer direnv or a sourced gitignored env file rather than persisting a secret in ~/.zshenv."
+  check_ok "ANTHROPIC_API_KEY not set — workers will use Claude Code subscription OAuth (correct). Verify your account is logged in via \`claude /login\` if you haven't already."
 fi
 
 if [ -n "${ARGO_REPO_ROOT:-}" ]; then

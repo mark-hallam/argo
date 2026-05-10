@@ -27,6 +27,31 @@
 
 set -euo pipefail
 
+# --- HARD GUARD: refuse to run if ANTHROPIC_API_KEY is in the environment ---
+# Workers MUST use Claude Code subscription OAuth (the account auth) — never
+# an API key. If ANTHROPIC_API_KEY is set, `claude -p` silently routes through
+# API-key billing and burns paid credits instead of consuming Max-plan quota.
+# That mode caused the 2026-05-10 credit-burn incident (workers spawning under
+# a depleted org-credit account when subscription auth would have worked).
+#
+# This guard refuses to start when the var is non-empty, regardless of source
+# (~/.zshenv, ~/.zshrc, parent shell, etc). Fix the env, not the script.
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  echo "" >&2
+  echo "╔═══════════════════════════════════════════════════════════════════╗" >&2
+  echo "║  🛑  worker-loop refused: ANTHROPIC_API_KEY is set                  ║" >&2
+  echo "║                                                                     ║" >&2
+  echo "║  Workers must use Claude Code subscription OAuth (account auth),    ║" >&2
+  echo "║  never an API key. API-key billing burns paid credits instead of    ║" >&2
+  echo "║  consuming Max-plan quota.                                          ║" >&2
+  echo "║                                                                     ║" >&2
+  echo "║  Fix: comment out ANTHROPIC_API_KEY in ~/.zshenv (or wherever it's  ║" >&2
+  echo "║  exported), then open a fresh terminal and re-run this script.      ║" >&2
+  echo "╚═══════════════════════════════════════════════════════════════════╝" >&2
+  echo "" >&2
+  exit 2
+fi
+
 REPO="${REPO:-~/code/argo}"
 FAMILY="${FAMILY:-claude}"
 
