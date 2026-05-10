@@ -58,6 +58,7 @@ mod isolation;
 mod loader;
 mod manifest;
 mod manifest_actions;
+mod manifest_actions_executor;
 mod manifest_mcp;
 mod manifest_validate;
 mod memory_schema;
