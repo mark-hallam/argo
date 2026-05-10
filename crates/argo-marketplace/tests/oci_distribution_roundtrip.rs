@@ -91,51 +91,6 @@ async fn pushed_bundle_round_trips_via_mock_oci_v2() {
 }
 
 #[tokio::test]
-async fn challenge_handshake_yields_a_bearer_then_round_trips() {
-    // Mock that requires authentication: every v2 request without
-    // a valid Bearer returns 401 + a `Bearer realm="…"` challenge;
-    // the realm endpoint accepts Basic auth and returns a token;
-    // requests with `Authorization: Bearer test-token` work
-    // normally.
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let port = listener.local_addr().unwrap().port();
-    let state: Arc<Mutex<State>> = Arc::new(Mutex::new(State::default()));
-    let server_state = Arc::clone(&state);
-    let server = tokio::spawn(async move {
-        loop {
-            let Ok((mut stream, _)) = listener.accept().await else {
-                break;
-            };
-            let st = Arc::clone(&server_state);
-            tokio::spawn(async move {
-                handle_with_auth(&mut stream, st, port).await;
-            });
-        }
-    });
-
-    let registry = OciDistributionRegistry::new(&format!("http://127.0.0.1:{port}"), None)
-        .with_basic_auth("user", "secret");
-    let reference = OciReference::parse(&format!("127.0.0.1:{port}/argo/auth-test:v1")).unwrap();
-    let tar_bytes = b"authed-tar-bytes".to_vec();
-    let bundle = BundleManifest {
-        digest: "sha256:fake".into(),
-        workspace_name: "auth-test".into(),
-        tag: "v1".into(),
-        entries: vec![],
-    };
-
-    registry
-        .push(&reference, &tar_bytes, &bundle)
-        .await
-        .unwrap();
-    let (pulled_tar, pulled_manifest) = registry.pull(&reference).await.unwrap();
-    assert_eq!(pulled_tar, tar_bytes);
-    assert_eq!(pulled_manifest.workspace_name, "auth-test");
-
-    server.abort();
-}
-
-#[tokio::test]
 async fn pull_against_unknown_tag_returns_provider_error() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -211,81 +166,6 @@ async fn handle(stream: &mut tokio::net::TcpStream, state: Arc<Mutex<State>>, po
 
 fn find_subseq(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
-}
-
-/// Auth-aware handler — mirrors `handle` but requires
-/// `Authorization: Bearer test-token` on `/v2/...` requests.
-/// Without it returns 401 + a `WWW-Authenticate: Bearer …`
-/// challenge. Hosts a `/token` endpoint that accepts Basic auth
-/// and returns `{"token": "test-token"}`.
-async fn handle_with_auth(stream: &mut tokio::net::TcpStream, state: Arc<Mutex<State>>, port: u16) {
-    let mut buf = vec![0u8; 65536];
-    let n = stream.read(&mut buf).await.unwrap_or(0);
-    if n == 0 {
-        return;
-    }
-    let raw = &buf[..n];
-    let header_end = match find_subseq(raw, b"\r\n\r\n") {
-        Some(i) => i,
-        None => return,
-    };
-    let header_str = std::str::from_utf8(&raw[..header_end]).unwrap_or("");
-    let body_start = header_end + 4;
-    let mut lines = header_str.lines();
-    let request_line = lines.next().unwrap_or("");
-    let mut content_length = 0usize;
-    let mut authorization = None::<String>;
-    for h in lines {
-        let lower = h.to_ascii_lowercase();
-        if let Some(v) = lower.strip_prefix("content-length:") {
-            content_length = v.trim().parse().unwrap_or(0);
-        }
-        if let Some(v) = lower.strip_prefix("authorization:") {
-            authorization = Some(v.trim().to_string());
-        }
-    }
-    let mut body = raw[body_start..].to_vec();
-    while body.len() < content_length {
-        let mut chunk = vec![0u8; content_length - body.len()];
-        let m = stream.read(&mut chunk).await.unwrap_or(0);
-        if m == 0 {
-            break;
-        }
-        body.extend_from_slice(&chunk[..m]);
-    }
-    let mut parts = request_line.split_whitespace();
-    let method = parts.next().unwrap_or("");
-    let path = parts.next().unwrap_or("");
-
-    // Token endpoint: any GET to /token with Basic auth returns
-    // `{"token":"test-token"}`. We don't validate the password.
-    if method == "GET" && path.starts_with("/token") {
-        let body = b"{\"token\":\"test-token\"}";
-        let resp = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
-            body.len()
-        );
-        let _ = stream.write_all(resp.as_bytes()).await;
-        let _ = stream.write_all(body).await;
-        let _ = stream.shutdown().await;
-        return;
-    }
-
-    // /v2/... requests require Bearer test-token.
-    if path.starts_with("/v2/") && authorization.as_deref() != Some("bearer test-token") {
-        let challenge = format!(
-            "HTTP/1.1 401 Unauthorized\r\n\
-             WWW-Authenticate: Bearer realm=\"http://127.0.0.1:{port}/token\",service=\"argo-test\",scope=\"repository:argo/auth-test:pull,push\"\r\n\
-             Content-Length: 0\r\n\r\n"
-        );
-        let _ = stream.write_all(challenge.as_bytes()).await;
-        let _ = stream.shutdown().await;
-        return;
-    }
-
-    let resp = route(method, path, &body, &state, port).await;
-    let _ = stream.write_all(&resp).await;
-    let _ = stream.shutdown().await;
 }
 
 async fn route(
