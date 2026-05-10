@@ -83,6 +83,10 @@ pub mod worker_kpi;
 /// scored against `worker_kpi_value`
 /// (Stream `claude-worker-okr-cli`, mission claim 2 worker-goals layer).
 pub mod worker_okr;
+/// Data types backing [`worker_okr`] — split out under the 500-LOC
+/// per-file ceiling. Re-exported through `worker_okr::*`; reach for
+/// that path from outside the crate.
+pub(crate) mod worker_okr_types;
 /// Per-worker spend cap write helpers — `argo worker budget set/show`
 /// (Stream `claude-worker-budget-cli`). Caps live on the worker's
 /// `auto_approval_json` column; the spend totals come from the
