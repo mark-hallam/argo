@@ -15,6 +15,7 @@ mod tracing_setup;
 
 use argo_types::ArgoResult;
 use clap::Parser;
+use cli::cli_runtime_cmds::RuntimeCmd;
 use cli::{Cli, Command};
 
 #[tokio::main]
@@ -132,50 +133,54 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 }
             },
         },
-        Some(Command::Doctor {
+        Some(Command::Runtime(RuntimeCmd::Doctor {
             cmd: Some(cli::DoctorCmd::Fix { auto, issue, json: fix_json }),
             json,
             ..
-        }) => handlers::doctor_fix::run(auto, issue.as_deref(), json || fix_json).await,
-        Some(Command::Doctor {
+        })) => handlers::doctor_fix::run(auto, issue.as_deref(), json || fix_json).await,
+        Some(Command::Runtime(RuntimeCmd::Doctor {
             cmd: Some(cli::DoctorCmd::Watch { interval, clear }),
             ..
-        }) => handlers::doctor_watch::run(&interval, clear).await,
-        Some(Command::Doctor {
+        })) => handlers::doctor_watch::run(&interval, clear).await,
+        Some(Command::Runtime(RuntimeCmd::Doctor {
             cmd: None,
             json,
             format,
-        }) => handlers::doctor::run(json, &format).await,
-        Some(Command::Health { json, format }) => handlers::health::run(json, &format).await,
-        Some(Command::New {
+        })) => handlers::doctor::run(json, &format).await,
+        Some(Command::Runtime(RuntimeCmd::Health { json, format })) => {
+            handlers::health::run(json, &format).await
+        }
+        Some(Command::Runtime(RuntimeCmd::New {
             provider,
             model,
             title,
             vertical,
-        }) => handlers::new::run(&provider, &model, title.as_deref(), vertical.as_deref()).await,
-        Some(Command::Resume { id }) => handlers::resume::run(&id).await,
-        Some(Command::Chat {
+        })) => handlers::new::run(&provider, &model, title.as_deref(), vertical.as_deref()).await,
+        Some(Command::Runtime(RuntimeCmd::Resume { id })) => handlers::resume::run(&id).await,
+        Some(Command::Runtime(RuntimeCmd::Chat {
             id,
             user,
             stream,
             interactive,
             max_tool_rounds,
-        }) => handlers::chat::run(&id, user.as_deref(), stream, interactive, max_tool_rounds).await,
-        Some(Command::Steer { session_id, text }) => handlers::steer::run(&session_id, &text).await,
+        })) => handlers::chat::run(&id, user.as_deref(), stream, interactive, max_tool_rounds).await,
+        Some(Command::Runtime(RuntimeCmd::Steer { session_id, text })) => {
+            handlers::steer::run(&session_id, &text).await
+        }
         Some(Command::Db { cmd }) => handlers::db::run(cmd).await,
         Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,
         Some(Command::Audit { cmd }) => handlers::audit::run(cmd).await,
-        Some(Command::Setup {
+        Some(Command::Runtime(RuntimeCmd::Setup {
             check,
             require,
             non_interactive,
             json,
-        }) => handlers::setup::run(check, require, non_interactive, json).await,
-        Some(Command::Onboard {
+        })) => handlers::setup::run(check, require, non_interactive, json).await,
+        Some(Command::Runtime(RuntimeCmd::Onboard {
             non_interactive,
             json,
             config,
-        }) => handlers::onboard::run(non_interactive, json, config).await,
+        })) => handlers::onboard::run(non_interactive, json, config).await,
         Some(Command::Vertical { cmd }) => handlers::vertical::run(cmd).await,
         Some(Command::Genesis { cmd }) => handlers::genesis::run(cmd),
         Some(Command::Messages { cmd }) => handlers::messages::run(cmd).await,
@@ -366,15 +371,15 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Session { cmd }) => handlers::session::run(cmd).await,
         Some(Command::Handoff { cmd }) => handlers::session::run_handoff(cmd).await,
         Some(Command::Skill { cmd }) => handlers::skill::run(cmd).await,
-        Some(Command::Trace {
+        Some(Command::Runtime(RuntimeCmd::Trace {
             cmd: Some(cli::TraceCmd::Explore { session, format, path }),
             ..
-        }) => {
+        })) => {
             let fmt = handlers::trace_explore::TraceFormat::parse(&format)?;
             let path_buf = path.map(std::path::PathBuf::from);
             handlers::trace_explore::run(&session, fmt, path_buf.as_deref())
         }
-        Some(Command::Trace { cmd: None, turn, session }) => {
+        Some(Command::Runtime(RuntimeCmd::Trace { cmd: None, turn, session })) => {
             handlers::trace::run(turn, session).await
         }
         Some(Command::Incident { cmd }) => match cmd {
@@ -384,12 +389,14 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 force,
             } => handlers::incident::run(from, out_dir, force),
         },
-        Some(Command::Tui) => handlers::tui::run().await,
-        Some(Command::Tools { cmd }) => handlers::tools::run(cmd).await,
-        Some(Command::Recover { session_id, json }) => {
+        Some(Command::Runtime(RuntimeCmd::Tui)) => handlers::tui::run().await,
+        Some(Command::Runtime(RuntimeCmd::Tools { cmd })) => handlers::tools::run(cmd).await,
+        Some(Command::Runtime(RuntimeCmd::Recover { session_id, json })) => {
             handlers::recover::run(&session_id, json).await
         }
-        Some(Command::RecoverCache { cmd }) => handlers::recover_cache::run(cmd).await,
+        Some(Command::Runtime(RuntimeCmd::RecoverCache { cmd })) => {
+            handlers::recover_cache::run(cmd).await
+        }
         Some(Command::Subtask { cmd }) => match cmd {
             cli::SubtaskCmd::List {
                 session,
@@ -414,11 +421,18 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 handlers::subtask_tree::run(&session, json).await
             }
         },
-        Some(Command::Voice { mock_script, json }) => {
+        Some(Command::Runtime(RuntimeCmd::Voice { mock_script, json })) => {
             let code = handlers::voice::run(mock_script, json);
             std::process::exit(code);
         }
-        Some(Command::Latency { format }) => handlers::latency::run(&format).await,
+        Some(Command::Runtime(RuntimeCmd::Latency { format })) => {
+            handlers::latency::run(&format).await
+        }
+        Some(Command::Runtime(RuntimeCmd::Update)) => {
+            eprintln!("argo: 'Update' is not yet wired in this build.");
+            eprintln!("See ROADMAP.md for the integration-tier plan.");
+            std::process::exit(2);
+        }
         Some(Command::Cu { cmd }) => handlers::cu_replay::run(cmd).await,
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
