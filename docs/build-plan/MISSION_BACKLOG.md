@@ -435,7 +435,7 @@ unblocks a mission claim.
 204. Cross-tenant skill propagation. `[NEW]`
 205. Build benchmark suite (perf regression detection over skill
      versions). `[NEW]`
-206. Build cost-attribution per Forge run. `[NEW]`
+206. Build cost-attribution per Forge run. `[BRIEF: mission-forge-cost-attribution]`
 207. Build judge-disagreement evaluation suite. `[NEW]`
 208. Build skill quality trend dashboard.
      `[SHIPPED]`
