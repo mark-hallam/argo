@@ -35,6 +35,7 @@ mod overlays_sessions;
 mod overlays_tables;
 mod overlays_tool_errors;
 mod render;
+mod render_messages;
 pub mod session_detail;
 mod text_input;
 pub mod theme;
