@@ -3,8 +3,10 @@
 
 use super::routes_query::{parse_query_kv, parse_since_minutes_from_get};
 use super::store_unavailable;
+use super::streaming::{stream_json_array, stream_ndjson, WireFmt};
 use argo_store::SessionStore;
 use std::sync::Arc;
+use tokio::net::TcpStream;
 
 /// `GET /sessions` dispatcher: parse all 8 query params then
 /// hand off to [`sessions_response`]. Lives here so the
@@ -250,4 +252,135 @@ pub(super) async fn sessions_count_response(
             format!("{{\"error\":\"list_all_sessions: {e}\"}}"),
         ),
     }
+}
+
+/// Streaming variant of `GET /sessions`. Same per-row JSON shape as
+/// the buffered path so JSON-array consumers parse it identically.
+/// Filters apply incrementally as rows flow out, so a 50k-row
+/// result-set never materialises as one giant String.
+pub(super) async fn stream_sessions(
+    req: &str,
+    store: &Arc<SessionStore>,
+    out: &mut TcpStream,
+    fmt: WireFmt,
+) -> tokio::io::Result<()> {
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let since = parse_since_minutes_from_get(req, "/sessions");
+    let older_than =
+        parse_query_kv(tail, "older-than-minutes").and_then(|v| v.parse::<i64>().ok());
+    let status = parse_query_kv(tail, "status");
+    let provider = parse_query_kv(tail, "provider");
+    let model = parse_query_kv(tail, "model");
+    let title_contains =
+        parse_query_kv(tail, "title-contains").map(|s| s.replace('+', " "));
+    let spent_min = parse_query_kv(tail, "spent-min").and_then(|v| v.parse::<i64>().ok());
+    let spent_max = parse_query_kv(tail, "spent-max").and_then(|v| v.parse::<i64>().ok());
+    let limit: u32 = parse_query_kv(tail, "limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(100);
+
+    // Sessions live behind a single indexed query already. We pull
+    // them once, then stream rows out filter-by-filter — the win is
+    // skipping the giant `serde_json::to_string(&Vec)` allocation
+    // that was the buffered path's true memory peak.
+    let rows = match store.list_all_sessions(limit).await {
+        Ok(r) => r,
+        Err(e) => {
+            return write_stream_error(out, "500 Internal Server Error", &format!("list sessions: {e}"))
+                .await;
+        }
+    };
+    let spend_by_sid = super::spend_per_session(store).await.unwrap_or_default();
+    let now = chrono::Utc::now();
+    let since_cutoff = since.map(|m| now - chrono::Duration::minutes(m));
+    let older_cutoff = older_than.map(|m| now - chrono::Duration::minutes(m));
+    let title_lower = title_contains.as_deref().map(str::to_lowercase);
+    let min_u = spent_min.map(|v| u64::try_from(v).unwrap_or(0));
+    let max_u = spent_max.map(|v| u64::try_from(v).unwrap_or(0));
+
+    let stream = futures::stream::iter(rows.into_iter().filter_map(move |s| {
+        if let Some(c) = since_cutoff {
+            if s.started_at < c {
+                return None;
+            }
+        }
+        if let Some(c) = older_cutoff {
+            if s.started_at >= c {
+                return None;
+            }
+        }
+        if let Some(want) = status.as_deref() {
+            let keep = match want {
+                "open" => s.ended_at.is_none(),
+                "ended" => s.ended_at.is_some(),
+                _ => true,
+            };
+            if !keep {
+                return None;
+            }
+        }
+        if let Some(want) = provider.as_deref() {
+            if s.provider != want {
+                return None;
+            }
+        }
+        if let Some(want) = model.as_deref() {
+            if s.model != want {
+                return None;
+            }
+        }
+        if let Some(needle) = title_lower.as_deref() {
+            let hit = s
+                .title
+                .as_deref()
+                .map(|t| t.to_lowercase().contains(needle))
+                .unwrap_or(false);
+            if !hit {
+                return None;
+            }
+        }
+        let spent = spend_by_sid
+            .get(s.id.0.as_bytes().as_slice())
+            .copied()
+            .unwrap_or(0);
+        if let Some(min) = min_u {
+            if spent < min {
+                return None;
+            }
+        }
+        if let Some(max) = max_u {
+            if spent > max {
+                return None;
+            }
+        }
+        Some(Ok(serde_json::json!({
+            "id": s.id.0.to_string(),
+            "model": s.model,
+            "provider": s.provider,
+            "title": s.title,
+            "vertical_id": s.vertical_id,
+            "started_at": s.started_at.to_rfc3339(),
+            "ended_at": s.ended_at.map(|d| d.to_rfc3339()),
+            "spent_usd_micros": spent,
+        })))
+    }));
+    match fmt {
+        WireFmt::JsonArray => stream_json_array(out, stream).await,
+        WireFmt::Ndjson => stream_ndjson(out, stream).await,
+    }
+}
+
+async fn write_stream_error(
+    out: &mut TcpStream,
+    status: &str,
+    msg: &str,
+) -> tokio::io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+    let body = format!("{{\"error\":\"{msg}\"}}");
+    let resp = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    out.write_all(resp.as_bytes()).await?;
+    out.flush().await
 }

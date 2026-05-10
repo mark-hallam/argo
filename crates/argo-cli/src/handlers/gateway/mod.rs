@@ -86,6 +86,7 @@ mod routes_verticals_doctor;
 mod routes_verticals_lint;
 mod routes_verticals_run;
 mod routes_voice; mod routes_voice_auth; mod routes_workspace;
+mod runs_streaming;
 mod security_headers;
 mod streaming;
 

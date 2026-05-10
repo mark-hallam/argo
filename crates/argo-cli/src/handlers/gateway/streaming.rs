@@ -1,340 +1,255 @@
-//! Chunked-NDJSON streaming for `POST /sessions/<id>/runs/stream`.
-//!
-//! Each `RunEvent` emitted by the agent loop lands as one HTTP
-//! chunk in real time — no audit-table polling. Implementation
-//! pairs an `mpsc::UnboundedChannel` with `tokio::select!`: the
-//! task running `run_turn_with_events` sends events to the
-//! channel; the handler reads them and writes chunks. When the
-//! task completes (success or error), a final `{"event":"done"|
-//! "error", ...}` chunk is written and the chunked-encoded body
-//! terminated with `0\r\n\r\n`.
+//! Chunked streaming for large gateway list GETs (sessions list,
+//! message backfill, audit-recent). Bridges sqlx's row-at-a-time
+//! `fetch()` Stream into chunked HTTP so memory stays flat and TTFB
+//! is one-row latency. Wire formats: `application/json` (JSON array,
+//! byte-identical to buffered path) and `application/x-ndjson` (one
+//! row per line, opt-in via Accept). The listener-loop dispatcher
+//! only fires when the path matches a streaming-eligible route AND
+//! content-negotiation opts in (Accept, `?stream=true`, `?limit>1k`)
+//! — all other traffic falls through to the buffered route table.
 use argo_store::SessionStore;
-use argo_types::SessionId;
+use argo_types::ArgoResult;
+use futures::{Stream, StreamExt};
+use serde::Serialize;
 use std::sync::Arc;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
 
-/// Cheap heuristic the listener uses to route streaming requests
-/// before reading their bodies. Matches every streaming URL path
-/// so the one-shot `POST /sessions/<id>/runs` etc. keep their
-/// existing one-shot dispatch.
-pub(super) fn is_streaming_runs_request(req: &str) -> bool {
-    streaming_kind(req).is_some()
+/// True when the request is one of the three streaming-eligible
+/// list GETs AND the caller has opted in to streaming (Accept
+/// header, `?stream=true`, or `?limit>1000`). Used by the
+/// listener-loop dispatcher to pick the streaming branch.
+pub(super) fn is_streaming_list_request(req: &str) -> bool {
+    streaming_list_kind(req).is_some() && streaming_negotiated(req)
 }
 
-/// Internal: which streaming endpoint matches, or None.
-fn streaming_kind(req: &str) -> Option<StreamKind> {
-    if req.starts_with("POST /forge/optimize/stream ") {
-        return Some(StreamKind::ForgeOptimize);
+#[derive(Copy, Clone, Debug)]
+pub(super) enum ListKind {
+    Sessions,
+    Messages,
+    AuditRecent,
+}
+
+/// Which streaming route matches, or `None` for non-streaming
+/// paths. Lives next to `is_streaming_list_request` so callers
+/// can dispatch off the same path table.
+pub(super) fn streaming_list_kind(req: &str) -> Option<ListKind> {
+    if req.starts_with("GET /sessions ") || req.starts_with("GET /sessions?") {
+        return Some(ListKind::Sessions);
     }
-    let rest = req.strip_prefix("POST /sessions/")?;
-    let (_, tail) = rest.split_once('/')?;
-    if tail.starts_with("runs/stream ") {
-        Some(StreamKind::Runs)
-    } else if tail.starts_with("replay/stream ") {
-        Some(StreamKind::Replay)
+    if req.starts_with("GET /audit/recent ") || req.starts_with("GET /audit/recent?") {
+        return Some(ListKind::AuditRecent);
+    }
+    let rest = req.strip_prefix("GET /sessions/")?;
+    let (_sid, tail) = rest.split_once('/')?;
+    if tail.starts_with("messages ") || tail.starts_with("messages?") {
+        Some(ListKind::Messages)
     } else {
         None
     }
 }
 
-#[derive(Copy, Clone)]
-enum StreamKind {
-    Runs,
-    Replay,
-    ForgeOptimize,
+/// JSON array vs newline-delimited.
+#[derive(Copy, Clone, Debug)]
+pub(super) enum WireFmt {
+    JsonArray,
+    Ndjson,
 }
 
-/// Run either the agent loop (`runs/stream`) or a session replay
-/// (`replay/stream`) and stream its `RunEvent` emissions back as
-/// chunked NDJSON. Real-time — events land as soon as the loop
-/// emits them (no polling).
-pub(super) async fn serve_streamed_run(
+fn streaming_negotiated(req: &str) -> bool {
+    accept_ndjson(req) || query_flag_true(req, "stream") || query_limit_over(req, 1000)
+}
+
+pub(super) fn pick_wire_fmt(req: &str) -> WireFmt {
+    if accept_ndjson(req) {
+        WireFmt::Ndjson
+    } else {
+        WireFmt::JsonArray
+    }
+}
+
+fn accept_ndjson(req: &str) -> bool {
+    accept_header(req).is_some_and(|h| h.contains("application/x-ndjson"))
+}
+
+fn accept_header(req: &str) -> Option<&str> {
+    req.lines().find_map(|l| {
+        let l = l.trim_end_matches('\r');
+        l.split_once(':').and_then(|(k, v)| {
+            k.eq_ignore_ascii_case("accept").then(|| v.trim())
+        })
+    })
+}
+
+fn query_flag_true(req: &str, key: &str) -> bool {
+    request_query(req)
+        .and_then(|q| query_get(q, key))
+        .as_deref()
+        == Some("true")
+}
+
+fn query_limit_over(req: &str, threshold: u32) -> bool {
+    request_query(req)
+        .and_then(|q| query_get(q, "limit"))
+        .and_then(|v| v.parse::<u32>().ok())
+        .is_some_and(|n| n > threshold)
+}
+
+fn request_query(req: &str) -> Option<&str> {
+    let line = req.lines().next()?;
+    let path = line.split_whitespace().nth(1)?;
+    path.split_once('?').map(|(_, q)| q)
+}
+
+fn query_get(q: &str, key: &str) -> Option<String> {
+    for kv in q.split('&') {
+        let (k, v) = kv.split_once('=')?;
+        if k == key {
+            return Some(v.to_string());
+        }
+    }
+    None
+}
+
+/// Top-level dispatcher invoked by the listener loop. Applies the
+/// same bearer-auth gate the buffered routes get (the streaming
+/// branch runs upstream of `routes::dispatch_route`), then hands
+/// off to the per-route streaming handler.
+pub(super) async fn serve_streamed_list(
     req: &str,
     store: Option<&Arc<SessionStore>>,
     out: &mut TcpStream,
 ) -> tokio::io::Result<()> {
+    if let Some((status, body)) = super::routes_auth::check_bearer_auth(req) {
+        return write_buffered(out, status, &body).await;
+    }
     let Some(store) = store else {
-        return write_one_shot_error(out, "503 Service Unavailable", "session store unavailable")
-            .await;
-    };
-    // Forge optimize stream takes a different body shape (no
-    // session id) — split it out before the session-flavoured
-    // path picks up.
-    if matches!(streaming_kind(req), Some(StreamKind::ForgeOptimize)) {
-        return serve_streamed_forge_optimize(req, out).await;
-    }
-    let Some(sid_str) = parse_session_id_str(req) else {
-        return write_one_shot_error(out, "400 Bad Request", "invalid session id").await;
-    };
-    let body = body_from_request(req);
-    let parsed: serde_json::Value = if body.is_empty() {
-        serde_json::Value::Null
-    } else {
-        match serde_json::from_str(body) {
-            Ok(v) => v,
-            Err(e) => {
-                return write_one_shot_error(
-                    out,
-                    "400 Bad Request",
-                    &format!("parse body: {e}"),
-                )
-                .await;
-            }
-        }
-    };
-
-    let head = "HTTP/1.1 200 OK\r\n\
-                Content-Type: application/x-ndjson\r\n\
-                Transfer-Encoding: chunked\r\n\
-                \r\n";
-    out.write_all(head.as_bytes()).await?;
-    out.flush().await?;
-
-    let cwd = match std::env::current_dir() {
-        Ok(p) => p,
-        Err(e) => {
-            write_chunk(
-                out,
-                &format!("{{\"event\":\"error\",\"message\":\"cwd: {e}\"}}\n"),
-            )
-            .await?;
-            return write_terminator(out).await;
-        }
-    };
-
-    let kind = streaming_kind(req).unwrap_or(StreamKind::Runs);
-    let (tx, mut rx) = mpsc::unbounded_channel::<serde_json::Value>();
-    let task = match kind {
-        StreamKind::Runs => {
-            let user = parsed
-                .get("user")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            let max_rounds = parsed
-                .get("max_tool_rounds")
-                .and_then(serde_json::Value::as_u64)
-                .and_then(|n| usize::try_from(n).ok())
-                .unwrap_or(crate::handlers::chat::MAX_TOOL_ROUNDS);
-            let store_clone = Arc::clone(store);
-            let cwd_clone = cwd.clone();
-            let sid = match uuid::Uuid::parse_str(&sid_str) {
-                Ok(u) => SessionId(u),
-                Err(e) => {
-                    write_chunk(
-                        out,
-                        &format!("{{\"event\":\"error\",\"message\":\"sid: {e}\"}}\n"),
-                    )
-                    .await?;
-                    return write_terminator(out).await;
-                }
-            };
-            TaskHandle::Run(tokio::spawn(async move {
-                crate::handlers::chat::run_turn_with_events(
-                    &store_clone,
-                    &cwd_clone,
-                    sid,
-                    user.as_deref(),
-                    false,
-                    max_rounds,
-                    Some(&tx),
-                )
-                .await
-                .map(|r| {
-                    serde_json::json!({
-                        "event": "done",
-                        "assistant_id": r.assistant_id.to_string(),
-                        "tokens_in": r.tokens_in,
-                        "tokens_out": r.tokens_out,
-                    })
-                })
-            }))
-        }
-        StreamKind::Replay => {
-            let model = parsed
-                .get("model")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            let provider = parsed
-                .get("provider")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            let sid_owned = sid_str.clone();
-            TaskHandle::Replay(tokio::spawn(async move {
-                crate::handlers::session_replay::replay_core_with_events(
-                    &sid_owned,
-                    model.as_deref(),
-                    provider.as_deref(),
-                    Some(&tx),
-                )
-                .await
-                .map(|r| {
-                    serde_json::json!({
-                        "event": "done",
-                        "source_id": r.source_id.0.to_string(),
-                        "new_id": r.new_id.0.to_string(),
-                        "user_message_count": r.user_message_count,
-                    })
-                })
-            }))
-        }
-        // ForgeOptimize is short-circuited at the top of
-        // `serve_streamed_run` and never reaches this match.
-        StreamKind::ForgeOptimize => unreachable!(),
-    };
-
-    // Drain events until the task finishes. tokio::select! lets us
-    // forward each event chunk as soon as it arrives.
-    loop {
-        tokio::select! {
-            event = rx.recv() => {
-                let Some(payload) = event else {
-                    break;
-                };
-                let line = match serde_json::to_string(&payload) {
-                    Ok(s) => s,
-                    Err(_) => continue,
-                };
-                write_chunk(out, &format!("{line}\n")).await?;
-            }
-        }
-    }
-
-    let summary = match task {
-        TaskHandle::Run(h) => match h.await {
-            Ok(Ok(v)) => v,
-            Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
-            Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
-        },
-        TaskHandle::Replay(h) => match h.await {
-            Ok(Ok(v)) => v,
-            Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
-            Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
-        },
-    };
-    write_chunk(out, &format!("{summary}\n")).await?;
-    write_terminator(out).await
-}
-
-enum TaskHandle {
-    Run(tokio::task::JoinHandle<argo_types::ArgoResult<serde_json::Value>>),
-    Replay(tokio::task::JoinHandle<argo_types::ArgoResult<serde_json::Value>>),
-}
-
-/// Stream a forge-optimize run as chunked NDJSON. Body shape
-/// is the same as the non-streaming `POST /forge/optimize`:
-/// `{skill, examples, iterations?=12, budget_usd?=5.0}`. Unlike
-/// the kick-off endpoint (which returns 202 immediately and the
-/// caller polls `GET /forge/runs`), this one keeps the HTTP
-/// connection open and writes one chunk per `start` / `iter` /
-/// `done` / `budget_exceeded` event.
-async fn serve_streamed_forge_optimize(req: &str, out: &mut TcpStream) -> tokio::io::Result<()> {
-    let body = body_from_request(req);
-    let parsed: serde_json::Value = match serde_json::from_str(body) {
-        Ok(v) => v,
-        Err(e) => {
-            return write_one_shot_error(out, "400 Bad Request", &format!("parse body: {e}"))
-                .await;
-        }
-    };
-    let skill = match parsed.get("skill").and_then(|v| v.as_str()) {
-        Some(s) if !s.trim().is_empty() => s.to_string(),
-        _ => {
-            return write_one_shot_error(out, "400 Bad Request", "missing or empty `skill`").await;
-        }
-    };
-    let examples = match parsed.get("examples").and_then(|v| v.as_str()) {
-        Some(s) if !s.trim().is_empty() => s.to_string(),
-        _ => {
-            return write_one_shot_error(
-                out,
-                "400 Bad Request",
-                "missing or empty `examples` (path to JSONL)",
-            )
-            .await;
-        }
-    };
-    let iterations = parsed
-        .get("iterations")
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|n| u32::try_from(n).ok())
-        .unwrap_or(12);
-    let budget_usd = parsed
-        .get("budget_usd")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(5.0);
-
-    let head = "HTTP/1.1 200 OK\r\n\
-                Content-Type: application/x-ndjson\r\n\
-                Transfer-Encoding: chunked\r\n\
-                \r\n";
-    out.write_all(head.as_bytes()).await?;
-    out.flush().await?;
-
-    let (tx, mut rx) = mpsc::unbounded_channel::<serde_json::Value>();
-    let task: tokio::task::JoinHandle<argo_types::ArgoResult<()>> = tokio::spawn(async move {
-        crate::handlers::forge_optimize::run_with_events(
-            &skill,
-            &examples,
-            iterations,
-            budget_usd,
-            true,
-            Some(tx),
+        return write_buffered(
+            out,
+            "503 Service Unavailable",
+            "{\"error\":\"session store unavailable\"}",
         )
-        .await
-    });
-    while let Some(payload) = rx.recv().await {
-        let line = match serde_json::to_string(&payload) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        write_chunk(out, &format!("{line}\n")).await?;
-    }
-    let summary = match task.await {
-        Ok(Ok(())) => serde_json::json!({"event":"task_finished"}),
-        Ok(Err(e)) => serde_json::json!({"event":"error","message": e.to_string()}),
-        Err(e) => serde_json::json!({"event":"error","message": format!("task: {e}")}),
+        .await;
     };
-    write_chunk(out, &format!("{summary}\n")).await?;
+    let Some(kind) = streaming_list_kind(req) else {
+        return write_buffered(out, "404 Not Found", "{\"error\":\"not found\"}").await;
+    };
+    let fmt = pick_wire_fmt(req);
+    match kind {
+        ListKind::Sessions => super::routes_top_sessions::stream_sessions(req, store, out, fmt).await,
+        ListKind::Messages => super::routes_msgs::stream_session_messages(req, store, out, fmt).await,
+        ListKind::AuditRecent => super::routes_audit::stream_audit_recent(req, store, out, fmt).await,
+    }
+}
+
+/// Drain `stream` to `out` as one chunked-encoded JSON array.
+/// Empty streams emit `[]\n`. Mid-stream errors kill the
+/// connection (loud + obvious — chunked transfer cannot rewind).
+pub(super) async fn stream_json_array<T, S, W>(
+    out: &mut W,
+    stream: S,
+) -> tokio::io::Result<()>
+where
+    S: Stream<Item = ArgoResult<T>>,
+    T: Serialize,
+    W: AsyncWrite + Unpin,
+{
+    write_chunked_head(out, "application/json").await?;
+    let mut first = true;
+    let mut buf = String::with_capacity(64);
+    futures::pin_mut!(stream);
+    while let Some(item) = stream.next().await {
+        let value = item.map_err(stream_io_err)?;
+        let payload = serde_json::to_string(&value).map_err(stream_io_err)?;
+        buf.clear();
+        if first {
+            buf.push('[');
+            first = false;
+        } else {
+            buf.push(',');
+        }
+        buf.push('\n');
+        buf.push_str(&payload);
+        write_chunk(out, &buf).await?;
+    }
+    if first {
+        write_chunk(out, "[]\n").await?;
+    } else {
+        write_chunk(out, "\n]\n").await?;
+    }
     write_terminator(out).await
 }
 
-/// Write one HTTP chunk: `<hex_size>\r\n<body>\r\n`.
-async fn write_chunk(out: &mut TcpStream, body: &str) -> tokio::io::Result<()> {
+/// Drain `stream` to `out` as chunked NDJSON — one JSON value per
+/// line, no array brackets. Empty streams emit zero data chunks
+/// (still HTTP 200). Mid-stream errors kill the connection.
+pub(super) async fn stream_ndjson<T, S, W>(
+    out: &mut W,
+    stream: S,
+) -> tokio::io::Result<()>
+where
+    S: Stream<Item = ArgoResult<T>>,
+    T: Serialize,
+    W: AsyncWrite + Unpin,
+{
+    write_chunked_head(out, "application/x-ndjson").await?;
+    let mut buf = String::with_capacity(64);
+    futures::pin_mut!(stream);
+    while let Some(item) = stream.next().await {
+        let value = item.map_err(stream_io_err)?;
+        let line = serde_json::to_string(&value).map_err(stream_io_err)?;
+        buf.clear();
+        buf.push_str(&line);
+        buf.push('\n');
+        write_chunk(out, &buf).await?;
+    }
+    write_terminator(out).await
+}
+
+async fn write_chunked_head<W: AsyncWrite + Unpin>(
+    out: &mut W,
+    content_type: &str,
+) -> tokio::io::Result<()> {
+    let head = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nTransfer-Encoding: chunked\r\n\r\n"
+    );
+    out.write_all(head.as_bytes()).await?;
+    out.flush().await
+}
+
+async fn write_chunk<W: AsyncWrite + Unpin>(
+    out: &mut W,
+    body: &str,
+) -> tokio::io::Result<()> {
     let hdr = format!("{:X}\r\n", body.len());
     out.write_all(hdr.as_bytes()).await?;
     out.write_all(body.as_bytes()).await?;
     out.write_all(b"\r\n").await?;
-    out.flush().await?;
-    Ok(())
+    out.flush().await
 }
 
-/// Write the terminating zero-length chunk per RFC 7230.
-async fn write_terminator(out: &mut TcpStream) -> tokio::io::Result<()> {
+async fn write_terminator<W: AsyncWrite + Unpin>(out: &mut W) -> tokio::io::Result<()> {
     out.write_all(b"0\r\n\r\n").await?;
     out.flush().await
 }
 
-async fn write_one_shot_error(
-    out: &mut TcpStream,
+async fn write_buffered<W: AsyncWrite + Unpin>(
+    out: &mut W,
     status: &str,
-    msg: &str,
+    body: &str,
 ) -> tokio::io::Result<()> {
-    let body = format!("{{\"error\":\"{msg}\"}}");
     let resp = format!(
         "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()
     );
-    out.write_all(resp.as_bytes()).await
+    out.write_all(resp.as_bytes()).await?;
+    out.flush().await
 }
 
-fn body_from_request(req: &str) -> &str {
-    req.split_once("\r\n\r\n").map(|(_h, b)| b).unwrap_or("")
+fn stream_io_err<E: std::fmt::Display>(e: E) -> tokio::io::Error {
+    tokio::io::Error::other(e.to_string())
 }
 
-fn parse_session_id_str(req: &str) -> Option<String> {
-    let rest = req.strip_prefix("POST /sessions/")?;
-    let (sid, _) = rest.split_once('/')?;
-    Some(sid.to_string())
-}
+#[cfg(test)]
+#[path = "streaming_tests.rs"]
+mod tests;

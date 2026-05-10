@@ -25,7 +25,7 @@ use super::start_banner_config::load_layered;
 use super::startup_check::{run_startup_checks, STARTUP_CHECK_EXIT};
 use super::{
     metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice,
-    security_headers, streaming, sweepers,
+    runs_streaming, security_headers, streaming, sweepers,
 };
 use crate::handlers::alerts;
 use crate::handlers::cu_screenshots::CuScreenshotStore;
@@ -207,8 +207,11 @@ pub(super) async fn start(
                     let bytes = rate_limited_response_bytes(retry_after_secs);
                     let _ = stream.write_all(&bytes).await;
                     let _ = stream.shutdown().await;
-                } else if streaming::is_streaming_runs_request(req) {
-                    let _ = streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
+                } else if runs_streaming::is_streaming_runs_request(req) {
+                    let _ = runs_streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
+                    let _ = stream.shutdown().await;
+                } else if streaming::is_streaming_list_request(req) {
+                    let _ = streaming::serve_streamed_list(req, store.as_ref(), &mut stream).await;
                     let _ = stream.shutdown().await;
                 } else if metrics::is_metrics_request(req) {
                     let bytes = metrics::http_response(store.as_ref()).await;

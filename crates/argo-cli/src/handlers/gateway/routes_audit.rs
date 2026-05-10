@@ -5,8 +5,10 @@
 
 use super::routes_query::{parse_query_kv, parse_since_minutes_from_get};
 use super::store_unavailable;
+use super::streaming::{stream_json_array, stream_ndjson, WireFmt};
 use argo_store::SessionStore;
 use std::sync::Arc;
+use tokio::net::TcpStream;
 
 // Session-scoped audit handlers were split into `routes_audit_session.rs`
 // to keep this file under the 500-LOC ceiling. Re-export so external
@@ -246,6 +248,78 @@ pub(super) async fn audit_by_kind_response(
             format!("{{\"error\":\"audit_by_kind: {e}\"}}"),
         ),
     }
+}
+
+/// Streaming variant of `GET /audit/recent`. Same per-row JSON
+/// shape as the buffered path. Supports the same filters
+/// (`limit`, `kind`, `since-minutes`, `session`); markdown output
+/// stays on the buffered path. Filter validation runs upfront so
+/// streaming responses don't start until the input is sound —
+/// chunked transfer can't rewind a 400.
+pub(super) async fn stream_audit_recent(
+    req: &str,
+    store: &Arc<SessionStore>,
+    out: &mut TcpStream,
+    fmt: WireFmt,
+) -> tokio::io::Result<()> {
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let limit: u32 = parse_query_kv(tail, "limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(50);
+    let kind = parse_query_kv(tail, "kind");
+    let since = parse_since_minutes_from_get(req, "/audit/recent");
+    let session = parse_query_kv(tail, "session");
+    let since_micros = since
+        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
+    let session_bytes = match session.as_deref() {
+        Some(s) => match uuid::Uuid::parse_str(s) {
+            Ok(u) => Some(u.as_bytes().to_vec()),
+            Err(e) => {
+                return write_buffered(
+                    out,
+                    "400 Bad Request",
+                    &format!("{{\"error\":\"invalid session id: {e}\"}}"),
+                )
+                .await;
+            }
+        },
+        None => None,
+    };
+    let filters = argo_audit::TailFilters {
+        kind: kind.as_deref(),
+        since_micros,
+        session_id: session_bytes.as_deref(),
+    };
+    let rows = match argo_audit::tail_rows_filtered(store, limit, &filters).await {
+        Ok(r) => r,
+        Err(e) => {
+            return write_buffered(
+                out,
+                "500 Internal Server Error",
+                &format!("{{\"error\":\"audit tail: {e}\"}}"),
+            )
+            .await;
+        }
+    };
+    let stream = futures::stream::iter(rows.into_iter().map(Ok));
+    match fmt {
+        WireFmt::JsonArray => stream_json_array(out, stream).await,
+        WireFmt::Ndjson => stream_ndjson(out, stream).await,
+    }
+}
+
+async fn write_buffered(
+    out: &mut TcpStream,
+    status: &str,
+    body: &str,
+) -> tokio::io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+    let resp = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    out.write_all(resp.as_bytes()).await?;
+    out.flush().await
 }
 
 /// `GET /audit/by-day[?days=N&format=markdown]` — daily audit

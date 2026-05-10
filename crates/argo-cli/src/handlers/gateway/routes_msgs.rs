@@ -2,10 +2,13 @@
 //! `messages/by-day` rollup. Single-message picks (last/first/<seq>)
 //! live in the `routes_msgs_pick` sibling, re-exported below so
 //! existing call sites (`super::routes_msgs::{…}`) keep working.
+use super::routes_query::parse_query_kv;
 use super::store_unavailable;
+use super::streaming::{stream_json_array, stream_ndjson, WireFmt};
 use argo_store::SessionStore;
 use argo_types::SessionId;
 use std::sync::Arc;
+use tokio::net::TcpStream;
 
 pub(super) use super::routes_msgs_pick::{
     first_message_response, last_message_response, message_at_seq_response,
@@ -295,4 +298,130 @@ pub(super) async fn messages_by_day_response(
             format!("{{\"error\":\"messages_by_day: {e}\"}}"),
         ),
     }
+}
+
+/// Streaming variant of `GET /sessions/<id>/messages`. Same per-row
+/// JSON shape as the buffered path. Filters apply incrementally, so
+/// a session with 100k+ messages backfills without buffering the
+/// whole list as one giant String.
+pub(super) async fn stream_session_messages(
+    req: &str,
+    store: &Arc<SessionStore>,
+    out: &mut TcpStream,
+    fmt: WireFmt,
+) -> tokio::io::Result<()> {
+    let sid = match req
+        .strip_prefix("GET /sessions/")
+        .and_then(|r| r.split_once('/'))
+        .map(|(s, _)| s)
+    {
+        Some(s) => s,
+        None => {
+            return write_buffered(out, "400 Bad Request", "{\"error\":\"missing session id\"}").await;
+        }
+    };
+    let id = match uuid::Uuid::parse_str(sid) {
+        Ok(u) => SessionId(u),
+        Err(e) => {
+            return write_buffered(
+                out,
+                "400 Bad Request",
+                &format!("{{\"error\":\"invalid session id: {e}\"}}"),
+            )
+            .await;
+        }
+    };
+    let tail = req.strip_prefix("GET ").unwrap_or(req);
+    let limit = parse_query_kv(tail, "limit").and_then(|v| v.parse::<usize>().ok());
+    let role = parse_query_kv(tail, "role");
+    let since_minutes = parse_query_kv(tail, "since-minutes").and_then(|v| v.parse::<i64>().ok());
+    let seq_min = parse_query_kv(tail, "seq-min").and_then(|v| v.parse::<i64>().ok());
+    let seq_max = parse_query_kv(tail, "seq-max").and_then(|v| v.parse::<i64>().ok());
+    let content_contains =
+        parse_query_kv(tail, "content-contains").map(|s| s.replace('+', " ").to_lowercase());
+    if let Some(want) = role.as_deref() {
+        if !matches!(want, "user" | "assistant" | "tool" | "system") {
+            return write_buffered(
+                out,
+                "400 Bad Request",
+                &format!(
+                    "{{\"error\":\"unknown role '{want}' — use user|assistant|tool|system\"}}"
+                ),
+            )
+            .await;
+        }
+    }
+    let rows = match store.list_messages(id).await {
+        Ok(r) => r,
+        Err(e) => {
+            return write_buffered(
+                out,
+                "500 Internal Server Error",
+                &format!("{{\"error\":\"list_messages: {e}\"}}"),
+            )
+            .await;
+        }
+    };
+    let cutoff_micros = since_minutes
+        .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
+    let stream = futures::stream::iter(rows.into_iter().filter_map(move |m| {
+        if let Some(want) = role.as_deref() {
+            if m.role != want {
+                return None;
+            }
+        }
+        if let Some(c) = cutoff_micros {
+            if m.created_at < c {
+                return None;
+            }
+        }
+        if let Some(min) = seq_min {
+            if m.seq < min {
+                return None;
+            }
+        }
+        if let Some(max) = seq_max {
+            if m.seq > max {
+                return None;
+            }
+        }
+        if let Some(needle) = content_contains.as_deref() {
+            if !m.content_json.to_lowercase().contains(needle) {
+                return None;
+            }
+        }
+        Some(Ok(serde_json::json!({
+            "seq": m.seq,
+            "id": hex::encode(&m.id),
+            "role": m.role,
+            "content": serde_json::from_str::<serde_json::Value>(&m.content_json)
+                .unwrap_or(serde_json::Value::Null),
+            "created_at_micros": m.created_at,
+        })))
+    }));
+    let stream = take_or_all(stream, limit);
+    match fmt {
+        WireFmt::JsonArray => stream_json_array(out, stream).await,
+        WireFmt::Ndjson => stream_ndjson(out, stream).await,
+    }
+}
+
+fn take_or_all<S: futures::Stream>(stream: S, limit: Option<usize>) -> futures::stream::Take<S> {
+    use futures::StreamExt;
+    let n = limit.unwrap_or(usize::MAX);
+    stream.take(n)
+}
+
+async fn write_buffered(
+    out: &mut TcpStream,
+    status: &str,
+    body: &str,
+) -> tokio::io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+    let resp = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    out.write_all(resp.as_bytes()).await?;
+    out.flush().await
 }
