@@ -31,6 +31,22 @@ pub(super) async fn dispatch_route(
     store: Option<&Arc<SessionStore>>,
     shutdown: &ShutdownController,
 ) -> (&'static str, String) {
+    // `mvp-gateway-request-audit`: capture wall-clock around the
+    // inner dispatcher so every non-skip-list response — including
+    // 401/403/5xx — appends one `http.request` row to the audit
+    // chain. Short-circuits cleanly when the gateway booted without
+    // a store, or when the path matches `/health*` / `/metrics*`.
+    let started = std::time::Instant::now();
+    let result = dispatch_route_inner(req, store, shutdown).await;
+    super::routes_request_audit::record(req, store, &result, started.elapsed()).await;
+    result
+}
+
+async fn dispatch_route_inner(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+    shutdown: &ShutdownController,
+) -> (&'static str, String) {
     // Race window: SIGTERM may have flipped the shutdown flag while
     // this connection was already accepted+read. Reject with the
     // documented 503 body so external clients (k8s readiness probes,

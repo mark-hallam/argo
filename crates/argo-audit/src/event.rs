@@ -96,6 +96,13 @@ pub enum AuditKind {
     /// row by an operator. Payload carries `name`, from/to
     /// versions, skill ids, and optional reason.
     SkillRolledBack,
+    /// One inbound HTTP request to the gateway. Recorded after the
+    /// route runs so the payload can carry response status +
+    /// wall-clock duration alongside method, path (query string
+    /// stripped — may carry secrets), and the resolved principal.
+    /// Liveness probes (`/health*`, `/metrics*`) are skipped by the
+    /// gateway wrapper to keep the chain free of probe noise.
+    HttpRequest,
 }
 
 impl AuditKind {
@@ -129,6 +136,7 @@ impl AuditKind {
             Self::SkillRejected => "skill.rejected",
             Self::SkillCandidatePromoted => "skill.candidate.promoted",
             Self::SkillRolledBack => "skill.rollback",
+            Self::HttpRequest => "http.request",
         }
     }
 
@@ -164,6 +172,7 @@ impl AuditKind {
             "skill.rejected" => Self::SkillRejected,
             "skill.candidate.promoted" => Self::SkillCandidatePromoted,
             "skill.rollback" => Self::SkillRolledBack,
+            "http.request" => Self::HttpRequest,
             _ => return None,
         })
     }
@@ -243,6 +252,7 @@ impl AuditKind {
             Self::SkillRejected,
             Self::SkillCandidatePromoted,
             Self::SkillRolledBack,
+            Self::HttpRequest,
         ];
         v.sort_by_key(|k| k.label());
         v
