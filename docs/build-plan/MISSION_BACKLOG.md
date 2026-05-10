@@ -156,7 +156,7 @@ unblocks a mission claim.
     `[BRIEF: mission-persona-evolution-audit-revert]`
 47. Add Worker portrait page (web URL).
     `[SHIPPED]`
-48. Build "voice profile" per persona. `[NEW]`
+48. Build "voice profile" per persona. `[BRIEF: mission-voice-profile-richer-fields]`
 
 ### Claim 2: Delegation as unit
 
