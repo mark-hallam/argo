@@ -30,6 +30,7 @@ pub mod cred;
 pub mod defaults;
 pub mod loader;
 mod sections;
+mod sections_budget;
 pub mod tui;
 
 pub use loader::{load, load_from};
