@@ -47,6 +47,7 @@ mod routes_forge_rollups;
 mod routes_forge_runs_list;
 mod routes_health;
 mod routes_lists;
+mod routes_lists_memory;
 mod routes_messages_rollups;
 mod routes_meta;
 mod routes_meta_tools;
