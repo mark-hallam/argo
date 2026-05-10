@@ -211,12 +211,12 @@ unblocks a mission claim.
     `[BRIEF: codex-skill-sign-cli]`
 74. Build `published:verified:*` ingestion path with signature
     attestation. `[NEW]`
-75. Build `argo skill catalog` for browsing remote skills. `[NEW]`
+75. Build `argo skill catalog` for browsing remote skills. `[BRIEF: mission-cli-skill-catalog]`
 76. Wire `select_variant` and `record_outcome` into runtime
     skill load. `[NEW]`
 77. Build `QualityInputs::from_audit_history` so quality-recompute
     runs as cron. `[BRIEF: mission-skill-quality-from-audit]`
-78. Build cron tick `argo skill quality-recompute --all`. `[NEW]`
+78. Build cron tick `argo skill quality-recompute --all`. `[BRIEF: mission-skill-quality-cron]`
 79. Build skill version migration path (v1 → v2 → downstream
     notify). `[NEW]`
 80. Build skill ratings (operator thumbs propagate to publisher).
@@ -251,7 +251,7 @@ unblocks a mission claim.
 95. Avoid double-screenshot. `[BRIEF: mission-cu-double-screenshot-fix]`
 96. Wire CU sandbox pool reaper (`reap_idle` exists, no caller).
     `[BRIEF: mission-cu-sandbox-pool-reaper]`
-97. Add Webdriver-style test harness for CU loop. `[NEW]`
+97. Add Webdriver-style test harness for CU loop. `[BRIEF: mission-cu-webdriver-test-harness]`
 98. Resolve Sandbox naming hazard (argo-sandbox vs E2B
     Sandbox). `[BRIEF: mission-cu-sandbox-naming-fix]`
 99. Build native macOS computer-use executor.
