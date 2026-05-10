@@ -202,6 +202,9 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
+        SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
+        SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
+        SkillCmd::Keygen(args) => super::skill_keygen::run(args),
     }
 }
 

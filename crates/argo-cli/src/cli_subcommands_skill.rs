@@ -133,6 +133,15 @@ pub enum SkillCmd {
     AbTest(super::cli_skill_ab_cmds::SkillAbTestCmd),
     AbStatus(super::cli_skill_ab_cmds::SkillAbStatusCmd),
     AbPromote(super::cli_skill_ab_cmds::SkillAbPromoteCmd),
+    /// Sign a local skill manifest with a cosign-compatible ed25519 key.
+    Sign(super::cli_skill_sign_cmds::SkillSignCmd),
+    /// Verify a published skill against its detached cosign signature.
+    /// Uses a hyphenated subcommand name because `verify` is already
+    /// occupied by the body/provenance hash check (`SkillCmd::Verify`).
+    #[command(name = "verify-sig")]
+    VerifySig(super::cli_skill_sign_cmds::SkillVerifySigCmd),
+    /// Generate a cosign-style ed25519 keypair for testing/onboarding.
+    Keygen(super::cli_skill_sign_cmds::SkillKeygenCmd),
     /// Drive the learned-skill review gate (#681 lifecycle):
     /// list pending proposals + approve / reject them. Without
     /// this surface the lifecycle gate is theoretical — agents

@@ -67,6 +67,8 @@ pub mod cli_policy_cmds;
 pub mod cli_roster_cmds;
 #[path = "cli_skill_ab_cmds.rs"]
 pub mod cli_skill_ab_cmds;
+#[path = "cli_skill_sign_cmds.rs"]
+pub mod cli_skill_sign_cmds;
 #[path = "cli_subcommands.rs"]
 pub mod cli_subcommands;
 #[path = "cli_team_cmds.rs"]

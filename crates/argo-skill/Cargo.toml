@@ -12,7 +12,9 @@ argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-judge = { path = "../argo-judge", version = "0.0.1" }
 async-trait = { workspace = true }
+base64 = "0.22"
 ed25519-dalek = { workspace = true }
+rand_core = { version = "0.6", features = ["getrandom"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
@@ -26,5 +28,4 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
-rand_core = { version = "0.6", features = ["getrandom"] }
 tokio = { workspace = true }

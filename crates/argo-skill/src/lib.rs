@@ -36,6 +36,7 @@ pub mod marketplace;
 pub mod publish;
 mod parse;
 pub mod quality;
+pub mod sign;
 mod skill;
 mod store;
 mod store_lookups;
