@@ -33,6 +33,24 @@
 > PRs from accumulating unmonitored. The agent runs read-only — no
 > merges, no closes, no code changes; the conductor reserves all
 > mutation authority.
+>
+> **🎯 STRATEGIC PRIORITY (operator consolidated brief 2026-05-10) —
+> MISSION MVP CRITICAL PATH:** workers should preferentially claim
+> `mission-*` Tier M briefs (M2 browser-action-executor through M8
+> v1-demo-recording) and `tool-*` Tier A/B briefs over split-prep
+> briefs. Split-prep (`*-split`) is now backseat; conductor will
+> author replenishment splits sparingly. **Hard rules:** (1) mission
+> claims trump platform polish — if a Tier M item is blocked,
+> escalate immediately, don't pivot to Tier P chores; (2) every new
+> tool (Tier A/B) ships with capability declaration + ≥1 vertical
+> allowing it + 3+ unit tests + 1 integration test + rustdoc with
+> example; (3) `mission-headline-reconciliation` runs LAST after Tier
+> M lands; (4) demo recording (`mission-v1-demo-recording`) is the
+> v1.0 ship gate per `docs/build-plan/BUILD_PLAN_2WK.md`. Stop
+> condition for v1.0: all Tier M MERGED + `docs/skycot/demos/v1-
+> mission-mvp.mp4` exists + extended `./scripts/smoke-skycot.sh`
+> passes including BrowserExecutor + Slack-approval scenarios. CI
+> re-enable (P1) is deferred until GitHub Actions billing restored.
 
 **Updated by every agent on every state transition.** Always
 read from origin/main; never trust a stale local copy.
