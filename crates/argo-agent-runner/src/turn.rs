@@ -194,13 +194,14 @@ async fn build_system_prompt(
 ) -> ArgoResult<Option<String>> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let attached = skills.skills_for_session(session_id).await?;
-    let active = if !attached.is_empty() {
+    let mut active = if !attached.is_empty() {
         attached
     } else if let Some(vid) = vertical_id {
         skills.list_skills_for_vertical(vid).await?
     } else {
         skills.list_active().await?
     };
+    turn_canary::apply_canary_routing(store, &skills, session_id, &mut active).await?;
     let mut out = String::new();
     if !active.is_empty() {
         out.push_str(
@@ -238,6 +239,9 @@ async fn build_system_prompt(
 
 #[path = "turn_helpers.rs"]
 mod turn_helpers;
+
+#[path = "turn_canary.rs"]
+mod turn_canary;
 
 #[path = "turn_memory.rs"]
 mod turn_memory;

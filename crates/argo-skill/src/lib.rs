@@ -23,6 +23,7 @@
 pub mod ab_test;
 mod ab_test_stats;
 mod artifact;
+pub mod canary;
 pub mod conflicts;
 pub mod deps;
 pub mod dreams_distillation;
@@ -94,5 +95,10 @@ pub use artifact::{
     SKILL_ARTIFACT_BODY, SKILL_ARTIFACT_BODY_LEGACY, SKILL_ARTIFACT_MANIFEST,
     SKILL_ARTIFACT_METADATA, SKILL_ARTIFACT_METADATA_FORMAT, SKILL_ARTIFACT_SCHEMA_VERSION,
     SKILL_ARTIFACT_SHA256,
+};
+pub use canary::{
+    hash_seed, is_canary, load_body as load_canary_body, new_config as new_canary_config,
+    pick_for_skill as pick_canary_for_skill, pick_version, seed_for_session_skill, CanaryConfig,
+    CanaryDecision, CanaryStore,
 };
 pub use version::{find_version, list_versions, SkillVersion};
