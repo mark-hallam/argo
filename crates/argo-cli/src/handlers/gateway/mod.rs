@@ -111,6 +111,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             quiet,
             profile_startup,
             skip_startup_check,
+            insecure_bind,
         } => {
             // Initialise the per-route, per-tenant token-bucket limiter
             // and spawn its eviction sweep before the listener accepts.
@@ -123,6 +124,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
                 quiet,
                 profile_startup,
                 skip_startup_check,
+                insecure_bind,
             )
             .await
         }

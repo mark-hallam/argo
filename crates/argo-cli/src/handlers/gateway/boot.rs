@@ -8,6 +8,7 @@ use argo_orchestrator::{
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
@@ -80,6 +81,7 @@ pub(super) async fn start(
     cli_quiet: bool,
     profile_startup: bool,
     skip_startup_check: bool,
+    insecure_bind: bool,
 ) -> ArgoResult<()> {
     let mut phases = StartupPhases::new();
     let cwd_for_check =
@@ -89,6 +91,7 @@ pub(super) async fn start(
         std::process::exit(STARTUP_CHECK_EXIT);
     }
     phases.mark("startup_check");
+    check_bind_loopback(bind, insecure_bind)?;
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await
@@ -416,6 +419,35 @@ impl StartupPhases {
     }
 }
 
+/// Refuse to bind anything outside the loopback range unless the
+/// operator passes `--insecure-bind`. A literal IP that parses to a
+/// loopback address (`127.0.0.0/8`, `::1`) is always accepted. Any
+/// other literal IP — and any non-IP value (e.g. a hostname like
+/// `localhost` or `0`-shorthand) — is treated as non-loopback and
+/// requires the explicit opt-in. The opt-in path prints a single
+/// yellow stderr warning so reverse-proxy operators see the
+/// reminder on every boot.
+pub(super) fn check_bind_loopback(bind: &str, insecure_bind: bool) -> ArgoResult<()> {
+    let is_loopback = bind
+        .parse::<IpAddr>()
+        .map(|ip| ip.is_loopback())
+        .unwrap_or(false);
+    if is_loopback {
+        return Ok(());
+    }
+    if insecure_bind {
+        eprintln!(
+            "\x1b[33margo gateway: binding non-loopback {bind} per --insecure-bind; \
+             ensure a TLS-terminating proxy is in front\x1b[0m"
+        );
+        return Ok(());
+    }
+    Err(ArgoError::Provider(format!(
+        "refusing to bind non-loopback {bind} without --insecure-bind; \
+         see docs/skycot/SECURITY.md"
+    )))
+}
+
 pub(super) async fn stop() -> ArgoResult<()> {
     let pidfile = pid_path()?;
     let raw = std::fs::read_to_string(&pidfile)
@@ -437,3 +469,7 @@ pub(super) async fn stop() -> ArgoResult<()> {
     println!("argo gateway: sent SIGTERM to pid {pid}");
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "boot_tests.rs"]
+mod tests;
