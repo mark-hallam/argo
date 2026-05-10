@@ -73,12 +73,15 @@ pub enum VerticalCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
-    /// Render a one-paragraph summary of an installed vertical.
+    /// Render a one-paragraph summary of an installed vertical, or
+    /// the full manifest summary with `--json` (persona, action list,
+    /// executor matrix, eval seeds, bundled skills — same shape as
+    /// `show --json`).
     Describe {
         /// The vertical's id (matches `[vertical].id` in
         /// `vertical.toml`).
         id: String,
-        /// Output as a single JSON object.
+        /// Output the full manifest summary as a single JSON object.
         #[arg(long)]
         json: bool,
     },

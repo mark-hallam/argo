@@ -42,12 +42,6 @@ struct MemoryEntryDetails {
     purpose: String,
 }
 
-#[derive(Debug, Serialize)]
-struct DescribeOutput {
-    id: String,
-    description: String,
-}
-
 pub async fn show(id: &str, json: bool) -> ArgoResult<()> {
     let loaded = load_vertical(id)?;
     let details = details_for(loaded)?;
@@ -59,17 +53,16 @@ pub async fn show(id: &str, json: bool) -> ArgoResult<()> {
     Ok(())
 }
 
+// `--json` emits the full manifest summary (mvp-vertical-introspection):
+// operators wiring scripts against the catalog need every section, not
+// the one-paragraph blurb. Text output keeps the human-readable summary.
 pub async fn describe(id: &str, json: bool) -> ArgoResult<()> {
     let loaded = load_vertical(id)?;
     let details = details_for(loaded)?;
-    let description = describe_details(&details);
     if json {
-        print_json(&DescribeOutput {
-            id: details.id,
-            description,
-        });
+        print_json(&details);
     } else {
-        println!("{description}");
+        println!("{}", describe_details(&details));
     }
     Ok(())
 }
