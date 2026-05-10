@@ -49,6 +49,7 @@ mod routes_health;
 mod routes_lists;
 mod routes_lists_memory;
 mod routes_messages_rollups;
+mod routes_messages_rollups_recent;
 mod routes_meta;
 mod routes_meta_tools;
 mod routes_msgs;
