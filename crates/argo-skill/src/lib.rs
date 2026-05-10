@@ -37,6 +37,7 @@ pub mod marketplace;
 pub mod publish;
 mod parse;
 pub mod quality;
+pub mod regression;
 pub mod sign;
 mod skill;
 mod store;
@@ -79,6 +80,7 @@ pub use publish::{
 };
 pub use audit_reader::{AuditRow, AuditStoreReader, SessionStoreAuditReader};
 pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore};
+pub use regression::{detect_regression, RegressionConfig, RegressionDecision};
 pub use eval_runner::{
     run_evals, ActualOutcome, EvalExecutor, EvalReport, DEFAULT_EVAL_PASS_RATE_THRESHOLD,
 };
