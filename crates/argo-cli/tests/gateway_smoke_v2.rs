@@ -218,99 +218,11 @@ fn replay_stream_returns_chunked_ndjson_for_unknown_session() {
     assert!(status.success());
 }
 
-#[test]
-fn forge_runs_returns_empty_array_on_clean_db() {
-    let port = pick_free_port();
-    let home = tempfile::tempdir().unwrap();
-    let mut child = Command::new(argo_bin())
-        .env("ARGO_HOME", home.path())
-        .args([
-            "gateway",
-            "start",
-            "--port",
-            &port.to_string(),
-            "--max-requests",
-            "1",
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    await_listening(&mut stderr);
-
-    let resp = http_get(port, "/forge/runs");
-    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
-    let body = body_of(&resp);
-    assert!(body.starts_with('['), "body={body}");
-
-    let status = child.wait().expect("wait");
-    assert!(status.success());
-}
-
-#[test]
-fn routes_endpoint_lists_known_paths() {
-    let port = pick_free_port();
-    let home = tempfile::tempdir().unwrap();
-    let mut child = Command::new(argo_bin())
-        .env("ARGO_HOME", home.path())
-        .args([
-            "gateway",
-            "start",
-            "--port",
-            &port.to_string(),
-            "--max-requests",
-            "1",
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    await_listening(&mut stderr);
-
-    let resp = http_get(port, "/routes");
-    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
-    let body = body_of(&resp);
-    assert!(body.starts_with('['), "body={body}");
-    // Spot-check a handful of expected paths.
-    for path in ["/health", "/sessions", "/tools", "/routes"] {
-        assert!(body.contains(path), "body missing {path}: {body}");
-    }
-
-    let status = child.wait().expect("wait");
-    assert!(status.success());
-}
-
-#[test]
-fn workspace_artifacts_returns_empty_array_on_clean_db() {
-    let port = pick_free_port();
-    let home = tempfile::tempdir().unwrap();
-    let mut child = Command::new(argo_bin())
-        .env("ARGO_HOME", home.path())
-        .args([
-            "gateway",
-            "start",
-            "--port",
-            &port.to_string(),
-            "--max-requests",
-            "1",
-        ])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn");
-    let mut stderr = BufReader::new(child.stderr.take().unwrap());
-    await_listening(&mut stderr);
-
-    let resp = http_get(port, "/workspace/artifacts");
-    assert!(resp.contains("HTTP/1.1 200 OK"), "resp={resp}");
-    let body = body_of(&resp);
-    assert!(body.starts_with('['), "body={body}");
-
-    let status = child.wait().expect("wait");
-    assert!(status.success());
-}
+// `forge_runs_returns_empty_array_on_clean_db`,
+// `routes_endpoint_lists_known_paths`, and
+// `workspace_artifacts_returns_empty_array_on_clean_db` live in the
+// sibling `gateway_smoke_v2_extras.rs` so this file stays under the
+// 500-LOC budget.
 
 #[test]
 fn search_endpoint_returns_400_on_missing_q_and_array_on_clean_db() {
