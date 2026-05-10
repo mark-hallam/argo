@@ -225,6 +225,7 @@ fn schema_exposes_backend_enum_with_local_default() {
 
 #[test]
 fn split_chunks_handles_oversize_lines() {
+    use crate::tools::terminal_streaming::split_chunks;
     let chunks = split_chunks("aaaaaaaaaa", 3);
     assert_eq!(chunks, vec!["aaa", "aaa", "aaa", "a"]);
     let chunks = split_chunks("hi", 8);
@@ -233,6 +234,7 @@ fn split_chunks_handles_oversize_lines() {
 
 #[test]
 fn render_capped_marker_matches_buffered_path() {
+    use crate::tools::terminal_streaming::render_capped;
     assert_eq!(render_capped(b"abcd", 4), "abcd");
     assert_eq!(
         render_capped(b"abcd", 100),
@@ -315,6 +317,71 @@ async fn streaming_sandbox_backend_still_uses_seam() {
         .unwrap();
     assert_eq!(sandboxed.calls(), vec!["echo hi".to_string()]);
     assert!(local.calls().is_empty());
+}
+
+#[test]
+fn required_capability_is_background_when_flag_set() {
+    let caps = Terminal::default()
+        .required_capabilities(&serde_json::json!({"command": "x", "background": true}))
+        .unwrap();
+    assert!(caps.covers(&Capability::Spawn {
+        spawn_kind: SpawnKind::BackgroundProcess,
+    }));
+    // Strictly stronger: BackgroundProcess does not cover Subprocess.
+    assert!(!caps.covers(&Capability::Spawn {
+        spawn_kind: SpawnKind::Subprocess,
+    }));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn background_without_registry_errors_clearly() {
+    let dir = tempfile::tempdir().unwrap();
+    let r = Terminal::default()
+        .dispatch(
+            serde_json::json!({"command": "sleep 30", "background": true}),
+            &ctx(dir.path()),
+        )
+        .await
+        .unwrap();
+    assert!(r.is_error);
+    assert!(body(&r).contains("background unsupported"));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn background_returns_process_id_via_registry() {
+    use crate::process_registry::ProcessRegistry;
+    let dir = tempfile::tempdir().unwrap();
+    let reg = Arc::new(ProcessRegistry::new());
+    let mut c = ctx(dir.path());
+    c.background_processes = Some(reg.clone());
+    let r = Terminal::default()
+        .dispatch(
+            serde_json::json!({"command": "sleep 30", "background": true}),
+            &c,
+        )
+        .await
+        .unwrap();
+    assert!(!r.is_error);
+    let text = body(&r);
+    assert!(text.starts_with("process_id: "), "got: {text:?}");
+    assert_eq!(reg.list().await.len(), 1);
+    // Cleanup so the test doesn't leave a sleeping child.
+    let id = text.trim_start_matches("process_id: ").to_string();
+    reg.kill(
+        &crate::process_registry::ProcessId(id),
+        Duration::from_secs(2),
+    )
+    .await
+    .unwrap();
+}
+
+#[test]
+fn schema_exposes_background_flag() {
+    let p = Terminal::default().parameters();
+    let bg = &p["properties"]["background"];
+    assert_eq!(bg["type"], "boolean");
 }
 
 /// Backpressure: a tiny channel with no consumer must not block the

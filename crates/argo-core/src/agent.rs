@@ -262,6 +262,7 @@ impl Agent {
             call_id: call.id,
             deadline: None,
             progress_tx: None,
+            background_processes: None,
         };
         let result = self
             .deps

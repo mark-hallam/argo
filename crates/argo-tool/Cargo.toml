@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo — tool registry + 8 in-core tools (§9)"
+description = "Argo — tool registry + in-core tools (§9, Phase 3 baseline + Hermes-parity additions)"
 
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
@@ -32,6 +32,16 @@ ego-tree = "0.6"
 # `code_execute` stages source + side-cars in a fresh tempdir per
 # call; tempfile is the same crate the dev tests use.
 tempfile = "3"
+# Stable string IDs for `process_registry` entries. We use UUIDv7
+# (already enabled workspace-wide) instead of v4 — same uniqueness
+# guarantee plus time-ordering, which is friendlier when listing
+# active processes.
+uuid = { workspace = true }
+
+# `process_registry::kill` sends SIGTERM via libc::kill on Unix
+# before falling back to tokio's SIGKILL on the grace timeout.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 tokio = { workspace = true }

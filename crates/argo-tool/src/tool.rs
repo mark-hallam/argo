@@ -3,10 +3,12 @@
 //! Spec: `docs/plan/argo-build-plan.md` §9. The trait is the single seam
 //! between the agent loop's tool-dispatch path and the eight in-core tool
 //! implementations.
+use crate::process_registry::ProcessRegistry;
 use argo_types::{ArgoResult, CapabilitySet, ContentBlock, Principal, ToolCallResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 /// Per-line streaming event emitted by tools that opt into progress
@@ -77,6 +79,11 @@ pub struct ToolContext {
     /// assert!(ctx.progress_tx.is_some());
     /// ```
     pub progress_tx: Option<mpsc::Sender<ToolProgressEvent>>,
+    /// Optional shared registry of background processes. When
+    /// `None`, `terminal { background: true }` and the `process`
+    /// tool both fail with a clear "background unsupported in this
+    /// context" error. Wired by the agent runner once per session.
+    pub background_processes: Option<Arc<ProcessRegistry>>,
 }
 
 impl ToolContext {
@@ -89,6 +96,7 @@ impl ToolContext {
             call_id: argo_types::ToolCallId::new(),
             deadline: None,
             progress_tx: None,
+            background_processes: None,
         }
     }
 
@@ -97,6 +105,13 @@ impl ToolContext {
     #[must_use]
     pub fn with_progress_tx(mut self, tx: mpsc::Sender<ToolProgressEvent>) -> Self {
         self.progress_tx = Some(tx);
+        self
+    }
+
+    /// Builder-style attach for the background-process registry.
+    #[must_use]
+    pub fn with_background_processes(mut self, reg: Arc<ProcessRegistry>) -> Self {
+        self.background_processes = Some(reg);
         self
     }
 }

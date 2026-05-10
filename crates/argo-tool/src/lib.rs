@@ -1,4 +1,7 @@
-//! `argo-tool` — tool registry + the eight in-core tools (§9).
+//! `argo-tool` — tool registry + the in-core tools (§9; the
+//! Phase-3 baseline of eight has grown with Hermes-parity
+//! additions: `vision_analyze`, `code_execute`, `send_message`,
+//! and `process`).
 //!
 //! - [`Tool`] is the trait every tool implements.
 //! - [`ToolRegistry::dispatch`] is the single seam where every call is
@@ -27,11 +30,13 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod path_guard;
+pub mod process_registry;
 mod registry;
 mod tool;
 mod tools;
 
 pub use path_guard::confine_path;
+pub use process_registry::{ProcessId, ProcessInfo, ProcessRegistry, SpawnRequest, TailOutput};
 pub use registry::ToolRegistry;
 pub use tool::{
     error_text, success_text, Concurrency, Tool, ToolContext, ToolProgressEvent, ToolSchema,
@@ -39,7 +44,7 @@ pub use tool::{
 };
 pub use tools::{
     builtin_tools, builtin_tools_with_memory, risk_tier, Clarify, ClarifyAnswer, ClarifyDispatcher,
-    CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite, Memory, MessageDispatcher,
+    CodeExecute, DelegateTask, FilePatch, FileRead, FileWrite, Memory, MessageDispatcher, Process,
     ResolvedImage, SendMessage, SendOutcome, SessionSearch, Terminal, Todo, TodoItem, Vision,
     VisionAnswer, VisionDispatcher, WebExtract, WebSearch,
 };

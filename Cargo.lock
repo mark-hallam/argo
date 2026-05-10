@@ -1219,6 +1219,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "ego-tree",
+ "libc",
  "reqwest 0.12.28",
  "scraper",
  "serde",
@@ -1228,6 +1229,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

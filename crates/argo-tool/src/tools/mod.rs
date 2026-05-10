@@ -19,9 +19,11 @@ mod file_patch;
 mod file_read;
 mod file_write;
 mod memory;
+mod process;
 mod send_message;
 mod session_search;
 mod terminal;
+mod terminal_streaming;
 mod todo;
 mod vision;
 mod web;
@@ -33,6 +35,7 @@ pub use file_patch::FilePatch;
 pub use file_read::FileRead;
 pub use file_write::FileWrite;
 pub use memory::Memory;
+pub use process::Process;
 pub use send_message::{risk_tier, MessageDispatcher, SendMessage, SendOutcome};
 pub use session_search::SessionSearch;
 pub use terminal::Terminal;
@@ -73,6 +76,7 @@ pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
         Arc::new(SessionSearch::default()),
         Arc::new(Todo),
         Arc::new(Clarify::default()),
+        Arc::new(Process),
     ]
 }
 
@@ -104,6 +108,7 @@ pub fn builtin_tools_with_memory(
         Arc::new(SessionSearch::default()),
         Arc::new(Todo),
         Arc::new(Clarify::default()),
+        Arc::new(Process),
     ]
 }
 
@@ -114,7 +119,7 @@ mod tests {
     #[test]
     fn builtin_tools_returns_unique_names() {
         let tools = builtin_tools(PathBuf::from("/tmp"));
-        assert_eq!(tools.len(), 14);
+        assert_eq!(tools.len(), 15);
         let mut names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         names.sort_unstable();
         let mut deduped = names.clone();
@@ -130,6 +135,7 @@ mod tests {
                 "file_read",
                 "file_write",
                 "memory",
+                "process",
                 "send_message",
                 "session_search",
                 "terminal",

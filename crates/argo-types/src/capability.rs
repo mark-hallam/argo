@@ -71,6 +71,8 @@ pub enum Capability {
 /// use argo_types::SpawnKind;
 /// let json = serde_json::to_string(&SpawnKind::Subprocess).unwrap();
 /// assert_eq!(json, "\"subprocess\"");
+/// let json = serde_json::to_string(&SpawnKind::BackgroundProcess).unwrap();
+/// assert_eq!(json, "\"background_process\"");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -81,6 +83,13 @@ pub enum SpawnKind {
     Subprocess,
     /// A container (Docker/Modal/Daytona/...).
     Container,
+    /// A long-lived background OS process tracked in the
+    /// `ProcessRegistry` and exposed via the `process` tool.
+    /// Strictly stronger than [`SpawnKind::Subprocess`]: holding
+    /// `Spawn::Subprocess` does NOT confer
+    /// `Spawn::BackgroundProcess` and vice versa (capability
+    /// covers compares variants for equality).
+    BackgroundProcess,
 }
 
 /// A bag of capabilities granted to a principal.
