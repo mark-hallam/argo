@@ -178,7 +178,7 @@ unblocks a mission claim.
 ### Claim 3: Platform builds workers (Genesis)
 
 58. Replace 12-archetype hardcoded keyword classifier with
-    model-driven classifier. `[NEW]`
+    model-driven classifier. `[BRIEF: mission-genesis-llm-classifier]`
 59. Allow LLM refinement to add MORE than 3 actions. `[NEW]`
 60. Allow LLM refinement to evolve the seed action vocabulary.
     `[NEW]`
@@ -202,7 +202,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 69. Wire skill quality scores into forge promote decision.
     `[SHIPPED]`
-70. Wire skill quality scores into A/B promote decision. `[NEW]`
+70. Wire skill quality scores into A/B promote decision. `[BRIEF: mission-skill-ab-quality-promote]`
 71. Replace hardcoded `MANIFEST_INDEX` with real OCI registry
     catalog scan. `[NEW]`
 72. Implement `argo skill publish` for single-skill publishing.
@@ -299,7 +299,7 @@ unblocks a mission claim.
 127. Add Matrix channel. `[NEW]`
 128. Build approval-bundle UI. `[NEW]`
 129. Build approval-policy UI. `[NEW]`
-130. Add escalation-on-no-reply. `[NEW]`
+130. Add escalation-on-no-reply. `[BRIEF: mission-escalation-on-no-reply]`
 
 ---
 
