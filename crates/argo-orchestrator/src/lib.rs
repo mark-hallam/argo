@@ -35,6 +35,8 @@ mod auction_query;
 /// Worker duty scheduler — autonomous cron-driven actions
 /// (Stream `claude-worker-duty-scheduler`, V1.3).
 pub mod duty_scheduler;
+mod duty_scheduler_gate;
+mod duty_scheduler_store;
 mod escalation;
 mod handoff;
 pub mod persist;
