@@ -28,6 +28,7 @@ mod overlay_text;
 mod overlays;
 mod overlays_budget;
 mod overlays_dashboard;
+mod overlays_dashboard_render;
 mod overlays_h_stack;
 mod overlays_handoffs;
 mod overlays_replay;
