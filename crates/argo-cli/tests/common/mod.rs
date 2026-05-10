@@ -7,6 +7,7 @@
 
 pub mod listener_signal;
 pub mod product_e2e_helpers;
+pub mod work_action_helpers;
 pub mod work_queue_helpers;
 
 use listener_signal::{await_listener_signal, deadline_ms_from_env, StderrDrain, DEADLINE_ENV};
