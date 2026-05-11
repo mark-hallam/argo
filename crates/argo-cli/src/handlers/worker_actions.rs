@@ -222,6 +222,9 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         WorkerCmd::Rehydrate { worker_id, tenant, json } => {
             super::worker_archive::rehydrate(&tenant, &worker_id, json).await
         }
+        WorkerCmd::Delete { worker_id, tenant, force, json } => {
+            super::worker_archive::delete(&tenant, &worker_id, force, json).await
+        }
         WorkerCmd::Channels(channels_cmd) => match channels_cmd {
             WorkerChannelsCmd::Add { worker_id, spec, tenant, json } => {
                 super::worker_channels::add(&tenant, &worker_id, &spec, json).await

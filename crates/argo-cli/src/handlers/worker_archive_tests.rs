@@ -7,6 +7,9 @@
 use argo_identity::{IdentityStore, Persona, Role, Worker};
 use argo_store::{worker_archive, SessionStore};
 use argo_types::TenantId;
+use chrono::Utc;
+
+const MICROS_PER_DAY: i64 = 86_400_000_000;
 
 #[tokio::test]
 async fn round_trip_archive_then_rehydrate_via_identity_store() {
@@ -141,4 +144,93 @@ async fn rehydrate_fails_if_live_worker_with_same_id_present() {
     .await
     .expect_err("rehydrate refused");
     assert!(err.to_string().contains("already exists"));
+}
+
+#[tokio::test]
+async fn delete_after_grace_drops_archive_row_via_store_layer() {
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate");
+    let identities = IdentityStore::new(&store);
+    let tenant = TenantId::new();
+    let worker = Worker::draft(
+        tenant,
+        "support",
+        Persona::named("Maya", "op@example.test"),
+        Role::new("Triage."),
+    );
+    identities.create_worker(&worker).await.expect("create");
+    let frozen = serde_json::to_string(&worker).expect("freeze");
+    worker_archive::archive_worker(
+        store.pool(),
+        &worker.id.to_string(),
+        &worker.tenant_id.to_string(),
+        None,
+        Some("end-of-life"),
+        &frozen,
+    )
+    .await
+    .expect("archive");
+
+    // Backdate so the default 30-day grace window has elapsed. Mirrors
+    // the per-tenant compliance flow that the CLI handler dispatches.
+    let well_past = Utc::now().timestamp_micros() - 60 * MICROS_PER_DAY;
+    sqlx::query("UPDATE worker_archive SET archived_at = ? WHERE id = ?")
+        .bind(well_past)
+        .bind(worker.id.to_string())
+        .execute(store.pool())
+        .await
+        .expect("backdate archived_at");
+
+    worker_archive::delete_worker(
+        store.pool(),
+        &worker.id.to_string(),
+        &worker.tenant_id.to_string(),
+    )
+    .await
+    .expect("delete after grace");
+
+    let remaining = worker_archive::list_archived(
+        store.pool(),
+        &worker.tenant_id.to_string(),
+    )
+    .await
+    .expect("list");
+    assert!(remaining.is_empty(), "archive row purged");
+}
+
+#[tokio::test]
+async fn delete_inside_grace_window_surfaces_remaining_days_error() {
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate");
+    let identities = IdentityStore::new(&store);
+    let tenant = TenantId::new();
+    let worker = Worker::draft(
+        tenant,
+        "support",
+        Persona::named("Maya", "op@example.test"),
+        Role::new("Triage."),
+    );
+    identities.create_worker(&worker).await.expect("create");
+    let frozen = serde_json::to_string(&worker).expect("freeze");
+    worker_archive::archive_worker(
+        store.pool(),
+        &worker.id.to_string(),
+        &worker.tenant_id.to_string(),
+        None,
+        None,
+        &frozen,
+    )
+    .await
+    .expect("archive");
+
+    let err = worker_archive::delete_worker(
+        store.pool(),
+        &worker.id.to_string(),
+        &worker.tenant_id.to_string(),
+    )
+    .await
+    .expect_err("inside grace window");
+    let msg = err.to_string();
+    assert!(msg.contains("grace window"), "msg: {msg}");
+    assert!(msg.contains("day(s) remaining"), "msg: {msg}");
 }

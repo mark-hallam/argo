@@ -143,7 +143,7 @@ fn group_rows_into_snapshots(
     let mut out: Vec<WorkerSnapshot> = by_worker
         .into_iter()
         .map(|(worker_id, mut actions)| {
-            actions.sort_by(|a, b| b.at_micros.cmp(&a.at_micros));
+            actions.sort_by_key(|a| std::cmp::Reverse(a.at_micros));
             let (last_kind, last_at) = actions
                 .first()
                 .map(|a| (a.kind.clone(), a.at_micros))
@@ -159,7 +159,7 @@ fn group_rows_into_snapshots(
             }
         })
         .collect();
-    out.sort_by(|a, b| b.last_at_micros.cmp(&a.last_at_micros));
+    out.sort_by_key(|w| std::cmp::Reverse(w.last_at_micros));
     out
 }
 

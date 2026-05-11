@@ -143,6 +143,57 @@ pub async fn rehydrate(tenant: &str, worker_id: &str, json: bool) -> ArgoResult<
     Ok(())
 }
 
+/// `argo worker delete <id> --tenant <t> [--force] [--json]`. Calls
+/// through to `worker_archive::delete_worker` (or `force_delete_worker`
+/// when `--force` is set) — see that module for the cascade contract.
+pub async fn delete(
+    tenant: &str,
+    worker_id: &str,
+    force: bool,
+    json: bool,
+) -> ArgoResult<()> {
+    let tenant_id = parse_tenant(tenant)?;
+    let parsed = parse_worker(worker_id)?;
+    let owned = open_identity_store().await?;
+
+    if force {
+        worker_archive::force_delete_worker(
+            owned.store.pool(),
+            &parsed.to_string(),
+            &tenant_id.to_string(),
+            true,
+        )
+        .await?;
+    } else {
+        worker_archive::delete_worker(
+            owned.store.pool(),
+            &parsed.to_string(),
+            &tenant_id.to_string(),
+        )
+        .await?;
+    }
+
+    if json {
+        let payload = json!({
+            "ok": true,
+            "worker_id": parsed.to_string(),
+            "tenant_id": tenant_id.to_string(),
+            "deleted": true,
+            "force": force,
+            "grace_days": worker_archive::delete_grace_days(),
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
+        );
+    } else if force {
+        println!("worker {parsed} deleted (force)");
+    } else {
+        println!("worker {parsed} deleted");
+    }
+    Ok(())
+}
+
 /// `argo worker archive list --tenant <t> [--json]`.
 pub async fn list(tenant: &str, json: bool) -> ArgoResult<()> {
     let tenant_id = parse_tenant(tenant)?;

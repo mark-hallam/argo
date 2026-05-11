@@ -221,6 +221,26 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Permanently purge an archived worker, cascading per-tenant memory
+    /// rows and tombstoning audit references (Stream
+    /// `mission-identity-delete-worker`, mission claim 1 closure).
+    /// Refuses while the worker is still live (archive first) and
+    /// refuses inside the `ARGO_WORKER_DELETE_GRACE_DAYS` window
+    /// (default 30d) unless `--force` is set for the compliance path.
+    Delete {
+        /// Worker id (UUIDv7) of the archived worker to purge.
+        worker_id: String,
+        /// Tenant id whose worker namespace owns the archive row.
+        #[arg(long)]
+        tenant: String,
+        /// Skip the grace window (compliance-driven purges only —
+        /// `argo compliance delete --tenant` calls through here).
+        #[arg(long)]
+        force: bool,
+        /// Emit JSON instead of a human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Add, remove, or list the worker's notification channels
     /// (`Stream claude-worker-channels-cli`). Channels live as JSON
     /// inside the worker row — no schema migration. Cap of 16 per
