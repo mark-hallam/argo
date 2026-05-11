@@ -57,6 +57,13 @@ pub enum Capability {
     AuditWrite,
     /// Mutate `MEMORY.md`/`USER.md`/`SOUL.md`/`AGENTS.md`.
     MemoryWrite,
+    /// Write into the tenant-shared team memory namespace
+    /// (`argo-memory::shared_team`). Strictly stronger than
+    /// [`Capability::MemoryWrite`]: holding `MemoryWrite` does NOT
+    /// confer `MemoryWriteTeam`. Reads from the shared-team
+    /// namespace remain ungated; this gate exists to keep workers
+    /// from polluting team-shared state without an explicit grant.
+    MemoryWriteTeam,
     /// Create or modify a skill.
     SkillWrite,
     /// Emit judge verdicts (only the judge subsystem).
@@ -135,8 +142,8 @@ impl CapabilitySet {
 
 fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
-        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, MemoryWrite, NetEgress, SecretRead,
-        SkillJudge, SkillWrite, Spawn, ToolDispatch,
+        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, MemoryWrite, MemoryWriteTeam, NetEgress,
+        SecretRead, SkillJudge, SkillWrite, Spawn, ToolDispatch,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -166,6 +173,7 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
         (Spawn { spawn_kind: g }, Spawn { spawn_kind: w }) => g == w,
         (AuditWrite, AuditWrite) => true,
         (MemoryWrite, MemoryWrite) => true,
+        (MemoryWriteTeam, MemoryWriteTeam) => true,
         (SkillWrite, SkillWrite) => true,
         (SkillJudge, SkillJudge) => true,
         (ForgeRun, ForgeRun) => true,

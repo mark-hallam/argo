@@ -109,6 +109,13 @@ struct Args {
     entry: Option<String>,
     #[serde(default)]
     content: Option<String>,
+    /// Shared-team namespace selector for `list_team` / `read_team` /
+    /// `write_team`. Currently interpreted as the bound tenant id
+    /// (the underlying `argo-memory::shared_team` store is
+    /// tenant-scoped). When `None`, the action defaults to the
+    /// worker's bound namespace's tenant.
+    #[serde(default)]
+    team_id: Option<String>,
 }
 
 /// Arguments for the `query_scored` action. Parsed once the
@@ -159,10 +166,14 @@ impl Tool for Memory {
     }
     fn description(&self) -> &str {
         "List, read, write, or rank entries in Argo's memory store. \
-         `action` is one of `list`, `read`, `write`, or `query_scored`. \
-         For `list` / `read` / `write`, `entry` selects one of \
-         `MEMORY.md` / `USER.md` / `SOUL.md` / `AGENTS.md` (or the bare \
-         form). For `query_scored`, `query` is required, `limit` caps \
+         `action` is one of `list`, `read`, `write`, `list_team`, \
+         `read_team`, `write_team`, or `query_scored`. \
+         Private actions (`list`/`read`/`write`) use `entry` = MEMORY.md \
+         / USER.md / SOUL.md / AGENTS.md inside the worker's namespace. \
+         Team actions address the tenant-shared namespace; `team_id` is \
+         optional and defaults to the worker's bound tenant. `write_team` \
+         requires the `memory:write_team` capability (not granted by \
+         default). For `query_scored`, `query` is required, `limit` caps \
          top-k (default 5, max 20)."
     }
     fn parameters(&self) -> serde_json::Value {
@@ -172,10 +183,29 @@ impl Tool for Memory {
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["list", "read", "write", "query_scored"],
+                    "enum": [
+                        "list", "read", "write", "list_team",
+                        "read_team", "write_team", "query_scored",
+                    ],
                 },
-                "entry": { "type": "string", "description": "Entry name (`read`, `write`)." },
-                "content": { "type": "string", "description": "Body to write (`write`)." },
+                "entry": {
+                    "type": "string",
+                    "description":
+                        "Entry name. Private actions (`read`, `write`): one of \
+                         MEMORY.md / USER.md / SOUL.md / AGENTS.md. \
+                         Team action (`read_team`): the SharedEntry id (uuid).",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Body to write (`write`, `write_team`).",
+                },
+                "team_id": {
+                    "type": "string",
+                    "description":
+                        "Optional shared-team namespace selector \
+                         (`list_team` / `read_team` / `write_team`). \
+                         Defaults to the worker's bound tenant.",
+                },
                 "query": {
                     "type": "string",
                     "description": "Search text (`query_scored`).",
@@ -199,8 +229,10 @@ impl Tool for Memory {
     fn required_capabilities(&self, args: &serde_json::Value) -> ArgoResult<CapabilitySet> {
         let parsed = parse_args(args)?;
         let mut caps = Vec::new();
-        if parsed.action == "write" {
-            caps.push(Capability::MemoryWrite);
+        match parsed.action.as_str() {
+            "write" => caps.push(Capability::MemoryWrite),
+            "write_team" => caps.push(Capability::MemoryWriteTeam),
+            _ => {}
         }
         Ok(CapabilitySet(caps))
     }
@@ -233,11 +265,29 @@ impl Tool for Memory {
                 )
                 .await
             }
+            "list_team" => team::list_team_action(wired, parsed.team_id.as_deref()).await,
+            "read_team" => {
+                team::read_team_action(
+                    wired,
+                    parsed.entry.as_deref(),
+                    parsed.team_id.as_deref(),
+                )
+                .await
+            }
+            "write_team" => {
+                team::write_team_action(
+                    wired,
+                    parsed.content.as_deref(),
+                    parsed.team_id.as_deref(),
+                )
+                .await
+            }
             "query_scored" => query_scored_action(wired, &args).await,
             other => Err(ArgoError::Tool {
                 tool: "memory".into(),
                 msg: format!(
-                    "invalid action '{other}' (expected list / read / write / query_scored)"
+                    "invalid action '{other}' (expected list / read / write / \
+                     list_team / read_team / write_team / query_scored)"
                 ),
             }),
         }?;
@@ -440,6 +490,9 @@ fn translate_lock_error(err: ArgoError) -> ArgoError {
         other => other,
     }
 }
+
+#[path = "memory_team.rs"]
+mod team;
 
 #[cfg(test)]
 #[path = "memory_tests.rs"]
