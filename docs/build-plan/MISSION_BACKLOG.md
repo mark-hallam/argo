@@ -257,9 +257,9 @@ unblocks a mission claim.
 99. Build native macOS computer-use executor.
     `[SHIPPED]`
 100. Build native Linux computer-use executor. `[BRIEF: mission-cu-native-linux-executor-dispatch]` (executor crate `[SHIPPED]` via #992; dispatch wire pending)
-101. Build native Windows computer-use executor. `[NEW]`
+101. Build native Windows computer-use executor. `[BRIEF: mission-cu-windows-executor]`
 102. Build document creation executor — Google Docs/Sheets/Slides.
-     `[NEW]`
+     `[BRIEF: mission-doc-executor-gsuite]`
 103. Build document creation executor — Microsoft Graph. `[BRIEF: mission-doc-executor-msgraph]`
 104. Build document creation executor — local PDF/markdown/slides.
      `[SHIPPED]`
@@ -388,7 +388,7 @@ unblocks a mission claim.
 180. Adaptive provider timeouts (Amendment 6). `[NEW: verify]`
 181. Per-delegation fallback chain (Amendment 7). `[NEW: verify]`
 182. `model = "latest"` resolution (Amendment 8). `[NEW: verify]`
-183. `auto_continue_at_max_iterations` policy (Amendment 9). `[NEW]`
+183. `auto_continue_at_max_iterations` policy (Amendment 9). `[BRIEF: mission-auto-continue-max-iterations-policy]`
 184. ACP server multi-harness (Amendment 11). `[NEW: verify]`
 185. `/steer` mid-run nudges (Amendment 14). `[NEW: verify]`
 
