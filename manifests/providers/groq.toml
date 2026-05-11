@@ -1,0 +1,78 @@
+# Groq — LPU-accelerated open-weight inference.
+#
+# Wire is OpenAI Chat Completions (verbatim — Groq exposes the
+# `/openai/v1/chat/completions` prefix for drop-in compatibility).
+# Operators pick Groq for latency, not capability: same open-weight
+# Llama / Mixtral / Gemma models, but sub-100ms time-to-first-token
+# via custom LPU hardware. Free-tier rate limits are aggressive;
+# response headers carry `x-ratelimit-limit-{requests,tokens}` and
+# `x-ratelimit-remaining-{requests,tokens}` for runtime budgeting.
+#
+# Spec: docs/skycot/providers.md (per-provider operator notes).
+
+[provider]
+id = "groq"
+family = "openai-compatible"
+display_name = "Groq"
+base_url = "https://api.groq.com"
+
+[auth]
+api_key_env = "GROQ_API_KEY"
+header_name = "Authorization"
+header_format = "Bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/openai/v1/chat/completions"
+models_path = "/openai/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 60000
+max_retries = 3
+initial_backoff_ms = 200
+max_backoff_ms = 4000
+
+[tool_calls]
+format = "openai_tool_calls"
+
+[capabilities]
+net_egress = ["api.groq.com"]
+env_read = []
+
+[quirks]
+# Latency profile signal — operators routing for TTFT can use this.
+latency-profile = "very-fast"
+# Rate-limit headers Groq surfaces (RPM/TPM enforcement).
+rate-limit-headers = [
+    "x-ratelimit-limit-requests",
+    "x-ratelimit-limit-tokens",
+    "x-ratelimit-remaining-requests",
+    "x-ratelimit-remaining-tokens",
+]
+
+[[models]]
+id = "llama-3.3-70b-versatile"
+context_window = 128000
+price_per_1k_in = 0.00059
+price_per_1k_out = 0.00079
+tier = "complex"
+
+[[models]]
+id = "llama-3.1-8b-instant"
+context_window = 128000
+price_per_1k_in = 0.00005
+price_per_1k_out = 0.00008
+tier = "simple"
+
+[[models]]
+id = "mixtral-8x7b-32768"
+context_window = 32768
+price_per_1k_in = 0.00024
+price_per_1k_out = 0.00024
+tier = "medium"
+
+[[models]]
+id = "gemma2-9b-it"
+context_window = 8192
+price_per_1k_in = 0.0002
+price_per_1k_out = 0.0002
+tier = "simple"

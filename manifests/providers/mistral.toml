@@ -1,0 +1,71 @@
+# Mistral La Plateforme — EU-hosted, GDPR-friendly OpenAI-compatible API.
+#
+# Data residency: Paris, EU. Operators pick Mistral over GPT-4o
+# primarily for data-residency / GDPR posture, not for capability.
+# `mistral-large-latest` is the flagship; `codestral-latest` is the
+# code-specialized model. JSON mode supported via
+# `response_format = { type = "json_object" }` in the request body.
+#
+# Spec: docs/skycot/providers.md (per-provider operator notes).
+
+[provider]
+id = "mistral"
+family = "openai-compatible"
+display_name = "Mistral"
+base_url = "https://api.mistral.ai"
+
+[auth]
+api_key_env = "MISTRAL_API_KEY"
+header_name = "Authorization"
+header_format = "Bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/v1/chat/completions"
+models_path = "/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 120000
+max_retries = 3
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+
+[tool_calls]
+format = "openai_tool_calls"
+
+[capabilities]
+net_egress = ["api.mistral.ai"]
+env_read = []
+
+[quirks]
+# Data residency: EU Paris. Surface this for GDPR-conscious operators.
+data-residency = "eu-paris"
+# JSON mode flag (response_format support).
+json-mode = true
+
+[[models]]
+id = "mistral-large-latest"
+context_window = 128000
+price_per_1k_in = 0.002
+price_per_1k_out = 0.006
+tier = "complex"
+
+[[models]]
+id = "mistral-medium-latest"
+context_window = 128000
+price_per_1k_in = 0.0027
+price_per_1k_out = 0.0081
+tier = "medium"
+
+[[models]]
+id = "mistral-small-latest"
+context_window = 128000
+price_per_1k_in = 0.0002
+price_per_1k_out = 0.0006
+tier = "simple"
+
+[[models]]
+id = "codestral-latest"
+context_window = 256000
+price_per_1k_in = 0.0003
+price_per_1k_out = 0.0009
+tier = "medium"

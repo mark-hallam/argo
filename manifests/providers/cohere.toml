@@ -1,0 +1,70 @@
+# Cohere v2 Chat API — enterprise-RAG flagship provider.
+#
+# Wire is OpenAI-compatible-ish: same SSE framing, same {role,content}
+# message shape, same {key} bearer auth. The notable quirk is the
+# tool-call envelope — Cohere returns a free-text `tool_plan` reasoning
+# summary alongside the `tool_calls` array (each entry has the standard
+# {id, type, function: {name, arguments}} shape). The `tool_plan` field
+# is advisory; the runtime can log it or drop it. Functional tool
+# dispatch reads `tool_calls`, so the OpenAI tool-calls format is the
+# correct wire-format match.
+#
+# Spec: docs/skycot/providers.md (per-provider operator notes).
+
+[provider]
+id = "cohere"
+family = "openai-compatible"
+display_name = "Cohere"
+base_url = "https://api.cohere.com"
+
+[auth]
+api_key_env = "COHERE_API_KEY"
+header_name = "Authorization"
+header_format = "bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/v2/chat"
+models_path = "/v1/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 120000
+max_retries = 3
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+heartbeat_event = "message"
+heartbeat_grace_ms = 30000
+keepalive_chunks_reset = true
+
+[tool_calls]
+format = "openai_tool_calls"
+
+[capabilities]
+net_egress = ["api.cohere.com"]
+env_read = []
+
+[quirks]
+# Cohere returns a `tool_plan` free-text reasoning summary alongside
+# `tool_calls`. The runtime may surface it for observability but tool
+# dispatch reads `tool_calls`. See header comment.
+tool-plan-field = "tool_plan"
+
+[[models]]
+id = "command-r-plus"
+context_window = 128000
+price_per_1k_in = 0.0025
+price_per_1k_out = 0.0100
+tier = "complex"
+
+[[models]]
+id = "command-r"
+context_window = 128000
+price_per_1k_in = 0.00015
+price_per_1k_out = 0.00060
+tier = "medium"
+
+[[models]]
+id = "command-r-08-2024"
+context_window = 128000
+price_per_1k_in = 0.00015
+price_per_1k_out = 0.00060
+tier = "medium"

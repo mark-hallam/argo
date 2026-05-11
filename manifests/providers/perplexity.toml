@@ -1,0 +1,68 @@
+# Perplexity Sonar — online-with-citation LLM API.
+#
+# Wire is OpenAI-compatible-ish: standard /chat/completions endpoint,
+# bearer auth, OpenAI-shape SSE. The differentiator is the response
+# payload — Sonar `online` models return a `citations: [url, ...]`
+# array alongside the message content. Verticals that need source
+# attribution (research-analyst, lead-research, legal-paralegal)
+# should prefer Perplexity for free bibliography-quality output.
+# Citation-retrieval overhead makes online models more expensive than
+# pure-LLM counterparts of similar size.
+#
+# Spec: docs/skycot/providers.md (per-provider operator notes).
+
+[provider]
+id = "perplexity"
+family = "openai-compatible"
+display_name = "Perplexity"
+base_url = "https://api.perplexity.ai"
+
+[auth]
+api_key_env = "PERPLEXITY_API_KEY"
+header_name = "Authorization"
+header_format = "Bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/chat/completions"
+models_path = "/models"
+connect_timeout_ms = 5000
+read_timeout_ms = 120000
+max_retries = 3
+initial_backoff_ms = 250
+max_backoff_ms = 8000
+
+[tool_calls]
+format = "openai_tool_calls"
+
+[capabilities]
+net_egress = ["api.perplexity.ai"]
+env_read = []
+
+[quirks]
+# Online models include a `citations: [url, ...]` field in the response.
+# Verticals can read this to ground outputs with source attribution.
+citations-field = "citations"
+# Mode signal — online providers fetch web content per request.
+mode = "online-with-citation"
+
+[[models]]
+id = "llama-3.1-sonar-large-128k-online"
+context_window = 127072
+price_per_1k_in = 0.001
+price_per_1k_out = 0.001
+tier = "complex"
+
+[[models]]
+id = "llama-3.1-sonar-small-128k-online"
+context_window = 127072
+price_per_1k_in = 0.0002
+price_per_1k_out = 0.0002
+tier = "simple"
+
+[[models]]
+id = "llama-3.1-sonar-huge-128k-online"
+context_window = 127072
+price_per_1k_in = 0.005
+price_per_1k_out = 0.005
+tier = "complex"
