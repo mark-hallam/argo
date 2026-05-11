@@ -54,7 +54,7 @@ pub async fn load_cursor(pool: &SqlitePool) -> ArgoResult<AuditWatchdogCursor>;
 pub async fn save_cursor(pool: &SqlitePool, cursor: &AuditWatchdogCursor) -> ArgoResult<()>;
 ```
 
-NEW migration vNN.rs (verify next-free slot — likely v58+ assuming `mission-gateway-request-audit-log` lands v57; coordinate via brief ordering) adding `audit_watchdog_cursor` single-row table.
+NEW migration vNN.rs (verify next-free slot — as of 2026-05-12 the live tail is v58 / SQL 62 after v57 routing-skillmatch (#1356) and v58 operator-risk-overrides (#1361) shipped; pick v59+ / SQL slot 63+, coordinating w/ parallel `mission-gateway-request-audit-log` brief via ordering) adding `audit_watchdog_cursor` single-row table.
 
 NEW CLI surface (`crates/argo-cli/src/handlers/audit_watchdog.rs` ≤ 160 LOC):
 - `argo audit verify [--full] [--from <seq>] [--limit <n>] [--json]` — manual one-shot verify; `--full` resets cursor and walks from seq=0
@@ -126,5 +126,5 @@ This is NOT in scope: actual chain-repair tooling (separate forensics brief — 
 - Notifier-error-doesn't-crash: wrap the notify call in `if let Err(e) = self.notifier.notify(&report).await { tracing::error!(error=?e, "tamper notifier failed"); }`. The loop continues regardless. The `tracing::error!` event is the fallback signal — even if all channels are broken, the operator still has the structured log.
 - Cursor write happens BEFORE notifier dispatch — if notification fails, the cursor still moves forward, otherwise a stuck notifier would prevent progress.
 - Tamper-test approach: write a row, then `UPDATE audit_rows SET row_canonical = 'X' WHERE seq = ?` to corrupt one row; the watchdog should detect that `sha256(prev_hash || 'X')` != stored `chain_hash`.
-- Migration slot: coordinate with the parallel `mission-gateway-request-audit-log` brief — that one is taking v57 / SQL slot 61. This one takes v58 / SQL slot 62. Verify with `ls crates/argo-store/migrations/ | sort -V | tail -5` at claim time and pick the next-free slot if those numbers have shifted.
+- Migration slot: as of 2026-05-12 the live tail is v58 / raw slot 62 (v57 routing-skillmatch + v58 operator-risk-overrides both shipped). Coordinate with the parallel `mission-gateway-request-audit-log` brief — pick whichever of v59/v60 (and SQL 63/64) the other doesn't claim. Verify with `ls crates/argo-store/migrations/ | sort -V | tail -5` at claim time and pick the next-free slot if those numbers have shifted further.
 - Operator escalation contract: this watchdog is the FIRST signal of audit tampering. The PR body should document explicitly: "When this fires, treat as P0 — the audit chain is the security-of-record source. Do not auto-repair. Forensics first."

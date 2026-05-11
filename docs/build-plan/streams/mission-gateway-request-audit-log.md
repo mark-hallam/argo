@@ -28,7 +28,7 @@ pub struct RequestAuditEntry {
 pub async fn record(sink: &AuditSink, entry: RequestAuditEntry) -> ArgoResult<()>;
 ```
 
-NEW migration `vNN.rs` (verify next-free slot first; v56 is in flight via `mission-per-tenant-rate-limiting` — pick v57+ and SQL slot 61+) + raw SQL adding `gateway_request_audit` table:
+NEW migration `vNN.rs` (verify next-free slot first; as of 2026-05-12 the live tail is v58 / SQL 62 after v57 routing-skillmatch (#1356) and v58 operator-risk-overrides (#1361) shipped — pick v59+ and SQL slot 63+) + raw SQL adding `gateway_request_audit` table:
 
 ```sql
 CREATE TABLE gateway_request_audit (
@@ -128,6 +128,6 @@ This is NOT in scope: full body capture (separate brief for verbose-mode); respo
 - Body hash: sha256 of the raw bytes BEFORE deserialization. For multipart uploads ≥ 1 MiB, hash only the first 1 MiB (avoid streaming-cost on uploads). Document this in the module docs.
 - The async-spawn pattern: `tokio::spawn(async move { request_audit::record(&sink, entry).await })` — if record() errors, log at `tracing::warn!` but do NOT bubble back to the response path. The audit row is best-effort; the request response is load-bearing.
 - Test the "audit row written after response emitted" invariant by using a slow `MockAuditSink` that blocks for 200ms; the response should still emit in under 50ms.
-- Migration slot: at brief-author time, v55 is the live ceiling and v56 is in flight (per-tenant-rate-limiting #1338). Pick v57 / raw slot 61. Verify before claim with `ls crates/argo-store/migrations/ | sort -V | tail -10` and `ls crates/argo-store/src/migrations/v*.rs | sort -V | tail -10`.
+- Migration slot: as of 2026-05-12 the live tail is v58 / raw slot 62 (v56 per-tenant-rate-limiting + v57 routing-skillmatch + v58 operator-risk-overrides all shipped). Pick v59 / raw slot 63. Verify before claim with `ls crates/argo-store/migrations/ | sort -V | tail -10` and `ls crates/argo-store/src/migrations/v*.rs | sort -V | tail -10` and pick the next-free if numbers have shifted further (mission-audit-chain-watchdog is a parallel brief that may also claim a slot in this range — coordinate via ordering).
 - `enabled = false` should be a true zero-overhead path: don't allocate the entry, don't hash the body, don't enter the middleware. The `boot.rs` hook should `if !config.gateway.request_audit.enabled { /* skip */ }` before any work.
 - `gateway_request_audit_smoke.rs` should match the established style of `crates/argo-cli/tests/gateway_tenant_rate_limit_smoke.rs` — set `ANTHROPIC_API_KEY=dummy` to bypass startup_check, boot gateway, hit endpoints, query the audit table directly via the store or via the CLI.
