@@ -77,6 +77,7 @@ members = [
   "crates/argo-mcp-connector-dropbox",
   "crates/argo-mcp-connector-signal",
   "crates/argo-mcp-connector-clearbit",
+  "crates/argo-mcp-connector-zoom",
   "crates/argo-mcp-connector-image-gen",
   "crates/argo-mcp-connector-replicate",
   "crates/argo-mcp-image-gen",
