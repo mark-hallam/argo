@@ -162,7 +162,7 @@ unblocks a mission claim.
 
 49. Build subtask ledger.
     `[SHIPPED]`
-50. Wire planner into agent dispatch loop. `[NEW]`
+50. Wire planner into agent dispatch loop. `[BRIEF: mission-planner-dispatch-loop-wire]`
 51. Implement `RoutingEngine::route` for SkillMatch and RoleMatch.
     `[PARTIAL — handoff-routing-rules #883 SHIPPED but skill_match/role_match return None]`
 52. Wire org chart `manager_id` chain into HandoffWalker
@@ -173,7 +173,7 @@ unblocks a mission claim.
 55. Add real-time tokio broadcast bidder loops to Auction
     (currently CLI only — claude-skill-auction #900 SHIPPED). `[BRIEF: mission-auction-tokio-broadcast-bidder]`
 56. Add `delegate_task` inheritance of fallback chain. `[BRIEF: mission-delegate-task-fallback-chain]`
-57. Add per-delegation budget tree. `[NEW]`
+57. Add per-delegation budget tree. `[BRIEF: mission-delegation-budget-tree]`
 
 ### Claim 3: Platform builds workers (Genesis)
 
@@ -204,7 +204,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 70. Wire skill quality scores into A/B promote decision. `[BRIEF: mission-skill-ab-quality-promote]`
 71. Replace hardcoded `MANIFEST_INDEX` with real OCI registry
-    catalog scan. `[NEW]`
+    catalog scan. `[BRIEF: mission-marketplace-oci-registry-scan]`
 72. Implement `argo skill publish` for single-skill publishing.
     `[SHIPPED]`
 73. Implement `argo skill sign / verify` (cosign-compatible).
@@ -213,7 +213,7 @@ unblocks a mission claim.
     attestation. `[NEW]`
 75. Build `argo skill catalog` for browsing remote skills. `[BRIEF: mission-cli-skill-catalog]`
 76. Wire `select_variant` and `record_outcome` into runtime
-    skill load. `[NEW]`
+    skill load. `[BRIEF: mission-skill-select-variant-runtime-wire]`
 77. Build `QualityInputs::from_audit_history` so quality-recompute
     runs as cron. `[BRIEF: mission-skill-quality-from-audit]`
 78. Build cron tick `argo skill quality-recompute --all`. `[BRIEF: mission-skill-quality-cron]`
