@@ -70,13 +70,22 @@ Plan documents, in order of operative precedence:
 - `docs/plan/argo-build-plan.md` (v0.2) — original architecture
   reference for the core-platform layer. Still valid for that scope,
   but no longer the operative phased plan.
-- `docs/build-plan/BUILD_PLAN_V11.md` — current operative phased
-  plan (v1.1 production hardening through v2.2 demo verticals).
-  This is what the swarm is building against today.
+- `docs/build-plan/BUILD_PLAN_V11.md` — operative phased plan for
+  backend tracks (v1.1 production hardening through v2.2 demo
+  verticals). Authoritative for backend scope; product-surface /
+  frontend work moved to PRODUCT_ROADMAP.md as of 2026-05-11.
+- `docs/build-plan/PRODUCT_ROADMAP.md` — operative plan for the
+  post-MVP product-surface program (Tracks A–G: UX research →
+  design language → wireframes → frontend implementation +
+  parallel claim-4 backend fill-ins + claim-5 finish). Read this
+  before picking up any UI / UX / persona / journey work.
 - `docs/build-plan/BUILD_STATUS.md` — the live ledger (rows + state
   transitions, edited every tick).
 - `docs/build-plan/MISSION_BACKLOG.md` — canonical source of
   un-shipped work, status-tagged for queue replenishment.
+- `docs/skycot/ux-research/` — persona docs + journey maps. The
+  design brief for all frontend implementation. Referenced from
+  PRODUCT_ROADMAP.md Track A.
 
 The vertical-template system is documented in its own design doc
 once Phase 1 lands.
