@@ -117,6 +117,16 @@ pub enum Command {
         #[command(subcommand)]
         cmd: TenantCmd,
     },
+    /// Operator-scoped surfaces. Currently:
+    /// - `risk-overrides` — per-operator overrides of the
+    ///   manifest-driven default risk classification (Stream
+    ///   `mission-operator-specific-risk-overrides`). Upgrade-only
+    ///   by default; downgrades require `--allow-downgrade` so a
+    ///   compromised account can't silently relax approvals.
+    Operator {
+        #[command(subcommand)]
+        cmd: OperatorCmd,
+    },
     /// Persona maintenance — `$EDITOR`-driven update of the
     /// human-facing persona row attached to one or more workers
     /// (Stream `claude-persona-edit-cli`).

@@ -207,9 +207,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 handlers::backup_create::run(output.as_deref(), include_credentials, json).await
             }
             cli::BackupCmd::List { json } => handlers::backup_list::run(json).await,
-            cli::BackupCmd::Verify { path, json } => {
-                handlers::backup_verify::run(&path, json).await
-            }
+            cli::BackupCmd::Verify { path, json } => handlers::backup_verify::run(&path, json).await,
         },
         Some(Command::Restore { args }) => {
             handlers::backup_restore::run(&args.path, args.into.as_deref(), args.dry_run, args.json)
@@ -302,6 +300,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             }
         },
         Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
+        Some(Command::Operator { cmd }) => handlers::operator_risk_overrides::dispatch(cmd).await,
         Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
         Some(Command::Roster { cmd }) => handlers::roster_list::run(cmd).await,

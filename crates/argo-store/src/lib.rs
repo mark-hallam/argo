@@ -150,6 +150,12 @@ pub mod worker_presence;
 /// #21). Stores one row per tenant that supersedes the gateway's
 /// config-driven `requests_per_minute` default.
 pub mod tenant_rate_limit;
+/// Per-operator risk-level overrides for the action classification
+/// pipeline (Stream `mission-operator-specific-risk-overrides`,
+/// MISSION_BACKLOG Section 3 Claim 6 #122). Stores one row per
+/// `(operator_id, action_kind, vertical_id)` triple. Missing row →
+/// caller falls back to the manifest-driven default.
+pub mod operator_risk_overrides;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
 /// `show_tenant` + `rename_tenant` family — split out from
@@ -193,7 +199,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 57;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 58;
 
 /// A SQLite-backed session store.
 ///

@@ -152,6 +152,7 @@ fn build_followup_record(
         item_id: source.record.item_id.as_deref(),
         platform: source.record.platform.as_deref(),
         evidence: vec![format!("argo://chain/{}", source.record.action_id)],
+        risk_override: None,
     };
     build_emission(&inputs)
 }

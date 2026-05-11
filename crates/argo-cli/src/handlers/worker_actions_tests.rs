@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::handlers::worker_actions_emit::{
-    build_emission, classify_for_emission, ActionEmissionInputs, ApprovalCategory,
+    build_emission, classify_for_emission, ActionEmissionInputs, ApprovalCategory, RiskOverride,
 };
 
 #[test]
@@ -278,6 +278,7 @@ fn build_emission_stamps_risk_and_requires_approval_from_manifest() {
         item_id: Some("item-1"),
         platform: Some("facebook_marketplace"),
         evidence: vec!["https://example.com/1".into()],
+        risk_override: None,
     };
     let rec = build_emission(&inputs);
     assert_eq!(rec.action_type, "post_listing");
@@ -288,6 +289,37 @@ fn build_emission_stamps_risk_and_requires_approval_from_manifest() {
     assert_eq!(rec.item_id.as_deref(), Some("item-1"));
     assert_eq!(rec.evidence.len(), 1);
     assert!(rec.blocked_reason.is_none());
+}
+
+/// Operator-specific risk override (Stream
+/// `mission-operator-specific-risk-overrides`) supersedes the manifest's
+/// declared `risk` when populated. The resolver enforces upgrade-only
+/// semantics + downgrade gating BEFORE we get here; `build_emission`
+/// trusts the pre-resolved level and stamps it onto the row.
+#[test]
+fn build_emission_applies_risk_override_when_present() {
+    let v = synthetic_vertical();
+    let inputs = ActionEmissionInputs {
+        vertical: &v,
+        job_id: "job-1",
+        worker_id: argo_identity::WorkerId::nil(),
+        action_type: "post_listing",
+        payload: serde_json::json!({"title": "x"}),
+        item_id: None,
+        platform: None,
+        evidence: vec![],
+        risk_override: Some(RiskOverride {
+            risk_level: "high".to_string(),
+            trace: serde_json::json!({
+                "default": "medium",
+                "override_applied": "high",
+                "override_scope": "AllVerticals",
+            }),
+        }),
+    };
+    let rec = build_emission(&inputs);
+    assert_eq!(rec.risk_level, "high", "override should win over manifest");
+    assert!(rec.requires_approval);
 }
 
 #[test]
@@ -302,6 +334,7 @@ fn build_emission_for_safe_autonomous_lands_pending_low_no_approval() {
         item_id: None,
         platform: None,
         evidence: vec![],
+        risk_override: None,
     };
     let rec = build_emission(&inputs);
     assert_eq!(rec.state, "pending");
@@ -322,6 +355,7 @@ fn build_emission_for_high_risk_action_stamps_high_and_requires_approval() {
         item_id: None,
         platform: None,
         evidence: vec![],
+        risk_override: None,
     };
     let rec = build_emission(&inputs);
     assert_eq!(rec.risk_level, "high");
@@ -344,6 +378,7 @@ fn build_emission_for_undeclared_action_lands_blocked_with_reason() {
         item_id: None,
         platform: None,
         evidence: vec![],
+        risk_override: None,
     };
     let rec = build_emission(&inputs);
     assert_eq!(rec.state, "blocked");

@@ -24,6 +24,7 @@ pub mod fallback;
 pub mod imessage;
 pub mod manifest;
 pub mod operator_preferences;
+pub mod operator_risk_overrides;
 pub mod push;
 pub mod push_format;
 pub mod quiet_hours;
@@ -41,6 +42,11 @@ pub use discord::DiscordChannel;
 pub use operator_preferences::{
     InMemoryPreferencesSource, OperatorId, OperatorPreferences, OperatorPreferencesResolver,
     OperatorPreferencesSource, OperatorQuietHours, TomlPreferencesSource,
+};
+pub use operator_risk_overrides::{
+    DefaultRiskPolicy, InMemoryOperatorRiskOverridesSource, OperatorRiskOverrides,
+    OperatorRiskOverridesSource, OverrideScope, RiskResolutionTrace, RiskResolver,
+    TomlOperatorRiskOverridesSource,
 };
 pub use quiet_hours::QuietHours;
 pub use rate_limit::{RateLimit, RateLimitConfig};

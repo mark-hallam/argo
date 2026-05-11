@@ -81,6 +81,7 @@ pub(crate) async fn retry(action_id: &str, force: bool, json: bool) -> ArgoResul
         item_id: located.record.item_id.as_deref(),
         platform: located.record.platform.as_deref(),
         evidence: new_evidence,
+        risk_override: None,
     };
     let new_rec = worker_actions_emit::build_emission(&inputs);
     worker_actions_emit::persist_action_record(&memory, ws, &located.vertical_id, &new_rec).await?;

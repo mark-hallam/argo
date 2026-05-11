@@ -216,6 +216,7 @@ mod session_watch;
 pub mod self_update;
 pub mod setup;
 pub mod setup_render;
+pub mod operator_risk_overrides;
 pub mod org;
 pub mod setup_steps;
 pub mod skill;

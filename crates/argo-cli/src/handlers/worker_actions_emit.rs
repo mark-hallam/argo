@@ -56,6 +56,34 @@ pub(crate) struct ActionEmissionInputs<'a> {
     pub item_id: Option<&'a str>,
     pub platform: Option<&'a str>,
     pub evidence: Vec<String>,
+    /// Pre-resolved per-operator risk override (Stream
+    /// `mission-operator-specific-risk-overrides`). When present, the
+    /// emitter stamps `risk_level` from this struct's `risk_level`
+    /// instead of the manifest's `[actions.<name>].risk`. The trace
+    /// JSON travels alongside so the audit chain records WHY the
+    /// classification came out the way it did. No caller populates
+    /// this today; the follow-up brief
+    /// `mission-action-emission-operator-context-plumbing` plumbs
+    /// `OperatorId` through worker session lifecycle and consults
+    /// `argo_channels::operator_risk_overrides::RiskResolver` before
+    /// emission.
+    pub risk_override: Option<RiskOverride>,
+}
+
+/// Pre-resolved operator-specific risk override consumed by
+/// [`build_emission`]. Carries the chosen [`RiskLevel`] plus the
+/// serialized [`argo_channels::operator_risk_overrides::RiskResolutionTrace`]
+/// for the audit chain.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub(crate) struct RiskOverride {
+    /// One of `"low" | "medium" | "high"` — already lowered through
+    /// the resolver's upgrade-only-by-default check.
+    pub risk_level: String,
+    /// Forensic explanation of how the resolver picked `risk_level`.
+    /// Audit consumers parse this back into
+    /// [`argo_channels::operator_risk_overrides::RiskResolutionTrace`].
+    pub trace: Value,
 }
 
 /// Classify a proposed `action_type` against the bound
@@ -129,13 +157,23 @@ pub(crate) fn build_emission(inputs: &ActionEmissionInputs<'_>) -> ActionRecord 
                     inputs.evidence.clone(),
                 );
             };
-            let risk = match decl.risk {
-                argo_vertical::ActionRiskLevel::Low => "low",
-                argo_vertical::ActionRiskLevel::Medium => "medium",
-                argo_vertical::ActionRiskLevel::High => "high",
+            // Operator-specific override wins over the manifest
+            // default when present (Stream
+            // `mission-operator-specific-risk-overrides`). The
+            // resolver has already enforced upgrade-only semantics
+            // and produced the trace by the time we see it here.
+            let risk = if let Some(over) = inputs.risk_override.as_ref() {
+                over.risk_level.clone()
+            } else {
+                match decl.risk {
+                    argo_vertical::ActionRiskLevel::Low => "low",
+                    argo_vertical::ActionRiskLevel::Medium => "medium",
+                    argo_vertical::ActionRiskLevel::High => "high",
+                }
+                .to_string()
             };
             (
-                risk.to_string(),
+                risk,
                 decl.requires_approval,
                 "pending".to_string(),
                 None,
@@ -359,6 +397,7 @@ pub(crate) fn emit_actions_from_text(
                 item_id: p.item_id.as_deref(),
                 platform: p.platform.as_deref(),
                 evidence: p.evidence,
+                risk_override: None,
             };
             let mut rec = build_emission(&inputs);
             // Sold-item gate runs FIRST so the blocked_reason is

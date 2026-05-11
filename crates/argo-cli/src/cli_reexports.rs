@@ -57,6 +57,8 @@ pub mod cli_skill_search_cmds;
 pub mod cli_duty_cmds;
 #[path = "cli_handoff_cmds.rs"]
 pub mod cli_handoff_cmds;
+#[path = "cli_operator_cmds.rs"]
+pub mod cli_operator_cmds;
 #[path = "cli_org_cmds.rs"]
 pub mod cli_org_cmds;
 #[path = "cli_persona_cmds.rs"]
@@ -130,6 +132,7 @@ pub use cli_doctor_cmds::DoctorCmd;
 pub use cli_feedback_cmds::FeedbackCmd;
 pub use cli_genesis_cmds::*;
 pub use cli_memory_cmd::SharedTeamCmd;
+pub use cli_operator_cmds::OperatorCmd;
 pub use cli_persona_cmds::PersonaCmd;
 pub use cli_session_cmds::*;
 pub use cli_subcommands::*;
