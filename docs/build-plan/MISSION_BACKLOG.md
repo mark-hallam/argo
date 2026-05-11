@@ -99,7 +99,7 @@ unblocks a mission claim.
 20. Add TLS termination support OR document explicit
     reverse-proxy requirement. `[NEW]`
 21. Add per-tenant rate limiting. `[BRIEF: mission-per-tenant-rate-limiting]`
-22. Add request audit log entry per HTTP request. `[NEW]`
+22. Add request audit log entry per HTTP request. `[BRIEF: mission-gateway-request-audit-log]`
 23. Document and harden the 127.0.0.1:7400 bind default.
     `[NEW]`
 
@@ -124,7 +124,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 31. Replace span-enter-and-drop pattern with proper guard handle.
     (folded into #30) `[SHIPPED]`
-32. Wire Prometheus exporter to `default_registry()`. `[NEW]`
+32. Wire Prometheus exporter to `default_registry()`. `[BRIEF: mission-prometheus-exporter-default-registry]`
 33. Add structured logging with tenant_id + worker_id +
     session_id fields on every log line. `[NEW]`
 34. Add log shipping target documentation (Loki, Datadog,
@@ -133,7 +133,7 @@ unblocks a mission claim.
     `tracing::warn!` only). `[NEW]`
 36. Wire circuit breaker to provider transport calls. `[BRIEF: mission-circuit-breaker-wire-providers]`
 37. Add audit-chain watchdog that periodically verifies and
-    pages on tamper. `[NEW]`
+    pages on tamper. `[BRIEF: mission-audit-chain-watchdog]`
 38. Add health-check endpoint for k8s/systemd readiness. `[BRIEF: mission-health-check-endpoint]`
 
 ---
