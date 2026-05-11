@@ -327,18 +327,18 @@ unblocks a mission claim.
 ### New verticals (mission "any role")
 
 144. Recruiter-screener vertical. `[NEW]`
-145. Executive-assistant vertical. `[NEW]`
+145. Executive-assistant vertical. `[BRIEF: mission-vertical-executive-assistant]`
 146. Accounts-receivable vertical.
      `[SHIPPED]`
 147. Bookkeeping-assistant vertical. `[BRIEF: mission-vertical-bookkeeping-assistant]`
 148. Social-media-drafter vertical. `[NEW]`
-149. Research-analyst vertical. `[NEW]`
+149. Research-analyst vertical. `[BRIEF: mission-vertical-research-analyst]`
 150. Lead-research vertical. `[BRIEF: mission-vertical-lead-research]`
 151. Data-entry-clerk vertical. `[NEW]`
 152. QA-engineer vertical. `[NEW]`
 153. Legal-paralegal vertical. `[NEW]`
 154. Medical-coder vertical (HIPAA path). `[NEW]`
-155. Customer-onboarding vertical. `[NEW]`
+155. Customer-onboarding vertical. `[BRIEF: mission-vertical-customer-onboarding]`
 156. Fundraising-coordinator vertical. `[NEW]`
 157. HR-screener vertical. `[NEW]`
 158. Ops-on-call vertical. `[BRIEF: mission-vertical-ops-on-call]`
