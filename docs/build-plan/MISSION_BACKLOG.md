@@ -128,7 +128,7 @@ unblocks a mission claim.
 33. Add structured logging with tenant_id + worker_id +
     session_id fields on every log line. `[BRIEF: mission-structured-logging-tenant-worker-session]`
 34. Add log shipping target documentation (Loki, Datadog,
-    CloudWatch). `[NEW]`
+    CloudWatch). `[BRIEF: mission-log-shipping-target-docs]`
 35. Add real anomaly alerting via NotifyChannel (currently
     `tracing::warn!` only). `[BRIEF: mission-anomaly-alerting-notifychannel]`
 36. Wire circuit breaker to provider transport calls. `[BRIEF: mission-circuit-breaker-wire-providers]`
@@ -294,9 +294,9 @@ unblocks a mission claim.
 123. Replace `setInterval(reload, 5000)` with real WebSocket on
      `/inbox/ws`. `[NEW]`
 124. Add Telegram channel. `[BRIEF: mission-mcp-connector-telegram]`
-125. Add Microsoft Teams channel. `[NEW]`
+125. Add Microsoft Teams channel. `[BRIEF: mission-channel-microsoft-teams]`
 126. Add Signal channel. `[BRIEF: mission-mcp-connector-signal]`
-127. Add Matrix channel. `[NEW]`
+127. Add Matrix channel. `[BRIEF: mission-channel-matrix]`
 128. Build approval-bundle UI. `[NEW]`
 129. Build approval-policy UI. `[NEW]`
 130. Add escalation-on-no-reply. `[BRIEF: mission-escalation-on-no-reply]`
