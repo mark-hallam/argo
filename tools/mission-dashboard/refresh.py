@@ -1483,7 +1483,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 
 
 <div class="panel" id="roadmap-panel" style="margin-bottom:16px;display:none;">
-  <h2>Product roadmap · tracks A–G <span class="right" id="roadmap-note">post-MVP product-surface program · PRODUCT_ROADMAP.md (operative 2026-05-11)</span></h2>
+  <h2>Product roadmap · tracks <span id="roadmap-letters">A–G</span> <span class="right" id="roadmap-note">post-MVP product-surface program · PRODUCT_ROADMAP.md (operative 2026-05-11)</span></h2>
   <div id="roadmap-tracks" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;"></div>
   <div id="roadmap-legend" style="margin-top:14px;color:var(--ink-3);font-size:11px;"></div>
 </div>
@@ -2193,6 +2193,9 @@ function stackBar(counts, total, palette) {
     </div>`;
   }).join("");
   $("#roadmap-tracks").innerHTML = cards;
+  const letters = r.tracks.map(t => t.letter);
+  const letterRange = letters.length > 1 ? `${letters[0]}–${letters[letters.length-1]}` : letters[0];
+  const rl = $("#roadmap-letters"); if (rl) rl.textContent = letterRange;
   const done = (r.by_status||{})["DONE"] || 0;
   const inProg = (r.by_status||{})["IN PROGRESS"] || 0;
   const queued = (r.by_status||{})["QUEUED"] || 0;
