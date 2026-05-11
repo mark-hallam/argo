@@ -359,6 +359,13 @@ pub struct Worker {
     /// rows lacking the column.
     #[serde(default)]
     pub last_used_at: Option<DateTime<Utc>>,
+    /// Operator-set role name consumed by
+    /// `TargetSelector::RoleMatch(String)` routing-rule resolution.
+    /// `None` when the operator hasn't classified the worker — empty
+    /// result on a `RoleMatch` lookup is normal in v1. Stream
+    /// `mission-routing-skillmatch-rolematch` (Tier M4).
+    #[serde(default)]
+    pub role_name: Option<String>,
 }
 
 impl Worker {
@@ -393,6 +400,7 @@ impl Worker {
             level: WorkerLevel::Entry,
             trust_grade: 0,
             last_used_at: None,
+            role_name: None,
         }
     }
 

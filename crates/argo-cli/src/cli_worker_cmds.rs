@@ -56,6 +56,12 @@ pub enum WorkerCmd {
         /// Explicit worker id. Fails if it already exists.
         #[arg(long)]
         id: Option<String>,
+        /// Optional role-name label consumed by
+        /// `TargetSelector::RoleMatch(String)` routing-rule
+        /// resolution (Tier M4). Omit to leave the worker
+        /// unclassified.
+        #[arg(long = "role-name")]
+        role_name: Option<String>,
         /// Emit JSON instead of a markdown summary.
         #[arg(long)]
         json: bool,

@@ -59,7 +59,7 @@ fn validate_rejects_bad_vertical_id_and_big_charter() {
 #[tokio::test]
 async fn create_from_spec_persists_worker_channels_and_duties() {
     let (store, tenant) = store().await;
-    let out = create_from_spec(&store, tenant, base_spec(), None)
+    let out = create_from_spec(&store, tenant, base_spec(), None, None)
         .await
         .unwrap();
     let id = parse_worker_id(&out.worker_id).unwrap();
@@ -90,7 +90,7 @@ async fn too_many_channels_fail_before_db_write() {
             }
         })
         .collect();
-    let err = create_from_spec(&store, tenant, spec, None)
+    let err = create_from_spec(&store, tenant, spec, None, None)
         .await
         .unwrap_err();
     assert!(err.to_string().contains("at most 8"));
@@ -110,7 +110,7 @@ async fn unsupported_channel_fails_after_worker_create() {
         target: "+15551234567".into(),
         risk_level: None,
     }];
-    let err = create_from_spec(&store, tenant, spec, None)
+    let err = create_from_spec(&store, tenant, spec, None, None)
         .await
         .unwrap_err();
     assert!(err.to_string().contains("fax:+15551234567"));
@@ -126,12 +126,12 @@ async fn unsupported_channel_fails_after_worker_create() {
 async fn explicit_id_collision_fails_without_mutation() {
     let (store, tenant) = store().await;
     let id = WorkerId::new();
-    create_from_spec(&store, tenant, base_spec(), Some(id))
+    create_from_spec(&store, tenant, base_spec(), Some(id), None)
         .await
         .unwrap();
     let mut second = base_spec();
     second.persona.name = Some("Maya Clone".into());
-    let err = create_from_spec(&store, tenant, second, Some(id))
+    let err = create_from_spec(&store, tenant, second, Some(id), None)
         .await
         .unwrap_err();
     assert!(err.to_string().contains("already exists"));

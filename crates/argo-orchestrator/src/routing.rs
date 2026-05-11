@@ -31,14 +31,19 @@
 //! ## Selectors
 //!
 //! v1 implements `SpecificWorker` (literal `WorkerId`) and
-//! `RoundRobin` (counter mod len) end-to-end. `SkillMatch` and
-//! `RoleMatch` are reserved variants — the DSL parses + persists
-//! them, but [`RoutingEngine::route`] returns `None` for those
-//! variants until the skill/role registry exposes the lookup.
+//! `RoundRobin` (counter mod len) end-to-end. The sync
+//! [`RoutingEngine::route`] returns `None` for `SkillMatch` /
+//! `RoleMatch` — the caller falls back to the explicit chain target.
+//! Callers that have an [`crate::routing_resolve::TargetResolver`]
+//! handy can drive [`RoutingEngine::route_async`] instead; it runs
+//! the resolver against those two selectors and returns the ranked
+//! top match.
 //! Walker falls back to the explicit chain target in that case.
 
+use crate::routing_resolve::TargetResolver;
 use crate::EscalationStep;
 use argo_identity::WorkerId;
+use argo_types::TenantId;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -184,16 +189,33 @@ pub struct RoutingContext {
     pub now: DateTime<Utc>,
     /// `expected_outcome` text the handoff payload carried.
     pub expected_outcome: String,
+    /// Optional tenant id used by
+    /// [`RoutingEngine::route_async`] when resolving
+    /// `SkillMatch` / `RoleMatch`. The sync
+    /// [`RoutingEngine::route`] ignores it. `None` keeps the v1
+    /// behaviour where those selectors return `None` to the walker.
+    #[doc(alias = "tenant")]
+    pub tenant_id: Option<TenantId>,
 }
 
 impl RoutingContext {
-    /// Convenience constructor for tests + walker callers.
+    /// Convenience constructor for tests + walker callers. Leaves
+    /// `tenant_id` unset so the sync `route` path keeps its
+    /// pre-resolver behaviour.
     #[must_use]
     pub fn new(now: DateTime<Utc>, expected_outcome: impl Into<String>) -> Self {
         Self {
             now,
             expected_outcome: expected_outcome.into(),
+            tenant_id: None,
         }
+    }
+
+    /// Builder-style setter for the tenant id resolver lookups need.
+    #[must_use]
+    pub fn with_tenant(mut self, tenant: TenantId) -> Self {
+        self.tenant_id = Some(tenant);
+        self
     }
 }
 
@@ -258,8 +280,74 @@ impl RoutingEngine {
             TargetSelector::SkillMatch(_) | TargetSelector::RoleMatch(_) => None,
         }
     }
+
+    /// Variant of [`Self::route`] that drives a
+    /// [`TargetResolver`] for `SkillMatch` / `RoleMatch` resolution.
+    /// `SpecificWorker` / `RoundRobin` use the same logic as the
+    /// sync path, so callers that only mix selectors can switch to
+    /// `route_async` without surprises.
+    ///
+    /// Resolver lookup requires `ctx.tenant_id`; when `None`, the
+    /// `SkillMatch` / `RoleMatch` arms fall through to `None`,
+    /// matching the sync path. A resolver error is treated as `None`
+    /// — the walker still falls back to the explicit chain target
+    /// rather than crashing the tick.
+    pub async fn route_async(
+        &self,
+        ctx: &RoutingContext,
+        resolver: &dyn TargetResolver,
+    ) -> Option<EscalationStep> {
+        let mut sorted: Vec<&HandoffRoutingRule> =
+            self.rules.iter().filter(|r| r.active).collect();
+        sorted.sort_by_key(|r| r.priority);
+        for rule in sorted {
+            if !rule.when.matches(ctx) {
+                continue;
+            }
+            if let Some(step) = self.resolve_target_async(&rule.target, ctx, resolver).await
+            {
+                return Some(step);
+            }
+        }
+        None
+    }
+
+    async fn resolve_target_async(
+        &self,
+        target: &TargetSelector,
+        ctx: &RoutingContext,
+        resolver: &dyn TargetResolver,
+    ) -> Option<EscalationStep> {
+        match target {
+            TargetSelector::SpecificWorker(_) | TargetSelector::RoundRobin(_) => {
+                self.resolve_target(target)
+            }
+            TargetSelector::SkillMatch(name) => {
+                let tenant = ctx.tenant_id?;
+                resolver
+                    .resolve_skill_match(tenant, name)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(EscalationStep::Worker)
+            }
+            TargetSelector::RoleMatch(name) => {
+                let tenant = ctx.tenant_id?;
+                resolver
+                    .resolve_role_match(tenant, name)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(EscalationStep::Worker)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 #[path = "routing_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "routing_resolve_tests.rs"]
+mod resolve_tests;

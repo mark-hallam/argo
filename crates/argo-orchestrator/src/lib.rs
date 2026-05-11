@@ -49,6 +49,7 @@ pub mod persist;
 pub mod persist_audit;
 mod persist_handoffs;
 pub mod routing;
+mod routing_resolve;
 mod routing_store;
 mod session;
 mod walker;
@@ -69,5 +70,6 @@ pub use routing::{
     HandoffRoutingRule, RoutingContext, RoutingEngine, RoutingRuleStore, RuleId, TargetSelector,
     WhenClause,
 };
+pub use routing_resolve::{rank_workers, TargetResolver};
 pub use session::{Session, SessionId, SessionStatus};
 pub use walker::{HandoffNotifier, HandoffPolicyHook, HandoffWalker, SweepReport};

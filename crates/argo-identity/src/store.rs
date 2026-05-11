@@ -1,7 +1,8 @@
 use crate::store_sql::{
     ensure_role_columns, ensure_worker_charter_columns, ensure_worker_level_columns,
-    ensure_worker_skill_table, ensure_worker_trust_grade_columns, insert_duty, kpis_to_json,
-    parse_worker_id, to_json, worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
+    ensure_worker_role_name_columns, ensure_worker_skill_table,
+    ensure_worker_trust_grade_columns, insert_duty, kpis_to_json, parse_worker_id, to_json,
+    worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
 };
 use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel, WorkerUpdate};
 use argo_store::SessionStore;
@@ -73,6 +74,7 @@ impl<'a> IdentityStore<'a> {
         ensure_worker_level_columns(self.store.pool()).await?;
         ensure_worker_trust_grade_columns(self.store.pool()).await?;
         ensure_worker_skill_table(self.store.pool()).await?;
+        ensure_worker_role_name_columns(self.store.pool()).await?;
         Ok(())
     }
 

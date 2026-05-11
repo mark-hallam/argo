@@ -37,12 +37,17 @@ const _WORKER_TRUST_GRADE_SCHEMA: &str =
 // [`ensure_worker_skill_table`]. Stream `mvp-worker-skills-table`.
 const WORKER_SKILL_SCHEMA: &str =
     include_str!("../../argo-store/migrations/51__worker_skill.sql");
+// Documentation-only: ALTER TABLE for `role_name`, applied via
+// `ensure_worker_role_name_columns`. Stream
+// `mission-routing-skillmatch-rolematch`.
+const _WORKER_ROLE_NAME_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/61__worker_role_name.sql");
 
 pub(crate) const WORKER_SELECT: &str = "SELECT
     w.id, w.tenant_id, w.vertical_id, w.memory_scope,
     w.auto_approval_json, w.channels_json,
     w.charter_md, w.kpi_json, w.level,
-    w.trust_grade, w.last_used_at,
+    w.trust_grade, w.last_used_at, w.role_name,
     p.name, p.voice_preamble, p.avatar, p.bio, p.builder_attribution,
     p.provenance_chain_json,
     r.charter, r.kpis_json, r.escalation
@@ -136,6 +141,32 @@ pub(crate) async fn ensure_worker_trust_grade_columns(
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("create idx_worker_last_used_at: {e}")))?;
+    Ok(())
+}
+
+/// Idempotent additive migration for `worker.role_name` (Stream
+/// `mission-routing-skillmatch-rolematch`, Tier M4). PRAGMA-checks the
+/// column, `ALTER TABLE ADD COLUMN ... TEXT` if missing, best-effort
+/// creates the supporting index. Mirrors
+/// [`ensure_worker_trust_grade_columns`].
+pub(crate) async fn ensure_worker_role_name_columns(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    let rows = sqlx::query("PRAGMA table_info(worker)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("worker table info: {e}")))?;
+    let columns: Vec<String> = rows.into_iter().map(|row| row.get("name")).collect();
+    if !columns.iter().any(|existing| existing == "role_name") {
+        sqlx::query("ALTER TABLE worker ADD COLUMN role_name TEXT")
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("add worker.role_name: {e}")))?;
+    }
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_worker_role_name ON worker(role_name)")
+        .execute(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("create idx_worker_role_name: {e}")))?;
     Ok(())
 }
 
@@ -265,6 +296,7 @@ pub(crate) fn worker_from_row(
         ),
         None => None,
     };
+    let role_name: Option<String> = row.get("role_name");
     Ok(Worker {
         id,
         tenant_id,
@@ -280,6 +312,7 @@ pub(crate) fn worker_from_row(
         level,
         trust_grade,
         last_used_at,
+        role_name,
     })
 }
 

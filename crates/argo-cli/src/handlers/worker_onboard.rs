@@ -70,13 +70,18 @@ struct DutyTable {
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct OnboardOutput { worker_id: String, tenant_id: String, vertical_id: String, persona: String, memory_namespace: String, channels: usize, duties: usize }
-pub async fn run(persona_spec: &Path, id: Option<&str>, json: bool) -> ArgoResult<()> {
+pub async fn run(
+    persona_spec: &Path,
+    id: Option<&str>,
+    role_name: Option<&str>,
+    json: bool,
+) -> ArgoResult<()> {
     let raw = std::fs::read_to_string(persona_spec)
         .map_err(|e| ArgoError::Provider(format!("read {}: {e}", persona_spec.display())))?;
     let spec = parse_spec_str(&raw)?;
     let worker_id = id.map(parse_worker_id).transpose()?;
     let (store, tenant_id) = open_workspace_store().await?;
-    let out = create_from_spec(&store, tenant_id, spec, worker_id).await?;
+    let out = create_from_spec(&store, tenant_id, spec, worker_id, role_name).await?;
     print_output(&out, json)
 }
 pub fn parse_spec_str(raw: &str) -> ArgoResult<OnboardSpec> {
@@ -112,6 +117,7 @@ pub async fn create_from_spec(
     tenant_id: TenantId,
     spec: OnboardSpec,
     id: Option<WorkerId>,
+    role_name: Option<&str>,
 ) -> ArgoResult<OnboardOutput> {
     validate(&spec)?;
     let identities = IdentityStore::new(store);
@@ -129,6 +135,11 @@ pub async fn create_from_spec(
         )));
     }
     identities.create_worker(&worker).await?;
+    if let Some(name) = role_name {
+        identities
+            .set_worker_role_name(tenant_id, worker.id, Some(name))
+            .await?;
+    }
     let channels = apply_channels(store, tenant_id, worker.id, &spec.channels).await?;
     let memory_namespace = namespace_label(&worker, spec.memory_namespace.as_deref());
     Ok(OnboardOutput {
