@@ -79,33 +79,43 @@ export function NavDrawer({ children, brand, className }: NavDrawerProps) {
       {/* Desktop rail */}
       <aside
         className={cn(
-          "hidden md:flex md:flex-col md:gap-2 md:p-4",
-          "md:w-60 md:border-r md:border-[var(--border)] md:bg-[var(--background)]",
-          "md:fixed md:inset-y-0 md:left-0 md:z-30",
+          "hidden md:flex md:flex-col md:gap-1 md:p-3",
+          "md:w-64 md:border-r md:border-[var(--border)] md:bg-[var(--card)]/40",
+          "md:backdrop-blur-sm md:fixed md:inset-y-0 md:left-0 md:z-30",
           className,
         )}
       >
-        {brand ? <div className="px-2 pb-3 text-sm font-semibold">{brand}</div> : null}
-        {children}
+        {brand ? (
+          <div className="flex items-center gap-2 px-3 py-3 mb-2 border-b border-[var(--border)]">
+            {brand}
+          </div>
+        ) : null}
+        <nav className="flex-1 flex flex-col gap-0.5">{children}</nav>
       </aside>
     </>
   );
 }
 
-export const NavItem = forwardRef<HTMLAnchorElement, React.AnchorHTMLAttributes<HTMLAnchorElement> & { active?: boolean }>(
-  ({ className, active, ...props }, ref) => (
-    <a
-      ref={ref}
-      data-active={active || undefined}
-      className={cn(
-        "flex items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--foreground)]",
-        "transition-colors duration-[var(--duration-fast)]",
-        "hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]",
-        "data-[active=true]:bg-[var(--primary)] data-[active=true]:text-[var(--primary-foreground)]",
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+export const NavItem = forwardRef<
+  HTMLAnchorElement,
+  React.AnchorHTMLAttributes<HTMLAnchorElement> & { active?: boolean; badge?: React.ReactNode }
+>(({ className, active, badge, children, ...props }, ref) => (
+  <a
+    ref={ref}
+    data-active={active || undefined}
+    className={cn(
+      "group flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--muted-foreground)]",
+      "transition-colors duration-[var(--duration-fast)]",
+      "hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+      "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:opacity-70",
+      "data-[active=true]:bg-[var(--primary)]/12 data-[active=true]:text-[var(--foreground)] data-[active=true]:font-medium",
+      "data-[active=true]:[&_svg]:opacity-100 data-[active=true]:[&_svg]:text-[var(--primary)]",
+      className,
+    )}
+    {...props}
+  >
+    <span className="flex flex-1 items-center gap-3">{children}</span>
+    {badge}
+  </a>
+));
 NavItem.displayName = "NavItem";

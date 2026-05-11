@@ -20,18 +20,21 @@ const avatarVariants = cva(
   },
 );
 
-const statusRing = cva("absolute inset-0 rounded-full ring-2", {
-  variants: {
-    status: {
-      idle: "ring-[var(--muted-foreground)]/30",
-      working: "ring-[var(--info)]",
-      waiting: "ring-[var(--warning)]",
-      blocked: "ring-[var(--destructive)]",
-      none: "ring-transparent",
+const statusRing = cva(
+  "absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-[var(--card)]",
+  {
+    variants: {
+      status: {
+        idle: "bg-[var(--muted-foreground)]/40",
+        working: "bg-[var(--info)]",
+        waiting: "bg-[var(--warning)]",
+        blocked: "bg-[var(--destructive)]",
+        none: "hidden",
+      },
     },
+    defaultVariants: { status: "none" },
   },
-  defaultVariants: { status: "none" },
-});
+);
 
 export type WorkerStatus = "idle" | "working" | "waiting" | "blocked";
 
@@ -57,22 +60,24 @@ export const Avatar = forwardRef<HTMLSpanElement, AvatarProps>(
         .toUpperCase();
 
     return (
-      <RAvatar.Root ref={ref} className={cn(avatarVariants({ size }), className)} {...props}>
-        {src ? (
-          <RAvatar.Image
-            src={src}
-            alt={alt}
-            className="aspect-square h-full w-full object-cover"
-          />
-        ) : null}
-        <RAvatar.Fallback
-          delayMs={src ? 200 : 0}
-          className="flex h-full w-full items-center justify-center font-medium"
-        >
-          {initials}
-        </RAvatar.Fallback>
+      <span className={cn("relative inline-block", className)}>
+        <RAvatar.Root className={cn(avatarVariants({ size }))} ref={ref} {...props}>
+          {src ? (
+            <RAvatar.Image
+              src={src}
+              alt={alt}
+              className="aspect-square h-full w-full object-cover"
+            />
+          ) : null}
+          <RAvatar.Fallback
+            delayMs={src ? 200 : 0}
+            className="flex h-full w-full items-center justify-center font-medium"
+          >
+            {initials}
+          </RAvatar.Fallback>
+        </RAvatar.Root>
         {status ? <span aria-hidden className={statusRing({ status })} /> : null}
-      </RAvatar.Root>
+      </span>
     );
   },
 );

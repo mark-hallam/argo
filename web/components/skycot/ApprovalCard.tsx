@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Clock } from "lucide-react";
+import { Check, ChevronDown, Clock, MessageSquare, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -38,6 +38,8 @@ export interface ApprovalCardProps {
   reason?: string;
   /** Channel the request arrived on; surfaced as small chrome. */
   channel?: "slack" | "imessage" | "sms" | "push" | "web" | "voice" | "whatsapp";
+  /** ISO timestamp of when the request landed. Surfaced as relative time. */
+  receivedAt?: string;
   /** Called with the user's decision. Host is responsible for idempotency + audit. */
   onDecide: (decision: ApprovalDecision) => void | Promise<void>;
   /** Called when the user undoes a decision inside the window. */
@@ -49,6 +51,24 @@ export interface ApprovalCardProps {
   className?: string;
 }
 
+const CHANNEL_LABEL: Record<NonNullable<ApprovalCardProps["channel"]>, string> = {
+  slack: "Slack",
+  imessage: "iMessage",
+  sms: "SMS",
+  push: "Push",
+  web: "Web inbox",
+  voice: "Voice",
+  whatsapp: "WhatsApp",
+};
+
+function toRelative(iso: string): string {
+  const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
 export function ApprovalCard({
   worker,
   verb,
@@ -57,6 +77,7 @@ export function ApprovalCard({
   consequenceIfNo,
   reason,
   channel,
+  receivedAt,
   onDecide,
   onUndo,
   undoWindowMs = 30_000,
@@ -108,31 +129,47 @@ export function ApprovalCard({
   }
 
   return (
-    <Card className={cn("max-w-md w-full", className)} role="region" aria-label={`Approval request from ${worker.name}`}>
-      <div className="flex items-center gap-3 px-5 pt-5">
-        <Avatar alt={worker.name} src={worker.avatarUrl} size="sm" status="waiting" />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm">
+    <Card
+      className={cn(
+        "w-full overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-[var(--duration-base)]",
+        className,
+      )}
+      role="region"
+      aria-label={`Approval request from ${worker.name}`}
+    >
+      <div className="flex items-start gap-3 px-5 pt-5">
+        <Avatar alt={worker.name} src={worker.avatarUrl} size="md" status="waiting" />
+        <div className="flex-1 min-w-0 pt-0.5">
+          <div className="text-[15px] leading-snug">
             <span className="font-semibold text-[var(--foreground)]">{worker.name}</span>{" "}
             <span className="text-[var(--muted-foreground)]">{verb}</span>
           </div>
-          {channel ? (
-            <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5 capitalize">
-              via {channel}
-            </div>
-          ) : null}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--muted-foreground)]">
+            {channel ? (
+              <span className="inline-flex items-center gap-1.5">
+                <MessageSquare className="size-3" />
+                {CHANNEL_LABEL[channel]}
+              </span>
+            ) : null}
+            {channel && receivedAt ? <span aria-hidden>·</span> : null}
+            {receivedAt ? (
+              <time dateTime={receivedAt} title={new Date(receivedAt).toLocaleString()}>
+                {toRelative(receivedAt)}
+              </time>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <div className="px-5 py-4 text-sm leading-relaxed text-[var(--foreground)]">{detail}</div>
+      <div className="px-5 py-4 text-[14px] leading-relaxed text-[var(--foreground)]">{detail}</div>
 
-      <div className="mx-5 mb-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-xs leading-relaxed">
-        <div className="text-[var(--foreground)]">
-          <span className="font-medium">If YES → </span>
+      <div className="mx-5 mb-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/40 px-4 py-3 text-[13px] leading-relaxed space-y-1.5">
+        <div className="flex gap-2.5">
+          <span className="font-semibold text-[var(--success)] shrink-0 tabular-nums">If YES →</span>
           <span className="text-[var(--muted-foreground)]">{consequenceIfYes}</span>
         </div>
-        <div className="mt-1 text-[var(--foreground)]">
-          <span className="font-medium">If NO → </span>
+        <div className="flex gap-2.5">
+          <span className="font-semibold text-[var(--muted-foreground)] shrink-0 tabular-nums">If NO →</span>
           <span className="text-[var(--muted-foreground)]">{consequenceIfNo}</span>
         </div>
       </div>
@@ -142,12 +179,13 @@ export function ApprovalCard({
           <Button
             variant="primary"
             size="md"
-            className="flex-1"
+            className="flex-1 shadow-sm"
             onClick={() => handle("approve")}
             loading={busy && pendingDecision === "approve"}
             disabled={busy}
             data-testid="approval-approve"
           >
+            <Check />
             Approve
           </Button>
           <Button
@@ -159,6 +197,7 @@ export function ApprovalCard({
             disabled={busy}
             data-testid="approval-refuse"
           >
+            <X />
             Refuse
           </Button>
           {reason ? (
@@ -193,7 +232,7 @@ export function ApprovalCard({
       {reason && showReason ? (
         <div
           id="approval-why"
-          className="border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--muted-foreground)] leading-relaxed"
+          className="border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--muted-foreground)] leading-relaxed bg-[var(--muted)]/30"
         >
           {reason}
         </div>

@@ -1,160 +1,274 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  Activity,
+  Bell,
+  ChevronDown,
+  Filter,
+  Inbox,
+  Plus,
+  Search,
+  Settings,
+  Sparkles,
+  Users,
+  Workflow,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
-import { StatusCell, TextCell, TimestampCell } from "@/components/ui/DataCell";
 import { ApprovalCard, type ApprovalDecision } from "@/components/skycot/ApprovalCard";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
+import { groupApprovals, SAMPLE_APPROVALS, type ApprovalItem } from "@/lib/sample-approvals";
 
-/**
- * Demo / smoke page. Renders every primitive and the
- * load-bearing ApprovalCard. Theme picker swaps light/dark + the
- * Acme tenant theme live. This is the surface to point a real
- * user at first.
- */
-export default function HomePage() {
-  const [lastDecision, setLastDecision] = useState<ApprovalDecision | null>(null);
-  const [cardDecision, setCardDecision] = useState<ApprovalDecision | null>(null);
+export default function ApprovalsInboxPage() {
+  // Decisions are mock state; in Track E this becomes a TanStack Query mutation against the gateway.
+  const [decisions, setDecisions] = useState<Record<string, ApprovalDecision | null>>({});
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo<ApprovalItem[]>(() => {
+    if (!query.trim()) return SAMPLE_APPROVALS;
+    const q = query.trim().toLowerCase();
+    return SAMPLE_APPROVALS.filter((a) =>
+      [a.worker.name, a.verb, a.detail].some((s) => s.toLowerCase().includes(q)),
+    );
+  }, [query]);
+
+  const groups = useMemo(() => groupApprovals(filtered), [filtered]);
+  const pendingCount = filtered.filter((a) => decisions[a.id] == null).length;
 
   return (
-    <div className="min-h-screen">
-      <NavDrawer brand={<span>SKYCOT</span>}>
+    <div className="min-h-screen bg-[var(--background)]">
+      <NavDrawer brand={<Brand />}>
         <NavItem href="#" active>
-          Approvals
+          <Inbox /> Approvals
+          {pendingCount > 0 ? (
+            <StatusPill tone="info" size="sm" dot={false} className="ml-auto">
+              {pendingCount}
+            </StatusPill>
+          ) : null}
         </NavItem>
-        <NavItem href="#">Team</NavItem>
-        <NavItem href="#">Workers</NavItem>
-        <NavItem href="#">Audit</NavItem>
-        <NavItem href="#">Settings</NavItem>
+        <NavItem href="#">
+          <Users /> Team
+        </NavItem>
+        <NavItem href="#">
+          <Workflow /> Workers
+        </NavItem>
+        <NavItem href="#">
+          <Activity /> Audit
+        </NavItem>
+        <NavItem href="#">
+          <Sparkles /> Skills
+        </NavItem>
+        <div className="mt-auto flex flex-col gap-1 pt-3 border-t border-[var(--border)]">
+          <NavItem href="#">
+            <Settings /> Settings
+          </NavItem>
+          <WorkspaceFooter />
+        </div>
       </NavDrawer>
 
-      <main className="md:pl-60">
-        <div className="mx-auto max-w-4xl px-4 py-10 space-y-10">
-          <header className="space-y-3">
-            <h1 className="text-2xl font-semibold tracking-tight">Design system preview</h1>
-            <p className="text-[var(--muted-foreground)] text-sm max-w-2xl">
-              All primitives plus the load-bearing ApprovalCard. Toggle light/dark and
-              switch between the SKYCOT default and the Acme tenant theme to see the
-              CSS-variable theming in action.
-            </p>
-            <ThemePicker />
-          </header>
+      <main className="md:pl-64">
+        <PageHeader query={query} setQuery={setQuery} pendingCount={pendingCount} />
 
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold">ApprovalCard — the load-bearing surface</h2>
-            <ApprovalCard
-              worker={{ name: "Mariah" }}
-              verb="wants to send this listing"
-              detail={
-                "Bauer Vapor X5, used 2x · $90. Reply to buyer: \"Yes still available, $90 firm. Pickup in Auckland this weekend.\""
-              }
-              consequenceIfYes="goes to Facebook Marketplace, visible to buyer in 30s."
-              consequenceIfNo="I'll wait for your direction."
-              reason="I'm asking because you said 'always check counter-offers' on May 4th."
-              channel="slack"
-              decision={cardDecision}
-              onDecide={(d) => {
-                setCardDecision(d);
-                setLastDecision(d);
-              }}
-              onUndo={() => {
-                setCardDecision(null);
-              }}
-            />
-            {lastDecision ? (
-              <p className="text-xs text-[var(--muted-foreground)]">
-                Last decision: <strong>{lastDecision}</strong>
-              </p>
-            ) : null}
-          </section>
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+          {filtered.length === 0 ? (
+            <EmptyState query={query} />
+          ) : (
+            <>
+              <ApprovalGroup
+                label="Today"
+                items={groups.today}
+                decisions={decisions}
+                setDecisions={setDecisions}
+              />
+              <ApprovalGroup
+                label="Yesterday"
+                items={groups.yesterday}
+                decisions={decisions}
+                setDecisions={setDecisions}
+              />
+              <ApprovalGroup
+                label="Earlier"
+                items={groups.earlier}
+                decisions={decisions}
+                setDecisions={setDecisions}
+              />
+            </>
+          )}
 
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold">Primitives</h2>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Buttons</CardTitle>
-                <CardDescription>All five variants in three sizes.</CardDescription>
-              </CardHeader>
-              <CardBody className="flex flex-wrap items-center gap-2">
-                <Button variant="primary">Primary</Button>
-                <Button variant="secondary">Secondary</Button>
-                <Button variant="ghost">Ghost</Button>
-                <Button variant="destructive">Destructive</Button>
-                <Button variant="link">Link</Button>
-                <Button loading>Loading</Button>
-                <Button size="sm">Small</Button>
-                <Button size="lg">Large</Button>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Status pills</CardTitle>
-                <CardDescription>Semantic tones with optional dot.</CardDescription>
-              </CardHeader>
-              <CardBody className="flex flex-wrap gap-2">
-                <StatusPill tone="success">Approved</StatusPill>
-                <StatusPill tone="warning">Waiting</StatusPill>
-                <StatusPill tone="error">Refused</StatusPill>
-                <StatusPill tone="info">Working</StatusPill>
-                <StatusPill tone="muted">Idle</StatusPill>
-                <StatusPill tone="info" dot={false}>
-                  No dot
-                </StatusPill>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Avatars</CardTitle>
-                <CardDescription>Four sizes with status rings.</CardDescription>
-              </CardHeader>
-              <CardBody className="flex flex-wrap items-center gap-4">
-                <Avatar alt="Mariah" size="xs" status="working" />
-                <Avatar alt="Mariah" size="sm" status="waiting" />
-                <Avatar alt="Mariah" size="md" status="idle" />
-                <Avatar alt="Mariah Chen" size="lg" status="blocked" />
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Data cells</CardTitle>
-                <CardDescription>Components for tables / timelines.</CardDescription>
-              </CardHeader>
-              <CardBody>
-                <div className="grid grid-cols-4 gap-x-6 gap-y-2 text-xs text-[var(--muted-foreground)] pb-2 border-b border-[var(--border)]">
-                  <span>Worker</span>
-                  <span>Action</span>
-                  <span>Status</span>
-                  <span className="text-right">When</span>
-                </div>
-                <div className="grid grid-cols-4 gap-x-6 gap-y-3 pt-3">
-                  <TextCell>Mariah</TextCell>
-                  <TextCell>Sent listing</TextCell>
-                  <StatusCell tone="success" label="Approved" />
-                  <TimestampCell iso={new Date(Date.now() - 5 * 60_000).toISOString()} relative />
-
-                  <TextCell>Priya</TextCell>
-                  <TextCell>Drafted reply</TextCell>
-                  <StatusCell tone="warning" label="Waiting" />
-                  <TimestampCell iso={new Date(Date.now() - 32 * 60_000).toISOString()} relative />
-
-                  <TextCell>Jamal</TextCell>
-                  <TextCell>Refused refund</TextCell>
-                  <StatusCell tone="error" label="Refused" />
-                  <TimestampCell iso={new Date(Date.now() - 2 * 3600_000).toISOString()} relative />
-                </div>
-              </CardBody>
-            </Card>
-          </section>
+          <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>SKYCOT preview — design system Track C. Switch theme to test white-label:</span>
+              <ThemePicker />
+            </div>
+          </footer>
         </div>
       </main>
+    </div>
+  );
+}
+
+function Brand() {
+  return (
+    <a href="#" className="flex items-center gap-2.5 group">
+      <span
+        aria-hidden
+        className="grid size-8 place-items-center rounded-[var(--radius-md)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-sm shadow-sm"
+      >
+        S
+      </span>
+      <span className="flex flex-col leading-tight">
+        <span className="text-sm font-semibold text-[var(--foreground)]">SKYCOT</span>
+        <span className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
+          AI teammates
+        </span>
+      </span>
+    </a>
+  );
+}
+
+function WorkspaceFooter() {
+  return (
+    <button
+      type="button"
+      className="mt-1 flex items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-2 hover:bg-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
+    >
+      <Avatar alt="Sam Harlow" size="sm" />
+      <span className="flex-1 flex flex-col items-start leading-tight">
+        <span className="text-sm font-medium text-[var(--foreground)]">Sam Harlow</span>
+        <span className="text-[11px] text-[var(--muted-foreground)]">Acmeco · Owner</span>
+      </span>
+      <ChevronDown className="size-4 text-[var(--muted-foreground)]" />
+    </button>
+  );
+}
+
+function PageHeader({
+  query,
+  setQuery,
+  pendingCount,
+}: {
+  query: string;
+  setQuery: (s: string) => void;
+  pendingCount: number;
+}) {
+  return (
+    <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+                Approvals
+              </h1>
+              <StatusPill tone="info" size="sm">
+                {pendingCount} waiting
+              </StatusPill>
+            </div>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Your AI teammates need a yes or no.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" aria-label="Filter">
+              <Filter />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Notifications">
+              <Bell />
+            </Button>
+            <Button variant="primary" size="md" className="shadow-sm">
+              <Plus />
+              Hire teammate
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--muted-foreground)]" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by worker, action, or detail..."
+            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--card)]/60 text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent transition-shadow"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApprovalGroup({
+  label,
+  items,
+  decisions,
+  setDecisions,
+}: {
+  label: string;
+  items: ApprovalItem[];
+  decisions: Record<string, ApprovalDecision | null>;
+  setDecisions: React.Dispatch<React.SetStateAction<Record<string, ApprovalDecision | null>>>;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+          {label}
+        </h2>
+        <div className="flex-1 h-px bg-[var(--border)]" />
+        <span className="text-xs text-[var(--muted-foreground)]">
+          {items.length} {items.length === 1 ? "request" : "requests"}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((item) => (
+          <ApprovalCard
+            key={item.id}
+            className="max-w-full"
+            worker={item.worker}
+            verb={item.verb}
+            detail={item.detail}
+            consequenceIfYes={item.consequenceIfYes}
+            consequenceIfNo={item.consequenceIfNo}
+            reason={item.reason}
+            channel={item.channel}
+            receivedAt={item.receivedAt}
+            decision={decisions[item.id] ?? null}
+            onDecide={(d) =>
+              setDecisions((m) => ({ ...m, [item.id]: d }))
+            }
+            onUndo={() =>
+              setDecisions((m) => ({ ...m, [item.id]: null }))
+            }
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EmptyState({ query }: { query: string }) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-3">
+      <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--muted)] text-[var(--muted-foreground)]">
+        <Inbox />
+      </div>
+      <div>
+        <h2 className="text-base font-semibold text-[var(--foreground)]">
+          {query ? "No matching approvals" : "All clear"}
+        </h2>
+        <p className="text-sm text-[var(--muted-foreground)] mt-1">
+          {query
+            ? `Nothing matches "${query}". Try different keywords or clear the filter.`
+            : "Your teammates have nothing waiting on you. Get back to work — they've got the rest."}
+        </p>
+      </div>
     </div>
   );
 }
