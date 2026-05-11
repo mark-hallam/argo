@@ -77,7 +77,25 @@ session for the integration assertion. If it sits TODO > 1 week,
 split into cross-platform compile-clean (any worker) + Windows
 integration (Windows-only).
 
-## Track C — design language (NOT STARTED)
+## Track C — design language (IN PROGRESS)
+
+**Status update 2026-05-11:** ADR locked
+([streams/adr-frontend-design-language.md](streams/adr-frontend-design-language.md)),
+`web/` Next.js 15 scaffold landed, all 8 primitives + the load-
+bearing `ApprovalCard` shipped, multi-tenant theming layer
+(SKYCOT light/dark + Acme tenant white-label demo + OKLCH palette
+synthesizer for arbitrary brand hues) wired end-to-end. Production
+build green (29.5KB demo page, 131KB First Load JS); typecheck
+clean; 6/6 ApprovalCard unit tests passing.
+
+**What's left for DONE:**
+- Storybook stories per primitive (TODO — next thin slice).
+- Playwright e2e smoke (TODO).
+- Real gateway wire-up against `/inbox` endpoint to replace the
+  static demo page (handover point to Track E).
+- Operator validation pass: open `pnpm dev` at
+  `http://localhost:3000`, hit the page, react. This is the
+  build-then-validate moment.
 
 Single irreversible-decision phase. Owner-driven. Defaults:
 
