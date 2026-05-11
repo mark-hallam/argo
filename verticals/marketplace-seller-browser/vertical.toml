@@ -1,0 +1,170 @@
+schema_version = "1"
+
+[vertical]
+id          = "marketplace-seller-browser"
+name        = "Marketplace Seller (Browser)"
+description = "Demo variant of the marketplace-seller vertical that posts public listings via the action-level BrowserExecutor. Drives a sandboxed browser MCP through a scripted navigate/fill/click sequence. Used by the v1 demo recording to show an autonomous BrowserExecutor segment end-to-end."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["marketplace", "seller", "inline-skates", "browser", "demo", "v1"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "web_extract"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task", "memory"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
+
+[escalation]
+human_approval_required = ["delegate_task"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Marketplace Seller (Browser)"
+
+[actions]
+
+[actions.audit_inventory]
+risk              = "low"
+requires_approval = false
+description       = "Read inventory.json, identify missing listing fields, and produce a readiness checklist."
+executor          = "human"
+instruction_template = """
+# Audit inventory
+
+Inventory file: `verticals/marketplace-seller-browser/inventory.json`
+
+Check each item for: model, shell size, liner size, condition, included parts,
+known issues, photos needed, target price, and listing status.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "inventory audited" \
+  --result-json '{"ready_count": <num>, "blocked_count": <num>}'
+```
+"""
+
+[actions.verify_price]
+risk              = "low"
+requires_approval = false
+description       = "Check comparable listings and recommend an asking price."
+executor          = "human"
+platforms         = ["facebook_marketplace", "gumtree", "ebay"]
+instruction_template = """
+# Verify price for `{{ item_id }}`
+
+Target platform: `{{ platform }}`
+Target price: `${{ payload.target_price_aud }}` AUD
+
+Use web search and extract to compare active and recently sold listings.
+Return a recommendation with evidence URLs, confidence, and a short rationale.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "price checked" \
+  --result-json '{"recommended_price_aud": <num>, "confidence": "<low|medium|high>"}'
+```
+"""
+
+[actions.draft_listing]
+risk              = "low"
+requires_approval = false
+description       = "Draft title, description, tags, and photo order for a marketplace listing. Does not publish."
+executor          = "human"
+platforms         = ["facebook_marketplace", "gumtree", "ebay"]
+on_complete_emit  = ["post_listing"]
+
+[actions.post_listing]
+risk              = "medium"
+requires_approval = true
+description       = "Publish an approved listing through the action-level BrowserExecutor. Scripted navigate → fill → submit against a demo-safe target (example.com or browser_mock_mcp.py fixture)."
+executor          = { kind = "browser", binding = '''{"target_url": "https://example.com/post", "mode": "script", "session_scope": "per_worker", "steps": [{"action": "navigate", "url": "https://example.com/post"}, {"action": "fill", "selector": "#title", "value": "{{ payload.title }}"}, {"action": "click", "selector": "#post"}]}''' }
+platforms         = ["facebook_marketplace", "gumtree", "ebay"]
+instruction_template = """
+# Post listing for `{{ item_id }}` on `{{ platform }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+The BrowserExecutor drives a sandboxed browser MCP through the scripted
+steps in this action's binding. Listing content comes from the approved
+draft; do not invent specs, condition claims, pickup locations, shipping
+terms, or warranty language. If login, captcha, missing photos, or platform
+policy blocks completion, stop and hand off to the operator.
+"""
+
+[actions.send_buyer_followup_email]
+risk              = "high"
+requires_approval = true
+description       = "Send a buyer follow-up email through Gmail after the operator approves the exact body."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = """
+# Send buyer follow-up
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Recipient: `{{ payload.recipient_email }}`
+Subject: `{{ payload.subject }}`
+
+Body to send:
+
+{{ payload.body }}
+
+Never alter price, pickup, or payment terms while sending. If the recipient or
+body is missing, stop and ask the operator.
+"""
+
+[actions.mark_item_sold]
+risk              = "medium"
+requires_approval = true
+description       = "Mark the listing sold or reserved after the operator confirms payment or pickup."
+executor          = "human"
+platforms         = ["facebook_marketplace", "gumtree", "ebay"]
+instruction_template = """
+# Mark sold for `{{ item_id }}`
+
+Approved by `{{ approved_by }}` at `{{ approved_at }}`.
+
+Confirm sale price, buyer handle, and platform before changing listing state.
+Do not delete the listing; mark it sold or reserved so audit history remains.
+
+When complete:
+
+```
+argo worker actions complete {{ action_id }} --note "sold" \
+  --result-json '{"sale_price_aud": <num>, "platform": "{{ platform }}"}'
+```
+"""
+
+[actions.post_listing.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.send_buyer_followup_email.retry]
+max_attempts = 2
+
+[actions.mark_item_sold.retry]
+max_attempts = 2

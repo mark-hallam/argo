@@ -1,0 +1,56 @@
+{
+  "seller_region": "Bulleen, Victoria, Australia",
+  "currency": "AUD",
+  "items": [
+    {
+      "item_id": "usd-aeon-60-richie-eisler",
+      "name": "USD Aeon 60 Richie Eisler",
+      "category": "aggressive inline skates",
+      "condition": "used",
+      "target_price_aud": 340,
+      "included": ["complete pair", "stock frames"],
+      "known_issues": ["confirm liner size", "needs fresh photos"],
+      "status": "draft_needed"
+    },
+    {
+      "item_id": "usd-sway-57-flat",
+      "name": "USD Sway 57 Flat",
+      "category": "aggressive inline skates",
+      "condition": "used",
+      "target_price_aud": 220,
+      "included": ["complete pair", "flat setup"],
+      "known_issues": ["confirm wheel wear"],
+      "status": "price_check_needed"
+    },
+    {
+      "item_id": "usd-sway-60-xxi-flat",
+      "name": "USD Sway 60 XXI Flat",
+      "category": "aggressive inline skates",
+      "condition": "used",
+      "target_price_aud": 260,
+      "included": ["complete pair", "flat setup"],
+      "known_issues": ["confirm boot shell size"],
+      "status": "draft_ready"
+    },
+    {
+      "item_id": "usd-sway-sagona-allstar",
+      "name": "USD Sway Sagona Allstar",
+      "category": "aggressive inline skates",
+      "condition": "used",
+      "target_price_aud": 320,
+      "included": ["complete pair"],
+      "known_issues": ["needs comparable price check"],
+      "status": "price_check_needed"
+    },
+    {
+      "item_id": "mesmer-throne-team-ii",
+      "name": "Mesmer Throne Team II",
+      "category": "aggressive inline skates",
+      "condition": "used",
+      "target_price_aud": 300,
+      "included": ["complete pair"],
+      "known_issues": ["confirm buyer follow-up template"],
+      "status": "buyer_followup_ready"
+    }
+  ]
+}

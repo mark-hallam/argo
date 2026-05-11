@@ -1,0 +1,26 @@
+schema_version = "1"
+
+[[entry]]
+key = "inventory_notes"
+type = "list-of-objects"
+purpose = "Per-item readiness notes. Each row carries: item_id, missing_fields, photo_requests, condition_notes, price_notes, evidence."
+
+[[entry]]
+key = "pricing_comps"
+type = "list-of-objects"
+purpose = "Comparable marketplace evidence. Each row carries: item_id, platform, title, asking_price_aud, sold_price_aud, url, observed_at, confidence."
+
+[[entry]]
+key = "listing_drafts"
+type = "list-of-objects"
+purpose = "Approved or candidate listing copy. Each row carries: item_id, platform, title, body, tags, price_aud, photo_order, approval_state."
+
+[[entry]]
+key = "buyer_threads"
+type = "list-of-objects"
+purpose = "Buyer communication summaries. Each row carries: item_id, platform, buyer_alias, question, drafted_reply, approved_reply, outcome."
+
+[[entry]]
+key = "seller_learnings"
+type = "list-of-objects"
+purpose = "Reusable marketplace patterns. Each row carries: pattern, context, evidence, suggested_skill, confidence, risk."
