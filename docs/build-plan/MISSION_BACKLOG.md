@@ -130,7 +130,7 @@ unblocks a mission claim.
 34. Add log shipping target documentation (Loki, Datadog,
     CloudWatch). `[NEW]`
 35. Add real anomaly alerting via NotifyChannel (currently
-    `tracing::warn!` only). `[NEW]`
+    `tracing::warn!` only). `[BRIEF: mission-anomaly-alerting-notifychannel]`
 36. Wire circuit breaker to provider transport calls. `[BRIEF: mission-circuit-breaker-wire-providers]`
 37. Add audit-chain watchdog that periodically verifies and
     pages on tamper. `[BRIEF: mission-audit-chain-watchdog]`
@@ -263,7 +263,7 @@ unblocks a mission claim.
 103. Build document creation executor — Microsoft Graph. `[BRIEF: mission-doc-executor-msgraph]`
 104. Build document creation executor — local PDF/markdown/slides.
      `[SHIPPED]`
-105. Build document creation executor — CSV (RFC 4180). `[NEW]`
+105. Build document creation executor — CSV (RFC 4180). `[BRIEF: mission-document-creation-executor-csv]`
 106. Add 5+ MCP connectors (telegram, discord, whatsapp-cloud,
      signal, matrix). `[NEW]` (Discord connector
      `[SHIPPED]` IN_REVIEW #879)
@@ -290,7 +290,7 @@ unblocks a mission claim.
 120. Add per-operator central preferences resolver. `[BRIEF: mission-operator-preferences-resolver]`
 121. Add quiet hours for SMS/Voice/WhatsApp/iMessage/Push/Slack.
      `[BRIEF: mission-quiet-hours-channels]`
-122. Add operator-specific risk overrides. `[NEW]`
+122. Add operator-specific risk overrides. `[BRIEF: mission-operator-specific-risk-overrides]`
 123. Replace `setInterval(reload, 5000)` with real WebSocket on
      `/inbox/ws`. `[NEW]`
 124. Add Telegram channel. `[BRIEF: mission-mcp-connector-telegram]`
