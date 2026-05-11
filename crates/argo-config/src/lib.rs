@@ -48,9 +48,10 @@ pub use loader::{load, load_from};
 pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
-    AuditConfig, BudgetConfig, CoreConfig, DelegateConfig, ForgeConfig, GatewayConfig,
-    GatewayRateLimitConfig, GatewayRateLimitTenantConfig, JudgeConfig, LoopConfig, ParallelConfig,
-    PluginConfig, RoutingConfig, RoutingTieredConfig, TelemetryConfig, TenantConfig,
+    AuditConfig, BudgetConfig, CoreConfig, DelegateConfig, DocumentCsvConfig, ForgeConfig,
+    GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig, JudgeConfig, LoopConfig,
+    ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig, TelemetryConfig,
+    TenantConfig,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
@@ -98,6 +99,8 @@ pub struct ArgoConfig {
     pub tui: TuiConfig,
     /// `[sandbox]` (sandbox runtime — named-image map etc.).
     pub sandbox: SandboxConfig,
+    /// `[document_csv]` (RFC 4180 CSV executor — output_root etc.).
+    pub document_csv: DocumentCsvConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

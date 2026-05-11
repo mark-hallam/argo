@@ -164,5 +164,10 @@ pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST: f64 = 2.0;
 
 // --- [loop] ----------------------------------------------------------
 
+/// `document_csv.output_root` default — sandbox root for the
+/// RFC 4180 CSV writer. `~` is expanded against `$HOME` at resolve
+/// time (mirrors the `core.home` convention).
+pub const DEFAULT_DOCUMENT_CSV_OUTPUT_ROOT: &str = "~/.argo/exports/csv/";
+
 /// `loop.on_restart` default.
 pub const DEFAULT_ON_RESTART: &str = "prompt_user";

@@ -277,6 +277,7 @@ dependencies = [
  "argo-executor-computer-use-linux",
  "argo-executor-computer-use-macos",
  "argo-executor-document",
+ "argo-executor-document-csv",
  "argo-executor-filesystem",
  "argo-forge",
  "argo-genesis",
@@ -498,6 +499,21 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "zip",
+]
+
+[[package]]
+name = "argo-executor-document-csv"
+version = "0.0.1"
+dependencies = [
+ "argo-executor-filesystem",
+ "argo-types",
+ "chrono",
+ "csv",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

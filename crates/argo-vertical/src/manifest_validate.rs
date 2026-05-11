@@ -52,6 +52,8 @@ pub const KNOWN_EXECUTOR_KINDS: &[&str] = &[
     "filesystem",
     "code_execution",
     "document_creation",
+    "document_csv",
+    "document-csv",
 ];
 
 /// One validation failure surfaced from [`validate_strict`]. The

@@ -339,6 +339,28 @@ pub struct PluginConfig {
     pub auto_load: Vec<String>,
 }
 
+/// `[document_csv]` — operator-side knobs for the
+/// `argo-executor-document-csv` ExecutorKind. Today only
+/// `output_root`; growth-room left for per-tenant overrides + size
+/// caps when the in-memory-row cap (≤1M v1) needs to lift.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DocumentCsvConfig {
+    /// Filesystem root every CSV write lands beneath. Path-traversal
+    /// attempts (`..`, absolute paths outside, symlinks targeting
+    /// outside) are refused with a typed sandbox-violation error.
+    /// Default [`crate::defaults::DEFAULT_DOCUMENT_CSV_OUTPUT_ROOT`].
+    pub output_root: String,
+}
+
+impl Default for DocumentCsvConfig {
+    fn default() -> Self {
+        Self {
+            output_root: defaults::DEFAULT_DOCUMENT_CSV_OUTPUT_ROOT.into(),
+        }
+    }
+}
+
 fn expand_tilde(s: &str) -> PathBuf {
     if let Some(rest) = s.strip_prefix("~/") {
         if let Some(home) = std::env::var_os("HOME") {

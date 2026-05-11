@@ -30,6 +30,7 @@ use super::worker_actions_executor_code::CodeExecutor;
 use super::worker_actions_executor_cu_linux::ComputerUseLinuxExecutor;
 use super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor;
 use super::worker_actions_executor_document::DocumentExecutor;
+use super::worker_actions_executor_document_csv::DocumentCsvExecutor;
 use super::worker_actions_executor_stubs::{
     ApiExecutor, BrowserExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
 };
@@ -98,6 +99,13 @@ pub(crate) enum ExecutorKind {
     /// Document synthesis (markdown / CSV / PDF / slides). Wired by
     /// `claude-document-creation-executor` (V1.2 capability).
     DocumentCreation,
+    /// Typed RFC 4180 CSV writer with column-schema + record-level
+    /// rejection. Wired by
+    /// `mission-document-creation-executor-csv`. Distinct from
+    /// `DocumentCreation` — that path's CSV backend is a thin string
+    /// primitive; this one carries the typed schema + sha256-stamped
+    /// report.
+    DocumentCsv,
 }
 
 impl ExecutorKind {
@@ -116,11 +124,12 @@ impl ExecutorKind {
             "filesystem" => Ok(Self::Filesystem),
             "code_execution" => Ok(Self::CodeExecution),
             "document_creation" => Ok(Self::DocumentCreation),
+            "document_csv" | "document-csv" => Ok(Self::DocumentCsv),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
                  valid: human | mcp | computer_use | computer_use_macos | \
                  computer_use_linux | api | browser | filesystem | \
-                 code_execution | document_creation"
+                 code_execution | document_creation | document_csv"
             ))),
         }
     }
@@ -140,6 +149,7 @@ impl ExecutorKind {
             Self::Filesystem => "filesystem",
             Self::CodeExecution => "code_execution",
             Self::DocumentCreation => "document_creation",
+            Self::DocumentCsv => "document_csv",
         }
     }
 }
@@ -248,6 +258,7 @@ pub(crate) fn resolve_executor(
         ExecutorKind::Filesystem => Box::new(FilesystemExecutor::new()),
         ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
         ExecutorKind::DocumentCreation => Box::new(DocumentExecutor::new()),
+        ExecutorKind::DocumentCsv => Box::new(DocumentCsvExecutor::new()),
     };
     Ok(Box::new(TimedExecutor::new(exec)))
 }
