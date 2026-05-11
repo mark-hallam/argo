@@ -12,12 +12,14 @@ use crate::cli::cli_skill_ab_cmds::{
 };
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_skill::{
-    create_run, ensure_ab_schema, get_run, list_versions, maybe_complete, promote, significance,
-    variant_counts, AbTestRun, SkillVersion,
+    create_run, ensure_ab_schema, get_run, list_versions, maybe_complete,
+    maybe_complete_with_quality, promote, significance, variant_counts, AbTestRun,
+    QualityWeightConfig, SkillQualityStore, SkillVersion, WinnerReason,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use serde_json::json;
+use std::sync::Arc;
 
 /// `argo skill versions <name>` entry.
 pub async fn versions(cmd: SkillVersionsCmd) -> ArgoResult<()> {
@@ -97,18 +99,49 @@ pub async fn ab_status(cmd: SkillAbStatusCmd) -> ArgoResult<()> {
 
 /// `argo skill ab-promote <run-id> [--winner V]` entry.
 pub async fn ab_promote(cmd: SkillAbPromoteCmd) -> ArgoResult<()> {
-    let store = open_store().await?;
+    let store = Arc::new(open_store().await?);
     ensure_ab_schema(&store).await?;
+    let quality_store = SkillQualityStore::new(Arc::clone(&store));
+    quality_store.ensure_schema().await?;
+    let config = QualityWeightConfig {
+        weight_quality: cmd.quality_weight,
+        max_score_age_days: cmd.max_score_age_days,
+    };
+    let (_, reason) = maybe_complete_with_quality(
+        &store,
+        &cmd.run_id,
+        cmd.min_samples,
+        Some(&quality_store),
+        config,
+    )
+    .await?;
     let winner = promote(&store, &cmd.run_id, cmd.winner.as_deref()).await?;
+    let reason_str = winner_reason_str(reason);
     if cmd.json {
         println!(
             "{}",
-            json!({"run_id": cmd.run_id, "winner": winner, "promoted": true})
+            json!({
+                "run_id": cmd.run_id,
+                "winner": winner,
+                "promoted": true,
+                "reason": reason_str,
+            })
         );
     } else {
-        println!("ab-promote {}: winner = '{winner}'", cmd.run_id);
+        println!("ab-promote {}: winner = '{winner}' ({reason_str})", cmd.run_id);
     }
     Ok(())
+}
+
+fn winner_reason_str(reason: Option<WinnerReason>) -> &'static str {
+    match reason {
+        Some(WinnerReason::WeightedQuality) => "won by weighted-quality decision",
+        Some(WinnerReason::SuccessRate) => "won by success rate",
+        // None = run was already completed by a prior call; the
+        // winner column is stable so we don't relitigate the
+        // rationale here.
+        None => "winner already chosen on a prior call",
+    }
 }
 
 fn parse_variants(s: &str) -> ArgoResult<(String, String)> {

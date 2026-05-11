@@ -91,9 +91,10 @@ pub use skill::{
 pub use store::SkillStore;
 pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
 pub use ab_test::{
-    create_run, ensure_ab_schema, get_run, maybe_complete, promote, record_outcome,
-    select_variant, significance, variant_counts, AbTestRun, RunStatus, Significance,
-    Variant, VariantCounts, CHI_SQUARE_CRIT_DF1_ALPHA_05, DEFAULT_MIN_SAMPLES_PER_VARIANT,
+    create_run, ensure_ab_schema, get_run, maybe_complete, maybe_complete_with_quality,
+    promote, record_outcome, select_variant, significance, variant_counts, AbTestRun,
+    QualityWeightConfig, RunStatus, Significance, Variant, VariantCounts, WinnerReason,
+    CHI_SQUARE_CRIT_DF1_ALPHA_05, DEFAULT_MIN_SAMPLES_PER_VARIANT,
 };
 pub use artifact::{
     skill_body_sha256, SkillArtifact, SkillArtifactManifest, SkillArtifactMetadata,

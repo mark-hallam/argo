@@ -64,6 +64,19 @@ pub struct SkillAbPromoteCmd {
     /// haven't reached significance yet).
     #[arg(long)]
     pub winner: Option<String>,
+    /// Fraction (0.0..=1.0) of the auto-promote winner score
+    /// contributed by the latest cached `QualityScore` per variant.
+    /// `0.0` keeps today's success-rate-only behavior.
+    #[arg(long, default_value_t = 0.3)]
+    pub quality_weight: f32,
+    /// Quality scores older than this are treated as missing (the
+    /// variant falls through to success-rate-only logic).
+    #[arg(long, default_value_t = 7)]
+    pub max_score_age_days: u32,
+    /// Minimum samples per variant before auto-promote will run
+    /// the significance gate. Default 30.
+    #[arg(long, default_value_t = 30)]
+    pub min_samples: i64,
     /// Emit JSON.
     #[arg(long)]
     pub json: bool,
