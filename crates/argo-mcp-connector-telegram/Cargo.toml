@@ -1,0 +1,19 @@
+[package]
+name = "argo-mcp-connector-telegram"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo MCP connector for Telegram bot-token messaging and inline-reply callbacks"
+
+[dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+wiremock = "0.6"
