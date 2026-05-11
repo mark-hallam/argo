@@ -140,6 +140,7 @@ pub mod incident;
 #[cfg(test)]
 mod incident_tests;
 pub mod judge;
+pub mod judge_eval;
 pub mod latency;
 pub mod mcp;
 pub mod mcp_health;

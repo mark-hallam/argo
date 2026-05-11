@@ -17,6 +17,15 @@ pub async fn run(cmd: JudgeCmd) -> ArgoResult<()> {
     match cmd {
         JudgeCmd::Verdict { id } => verdict(&id).await,
         JudgeCmd::Override { id, to } => override_verdict(&id, &to).await,
+        JudgeCmd::EvalDisagreement {
+            fixtures,
+            provider,
+            model,
+            json,
+            bail_below,
+        } => {
+            crate::handlers::judge_eval::run(fixtures, &provider, &model, json, bail_below).await
+        }
     }
 }
 

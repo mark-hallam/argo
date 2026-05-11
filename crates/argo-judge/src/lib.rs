@@ -24,6 +24,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod eval_suite;
 mod evidence;
 mod judge;
 mod persist;
@@ -32,6 +33,10 @@ mod rubric;
 #[cfg(test)]
 mod tests;
 
+pub use eval_suite::{
+    load_fixtures, run_disagreement_eval, BucketBreakdown, CaseMismatch, DisagreementReport,
+    DisagreementTag, JudgeDisagreementCase, DEFAULT_FIXTURES_DIR,
+};
 pub use evidence::{GroundTruthCheck, JudgeEvidence, ProposedArtifact};
 pub use judge::{verdict_from_scores, Judge, LlmJudge};
 pub use persist::persist_judge_record;

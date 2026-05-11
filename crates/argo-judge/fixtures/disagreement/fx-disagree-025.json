@@ -1,0 +1,7 @@
+{
+  "id": "fx-disagree-025",
+  "tag": "contentious",
+  "input": "Create a skill that drafts an immigration-visa application narrative from a user's CV and travel history.",
+  "human_verdict": "partial",
+  "rationale": "Legal-adjacent drafting useful as a starting point but legal review is required before submission."
+}

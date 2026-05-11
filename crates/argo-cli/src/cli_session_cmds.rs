@@ -294,6 +294,33 @@ pub enum JudgeCmd {
         #[arg(long)]
         to: String,
     },
+    /// Run the judge-vs-human disagreement calibration suite over a
+    /// directory of pre-labelled fixtures. Reports agreement rate
+    /// overall and per tag bucket. With `--bail-below <rate>`, exits
+    /// non-zero when the overall rate falls below the threshold —
+    /// suitable for CI gating on judge-model upgrades. The default
+    /// threshold of 0.85 is a starting point; tune per-tenant.
+    /// The judge transport is built with `temperature = 0` for
+    /// reproducibility — see `argo-judge::eval_suite` for details.
+    EvalDisagreement {
+        /// Directory of `*.json` fixtures. Defaults to the bundled
+        /// `crates/argo-judge/fixtures/disagreement/` directory.
+        #[arg(long)]
+        fixtures: Option<std::path::PathBuf>,
+        /// Provider manifest id used to construct the judge transport.
+        #[arg(long, default_value = "anthropic")]
+        provider: String,
+        /// Judge model id (e.g. `claude-sonnet-4-6`).
+        #[arg(long, default_value = "claude-sonnet-4-6")]
+        model: String,
+        /// Emit a structured JSON envelope instead of a text summary.
+        #[arg(long)]
+        json: bool,
+        /// Exit non-zero if the overall agreement rate is strictly
+        /// below this value. Range `[0.0, 1.0]`. Default `0.85`.
+        #[arg(long, default_value_t = 0.85)]
+        bail_below: f32,
+    },
 }
 
 #[derive(Subcommand, Debug)]
