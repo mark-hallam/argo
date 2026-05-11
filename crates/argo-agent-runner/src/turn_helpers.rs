@@ -9,8 +9,8 @@
 //!
 //! No public API changes — `run_turn_with_tools` is `pub(super)`
 //! and only `turn::run_turn_with_events` calls it.
-use super::build_system_prompt;
-use super::TurnResult;
+use super::turn_skills_runtime::PendingAbOutcome;
+use super::{build_system_prompt_with_ab, TurnResult};
 use crate::dispatch::{build_dispatch_ctx, dispatch_one, provider_schemas_filtered};
 use crate::helpers::{
     build_assistant_content, emit_event, message_from_row, record_turn_spend, stream_one_round,
@@ -43,6 +43,8 @@ pub(super) async fn run_turn_with_tools(
     vertical_approval: &std::collections::HashSet<String>,
     session_grants: SessionGrantState,
     worker_id: Option<argo_store::WorkerId>,
+    invocation_id: &str,
+    pending_ab_outcomes: &mut Vec<PendingAbOutcome>,
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
     // claude-memory-tool-wire: thread the live MemoryStore + workspace
@@ -70,8 +72,16 @@ pub(super) async fn run_turn_with_tools(
     // ergonomic seam: when we have a `vertical_prompt`, use the
     // explicitly threaded `vertical_scope` value (id-only, no
     // file content). Both come from the same session.vertical_id.
-    let mut system_prompt =
-        build_system_prompt(store, session_id, vertical_scope, spend.tenant_id, worker_id).await?;
+    let (mut system_prompt, ab_pending) = build_system_prompt_with_ab(
+        store,
+        session_id,
+        vertical_scope,
+        spend.tenant_id,
+        worker_id,
+        invocation_id,
+    )
+    .await?;
+    pending_ab_outcomes.extend(ab_pending);
     // Vertical-bound session: prepend the vertical's
     // [role].system_prompt content so it lands ahead of skill-
     // derived guidance (#654). Falls through cleanly when the

@@ -185,6 +185,7 @@ dependencies = [
  "chrono",
  "futures",
  "serde_json",
+ "sqlx",
  "tempfile",
  "tokio",
  "tracing",

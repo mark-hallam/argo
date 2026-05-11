@@ -169,6 +169,10 @@ pub enum SkillCmd {
     AbTest(super::cli_skill_ab_cmds::SkillAbTestCmd),
     AbStatus(super::cli_skill_ab_cmds::SkillAbStatusCmd),
     AbPromote(super::cli_skill_ab_cmds::SkillAbPromoteCmd),
+    /// Print the most recent A/B run's per-variant counts +
+    /// significance for one skill name (operator inspection;
+    /// added by mission-skill-select-variant-runtime-wire).
+    AbSnapshot(super::cli_skill_ab_cmds::SkillAbSnapshotCmd),
     /// Sign a local skill manifest with a cosign-compatible ed25519 key.
     Sign(super::cli_skill_sign_cmds::SkillSignCmd),
     /// Verify a published skill against its detached cosign signature.

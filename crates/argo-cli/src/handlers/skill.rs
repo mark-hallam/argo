@@ -182,6 +182,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::AbTest(args) => super::skill_ab::ab_test(args).await,
         SkillCmd::AbStatus(args) => super::skill_ab::ab_status(args).await,
         SkillCmd::AbPromote(args) => super::skill_ab::ab_promote(args).await,
+        SkillCmd::AbSnapshot(args) => super::skill_ab::ab_snapshot(args).await,
         SkillCmd::Quality {
             name,
             json,

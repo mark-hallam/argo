@@ -106,6 +106,7 @@ async fn max_rounds_returns_ok_with_stopped_on_tool_budget_flag() {
     let deny = std::collections::HashSet::new();
     let approval = std::collections::HashSet::new();
     let grants = SessionGrantState::default();
+    let mut pending_ab: Vec<super::turn_skills_runtime::PendingAbOutcome> = Vec::new();
 
     let r = super::turn_helpers::run_turn_with_tools(
         &store,
@@ -124,6 +125,8 @@ async fn max_rounds_returns_ok_with_stopped_on_tool_budget_flag() {
         &approval,
         grants,
         None,
+        "test-invocation",
+        &mut pending_ab,
     )
     .await
     .expect("max_rounds must NOT produce an Err post-#724");

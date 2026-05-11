@@ -191,6 +191,12 @@ async fn run_turn_with_events_inner(
         model: session.model.as_str(),
         pricing,
     };
+    // mission-skill-select-variant-runtime-wire: per-turn invocation
+    // id seeds `argo_skill::select_variant` and dedups
+    // `record_outcome` writes on `(run_id, invocation_id)`. Uuidv7
+    // is unique per turn even within the same session.
+    let invocation_id = Uuid::now_v7().to_string();
+    let mut pending_ab_outcomes: Vec<turn_skills_runtime::PendingAbOutcome> = Vec::new();
     let result = turn_helpers::run_turn_with_tools(
         store,
         transport.as_ref(),
@@ -208,14 +214,20 @@ async fn run_turn_with_events_inner(
         &vertical_approval,
         session_grants,
         session.worker_id,
+        &invocation_id,
+        &mut pending_ab_outcomes,
     )
     .await;
-    let kind = if result.is_ok() {
+    let succeeded = result.is_ok();
+    // Side-channel: never fail the turn for A/B outcome IO.
+    turn_skills_runtime::record_pending_outcomes(store, &pending_ab_outcomes, succeeded, None)
+        .await;
+    let kind = if succeeded {
         AuditKind::TurnEnd
     } else {
         AuditKind::Halt
     };
-    let kind_label = if result.is_ok() { "TurnEnd" } else { "Halt" };
+    let kind_label = if succeeded { "TurnEnd" } else { "Halt" };
     let _ = audit
         .write(Some(session_id), kind, serde_json::json!({}), None)
         .await;
@@ -237,6 +249,7 @@ async fn run_turn_with_events_inner(
 ///    skill bleed-through is blocked at this layer.
 /// 3. Otherwise (unbound legacy session), fall back to every
 ///    active row in the workspace.
+#[cfg(test)]
 async fn build_system_prompt(
     store: &Arc<SessionStore>,
     session_id: SessionId,
@@ -244,6 +257,27 @@ async fn build_system_prompt(
     tenant_id: TenantId,
     worker_id: Option<argo_store::WorkerId>,
 ) -> ArgoResult<Option<String>> {
+    let (prompt, _pending) =
+        build_system_prompt_with_ab(store, session_id, vertical_id, tenant_id, worker_id, "").await?;
+    Ok(prompt)
+}
+
+/// Compose the system prompt AND resolve A/B variants in one pass.
+///
+/// Behaves like [`build_system_prompt`] but additionally returns the
+/// pending A/B outcomes that the caller must record after the turn
+/// settles. `invocation_id` is the SHA-256 seed for
+/// `argo_skill::select_variant`; pass an empty string when the
+/// caller does NOT care about A/B selection (the variant choice
+/// falls back to "keep all rows" because no run can match).
+async fn build_system_prompt_with_ab(
+    store: &Arc<SessionStore>,
+    session_id: SessionId,
+    vertical_id: Option<&str>,
+    tenant_id: TenantId,
+    worker_id: Option<argo_store::WorkerId>,
+    invocation_id: &str,
+) -> ArgoResult<(Option<String>, Vec<turn_skills_runtime::PendingAbOutcome>)> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let attached = skills.skills_for_session(session_id).await?;
     let mut active = if !attached.is_empty() {
@@ -254,6 +288,8 @@ async fn build_system_prompt(
         skills.list_active().await?
     };
     turn_canary::apply_canary_routing(store, &skills, session_id, &mut active).await?;
+    let (active, pending) =
+        turn_skills_runtime::resolve_variants_for_turn(store, invocation_id, active).await;
     let mut out = String::new();
     if !active.is_empty() {
         out.push_str(
@@ -282,11 +318,8 @@ async fn build_system_prompt(
         }
         out.push_str(&memory);
     }
-    if out.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(out))
-    }
+    let prompt = if out.is_empty() { None } else { Some(out) };
+    Ok((prompt, pending))
 }
 
 #[path = "turn_helpers.rs"]
@@ -297,6 +330,9 @@ mod turn_canary;
 
 #[path = "turn_memory.rs"]
 mod turn_memory;
+
+#[path = "turn_skills_runtime.rs"]
+mod turn_skills_runtime;
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]

@@ -52,6 +52,26 @@ pub struct SkillAbStatusCmd {
     pub json: bool,
 }
 
+/// `argo skill ab-snapshot <skill_name>` — print the most recent
+/// A/B run's per-variant counts + significance verdict for one
+/// skill name. Operator inspection surface for "is this A/B done?"
+/// added by mission-skill-select-variant-runtime-wire. Hyphenated to
+/// match the existing `ab-test` / `ab-status` / `ab-promote`
+/// pattern (the brief said `argo skill ab snapshot` but the rest
+/// of the family is `ab-*`, so we follow the existing convention).
+#[derive(Args, Debug)]
+pub struct SkillAbSnapshotCmd {
+    /// Skill name to inspect.
+    pub name: String,
+    /// Minimum samples per variant before significance is
+    /// computed. Default 30 (matches `ab-status`).
+    #[arg(long, default_value_t = 30)]
+    pub min_samples: i64,
+    /// Emit a JSON envelope instead of the human-readable summary.
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// `argo skill ab-promote <run-id>` — apply a run's winner to the
 /// `skill` table by stamping the loser's `superseded_by`. If the
 /// run hasn't auto-completed, the operator must supply
