@@ -307,9 +307,9 @@ unblocks a mission claim.
 
 ### Bring 9 verticals to gtm-engineer parity
 
-131. Charter seed for marketplace-seller. `[NEW]`
-132. Charter seed for ai-receptionist. `[NEW]`
-133. Charter seed for sales-follow-up. `[NEW]`
+131. Charter seed for marketplace-seller. `[BRIEF: mission-vertical-marketplace-seller-flesh-out]`
+132. Charter seed for ai-receptionist. `[BRIEF: mission-vertical-ai-receptionist-flesh-out]`
+133. Charter seed for sales-follow-up. `[BRIEF: mission-vertical-sales-follow-up-flesh-out]`
 134. Charter seed for customer-support. `[PARTIAL — #873 stub charter]`
 135. Charter seed for sales-sdr. `[PARTIAL — #873 stub charter]`
 136. Charter seed for marketing-intern. `[PARTIAL — #873 stub charter]`
