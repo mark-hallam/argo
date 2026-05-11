@@ -1,0 +1,9 @@
+# Vulnerability advisories to ignore. Document EVERY entry with
+# a justification + revisit date. Parsed by scripts/cargo-audit.sh,
+# which extracts each `id = "RUSTSEC-..."` line into a `--ignore`
+# argument for `cargo audit`.
+#
+# [[advisory]]
+# id = "RUSTSEC-XXXX-YYYY"
+# reason = "..."
+# revisit = "2026-XX-XX"
