@@ -37,10 +37,12 @@
 
 pub mod action_suggest;
 pub mod archetype;
+pub mod broad_role;
 pub mod charter_dialogue;
 pub mod conflict;
 pub mod error;
 pub mod eval_seed;
+pub mod genesis_judge;
 pub mod job_description;
 pub mod manifest_writer;
 pub mod memory_schema;
@@ -54,7 +56,17 @@ pub mod safety_judge;
 pub mod templates;
 pub mod worker_config;
 
-pub use archetype::{classify_charter, classify_llm, Archetype, ProviderClient};
+pub use archetype::{
+    classify_charter, classify_llm, Archetype, ClassificationResult, ProviderClient,
+};
+pub use broad_role::{
+    build_broad_role_prompt, build_confidence_classifier_prompt, classify_llm_with_confidence,
+    genesis_broad_role, plan_or_broad, should_use_broad_role, BroadRoleClient, BroadRoleDraft,
+    GenesisOutcome, BROAD_ROLE_CONFIDENCE_THRESHOLD, BROAD_SENTINEL,
+};
+pub use genesis_judge::{
+    build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, JudgeInput, JudgeVerdict,
+};
 pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
 };

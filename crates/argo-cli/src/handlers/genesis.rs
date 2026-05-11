@@ -35,7 +35,8 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
             output,
             json,
             refine,
-        } => create(&charter, &persona, &output, json, refine),
+            allow_broad_role,
+        } => create(&charter, &persona, &output, json, refine, allow_broad_role),
         GenesisCmd::Refine {
             vertical_id,
             judge,
@@ -238,6 +239,7 @@ pub(crate) fn create(
     output: &Path,
     json: bool,
     refine_flag: bool,
+    allow_broad_role: bool,
 ) -> ArgoResult<()> {
     // Early validation: when --refine is on, the API key MUST be
     // present before we do any work.
@@ -246,6 +248,21 @@ pub(crate) fn create(
     } else {
         None
     };
+    // `--allow-broad-role` is plumbed through but currently only the
+    // deterministic keyword classifier is wired into `argo genesis
+    // create`. The keyword classifier returns
+    // `confidence=1.0` on any matched charter, so this CLI surface
+    // is functionally a no-op until a `BroadRoleClient` +
+    // `GenesisJudgeClient` are wired (mission follow-up). The flag
+    // is exposed today so operator tooling can opt in once the
+    // clients land, without a second CLI release.
+    if allow_broad_role {
+        tracing::info!(
+            target: "argo_cli::genesis",
+            "--allow-broad-role accepted; broad-role generation requires LLM clients \
+             that argo-genesis::plan_or_broad will use once wired into the CLI handler",
+        );
+    }
     let plan = plan(charter, persona).map_err(ArgoError::from)?;
     let plan = match refine_config {
         Some(cfg) => run_refinement(plan, cfg)?,
@@ -415,6 +432,7 @@ mod tests {
             &out,
             true,
             false,
+            false,
         )
         .expect("create succeeds");
         for relpath in [
@@ -433,7 +451,7 @@ mod tests {
     fn create_errors_on_empty_charter() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("doesnt-matter");
-        let err = create("   ", "maya", &out, false, false).expect_err("empty charter");
+        let err = create("   ", "maya", &out, false, false, false).expect_err("empty charter");
         assert!(err.to_string().contains("charter is empty"), "got: {err}");
     }
 
@@ -441,8 +459,8 @@ mod tests {
     fn create_errors_on_invalid_persona() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("doesnt-matter");
-        let err =
-            create("be my marketing intern", "maya@", &out, false, false).expect_err("bad persona");
+        let err = create("be my marketing intern", "maya@", &out, false, false, false)
+            .expect_err("bad persona");
         assert!(err.to_string().contains("invalid persona"), "got: {err}");
     }
 }

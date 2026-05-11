@@ -66,6 +66,15 @@ pub enum GenesisCmd {
         /// output with a `tracing::warn!`.
         #[arg(long)]
         refine: bool,
+        /// Mission `mission-genesis-non-archetype-roles`. When set,
+        /// charters whose LLM-classifier confidence falls below the
+        /// 0.6 broad-role threshold route to LLM-driven broader
+        /// generation instead of forcing the closest archetype.
+        /// Without this flag (the default), low-confidence charters
+        /// surface an explicit error so cautious operators don't
+        /// silently switch generation paths.
+        #[arg(long)]
+        allow_broad_role: bool,
     },
     /// Re-run the Genesis LLM refinement pass against an existing vertical.
     Refine {

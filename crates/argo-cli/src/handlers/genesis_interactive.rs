@@ -43,7 +43,7 @@ pub(crate) fn run(
     } else {
         emit_dialogue_summary(&dialogue, &persona);
     }
-    super::genesis::create(&charter, &persona, output, json, refine)
+    super::genesis::create(&charter, &persona, output, json, refine, false)
 }
 
 /// Read a `CharterDialogue` from a YAML file. Used by the

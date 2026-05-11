@@ -16,6 +16,8 @@ use argo_vertical::{ActionDeclaration, ActionRiskLevel, ExecutorDeclaration, Ver
 use chrono::Utc;
 use std::path::Path;
 
+pub use crate::broad_role::{plan_or_broad, GenesisOutcome};
+
 pub use crate::pipeline_seed::{
     plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, seeded_from,
     SEEDED_FROM_TAG_PREFIX,
@@ -104,7 +106,7 @@ async fn resolve_archetype(
     classify_charter(charter)
 }
 
-fn assemble_plan(
+pub(crate) fn assemble_plan(
     charter: &str,
     persona: &str,
     archetype: Archetype,
@@ -274,7 +276,7 @@ fn write_eval_seed_toml(plan: &GenesisPlan, output: &Path) -> Result<(), Genesis
     Ok(())
 }
 
-fn validate_persona(persona: &str) -> Result<(), GenesisError> {
+pub(crate) fn validate_persona(persona: &str) -> Result<(), GenesisError> {
     if persona.trim().is_empty() {
         return Err(GenesisError::InvalidPersona(persona.to_string()));
     }

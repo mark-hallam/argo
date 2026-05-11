@@ -394,6 +394,37 @@ fn fallback_to_keyword(charter: &str) -> ArgoResult<Archetype> {
     classify_charter(charter).map_err(Into::into)
 }
 
+/// Result of LLM-driven archetype classification with a confidence
+/// signal. `archetype` is `None` when the model signals no archetype
+/// is a good fit (literal `"none"` slug). `confidence` is the model's
+/// self-reported certainty, clamped to `[0.0, 1.0]`.
+///
+/// Mission `mission-genesis-non-archetype-roles`: callers compare
+/// against `broad_role::BROAD_ROLE_CONFIDENCE_THRESHOLD` (default 0.6)
+/// to decide whether to route to the broader-generation path. The
+/// sibling that produces a `ClassificationResult` lives at
+/// [`crate::broad_role::classify_llm_with_confidence`] to keep this
+/// file under the 500-LOC ceiling.
+#[derive(Debug, Clone)]
+pub struct ClassificationResult {
+    pub archetype: Option<Archetype>,
+    pub confidence: f32,
+}
+
+impl ClassificationResult {
+    /// Build a result by running the deterministic keyword
+    /// classifier; used as the fallback path when the LLM is
+    /// unavailable or errors. Successful classifications carry
+    /// `confidence = 1.0`; "no match" carries `0.0`.
+    #[must_use]
+    pub fn keyword_fallback(charter: &str) -> Self {
+        match classify_charter(charter) {
+            Ok(a) => Self { archetype: Some(a), confidence: 1.0 },
+            Err(_) => Self { archetype: None, confidence: 0.0 },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
