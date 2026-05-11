@@ -235,6 +235,33 @@ strict_both_exit=$?
 echo "$strict_both" | grep -q "all required keys loadable" || fail "strict-pair OK must confirm loadable" "$strict_both"
 ok "setup --check --require strict-pair contract verified"
 
+heading "19. BrowserExecutor smoke"
+# Drives the existing integration smoke
+# `crates/argo-cli/tests/browser_action_executor_smoke.rs`, which
+# spawns `python3 tests/fixtures/browser_mock_mcp.py` as a stub
+# MCP server. Skip-with-warn when python3 is absent so operators on
+# minimal images still get a green smoke run for the other 19
+# checks; the BrowserExecutor wiring is locked elsewhere in CI.
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "  SKIP #19 BrowserExecutor — python3 not in PATH"
+else
+  cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+  bx_out=$(cargo test -p argo-cli --test browser_action_executor_smoke --quiet 2>&1) \
+    || fail "browser_action_executor_smoke" "$bx_out"
+  cd "$WORKDIR" || fail "cd back to workdir" ""
+  ok "browser_action_executor_smoke passed"
+fi
+
+heading "20. Slack approval roundtrip"
+# Drives the existing integration smoke
+# `crates/argo-cli/tests/slack_approval_roundtrip_e2e.rs`. Pure-Rust
+# HMAC verification — no external dependencies, no skip path.
+cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+slack_out=$(cargo test -p argo-cli --test slack_approval_roundtrip_e2e --quiet 2>&1) \
+  || fail "slack_approval_roundtrip_e2e" "$slack_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "slack_approval_roundtrip_e2e passed"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"
