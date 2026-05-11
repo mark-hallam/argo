@@ -39,6 +39,13 @@ mod parse;
 pub mod quality;
 pub mod regression;
 pub mod sign;
+/// Cross-tenant trust-graph primitive (Stream
+/// `mission-cross-tenant-trust-graph`, MISSION_BACKLOG Section 3
+/// Claim 4 #81). Materialises a pairwise trust graph in memory
+/// from a Vec of observation rows; query via `direct_trust`,
+/// `composed_trust` (BFS, max-product, default 3-hop cap), and
+/// `neighbors`.
+pub mod trust_graph;
 mod skill;
 mod store;
 mod store_lookups;

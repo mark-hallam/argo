@@ -343,6 +343,15 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_contract_cmds::ContractCmd,
     },
+    /// Cross-tenant trust-graph queries (Stream
+    /// `mission-cross-tenant-trust-graph`, MISSION_BACKLOG Section 3
+    /// Claim 4 #81). `argo trust graph --from <t>` prints outgoing
+    /// edges; `argo trust composed --from <a> --to <c>` prints the
+    /// composed score and BFS path.
+    Trust {
+        #[command(subcommand)]
+        cmd: cli_trust_cmds::TrustCmd,
+    },
     /// Verified binary self-upgrade (Stream `codex-self-update-cli`,
     /// V1.4). Queries GitHub Releases for a newer build, downloads
     /// the platform asset + detached Ed25519 signature, verifies

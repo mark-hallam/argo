@@ -124,6 +124,13 @@ pub mod tenant_query;
 /// re-exported through `tenant_query`; external callers keep
 /// importing from `argo_store::tenant_query::*`.
 pub(crate) mod tenant_query_inspect;
+/// Append-only cross-tenant trust observation log (Stream
+/// `mission-cross-tenant-trust-graph`, MISSION_BACKLOG Section 3
+/// Claim 4 #81). Each row is one quality observation made by a
+/// consumer tenant against a skill shipped by a source tenant; the
+/// in-memory `argo_skill::trust_graph::TrustGraph` consumes a Vec
+/// of rows and materialises pairwise weights.
+pub mod trust_observation;
 /// Workflow checkpoint helpers (Stream `claude-checkpoint-resume`).
 pub mod workflow_checkpoint;
 mod workspace;
@@ -153,7 +160,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 50;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 51;
 
 /// A SQLite-backed session store.
 ///

@@ -83,6 +83,8 @@ pub mod cli_subcommands_provider;
 pub mod cli_subcommands_skill;
 #[path = "cli_trajectory_cmds.rs"]
 pub mod cli_trajectory_cmds;
+#[path = "cli_trust_cmds.rs"]
+pub mod cli_trust_cmds;
 #[path = "cli_tenant_cmds.rs"]
 pub mod cli_tenant_cmds;
 #[path = "cli_vertical_cmds.rs"]
