@@ -1,8 +1,20 @@
 [graph]
 all-features = false
 
+# cargo-deny is the workspace supply-chain / license / advisory gate.
+# The 4 check kinds (advisories, bans, licenses, sources) run as a
+# matrix from `.github/workflows/deny.yml.disabled` and locally via
+# `scripts/cargo-deny.sh`. See `docs/skycot/runbook/cargo-deny.md`
+# for the process required to add or modify allowlists below.
+
 [advisories]
 yanked = "deny"
+# Allowlist of accepted RUSTSEC advisory IDs. Every entry is a known
+# risk the operators have explicitly chosen to accept. Add via the
+# process documented in `docs/skycot/runbook/cargo-deny.md`:
+# security review + 2 business day soak + comment link to discussion.
+# NO blanket ignores.
+#
 # Ignore advisories that are real but currently have no patched
 # release upstream — re-evaluate when the upstream cuts a fix.
 ignore = [
@@ -23,9 +35,29 @@ ignore = [
 ]
 
 [licenses]
+# Operator-approved license set for workspace dependencies. Any
+# dependency carrying a license outside this list will fail the
+# `licenses` check. Add new licenses only via the process in
+# `docs/skycot/runbook/cargo-deny.md`.
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-DFS-2016", "Unicode-3.0", "Zlib", "MPL-2.0", "CDLA-Permissive-2.0"]
 confidence-threshold = 0.93
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Explicit deny-list of crate names. Used when policy forbids a
+# specific crate (e.g. `openssl` when the project is `ring`-only).
+# Empty placeholder — operators add entries as policy requires.
+# Format:
+#   { name = "<crate>", reason = "<one-line justification>" }
+deny = []
+
+[sources]
+# Registry / git-source allowlist. Empty arrays accept cargo-deny's
+# defaults (crates.io only). Add entries only when a dependency
+# must come from a non-default source; document the rationale in
+# `docs/skycot/runbook/cargo-deny.md`.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

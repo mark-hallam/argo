@@ -1,0 +1,41 @@
+name: Deny
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - "**/Cargo.lock"
+      - "**/Cargo.toml"
+      - "deny.toml"
+      - ".github/workflows/deny.yml.disabled"
+  push:
+    branches:
+      - main
+  schedule:
+    # Daily at 06:00 UTC — catches newly-disclosed advisories against
+    # otherwise-unchanged dependencies.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  deny:
+    runs-on: ubuntu-latest
+    strategy:
+      # Run each check independently so one failure doesn't mask
+      # the others. Aggregated job result fails if any matrix leg fails.
+      fail-fast: false
+      matrix:
+        check:
+          - advisories
+          - bans
+          - licenses
+          - sources
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Run cargo deny check ${{ matrix.check }}
+        run: cargo deny check ${{ matrix.check }}
