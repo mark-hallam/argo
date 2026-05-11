@@ -1,12 +1,30 @@
 //! Cross-tenant skill marketplace search.
 //!
-//! V1 uses a deterministic manifest index shaped like an OCI
-//! registry catalog. The search surface is intentionally pure so
-//! the CLI and later registry-backed refresh jobs can share ranking
-//! and trust filtering.
+//! Two layers:
+//!
+//! - [`search`] / [`SearchOptions`] — the original pure search over a
+//!   baked-in [`STATIC_INDEX_DATA`] table. Kept verbatim for back-compat
+//!   (existing tests assert exact catalog contents).
+//! - [`MarketplaceSource`] / [`MarketplaceClient`] — composable layer
+//!   that merges the static index with live OCI registry scans
+//!   (see [`oci::OciRegistryScan`]). The CLI catalog handler uses this
+//!   layer when `~/.argo/marketplace.toml` declares registries; absent
+//!   that file, the client falls back to a static-only path.
+//!
+//! Mission ref: `mission-marketplace-oci-registry-scan` — replaces the
+//! hardcoded `MANIFEST_INDEX` (now [`STATIC_INDEX_DATA`]) with a real
+//! OCI `_catalog` walk while preserving offline / dev-mode behavior.
 
 use crate::TrustGrade;
 use serde::Serialize;
+use thiserror::Error;
+
+#[path = "marketplace_oci.rs"]
+pub mod oci;
+
+#[cfg(test)]
+#[path = "marketplace_tests.rs"]
+mod marketplace_tests;
 
 /// Default number of marketplace rows returned by [`search`].
 pub const DEFAULT_SEARCH_LIMIT: usize = 20;
@@ -80,39 +98,9 @@ impl Default for SearchOptions {
 /// ```
 #[must_use]
 pub fn search(query: &str, options: &SearchOptions) -> Vec<MarketplaceSkill> {
-    let terms = query_terms(query);
-    let tenant = options.tenant.as_deref().map(str::to_ascii_lowercase);
-    let mut scored = Vec::new();
-
-    for entry in MANIFEST_INDEX {
-        if !passes_trust(entry.trust_grade, options.trust_min) {
-            continue;
-        }
-        if let Some(ref tenant_filter) = tenant {
-            if !entry.tenant.to_ascii_lowercase().contains(tenant_filter) {
-                continue;
-            }
-        }
-        let score = score_entry(entry, &terms);
-        if score == 0 {
-            continue;
-        }
-        scored.push((score, entry));
-    }
-
-    scored.sort_by(|(score_a, a), (score_b, b)| {
-        score_b
-            .cmp(score_a)
-            .then_with(|| a.trust_grade.cmp(&b.trust_grade))
-            .then_with(|| b.last_published_at.cmp(a.last_published_at))
-            .then_with(|| a.name.cmp(b.name))
-    });
-
-    scored
-        .into_iter()
-        .take(options.limit)
-        .map(|(_, entry)| entry.to_public())
-        .collect()
+    let rows: Vec<MarketplaceSkill> =
+        STATIC_INDEX_DATA.iter().map(|e| e.to_public()).collect();
+    rank_marketplace_skills(rows, query, options)
 }
 
 /// Parse a trust-grade CLI label into the enum used by search.
@@ -153,36 +141,6 @@ fn passes_trust(grade: TrustGrade, min: Option<TrustGrade>) -> bool {
     }
 }
 
-fn score_entry(entry: &IndexedSkill, terms: &[String]) -> u32 {
-    if terms.is_empty() {
-        return 1;
-    }
-    let name = entry.name.to_ascii_lowercase();
-    let description = entry.description.to_ascii_lowercase();
-    let tenant = entry.tenant.to_ascii_lowercase();
-    let oci_ref = entry.oci_ref.to_ascii_lowercase();
-
-    terms
-        .iter()
-        .map(|term| {
-            let mut score = 0;
-            if name.contains(term) {
-                score += 8;
-            }
-            if description.contains(term) {
-                score += 3;
-            }
-            if tenant.contains(term) {
-                score += 1;
-            }
-            if oci_ref.contains(term) {
-                score += 1;
-            }
-            score
-        })
-        .sum()
-}
-
 #[derive(Debug, Clone, Copy)]
 struct IndexedSkill {
     name: &'static str,
@@ -208,7 +166,7 @@ impl IndexedSkill {
     }
 }
 
-const MANIFEST_INDEX: &[IndexedSkill] = &[
+const STATIC_INDEX_DATA: &[IndexedSkill] = &[
     IndexedSkill {
         name: "marketplace-listing-draft",
         tenant: "acme",
@@ -264,6 +222,199 @@ const MANIFEST_INDEX: &[IndexedSkill] = &[
         oci_ref: "ghcr.io/skycot/skills/listing-photo-alt-text:0.3.0",
     },
 ];
+
+/// Error returned by a [`MarketplaceSource`] when a list fetch fails.
+///
+/// ```
+/// use argo_skill::marketplace::MarketplaceError;
+/// let err = MarketplaceError::Network { url: "https://r.example".into(), reason: "timeout".into() };
+/// assert!(err.to_string().contains("timeout"));
+/// ```
+#[derive(Debug, Error)]
+pub enum MarketplaceError {
+    /// HTTP / network failure while reaching a source.
+    #[error("network error from {url}: {reason}")]
+    Network {
+        /// Origin URL of the failing request.
+        url: String,
+        /// Short failure reason.
+        reason: String,
+    },
+    /// Marketplace config (TOML) could not be loaded / parsed.
+    #[error("marketplace config: {0}")]
+    Config(String),
+}
+
+/// Async source of [`MarketplaceSkill`] rows.
+///
+/// Implementations are composable behind [`MarketplaceClient`]. The
+/// default [`StaticIndex`] wraps the baked-in [`STATIC_INDEX_DATA`]
+/// table; [`oci::OciRegistryScan`] walks a live OCI registry catalog.
+///
+/// ```no_run
+/// use argo_skill::marketplace::{MarketplaceSource, StaticIndex};
+/// # async fn _doc() {
+/// let rows = StaticIndex.list_all().await.unwrap();
+/// assert!(!rows.is_empty());
+/// # }
+/// ```
+#[async_trait::async_trait]
+pub trait MarketplaceSource: Send + Sync {
+    /// Return every skill the source knows about. Filtering and
+    /// ranking are applied by the consumer (e.g.
+    /// [`MarketplaceClient::search`]).
+    async fn list_all(&self) -> Result<Vec<MarketplaceSkill>, MarketplaceError>;
+}
+
+/// [`MarketplaceSource`] wrapping the in-binary [`STATIC_INDEX_DATA`].
+///
+/// Always succeeds; carries the offline / dev-mode catalog.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct StaticIndex;
+
+#[async_trait::async_trait]
+impl MarketplaceSource for StaticIndex {
+    async fn list_all(&self) -> Result<Vec<MarketplaceSkill>, MarketplaceError> {
+        Ok(STATIC_INDEX_DATA.iter().map(|e| e.to_public()).collect())
+    }
+}
+
+/// Composes multiple [`MarketplaceSource`] implementations.
+///
+/// `list_all` merges every source's rows and dedupes by skill `name`
+/// (the v1 identity column). `search` applies the same ranking +
+/// trust + tenant filters as the legacy [`search`] free function.
+/// Sources that error are logged with `tracing::warn!` and excluded
+/// from the merge so a single registry outage cannot fail the
+/// command.
+///
+/// ```no_run
+/// use argo_skill::marketplace::{MarketplaceClient, SearchOptions};
+/// # async fn _doc() {
+/// let client = MarketplaceClient::with_static();
+/// let rows = client.search("listing", &SearchOptions::default()).await;
+/// assert!(!rows.is_empty());
+/// # }
+/// ```
+pub struct MarketplaceClient {
+    sources: Vec<Box<dyn MarketplaceSource>>,
+}
+
+impl MarketplaceClient {
+    /// Wrap a pre-built source list.
+    #[must_use]
+    pub fn new(sources: Vec<Box<dyn MarketplaceSource>>) -> Self {
+        Self { sources }
+    }
+
+    /// Convenience for tests / offline mode — static index only.
+    #[must_use]
+    pub fn with_static() -> Self {
+        Self::new(vec![Box::new(StaticIndex)])
+    }
+
+    /// Fetch from every source, log + drop errors, dedupe by `name`.
+    /// First-source-wins on duplicates so the static index (added
+    /// first by convention) anchors well-known names.
+    pub async fn list_all(&self) -> Vec<MarketplaceSkill> {
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut out: Vec<MarketplaceSkill> = Vec::new();
+        for src in &self.sources {
+            match src.list_all().await {
+                Ok(rows) => {
+                    for row in rows {
+                        if seen.insert(row.name.clone()) {
+                            out.push(row);
+                        }
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        target: "argo_skill::marketplace",
+                        error = %err,
+                        "marketplace source list_all failed; excluding from merge"
+                    );
+                }
+            }
+        }
+        out
+    }
+
+    /// Search merged sources with the legacy ranking + filters.
+    pub async fn search(
+        &self,
+        query: &str,
+        options: &SearchOptions,
+    ) -> Vec<MarketplaceSkill> {
+        rank_marketplace_skills(self.list_all().await, query, options)
+    }
+}
+
+fn rank_marketplace_skills(
+    rows: Vec<MarketplaceSkill>,
+    query: &str,
+    options: &SearchOptions,
+) -> Vec<MarketplaceSkill> {
+    let terms = query_terms(query);
+    let tenant = options.tenant.as_deref().map(str::to_ascii_lowercase);
+    let mut scored = Vec::new();
+    for row in rows {
+        if !passes_trust(row.trust_grade, options.trust_min) {
+            continue;
+        }
+        if let Some(ref tenant_filter) = tenant {
+            if !row.tenant.to_ascii_lowercase().contains(tenant_filter) {
+                continue;
+            }
+        }
+        let score = score_marketplace_skill(&row, &terms);
+        if score == 0 {
+            continue;
+        }
+        scored.push((score, row));
+    }
+    scored.sort_by(|(score_a, a), (score_b, b)| {
+        score_b
+            .cmp(score_a)
+            .then_with(|| a.trust_grade.cmp(&b.trust_grade))
+            .then_with(|| b.last_published_at.cmp(&a.last_published_at))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    scored
+        .into_iter()
+        .take(options.limit)
+        .map(|(_, r)| r)
+        .collect()
+}
+
+fn score_marketplace_skill(row: &MarketplaceSkill, terms: &[String]) -> u32 {
+    if terms.is_empty() {
+        return 1;
+    }
+    let name = row.name.to_ascii_lowercase();
+    let description = row.description.to_ascii_lowercase();
+    let tenant = row.tenant.to_ascii_lowercase();
+    let oci_ref = row.oci_ref.to_ascii_lowercase();
+    terms
+        .iter()
+        .map(|term| {
+            let mut score = 0;
+            if name.contains(term) {
+                score += 8;
+            }
+            if description.contains(term) {
+                score += 3;
+            }
+            if tenant.contains(term) {
+                score += 1;
+            }
+            if oci_ref.contains(term) {
+                score += 1;
+            }
+            score
+        })
+        .sum()
+}
 
 #[cfg(test)]
 mod tests {

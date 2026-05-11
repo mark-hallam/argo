@@ -2,8 +2,10 @@
 //!
 //! Unlike `skill list` (local installed skills) and `skill search`
 //! (query-driven marketplace search), `skill catalog` walks the full
-//! marketplace `MANIFEST_INDEX` and joins it against the locally-
-//! installed set to mark each entry `[x]` installed or `[ ]` not.
+//! merged marketplace catalog (static index + any OCI registries
+//! declared in `~/.argo/marketplace.toml`) and joins it against the
+//! locally-installed set to mark each entry `[x]` installed or `[ ]`
+//! not.
 //!
 //! Marketplace schema gap (sensible deviation): the current
 //! `IndexedSkill` struct does not carry separate `vertical` or `tags`
@@ -13,10 +15,14 @@
 //! an empty list in JSON output until the upstream schema grows real
 //! tag columns (separate brief, owns `IndexedSkill`).
 
-use argo_skill::marketplace::{search, MarketplaceSkill, SearchOptions};
+use argo_skill::marketplace::{
+    oci::{MarketplaceConfig, OciRegistryScan},
+    MarketplaceClient, MarketplaceSkill, MarketplaceSource, StaticIndex,
+};
 use argo_skill::SkillStore;
 use argo_types::{ArgoError, ArgoResult};
 use std::collections::{BTreeSet, HashMap};
+use std::path::Path;
 
 #[cfg(test)]
 #[path = "skill_catalog_tests.rs"]
@@ -66,7 +72,10 @@ pub async fn run(
     filters: CatalogFilters<'_>,
     json: bool,
 ) -> ArgoResult<()> {
-    let market_rows = fetch_catalog();
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let home = crate::home::resolve_home(&cwd)?;
+    let market_rows = fetch_catalog(&home).await;
     let installed = installed_versions(skills).await?;
 
     if let Some(vid) = filters.vertical {
@@ -94,21 +103,27 @@ pub async fn run(
     Ok(())
 }
 
-/// Pull every marketplace entry by issuing an empty-query search at
-/// the max limit. `search("", ..)` scores every entry as 1 and skips
-/// the score==0 cull, so the result set is the full
-/// `MANIFEST_INDEX`. Done this way to avoid duplicating the const
-/// index across crates; the public `search` API is the stable
-/// surface.
-pub fn fetch_catalog() -> Vec<MarketplaceSkill> {
-    search(
-        "",
-        &SearchOptions {
-            trust_min: None,
-            tenant: None,
-            limit: usize::MAX,
-        },
-    )
+/// Load every marketplace entry by composing the in-binary
+/// `StaticIndex` with any `OciRegistryScan` sources declared in
+/// `<home>/marketplace.toml`. The static index always anchors the
+/// list so offline / dev mode keeps its byte-identical behavior;
+/// OCI sources are appended and any `list_all` failure is logged
+/// via `tracing::warn!` and dropped from the merge.
+pub async fn fetch_catalog(home: &Path) -> Vec<MarketplaceSkill> {
+    let cfg_path = home.join("marketplace.toml");
+    let cfg = MarketplaceConfig::load_or_default(&cfg_path).unwrap_or_else(|e| {
+        tracing::warn!(
+            error = %e,
+            path = %cfg_path.display(),
+            "marketplace.toml load failed; using static index only"
+        );
+        MarketplaceConfig::default()
+    });
+    let mut sources: Vec<Box<dyn MarketplaceSource>> = vec![Box::new(StaticIndex)];
+    for r in cfg.registries {
+        sources.push(Box::new(OciRegistryScan::new(r.url, r.namespace)));
+    }
+    MarketplaceClient::new(sources).list_all().await
 }
 
 /// Map of `frontmatter.name -> frontmatter.version` for every
