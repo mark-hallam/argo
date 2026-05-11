@@ -335,6 +335,8 @@ pub mod worker_promote;
 mod worker_resume;
 pub mod worker_show;
 mod worker_show_render;
+#[allow(dead_code)]
+pub mod worker_trust_reader;
 #[cfg(test)]
 mod worker_show_tests;
 pub mod worker_update;

@@ -48,11 +48,13 @@ pub mod sign;
 pub mod trust_graph;
 mod skill;
 mod store;
+mod store_available;
 mod store_lookups;
 mod store_vertical;
 mod store_vertical_judge;
 pub mod success_metric;
 pub mod trust;
+mod trust_reader;
 pub mod version;
 pub mod version_migration;
 
@@ -64,6 +66,8 @@ mod tests_lifecycle;
 mod sign_dep_smoke;
 #[cfg(test)]
 mod store_trust_tests;
+#[cfg(test)]
+mod store_available_tests;
 
 pub use argo_judge::Judge;
 pub use feedback::{should_propose_with_feedback, FeedbackVote};
@@ -100,6 +104,7 @@ pub use skill::{
 };
 pub use store::SkillStore;
 pub use trust::{is_skill_eligible, min_trust_for_risk, TrustGrade};
+pub use trust_reader::WorkerTrustReader;
 pub use ab_test::{
     create_run, ensure_ab_schema, get_run, maybe_complete, maybe_complete_with_quality,
     promote, record_outcome, select_variant, significance, variant_counts, AbTestRun,
