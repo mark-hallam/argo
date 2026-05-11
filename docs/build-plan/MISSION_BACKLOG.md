@@ -268,10 +268,10 @@ unblocks a mission claim.
      signal, matrix). `[NEW]` (Discord connector
      `[SHIPPED]` IN_REVIEW #879)
 107. Add MCP connector Dropbox/Box/OneDrive. `[PARTIAL — BRIEF: mission-mcp-connector-dropbox for Dropbox; Box + OneDrive pending]`
-108. Add MCP connector Zoom/Microsoft Teams. `[NEW]`
+108. Add MCP connector Zoom/Microsoft Teams. `[PARTIAL — codex-connector-zoom PR closed-as-obsolete; BRIEF: mission-mcp-connector-zoom for Zoom; Microsoft Teams pending]`
 109. Add MCP connector QuickBooks/Xero. `[PARTIAL — codex-connector-quickbooks PR closed-as-obsolete; BRIEF: mission-mcp-connector-quickbooks for QuickBooks; Xero pending]`
 110. Add MCP connector Greenhouse/Lever. `[PARTIAL — BRIEF: mission-mcp-connector-greenhouse for Greenhouse; Lever pending]`
-111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[NEW]`
+111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[PARTIAL — BRIEF: mission-mcp-connector-clearbit for Clearbit; ZoomInfo + Apollo pending]`
 112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; BRIEF: mission-mcp-connector-mailgun for Mailgun; Resend pending]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
      `[NEW]`
@@ -287,7 +287,7 @@ unblocks a mission claim.
      `[BRIEF: codex-multi-step-approval — DEFERRED-v1.x]`
 119. Build Discord channel.
      `[SHIPPED]`
-120. Add per-operator central preferences resolver. `[NEW]`
+120. Add per-operator central preferences resolver. `[BRIEF: mission-operator-preferences-resolver]`
 121. Add quiet hours for SMS/Voice/WhatsApp/iMessage/Push/Slack.
      `[BRIEF: mission-quiet-hours-channels]`
 122. Add operator-specific risk overrides. `[NEW]`
@@ -295,7 +295,7 @@ unblocks a mission claim.
      `/inbox/ws`. `[NEW]`
 124. Add Telegram channel. `[BRIEF: mission-mcp-connector-telegram]`
 125. Add Microsoft Teams channel. `[NEW]`
-126. Add Signal channel. `[NEW]`
+126. Add Signal channel. `[BRIEF: mission-mcp-connector-signal]`
 127. Add Matrix channel. `[NEW]`
 128. Build approval-bundle UI. `[NEW]`
 129. Build approval-policy UI. `[NEW]`
