@@ -35,7 +35,7 @@ surface.
 | B | Capability fill-ins (Windows native CU + real-LLM journey test) | swarm | **QUEUED** 2026-05-11 — 2 briefs in [streams/](streams/) | mission claim 5 (Windows leg) |
 | C | Design language — stack pick, brand tokens, component primitives | operator + 1 focused thread | **IN PROGRESS** 2026-05-11 — ADR + scaffold + 8 primitives + theming layer landed in [web/](../../web/); typecheck + build + 6/6 unit tests green | foundation for D + E |
 | D | Wireframes for the 5 surfaces (hire / team / worker profile / approvals inbox / audit timeline) | operator + claude, validated against real users | **DONE** 2026-05-11 — README + 5 surface specs in [skycot/ux-research/wireframes/](../skycot/ux-research/wireframes/); each wireframe carries ASCII layouts, exact strings, mobile reflow, and 5-10 Track-E brief slicing hints | implementation brief for E |
-| E | Frontend implementation, sliced thin (approvals inbox → hire → team → worker profile → audit) | swarm, after C+D land | **NOT STARTED** | mission claims 1, 2, 3, 6 |
+| E | Frontend implementation, sliced thin (approvals inbox → hire → team → worker profile → audit) | swarm, after C+D land | **IN PROGRESS** 2026-05-11 — E0 (foundation CONTRACT PR) authored in [streams/](streams/); ~40 slice briefs scheduled in /loop | mission claims 1, 2, 3, 6 |
 | F | Backend fill-ins for claim 4 — 6 outstanding skill/marketplace TODOs | swarm, parallel to E | **NOT STARTED** | mission claim 4 |
 | G | Mission-5 finish: Windows dispatch wiring + Wayland Linux + real-LLM-test CI integration | swarm, parallel to E | **NOT STARTED** | mission claim 5 (full) |
 
