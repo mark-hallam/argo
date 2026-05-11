@@ -40,18 +40,53 @@ pub trait SubtaskSink: Send + Sync {
         parent_session_id: Option<&str>,
         subtask: &PlannedSubtask,
     ) -> Result<(), PlannerError>;
+
+    /// Set a previously-recorded subtask's declared budget cap.
+    /// Called by [`record_decomposition`] when a parent budget is
+    /// in play so each child's row carries its share of the cap.
+    /// Identified by the same `(parent_session_id, worker_id,
+    /// plan_node_path)` natural key the `record_subtask` insert
+    /// path uses — the sink looks the row up rather than tracking
+    /// an id round-trip.
+    ///
+    /// Default no-op — implementations that don't track per-subtask
+    /// budgets (e.g. test stubs) can ignore the call cleanly. Stream
+    /// `mission-delegation-budget-tree`.
+    async fn set_subtask_budget(
+        &self,
+        parent_session_id: Option<&str>,
+        worker_id: &str,
+        plan_node_path: &str,
+        budget_usd_cents: i64,
+    ) -> Result<(), PlannerError> {
+        let _ = (parent_session_id, worker_id, plan_node_path, budget_usd_cents);
+        Ok(())
+    }
 }
 
 /// Walk a [`DecomposeResult`] and hand every task to the sink. The
 /// CLI handler calls this immediately after `Planner::decompose`
 /// returns.
+///
+/// `parent_budget_usd_cents` carries the delegating worker's
+/// declared cap (in USD cents) when one is in play; when `Some`,
+/// the budget is divided evenly across the N children so each
+/// child's row gets `budget_usd_cents = parent / N`. Even split is
+/// the deliberate v1 default — a weighted allocator (by estimated
+/// complexity) is a follow-up brief. Pass `None` for the legacy
+/// unbounded path (existing callers do this by default).
 pub async fn record_decomposition(
     sink: &dyn SubtaskSink,
     parent_goal: &str,
     parent_session_id: Option<&str>,
     ctx: &PlannerContext,
     result: &DecomposeResult,
+    parent_budget_usd_cents: Option<i64>,
 ) -> Result<(), PlannerError> {
+    let n_children = result.workflow.tasks.len() as i64;
+    let per_child_budget = parent_budget_usd_cents
+        .filter(|_| n_children > 0)
+        .map(|b| b / n_children);
     for task in &result.workflow.tasks {
         let worker_id = if task.worker.is_empty() {
             ctx.worker_id.clone()
@@ -68,12 +103,16 @@ pub async fn record_decomposition(
             parent_goal,
             parent_session_id,
             &PlannedSubtask {
-                plan_node_path,
+                plan_node_path: plan_node_path.clone(),
                 description,
-                worker_id,
+                worker_id: worker_id.clone(),
             },
         )
         .await?;
+        if let Some(b) = per_child_budget {
+            sink.set_subtask_budget(parent_session_id, &worker_id, &plan_node_path, b)
+                .await?;
+        }
     }
     Ok(())
 }

@@ -259,6 +259,14 @@ impl SqliteSubtaskSink {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
+
+    /// Borrow the underlying `SqlitePool` for the budget-tree
+    /// extension in [`crate::subtask_budget`]. Crate-private so
+    /// external callers stay routed through the sink's trait
+    /// methods rather than poking the pool directly.
+    pub(crate) fn pool_handle(&self) -> &SqlitePool {
+        &self.pool
+    }
 }
 
 #[async_trait::async_trait]
@@ -289,6 +297,24 @@ impl argo_runtime::SubtaskSink for SqliteSubtaskSink {
                 }
             }
         }
+    }
+
+    async fn set_subtask_budget(
+        &self,
+        parent_session_id: Option<&str>,
+        worker_id: &str,
+        plan_node_path: &str,
+        budget_usd_cents: i64,
+    ) -> Result<(), argo_runtime::PlannerError> {
+        crate::subtask_budget::set_subtask_budget_by_natural_key(
+            self.pool_handle(),
+            parent_session_id,
+            worker_id,
+            plan_node_path,
+            budget_usd_cents,
+        )
+        .await
+        .map_err(|e| argo_runtime::PlannerError::Llm(format!("subtask budget sink: {e}")))
     }
 }
 

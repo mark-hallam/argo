@@ -43,6 +43,9 @@ mod dispatch_tests;
 mod helpers;
 mod transport;
 mod turn;
+/// Per-turn hook into the subtask budget tree (Stream
+/// `mission-delegation-budget-tree`).
+pub mod turn_budget;
 mod turn_vertical;
 mod turn_vertical_grants;
 

@@ -50,6 +50,7 @@ async fn seed_decomposition(home: &Path, parent_session: &str) -> Vec<String> {
         Some(parent_session),
         &ctx,
         &result,
+        None,
     )
     .await
     .expect("record");

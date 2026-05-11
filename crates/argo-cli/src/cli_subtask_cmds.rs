@@ -47,4 +47,16 @@ pub enum SubtaskCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Render the per-delegation budget tree rooted at a subtask
+    /// id (Stream `mission-delegation-budget-tree`). Aggregated
+    /// spend rolls up to each node via the recursive walk_tree
+    /// CTE; declared budget is taken from each row's
+    /// `budget_usd_cents` (NULL = unbounded).
+    Budget {
+        /// Root subtask id whose descendants to walk.
+        root_id: String,
+        /// Output as a single JSON object instead of a text tree.
+        #[arg(long)]
+        json: bool,
+    },
 }

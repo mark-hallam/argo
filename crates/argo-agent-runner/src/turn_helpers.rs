@@ -153,6 +153,18 @@ pub(super) async fn run_turn_with_tools(
             .await?;
         emit_event(events, "AssistantMessage", assistant_payload);
         record_turn_spend(store, session_id, spend, last_tokens_in, last_tokens_out).await?;
+        // mission-delegation-budget-tree: same (tokens × price) math
+        // converted to USD cents, charged against the running subtask
+        // (if any) bound to this session. No-op when no subtask is
+        // currently running.
+        crate::turn_budget::record_subtask_turn_spend(
+            store,
+            session_id,
+            spend,
+            last_tokens_in,
+            last_tokens_out,
+        )
+        .await?;
 
         if resp.tool_calls.is_empty() {
             return Ok(TurnResult {

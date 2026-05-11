@@ -71,6 +71,12 @@ pub mod recovery_cache;
 /// Persistent subtask ledger — durable record of Planner-emitted
 /// decompositions (Stream `claude-subtask-ledger-store`).
 pub mod subtask;
+/// Per-subtask budget tree — declared cap, accumulated spend, and a
+/// recursive walk_tree CTE that rolls aggregated spend up to the
+/// root. New sibling functions only; the original `subtask` module
+/// is unchanged (Stream `mission-delegation-budget-tree`,
+/// MISSION_BACKLOG Section 3 Claim 2 #57).
+pub mod subtask_budget;
 /// Operator-facing team primitive — bridges `org_unit` + `roster`
 /// + `roster_member` for the `argo team` CLI surface (Stream
 /// `claude-worker-team-roster-cli`).
@@ -160,7 +166,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 51;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 52;
 
 /// A SQLite-backed session store.
 ///

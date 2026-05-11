@@ -246,6 +246,7 @@ pub mod skill_tags;
 pub mod skill_unpublish;
 mod skill_review_candidates;
 pub mod steer;
+pub mod subtask_budget;
 pub mod subtask_list;
 pub mod subtask_show;
 pub mod subtask_tree;

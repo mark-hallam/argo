@@ -211,6 +211,12 @@ async fn run_turn_with_events_inner(
     let session_grants = build_session_grant_state(store, session_id).await;
 
     let audit = AuditSink::new(store.clone());
+    // Pre-turn budget gate (mission-delegation-budget-tree): if a
+    // running subtask is bound to this session and its declared
+    // budget is exhausted, abort cleanly with `BudgetExhausted`
+    // before any provider work fires. Unbounded sessions (no
+    // running subtask, or NULL budget) fall through unchanged.
+    crate::turn_budget::check_pre_turn_budget(store, session_id, &audit).await?;
     let turn_start = build_turn_start_payload(
         &session.provider,
         &session.model,

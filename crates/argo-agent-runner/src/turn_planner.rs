@@ -111,7 +111,7 @@ pub async fn maybe_decompose(
         }
     };
     let children = result.workflow.tasks.len();
-    if let Err(e) = record_decomposition(sink, goal, parent_session_id, ctx, &result).await {
+    if let Err(e) = record_decomposition(sink, goal, parent_session_id, ctx, &result, None).await {
         tracing::warn!(error = %e, children, "subtask_sink_error");
         return DecomposeOutcome::SinkError { children };
     }

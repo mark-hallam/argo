@@ -455,6 +455,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             cli::SubtaskCmd::Tree { session, json } => {
                 handlers::subtask_tree::run(&session, json).await
             }
+            cli::SubtaskCmd::Budget { root_id, json } => {
+                handlers::subtask_budget::run(&root_id, json).await
+            }
         },
         Some(Command::Runtime(RuntimeCmd::Voice { mock_script, json })) => {
             let code = handlers::voice::run(mock_script, json);

@@ -12,7 +12,7 @@ async fn fresh_migrate_reaches_v40_and_creates_reconciled_schema() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 51);
+    assert_eq!(store.schema_version().await.unwrap(), 52);
     for table in [
         "persona",
         "worker",
@@ -119,7 +119,7 @@ async fn raw_v12_to_v29_legacy_schema_migrates_without_duplicate_errors() {
 
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 51);
+    assert_eq!(store.schema_version().await.unwrap(), 52);
     for table in [
         "shared_team_memory",
         "handoff",
@@ -180,7 +180,7 @@ async fn partial_legacy_19_collision_pair_migrates_to_full_v40() {
 
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 51);
+    assert_eq!(store.schema_version().await.unwrap(), 52);
     assert!(table_exists(&store, "worker_anomaly_event").await);
     assert!(table_exists(&store, "worker_behavior_baseline").await);
     assert!(table_exists(&store, "skill_ab_test_run").await);
@@ -233,7 +233,7 @@ async fn partial_legacy_28_collision_trio_migrates_to_full_v40() {
 
     store.migrate().await.unwrap();
 
-    assert_eq!(store.schema_version().await.unwrap(), 51);
+    assert_eq!(store.schema_version().await.unwrap(), 52);
     // Pre-applied raw siblings still present.
     assert!(table_exists(&store, "handoff_routing_rule").await);
     assert!(table_exists(&store, "skill_quality_score").await);
@@ -258,7 +258,7 @@ async fn partial_legacy_28_collision_trio_migrates_to_full_v40() {
 async fn rollback_to_v16_drops_v17_through_v40_tables() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 51);
+    assert_eq!(store.schema_version().await.unwrap(), 52);
 
     store.migrate_down_to(16).await.unwrap();
 
@@ -335,7 +335,7 @@ async fn rollback_to_v16_drops_v17_through_v40_tables() {
 async fn rollback_to_v22_drops_v23_through_v40_tables() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 51);
+    assert_eq!(store.schema_version().await.unwrap(), 52);
 
     store.migrate_down_to(22).await.unwrap();
 
