@@ -265,13 +265,12 @@ unblocks a mission claim.
      `[SHIPPED]`
 105. Build document creation executor — CSV (RFC 4180). `[BRIEF: mission-document-creation-executor-csv]`
 106. Add 5+ MCP connectors (telegram, discord, whatsapp-cloud,
-     signal, matrix). `[NEW]` (Discord connector
-     `[SHIPPED]` IN_REVIEW #879)
+     signal, matrix). `[PARTIAL — Discord/Telegram/Signal/Matrix SHIPPED; BRIEF: mission-mcp-connector-whatsapp-cloud for WhatsApp-Cloud]`
 107. Add MCP connector Dropbox/Box/OneDrive. `[PARTIAL — BRIEF: mission-mcp-connector-dropbox for Dropbox; Box + OneDrive pending]`
 108. Add MCP connector Zoom/Microsoft Teams. `[PARTIAL — codex-connector-zoom PR closed-as-obsolete; BRIEF: mission-mcp-connector-zoom for Zoom; Microsoft Teams pending]`
 109. Add MCP connector QuickBooks/Xero. `[PARTIAL — codex-connector-quickbooks PR closed-as-obsolete; BRIEF: mission-mcp-connector-quickbooks for QuickBooks; Xero pending]`
 110. Add MCP connector Greenhouse/Lever. `[PARTIAL — BRIEF: mission-mcp-connector-greenhouse for Greenhouse; Lever pending]`
-111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[PARTIAL — BRIEF: mission-mcp-connector-clearbit for Clearbit; ZoomInfo + Apollo pending]`
+111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[PARTIAL — BRIEF: mission-mcp-connector-clearbit for Clearbit; BRIEF: mission-mcp-connector-apollo for Apollo; ZoomInfo pending]`
 112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; BRIEF: mission-mcp-connector-mailgun for Mailgun; Resend pending]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
      `[NEW]`
@@ -418,7 +417,7 @@ unblocks a mission claim.
 195. Build planner-bias-from-template. `[BRIEF: mission-planner-bias-from-template]`
 196. Single Forge-cron-tick scheduler (skill versioning + A/B +
      quality + Forge). `[BRIEF: mission-cron-tick-maintenance-jobs]`
-197. Build operator-feedback channel into Dreams curation. `[NEW]`
+197. Build operator-feedback channel into Dreams curation. `[BRIEF: mission-operator-feedback-dreams-curation]`
 198. Build skill-cohort UI. `[NEW]`
 199. Build skill-explanation (provenance + improvement history).
      `[BRIEF: mission-skill-explanation-provenance]`
