@@ -66,6 +66,7 @@ BACKLOG = ROOT / "docs/build-plan/MISSION_BACKLOG.md"
 LEDGER = ROOT / "docs/build-plan/BUILD_STATUS.md"
 STREAMS_DIR = ROOT / "docs/build-plan/streams"
 PLAN = ROOT / "docs/build-plan/BUILD_PLAN_V11.md"
+ROADMAP = ROOT / "docs/build-plan/PRODUCT_ROADMAP.md"
 MISSION = ROOT / "docs/skycot/MISSION.md"
 
 
@@ -118,7 +119,7 @@ def _auto_pull_loop(interval_seconds: int) -> None:
 
 # ─── BUILD_STATUS ledger parser ─────────────────────────────────────────────
 
-LEDGER_STATUSES = {"MERGED", "TODO", "CLAIMED", "IN_REVIEW", "BLOCKED", "DEFERRED-v1.x"}
+LEDGER_STATUSES = {"MERGED", "TODO", "CLAIMED", "IN_REVIEW", "BLOCKED", "DEFERRED-v1.x", "REVERTED"}
 
 
 # Recognises the ledger's native phase divider rows, e.g.
@@ -185,6 +186,7 @@ LEDGER_COMPLETION_WEIGHT = {
     "CLAIMED": 0.4,
     "TODO": 0.1,
     "BLOCKED": 0.0,
+    "REVERTED": 0.0,  # merged then backed out — counts against progress
     "DEFERRED-v1.x": None,  # excluded from denominator
 }
 
@@ -284,28 +286,40 @@ def compute_ledger_phase_stats(ledger: dict[str, dict], phase_titles: dict[str, 
 TIER_MARKER_RE = re.compile(r"\*\*\s*Tier\s+([MABP])\b", re.I)
 
 
-def parse_tier_map() -> dict[str, str]:
+def parse_tier_map(ledger: dict[str, dict] | None = None) -> dict[str, str]:
     """Walk docs/build-plan/streams/*.md and return {brief_id: 'M'|'A'|'B'|'P'}.
 
     Briefs without an explicit tier marker are absent from the map. This is
     one filesystem walk + one small read per stream file (only the first ~50
     lines are searched — the marker reliably appears near the top).
+
+    Secondary source: if `ledger` is provided, also scan each row's
+    `last_update` cell for `**Tier [MABP]` — many briefs (especially
+    recently authored mission-* ones) carry the tier marker in the
+    BUILD_STATUS row note but not in the stream-file head.
     """
     out: dict[str, str] = {}
-    if not STREAMS_DIR.is_dir():
-        return out
-    for p in STREAMS_DIR.iterdir():
-        if not p.is_file() or not p.name.endswith(".md"):
-            continue
-        brief = p.name[:-3]  # strip .md
-        try:
-            with p.open("r", encoding="utf-8", errors="ignore") as f:
-                head = "".join(next(f, "") for _ in range(50))
-        except OSError:
-            continue
-        m = TIER_MARKER_RE.search(head)
-        if m:
-            out[brief] = m.group(1).upper()
+    if STREAMS_DIR.is_dir():
+        for p in STREAMS_DIR.iterdir():
+            if not p.is_file() or not p.name.endswith(".md"):
+                continue
+            brief = p.name[:-3]  # strip .md
+            try:
+                with p.open("r", encoding="utf-8", errors="ignore") as f:
+                    head = "".join(next(f, "") for _ in range(50))
+            except OSError:
+                continue
+            m = TIER_MARKER_RE.search(head)
+            if m:
+                out[brief] = m.group(1).upper()
+    if ledger:
+        for brief, row in ledger.items():
+            if brief in out:
+                continue
+            note = row.get("last_update", "") or ""
+            m = TIER_MARKER_RE.search(note)
+            if m:
+                out[brief] = m.group(1).upper()
     return out
 
 
@@ -345,6 +359,120 @@ def compute_tier_stats(ledger: dict[str, dict], tier_map: dict[str, str]) -> dic
             "B": "Tool-ship Tier B (nice-to-have)",
             "P": "Platform / split-prep / cleanup",
         },
+    }
+
+
+# ─── PRODUCT_ROADMAP tracks parser ──────────────────────────────────────────
+
+# Tracks A–G live in `docs/build-plan/PRODUCT_ROADMAP.md` (operative post-MVP
+# plan, authored 2026-05-11). The seven-tracks table is the authoritative
+# state-of-work summary; each row is:
+#   | <Letter> | <Scope> | <Who> | **<STATUS>** [<date>] [— <note>] | <Closes> |
+# Where STATUS ∈ {DONE, IN PROGRESS, QUEUED, NOT STARTED}.
+ROADMAP_ROW_RE = re.compile(
+    r"^\|\s*([A-G])\s*\|([^|]+)\|([^|]+)\|\s*\*\*([A-Z ]+?)\*\*([^|]*)\|([^|]+)\|\s*$"
+)
+
+ROADMAP_STATUS_WEIGHT = {
+    "DONE": 1.0,
+    "IN PROGRESS": 0.5,
+    "QUEUED": 0.1,
+    "NOT STARTED": 0.0,
+}
+
+
+def parse_product_roadmap() -> dict:
+    """Return {tracks, pct, by_status, available}.
+
+    Tracks come from the "## The seven tracks" table at the top of
+    PRODUCT_ROADMAP.md. Returns available=False if the file is missing
+    (old worktrees) so the renderer hides the panel cleanly.
+    """
+    if not ROADMAP.is_file():
+        return {"tracks": [], "pct": 0.0, "by_status": {}, "available": False}
+    text = ROADMAP.read_text(encoding="utf-8")
+    tracks: list[dict] = []
+    in_section = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            in_section = "seven tracks" in line.lower()
+            continue
+        if not in_section:
+            continue
+        m = ROADMAP_ROW_RE.match(line)
+        if not m:
+            continue
+        letter, scope, who, status, status_tail, closes = m.groups()
+        tracks.append({
+            "letter": letter,
+            "scope": scope.strip(),
+            "who": who.strip(),
+            "status": status.strip(),
+            "note": status_tail.strip().lstrip("—").strip(),
+            "closes": closes.strip(),
+        })
+    by_status: dict[str, int] = defaultdict(int)
+    wn, wd = 0.0, 0
+    for t in tracks:
+        by_status[t["status"]] += 1
+        w = ROADMAP_STATUS_WEIGHT.get(t["status"])
+        if w is None:
+            continue
+        wn += w
+        wd += 1
+    pct = (wn / wd * 100.0) if wd else 0.0
+    return {
+        "tracks": tracks,
+        "pct": pct,
+        "by_status": dict(by_status),
+        "available": True,
+    }
+
+
+# ─── Repo freshness (auto-pull staleness) ───────────────────────────────────
+
+def repo_freshness() -> dict:
+    """How current is ROOT vs origin/main? Used to surface a banner when
+    auto-pull is stalling (non-main branch, ahead/behind, etc.).
+    Reads only — does NOT fetch. The auto-pull loop does the fetch.
+    """
+    def _run(args: list[str]) -> str:
+        try:
+            out = subprocess.run(
+                ["git", *args], cwd=ROOT, capture_output=True, text=True,
+                check=False, timeout=10,
+            )
+            return out.stdout.strip()
+        except Exception:
+            return ""
+    head_branch = _run(["symbolic-ref", "--short", "HEAD"]) or "<detached>"
+    local_sha = _run(["rev-parse", "HEAD"])[:12]
+    origin_sha = _run(["rev-parse", "origin/main"])[:12]
+    counts = _run(["rev-list", "--left-right", "--count", "origin/main...HEAD"])
+    behind, ahead = 0, 0
+    if counts:
+        parts = counts.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            behind, ahead = int(parts[0]), int(parts[1])
+    last_commit_iso = _run(["log", "-1", "--format=%aI"])
+    last_commit_age_hours = None
+    if last_commit_iso:
+        try:
+            dt = datetime.fromisoformat(last_commit_iso.replace("Z", "+00:00"))
+            last_commit_age_hours = round(
+                (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0, 2
+            )
+        except Exception:
+            pass
+    return {
+        "head_branch": head_branch,
+        "local_sha": local_sha,
+        "origin_sha": origin_sha,
+        "ahead": ahead,
+        "behind": behind,
+        "in_sync": (ahead == 0 and behind == 0 and head_branch == "main"),
+        "last_commit_iso": last_commit_iso,
+        "last_commit_age_hours": last_commit_age_hours,
     }
 
 
@@ -919,11 +1047,17 @@ def burn_history(target_points: int = 40) -> list[dict]:
             ).decode("utf-8", errors="replace")
         except subprocess.CalledProcessError:
             continue
-        merged = blob.count("MERGED")
-        in_review = blob.count("IN_REVIEW")
-        blocked = blob.count("BLOCKED")
-        claimed = blob.count("CLAIMED")
-        todo = blob.count("| TODO ")
+        # Count by table-row context, not bare string occurrences. Narrative
+        # cells often mention OTHER PRs as MERGED/BLOCKED/etc, which inflates
+        # raw counts ~50% above the true row count and skews run-rate + ETAs.
+        # Match: `|<brief>|<owner>|<STATUS>|` — STATUS is the 3rd column.
+        def _row_status_count(label: str) -> int:
+            return len(re.findall(rf"^\|[^|\n]+\|[^|\n]+\|\s*{re.escape(label)}\s*\|", blob, re.M))
+        merged = _row_status_count("MERGED")
+        in_review = _row_status_count("IN_REVIEW")
+        blocked = _row_status_count("BLOCKED")
+        claimed = _row_status_count("CLAIMED")
+        todo = _row_status_count("TODO")
         history.append({
             "ts": ts,
             "date": ts[:16].replace("T", " "),  # YYYY-MM-DD HH:MM
@@ -1318,6 +1452,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   <div>
     <div class="title">SKYCOT mission dashboard</div>
     <div class="sub">Primary source: docs/build-plan/BUILD_STATUS.md (live ledger, conductor-maintained) · MISSION_BACKLOG.md 280-item view shown as secondary lens<span id="stale-note" class="ledger-stale" style="display:none"></span></div>
+    <div id="freshness-note" class="ledger-stale" style="display:none;margin-top:4px;"></div>
   </div>
   <div class="right">
     <span class="when">Generated <span id="gen-when"></span></span>
@@ -1344,6 +1479,13 @@ HTML_TEMPLATE = r"""<!doctype html>
   <h2>Tier M · v1.0 ship gate <span class="right" id="tier-m-note">Mission MVP critical path · operator strategic priority 2026-05-10</span></h2>
   <div id="tier-m-roadmap"></div>
   <div id="tier-other" style="margin-top:14px;color:var(--ink-3);font-size:11px;"></div>
+</div>
+
+
+<div class="panel" id="roadmap-panel" style="margin-bottom:16px;display:none;">
+  <h2>Product roadmap · tracks A–G <span class="right" id="roadmap-note">post-MVP product-surface program · PRODUCT_ROADMAP.md (operative 2026-05-11)</span></h2>
+  <div id="roadmap-tracks" class="grid" style="grid-template-columns:repeat(7,1fr);gap:10px;"></div>
+  <div id="roadmap-legend" style="margin-top:14px;color:var(--ink-3);font-size:11px;"></div>
 </div>
 
 
@@ -1377,7 +1519,7 @@ HTML_TEMPLATE = r"""<!doctype html>
     </div>
   </div>
   <div class="panel">
-    <h2>Live ledger state mix <span class="right">all 353 BUILD_STATUS rows · primary lens</span></h2>
+    <h2>Live ledger state mix <span class="right">all <span id="ledger-total-h">—</span> BUILD_STATUS rows · primary lens</span></h2>
     <div class="donut-wrap">
       <svg id="donut" viewBox="0 0 200 200"></svg>
       <ul id="donut-legend"></ul>
@@ -1386,7 +1528,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 </div>
 
 <div class="panel" style="margin-bottom:16px;">
-  <h2>Mission claims (six load-bearing) <span class="right">% complete weighted · scoped to the 41 brief-tagged items in MISSION_BACKLOG only · partial signal</span></h2>
+  <h2>Mission claims (six load-bearing) <span class="right">% complete weighted · scoped to the <span id="claims-scope-n">—</span> brief-tagged items in MISSION_BACKLOG only · partial signal</span></h2>
   <div id="claims-compact"></div>
 </div>
 
@@ -1502,6 +1644,38 @@ if (DATA.stale_ledger_count > 0) {
   sn.textContent = `⚠ ${DATA.stale_ledger_count} item${DATA.stale_ledger_count === 1 ? '' : 's'} done via PR but BUILD_STATUS.md still says TODO/CLAIMED — counted as Done anyway`;
   sn.style.display = "inline";
 }
+
+// Fill stale hardcoded heading counts from live data.
+(() => {
+  const lt = (DATA.stats && DATA.stats.ledger_total) || 0;
+  const h = document.getElementById("ledger-total-h");
+  if (h) h.textContent = lt;
+  const cs = document.getElementById("claims-scope-n");
+  if (cs) cs.textContent = DATA.backlog_brief_tagged_count || 0;
+})();
+
+// Repo-freshness banner — surfaces when auto-pull stalls (local ahead/behind
+// origin/main, on a non-main branch, or last commit is very old).
+(() => {
+  const f = DATA.freshness;
+  if (!f) return;
+  const note = document.getElementById("freshness-note");
+  if (!note) return;
+  const parts = [];
+  if (f.head_branch !== "main") {
+    parts.push(`⚠ HEAD is <b>${f.head_branch}</b>, not main — auto-pull is skipping (data may lag origin/main)`);
+  }
+  if (f.behind > 0) {
+    parts.push(`⚠ local is <b>${f.behind}</b> commit${f.behind === 1 ? '' : 's'} behind origin/main`);
+  }
+  if (f.ahead > 0) {
+    parts.push(`local has <b>${f.ahead}</b> un-pushed commit${f.ahead === 1 ? '' : 's'} — auto-pull will refuse fast-forward`);
+  }
+  if (parts.length) {
+    note.innerHTML = parts.join(" · ");
+    note.style.display = "block";
+  }
+})();
 
 // ── ETA helpers ──
 function fmtHours(h) {
@@ -1994,6 +2168,43 @@ function stackBar(counts, total, palette) {
   $("#tier-other").innerHTML = others || '';
 })();
 
+// ── Product Roadmap · tracks A–G ──
+(() => {
+  const r = DATA.product_roadmap;
+  if (!r || !r.available || !r.tracks || !r.tracks.length) return;
+  const panel = document.getElementById("roadmap-panel");
+  panel.style.display = "block";
+  const statusColor = {
+    "DONE": "#059669",
+    "IN PROGRESS": "#2563eb",
+    "QUEUED": "#d97706",
+    "NOT STARTED": "#6b7280",
+  };
+  const cards = r.tracks.map(t => {
+    const c = statusColor[t.status] || "#6b7280";
+    const scopeShort = (t.scope || "").split(/[—\-–]/)[0].trim().slice(0, 28);
+    const noteShort = (t.note || "").replace(/\[[^\]]*\]\([^)]*\)/g, '').slice(0, 90);
+    return `<div class="phase-card" style="border-color:${c}40">
+      <div class="ph-letter" style="font-size:22px;">${t.letter}</div>
+      <div class="ph-title" style="min-height:2.6em;">${escapeHtml(scopeShort)}</div>
+      <div class="ph-pct" style="color:${c};font-size:14px;text-transform:uppercase;letter-spacing:0.04em;">${t.status}</div>
+      <div class="ph-meta" style="margin-top:8px;font-family:inherit;">${escapeHtml(t.closes || "")}</div>
+      ${noteShort ? `<div class="ph-eta" style="text-transform:none;letter-spacing:0;margin-top:6px;">${escapeHtml(noteShort)}…</div>` : ""}
+    </div>`;
+  }).join("");
+  $("#roadmap-tracks").innerHTML = cards;
+  const done = (r.by_status||{})["DONE"] || 0;
+  const inProg = (r.by_status||{})["IN PROGRESS"] || 0;
+  const queued = (r.by_status||{})["QUEUED"] || 0;
+  const notStarted = (r.by_status||{})["NOT STARTED"] || 0;
+  $("#roadmap-legend").innerHTML =
+    `<b>${r.pct.toFixed(0)}%</b> weighted · ` +
+    `<span style="color:${statusColor.DONE}">${done} done</span> · ` +
+    `<span style="color:${statusColor['IN PROGRESS']}">${inProg} in progress</span> · ` +
+    `<span style="color:${statusColor.QUEUED}">${queued} queued</span> · ` +
+    `<span style="color:${statusColor['NOT STARTED']}">${notStarted} not started</span>`;
+})();
+
 // ── backlog-gap panel ──
 (() => {
   const g = DATA.backlog_gap;
@@ -2269,8 +2480,11 @@ def build_payload() -> dict:
             stale_ledger_count += 1
     stats = compute_stats(items, ledger, phase_map)
     ledger_phase_stats = compute_ledger_phase_stats(ledger, ledger_phase_titles)
-    tier_map = parse_tier_map()
+    tier_map = parse_tier_map(ledger)
     tier_stats = compute_tier_stats(ledger, tier_map)
+    product_roadmap = parse_product_roadmap()
+    freshness = repo_freshness()
+    backlog_brief_tagged_count = sum(1 for it in items if it.get("brief_id"))
     backlog_brief_ids = {it["brief_id"] for it in items if it.get("brief_id")}
     ledger_brief_ids = set(ledger.keys())
     outside_brief_ids = sorted(ledger_brief_ids - backlog_brief_ids)
@@ -2318,6 +2532,9 @@ def build_payload() -> dict:
         "ledger_phase_titles": ledger_phase_titles,
         "tier_stats": tier_stats,
         "tier_map": tier_map,
+        "product_roadmap": product_roadmap,
+        "freshness": freshness,
+        "backlog_brief_tagged_count": backlog_brief_tagged_count,
         "backlog_gap": backlog_gap,
         "owner_velocity": owners,
         "stale_claims": stales,
