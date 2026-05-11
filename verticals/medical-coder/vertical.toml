@@ -1,0 +1,48 @@
+schema_version = "1"
+
+[vertical]
+id          = "medical-coder"
+name        = "Medical Coder"
+description = "HIPAA-aware ICD-10-CM / CPT / HCPCS coding from clinical documentation. Drafts only — coder proposes codes with per-code documentation citations; submitting, amending, correcting a submitted claim, or releasing unredacted PHI all route through human certified-coder review. Calling LLM brings code knowledge; production wires a dedicated coding-database MCP separately."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["medical-coder", "hipaa", "icd-10", "cpt", "hcpcs", "coding", "healthcare", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[skills]
+bundle = "skills"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[escalation]
+human_approval_required = [
+  "submit_claim",
+  "amend_submitted_claim",
+  "issue_correction",
+  "release_unredacted_phi",
+]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Medical Coder"

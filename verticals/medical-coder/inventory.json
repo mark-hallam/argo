@@ -1,0 +1,40 @@
+{
+  "practice": "Skycot Multi-Specialty Clinic",
+  "supervising_certified_coder": "S. Hallam, CPC",
+  "today_iso": "2026-05-12",
+  "firm_style_guide": {
+    "sequencing_rules": [
+      "Primary Dx is the condition chiefly responsible for the encounter as documented in the chief-complaint or assessment.",
+      "Code signs and symptoms when no confirmed Dx exists; never up-code 'rule out' to the unconfirmed Dx.",
+      "Never combine ICD codes from different encounter dates without operator override.",
+      "Cite the documentation span for every proposed code; no citation, no proposal.",
+      "End every coder-facing artifact with the cardinal-rule disclaimer."
+    ],
+    "preferred_modifiers": {
+      "same_day_em_with_minor_procedure": {"modifier": "-25", "rationale": "Significant, separately identifiable E&M on same day as procedure"},
+      "distinct_procedural_service":      {"modifier": "-59", "rationale": "Distinct procedural service same day; only when no more specific modifier applies"},
+      "professional_component_only":      {"modifier": "-26", "rationale": "Professional component split from technical"},
+      "bilateral_procedure":              {"modifier": "-50", "rationale": "Bilateral procedure on paired organ"}
+    },
+    "default_confidence_calibration": "high_requires_explicit_documentation"
+  },
+  "payer_rules_seed": [
+    {"payer_id":"medicare_part_b","payer_name":"Medicare Part B","payer_type":"medicare","policy_id":"NCD-150.3","policy_title":"Bone Mineral Density Studies (synthetic example)","controlling_jurisdiction":"US","effective_date":"2025-01-01","summary":"Coverage requires documented osteoporosis risk factor; screening DEXA limited to once per 24 months.","source_url":"https://example.cms.gov/ncd/150-3-synthetic"},
+    {"payer_id":"commercial_acme","payer_name":"Acme Health Plan (synthetic)","payer_type":"commercial","policy_id":"ACME-CP-2026-014","policy_title":"Modifier -25 documentation standard (synthetic)","controlling_jurisdiction":"US","effective_date":"2026-01-15","summary":"Modifier -25 requires the E&M note to stand alone from the procedure note; insufficient documentation triggers automatic line denial.","source_url":"https://example.acme-health.com/policy/2026-014-synthetic"}
+  ],
+  "denied_codes_history_seed": [
+    {"payer_id":"medicare_part_b","code":"99215","denial_reason_code":"CARC-50","denial_summary":"Non-covered services; not deemed medical necessity by payer.","encounter_count":3,"last_seen_at":"2026-04-21"},
+    {"payer_id":"medicare_part_b","code":"97140","denial_reason_code":"CARC-97","denial_summary":"Benefit included in another adjudicated service (NCCI bundle).","encounter_count":5,"last_seen_at":"2026-04-28"},
+    {"payer_id":"commercial_acme","code":"99213-25","denial_reason_code":"CARC-4","denial_summary":"Modifier inconsistent with documentation; E&M did not stand alone.","encounter_count":2,"last_seen_at":"2026-05-03"},
+    {"payer_id":"commercial_acme","code":"G0438","denial_reason_code":"CARC-119","denial_summary":"Benefit maximum reached (annual wellness visit cadence).","encounter_count":1,"last_seen_at":"2026-03-15"},
+    {"payer_id":"medicare_part_b","code":"11042","denial_reason_code":"CARC-50","denial_summary":"Debridement depth not supported by documentation.","encounter_count":2,"last_seen_at":"2026-02-19"}
+  ],
+  "escalation_routing": {
+    "e_m_level_mismatch":                 "supervising_certified_coder_immediate",
+    "unbundling_risk":                    "supervising_certified_coder_immediate",
+    "billable_without_medical_necessity": "supervising_certified_coder",
+    "hospice_coding":                     "supervising_certified_coder",
+    "dme":                                "supervising_certified_coder",
+    "medicare_part_b_specific":           "supervising_certified_coder"
+  }
+}

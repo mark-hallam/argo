@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "payer_rules"
+type = "list-of-objects"
+purpose = "Per-payer coding-policy snippets. Each row carries: payer_id, payer_name, payer_type (medicare|medicaid|commercial), policy_id, policy_title, controlling_jurisdiction, effective_date, summary, source_url. Used by propose_icd10 / propose_cpt / audit_existing_claim to anchor a code proposal against the payer's published rules."
+
+[[entry]]
+key = "cited_authorities"
+type = "list-of-objects"
+purpose = "Cache of CMS / payer authorities validated by prior runs. Each row carries: authority_id, kind (ncd|lcd|coding_clinic_qa|ncci_edit|cpt_assistant), citation, controlling_jurisdiction, effective_date, signal_strength (current|superseded|withdrawn), last_checked_at. Drives reuse-within-freshness-window so we do not re-validate the same NCD on every encounter."
+
+[[entry]]
+key = "firm_style_guide"
+type = "object"
+purpose = "Coder-team sequencing and modifier preferences. Carries: sequencing_rules (list of strings; e.g. 'primary Dx is condition chiefly responsible for encounter'), preferred_modifiers (object of trigger -> modifier with rationale), default_confidence_calibration (string). Used by propose_icd10 + propose_cpt + audit_existing_claim."
+
+[[entry]]
+key = "denied_codes_history"
+type = "list-of-objects"
+purpose = "Per-payer denial reasons we have seen. Each row carries: payer_id, code, denial_reason_code (e.g. CARC / RARC), denial_summary, encounter_count, last_seen_at. audit_existing_claim surfaces a matching prior denial as context; propose_icd10 / propose_cpt surface the same as a flag when a candidate code matches a prior denial pattern."

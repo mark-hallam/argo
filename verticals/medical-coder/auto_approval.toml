@@ -1,0 +1,20 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is propose / audit / redact only. Coder
+# proposes ICD-10 and CPT codes, audits an existing claim for code-
+# vs-documentation drift, and produces a redacted version of raw
+# documentation. Submitting a claim, amending a submitted claim,
+# issuing a correction, and releasing unredacted PHI are
+# intentionally absent — they route through
+# `[escalation].human_approval_required` in vertical.toml. Defence
+# in depth: even if a future edit grants `submit_claim` as a wake
+# type, the escalation gate still fires because deny+approval-
+# required always wins.
+wake_action_types = [
+  "propose_icd10",
+  "propose_cpt",
+  "audit_existing_claim",
+  "redact_phi",
+]
