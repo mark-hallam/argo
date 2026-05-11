@@ -940,6 +940,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-quickbooks"
+version = "0.0.1"
+dependencies = [
+ "argo-config",
+ "argo-types",
+ "chrono",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "argo-mcp-connector-salesforce"
 version = "0.0.1"
 dependencies = [
