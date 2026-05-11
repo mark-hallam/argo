@@ -77,7 +77,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 11. Add nightly job that runs all 65 silent-skip integration
     tests against real test accounts (with secrets in repo
-    secrets). `[NEW]`
+    secrets). `[BRIEF: mission-silent-skip-nightly-integration]`
 12. Replace silent-skip pattern with VCR/cassette fixtures so
     live tests run deterministically in CI. `[NEW]`
 13. Add cargo-deny to CI matrix (currently `workflow_dispatch:`
@@ -335,12 +335,12 @@ unblocks a mission claim.
 149. Research-analyst vertical. `[BRIEF: mission-vertical-research-analyst]`
 150. Lead-research vertical. `[BRIEF: mission-vertical-lead-research]`
 151. Data-entry-clerk vertical. `[BRIEF: mission-vertical-data-entry-clerk]`
-152. QA-engineer vertical. `[NEW]`
+152. QA-engineer vertical. `[BRIEF: mission-vertical-qa-engineer]`
 153. Legal-paralegal vertical. `[BRIEF: mission-vertical-legal-paralegal]`
 154. Medical-coder vertical (HIPAA path). `[BRIEF: mission-vertical-medical-coder]`
 155. Customer-onboarding vertical. `[BRIEF: mission-vertical-customer-onboarding]`
 156. Fundraising-coordinator vertical. `[BRIEF: mission-vertical-fundraising-coordinator]`
-157. HR-screener vertical. `[NEW]`
+157. HR-screener vertical. `[BRIEF: mission-vertical-hr-screener]`
 158. Ops-on-call vertical. `[BRIEF: mission-vertical-ops-on-call]`
 159. Procurement-assistant vertical. `[BRIEF: mission-vertical-procurement-assistant]`
 160. Event-coordinator vertical. `[BRIEF: mission-vertical-event-coordinator]`
