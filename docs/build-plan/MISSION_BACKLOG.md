@@ -82,7 +82,7 @@ unblocks a mission claim.
     live tests run deterministically in CI. `[NEW]`
 13. Add cargo-deny to CI matrix (currently `workflow_dispatch:`
     only). `[NEW]`
-14. Add cargo-audit to CI (no current vulnerability scan). `[NEW]`
+14. Add cargo-audit to CI (no current vulnerability scan). `[BRIEF: mission-cargo-audit-disabled-workflow]`
 15. Add load tests via criterion for: agent-turn p99 latency,
     audit-write throughput, gateway request/sec, MemoryStore
     append/read, A/B select_variant. `[NEW]`
@@ -131,10 +131,10 @@ unblocks a mission claim.
     CloudWatch). `[NEW]`
 35. Add real anomaly alerting via NotifyChannel (currently
     `tracing::warn!` only). `[NEW]`
-36. Wire circuit breaker to provider transport calls. `[NEW]`
+36. Wire circuit breaker to provider transport calls. `[BRIEF: mission-circuit-breaker-wire-providers]`
 37. Add audit-chain watchdog that periodically verifies and
     pages on tamper. `[NEW]`
-38. Add health-check endpoint for k8s/systemd readiness. `[NEW]`
+38. Add health-check endpoint for k8s/systemd readiness. `[BRIEF: mission-health-check-endpoint]`
 
 ---
 
