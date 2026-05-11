@@ -81,12 +81,12 @@ unblocks a mission claim.
 12. Replace silent-skip pattern with VCR/cassette fixtures so
     live tests run deterministically in CI. `[NEW]`
 13. Add cargo-deny to CI matrix (currently `workflow_dispatch:`
-    only). `[NEW]`
+    only). `[BRIEF: mission-cargo-deny-ci-matrix]`
 14. Add cargo-audit to CI (no current vulnerability scan). `[BRIEF: mission-cargo-audit-disabled-workflow]`
 15. Add load tests via criterion for: agent-turn p99 latency,
     audit-write throughput, gateway request/sec, MemoryStore
-    append/read, A/B select_variant. `[NEW]`
-16. Add soak test (4-hour multi-worker run) as nightly. `[NEW]`
+    append/read, A/B select_variant. `[BRIEF: mission-criterion-load-tests]`
+16. Add soak test (4-hour multi-worker run) as nightly. `[BRIEF: mission-soak-test-nightly]`
 17. Reconcile headline numbers in README + ROADMAP +
     BUILD_STATUS to reality. `[SHIPPED]`
     — DEFERRED to ship-time; numbers move weekly.
