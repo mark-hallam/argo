@@ -55,6 +55,15 @@ pub struct VerticalManifest {
     /// Optional success metrics.
     #[serde(default)]
     pub success_metrics: Option<SuccessMetricsSection>,
+    /// Optional declarative KPI list. Each entry is interpreted
+    /// alongside the legacy [`SuccessMetricsSection`] block;
+    /// [`VerticalManifest::all_kpis`] is the unified read path
+    /// for downstream consumers (eval CI gate, worker KPI
+    /// tracker, dashboards). New manifests prefer this block;
+    /// pre-existing manifests with only `success_metrics` keep
+    /// emitting a non-empty list via the legacy-fallback path.
+    #[serde(default, rename = "kpi")]
+    pub kpis: Vec<KpiDefinition>,
     /// Optional eval suite refs.
     #[serde(default)]
     pub evaluation: Option<EvaluationSection>,
@@ -208,6 +217,162 @@ pub struct SuccessMetricsSection {
     pub required_audit_chain_intact: Option<bool>,
 }
 
+/// `[[kpi]]` — one declarative KPI entry. A vertical may declare
+/// any number of these alongside the legacy
+/// [`SuccessMetricsSection`]; downstream consumers read the
+/// unified list via [`VerticalManifest::all_kpis`].
+///
+/// `Eq` is intentionally not derived (`threshold` is `f64`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct KpiDefinition {
+    /// Identifier; must be unique within a manifest. E.g.
+    /// `"deflection_rate"`, `"first_response_p95_seconds"`.
+    pub name: String,
+    /// Type tag controlling downstream display formatting and
+    /// unit suffix (e.g. `95` renders as `95%` for `Percentage`
+    /// vs `95ms` for `DurationMs`).
+    pub kind: KpiKind,
+    /// Operator-chosen pass/fail line. Interpreted via
+    /// [`KpiComparator`]; validation rejects non-finite values.
+    pub threshold: f64,
+    /// How an observed value is compared against `threshold`.
+    pub comparator: KpiComparator,
+    /// What downstream consumers do when the KPI fails.
+    pub gate: KpiGate,
+    /// Optional one-line operator description. Validation caps
+    /// the length at 200 chars so dashboards can render it
+    /// inline.
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// Type tag controlling downstream display formatting + unit
+/// suffixes for a [`KpiDefinition`]. The vocabulary is
+/// intentionally narrow — operators want type-safety when
+/// interpreting a threshold value.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum KpiKind {
+    /// 0–100 scale; rendered with a `%` suffix downstream.
+    Percentage,
+    /// Milliseconds; rendered with an `ms` suffix downstream.
+    DurationMs,
+    /// Plain integer count; no unit suffix.
+    Count,
+    /// 0.0–1.0 ratio; rendered as a decimal.
+    Ratio,
+    /// Generic score (CSAT 1–5, NPS −100..100, etc.); no
+    /// fixed range.
+    Score,
+}
+
+/// How an observed value is compared against the configured
+/// `threshold` on a [`KpiDefinition`].
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum KpiComparator {
+    /// Pass when `observed >= threshold`.
+    Gte,
+    /// Pass when `observed <= threshold`.
+    Lte,
+    /// Pass when `observed == threshold` (downstream consumers
+    /// pick an epsilon appropriate for the [`KpiKind`]).
+    Eq,
+}
+
+/// What downstream consumers do when a [`KpiDefinition`] fails.
+/// THIS brief only carries the field; enforcement lives in a
+/// follow-up brief (`mission-kpi-enforcement-gate`).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum KpiGate {
+    /// Blocks release on failure. Hardest gate.
+    Release,
+    /// Surfaces in dashboards but does NOT block release.
+    Warn,
+    /// Telemetry only; no operator-facing surface.
+    Inform,
+}
+
+impl VerticalManifest {
+    /// Materialize every KPI on this manifest into one unified
+    /// list. Declarative `[[kpi]]` entries are returned as-is;
+    /// when `self.kpis` is empty AND the legacy
+    /// `[success_metrics]` block is populated, the four legacy
+    /// fields are synthesized into equivalent
+    /// [`KpiDefinition`]s so manifests authored before the
+    /// `[[kpi]]` schema still emit a non-empty list.
+    ///
+    /// When both `[[kpi]]` AND `[success_metrics]` are present,
+    /// the declarative entries win — an operator migrating a
+    /// legacy field into a `[[kpi]]` block does not get a
+    /// double-counted entry.
+    ///
+    /// Legacy mapping (applied only when `self.kpis.is_empty()`):
+    /// - `deflection_target_pct: u32` → kind `Percentage`,
+    ///   comparator `Gte`, gate `Release`.
+    /// - `median_response_seconds: u32` → kind `DurationMs`,
+    ///   threshold expressed in milliseconds (`seconds * 1000`),
+    ///   comparator `Lte`, gate `Release`.
+    /// - `csat_threshold: f64` → kind `Score`, comparator
+    ///   `Gte`, gate `Release`.
+    /// - `required_audit_chain_intact: bool` → kind `Count`,
+    ///   threshold `1.0` for `true` / `0.0` for `false`,
+    ///   comparator `Eq`, gate `Release`.
+    #[must_use]
+    pub fn all_kpis(&self) -> Vec<KpiDefinition> {
+        if !self.kpis.is_empty() {
+            return self.kpis.clone();
+        }
+        let Some(metrics) = self.success_metrics.as_ref() else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        if let Some(pct) = metrics.deflection_target_pct {
+            out.push(KpiDefinition {
+                name: "deflection_target_pct".to_string(),
+                kind: KpiKind::Percentage,
+                threshold: f64::from(pct),
+                comparator: KpiComparator::Gte,
+                gate: KpiGate::Release,
+                description: None,
+            });
+        }
+        if let Some(secs) = metrics.median_response_seconds {
+            out.push(KpiDefinition {
+                name: "median_response_seconds".to_string(),
+                kind: KpiKind::DurationMs,
+                threshold: f64::from(secs) * 1000.0,
+                comparator: KpiComparator::Lte,
+                gate: KpiGate::Release,
+                description: None,
+            });
+        }
+        if let Some(csat) = metrics.csat_threshold {
+            out.push(KpiDefinition {
+                name: "csat_threshold".to_string(),
+                kind: KpiKind::Score,
+                threshold: csat,
+                comparator: KpiComparator::Gte,
+                gate: KpiGate::Release,
+                description: None,
+            });
+        }
+        if let Some(intact) = metrics.required_audit_chain_intact {
+            out.push(KpiDefinition {
+                name: "required_audit_chain_intact".to_string(),
+                kind: KpiKind::Count,
+                threshold: if intact { 1.0 } else { 0.0 },
+                comparator: KpiComparator::Eq,
+                gate: KpiGate::Release,
+                description: None,
+            });
+        }
+        out
+    }
+}
+
 /// `[evaluation]` — eval suite file refs (JSONL, one task per
 /// line).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -302,3 +467,7 @@ pub fn parse(src: &str) -> ArgoResult<VerticalManifest> {
 #[cfg(test)]
 #[path = "manifest_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "manifest_kpi_tests.rs"]
+mod kpi_tests;

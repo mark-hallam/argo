@@ -240,3 +240,76 @@ fn validation_error_display_with_line() {
     };
     assert_eq!(format!("{e}"), "actions.foo.executor.kind (line 42): boom");
 }
+
+#[test]
+fn kpi_duplicate_names_rejected() {
+    let src = format!(
+        "{MINIMAL_HEADER}\n[[kpi]]\nname = \"dup\"\nkind = \"count\"\nthreshold = 1.0\ncomparator = \"eq\"\ngate = \"warn\"\n\n[[kpi]]\nname = \"dup\"\nkind = \"count\"\nthreshold = 2.0\ncomparator = \"eq\"\ngate = \"warn\"\n"
+    );
+    let msg = err_message(&src);
+    assert!(msg.contains("kpi[1].name"), "got: {msg}");
+    assert!(msg.contains("duplicate KPI name 'dup'"), "got: {msg}");
+}
+
+#[test]
+fn kpi_non_finite_threshold_rejected() {
+    // TOML doesn't accept literal NaN, so we exercise the strict
+    // entry point directly against a manually-constructed manifest.
+    let m = parse(MINIMAL_HEADER).expect("base manifest parses");
+    let mut m_with_nan = m.clone();
+    m_with_nan.kpis.push(KpiDefinition {
+        name: "broken".to_string(),
+        kind: KpiKind::Count,
+        threshold: f64::NAN,
+        comparator: KpiComparator::Eq,
+        gate: KpiGate::Warn,
+        description: None,
+    });
+    let err = validate_strict(&m_with_nan).expect_err("NaN threshold must reject");
+    let msg = format!("{err}");
+    assert!(msg.contains("kpi[0].threshold"), "got: {msg}");
+    assert!(msg.contains("must be finite"), "got: {msg}");
+
+    let mut m_with_inf = m;
+    m_with_inf.kpis.push(KpiDefinition {
+        name: "broken_inf".to_string(),
+        kind: KpiKind::Count,
+        threshold: f64::INFINITY,
+        comparator: KpiComparator::Eq,
+        gate: KpiGate::Warn,
+        description: None,
+    });
+    let err = validate_strict(&m_with_inf).expect_err("inf threshold must reject");
+    let msg = format!("{err}");
+    assert!(msg.contains("must be finite"), "got: {msg}");
+}
+
+#[test]
+fn kpi_empty_name_rejected() {
+    let src = format!(
+        "{MINIMAL_HEADER}\n[[kpi]]\nname = \"\"\nkind = \"count\"\nthreshold = 1.0\ncomparator = \"eq\"\ngate = \"warn\"\n"
+    );
+    let msg = err_message(&src);
+    assert!(msg.contains("kpi[0].name"), "got: {msg}");
+    assert!(msg.contains("must not be empty"), "got: {msg}");
+}
+
+#[test]
+fn kpi_description_over_200_chars_rejected() {
+    let long = "x".repeat(201);
+    let src = format!(
+        "{MINIMAL_HEADER}\n[[kpi]]\nname = \"ok\"\nkind = \"count\"\nthreshold = 1.0\ncomparator = \"eq\"\ngate = \"warn\"\ndescription = \"{long}\"\n"
+    );
+    let msg = err_message(&src);
+    assert!(msg.contains("kpi[0].description"), "got: {msg}");
+    assert!(msg.contains("≤ 200 chars"), "got: {msg}");
+}
+
+#[test]
+fn kpi_description_at_200_chars_passes() {
+    let exact = "x".repeat(200);
+    let src = format!(
+        "{MINIMAL_HEADER}\n[[kpi]]\nname = \"ok\"\nkind = \"count\"\nthreshold = 1.0\ncomparator = \"eq\"\ngate = \"warn\"\ndescription = \"{exact}\"\n"
+    );
+    parse(&src).expect("200-char description is at the limit and should pass");
+}

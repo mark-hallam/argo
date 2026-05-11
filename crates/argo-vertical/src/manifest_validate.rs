@@ -18,10 +18,17 @@
 //! `ArgoError::Schema(String)` — see `manifest.rs::parse` and
 //! `validator.rs`. Strict-mode keeps that convention so callers don't
 //! need a second match arm.
-use crate::manifest::VerticalManifest;
+#[cfg(test)]
+use crate::manifest::{KpiComparator, KpiGate, KpiKind};
+use crate::manifest::{KpiDefinition, VerticalManifest};
 use crate::manifest_actions::{ActionDeclaration, ExecutorDeclaration};
 use argo_types::{ArgoError, ArgoResult};
 use std::collections::BTreeSet;
+
+/// Maximum length of a [`KpiDefinition`]'s optional `description`.
+/// Kept tight so dashboards / `argo vertical kpis list` can render
+/// it inline without truncation logic.
+pub(crate) const KPI_DESCRIPTION_MAX: usize = 200;
 
 /// Canonical list of executor kinds the runtime knows how to
 /// dispatch. Mirrors `ExecutorKind::parse` in
@@ -99,6 +106,7 @@ pub fn validate_strict(manifest: &VerticalManifest) -> ArgoResult<()> {
 
     check_actions(manifest, &mut errors);
     check_provider(manifest, &mut errors);
+    check_kpis(&manifest.kpis, &mut errors);
 
     if errors.is_empty() {
         return Ok(());
@@ -233,6 +241,51 @@ fn check_model_id(path: &str, model_id: &str, errors: &mut Vec<ValidationError>)
             message: "must not be empty".to_string(),
             line: None,
         });
+    }
+}
+
+fn check_kpis(kpis: &[KpiDefinition], errors: &mut Vec<ValidationError>) {
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    for (i, kpi) in kpis.iter().enumerate() {
+        let base = format!("kpi[{i}]");
+        if kpi.name.trim().is_empty() {
+            errors.push(ValidationError {
+                path: format!("{base}.name"),
+                message: "must not be empty".to_string(),
+                line: None,
+            });
+        } else if !seen.insert(kpi.name.as_str()) {
+            errors.push(ValidationError {
+                path: format!("{base}.name"),
+                message: format!(
+                    "duplicate KPI name '{}' — each KPI name must be unique within a manifest",
+                    kpi.name
+                ),
+                line: None,
+            });
+        }
+        if !kpi.threshold.is_finite() {
+            errors.push(ValidationError {
+                path: format!("{base}.threshold"),
+                message: format!(
+                    "threshold must be finite (got {}) — NaN / ±inf cannot be compared",
+                    kpi.threshold
+                ),
+                line: None,
+            });
+        }
+        if let Some(desc) = kpi.description.as_ref() {
+            if desc.chars().count() > KPI_DESCRIPTION_MAX {
+                errors.push(ValidationError {
+                    path: format!("{base}.description"),
+                    message: format!(
+                        "description must be ≤ {KPI_DESCRIPTION_MAX} chars (got {})",
+                        desc.chars().count()
+                    ),
+                    line: None,
+                });
+            }
+        }
     }
 }
 
