@@ -93,6 +93,7 @@ mod routes_voice; mod routes_voice_auth; mod routes_workspace;
 mod runs_streaming;
 mod security_headers;
 mod streaming;
+mod ws_upgrade;
 
 use crate::cli::GatewayCmd;
 use argo_config::ArgoConfig;

@@ -1,16 +1,15 @@
-//! `GET /audit/stream` — live audit-row push (Stream
-//! `claude-realtime-audit-stream`).
+//! `GET /audit/stream` — initial snapshot response.
 //!
-//! Mirrors the `/inbox/ws` shape from `routes_channels.rs`:
-//! the gateway responds with `101 Switching Protocols` when the
-//! client supplies an `Upgrade: websocket` header, otherwise
-//! `200 OK`. The body is a JSON snapshot of the most recent
-//! audit rows matching the supplied filters.
+//! Real WebSocket upgrades are intercepted upstream by
+//! [`super::ws_upgrade`] (`mission-inbox-ws-real-websocket`):
+//! when the request carries `Upgrade: websocket` the accept loop
+//! in `boot.rs` hands the raw `TcpStream` to the WS handler, which
+//! performs the RFC 6455 handshake and runs the frame loop.
 //!
-//! The streaming seam — `AuditSink::subscribe()` — is wired into
-//! `argo-audit`. A follow-up brief that adopts a real WebSocket
-//! transport (tokio-tungstenite or similar) can plug into the
-//! same subscribe handle without further changes here.
+//! This module owns the plain-GET snapshot path — a JSON body of
+//! the most recent audit rows matching the supplied filters. Tools
+//! that don't speak WebSocket (curl probes, dashboards in
+//! one-shot polling mode) keep working unchanged.
 //!
 //! Auth mirrors `/inbox/ws`: bearer token via `Authorization`
 //! header or `argo_operator_token` cookie. When
@@ -61,11 +60,10 @@ pub(super) async fn dispatch_audit_stream(
             ));
         }
     }
-    snapshot_response(req, store, kind.as_deref(), worker.as_deref(), limit).await
+    snapshot_response(store, kind.as_deref(), worker.as_deref(), limit).await
 }
 
 async fn snapshot_response(
-    req: &str,
     store: &SessionStore,
     kind: Option<&str>,
     worker: Option<&str>,
@@ -126,12 +124,10 @@ async fn snapshot_response(
         "broadcast_capacity": argo_audit::AUDIT_BROADCAST_CAPACITY,
     })
     .to_string();
-    let status = if has_websocket_upgrade(req) {
-        "101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade"
-    } else {
-        "200 OK"
-    };
-    (status, body)
+    // Real WS upgrades are intercepted in `boot.rs` ahead of route
+    // dispatch — anything reaching this handler is a plain GET that
+    // just wants the snapshot body.
+    ("200 OK", body)
 }
 
 fn check_auth(req: &str) -> Result<(), (&'static str, String)> {
@@ -205,10 +201,6 @@ fn cookie_value(req: &str, key: &str) -> Option<String> {
         }
     }
     None
-}
-
-fn has_websocket_upgrade(req: &str) -> bool {
-    header_value(req, "Upgrade").is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
 }
 
 fn bad_request(msg: &str) -> (&'static str, String) {

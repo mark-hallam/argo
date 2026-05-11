@@ -41,15 +41,23 @@ pub(super) async fn webinbox_response(req: &str) -> (&'static str, String) {
 async fn inbox_page(operator: &str) -> (&'static str, String) {
     let rows = match pending_rows(operator).await { Ok(r) => r, Err(e) => return server_error(&e.to_string()) };
     let body = if rows.is_empty() { "<p>No pending approvals.</p>".to_string() } else { rows.iter().map(render_row).collect::<String>() };
-    let script = "<script>setInterval(()=>location.reload(),5000);try{let p=location.protocol==='https:'?'wss':'ws';let ws=new WebSocket(p+'://'+location.host+'/inbox/ws');ws.onmessage=()=>location.reload();}catch(e){}</script>";
+    // Polling fallback runs until the WS upgrade succeeds; we clear
+    // the interval on `open` so the page doesn't refresh every 5s
+    // (which would tear down the live socket). If the WS later closes
+    // we reinstall the timer so the operator still sees decisions.
+    let script = "<script>let t=setInterval(()=>location.reload(),5000);try{let p=location.protocol==='https:'?'wss':'ws';let ws=new WebSocket(p+'://'+location.host+'/inbox/ws');ws.onopen=()=>{clearInterval(t);t=null;};ws.onmessage=()=>location.reload();ws.onclose=()=>{if(!t)t=setInterval(()=>location.reload(),5000);};}catch(e){}</script>";
     ("200 OK", format!("<!doctype html><html><head><title>Argo Inbox</title></head><body><h1>Argo Inbox</h1><p>operator {}</p>{body}{script}</body></html>", esc(operator)))
 }
 
-async fn inbox_ws(req: &str, operator: &str) -> (&'static str, String) {
+/// Plain-GET snapshot (no `Upgrade: websocket` header). Real WS
+/// upgrade requests are routed up in `boot.rs` to
+/// [`super::ws_upgrade::serve`] before this handler is reached, so
+/// the WS branch here only fires for tools that mis-spell the header
+/// (curl probes etc.) — keep emitting the legacy snapshot for them.
+async fn inbox_ws(_req: &str, operator: &str) -> (&'static str, String) {
     let rows = match pending_rows(operator).await { Ok(r) => r, Err(e) => return server_error(&e.to_string()) };
     let events: Vec<Value> = rows.into_iter().map(|r| json!({"type":"approval_pending","approval_id":r.approval_id,"action_id":r.action_id,"risk_level":r.risk_level})).collect();
-    let status = if header_value(req, "Upgrade").is_some_and(|v| v.eq_ignore_ascii_case("websocket")) { "101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade" } else { "200 OK" };
-    (status, json!({"type":"snapshot","events":events}).to_string())
+    ("200 OK", json!({"type":"snapshot","events":events}).to_string())
 }
 
 async fn inbox_decide(operator: &str, approval_id: &str, decision: Decision) -> (&'static str, String) {
@@ -66,7 +74,15 @@ async fn inbox_decide(operator: &str, approval_id: &str, decision: Decision) -> 
         Err(e) => return unauthorized(&e),
     };
     match settle(&claims, operator, Some("web inbox"), "webinbox").await {
-        Ok(v) => ("200 OK", v),
+        Ok(v) => {
+            super::ws_upgrade::publish_inbox_event(json!({
+                "event": "decision",
+                "approval_id": approval_id,
+                "decision": match decision { Decision::Approve => "approve", Decision::Reject => "reject" },
+                "operator": operator,
+            }));
+            ("200 OK", v)
+        }
         Err(e) => server_error(&e.to_string()),
     }
 }

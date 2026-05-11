@@ -91,6 +91,10 @@ tar = "0.4"
 # (claude-cu-action-replay-cli).
 image = { version = "0.25", default-features = false, features = ["png", "gif"] }
 base64 = "0.22"
+# Used by the gateway's `/inbox/ws` + `/audit/stream` WebSocket upgrade
+# (`mission-inbox-ws-real-websocket`): SHA-1 of `Sec-WebSocket-Key ||
+# RFC 6455 magic GUID` produces the `Sec-WebSocket-Accept` header.
+sha1 = "0.10"
 # Used by `argo vertical install` (#675) to extract `.tar`
 # sources into a temp dir before recursing through the
 # directory-source code path.
