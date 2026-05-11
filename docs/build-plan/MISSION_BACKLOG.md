@@ -256,7 +256,7 @@ unblocks a mission claim.
     Sandbox). `[BRIEF: mission-cu-sandbox-naming-fix]`
 99. Build native macOS computer-use executor.
     `[SHIPPED]`
-100. Build native Linux computer-use executor. `[NEW]`
+100. Build native Linux computer-use executor. `[BRIEF: mission-cu-native-linux-executor-dispatch]` (executor crate `[SHIPPED]` via #992; dispatch wire pending)
 101. Build native Windows computer-use executor. `[NEW]`
 102. Build document creation executor — Google Docs/Sheets/Slides.
      `[NEW]`
@@ -272,7 +272,7 @@ unblocks a mission claim.
 109. Add MCP connector QuickBooks/Xero. `[NEW]`
 110. Add MCP connector Greenhouse/Lever. `[NEW]`
 111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[NEW]`
-112. Add MCP connector SendGrid/Mailgun/Resend. `[NEW]`
+112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; BRIEF: mission-mcp-connector-mailgun for Mailgun; Resend pending]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
      `[NEW]`
 114. Add MCP connector Replicate (any-model HF endpoint). `[NEW]`
@@ -293,7 +293,7 @@ unblocks a mission claim.
 122. Add operator-specific risk overrides. `[NEW]`
 123. Replace `setInterval(reload, 5000)` with real WebSocket on
      `/inbox/ws`. `[NEW]`
-124. Add Telegram channel. `[NEW]`
+124. Add Telegram channel. `[BRIEF: mission-mcp-connector-telegram]`
 125. Add Microsoft Teams channel. `[NEW]`
 126. Add Signal channel. `[NEW]`
 127. Add Matrix channel. `[NEW]`
@@ -412,7 +412,7 @@ unblocks a mission claim.
      `[SHIPPED]`
 192. Build cohort grouping (≥3 trajectories cosine > 0.7).
      (folded) `[SHIPPED]`
-193. Wire judge into Dreams output validation. `[NEW]`
+193. Wire judge into Dreams output validation. `[BRIEF: mission-judge-dreams-output]`
 194. Build LearnedPlanTemplate storage + TrustGrade ladder.
      (folded) `[SHIPPED]`
 195. Build planner-bias-from-template. `[NEW]`
