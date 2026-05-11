@@ -67,6 +67,19 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
             refine,
         } => super::genesis_interactive::run(non_interactive, &output, json, refine),
         GenesisCmd::FromJobDescription { input, json } => from_job_description(&input, json),
+        GenesisCmd::FromVertical {
+            charter_file,
+            seed,
+            persona,
+            output,
+            json,
+        } => super::genesis_from_vertical::handle_from_vertical(
+            &charter_file,
+            &seed,
+            &persona,
+            &output,
+            json,
+        ),
         GenesisCmd::Export {
             vertical,
             output,

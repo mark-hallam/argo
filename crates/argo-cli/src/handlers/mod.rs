@@ -112,6 +112,7 @@ pub mod gateway;
 pub mod gateway_probe;
 pub mod genesis;
 pub mod genesis_export;
+pub mod genesis_from_vertical;
 pub mod genesis_import;
 pub mod genesis_interactive;
 pub mod genesis_interactive_qa;

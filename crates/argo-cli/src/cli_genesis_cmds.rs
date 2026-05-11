@@ -184,6 +184,40 @@ pub enum GenesisCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Seed Genesis from an existing sibling vertical. Operator
+    /// supplies a charter file + the `--seed <vertical-id>` of an
+    /// already-installed in-tenant vertical; Genesis runs the
+    /// standard archetype pipeline, then merges the seed's
+    /// `[actions]`, `[skills]`, `[workflows]` shape into the
+    /// baseline. The seed's id is stamped onto the resulting
+    /// manifest's `vertical.tags` as `"seeded-from:<id>"` so
+    /// downstream eval / Forge cohort analysis can group skills
+    /// by seed lineage. Mission
+    /// `mission-genesis-transfer-from-tenant`.
+    ///
+    /// Without `--seed`, prefer `argo genesis create` — this
+    /// subcommand ALWAYS seeds.
+    FromVertical {
+        /// Path to a plain-text file containing the role charter.
+        /// Read as UTF-8; first 4 KiB is treated as the charter.
+        #[arg(value_name = "CHARTER_FILE")]
+        charter_file: PathBuf,
+        /// Vertical id to seed from (must be discoverable under
+        /// `$ARGO_VERTICALS_DIR` or `./verticals`).
+        #[arg(long)]
+        seed: String,
+        /// Public-facing persona name. Same shape as `create`.
+        #[arg(long)]
+        persona: String,
+        /// Output directory for the generated vertical. Genesis
+        /// refuses to clobber a non-empty dir.
+        #[arg(long)]
+        output: PathBuf,
+        /// Emit a JSON summary instead of the human-readable
+        /// post-create report.
+        #[arg(long)]
+        json: bool,
+    },
     /// Export an installed vertical as a portable tar.gz bundle.
     Export {
         /// Vertical id discoverable via ARGO_VERTICALS_DIR or ./verticals.

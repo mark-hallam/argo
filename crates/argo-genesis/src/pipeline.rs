@@ -16,6 +16,11 @@ use argo_vertical::{ActionDeclaration, ActionRiskLevel, ExecutorDeclaration, Ver
 use chrono::Utc;
 use std::path::Path;
 
+pub use crate::pipeline_seed::{
+    plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, seeded_from,
+    SEEDED_FROM_TAG_PREFIX,
+};
+
 // The conductor-selected cutoff for refusing a likely duplicate.
 const CONFLICT_REFUSE_SCORE: f32 = 0.7;
 
