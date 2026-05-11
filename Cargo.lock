@@ -471,6 +471,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-executor-computer-use-windows"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "argo-executor-document"
 version = "0.0.1"
 dependencies = [

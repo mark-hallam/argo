@@ -39,6 +39,7 @@ members = [
   "crates/argo-executor-computer-use",
   "crates/argo-executor-computer-use-linux",
   "crates/argo-executor-computer-use-macos",
+  "crates/argo-executor-computer-use-windows",
   "crates/argo-executor-document",
   "crates/argo-executor-filesystem",
   "crates/argo-genesis",
