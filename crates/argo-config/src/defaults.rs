@@ -162,6 +162,14 @@ pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_RPM: u32 = 600;
 /// them at the configured rpm.
 pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST: f64 = 2.0;
 
+// --- [channels.teams] -----------------------------------------------
+
+/// `channels.teams.client_secret_env` default — env var name the
+/// operator must populate with the Azure-AD app's client secret.
+/// Env-indirect avoids plaintext secrets in `argo.toml` and lets
+/// operators rotate without restart-and-edit-config.
+pub const DEFAULT_TEAMS_CLIENT_SECRET_ENV: &str = "ARGO_TEAMS_CLIENT_SECRET";
+
 // --- [loop] ----------------------------------------------------------
 
 /// `document_csv.output_root` default — sandbox root for the

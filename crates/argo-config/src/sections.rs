@@ -339,6 +339,56 @@ pub struct PluginConfig {
     pub auto_load: Vec<String>,
 }
 
+/// `[channels]` — parent for per-channel TOML config blocks.
+/// Today only `[channels.teams]`; sibling blocks land here as other
+/// channels (slack, discord, whatsapp, etc.) move off env-only
+/// configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ChannelsConfig {
+    /// `[channels.teams]`.
+    pub teams: TeamsTomlConfig,
+}
+
+/// `[channels.teams]` — Microsoft Teams (Graph API app-only auth).
+///
+/// The client secret is loaded indirectly from the env var named by
+/// `client_secret_env` (default `ARGO_TEAMS_CLIENT_SECRET`) so the
+/// TOML never carries plaintext credentials and operators can rotate
+/// without restart-and-edit-config.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TeamsTomlConfig {
+    /// Master enable. Defaults to `false` — opt-in.
+    pub enabled: bool,
+    /// Azure-AD tenant id.
+    pub tenant_id: String,
+    /// Azure-AD app (client) id.
+    pub client_id: String,
+    /// Env var name holding the client secret.
+    pub client_secret_env: String,
+    /// Default team id used when no explicit team is supplied.
+    pub default_team_id: Option<String>,
+    /// Default channel id used when no explicit channel is supplied.
+    pub default_channel_id: Option<String>,
+    /// When `true`, body markdown is converted to HTML before send.
+    pub markdown_to_html: bool,
+}
+
+impl Default for TeamsTomlConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            tenant_id: String::new(),
+            client_id: String::new(),
+            client_secret_env: defaults::DEFAULT_TEAMS_CLIENT_SECRET_ENV.into(),
+            default_team_id: None,
+            default_channel_id: None,
+            markdown_to_html: true,
+        }
+    }
+}
+
 /// `[document_csv]` — operator-side knobs for the
 /// `argo-executor-document-csv` ExecutorKind. Today only
 /// `output_root`; growth-room left for per-tenant overrides + size

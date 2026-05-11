@@ -32,6 +32,8 @@ pub mod rate_limit;
 pub mod slack;
 pub mod slack_inbound;
 pub mod sms;
+pub mod teams;
+pub mod teams_payload;
 pub mod token;
 pub mod voice;
 pub mod voice_format;
@@ -39,6 +41,8 @@ pub mod webinbox;
 pub mod whatsapp;
 
 pub use discord::DiscordChannel;
+pub use teams::{TeamsApprovalChannel, TeamsApprovalChannelConfig};
+pub use teams_payload::TeamsAttachment;
 pub use operator_preferences::{
     InMemoryPreferencesSource, OperatorId, OperatorPreferences, OperatorPreferencesResolver,
     OperatorPreferencesSource, OperatorQuietHours, TomlPreferencesSource,
