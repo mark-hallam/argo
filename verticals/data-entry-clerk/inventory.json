@@ -1,0 +1,51 @@
+{
+  "target_schemas": [
+    {
+      "id": "invoice_v1",
+      "name": "AP Invoice",
+      "columns": [
+        {"name": "vendor",         "type": "string",       "required": true},
+        {"name": "invoice_number", "type": "string",       "required": true},
+        {"name": "issue_date",     "type": "date",         "required": true},
+        {"name": "due_date",       "type": "date",         "required": false},
+        {"name": "currency",       "type": "currency_3",   "required": true, "enum": ["USD", "EUR", "GBP", "AUD", "CAD"]},
+        {"name": "subtotal",       "type": "decimal",      "required": true},
+        {"name": "tax",            "type": "decimal",      "required": false},
+        {"name": "grand_total",    "type": "decimal",      "required": true}
+      ]
+    },
+    {
+      "id": "expense_v1",
+      "name": "Expense Receipt",
+      "columns": [
+        {"name": "merchant",       "type": "string",       "required": true},
+        {"name": "transaction_date","type": "date",        "required": true},
+        {"name": "currency",       "type": "currency_3",   "required": true, "enum": ["USD", "EUR", "GBP", "AUD", "CAD"]},
+        {"name": "total",          "type": "decimal",      "required": true},
+        {"name": "category",       "type": "enum",         "required": false, "enum": ["meals", "travel", "supplies", "software", "other"]},
+        {"name": "payment_card_tail","type": "string",     "required": false}
+      ]
+    },
+    {
+      "id": "contact_card_v1",
+      "name": "Contact Card",
+      "columns": [
+        {"name": "full_name",      "type": "string",       "required": true},
+        {"name": "company",        "type": "string",       "required": false},
+        {"name": "email",          "type": "string",       "required": false},
+        {"name": "phone",          "type": "string",       "required": false},
+        {"name": "street1",        "type": "string",       "required": false},
+        {"name": "city",           "type": "string",       "required": false},
+        {"name": "state",          "type": "string",       "required": false},
+        {"name": "postal",         "type": "string",       "required": false},
+        {"name": "country",        "type": "iso_country_2","required": false}
+      ]
+    }
+  ],
+  "confidence_floor_autonomous": 0.70,
+  "bulk_commit_threshold_rows": 1,
+  "demo_vendor_aliases": [
+    {"canonical_name": "ACME Co", "raw_variants": ["ACME", "Acme Co.", "ACME COMPANY LTD"], "country": "US"},
+    {"canonical_name": "Globex Corporation", "raw_variants": ["Globex", "Globex Corp"], "country": "US"}
+  ]
+}

@@ -1,0 +1,17 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is single-document parse + per-row validate.
+# Bulk commits, schema inference, and any row that contains a
+# low-confidence field all route through human approval via
+# `[escalation].human_approval_required` in vertical.toml.
+# Defence-in-depth: even if a future edit grants a wake type for
+# bulk_commit or schema_inference, the escalation gate still fires
+# because deny + approval-required always wins.
+wake_action_types = [
+  "extract_table",
+  "normalize_address",
+  "parse_invoice",
+  "validate_against_schema",
+]

@@ -1,0 +1,16 @@
+schema_version = "1"
+
+[[entry]]
+key = "target_schemas"
+type = "list-of-objects"
+purpose = "Operator-defined schemas the clerk parses into. Each row carries: id, name, columns (name + type + required flag + enum members if any), sample_count, last_updated. inventory.json seeds the v1 demo schemas; production additions land here as operators onboard new document types."
+
+[[entry]]
+key = "vendor_aliases"
+type = "list-of-objects"
+purpose = "Canonical vendor names for invoice and receipt parsing. Each row carries: canonical_name, raw_variants (list of surface forms seen in source documents), country, vendor_id_in_target. Drives the vendor-canonicalization step in parse_invoice and the address-canonicalization fallback in normalize_address."
+
+[[entry]]
+key = "parse_corrections"
+type = "list-of-objects"
+purpose = "Operator overrides become a learned glossary. Each row carries: source_doc_id, field, parsed_value, corrected_value, confidence_at_parse, corrected_at, rationale. Read-only from this vertical's perspective — populated by the gateway approval flow when an operator amends a low-confidence row. Future parse runs consult this namespace before emitting a value."

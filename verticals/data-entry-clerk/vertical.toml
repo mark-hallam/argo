@@ -1,0 +1,52 @@
+schema_version = "1"
+
+[vertical]
+id          = "data-entry-clerk"
+name        = "Data-Entry Clerk"
+description = "High-throughput structured-data triage: source PDFs, scans, and email attachments into typed rows that match an operator-defined target schema. The clerk NEVER invents values — a missing field is left blank and the row escalates. Every parsed row carries per-field confidence; bulk commits, schema inference, and any low-confidence field route through human approval. Optional google_drive and dropbox MCP connectors; works in dry-run when the document is supplied directly."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["data-entry", "ocr-downstream", "structured-extraction", "invoice", "address", "schema-validation", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_extract"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# Both MCP servers are optional. The clerk degrades to direct-document
+# mode (operator supplies file path or contents inline) when neither
+# connector is reachable. target_schemas + vendor_aliases +
+# parse_corrections memory is populated by operator-paste otherwise.
+[mcp_servers]
+google_drive = { transport = "stdio", command = "argo-mcp-connector-google-drive", args = [] }
+dropbox      = { transport = "stdio", command = "argo-mcp-connector-dropbox",      args = [] }
+
+[escalation]
+human_approval_required = [
+  "bulk_commit",
+  "schema_inference",
+  "low_confidence_field",
+]
+escalate_after_failures = 1
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Data-Entry Clerk"
