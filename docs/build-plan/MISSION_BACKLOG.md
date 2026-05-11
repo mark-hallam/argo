@@ -330,10 +330,10 @@ unblocks a mission claim.
 145. Executive-assistant vertical. `[NEW]`
 146. Accounts-receivable vertical.
      `[SHIPPED]`
-147. Bookkeeping-assistant vertical. `[NEW]`
+147. Bookkeeping-assistant vertical. `[BRIEF: mission-vertical-bookkeeping-assistant]`
 148. Social-media-drafter vertical. `[NEW]`
 149. Research-analyst vertical. `[NEW]`
-150. Lead-research vertical. `[NEW]`
+150. Lead-research vertical. `[BRIEF: mission-vertical-lead-research]`
 151. Data-entry-clerk vertical. `[NEW]`
 152. QA-engineer vertical. `[NEW]`
 153. Legal-paralegal vertical. `[NEW]`
@@ -341,7 +341,7 @@ unblocks a mission claim.
 155. Customer-onboarding vertical. `[NEW]`
 156. Fundraising-coordinator vertical. `[NEW]`
 157. HR-screener vertical. `[NEW]`
-158. Ops-on-call vertical. `[NEW]`
+158. Ops-on-call vertical. `[BRIEF: mission-vertical-ops-on-call]`
 159. Procurement-assistant vertical. `[NEW]`
 160. Event-coordinator vertical. `[NEW]`
 
