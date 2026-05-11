@@ -183,6 +183,27 @@ This writes 3 markdown files at `.skycot/`:
 
 Re-run any time the ledger changes.
 
+## 11. (optional) Verify with a real LLM
+
+Steps 1-10 use mock-mode by default — they prove the wiring works but
+don't exercise a real provider. Once you've set
+`ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`), run:
+
+```bash
+./scripts/smoke-skycot-real-llm.sh
+```
+
+It queues a single gtm-engineer job ("research the current price of
+Bauer Vapor X5 inline skates and draft a marketplace listing
+description") against a real provider, asserts the worker produced
+coherent non-mock output, and reports token cost. The script
+auto-skips with `=== SKIPPED: no provider key set ===` and exits 0
+when no key is in the environment, so it is safe to wire into CI.
+
+This is the smoke test to run after a fresh setup to confirm
+"yes, the agent actually thinks" — the companion to the mock-mode
+`./scripts/smoke-skycot.sh`.
+
 ## What's next
 
 - See [the demo script](demo_script.md) for a fuller walkthrough

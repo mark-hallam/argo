@@ -26,6 +26,7 @@ Argo also ships **SKYCOT** — the commercial worker layer for running role-boun
 - [`docs/skycot/getting_started.md`](docs/skycot/getting_started.md) — 10-minute path from install to your first approved + executed action.
 - [`docs/skycot/demo_script.md`](docs/skycot/demo_script.md) — marketplace-seller end-to-end demo.
 - [`docs/skycot/operator_runbook.md`](docs/skycot/operator_runbook.md) — full `argo worker actions` CLI reference + ledger artifact map.
+- [`scripts/smoke-skycot.sh`](scripts/smoke-skycot.sh) — end-to-end mock-mode smoke test (no API key needed); companion [`scripts/smoke-skycot-real-llm.sh`](scripts/smoke-skycot-real-llm.sh) drives the same path against a real provider (Anthropic or OpenAI), skip-with-exit-0 when no key is set.
 
 The launch vertical is `verticals/gtm-engineer/` (marketplace seller). The Worker v3 generic execution layer lives in `crates/argo-cli/src/handlers/worker_actions*.rs`; the design spec is `docs/design/worker_v3_execution.md`.
 
