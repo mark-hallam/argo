@@ -108,6 +108,14 @@ uuid = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# Native Linux computer-use executor — only linked on Linux so
+# the `#[cfg(target_os = "linux")]` blocks in
+# `handlers/worker_actions_executor_cu_linux.rs` can reference
+# its public types. On macOS/Windows the dispatch arm returns a
+# clean Provider error without touching this crate.
+[target.'cfg(target_os = "linux")'.dependencies]
+argo-executor-computer-use-linux = { path = "../argo-executor-computer-use-linux", version = "0.0.1" }
+
 [features]
 default = []
 # Pass-through to argo-voice-tui's whisper-native feature: enables

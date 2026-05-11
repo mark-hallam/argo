@@ -27,6 +27,7 @@
 
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor_code::CodeExecutor;
+use super::worker_actions_executor_cu_linux::ComputerUseLinuxExecutor;
 use super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor;
 use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_stubs::{
@@ -69,6 +70,15 @@ pub(crate) enum ExecutorKind {
     /// Provider error so manifests that pin `computer_use_macos`
     /// fail loudly on Linux/Windows hosts.
     ComputerUseMacOS,
+    /// Native Linux computer-use via `xdotool` + `scrot` against
+    /// an X11 desktop. Wired by
+    /// `mission-cu-native-linux-executor-dispatch` (follow-up to
+    /// #992 claude-cu-native-linux-poc). Platform-gated: dispatch
+    /// on non-Linux returns a clean Provider error so manifests
+    /// that pin `computer_use_linux` fail loudly on macOS/Windows
+    /// hosts. Full Anthropic run-loop port is a follow-up brief;
+    /// v1 lands as HumanHandoff with a bundle.
+    ComputerUseLinux,
     /// Calls a registered REST API binding directly. Wired by
     /// Stream H connectors that ship as `ApiExecutor` flavours.
     Api,
@@ -100,6 +110,7 @@ impl ExecutorKind {
             "mcp" => Ok(Self::Mcp),
             "computer_use" => Ok(Self::ComputerUse),
             "computer_use_macos" | "computer-use-macos" => Ok(Self::ComputerUseMacOS),
+            "computer_use_linux" | "computer-use-linux" => Ok(Self::ComputerUseLinux),
             "api" => Ok(Self::Api),
             "browser" => Ok(Self::Browser),
             "filesystem" => Ok(Self::Filesystem),
@@ -108,8 +119,8 @@ impl ExecutorKind {
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
                  valid: human | mcp | computer_use | computer_use_macos | \
-                 api | browser | filesystem | code_execution | \
-                 document_creation"
+                 computer_use_linux | api | browser | filesystem | \
+                 code_execution | document_creation"
             ))),
         }
     }
@@ -123,6 +134,7 @@ impl ExecutorKind {
             Self::Mcp => "mcp",
             Self::ComputerUse => "computer_use",
             Self::ComputerUseMacOS => "computer_use_macos",
+            Self::ComputerUseLinux => "computer_use_linux",
             Self::Api => "api",
             Self::Browser => "browser",
             Self::Filesystem => "filesystem",
@@ -227,6 +239,9 @@ pub(crate) fn resolve_executor(
         }
         ExecutorKind::ComputerUseMacOS => {
             Box::new(ComputerUseMacOSExecutor::with_declaration(decl.clone()))
+        }
+        ExecutorKind::ComputerUseLinux => {
+            Box::new(ComputerUseLinuxExecutor::with_declaration(decl.clone()))
         }
         ExecutorKind::Api => Box::new(ApiExecutor::with_manifest(decl.clone())),
         ExecutorKind::Browser => Box::new(BrowserExecutor::with_manifest(decl.clone())),
