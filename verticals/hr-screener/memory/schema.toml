@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "policy_handbook"
+type = "list-of-objects"
+purpose = "Current policy text used as the ground truth for draft_policy_clarification. Each row carries: section_id, title, body, last_amended_at, supersedes (optional list of prior section_ids). Stored verbatim — the vertical cites text, never paraphrases the canonical clause."
+
+[[entry]]
+key = "eeo_approved_roles"
+type = "list-of-objects"
+purpose = "Operator-ids approved for aggregate EEO-1 / affirmative-action / pay-equity reporting view. Intentionally tiny — typically 1-3 senior HR officers. Each row carries: operator_id, role_title, approved_at, approved_by. The vertical checks this list before allowing any protected-class analysis."
+
+[[entry]]
+key = "accommodation_history"
+type = "list-of-objects"
+purpose = "Current ADA-accommodation registry. Each row carries: employee_role_label (NEVER name), accommodation_category (mobility / sensory / cognitive / chronic_health / other), interactive_process_completed_at, status. HIPAA-sensitive — never echoed into drafts, never aggregated across employees in any output. Used only to confirm whether an interactive-process trail exists for an inbound accommodation request."
+
+[[entry]]
+key = "survey_themes_cache"
+type = "list-of-objects"
+purpose = "Rolling theme cluster from recent surveys, used for trend detection across windows. Each row carries: theme_label, first_seen_window, last_seen_window, observed_count, status (active / resolved / superseded). Themes only — never individual quotes or respondent ids."

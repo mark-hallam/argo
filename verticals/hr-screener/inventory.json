@@ -1,0 +1,52 @@
+{
+  "operator_signature": "Sloane, HR Business Partner",
+  "policy_handbook": [
+    {
+      "section_id": "POL-LEAVE-001",
+      "title": "Paid Time Off (PTO)",
+      "body": "Full-time employees accrue 1.67 PTO days per month (20 days/year). Requests >= 5 consecutive business days require manager approval >= 2 weeks in advance. Unused PTO rolls over up to 10 days per fiscal year. Carryover beyond 10 days is forfeit. PTO does not stack with FMLA-protected leave; see POL-LEAVE-002.",
+      "last_amended_at": "2025-11-01"
+    },
+    {
+      "section_id": "POL-LEAVE-002",
+      "title": "Family + Medical Leave (FMLA)",
+      "body": "Eligible employees (12 months tenure + 1,250 hours worked) may take up to 12 weeks of unpaid, job-protected leave per 12-month period for a qualifying reason under 29 USC §2612. Intermittent leave permitted where medically necessary. Retaliation for taking FMLA leave is prohibited (29 USC §2615); raise any concerns to HR.",
+      "last_amended_at": "2025-03-15"
+    },
+    {
+      "section_id": "POL-CONDUCT-007",
+      "title": "Anti-Harassment + Anti-Retaliation",
+      "body": "Harassment based on race, color, religion, sex, national origin, age, disability, genetic information, or veteran status is prohibited (Title VII / ADEA / ADA / GINA / USERRA). Retaliation for raising a good-faith complaint, participating in an investigation, or requesting an ADA accommodation is independently prohibited. Reports may be made to any HR officer or anonymously via the third-party hotline.",
+      "last_amended_at": "2026-01-10"
+    }
+  ],
+  "eeo_approved_roles": [
+    {
+      "operator_id": "op_hr_director_001",
+      "role_title": "Director, People + Culture",
+      "approved_at": "2026-01-15",
+      "approved_by": "op_general_counsel_001"
+    }
+  ],
+  "accommodation_history": [
+    {
+      "employee_role_label": "engineer_role_a",
+      "accommodation_category": "sensory",
+      "interactive_process_completed_at": "2025-09-12",
+      "status": "active"
+    },
+    {
+      "employee_role_label": "ops_role_b",
+      "accommodation_category": "chronic_health",
+      "interactive_process_completed_at": "2025-12-03",
+      "status": "active"
+    }
+  ],
+  "survey_themes_cache": [
+    {"theme_label": "communication cadence in remote teams",   "first_seen_window": "2025-Q3", "last_seen_window": "2026-Q1", "observed_count": 47, "status": "active"},
+    {"theme_label": "career-growth-conversation frequency",     "first_seen_window": "2025-Q4", "last_seen_window": "2026-Q1", "observed_count": 31, "status": "active"},
+    {"theme_label": "manager 1:1 consistency",                  "first_seen_window": "2025-Q2", "last_seen_window": "2025-Q4", "observed_count": 18, "status": "resolved"}
+  ],
+  "respondent_anonymization_threshold": 5,
+  "borderline_always_escalates": true
+}

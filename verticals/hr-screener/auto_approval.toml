@@ -1,0 +1,24 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is triage + summarize + draft + structure
+# only — none have external effect. Five actions are intentionally
+# absent and route through `[escalation].human_approval_required`
+# in vertical.toml:
+#
+#   - modify_employee_record           (any HRIS row change)
+#   - approve_pto_request              (any leave approval)
+#   - initiate_disciplinary_action     (PIP / warning / suspension / termination)
+#   - share_workforce_data_externally  (data leaving the tenant)
+#   - send_company_wide_communication  (any all-hands message)
+#
+# Defence in depth: even if a future edit adds one of these to
+# wake_action_types, the escalation gate still fires because
+# human-approval-required always wins.
+wake_action_types = [
+  "triage_employee_concern",
+  "summarize_workforce_survey",
+  "draft_policy_clarification",
+  "structure_exit_interview",
+]

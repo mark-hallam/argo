@@ -1,0 +1,55 @@
+schema_version = "1"
+
+[vertical]
+id          = "hr-screener"
+name        = "HR Screener"
+description = "Internal-HR business partner (drafts-only, EEOC + ADA load-bearing) that triages employee concerns, summarizes workforce surveys with N>=5 anonymization, drafts policy clarifications, and structures exit interviews for existing employees. Triage/summary/draft/structure outputs are autonomous-safe; modifying an employee record, approving a PTO request, initiating disciplinary action, sharing workforce data externally, or sending company-wide communication route through HR-officer + (often) legal approval. Optional BambooHR / Workday / MS365 MCP connectors; degrades to draft-only when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["hr", "employee-relations", "workforce-survey", "policy", "exit-interview", "eeoc", "ada", "non-discrimination", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# All MCP servers are optional. The worker reads inventory.json
+# caches and produces drafts in dry-run when no connector is
+# reachable; real HRIS / calendar wiring happens via these
+# connectors when available, by operator paste-ins otherwise.
+[mcp_servers]
+bamboohr = { transport = "stdio", command = "argo-mcp-connector-bamboohr", args = [] }
+workday  = { transport = "stdio", command = "argo-mcp-connector-workday",  args = [] }
+ms365    = { transport = "stdio", command = "argo-mcp-connector-ms365",    args = [] }
+
+[escalation]
+human_approval_required = [
+  "modify_employee_record",
+  "approve_pto_request",
+  "initiate_disciplinary_action",
+  "share_workforce_data_externally",
+  "send_company_wide_communication",
+]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "HR Screener"
