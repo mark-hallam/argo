@@ -16,6 +16,7 @@
 mod sink;
 mod tracing_sink;
 
+pub mod http_target;
 pub mod metrics_prompt_cache;
 
 #[cfg(feature = "otlp")]

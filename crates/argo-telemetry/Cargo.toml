@@ -12,6 +12,13 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
+# `[telemetry.log_shipping]` HTTP-target Layer
+# (`crate::http_target`). Available in default builds — the
+# Layer is opt-in at runtime via `[telemetry.log_shipping].enabled`,
+# not at compile time.
+reqwest = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 # OTLP exporter — optional, gated on the `otlp` feature. Default off
 # so the single-binary distribution stays zero-deps. Pinned to the
@@ -24,13 +31,12 @@ opentelemetry-otlp = { version = "0.27", optional = true, default-features = fal
 # OpenTelemetry tracer registered by `otlp_exporter::init()`. Pinned
 # to the 0.28 series to match `opentelemetry 0.27`.
 tracing-opentelemetry = { version = "0.28", optional = true, default-features = false }
-tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true }
 # Used by `nested_spans_change_current_span` to install a `Registry`
-# subscriber so `tracing::Span::current().id()` returns Some(...).
-tracing-subscriber = { workspace = true }
+# subscriber so `tracing::Span::current().id()` returns Some(...);
+# also by the `http_target` smoke + unit tests.
+wiremock = "0.6"
 
 [features]
 # Enables the OTLP exporter wiring in `otlp_exporter.rs` and the
@@ -44,5 +50,4 @@ otlp = [
     "dep:opentelemetry_sdk",
     "dep:opentelemetry-otlp",
     "dep:tracing-opentelemetry",
-    "dep:tracing-subscriber",
 ]

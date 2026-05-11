@@ -47,6 +47,33 @@ pub const DEFAULT_TELEMETRY_ENABLED: bool = true;
 /// `telemetry.exporter` default.
 pub const DEFAULT_TELEMETRY_EXPORTER: &str = "stdout";
 
+/// `telemetry.log_shipping.enabled` default — off; opt-in.
+pub const DEFAULT_LOG_SHIPPING_ENABLED: bool = false;
+
+/// `telemetry.log_shipping.mode` default. `http_target` is the only
+/// mode in v1; sidecar shipping does not pass through this config
+/// block (it's file-logging + an external agent tailing the file).
+pub const DEFAULT_LOG_SHIPPING_MODE: &str = "http_target";
+
+/// `telemetry.log_shipping.header_authorization_env` default — env
+/// var name the operator populates with the `Authorization` header
+/// value (`Bearer …`, `Splunk …`). Env-indirect keeps secrets out of
+/// `argo.toml` and lets operators rotate without restart-and-edit.
+pub const DEFAULT_LOG_SHIPPING_AUTH_ENV: &str = "ARGO_LOGSHIP_AUTH";
+
+/// `telemetry.log_shipping.batch_size` default — events per POST.
+pub const DEFAULT_LOG_SHIPPING_BATCH_SIZE: usize = 100;
+
+/// `telemetry.log_shipping.flush_interval_seconds` default.
+pub const DEFAULT_LOG_SHIPPING_FLUSH_INTERVAL_SECS: u64 = 5;
+
+/// `telemetry.log_shipping.timeout_seconds` default.
+pub const DEFAULT_LOG_SHIPPING_TIMEOUT_SECS: u64 = 10;
+
+/// `telemetry.log_shipping.queue_max` default — bounded buffer;
+/// overflow drops OLDEST events.
+pub const DEFAULT_LOG_SHIPPING_QUEUE_MAX: usize = 10_000;
+
 // --- [audit] ---------------------------------------------------------
 
 /// `audit.chain_algo` default.
