@@ -343,6 +343,27 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_contract_cmds::ContractCmd,
     },
+    /// Verified binary self-upgrade (Stream `codex-self-update-cli`,
+    /// V1.4). Queries GitHub Releases for a newer build, downloads
+    /// the platform asset + detached Ed25519 signature, verifies
+    /// against the embedded release pubkey, and atomically replaces
+    /// the running binary. Best-effort gateway daemon restart.
+    SelfUpdate {
+        /// Report the latest available version without installing.
+        #[arg(long)]
+        check: bool,
+        /// Release channel: `stable` (default) or `beta` (allows
+        /// pre-release tags).
+        #[arg(long, default_value = "stable")]
+        channel: String,
+        /// Skip the "already on latest" short-circuit and reinstall.
+        /// Never bypasses signature verification.
+        #[arg(long)]
+        force: bool,
+        /// Emit a JSON envelope instead of human-readable status.
+        #[arg(long)]
+        json: bool,
+    },
     /// Direct-action operator commands (session lifecycle, runtime
     /// diagnostics, system ops). Flattened into the top-level
     /// `--help` subcommand list — `argo new`, `argo chat`,

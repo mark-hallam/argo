@@ -51,6 +51,10 @@ argo-executor-document = { path = "../argo-executor-document", version = "0.0.1"
 argo-executor-filesystem = { path = "../argo-executor-filesystem", version = "0.0.1" }
 argo-genesis = { path = "../argo-genesis", version = "0.0.1" }
 argo-identity = { path = "../argo-identity", version = "0.0.1" }
+# Ed25519 signature verification for `argo self-update` (release
+# binary integrity); see crates/argo-cli/src/handlers/self_update.rs
+# and crates/argo-cli/assets/release-pubkey.pem.
+ed25519-dalek = { workspace = true }
 async-trait = { workspace = true }
 aws-config = { workspace = true }
 futures = { workspace = true }
@@ -109,3 +113,6 @@ whisper-native = ["argo-voice-tui/whisper-native"]
 [dev-dependencies]
 criterion = { workspace = true }
 tempfile = "3"
+# Used by `self_update` handler tests to mint ephemeral Ed25519
+# keypairs that sign/verify test fixtures (no real release key in CI).
+rand_core = { version = "0.6", features = ["getrandom"] }

@@ -204,6 +204,7 @@ mod session_skills;
 mod session_transcript;
 mod session_turns;
 mod session_watch;
+pub mod self_update;
 pub mod setup;
 pub mod setup_render;
 pub mod org;

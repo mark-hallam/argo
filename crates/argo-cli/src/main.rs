@@ -468,6 +468,20 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             std::process::exit(2);
         }
         Some(Command::Cu { cmd }) => handlers::cu_replay::run(cmd).await,
+        Some(Command::SelfUpdate {
+            check,
+            channel,
+            force,
+            json,
+        }) => {
+            handlers::self_update::run(handlers::self_update::Args {
+                check,
+                channel,
+                force,
+                json,
+            })
+            .await
+        }
         Some(other) => {
             eprintln!("argo: '{other:?}' is not yet wired in this build.");
             eprintln!("See ROADMAP.md for the integration-tier plan.");
