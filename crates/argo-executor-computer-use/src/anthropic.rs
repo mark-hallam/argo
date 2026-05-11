@@ -23,18 +23,30 @@ use async_trait::async_trait;
 /// [`crate::testing::MockAnthropic`] implements it with a scripted
 /// sequence of canned responses for the offline test harness.
 ///
+/// Returns the ordered sequence of step responses the model
+/// emitted in this turn. A turn may carry multiple actions (e.g.
+/// `mouse_move` then `left_click`) plus an optional terminal
+/// stop signal; the executor dispatches each entry sequentially
+/// before re-screenshotting.
+///
 /// The surface is intentionally minimal — exactly the single
 /// call the executor makes today. Adding methods should be a
 /// coordinated change, not a "while we're here" expansion.
 #[async_trait]
 pub trait AnthropicCall: Send + Sync {
     /// Send one CU loop step and parse the reply.
-    async fn step<'a>(&self, req: CuStepRequest<'a>) -> Result<CuStepResponse, CuError>;
+    async fn step<'a>(
+        &self,
+        req: CuStepRequest<'a>,
+    ) -> Result<Vec<CuStepResponse>, CuError>;
 }
 
 #[async_trait]
 impl AnthropicCall for AnthropicClient {
-    async fn step<'a>(&self, req: CuStepRequest<'a>) -> Result<CuStepResponse, CuError> {
+    async fn step<'a>(
+        &self,
+        req: CuStepRequest<'a>,
+    ) -> Result<Vec<CuStepResponse>, CuError> {
         AnthropicClient::step(self, req).await
     }
 }
@@ -75,9 +87,13 @@ impl AnthropicClient {
         })
     }
 
-    /// Send one CU loop step. Returns the parsed model response:
-    /// either a tool call (next CU action) or a stop signal.
-    pub async fn step(&self, req: CuStepRequest<'_>) -> Result<CuStepResponse, CuError> {
+    /// Send one CU loop step. Returns the ordered sequence of
+    /// parsed responses for the turn — one entry per `tool_use`
+    /// block plus an optional terminal stop signal.
+    pub async fn step(
+        &self,
+        req: CuStepRequest<'_>,
+    ) -> Result<Vec<CuStepResponse>, CuError> {
         let url = format!("{}/v1/messages", self.base_url);
         let body = build_messages_body(req, &self.model, &self.tool_variant);
         let resp = self

@@ -9,25 +9,23 @@
 //! regression surface that `cu_smoke.rs` covers only when env
 //! vars are wired up. `cu_smoke.rs` is intentionally unchanged.
 
+use argo_executor_computer_use::anthropic::{CuStepResponse, StopReason};
 use argo_executor_computer_use::audit::AuditRow;
 use argo_executor_computer_use::e2b::{ActionResult, CuAction};
 use argo_executor_computer_use::testing::{
     cu_harness_run, CannedResponse, ScriptedAction, TestScript,
 };
-use argo_executor_computer_use::{
-    anthropic::{CuStepResponse, StopReason},
-    Outcome,
-};
+use argo_executor_computer_use::Outcome;
 
 fn click(x: u32, y: u32, tokens: u32) -> CannedResponse {
-    CannedResponse::Ok(CuStepResponse::ToolCall {
+    CannedResponse::one(CuStepResponse::ToolCall {
         action: CuAction::Click { x, y },
         tokens_used: tokens,
     })
 }
 
 fn typed(text: &str, tokens: u32) -> CannedResponse {
-    CannedResponse::Ok(CuStepResponse::ToolCall {
+    CannedResponse::one(CuStepResponse::ToolCall {
         action: CuAction::Type {
             text: text.into(),
         },
@@ -36,7 +34,7 @@ fn typed(text: &str, tokens: u32) -> CannedResponse {
 }
 
 fn key(keys: &[&str], tokens: u32) -> CannedResponse {
-    CannedResponse::Ok(CuStepResponse::ToolCall {
+    CannedResponse::one(CuStepResponse::ToolCall {
         action: CuAction::Key {
             keys: keys.iter().map(|s| (*s).to_string()).collect(),
         },
@@ -45,14 +43,14 @@ fn key(keys: &[&str], tokens: u32) -> CannedResponse {
 }
 
 fn mouse_move(x: u32, y: u32, tokens: u32) -> CannedResponse {
-    CannedResponse::Ok(CuStepResponse::ToolCall {
+    CannedResponse::one(CuStepResponse::ToolCall {
         action: CuAction::MouseMove { x, y },
         tokens_used: tokens,
     })
 }
 
 fn stop_success(text: &str, tokens: u32) -> CannedResponse {
-    CannedResponse::Ok(CuStepResponse::Stop {
+    CannedResponse::one(CuStepResponse::Stop {
         reason: StopReason::Success,
         text: Some(text.into()),
         tokens_used: tokens,
@@ -60,7 +58,7 @@ fn stop_success(text: &str, tokens: u32) -> CannedResponse {
 }
 
 fn stop_failure(text: &str, tokens: u32) -> CannedResponse {
-    CannedResponse::Ok(CuStepResponse::Stop {
+    CannedResponse::one(CuStepResponse::Stop {
         reason: StopReason::Failure,
         text: Some(text.into()),
         tokens_used: tokens,
@@ -250,6 +248,52 @@ async fn protocol_error_bubbles_up_cleanly_mid_loop() {
     assert_eq!(run.received_actions.len(), 1);
     assert_eq!(run.anthropic_calls, 2);
     assert_eq!(run.audit_rows.len(), 1);
+}
+
+/// Regression 5b (mission-cu-parser-multi-action): a single turn
+/// emits two actions (mouse_move then left_click). Both must
+/// dispatch to the sandbox in document order with only ONE
+/// anthropic round-trip (vs today's one round-trip per dropped
+/// action). Audit rows for the two actions both reference the
+/// single post-turn screenshot.
+#[tokio::test]
+async fn multi_action_turn_dispatches_both_actions_in_one_round_trip() {
+    let multi = CannedResponse::Ok(vec![
+        CuStepResponse::ToolCall {
+            action: CuAction::MouseMove { x: 10, y: 20 },
+            tokens_used: 30,
+        },
+        CuStepResponse::ToolCall {
+            action: CuAction::Click { x: 10, y: 20 },
+            tokens_used: 0,
+        },
+    ]);
+    let script = TestScript::new(
+        vec![multi, stop_success("done", 5)],
+        vec![
+            scripted(CuAction::MouseMove { x: 10, y: 20 }, ok_response()),
+            scripted(CuAction::Click { x: 10, y: 20 }, ok_response()),
+        ],
+    );
+    let run = cu_harness_run(script).await;
+    let outcome = run.outcome.expect("loop returns an outcome");
+    assert!(matches!(outcome, Outcome::Completed { .. }));
+    // Both actions ran in document order.
+    assert_eq!(run.received_actions.len(), 2);
+    assert_eq!(run.received_actions[0], CuAction::MouseMove { x: 10, y: 20 });
+    assert_eq!(run.received_actions[1], CuAction::Click { x: 10, y: 20 });
+    // Two anthropic calls only: one for the multi-action turn,
+    // one for the terminal stop_success. Today (pre-fix) this
+    // required THREE round-trips because the parser dropped the
+    // click and asked the model again.
+    assert_eq!(run.anthropic_calls, 2);
+    assert_eq!(run.audit_rows.len(), 2);
+    // Both audit rows reference the SAME post-turn screenshot
+    // (one shot taken after the Vec is exhausted).
+    assert_eq!(
+        run.audit_rows[0].screenshot_relpath,
+        run.audit_rows[1].screenshot_relpath,
+    );
 }
 
 /// Regression 5: action coordinates round-trip end-to-end through

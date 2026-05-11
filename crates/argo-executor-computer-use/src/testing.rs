@@ -32,15 +32,26 @@ use std::path::Path;
 use std::sync::Mutex;
 
 /// One canned reply the [`MockAnthropic`] returns for a step call.
-/// `Ok` plays back a parsed [`CuStepResponse`]; `Protocol` plays
-/// back a [`CuError::Protocol`] to simulate a malformed model
-/// reply.
+/// `Ok` plays back the ordered sequence of parsed step responses
+/// for the turn (one entry per `tool_use` block, plus an optional
+/// terminal stop signal); `Protocol` plays back a
+/// [`CuError::Protocol`] to simulate a malformed model reply.
 #[derive(Debug, Clone)]
 pub enum CannedResponse {
-    /// Replay this parsed step response.
-    Ok(CuStepResponse),
+    /// Replay these parsed step responses, in order, as one turn.
+    Ok(Vec<CuStepResponse>),
     /// Replay this protocol-error string.
     Protocol(String),
+}
+
+impl CannedResponse {
+    /// Convenience constructor: wrap a single [`CuStepResponse`]
+    /// as a one-entry [`CannedResponse::Ok`]. Most scripted turns
+    /// emit a single action; this keeps test fixtures readable.
+    #[must_use]
+    pub fn one(resp: CuStepResponse) -> Self {
+        CannedResponse::Ok(vec![resp])
+    }
 }
 
 /// Scripted [`AnthropicCall`] implementation. Each `step` call
@@ -75,7 +86,10 @@ impl MockAnthropic {
 
 #[async_trait]
 impl AnthropicCall for MockAnthropic {
-    async fn step<'a>(&self, _req: CuStepRequest<'a>) -> Result<CuStepResponse, CuError> {
+    async fn step<'a>(
+        &self,
+        _req: CuStepRequest<'a>,
+    ) -> Result<Vec<CuStepResponse>, CuError> {
         if let Ok(mut c) = self.received.lock() {
             *c += 1;
         }
@@ -339,7 +353,7 @@ async fn drive_loop(
     let mut screenshot = e2b.screenshot(&sandbox).await?;
 
     loop {
-        let resp = anthropic
+        let responses = anthropic
             .step(CuStepRequest {
                 system_prompt: &req.system_prompt,
                 screenshot_png: &screenshot,
@@ -348,81 +362,110 @@ async fn drive_loop(
                 screen_height: profile.screen_height,
             })
             .await?;
-        match resp {
-            CuStepResponse::Stop {
-                reason,
-                text,
-                tokens_used,
-            } => {
-                let verdict = tracker.charge_step(tokens_used);
-                if let BudgetVerdict::Exhausted { reason: r } = verdict {
-                    return Ok(Outcome::HumanHandoff {
-                        reason: r,
-                        bundle_dir: bundle_dir.to_path_buf(),
-                        budget: tracker.snapshot(),
-                    });
-                }
-                last_text = text.or(last_text);
-                let snap = tracker.snapshot();
-                return Ok(match reason {
-                    StopReason::Success => Outcome::Completed {
-                        result: RunResult {
-                            final_text: last_text,
-                            actions_taken: prior_actions,
-                            tokens_used: tracker.tokens_used(),
+        // The model may emit multiple actions in one turn (e.g.
+        // `mouse_move` then `left_click`). Dispatch each in
+        // order, accumulate per-action audit info, then take ONE
+        // post-turn screenshot all rows reference.
+        let mut pending: Vec<(u32, CuAction, ActionResult, u32)> = Vec::new();
+        let mut early: Option<Outcome> = None;
+        for resp in responses {
+            match resp {
+                CuStepResponse::Stop {
+                    reason,
+                    text,
+                    tokens_used,
+                } => {
+                    let verdict = tracker.charge_step(tokens_used);
+                    if let BudgetVerdict::Exhausted { reason: r } = verdict {
+                        early = Some(Outcome::HumanHandoff {
+                            reason: r,
+                            bundle_dir: bundle_dir.to_path_buf(),
+                            budget: tracker.snapshot(),
+                        });
+                        break;
+                    }
+                    last_text = text.or(last_text);
+                    let snap = tracker.snapshot();
+                    early = Some(match reason {
+                        StopReason::Success => Outcome::Completed {
+                            result: RunResult {
+                                final_text: last_text.clone(),
+                                actions_taken: prior_actions.clone(),
+                                tokens_used: tracker.tokens_used(),
+                            },
+                            bundle_dir: bundle_dir.to_path_buf(),
+                            budget: snap,
                         },
-                        bundle_dir: bundle_dir.to_path_buf(),
-                        budget: snap,
-                    },
-                    StopReason::Failure => Outcome::HumanHandoff {
-                        reason: format!(
-                            "model emitted stop_failure: {}",
-                            last_text.unwrap_or_default()
-                        ),
-                        bundle_dir: bundle_dir.to_path_buf(),
-                        budget: snap,
-                    },
-                });
-            }
-            CuStepResponse::ToolCall {
-                action,
-                tokens_used,
-            } => {
-                let verdict = tracker.charge_step(tokens_used);
-                if let BudgetVerdict::Exhausted { reason: r } = verdict {
-                    return Ok(Outcome::HumanHandoff {
-                        reason: r,
-                        bundle_dir: bundle_dir.to_path_buf(),
-                        budget: tracker.snapshot(),
+                        StopReason::Failure => Outcome::HumanHandoff {
+                            reason: format!(
+                                "model emitted stop_failure: {}",
+                                last_text.clone().unwrap_or_default()
+                            ),
+                            bundle_dir: bundle_dir.to_path_buf(),
+                            budget: snap,
+                        },
                     });
+                    break;
                 }
-                let summary = action.summary();
-                let result = e2b.execute_action(&sandbox, &action).await?;
-                if let Some(t) = result.text.clone() {
-                    last_text = Some(t);
+                CuStepResponse::ToolCall {
+                    action,
+                    tokens_used,
+                } => {
+                    let verdict = tracker.charge_step(tokens_used);
+                    if let BudgetVerdict::Exhausted { reason: r } = verdict {
+                        early = Some(Outcome::HumanHandoff {
+                            reason: r,
+                            bundle_dir: bundle_dir.to_path_buf(),
+                            budget: tracker.snapshot(),
+                        });
+                        break;
+                    }
+                    let summary = action.summary();
+                    let result = e2b.execute_action(&sandbox, &action).await?;
+                    if let Some(t) = result.text.clone() {
+                        last_text = Some(t);
+                    }
+                    let step_num = tracker.step();
+                    pending.push((step_num, action, result, tokens_used));
+                    prior_actions.push(format!("step {step_num}: {summary}"));
                 }
-                // Mirror production: if the sandbox shipped a
-                // screenshot inline with the action response,
-                // reuse it; otherwise fall back to a fresh HTTP
-                // fetch. Keeps the harness's call cadence in sync
-                // with `run_loop` so cu_harness_offline regression
-                // tests catch double-fetch regressions.
-                screenshot = match result.screenshot_b64.as_deref() {
-                    Some(b64) => decode_inline_screenshot(b64)?,
-                    None => e2b.screenshot(&sandbox).await?,
-                };
-                let relpath = audit.save_screenshot(tracker.step(), &screenshot)?;
+            }
+        }
+
+        if !pending.is_empty() {
+            // Mirror production: if the sandbox shipped a
+            // screenshot inline with the last action's response,
+            // reuse it; otherwise fall back to a fresh HTTP fetch.
+            // Keeps the harness's call cadence in sync with
+            // `run_loop` so cu_harness_offline regression tests
+            // catch double-fetch regressions.
+            screenshot = match pending
+                .last()
+                .and_then(|(_, _, result, _)| result.screenshot_b64.as_deref())
+            {
+                Some(b64) => decode_inline_screenshot(b64)?,
+                None => e2b.screenshot(&sandbox).await?,
+            };
+            let final_step = pending
+                .last()
+                .map(|(s, _, _, _)| *s)
+                .unwrap_or_else(|| tracker.step());
+            let relpath = audit.save_screenshot(final_step, &screenshot)?;
+            for (step, action, result, tokens_used) in pending.drain(..) {
                 audit.append(&AuditRow {
-                    step: tracker.step(),
+                    step,
                     at: chrono::Utc::now().to_rfc3339(),
                     action,
                     result,
-                    screenshot_relpath: relpath,
+                    screenshot_relpath: relpath.clone(),
                     tokens_used,
                     budget: tracker.snapshot(),
                 })?;
-                prior_actions.push(format!("step {}: {summary}", tracker.step()));
             }
+        }
+
+        if let Some(o) = early {
+            return Ok(o);
         }
     }
 }

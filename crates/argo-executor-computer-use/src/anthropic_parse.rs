@@ -1,15 +1,29 @@
 //! Response parsing for the Anthropic CU loop driver. Extracted
 //! from `anthropic.rs` to keep that file under the per-file
 //! 500-LOC budget. The entry point is [`parse_response`], which
-//! walks the model's content blocks and yields either a
-//! [`CuStepResponse::ToolCall`] (next CU primitive) or a
-//! [`CuStepResponse::Stop`] signal.
+//! walks the model's content blocks and yields one or more
+//! [`CuStepResponse`] entries — a [`CuStepResponse::ToolCall`] per
+//! `tool_use` block in document order, optionally followed by a
+//! [`CuStepResponse::Stop`] when the model emits a stop signal in
+//! the same turn.
 
 use crate::anthropic::{CuStepResponse, StopReason};
 use crate::e2b::CuAction;
 use crate::CuError;
 
-pub(crate) fn parse_response(raw: serde_json::Value) -> Result<CuStepResponse, CuError> {
+/// Parse the model's reply into the ordered sequence of step
+/// responses it represents. A turn may carry multiple `tool_use`
+/// blocks (e.g. `mouse_move` then `left_click`); the executor
+/// dispatches each in order before re-screenshotting.
+///
+/// The returned `Vec` is guaranteed non-empty: every `Ok` carries
+/// at least one entry. If the response carries neither a
+/// `tool_use` block nor a recognised stop-signal text block, the
+/// canonical `"anthropic response carried no tool_use or
+/// recognised stop signal"` error surfaces verbatim.
+pub(crate) fn parse_response(
+    raw: serde_json::Value,
+) -> Result<Vec<CuStepResponse>, CuError> {
     let usage = raw.get("usage").and_then(|u| u.as_object());
     let tokens_used = usage
         .and_then(|u| {
@@ -25,7 +39,8 @@ pub(crate) fn parse_response(raw: serde_json::Value) -> Result<CuStepResponse, C
         .ok_or_else(|| {
             CuError::Protocol("anthropic response missing `content` array".into())
         })?;
-    // Walk the content blocks; the first tool_use wins.
+
+    let mut out: Vec<CuStepResponse> = Vec::new();
     for block in content {
         let kind = block.get("type").and_then(serde_json::Value::as_str);
         if kind == Some("tool_use") {
@@ -37,28 +52,34 @@ pub(crate) fn parse_response(raw: serde_json::Value) -> Result<CuStepResponse, C
                 .get("input")
                 .cloned()
                 .unwrap_or(serde_json::json!({}));
-            return parse_tool_use(name, &input, tokens_used);
-        }
-        // The model is also allowed to emit `text` with a
-        // stop signal in plain prose — we recognise specific
-        // sentinels.
-        if kind == Some("text") {
+            // Token charge is per-turn, not per-action; only the
+            // first parsed entry carries the model's token usage
+            // so the budget tracker doesn't double-charge a
+            // multi-action turn.
+            let charge = if out.is_empty() { tokens_used } else { 0 };
+            out.push(parse_tool_use(name, &input, charge)?);
+        } else if kind == Some("text") {
             let text = block
                 .get("text")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
             if let Some(stop) = recognise_text_stop(text) {
-                return Ok(CuStepResponse::Stop {
+                let charge = if out.is_empty() { tokens_used } else { 0 };
+                out.push(CuStepResponse::Stop {
                     reason: stop,
                     text: Some(text.to_string()),
-                    tokens_used,
+                    tokens_used: charge,
                 });
             }
         }
     }
-    Err(CuError::Protocol(
-        "anthropic response carried no tool_use or recognised stop signal".into(),
-    ))
+
+    if out.is_empty() {
+        return Err(CuError::Protocol(
+            "anthropic response carried no tool_use or recognised stop signal".into(),
+        ));
+    }
+    Ok(out)
 }
 
 fn parse_tool_use(
