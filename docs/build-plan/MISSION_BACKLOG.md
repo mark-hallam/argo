@@ -190,7 +190,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 64. Add Genesis that ingests a job description (PDF/text). `[BRIEF: mission-genesis-job-description-ingest]`
 65. Build Genesis for non-archetype roles (broader generation +
-    safety judge). `[NEW]`
+    safety judge). `[BRIEF: mission-genesis-non-archetype-roles]`
 
 ### Claim 4: Skills shared and learned
 
@@ -228,7 +228,7 @@ unblocks a mission claim.
 84. Replace `StubForge` trait OR delete trait + rename
     `forge_optimize` as canonical. `[BRIEF: mission-forge-stubforge-cleanup]`
 85. Build Forge that consumes operator feedback as eval signal.
-    `[NEW]`
+    `[BRIEF: mission-forge-operator-feedback-eval-signal]`
 86. Implement Dreams memory-summarize.
     `[SHIPPED]`
 87. Implement Dreams skill-distillation.
@@ -236,7 +236,7 @@ unblocks a mission claim.
 88. Implement Dreams plan-templates.
     `[SHIPPED]`
 89. Build LearnedPlanTemplate ingestion into TrustGrade ladder.
-    `[NEW]`
+    `[BRIEF: mission-learned-plan-template-trust-ladder]`
 
 ### Claim 5: Real-world execution
 
