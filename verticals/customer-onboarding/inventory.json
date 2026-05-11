@@ -1,0 +1,47 @@
+{
+  "playbook_template": {
+    "name": "default_14_day",
+    "touchpoints": [
+      {"day_offset": 0,  "name": "welcome",     "skill": "draft_welcome_email"},
+      {"day_offset": 3,  "name": "setup_check", "skill": "setup_health_check"},
+      {"day_offset": 7,  "name": "value_check", "skill": "draft_value_check_in"},
+      {"day_offset": 14, "name": "review",      "skill": "identify_churn_signals"}
+    ],
+    "first_value": "first integration connected and producing data within 72h",
+    "operator_signature": "Casey, Customer Success"
+  },
+  "setup_checklist": [
+    {"item": "admin_invited",          "blocking": false},
+    {"item": "sso_enabled",            "blocking": true},
+    {"item": "first_integration",      "blocking": true},
+    {"item": "first_3_seats_active",   "blocking": false},
+    {"item": "billing_verified",       "blocking": false}
+  ],
+  "engagement_thresholds": [
+    {"threshold_id": "logins_day_7_min",            "value": 4,    "comparator": "gte", "severity": "warn"},
+    {"threshold_id": "logins_day_5_stuck",          "value": 0,    "comparator": "lte", "severity": "block"},
+    {"threshold_id": "features_touched_day_7_min",  "value": 3,    "comparator": "gte", "severity": "warn"},
+    {"threshold_id": "seats_activated_day_7_min",   "value": 0.6,  "comparator": "gte", "severity": "warn"},
+    {"threshold_id": "ticket_spike_multiplier",     "value": 2.0,  "comparator": "gte", "severity": "block"},
+    {"threshold_id": "setup_min_complete_day_3",    "value": 0.6,  "comparator": "gte", "severity": "warn"}
+  ],
+  "churn_keywords": [
+    "cancel", "refund", "regret", "competitor",
+    "evaluating alternatives", "no longer at", "shutting down"
+  ],
+  "churn_weightings": {
+    "logins_unique_days_last_7":         0.20,
+    "features_touched_last_7":           0.15,
+    "seats_activated_pct":               0.10,
+    "tickets_severity_weighted_last_7":  0.15,
+    "reply_sentiment":                   0.25,
+    "champion_status":                   0.15
+  },
+  "escalation_routing": {
+    "stuck_activation_no_login":   "csm_lead",
+    "churn_keyword_in_reply":      "csm_lead_immediate",
+    "ticket_volume_spike":         "support_lead_and_csm_lead",
+    "champion_change":             "csm_lead",
+    "executive_intervention":      "operator_immediate"
+  }
+}

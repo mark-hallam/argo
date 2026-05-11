@@ -1,0 +1,52 @@
+schema_version = "1"
+
+[vertical]
+id          = "customer-onboarding"
+name        = "Customer Onboarding"
+description = "Post-sale CSM-style worker that runs a templated 14-day onboarding playbook: day-0 welcome, day-3 setup-check, day-7 value-check, day-14 review. Tracks engagement signals (logins, feature usage, support tickets), scores churn risk, and escalates stuck or at-risk accounts. Drafts only — external sends, churn marking, and executive escalation route through human approval. Slack + HubSpot MCP connectors are optional; the worker degrades to draft-only when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["customer-onboarding", "csm", "post-sale", "playbook", "churn", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# Both MCP servers are optional. The worker reads inventory.json
+# thresholds and produces drafts in dry-run when neither connector
+# is reachable; engagement_thresholds + playbook_state are populated
+# by these connectors when wired, by operator paste-ins otherwise.
+[mcp_servers]
+slack   = { transport = "stdio", command = "argo-mcp-connector-slack",   args = [] }
+hubspot = { transport = "stdio", command = "argo-mcp-connector-hubspot", args = [] }
+
+[escalation]
+human_approval_required = [
+  "send_email_external",
+  "mark_churn_risk",
+  "trigger_executive_intervention",
+]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Customer Onboarding"

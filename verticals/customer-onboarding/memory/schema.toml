@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "accounts_onboarding"
+type = "list-of-objects"
+purpose = "One row per onboarding account. Each row carries: account_id, customer_name, segment, contract_signed_at, buyer, champion, stated_goals (list), seats_purchased, status (active / paused / churned), assigned_csm, last_touchpoint_at."
+
+[[entry]]
+key = "playbook_state"
+type = "list-of-objects"
+purpose = "Per-account playbook progression and signal snapshot. Each row carries: account_id, day_offset, completed_touchpoints (list of day_0 / day_3 / day_7 / day_14), logins_unique_days, features_touched, seats_activated_pct, tickets_count, reply_history (list of {date, sender, sentiment, churn_keyword_hit}), champion_status, last_updated_at."
+
+[[entry]]
+key = "engagement_thresholds"
+type = "list-of-objects"
+purpose = "Operator-tuned thresholds for health calls. Each row carries: threshold_id, name (e.g. logins_day_7_min), value, comparator (gte / lte), severity (info / warn / block), notes. Seeded from inventory.json; operators replace these per cohort."
+
+[[entry]]
+key = "intervention_outcomes"
+type = "list-of-objects"
+purpose = "Audit trail of escalations and their resolutions. Each row carries: account_id, flag (stuck_activation / churn_keyword_in_reply / ticket_volume_spike / champion_change / executive_requested), triggered_at, action_taken (escalation / unblocking_call / churn_marked / exec_engaged / none), outcome (recovered / churned / pending), reviewed_by, reviewed_at."

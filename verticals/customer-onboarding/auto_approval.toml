@@ -1,0 +1,24 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is read + draft only. Setup health checks,
+# value check-ins, welcome drafts, and churn-signal scoring read
+# engagement state and produce drafts — they never mutate the
+# customer-facing world. Three actions are intentionally absent
+# from this allowlist and route through
+# `[escalation].human_approval_required` in vertical.toml:
+#
+#   - send_email_external           (any outbound customer message)
+#   - mark_churn_risk               (flipping the CRM churn flag)
+#   - trigger_executive_intervention(paging an internal exec)
+#
+# Defence in depth: even if a future edit adds one of these to
+# wake_action_types, the escalation gate still fires because
+# human-approval-required always wins.
+wake_action_types = [
+  "draft_welcome_email",
+  "setup_health_check",
+  "draft_value_check_in",
+  "identify_churn_signals",
+]
