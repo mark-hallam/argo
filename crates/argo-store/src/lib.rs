@@ -61,6 +61,11 @@ pub mod learned_plan_template;
 /// Typed query helpers backed by lazy raw-SQL schemas
 /// (Stream `codex-mcp-server-registry-cli`).
 pub mod queries;
+/// Per-worker persona revision log — append-only diff history with
+/// sha256 audit-chain hashes + one-step revert (Stream
+/// `mission-persona-evolution-audit-revert`, MISSION_BACKLOG Section
+/// 3 Claim 1 #46).
+pub mod persona_revision;
 /// Recovery-cache CRUD helpers — `argo recover cache list/show/clear`.
 pub mod recovery_cache;
 /// Persistent subtask ledger — durable record of Planner-emitted
@@ -148,7 +153,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 47;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 48;
 
 /// A SQLite-backed session store.
 ///

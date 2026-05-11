@@ -38,4 +38,33 @@ pub enum PersonaCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List append-only persona revisions for one worker, newest
+    /// first (Stream `mission-persona-evolution-audit-revert`).
+    History {
+        /// Worker id (UUID) whose persona log to show.
+        worker_id: String,
+        /// Maximum revisions to display. Defaults to 50.
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+        /// Emit a JSON array instead of the human-readable table.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Revert one persona field to a prior value cited by
+    /// `rev_id` (Stream `mission-persona-evolution-audit-revert`).
+    /// Prints the diff (target old / current / target old applied)
+    /// and prompts for confirmation unless `--yes` is set. The
+    /// revert itself is recorded as a NEW revision.
+    Revert {
+        /// Revision id (UUID) whose `old_value` becomes the new
+        /// live persona value.
+        rev_id: String,
+        /// Skip the interactive confirmation prompt.
+        #[arg(long)]
+        yes: bool,
+        /// Emit `{ok, rev_id, new_rev_id}` JSON instead of the
+        /// human-readable confirmation line.
+        #[arg(long)]
+        json: bool,
+    },
 }

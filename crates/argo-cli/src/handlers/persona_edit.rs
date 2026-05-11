@@ -46,6 +46,16 @@ pub async fn run(cmd: PersonaCmd) -> ArgoResult<()> {
             in_place,
             json,
         } => edit(&name, tenant.as_deref(), in_place.as_deref(), json).await,
+        PersonaCmd::History {
+            worker_id,
+            limit,
+            json,
+        } => crate::handlers::persona_history::run(&worker_id, limit, json).await,
+        PersonaCmd::Revert {
+            rev_id,
+            yes,
+            json,
+        } => crate::handlers::persona_revert::run(&rev_id, yes, json).await,
     }
 }
 

@@ -42,6 +42,7 @@ mod v44;
 mod v45;
 mod v46;
 mod v47;
+mod v48;
 mod v6;
 mod v7;
 mod v8;
@@ -382,6 +383,11 @@ fn all_migrations() -> Vec<Migration> {
             version: 47,
             up: |tx| Box::pin(v47::up(tx)),
             down: |tx| Box::pin(v47::down(tx)),
+        },
+        Migration {
+            version: 48,
+            up: |tx| Box::pin(v48::up(tx)),
+            down: |tx| Box::pin(v48::down(tx)),
         },
     ]
 }

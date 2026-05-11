@@ -159,6 +159,8 @@ pub mod onboard;
 pub mod onboard_render;
 pub mod onboard_stages;
 pub mod persona_edit;
+pub mod persona_history;
+pub mod persona_revert;
 pub mod plan_execute;
 pub mod plan_generate;
 pub mod plan_show;
