@@ -218,15 +218,15 @@ unblocks a mission claim.
     runs as cron. `[BRIEF: mission-skill-quality-from-audit]`
 78. Build cron tick `argo skill quality-recompute --all`. `[BRIEF: mission-skill-quality-cron]`
 79. Build skill version migration path (v1 → v2 → downstream
-    notify). `[NEW]`
+    notify). `[BRIEF: mission-skill-version-migration-path]`
 80. Build skill ratings (operator thumbs propagate to publisher).
-    `[NEW]`
+    `[BRIEF: mission-skill-ratings-publisher]`
 81. Build cross-tenant trust graph. `[BRIEF: mission-cross-tenant-trust-graph]`
 82. Build skill regression detector (quality drops >X% → demote).
     `[BRIEF: mission-skill-regression-detector]`
 83. Build Forge as cron tick that picks lowest-quality skills. `[BRIEF: mission-forge-cron-lowest-quality]`
 84. Replace `StubForge` trait OR delete trait + rename
-    `forge_optimize` as canonical. `[NEW]`
+    `forge_optimize` as canonical. `[BRIEF: mission-forge-stubforge-cleanup]`
 85. Build Forge that consumes operator feedback as eval signal.
     `[NEW]`
 86. Implement Dreams memory-summarize.
