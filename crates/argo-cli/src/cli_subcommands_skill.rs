@@ -235,6 +235,28 @@ pub enum SkillCmd {
     Install {
         source: String,
     },
+    /// Mutate metadata on an active skill in place. Currently only
+    /// the skill-side trust gate (`--min-trust-grade`) is wired —
+    /// future flag pass-throughs extend this command instead of
+    /// adding fresh subcommands. M6 precursor 1/3 (Stream
+    /// `mission-skill-min-trust-grade-column`).
+    Update {
+        /// Skill name (active version is mutated).
+        name: String,
+        /// Minimum [`argo_skill::trust::TrustGrade`] required to
+        /// surface the skill for a worker. Accepts the snake_case
+        /// JSON serialization (`builtin`, `published_verified`,
+        /// `tenant`, `published_community`, `learned_unreviewed`)
+        /// or the literal `none` / `null` to clear the column back
+        /// to "no restriction" (the v1 default). Without this flag
+        /// the command is a no-op so future flags compose cleanly.
+        #[arg(long)]
+        min_trust_grade: Option<String>,
+        /// Emit JSON `{name, min_trust_grade}` instead of the
+        /// human-readable line.
+        #[arg(long)]
+        json: bool,
+    },
     /// Run cohort-based Dreams distillation over recent
     /// trajectories and emit a per-cohort summary. Reads
     /// `TrajectoryInput` JSON array from stdin (the producer is

@@ -1,0 +1,24 @@
+-- Stream `mission-skill-min-trust-grade-column` (M6 precursor 1/3 —
+-- unblocks `mission-skill-propagation-loop`). Adds the skill-side
+-- minimum-trust gate the discovery pipeline needs to refuse to
+-- surface a skill to a worker whose `worker.trust_grade` is below
+-- the skill's authored floor.
+--
+-- `min_trust_grade` is INTEGER NULL: NULL means "no restriction"
+-- (the v1 default — any worker may use the skill); a non-NULL value
+-- encodes the `argo_skill::trust::TrustGrade` enum's numeric
+-- discriminant. The Rust setter/getter on `SkillStore` round-trips
+-- the typed enum; the integer column lives at the storage layer so
+-- the comparison can be plain SQL once enforcement lands in the M6
+-- chain (mission-skill-store-available-for-worker +
+-- mission-skill-session-boot-wire).
+--
+-- Slot rationale: SQL filename slots 49 (`worker_archived_at`), 50
+-- (`worker_trust_grade`), 51 (`worker_skill` + `audit_worker_deleted_at`),
+-- and 52 (`persona_revision`) were occupied when this brief landed;
+-- 53 is the next free filename slot. Reconciles versioned
+-- migration `v49.rs` (next free versioned slot after v48 /
+-- `persona_revision`). The two counters move independently per the
+-- v42/v43 docstrings.
+
+ALTER TABLE skill ADD COLUMN min_trust_grade INTEGER;

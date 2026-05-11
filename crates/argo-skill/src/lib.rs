@@ -54,6 +54,8 @@ mod tests;
 mod tests_lifecycle;
 #[cfg(test)]
 mod sign_dep_smoke;
+#[cfg(test)]
+mod store_trust_tests;
 
 pub use argo_judge::Judge;
 pub use feedback::{should_propose_with_feedback, FeedbackVote};

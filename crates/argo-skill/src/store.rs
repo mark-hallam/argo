@@ -10,6 +10,7 @@
 //! `crate::store::RawSkill`.
 use crate::parse::parse_skill_md;
 use crate::skill::{PrincipalOverride, Skill, SkillFrontmatter};
+use crate::trust::TrustGrade;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, Lock, SessionId, SkillId};
 use chrono::Utc;
@@ -192,6 +193,78 @@ impl SkillStore {
         Ok(())
     }
 
+    /// Set or clear the minimum [`TrustGrade`] required for the
+    /// active skill named `name` to be surfaced.
+    ///
+    /// `Some(grade)` writes the enum's numeric discriminant into
+    /// `skill.min_trust_grade`. `None` clears the column back to
+    /// NULL — "no restriction" — which is the v1 default. Returns
+    /// [`ArgoError::Provider`] if no active row matches `name`.
+    ///
+    /// Enforcement (refusing to surface a skill for a worker whose
+    /// `worker.trust_grade` is below the configured floor) lives in
+    /// the M6 chain (`mission-skill-store-available-for-worker` +
+    /// `mission-skill-session-boot-wire`); this method only
+    /// persists the value.
+    pub async fn set_min_trust_grade(
+        &self,
+        name: &str,
+        grade: Option<TrustGrade>,
+    ) -> ArgoResult<()> {
+        let value = grade.map(trust_grade_as_u8).map(i64::from);
+        let affected = sqlx::query(
+            "UPDATE skill SET min_trust_grade = ? \
+             WHERE name = ? AND superseded_by IS NULL",
+        )
+        .bind(value)
+        .bind(name)
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("set_min_trust_grade: {e}")))?
+        .rows_affected();
+        if affected == 0 {
+            return Err(ArgoError::Provider(format!(
+                "no active skill named '{name}'"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Read the current `min_trust_grade` for the active skill
+    /// named `name`. Returns `Ok(None)` for "no restriction" (the
+    /// default) or `Ok(Some(grade))` when a value has been set.
+    /// Returns [`ArgoError::Provider`] when no active row matches
+    /// `name`.
+    pub async fn get_min_trust_grade(&self, name: &str) -> ArgoResult<Option<TrustGrade>> {
+        let row: Option<(Option<i64>,)> = sqlx::query_as(
+            "SELECT min_trust_grade FROM skill \
+             WHERE name = ? AND superseded_by IS NULL",
+        )
+        .bind(name)
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("get_min_trust_grade: {e}")))?;
+        let (raw,) = row.ok_or_else(|| {
+            ArgoError::Provider(format!("no active skill named '{name}'"))
+        })?;
+        match raw {
+            None => Ok(None),
+            Some(v) => {
+                let byte = u8::try_from(v).map_err(|_| {
+                    ArgoError::Schema(format!(
+                        "skill.min_trust_grade out of range for '{name}': {v}"
+                    ))
+                })?;
+                let grade = trust_grade_from_u8(byte).ok_or_else(|| {
+                    ArgoError::Schema(format!(
+                        "skill.min_trust_grade unknown discriminant for '{name}': {byte}"
+                    ))
+                })?;
+                Ok(Some(grade))
+            }
+        }
+    }
+
     /// Attach an active skill to a session. The agent runner's
     /// system-prompt loader checks for attached skills first;
     /// when any are present, only those are injected (instead
@@ -323,4 +396,35 @@ fn sha256(body: &str) -> [u8; 32] {
     let mut buf = [0u8; 32];
     buf.copy_from_slice(&out);
     buf
+}
+
+/// Forward conversion from a [`TrustGrade`] to its numeric
+/// discriminant for storage in `skill.min_trust_grade`.
+/// Matches the enum's declared variant order: Builtin=0,
+/// PublishedVerified=1, Tenant=2, PublishedCommunity=3,
+/// LearnedUnreviewed=4. Lives here (not on `TrustGrade` itself)
+/// because the brief's may-touch list pins `trust.rs` as
+/// reuse-only.
+pub(crate) fn trust_grade_as_u8(grade: TrustGrade) -> u8 {
+    match grade {
+        TrustGrade::Builtin => 0,
+        TrustGrade::PublishedVerified => 1,
+        TrustGrade::Tenant => 2,
+        TrustGrade::PublishedCommunity => 3,
+        TrustGrade::LearnedUnreviewed => 4,
+    }
+}
+
+/// Reverse conversion. Returns `None` for unknown discriminants —
+/// callers translate that into a schema error so a corrupted row
+/// fails loudly rather than silently mapping to a default grade.
+pub(crate) fn trust_grade_from_u8(byte: u8) -> Option<TrustGrade> {
+    match byte {
+        0 => Some(TrustGrade::Builtin),
+        1 => Some(TrustGrade::PublishedVerified),
+        2 => Some(TrustGrade::Tenant),
+        3 => Some(TrustGrade::PublishedCommunity),
+        4 => Some(TrustGrade::LearnedUnreviewed),
+        _ => None,
+    }
 }

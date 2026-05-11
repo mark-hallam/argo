@@ -232,6 +232,7 @@ pub mod skill_quality_recompute;
 pub mod skill_quality_trend;
 pub mod skill_refine;
 pub mod skill_rollback;
+pub mod skill_update;
 pub mod skill_verify;
 pub mod skill_view;
 pub mod skill_conflicts;

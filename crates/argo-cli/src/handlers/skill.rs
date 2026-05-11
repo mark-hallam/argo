@@ -217,6 +217,13 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             )
             .await
         }
+        SkillCmd::Update {
+            name,
+            min_trust_grade,
+            json,
+        } => {
+            super::skill_update::run(&skills, &name, min_trust_grade.as_deref(), json).await
+        }
         SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
         SkillCmd::Keygen(args) => super::skill_keygen::run(args),
