@@ -1,0 +1,19 @@
+enabled                   = true
+max_usd_micros_per_action = 100000
+daily_budget_usd_micros   = 2000000
+
+# Autonomous-safe surface is read + draft only. Inbox triage,
+# calendar reads, meeting briefs, thread summaries, and slot
+# proposals never mutate external state. Every action that would
+# spend money, send to an external recipient, or commit calendar
+# with an outside attendee is intentionally absent from this list
+# and routes through `[escalation].human_approval_required` in
+# vertical.toml. Defence-in-depth: even if a future edit grants a
+# wake type for one of those actions, the escalation gate still
+# fires because deny+approval-required always wins.
+wake_action_types = [
+  "triage_inbox",
+  "draft_meeting_brief",
+  "find_calendar_slot",
+  "summarize_thread",
+]

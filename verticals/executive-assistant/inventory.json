@@ -1,0 +1,33 @@
+{
+  "principal": {
+    "role": "CEO",
+    "primary_timezone": "US/Pacific",
+    "secondary_timezone": "US/Eastern",
+    "working_hours": {"start": "08:00", "end": "18:30"},
+    "no_meeting_blocks": ["mornings_before_10_US/Pacific", "fridays_after_15:00_US/Pacific"],
+    "default_meeting_length_min": 30,
+    "back_to_back_ok": false,
+    "auto_approve_expense_threshold_usd": 0,
+    "sign_off": "Best,"
+  },
+  "frequent_contacts": [
+    {"alias": "board_chair",  "email_domain": "example-board.example.com", "relationship": "board",         "priority": "high"},
+    {"alias": "lead_investor","email_domain": "vc-firm.example.com",       "relationship": "investor",      "priority": "high"},
+    {"alias": "cto",          "email_domain": "principal-company.example", "relationship": "direct_report", "priority": "high"},
+    {"alias": "cfo",          "email_domain": "principal-company.example", "relationship": "direct_report", "priority": "high"},
+    {"alias": "general_counsel","email_domain": "principal-company.example","relationship": "direct_report","priority": "high"},
+    {"alias": "spouse",       "email_domain": "personal.example",          "relationship": "family",        "priority": "high"}
+  ],
+  "travel_preferences": {
+    "home_airport": "SFO",
+    "preferred_airlines": ["united", "alaska"],
+    "preferred_hotel_chains": ["marriott", "hyatt"],
+    "default_cabin": "premium_economy",
+    "loyalty_alias_only": true
+  },
+  "comms_routing": {
+    "press_inquiries_to": "comms@principal-company.example",
+    "legal_inquiries_to": "general_counsel",
+    "family_emergency_routing": "unmediated"
+  }
+}

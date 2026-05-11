@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "principal_prefs"
+type = "object"
+purpose = "The principal's standing preferences: working hours, no-meeting blocks, preferred meeting length, timezone-of-the-day, sign-off line, auto-approve thresholds, family-emergency routing."
+
+[[entry]]
+key = "frequent_contacts"
+type = "list-of-objects"
+purpose = "Per-contact metadata. Each row carries: name, email_domain, relationship (board / investor / direct_report / family / vendor / press), priority (high / normal / low), notes."
+
+[[entry]]
+key = "travel_aliases"
+type = "list-of-objects"
+purpose = "Stable aliases for travel logistics. Each row carries: alias (e.g. 'home_airport'), value (IATA code / hotel chain / loyalty number reference), notes. Loyalty number values stay opaque — store an alias, never the raw number."
+
+[[entry]]
+key = "drafted_replies"
+type = "list-of-objects"
+purpose = "Approved or candidate outbound drafts. Each row carries: thread_id, recipient_domain, subject, draft_body, approval_state (pending / approved / rejected), sent_at."
