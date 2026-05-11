@@ -267,10 +267,10 @@ unblocks a mission claim.
 106. Add 5+ MCP connectors (telegram, discord, whatsapp-cloud,
      signal, matrix). `[NEW]` (Discord connector
      `[SHIPPED]` IN_REVIEW #879)
-107. Add MCP connector Dropbox/Box/OneDrive. `[NEW]`
+107. Add MCP connector Dropbox/Box/OneDrive. `[PARTIAL — BRIEF: mission-mcp-connector-dropbox for Dropbox; Box + OneDrive pending]`
 108. Add MCP connector Zoom/Microsoft Teams. `[NEW]`
-109. Add MCP connector QuickBooks/Xero. `[NEW]`
-110. Add MCP connector Greenhouse/Lever. `[NEW]`
+109. Add MCP connector QuickBooks/Xero. `[PARTIAL — codex-connector-quickbooks PR closed-as-obsolete; BRIEF: mission-mcp-connector-quickbooks for QuickBooks; Xero pending]`
+110. Add MCP connector Greenhouse/Lever. `[PARTIAL — BRIEF: mission-mcp-connector-greenhouse for Greenhouse; Lever pending]`
 111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[NEW]`
 112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; BRIEF: mission-mcp-connector-mailgun for Mailgun; Resend pending]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
@@ -469,7 +469,7 @@ unblocks a mission claim.
 224. Tenant quota enforcement.
      `[SHIPPED]`
 225. Hard $$$ ceilings per session/day/month at enforcement time.
-     `[NEW]`
+     `[BRIEF: mission-llm-budget-hard-ceiling]`
 226. Incident-response runbook beyond failure_modes.md. `[NEW]`
 227. SIEM integration (Splunk/ELK/Datadog). `[NEW]`
 228. Evidence archival for audit responses. `[NEW]`
