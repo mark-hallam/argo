@@ -48,18 +48,27 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 action_id,
                 comment,
                 worker,
+                skill,
                 json,
-            } => handlers::feedback_up::run(&action_id, comment.as_deref(), worker.as_deref(), json)
-                .await,
+            } => handlers::feedback_up::run(
+                &action_id,
+                comment.as_deref(),
+                worker.as_deref(),
+                skill.as_deref(),
+                json,
+            )
+            .await,
             cli::FeedbackCmd::Down {
                 action_id,
                 comment,
                 worker,
+                skill,
                 json,
             } => handlers::feedback_down::run(
                 &action_id,
                 comment.as_deref(),
                 worker.as_deref(),
+                skill.as_deref(),
                 json,
             )
             .await,

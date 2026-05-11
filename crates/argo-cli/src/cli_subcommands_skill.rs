@@ -395,6 +395,43 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Rate a marketplace-installed skill (operator thumbs ->
+    /// publisher's skill_rating table; Stream
+    /// `mission-skill-ratings-publisher`). The skill must be installed
+    /// from the marketplace (`provenance.source` of the form
+    /// `published:<grade>:<publisher>`); non-published sources return
+    /// an explicit "only published skills can be rated" error.
+    Rate {
+        /// Active local skill name to rate.
+        name: String,
+        /// Skill version label being rated. Defaults to the active
+        /// version of `name` if omitted.
+        #[arg(long)]
+        version: Option<String>,
+        /// `up` or `down`.
+        #[arg(long)]
+        vote: String,
+        /// Optional free-form comment (truncated at 500 chars).
+        #[arg(long)]
+        comment: Option<String>,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show aggregated up/down counts + score + recent comments for
+    /// one marketplace-installed skill
+    /// (Stream `mission-skill-ratings-publisher`). Counts roll up
+    /// across every rater tenant; `comments` are the most-recent 10.
+    Ratings {
+        /// Skill name.
+        name: String,
+        /// Skill version. Defaults to the active version.
+        #[arg(long)]
+        version: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Recompute the quality score for one or every active skill
     /// from the audit log (mission-skill-quality-cron). For each
     /// skill: walks `tool_result` audit rows, derives the four

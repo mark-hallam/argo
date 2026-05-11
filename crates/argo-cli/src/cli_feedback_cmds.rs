@@ -17,6 +17,13 @@ pub enum FeedbackCmd {
         /// Used by `argo feedback list --worker <id>`.
         #[arg(long)]
         worker: Option<String>,
+        /// Skill name this action invoked
+        /// (Stream `mission-skill-ratings-publisher`). When provided
+        /// and the underlying skill is marketplace-installed, the
+        /// vote is ALSO recorded as a publisher-side `skill_rating`
+        /// row alongside the local `operator_feedback` row.
+        #[arg(long)]
+        skill: Option<String>,
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,
@@ -31,6 +38,13 @@ pub enum FeedbackCmd {
         /// Tag the vote with the worker that emitted the action.
         #[arg(long)]
         worker: Option<String>,
+        /// Skill name this action invoked
+        /// (Stream `mission-skill-ratings-publisher`). When provided
+        /// and the underlying skill is marketplace-installed, the
+        /// vote is ALSO recorded as a publisher-side `skill_rating`
+        /// row alongside the local `operator_feedback` row.
+        #[arg(long)]
+        skill: Option<String>,
         /// Output as a single JSON object.
         #[arg(long)]
         json: bool,

@@ -232,6 +232,8 @@ pub mod skill_quality_recompute;
 pub mod skill_quality_trend;
 pub mod skill_list_migrations;
 pub mod skill_migrate;
+pub mod skill_rate;
+pub mod skill_ratings;
 pub mod skill_refine;
 pub mod skill_rollback;
 pub mod skill_update;

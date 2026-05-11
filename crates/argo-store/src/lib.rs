@@ -44,6 +44,11 @@ pub mod skill_query;
 /// Cross-tenant skill sharing query helpers (Stream
 /// `claude-skill-share-cross-tenant-poc`, mission claim 4).
 pub mod skill_share;
+/// Operator-to-publisher skill-rating store (Stream
+/// `mission-skill-ratings-publisher`, mission claim 4 #80) — one row
+/// per `(skill_id, skill_version, rater_tenant)`, idempotent on the
+/// composite primary key.
+pub mod skill_rating;
 mod spend;
 /// Spend anomaly detector — Welford rolling stats per (worker,
 /// hour-of-day) + z-score check (Stream
@@ -166,7 +171,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 53;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 54;
 
 /// A SQLite-backed session store.
 ///

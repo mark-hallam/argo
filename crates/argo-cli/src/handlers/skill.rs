@@ -224,6 +224,27 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         } => {
             super::skill_update::run(&skills, &name, min_trust_grade.as_deref(), json).await
         }
+        SkillCmd::Rate {
+            name,
+            version,
+            vote,
+            comment,
+            json,
+        } => {
+            super::skill_rate::run(
+                &name,
+                version.as_deref(),
+                &vote,
+                comment.as_deref(),
+                json,
+            )
+            .await
+        }
+        SkillCmd::Ratings {
+            name,
+            version,
+            json,
+        } => super::skill_ratings::run(&name, version.as_deref(), json).await,
         SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
         SkillCmd::Keygen(args) => super::skill_keygen::run(args),
