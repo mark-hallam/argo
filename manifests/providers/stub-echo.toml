@@ -1,0 +1,44 @@
+# Stub-echo — cost-bounded fakeprovider for soak / load testing
+# (`scripts/soak-skycot.sh`). Reuses the `openai-compatible` family so
+# it parses + lists without a Rust change. Actual prompt dispatch in
+# the soak runs through the worker's built-in `mock` provider; this
+# manifest exists so the `ARGO_SOAK_PROVIDER=stub-echo` label
+# surfaces as a distinct provider id in dashboards + audit rows.
+# `quirks.sleep_ms` = per-request synthetic latency; `canned_content`
+# is the response payload the soak attaches to assistant turns.
+
+[provider]
+id = "stub-echo"
+family = "openai-compatible"
+display_name = "Stub Echo (soak fakeprovider)"
+base_url = "http://127.0.0.1:0"
+
+[auth]
+api_key_env = "ARGO_STUB_ECHO_KEY"
+header_name = "Authorization"
+header_format = "Bearer {key}"
+
+[transport]
+streaming = "sse"
+chat_path = "/v1/chat/completions"
+connect_timeout_ms = 1000
+read_timeout_ms = 5000
+max_retries = 0
+initial_backoff_ms = 50
+max_backoff_ms = 200
+
+[tool_calls]
+format = "openai_tool_calls"
+
+[capabilities]
+net_egress = ["127.0.0.1"]
+env_read = []
+
+[quirks]
+sleep_ms = 30
+canned_content = "4"
+
+[[models]]
+id = "stub-echo-1"
+context_window = 4096
+tier = "simple"

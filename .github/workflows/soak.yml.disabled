@@ -1,0 +1,65 @@
+name: Soak
+# Nightly 4-hour multi-worker soak test. Runs against the in-tree
+# `stub-echo` fakeprovider so no live provider key is required.
+# Catches gradual-creep failure modes (memory leaks, file-handle
+# leaks, audit-chain bugs, gateway death-spirals) that the
+# `smoke-skycot.sh` first-30-seconds path can't see.
+#
+# Disabled until CI billing is restored. Operators rename
+# `soak.yml.disabled` → `soak.yml` to activate, per the same pattern
+# as `audit.yml.disabled` and `oci-smoke.yml.disabled`.
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  soak:
+    name: 4-hour multi-worker soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: soak
+
+      - name: Build argo
+        run: cargo build -p argo-cli --release
+
+      - name: Pre-soak runner sanity tests
+        env:
+          ARGO_BIN: ${{ github.workspace }}/target/release/argo
+        run: bash scripts/soak-skycot-tests.sh
+
+      - name: Run 4-hour soak
+        env:
+          ARGO_SOAK_PROVIDER: stub-echo
+          ARGO_SOAK_REPORT_DIR: ${{ github.workspace }}/target
+        run: bash scripts/soak-skycot.sh "${{ github.workspace }}/target/release/argo"
+
+      - name: Upload soak summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-report
+          path: target/soak-report-*.json
+
+      - name: Open issue on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = require('glob').sync('target/soak-report-*.json')[0];
+            const body = report
+              ? `Soak failed. Summary:\n\n\`\`\`json\n${require('fs').readFileSync(report)}\n\`\`\``
+              : 'Soak failed before producing a summary. See workflow logs.';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: `Nightly soak failed: ${context.runId}`,
+              body,
+              labels: ['soak-failure'],
+            });
