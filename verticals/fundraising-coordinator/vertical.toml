@@ -1,0 +1,55 @@
+schema_version = "1"
+
+[vertical]
+id          = "fundraising-coordinator"
+name        = "Fundraising Coordinator"
+description = "Founder-facing chief-of-staff for a VC raise. Tracks the investor pipeline through intro → first-call → follow-up → diligence → term-sheet, drafts outbound in the founder's voice, prepares materials, and runs follow-up cadence. Every external interaction is high-stakes: ALL outbound comms, deck shares, and any negotiation surface route through explicit human approval. The coordinator NEVER negotiates and NEVER auto-shares the deck. Optional gmail/gcal/hubspot MCP connectors; works in dry-run when none are reachable."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["fundraising", "vc", "investor-pipeline", "founder", "chief-of-staff", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# All three MCP servers are optional. The coordinator degrades to
+# dry-run mode (founder pastes investor email threads, calendar
+# constraints, and CRM exports inline) when connectors are absent.
+# investor_pipeline + outreach_log are populated by operator-paste
+# in that mode.
+[mcp_servers]
+gmail   = { transport = "stdio", command = "argo-mcp-connector-gmail",   args = [] }
+gcal    = { transport = "stdio", command = "argo-mcp-connector-gcal",    args = [] }
+hubspot = { transport = "stdio", command = "argo-mcp-connector-hubspot", args = [] }
+
+[escalation]
+human_approval_required = [
+  "send_email_external",
+  "share_deck",
+  "respond_to_term_sheet",
+  "negotiate_anything",
+]
+escalate_after_failures = 1
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Fundraising Coordinator"

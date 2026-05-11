@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "investor_pipeline"
+type = "list-of-objects"
+purpose = "Active investor pipeline. Each row carries: investor_id, firm, lead_partner, stage (intro | first-call | followup | diligence | term-sheet | passed | closed), last_contact_at, next_action_at, cadence_pref (default | weekly | monthly | opt-out), thesis_fit_score, check_range_usd, intro_path, notes. Drives track_pipeline_status and stall detection."
+
+[[entry]]
+key = "founder_voice_samples"
+type = "list-of-objects"
+purpose = "Representative samples of the founder's outbound voice. Each row carries: sample_id, kind (cold_email | followup | update | thanks), text, captured_at, register_notes (e.g. 'no em-dashes, first-name sign-off, prefers numbers over adjectives'). draft_followup MUST read at least two before drafting. Two-or-three samples is the working minimum; fewer triggers a two-variant draft."
+
+[[entry]]
+key = "thesis_alignments"
+type = "list-of-objects"
+purpose = "Per-firm thesis research output. Each row carries: firm, thesis_summary, sector_focus, stage_focus, check_range_usd, recent_investments, portfolio_overlap (adjacent / competitive / neutral), last_researched_at, sources. Entries >90 days are stale and need refresh before being treated as authoritative."
+
+[[entry]]
+key = "outreach_log"
+type = "list-of-objects"
+purpose = "Append-only log of every external interaction. Each row carries: investor_id, direction (in | out), channel (email | call | dm | deck_share), timestamp, summary, approved_by (founder | none — required for direction=out), deck_version_shared (if applicable), watermark_id (if applicable). Used to reconstruct stalled-investor evidence and to verify deck-share authorization trail."

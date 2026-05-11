@@ -1,0 +1,44 @@
+{
+  "thesis_alignments": [
+    {
+      "firm": "Acme Capital",
+      "thesis_summary": "Pre-empt-friendly Series A and B in B2B SaaS, developer tools, and infrastructure. Bias toward technical founders who have shipped at scale. Avoid pure marketplaces and ad-supported consumer.",
+      "sector_focus": ["B2B SaaS", "developer tools", "infrastructure"],
+      "stage_focus": ["Series A", "Series B"],
+      "check_range_usd": [5000000, 10000000],
+      "fund_size_usd": 250000000,
+      "lead_partner": "Pat Doe",
+      "recent_investments": ["DevOpsCo", "DataPipeCo"],
+      "portfolio_overlap": "adjacent: DevOpsCo; competitive: none",
+      "last_researched_at": "2026-05-01"
+    },
+    {
+      "firm": "Globex Ventures",
+      "thesis_summary": "Seed and Series A across vertical SaaS, especially fintech-adjacent and HR-tech. Operator-led firm; partners do their own diligence calls. Slow to first call, fast to term sheet once engaged.",
+      "sector_focus": ["vertical SaaS", "fintech-adjacent", "HR-tech"],
+      "stage_focus": ["Seed", "Series A"],
+      "check_range_usd": [3000000, 7000000],
+      "fund_size_usd": 180000000,
+      "lead_partner": "Alex Kim",
+      "recent_investments": ["PayrollX", "VendorHub"],
+      "portfolio_overlap": "neutral",
+      "last_researched_at": "2026-04-22"
+    },
+    {
+      "firm": "Initech Partners",
+      "thesis_summary": "Growth-stage focus, $10M+ checks at Series B and C. Strong portfolio in B2B SaaS infrastructure. Diligence-heavy: expect 3+ customer reference calls and a competitive teardown before partner meeting.",
+      "sector_focus": ["B2B SaaS", "infrastructure", "vertical apps"],
+      "stage_focus": ["Series B", "Series C"],
+      "check_range_usd": [10000000, 25000000],
+      "fund_size_usd": 600000000,
+      "lead_partner": "Sam Rivera",
+      "recent_investments": ["DataPipeCo", "ScaleAppCo"],
+      "portfolio_overlap": "adjacent: DataPipeCo (shared with Acme); competitive: none",
+      "last_researched_at": "2026-04-15"
+    }
+  ],
+  "default_cadence_business_days": {"first_followup": 2, "substantive_followup": 7, "stall_threshold": 14, "cold_threshold": 21},
+  "deck_share_policy": "per-recipient-per-version; watermark required; outreach_log entry mandatory",
+  "term_sheet_policy": "founder-only; coordinator role is logistics and notes capture",
+  "negotiation_policy": "never; every negotiation-shaped ask escalates verbatim to founder"
+}

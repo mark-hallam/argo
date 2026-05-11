@@ -1,0 +1,19 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is research + draft + status reporting +
+# slot proposal. Every external send, every deck share, every term-
+# sheet response, and any negotiation-shaped ask routes through human
+# approval via `[escalation].human_approval_required` in vertical.toml.
+# Defence-in-depth: even if a future edit grants a wake type for any
+# of those gated actions, the escalation gate still fires because
+# deny + approval-required always wins. The coordinator's two
+# load-bearing rules (NEVER negotiate, NEVER auto-share deck) are
+# enforced both in the system prompt and structurally here.
+wake_action_types = [
+  "research_investor",
+  "draft_followup",
+  "schedule_intro_call",
+  "track_pipeline_status",
+]
