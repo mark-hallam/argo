@@ -51,4 +51,7 @@ pub use helpers::{
     record_turn_spend, stream_one_round, RoundResp, RunEventSink, SpendCtx,
 };
 pub use transport::{build_transport, load_manifest};
-pub use turn::{run_turn, run_turn_with_events, TurnResult, MAX_TOOL_ROUNDS};
+pub use turn::turn_planner::{maybe_decompose, DecomposeOutcome, PlannerHook};
+pub use turn::{
+    run_turn, run_turn_with_events, run_turn_with_planner_hook, TurnResult, MAX_TOOL_ROUNDS,
+};

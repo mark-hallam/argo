@@ -25,12 +25,23 @@
 /// candidates that ride the TrustGrade ladder. Stream
 /// `claude-dreams-plan-templates`.
 pub mod dreams_plan_templates;
+/// Decompose-or-dispatch gate — `DecomposeGate` trait + the v1
+/// deterministic `HeuristicGate` impl. Wired into the agent
+/// dispatch loop (mission-planner-dispatch-loop-wire) so coarse
+/// goals get a planner pass before falling through to single-task
+/// dispatch.
+pub mod dispatch_gate;
 mod planner;
 mod planner_templates;
 
 #[cfg(test)]
+mod dispatch_gate_tests;
+#[cfg(test)]
 mod planner_tests;
 
+pub use dispatch_gate::{
+    DecomposeGate, GateError, HeuristicGate, HEURISTIC_LENGTH_THRESHOLD, HEURISTIC_LIST_MARKERS,
+};
 pub use planner::{
     record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, PlannedSubtask,
     Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,

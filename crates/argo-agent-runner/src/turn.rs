@@ -96,6 +96,41 @@ pub async fn run_turn(
     run_turn_with_events(store, cwd, session_id, user, stream, max_rounds, None).await
 }
 
+/// Like [`run_turn_with_events`], but consults a [`PlannerHook`]
+/// before the LLM round loop so coarse goals get a planner pass
+/// and the resulting subtasks land in the [`SubtaskSink`] for the
+/// existing handoff walker to pick up
+/// (mission-planner-dispatch-loop-wire). When `hook` is `None` or
+/// `user` is `None` (i.e. a "continue" turn carries no fresh
+/// goal) the call degrades to the regular [`run_turn_with_events`]
+/// path. Decomposition errors never bubble — see
+/// [`crate::turn_planner::maybe_decompose`].
+#[allow(clippy::too_many_arguments)]
+pub async fn run_turn_with_planner_hook(
+    store: &Arc<SessionStore>,
+    cwd: &Path,
+    session_id: SessionId,
+    user: Option<&str>,
+    stream: bool,
+    max_rounds: usize,
+    events: Option<&RunEventSink>,
+    hook: Option<&turn_planner::PlannerHook<'_>>,
+) -> ArgoResult<TurnResult> {
+    if let (Some(text), Some(h)) = (user, hook) {
+        let parent = session_id.0.to_string();
+        let _ = turn_planner::maybe_decompose(
+            h.planner,
+            h.gate,
+            h.sink,
+            Some(&parent),
+            text,
+            &h.ctx,
+        )
+        .await;
+    }
+    run_turn_with_events(store, cwd, session_id, user, stream, max_rounds, events).await
+}
+
 /// Like `run_turn`, but with an optional `events` sink. The gateway
 /// streaming endpoint passes a real `UnboundedSender`; the CLI +
 /// non-streaming gateway pass `None`. Each event mirrors the audit
@@ -333,6 +368,13 @@ mod turn_memory;
 
 #[path = "turn_skills_runtime.rs"]
 mod turn_skills_runtime;
+
+#[path = "turn_planner.rs"]
+pub mod turn_planner;
+
+#[cfg(test)]
+#[path = "turn_planner_tests.rs"]
+mod turn_planner_tests;
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]
