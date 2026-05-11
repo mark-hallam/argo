@@ -72,6 +72,30 @@ impl FallbackChain {
             per_step_timeout_secs: DEFAULT_PER_STEP_TIMEOUT_SECS,
         }
     }
+
+    /// Pilot integration with the per-operator preferences resolver.
+    ///
+    /// Given a `preferred` channel resolved upstream by
+    /// [`crate::operator_preferences::OperatorPreferencesResolver`],
+    /// return a new chain with the preferred channel promoted to
+    /// the head. If the preferred channel is missing, prepend it.
+    /// If `preferred` is `None`, the chain is returned unchanged —
+    /// operators with no `[operator.<id>.preferences]` block see
+    /// today's behavior. Channel-specific config silos remain
+    /// authoritative for in-channel rendering; this method only
+    /// reorders the attempt sequence.
+    #[must_use]
+    pub fn with_operator_preferred(mut self, preferred: Option<&str>) -> Self {
+        let Some(preferred) = preferred else {
+            return self;
+        };
+        if self.order.first().is_some_and(|c| c == preferred) {
+            return self;
+        }
+        self.order.retain(|c| c != preferred);
+        self.order.insert(0, preferred.to_string());
+        self
+    }
 }
 
 /// Outcome of a single channel attempt.

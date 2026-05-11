@@ -12,8 +12,10 @@ argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-bluebubbles-client = { path = "../argo-bluebubbles-client", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+chrono-tz = { version = "0.10", features = ["serde"] }
 hex = { workspace = true }
 hmac = { workspace = true }
+parking_lot = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

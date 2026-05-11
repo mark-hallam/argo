@@ -23,6 +23,7 @@ pub mod discord;
 pub mod fallback;
 pub mod imessage;
 pub mod manifest;
+pub mod operator_preferences;
 pub mod push;
 pub mod push_format;
 pub mod quiet_hours;
@@ -37,6 +38,10 @@ pub mod webinbox;
 pub mod whatsapp;
 
 pub use discord::DiscordChannel;
+pub use operator_preferences::{
+    InMemoryPreferencesSource, OperatorId, OperatorPreferences, OperatorPreferencesResolver,
+    OperatorPreferencesSource, OperatorQuietHours, TomlPreferencesSource,
+};
 pub use quiet_hours::QuietHours;
 pub use rate_limit::{RateLimit, RateLimitConfig};
 pub use slack_inbound::InboundChannel;
@@ -124,7 +129,7 @@ pub struct OperatorTarget {
 /// let json = serde_json::to_string(&RiskLevel::Medium).unwrap();
 /// assert_eq!(json, "\"medium\"");
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
     /// Read-only or draft-only work.
