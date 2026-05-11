@@ -17,12 +17,50 @@
 //! sink trait defined here when a Dreams distillation produces a
 //! new candidate; the CLI handlers (`argo plan template ...`)
 //! drive promotion + listing.
+use async_trait::async_trait;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use argo_types::{ArgoError, ArgoResult};
+
+/// Sink that mirrors a learned-plan-template lifecycle change into
+/// the skill catalog. Defined here (instead of in `argo-skill`) so
+/// the `argo-store → argo-skill` dep cycle stays severed: the
+/// concrete impl lives in `argo-cli` where both crates are in
+/// scope, and `promote` / `reject` take this trait object.
+///
+/// `ingest_from_template` is called from [`promote`] after the
+/// lifecycle column flips. `demote_from_template` is called from
+/// [`reject`] when an operator un-promotes. Errors propagate to
+/// the caller so a sink failure surfaces at the CLI.
+#[async_trait]
+pub trait SkillIngestSink: Send + Sync {
+    /// Synthesise (or refresh) the corresponding skill row when a
+    /// template is promoted.
+    async fn ingest_from_template(&self, row: &LearnedPlanTemplateRow) -> ArgoResult<()>;
+    /// Demote the corresponding skill row (drop it to the lowest
+    /// trust rung) when a template is rejected. Implementations
+    /// should no-op when no skill exists for the template id.
+    async fn demote_from_template(&self, row: &LearnedPlanTemplateRow) -> ArgoResult<()>;
+}
+
+/// No-op [`SkillIngestSink`] used by unit tests and by callers that
+/// never wire the skill catalog (e.g. pure-store integration tests
+/// in this crate).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NoopSkillIngestSink;
+
+#[async_trait]
+impl SkillIngestSink for NoopSkillIngestSink {
+    async fn ingest_from_template(&self, _row: &LearnedPlanTemplateRow) -> ArgoResult<()> {
+        Ok(())
+    }
+    async fn demote_from_template(&self, _row: &LearnedPlanTemplateRow) -> ArgoResult<()> {
+        Ok(())
+    }
+}
 
 const LEARNED_PLAN_TEMPLATE_SCHEMA: &str =
     include_str!("../migrations/30__learned_plan_templates.sql");
@@ -174,17 +212,40 @@ pub async fn insert(
     Ok(id)
 }
 
-/// Promote a row — marks it as `promoted` and stamps `promoted_at`.
-/// Errors on unknown id or on a row that is already `promoted`
-/// (callers should guard via [`get`] first).
-pub async fn promote(pool: &SqlitePool, id: &str) -> ArgoResult<()> {
-    set_grade(pool, id, TrustGrade::Promoted).await
+/// Promote a row — marks it as `promoted`, stamps `promoted_at`,
+/// then asks `sink` to mirror the row into the skill catalog so it
+/// participates in the `argo-skill::trust::TrustGrade` ladder.
+/// Errors on unknown id; sink errors propagate.
+pub async fn promote(
+    pool: &SqlitePool,
+    id: &str,
+    sink: &dyn SkillIngestSink,
+) -> ArgoResult<()> {
+    set_grade(pool, id, TrustGrade::Promoted).await?;
+    let row = get(pool, id).await?.ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "learned_plan_template promote: missing row after set_grade for '{id}'"
+        ))
+    })?;
+    sink.ingest_from_template(&row).await
 }
 
 /// Reject a row — marks it as `rejected` so the planner never
-/// picks it up. Errors on unknown id.
-pub async fn reject(pool: &SqlitePool, id: &str) -> ArgoResult<()> {
-    set_grade(pool, id, TrustGrade::Rejected).await
+/// picks it up, then asks `sink` to demote the corresponding skill
+/// row (if one was previously ingested). Errors on unknown id;
+/// sink errors propagate.
+pub async fn reject(
+    pool: &SqlitePool,
+    id: &str,
+    sink: &dyn SkillIngestSink,
+) -> ArgoResult<()> {
+    set_grade(pool, id, TrustGrade::Rejected).await?;
+    let row = get(pool, id).await?.ok_or_else(|| {
+        ArgoError::Provider(format!(
+            "learned_plan_template reject: missing row after set_grade for '{id}'"
+        ))
+    })?;
+    sink.demote_from_template(&row).await
 }
 
 async fn set_grade(pool: &SqlitePool, id: &str, grade: TrustGrade) -> ArgoResult<()> {

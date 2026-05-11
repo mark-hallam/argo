@@ -29,6 +29,7 @@ pub mod conflicts;
 pub mod deps;
 pub mod dreams_distillation;
 pub mod eval_runner;
+pub mod ingest_learned;
 mod eval_runner_gate;
 pub mod feedback;
 pub mod learn;
@@ -97,6 +98,10 @@ pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore}
 pub use regression::{detect_regression, RegressionConfig, RegressionDecision};
 pub use eval_runner::{
     run_evals, ActualOutcome, EvalExecutor, EvalReport, DEFAULT_EVAL_PASS_RATE_THRESHOLD,
+};
+pub use ingest_learned::{
+    demote_learned_template, from_learned_plan_template, skill_name_for_template,
+    LEARNED_SKILL_NAME_PREFIX,
 };
 pub use skill::{
     EvalCase, ExpectedOutcome, LifecycleState, PrincipalOverride, Provenance, Skill,
