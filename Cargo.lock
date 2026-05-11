@@ -727,6 +727,7 @@ version = "0.0.1"
 dependencies = [
  "argo-config",
  "argo-mcp",
+ "argo-mcp-connector-shared",
  "async-trait",
  "chrono",
  "oauth2 5.0.0",
@@ -923,6 +924,14 @@ dependencies = [
  "async-trait",
  "reqwest 0.12.28",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "argo-mcp-connector-shared"
+version = "0.0.1"
+dependencies = [
+ "argo-mcp",
  "tokio",
 ]
 

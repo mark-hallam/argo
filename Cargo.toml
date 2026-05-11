@@ -17,6 +17,7 @@ members = [
   "crates/argo-sandbox",
   "crates/argo-plugin",
   "crates/argo-mcp",
+  "crates/argo-mcp-connector-shared",
   "crates/argo-mcp-connector-slack",
   "crates/argo-gateway",
   "crates/argo-cli",

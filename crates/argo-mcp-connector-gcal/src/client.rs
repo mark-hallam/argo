@@ -1,5 +1,6 @@
 //! Thin Google Calendar REST client.
 use argo_mcp::{McpError, McpResult};
+use argo_mcp_connector_shared::{default_http_policy, is_http_retriable, retry_with_policy};
 use chrono::Utc;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -161,6 +162,20 @@ impl GcalClient {
         body: Option<Value>,
     ) -> McpResult<Value> {
         let url = format!("{}/{}", self.config.base_url.trim_end_matches('/'), path);
+        let policy = default_http_policy();
+        retry_with_policy(&policy, is_http_retriable, || {
+            self.send_once(method.clone(), url.clone(), query, body.clone())
+        })
+        .await
+    }
+
+    async fn send_once(
+        &self,
+        method: Method,
+        url: String,
+        query: &[(&str, String)],
+        body: Option<Value>,
+    ) -> McpResult<Value> {
         let mut req = self
             .http
             .request(method, url)
