@@ -98,7 +98,7 @@ unblocks a mission claim.
 19. Plumb Principal to capability engine. (folded into #18) `[SHIPPED]`
 20. Add TLS termination support OR document explicit
     reverse-proxy requirement. `[NEW]`
-21. Add per-tenant rate limiting. `[NEW]`
+21. Add per-tenant rate limiting. `[BRIEF: mission-per-tenant-rate-limiting]`
 22. Add request audit log entry per HTTP request. `[NEW]`
 23. Document and harden the 127.0.0.1:7400 bind default.
     `[NEW]`
@@ -116,7 +116,7 @@ unblocks a mission claim.
     numeric order. (folded into #24) `[SHIPPED]`
 28. Add upgrade test (v0.x → v1.0 schema migration) once stable
     schema declared. `[BRIEF: mission-migration-upgrade-test]`
-29. Plan PostgreSQL support path (long-tail SaaS). `[NEW]`
+29. Plan PostgreSQL support path (long-tail SaaS). `[BRIEF: mission-postgres-support-path-plan]`
 
 ### Observability
 
@@ -490,7 +490,7 @@ unblocks a mission claim.
      `[NEW]`
 237. OOM kill detection + graceful restart. `[NEW]`
 238. Concurrent worker safety (multi-vertical lock). `[NEW]`
-239. SQLite WAL tuning per workload pattern. `[NEW]`
+239. SQLite WAL tuning per workload pattern. `[BRIEF: mission-sqlite-wal-tuning]`
 240. Read replica pattern for heavy audit query loads. `[NEW]`
 241. Horizontal-scaling story (PostgreSQL or shared DB topology).
      `[NEW]`
