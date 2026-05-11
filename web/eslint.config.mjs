@@ -1,24 +1,17 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+// Flat-config wrapper around next-lint defaults.
+// Keep tiny — most rules ride on `next/core-web-vitals` via `pnpm lint`
+// which uses next-lint's legacy config under the hood.
 
 const config = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    rules: {
-      "react/no-unescaped-entities": "off",
-      "@next/next/no-img-element": "warn",
-    },
-  },
-  {
-    ignores: ["node_modules/", ".next/", "storybook-static/", "playwright-report/", "test-results/"],
+    ignores: [
+      "node_modules/",
+      ".next/",
+      "storybook-static/",
+      "playwright-report/",
+      "test-results/",
+      "next-env.d.ts",
+    ],
   },
 ];
 
