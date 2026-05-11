@@ -1,0 +1,16 @@
+schema_version = "1"
+
+[[entry]]
+key = "pipeline_history"
+type = "list-of-objects"
+purpose = "Historical screening outcomes used for calibration. Each row carries: candidate_id (synthetic), jd_family, jd_id, seniority_call, fit_score, top_skill, scope_of_ownership, outcome (advanced / rejected / borderline_escalated), recorded_at. Never contains protected-class signals or PII."
+
+[[entry]]
+key = "jd_calibrations"
+type = "list-of-objects"
+purpose = "Operator-tuned per-JD calibration anchors. Each row carries: jd_id, jd_family, hard_requirements (list), top_skill, seniority_anchors (junior / mid / senior / staff+), years_floor, jurisdictions_allowed (list of US / CA codes), notes."
+
+[[entry]]
+key = "rejected_signals"
+type = "list-of-objects"
+purpose = "Non-PII summary patterns that consistently led to a reject outcome. Each row carries: pattern (e.g. 'top_skill_no_evidence', 'years_below_floor_by_3+', 'scope_mismatch_senior_role'), jd_family, count_observed, last_seen_at. Used as anti-patterns to surface in gap notes — never as a basis for auto-reject."

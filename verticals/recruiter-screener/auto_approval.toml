@@ -1,0 +1,23 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is read + score + draft only. Resume
+# scoring and pipeline calibration read history and produce
+# recommendations — they never touch the candidate-facing world.
+# Slot finding proposes options; it never books. Three actions
+# are intentionally absent from this allowlist and route through
+# `[escalation].human_approval_required` in vertical.toml:
+#
+#   - send_outreach_email      (any outbound candidate message)
+#   - advance_to_phone_screen  (moving the candidate forward)
+#   - reject_candidate         (moving the candidate to rejected)
+#
+# Defence in depth: even if a future edit adds one of these to
+# wake_action_types, the escalation gate still fires because
+# human-approval-required always wins.
+wake_action_types = [
+  "score_resume",
+  "find_screening_slot",
+  "calibrate_against_pipeline",
+]

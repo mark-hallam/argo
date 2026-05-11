@@ -1,0 +1,58 @@
+{
+  "operator_signature": "Sam, In-House Recruiting",
+  "active_jds": [
+    {
+      "jd_id": "skycot-backend-senior-001",
+      "jd_family": "backend_senior",
+      "title": "Senior Backend Engineer",
+      "top_skill": "distributed-systems",
+      "hard_requirements": [
+        "5+ years backend production experience",
+        "Postgres + one queue/streaming system",
+        "owned a sub-system end-to-end",
+        "shipped >= 1 production change with measurable impact"
+      ],
+      "years_floor": 5,
+      "jurisdictions_allowed": ["US", "CA"],
+      "seniority_anchors": {
+        "junior":  "0-2y, one shipped project at scope",
+        "mid":     "3-5y, owned a feature end-to-end",
+        "senior":  "6-9y, owned a sub-system, mentored >=1",
+        "staff+":  "10y+, cross-team ownership, public artefact"
+      }
+    },
+    {
+      "jd_id": "skycot-frontend-mid-001",
+      "jd_family": "frontend_mid",
+      "title": "Frontend Engineer (Mid)",
+      "top_skill": "react-typescript",
+      "hard_requirements": [
+        "3+ years frontend production experience",
+        "React + TypeScript",
+        "owned a feature end-to-end",
+        "one cross-team collaboration"
+      ],
+      "years_floor": 3,
+      "jurisdictions_allowed": ["US", "CA"],
+      "seniority_anchors": {
+        "junior":  "0-2y, one shipped project at scope",
+        "mid":     "3-5y, owned a feature end-to-end",
+        "senior":  "6-9y, owned a sub-system, mentored >=1",
+        "staff+":  "10y+, cross-team ownership, public artefact"
+      }
+    }
+  ],
+  "recruiter_calendar": {
+    "interviewer_name": "Sam Rivera",
+    "timezone": "America/Los_Angeles",
+    "open_windows_next_10_business_days": [
+      "Mon-Thu 09:00-11:00 PT",
+      "Mon-Thu 14:00-16:00 PT",
+      "Fri 09:00-11:00 PT"
+    ],
+    "buffer_minutes_between_interviews": 15
+  },
+  "calibration_history_min_similar": 3,
+  "borderline_always_escalates": true,
+  "jurisdictions_default": ["US", "CA"]
+}

@@ -1,0 +1,52 @@
+schema_version = "1"
+
+[vertical]
+id          = "recruiter-screener"
+name        = "Recruiter Screener"
+description = "Senior in-house recruiter (calibrated, non-discriminatory) that triages inbound applicant resumes against a JD, drafts initial outreach for advanced candidates, proposes screening slots, and calibrates each candidate's score against pipeline history. Scoring + calibration are autonomous-safe; outreach, advance-to-phone-screen, and reject decisions route through human approval. Borderline candidates, any disability disclosure, and any candidate outside US/CA jurisdictions always escalate. Greenhouse + Gmail MCP connectors are optional; the worker degrades to draft-only when absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["recruiting", "resume-screening", "outreach", "scheduling", "calibration", "non-discrimination", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# Both MCP servers are optional. The worker reads inventory.json
+# calibrations and produces drafts in dry-run when neither connector
+# is reachable; pipeline_history + jd_calibrations are populated
+# by these connectors when wired, by operator paste-ins otherwise.
+[mcp_servers]
+greenhouse = { transport = "stdio", command = "argo-mcp-connector-greenhouse", args = [] }
+gmail      = { transport = "stdio", command = "argo-mcp-connector-gmail",      args = [] }
+
+[escalation]
+human_approval_required = [
+  "send_outreach_email",
+  "advance_to_phone_screen",
+  "reject_candidate",
+]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Recruiter Screener"
