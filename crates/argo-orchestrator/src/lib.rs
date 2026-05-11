@@ -30,6 +30,10 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod auction;
+/// Real-time fan-out wrapper around [`auction::Auction`] for
+/// in-process worker subscribers (Stream
+/// `mission-auction-tokio-broadcast-bidder`).
+pub mod auction_dispatcher;
 mod auction_persist;
 mod auction_query;
 /// Worker duty scheduler — autonomous cron-driven actions
@@ -53,6 +57,7 @@ mod walker_helpers;
 pub use auction::{
     fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
 };
+pub use auction_dispatcher::{AuctionDispatcher, AuctionEvent, DEFAULT_CHANNEL_CAPACITY};
 pub use duty_scheduler::{
     spawn_duty_scheduler, ClosedGate, DutyGate, DutyRecord, DutyScheduler, DutyStore,
     FireDecision, OpenGate, TickReport,
