@@ -22,5 +22,11 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 
+[[bench]]
+name = "audit_write"
+harness = false
+
 [dev-dependencies]
 tokio = { workspace = true }
+criterion = { workspace = true }
+tempfile = "3"

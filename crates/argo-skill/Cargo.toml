@@ -29,5 +29,10 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 
+[[bench]]
+name = "select_variant"
+harness = false
+
 [dev-dependencies]
 tokio = { workspace = true }
+criterion = { workspace = true }

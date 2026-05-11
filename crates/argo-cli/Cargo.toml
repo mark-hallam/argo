@@ -19,6 +19,10 @@ harness = false
 name = "message_write"
 harness = false
 
+[[bench]]
+name = "gateway_request"
+harness = false
+
 [dependencies]
 argo-agent-runner = { path = "../argo-agent-runner", version = "0.0.1" }
 argo-audit = { path = "../argo-audit", version = "0.0.1" }

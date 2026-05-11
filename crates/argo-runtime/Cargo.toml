@@ -17,5 +17,10 @@ serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
+[[bench]]
+name = "agent_turn"
+harness = false
+
 [dev-dependencies]
 tokio = { workspace = true }
+criterion = { workspace = true }

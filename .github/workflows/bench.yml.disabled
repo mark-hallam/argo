@@ -1,0 +1,52 @@
+name: Bench
+on:
+  schedule:
+    # Weekly on Sundays at 02:00 UTC. Off-peak so the queue is not
+    # contended with feature CI; cadence matches what perf drift
+    # signals can usefully be reviewed against (5%+ noise floor).
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+
+# Stays `.disabled` until GitHub Actions billing is restored. To
+# enable: rename to `bench.yml`. See
+# `docs/skycot/runbook/perf-benches.md` for context.
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench
+      - name: Establish baseline from main
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout origin/main
+          cargo bench -p argo-runtime --bench agent_turn -- --save-baseline main
+          cargo bench -p argo-audit --bench audit_write -- --save-baseline main
+          cargo bench -p argo-cli --bench gateway_request -- --save-baseline main
+          cargo bench -p argo-store --bench memory_store -- --save-baseline main
+          cargo bench -p argo-skill --bench select_variant -- --save-baseline main
+          git checkout -
+      - name: Run benches against baseline
+        run: |
+          set -euo pipefail
+          cargo bench -p argo-runtime --bench agent_turn -- --baseline main || cargo bench -p argo-runtime --bench agent_turn
+          cargo bench -p argo-audit --bench audit_write -- --baseline main || cargo bench -p argo-audit --bench audit_write
+          cargo bench -p argo-cli --bench gateway_request -- --baseline main || cargo bench -p argo-cli --bench gateway_request
+          cargo bench -p argo-store --bench memory_store -- --baseline main || cargo bench -p argo-store --bench memory_store
+          cargo bench -p argo-skill --bench select_variant -- --baseline main || cargo bench -p argo-skill --bench select_variant
+      - name: Upload criterion report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-report
+          path: target/criterion/
+          retention-days: 30
