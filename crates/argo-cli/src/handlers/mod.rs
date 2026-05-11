@@ -95,6 +95,7 @@ mod eval_validate_vertical;
 pub mod forge;
 mod forge_admin;
 pub mod forge_by_day;
+pub mod forge_cost_report;
 mod feedback_common;
 pub mod feedback_down;
 pub mod feedback_list;

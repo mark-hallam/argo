@@ -18,6 +18,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod cost;
 mod forge;
 mod persist;
 mod run;
@@ -25,6 +26,12 @@ mod run;
 #[cfg(test)]
 mod tests;
 
+pub use cost::{
+    accumulate_e2b_seconds, accumulate_llm_call, pricing_for_model, ForgeCost, PricingTable,
+};
 pub use forge::{finalize_run, Forge, ForgeEvent, StubForge};
-pub use persist::{count_forge_runs, load_forge_status, persist_forge_run};
+pub use persist::{
+    count_forge_runs, load_forge_cost, load_forge_status, persist_forge_run, query_forge_costs,
+    CostQueryFilter, SkillCostRow,
+};
 pub use run::{ForgeOptions, ForgeRun, ForgeStatus};

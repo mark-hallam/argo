@@ -1,5 +1,6 @@
 //! Forge run model — the persisted shape of one optimization run
 //! (§7 `forge_run` table).
+use crate::cost::ForgeCost;
 use argo_types::ForgeRunId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -125,6 +126,13 @@ pub struct ForgeRun {
     pub final_score: Option<f64>,
     /// Run status.
     pub status: ForgeStatus,
+    /// Per-run cost attribution. Populated by the worker plugin via
+    /// `accumulate_llm_call` / `accumulate_e2b_seconds`; stamped onto
+    /// the persisted row on `finalize_run`. Serializes as a nested
+    /// object so JSON consumers see e.g.
+    /// `{"cost":{"llm_input_tokens":1000,…}}`.
+    #[serde(default)]
+    pub cost: ForgeCost,
 }
 
 impl ForgeRun {
@@ -143,7 +151,34 @@ impl ForgeRun {
             spend_usd_micros: 0,
             final_score: None,
             status: ForgeStatus::Pending,
+            cost: ForgeCost::default(),
         }
+    }
+
+    /// Convenience: fold one LLM call into this run's cost
+    /// accumulator. Thin wrapper over
+    /// [`crate::cost::accumulate_llm_call`] so the worker plugin
+    /// doesn't need to import the helper directly.
+    pub fn accumulate_llm_call(
+        &mut self,
+        model_id: &str,
+        input_tokens: u64,
+        output_tokens: u64,
+        cache_read_tokens: u64,
+    ) {
+        crate::cost::accumulate_llm_call(
+            &mut self.cost,
+            model_id,
+            input_tokens,
+            output_tokens,
+            cache_read_tokens,
+        );
+    }
+
+    /// Convenience: fold an E2B-sandbox wall-clock segment into this
+    /// run's cost accumulator (seconds rounded up).
+    pub fn accumulate_e2b_seconds(&mut self, fractional_seconds: f64) {
+        crate::cost::accumulate_e2b_seconds(&mut self.cost, fractional_seconds);
     }
 }
 

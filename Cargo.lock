@@ -273,6 +273,7 @@ dependencies = [
  "argo-executor-computer-use-macos",
  "argo-executor-document",
  "argo-executor-filesystem",
+ "argo-forge",
  "argo-genesis",
  "argo-identity",
  "argo-judge",

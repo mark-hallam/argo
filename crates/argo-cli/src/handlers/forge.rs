@@ -105,6 +105,11 @@ pub async fn run(cmd: ForgeCmd) -> ArgoResult<()> {
         } => {
             super::forge_enqueue::run(&skill, &examples, iterations, budget, json).await
         }
+        ForgeCmd::CostReport {
+            skill,
+            since,
+            json,
+        } => super::forge_cost_report::run(skill, since, json).await,
     }
 }
 

@@ -92,6 +92,29 @@ pub enum ForgeCmd {
         #[arg(long)]
         max_ticks: Option<u64>,
     },
+    /// Per-skill cost-attribution rollup over the recorded
+    /// `forge_run` history (mission-forge-cost-attribution). Sums
+    /// per-call token counts, model-priced LLM cost, E2B sandbox
+    /// cost, and a stamped total — grouped by `skill_name`,
+    /// ordered by total cost descending. Lets operators identify
+    /// which skills cost the most to optimize and tune their
+    /// budgets accordingly.
+    CostReport {
+        /// Exact-match filter on `skill_name`. Omit to aggregate
+        /// across every skill in the recorded history.
+        #[arg(long)]
+        skill: Option<String>,
+        /// Start of the time window (inclusive lower bound on
+        /// `started_at`). Accepts RFC-3339
+        /// (`2026-05-01T00:00:00Z`) or `YYYY-MM-DD`. Omit for
+        /// "all time".
+        #[arg(long)]
+        since: Option<String>,
+        /// Output as a single JSON envelope `{rows:[…], totals}`
+        /// for scripting.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
