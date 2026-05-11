@@ -1,0 +1,118 @@
+name: Silent-skip nightly
+# Nightly run of all silent-skip integration tests against real
+# provider test accounts. Today these tests silently `return` early
+# when `*_API_KEY` env vars are absent (so `cargo test` in CI passes
+# without ever exercising live providers); this workflow injects the
+# test-account secrets from GitHub repo secrets and runs the full
+# discovered set once per day at 05:00 UTC.
+#
+# Disabled until CI billing is restored. Operators rename
+# `silent-skip-nightly.yml.disabled` → `silent-skip-nightly.yml` to
+# activate, per the same pattern as `audit.yml.disabled`,
+# `soak.yml.disabled`, and `oci-smoke.yml.disabled`.
+#
+# Adding a new provider:
+#   1. Configure the test account; obtain a credential.
+#   2. Add it as a GitHub repo secret named `ARGO_TEST_<PROVIDER>_KEY`
+#      (or `ARGO_TEST_<PROVIDER>_<KIND>` for secondary creds).
+#   3. Add the matching `env:` line to the `Run silent-skip` step.
+# Full operator process in `docs/skycot/runbook/silent-skip-nightly.md`.
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  silent-skip:
+    name: All silent-skip integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: silent-skip-nightly
+
+      - name: Discover (pre-flight)
+        run: bash scripts/silent-skip-nightly.sh --discover-only
+
+      - name: Meta-test the runner
+        run: bash scripts/silent-skip-nightly-tests.sh
+
+      - name: Run silent-skip
+        env:
+          # Primary provider credentials. Add new lines as test
+          # accounts are provisioned. Names follow the convention
+          # `ARGO_TEST_<PROVIDER>_<KIND>` so the script's discovery
+          # heuristic and crate-side `env::var` callers stay aligned.
+          ANTHROPIC_API_KEY: ${{ secrets.ARGO_TEST_ANTHROPIC_KEY }}
+          OPENAI_API_KEY: ${{ secrets.ARGO_TEST_OPENAI_KEY }}
+          GEMINI_API_KEY: ${{ secrets.ARGO_TEST_GEMINI_KEY }}
+          GROQ_API_KEY: ${{ secrets.ARGO_TEST_GROQ_KEY }}
+          TAVILY_API_KEY: ${{ secrets.ARGO_TEST_TAVILY_KEY }}
+          BRAVE_API_KEY: ${{ secrets.ARGO_TEST_BRAVE_KEY }}
+          # Channel + connector credentials (silent-skip side).
+          HUBSPOT_ACCESS_TOKEN: ${{ secrets.ARGO_TEST_HUBSPOT_TOKEN }}
+          HUBSPOT_PORTAL_ID: ${{ secrets.ARGO_TEST_HUBSPOT_PORTAL_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.ARGO_TEST_SLACK_BOT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.ARGO_TEST_TELEGRAM_BOT_TOKEN }}
+          MAILGUN_API_KEY: ${{ secrets.ARGO_TEST_MAILGUN_KEY }}
+          MAILGUN_DOMAIN: ${{ secrets.ARGO_TEST_MAILGUN_DOMAIN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.ARGO_TEST_DISCORD_BOT_TOKEN }}
+          MATRIX_ACCESS_TOKEN: ${{ secrets.ARGO_TEST_MATRIX_TOKEN }}
+          NOTION_API_TOKEN: ${{ secrets.ARGO_TEST_NOTION_TOKEN }}
+          GCAL_CLIENT_ID: ${{ secrets.ARGO_TEST_GCAL_CLIENT_ID }}
+          GCAL_CLIENT_SECRET: ${{ secrets.ARGO_TEST_GCAL_CLIENT_SECRET }}
+          MSGRAPH_TENANT_ID: ${{ secrets.ARGO_TEST_MSGRAPH_TENANT_ID }}
+          MSGRAPH_CLIENT_ID: ${{ secrets.ARGO_TEST_MSGRAPH_CLIENT_ID }}
+          MSGRAPH_CLIENT_SECRET: ${{ secrets.ARGO_TEST_MSGRAPH_CLIENT_SECRET }}
+          ARGO_SILENT_SKIP_REPORT_DIR: ${{ github.workspace }}/target
+        run: bash scripts/silent-skip-nightly.sh
+
+      - name: Upload silent-skip report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: silent-skip-report
+          path: target/silent-skip-report-*.json
+
+      - name: Open issue on failure
+        # Trigger only on scheduled runs that produced ≥1 failed or
+        # timed-out target — manual `workflow_dispatch` runs do not
+        # auto-open issues to avoid noise during operator debugging.
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('glob').sync('target/silent-skip-report-*.json')[0];
+            if (!path) {
+              core.warning('No silent-skip report produced; skipping issue.');
+              return;
+            }
+            const data = JSON.parse(require('fs').readFileSync(path, 'utf8'));
+            if ((data.failed || 0) === 0 && (data.timeout || 0) === 0) {
+              core.info('No failures; not opening an issue.');
+              return;
+            }
+            const fails = (data.failures || []).slice(0, 20).map(f =>
+              `- \`${f.crate}::${f.test}\` (${f.outcome}, exit=${f.exit_code})`
+            ).join('\n');
+            const body = [
+              `Silent-skip nightly run ${context.runId} reported failures.`,
+              ``,
+              `**Summary:** total=${data.total} passed=${data.passed} failed=${data.failed} timeout=${data.timeout}`,
+              ``,
+              `**Failures (first 20):**`,
+              fails,
+              ``,
+              `Triage: see \`docs/skycot/runbook/silent-skip-nightly.md\`.`,
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: `Silent-skip nightly failed: ${context.runId}`,
+              body,
+              labels: ['silent-skip-failure', 'nightly'],
+            });

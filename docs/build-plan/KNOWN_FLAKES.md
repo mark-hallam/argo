@@ -58,3 +58,27 @@ may-touch lines that would fix them.
   — feeds `kind = "computer_use_macos_garbage"`; strict mode rejects
   the unknown kind at parse, so `expect("manifest parses")` panics
   before the test reaches its assertion.
+
+## [Silent-Skip Nightly]
+
+Tracks pre-existing flakes surfaced by the nightly silent-skip
+integration runner (`scripts/silent-skip-nightly.sh` driven by
+`.github/workflows/silent-skip-nightly.yml.disabled`). Unlike the
+unit-test flakes above, these run against real provider test
+accounts, so the failure modes are dominated by external state
+(quota, real-API drift, network jitter) rather than internal
+schema/parser issues. See the runbook at
+`docs/skycot/runbook/silent-skip-nightly.md` for the 3-mode
+classification (API breakage / quota / flake).
+
+No entries at time of writing — this is the first run. As nightly
+results accumulate, add specific `crate::test` ids here when:
+
+- A test fails >20% of nightly runs over a 2-week window AND the
+  root cause is provider-side (quota, rate-limit, intermittent 5xx).
+- The fix is "add retry+backoff to that test" rather than a code
+  change in the crate under test.
+- The conductor has reviewed and accepts the flake classification.
+
+Do NOT add an entry for a test that fails on a real API breakage —
+that needs a fix-brief, not a flake exemption.
