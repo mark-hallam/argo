@@ -281,6 +281,7 @@ dependencies = [
  "argo-judge",
  "argo-marketplace",
  "argo-mcp",
+ "argo-mcp-image-gen",
  "argo-memory",
  "argo-orchestrator",
  "argo-provider",
@@ -1023,6 +1024,24 @@ dependencies = [
  "reqwest 0.12.28",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "argo-mcp-image-gen"
+version = "0.0.1"
+dependencies = [
+ "argo-mcp",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "toml",
 ]
 
 [[package]]

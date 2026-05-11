@@ -70,6 +70,11 @@ pub enum Capability {
     SkillJudge,
     /// Run an Argo Forge optimization (only the Forge subsystem).
     ForgeRun,
+    /// Dispatch image-generation tools served by
+    /// `argo-mcp-image-gen` (`image.generate`, `image.edit`).
+    /// Distinct from generic [`Capability::ToolDispatch`] because
+    /// verticals must opt in to paid-API image spend explicitly.
+    ImageGenerate,
 }
 
 /// What kind of process is being spawned.
@@ -142,8 +147,8 @@ impl CapabilitySet {
 
 fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
-        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, MemoryWrite, MemoryWriteTeam, NetEgress,
-        SecretRead, SkillJudge, SkillWrite, Spawn, ToolDispatch,
+        AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, MemoryWrite,
+        MemoryWriteTeam, NetEgress, SecretRead, SkillJudge, SkillWrite, Spawn, ToolDispatch,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -177,6 +182,7 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
         (SkillWrite, SkillWrite) => true,
         (SkillJudge, SkillJudge) => true,
         (ForgeRun, ForgeRun) => true,
+        (ImageGenerate, ImageGenerate) => true,
         _ => false,
     }
 }

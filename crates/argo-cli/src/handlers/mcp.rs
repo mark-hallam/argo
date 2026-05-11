@@ -39,6 +39,16 @@ pub async fn run(cmd: McpCmd) -> ArgoResult<()> {
             .await
         }
         McpCmd::Registry { cmd } => super::mcp_registry::run(cmd).await,
+        McpCmd::ImageGen {
+            config,
+            require_confirm,
+        } => {
+            super::mcp_image_gen::run(super::mcp_image_gen::Args {
+                config,
+                require_confirm,
+            })
+            .await
+        }
     }
 }
 

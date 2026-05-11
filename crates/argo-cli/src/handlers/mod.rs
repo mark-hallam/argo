@@ -144,6 +144,7 @@ pub mod judge_eval;
 pub mod latency;
 pub mod mcp;
 pub mod mcp_health;
+pub mod mcp_image_gen;
 pub mod mcp_rate_limit;
 pub mod mcp_registry;
 pub mod mcp_tools;

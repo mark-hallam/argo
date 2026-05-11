@@ -73,6 +73,20 @@ pub enum McpCmd {
         #[command(subcommand)]
         cmd: McpRegistryCmd,
     },
+    /// Boot the `argo-mcp-image-gen` MCP server over stdio
+    /// (`mission-image-generation-mcp-server`). Reads
+    /// `[mcp.image_gen]` from `--config`, dispatches
+    /// `image.generate` + `image.edit` to OpenAI-compatible or
+    /// stub backends, writes a `cost_estimate` audit row before
+    /// each call.
+    ImageGen {
+        /// Path to `argo.toml`. Defaults to `./argo.toml`.
+        #[arg(long, default_value = "argo.toml")]
+        config: String,
+        /// Short-circuit calls with a cost estimate ≥ 20¢.
+        #[arg(long)]
+        require_confirm: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

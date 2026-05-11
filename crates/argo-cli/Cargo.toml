@@ -34,6 +34,7 @@ argo-forge = { path = "../argo-forge", version = "0.0.1" }
 argo-judge = { path = "../argo-judge", version = "0.0.1" }
 argo-marketplace = { path = "../argo-marketplace", version = "0.0.1" }
 argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
+argo-mcp-image-gen = { path = "../argo-mcp-image-gen", version = "0.0.1" }
 argo-memory = { path = "../argo-memory", version = "0.0.1", features = ["dreams-backend"] }
 argo-provider = { path = "../argo-provider", version = "0.0.1" }
 argo-routing = { path = "../argo-routing", version = "0.0.1" }
