@@ -210,7 +210,7 @@ unblocks a mission claim.
 73. Implement `argo skill sign / verify` (cosign-compatible).
     `[BRIEF: codex-skill-sign-cli]`
 74. Build `published:verified:*` ingestion path with signature
-    attestation. `[NEW]`
+    attestation. `[BRIEF: mission-skill-publish-verified-ingest]`
 75. Build `argo skill catalog` for browsing remote skills. `[BRIEF: mission-cli-skill-catalog]`
 76. Wire `select_variant` and `record_outcome` into runtime
     skill load. `[BRIEF: mission-skill-select-variant-runtime-wire]`
@@ -244,7 +244,7 @@ unblocks a mission claim.
     `[SHIPPED]`
 91. Wire action-level ApiExecutor.
     `[SHIPPED]`
-92. Build `skycot/marketplace-browser:latest` E2B sandbox image. `[NEW]`
+92. Build `skycot/marketplace-browser:latest` E2B sandbox image. `[BRIEF: mission-marketplace-browser-e2b-image]`
 93. Update CU tool variant from `computer_20241022` to current.
     `[BRIEF: mission-cu-tool-variant-update]`
 94. Fix CU output parser to handle multi-action turns. `[BRIEF: mission-cu-parser-multi-action]`
@@ -436,7 +436,7 @@ unblocks a mission claim.
 205. Build benchmark suite (perf regression detection over skill
      versions). `[NEW]`
 206. Build cost-attribution per Forge run. `[BRIEF: mission-forge-cost-attribution]`
-207. Build judge-disagreement evaluation suite. `[NEW]`
+207. Build judge-disagreement evaluation suite. `[BRIEF: mission-judge-disagreement-eval]`
 208. Build skill quality trend dashboard.
      `[SHIPPED]`
 209. Build retro-review UI. `[NEW]`
