@@ -23,7 +23,7 @@ pub use cost_ceilings::{
     enforce_pre_spend, CapBlocked, CapScope, CostCeilings, EnforceContext, NotifyEvent,
     SpendCounters,
 };
-pub use error::{ArgoError, ArgoResult};
+pub use error::{ArgoError, ArgoResult, BudgetWindow};
 pub use ids::{
     AgentId, AgentName, ForgeRunId, JudgeRecordId, MessageId, RequestId, RoutingDecisionId,
     SessionId, SkillId, TenantId, ToolCallId, WorkspaceId,

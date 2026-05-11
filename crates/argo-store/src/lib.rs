@@ -61,6 +61,13 @@ mod spend;
 /// hour-of-day) + z-score check (Stream
 /// `claude-spend-anomaly-alerts`).
 pub mod spend_anomaly;
+/// Hard `[budget.ceiling]` enforcement read side —
+/// `CeilingConfig`, `CeilingCheck`, and the
+/// `SessionStore::check_ceiling` query that feeds the
+/// `argo-provider::spend_gate::SpendGate` enforcement-time wrapper
+/// (Stream `mission-llm-budget-hard-ceiling`, MISSION_BACKLOG
+/// Section 7 #225).
+pub mod spend_ceiling;
 mod stats;
 /// Per-executor-kind action latency histogram — power-of-2 ms
 /// buckets, p50/p95/p99 readout (Stream

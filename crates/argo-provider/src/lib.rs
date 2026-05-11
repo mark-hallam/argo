@@ -37,6 +37,13 @@ mod openai_compat;
 mod openai_responses;
 /// reqwest connection-pool tuning knobs (env-driven).
 pub mod pool_config;
+/// Enforcement-time hard `[budget.ceiling]` wrapper —
+/// `SpendGate<T: Transport>` short-circuits LLM calls that would
+/// exceed any configured per-session / per-day / per-month cap, and
+/// the `BudgetEnforcer` trait that decouples the gate from the
+/// `argo-store` read side (Stream `mission-llm-budget-hard-ceiling`,
+/// MISSION_BACKLOG Section 7 #225).
+pub mod spend_gate;
 mod sse;
 /// Provider-transport trait, wire types, and `build_http_client` helper.
 pub mod transport;
@@ -58,6 +65,7 @@ pub use manifest::{
 };
 pub use openai_compat::{event_to_deltas, OpenAiCompatTransport};
 pub use openai_responses::OpenAiResponsesTransport;
+pub use spend_gate::{BudgetEnforcer, SpendGate, FALLBACK_PROJECTED_COST_MICROS};
 pub use sse::SseBuffer;
 pub use transport::{
     ProviderRequest, ProviderResponse, ProviderResponseDelta, Sampling, StopReason, ToolSchema,

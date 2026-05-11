@@ -45,9 +45,26 @@
 //!   corruption; use [`ArgoError::Invariant`].
 use crate::budget::BudgetKind;
 use crate::capability::Capability;
+use crate::cost_ceilings::CapScope;
 
 /// Argo-wide result.
 pub type ArgoResult<T> = Result<T, ArgoError>;
+
+/// Which spend-window tripped a hard `[budget.ceiling]` cap.
+///
+/// Type alias of [`CapScope`] so the `BudgetExceeded` error and the
+/// existing pre-spend notification surface (`enforce_pre_spend`)
+/// speak the same enum. The two names refer to the same variants
+/// (`Session` / `Day` / `Month`); `CapScope` is the canonical type,
+/// `BudgetWindow` is the operator-facing name used by the
+/// enforcement-time error variant.
+///
+/// ```
+/// use argo_types::BudgetWindow;
+/// let json = serde_json::to_string(&BudgetWindow::Day).unwrap();
+/// assert_eq!(json, "\"day\"");
+/// ```
+pub type BudgetWindow = CapScope;
 
 /// Argo-wide error.
 ///
@@ -276,6 +293,33 @@ pub enum ArgoError {
     /// gateway boundary.
     #[error("not found: {0}")]
     NotFound(String),
+    /// A hard `[budget.ceiling]` cap would be exceeded by the
+    /// projected cost of an LLM call. Maps to HTTP 429.
+    ///
+    /// Returned by the `SpendGate` transport wrapper at
+    /// provider-call time, BEFORE the wrapped transport is invoked —
+    /// so no spend is incurred. Distinct from
+    /// [`ArgoError::BudgetExhausted`] in that the latter signals an
+    /// in-flight budget tree (iterations / tokens / per-session
+    /// `Budget`) was exceeded *during* the agent loop, whereas
+    /// `BudgetExceeded` is a pre-spend ceiling enforcement against
+    /// the persisted `spend_ledger` (per-tenant session / day /
+    /// month windows).
+    #[error(
+        "budget ceiling exceeded: {window:?} window used \
+         {used_micros} usd-micros, ceiling {ceiling_micros}, \
+         projected charge {projected_cost_micros}"
+    )]
+    BudgetExceeded {
+        /// Which window (Session / Day / Month) tripped.
+        window: BudgetWindow,
+        /// Spend already recorded in the window (USD micros).
+        used_micros: u64,
+        /// Configured ceiling for the window (USD micros).
+        ceiling_micros: u64,
+        /// Projected cost of the call that was blocked (USD micros).
+        projected_cost_micros: u64,
+    },
 }
 
 impl From<std::io::Error> for ArgoError {
