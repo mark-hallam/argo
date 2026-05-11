@@ -1,0 +1,36 @@
+{
+  "policy": {
+    "currency": "USD",
+    "three_quote_threshold_usd": 5000,
+    "single_source_justification_required_above_usd": 25000,
+    "per_po_ceiling_usd": 50000,
+    "contract_renewal_lookahead_days": [90, 60, 30],
+    "vendor_review_cadence_days": 365,
+    "tco_horizon_years": 3,
+    "conflict_of_interest_check_required": true
+  },
+  "approved_vendors": [
+    {"vendor_id": "v_acme_saas",     "name": "Acme Cloud Inc.",         "category": "saas",                 "tier": 1, "primary_contact": "renewals@acme-cloud.example",      "last_review_date": "2025-11-04"},
+    {"vendor_id": "v_north_hw",      "name": "Northwind Hardware",       "category": "hardware",             "tier": 2, "primary_contact": "orders@northwind-hw.example",      "last_review_date": "2025-09-22"},
+    {"vendor_id": "v_brightline",    "name": "Brightline Consulting",    "category": "professional_services","tier": 1, "primary_contact": "engagements@brightline.example",   "last_review_date": "2025-12-01"},
+    {"vendor_id": "v_metro_fac",     "name": "Metro Facilities Group",   "category": "facilities",           "tier": 3, "primary_contact": "service@metro-fac.example",        "last_review_date": "2025-07-15"},
+    {"vendor_id": "v_ironwall_sec",  "name": "Ironwall Security",        "category": "saas",                 "tier": 2, "primary_contact": "sales@ironwall-sec.example",       "last_review_date": "2026-01-18"}
+  ],
+  "budget_lines": [
+    {"line_id": "bl_eng_saas_fy26",       "owner_cost_centre": "engineering", "period": "FY26", "category": "saas",                  "ceiling_usd": 240000, "used_usd": 188400, "remaining_usd": 51600, "last_synced": "2026-05-10"},
+    {"line_id": "bl_facilities_q2_fy26",  "owner_cost_centre": "operations",  "period": "Q2-FY26","category": "facilities",           "ceiling_usd":  60000, "used_usd":  41250, "remaining_usd": 18750, "last_synced": "2026-05-10"},
+    {"line_id": "bl_consulting_fy26",     "owner_cost_centre": "executive",   "period": "FY26", "category": "professional_services", "ceiling_usd": 150000, "used_usd":  62000, "remaining_usd": 88000, "last_synced": "2026-05-10"}
+  ],
+  "firm_terms": [
+    {"clause_id": "ft_liability_cap",  "topic": "liability_cap",                "required_text": "Aggregate liability capped at 12 months of fees paid.",                                "fallback_text": "Cap of 24 months acceptable for tier-1 strategic vendors.",        "escalate_if_missing": true},
+    {"clause_id": "ft_indemnity_ip",   "topic": "indemnity",                    "required_text": "Vendor indemnifies for third-party IP infringement; no carve-outs for open source.",  "fallback_text": "Carve-out for combination claims acceptable with written notice.","escalate_if_missing": true},
+    {"clause_id": "ft_dpa",            "topic": "data_processing",              "required_text": "DPA executed; sub-processors disclosed; SCCs for EU data transfers.",                  "fallback_text": "Equivalent BCR-based mechanism acceptable.",                       "escalate_if_missing": true},
+    {"clause_id": "ft_termination",    "topic": "termination_for_convenience",  "required_text": "Termination for convenience with 30 days' notice; pro-rata refund of prepaid fees.",  "fallback_text": "60 days' notice acceptable; refund still required.",               "escalate_if_missing": false},
+    {"clause_id": "ft_audit_rights",   "topic": "audit_rights",                 "required_text": "Annual SOC 2 Type II report; right to remote audit on 30 days' notice.",              "fallback_text": "Equivalent ISO 27001 + bridge letter acceptable.",                 "escalate_if_missing": false}
+  ],
+  "sanctions_watchlist": [
+    {"entity_name": "Synthetic Bad Actor LLC", "entity_type": "company",    "source": "synthetic", "date_added": "2026-01-01", "notes": "Demo entry only. Used by sanctions-hit eval fixture."},
+    {"entity_name": "Phantom Shell Holdings",  "entity_type": "company",    "source": "synthetic", "date_added": "2026-01-01", "notes": "Demo entry only."},
+    {"entity_name": "Ivan Synthetic-Sanction", "entity_type": "individual", "source": "synthetic", "date_added": "2026-01-01", "notes": "Demo entry only. Live OFAC ingestion is a separate compliance brief — never load real names here."}
+  ]
+}

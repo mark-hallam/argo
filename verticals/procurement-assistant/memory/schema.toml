@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "approved_vendors"
+type = "list-of-objects"
+purpose = "Pre-qualified vendor roster. Each row carries: vendor_id, name, category (e.g. saas / hardware / professional_services / facilities), tier (1 / 2 / 3), primary_contact, last_review_date, notes. A vendor not in this list is treated as unapproved — recommendations against unapproved vendors must escalate."
+
+[[entry]]
+key = "budget_lines"
+type = "list-of-objects"
+purpose = "Spend authorisations the assistant draws against. Each row carries: line_id, owner_cost_centre, period (FY / Qx / month), category, ceiling_usd, used_usd, remaining_usd, last_synced. Every recommendation cites the line_id + remaining balance + spend window in the system-prompt-enforced format."
+
+[[entry]]
+key = "firm_terms"
+type = "list-of-objects"
+purpose = "Boilerplate contract clauses the buyer requires. Each row carries: clause_id, topic (liability_cap / indemnity / data_processing / termination_for_convenience / sla / audit_rights), required_text, fallback_text, escalate_if_missing (bool). Used by contract_review to redline supplier paper."
+
+[[entry]]
+key = "sanctions_watchlist"
+type = "list-of-objects"
+purpose = "Static list of names that must NOT receive purchase orders. Each row carries: entity_name, entity_type (individual / company), source (synthetic / OFAC_SDN / EU_consolidated / UK_HMT), date_added, notes. v1 ships a synthetic seed set only; live OFAC ingestion is a separate compliance brief — never load real sanctions data into inventory.json."
