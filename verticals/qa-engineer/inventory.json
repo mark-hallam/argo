@@ -1,0 +1,21 @@
+{
+  "team": "Skycot Demo QA Pod",
+  "primary_owner": "Cam (QA engineer)",
+  "today_iso": "2026-05-12",
+  "flake_history": [
+    {"test_id": "argo_store::worker_archive_tests::archive_clears_orphan_rows", "suite": "argo-store",       "flake_rate_30d": 0.07, "failures_30d": 3, "cause_classification": "code-race",    "last_failed_at": "2026-05-09T14:22:00Z", "last_investigation_summary": "Suspect race archive_delete vs worker_presence_writer; needs single-thread falsification run.", "fix_landed": false},
+    {"test_id": "argo_cli::vertical_install_tests::install_then_uninstall",     "suite": "argo-cli",         "flake_rate_30d": 0.02, "failures_30d": 1, "cause_classification": "environment",  "last_failed_at": "2026-04-28T09:11:00Z", "last_investigation_summary": "CI disk pressure on shared runner; new runner pool pinned — monitoring.",            "fix_landed": true},
+    {"test_id": "argo_marketplace::vertical_roundtrip::pull_install_publish",   "suite": "argo-marketplace", "flake_rate_30d": 0.18, "failures_30d": 8, "cause_classification": "external-dep", "last_failed_at": "2026-05-11T18:04:00Z", "last_investigation_summary": "Sandbox OCI registry rate-limited; no mock; needs contract test.",                       "fix_landed": false}
+  ],
+  "test_data_inventory": [
+    {"fixture_id": "tenant_seed_demo",              "path_or_table": "verticals/qa-engineer/eval/seed.jsonl",                                       "fixture_kind": "seed",              "pii": false, "pii_categories": [],                  "owner_team": "qa-pod",            "last_reviewed": "2026-05-12"},
+    {"fixture_id": "synthetic_workers_v1",          "path_or_table": "crates/argo-store/migrations/seed_workers.sql",                               "fixture_kind": "sql_dump",          "pii": false, "pii_categories": [],                  "owner_team": "platform",          "last_reviewed": "2026-04-30"},
+    {"fixture_id": "redacted_support_thread_replay","path_or_table": "crates/argo-mcp-connector-zendesk/tests/fixtures/thread_replay.json",         "fixture_kind": "recorded_response", "pii": true,  "pii_categories": ["names", "emails"], "owner_team": "support-vertical",  "last_reviewed": "2026-04-12"},
+    {"fixture_id": "payment_method_replay_v1",      "path_or_table": "crates/argo-mcp-connector-stripe-events/tests/fixtures/payment_method.json", "fixture_kind": "recorded_response", "pii": true,  "pii_categories": ["payment"],         "owner_team": "finance-vertical",  "last_reviewed": "2026-05-01"}
+  ],
+  "known_dependencies": [
+    {"dependency_id": "sandbox_oci_registry",     "kind": "http_api", "sla_uptime": "99.0%",  "sla_latency_p99_ms": 800, "mock_available": false, "contract_test_pact_id": null,             "owner_team": "platform"},
+    {"dependency_id": "argo_gateway_local",       "kind": "http_api", "sla_uptime": "99.9%",  "sla_latency_p99_ms": 120, "mock_available": true,  "contract_test_pact_id": "argo-gateway-v1","owner_team": "platform"},
+    {"dependency_id": "postgres_shared_test_db",  "kind": "database", "sla_uptime": "99.95%", "sla_latency_p99_ms":  25, "mock_available": true,  "contract_test_pact_id": null,             "owner_team": "platform"}
+  ]
+}

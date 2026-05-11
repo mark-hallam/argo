@@ -1,0 +1,53 @@
+schema_version = "1"
+
+[vertical]
+id          = "qa-engineer"
+name        = "QA Engineer"
+description = "Drafts-only QA support: proposes regression tests, authors bug reports, investigates flaky CI failures, and drafts layered test plans. Reproducibility-constraint load-bearing — every bug report carries steps, environment, expected-vs-actual, and frequency; every proposed test is deterministic. Merging test branches, closing bugs as wont-fix, modifying production test data, and disabling failing tests in main all route through human approval."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["qa", "testing", "regression", "flake", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "memory"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[skills]
+bundle = "skills"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+github = { transport = "stdio", command = "argo-mcp-connector-github-issues", args = [] }
+gitlab = { transport = "stdio", command = "argo-mcp-connector-gitlab",        args = [] }
+jira   = { transport = "stdio", command = "argo-mcp-connector-jira",          args = [] }
+
+[escalation]
+human_approval_required = [
+  "merge_test_branch",
+  "close_bug_as_wont_fix",
+  "modify_production_test_data",
+  "disable_failing_test_in_main",
+]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "QA Engineer"

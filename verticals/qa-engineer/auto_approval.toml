@@ -1,0 +1,18 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is propose / author / investigate — all draft
+# only. Merging a test branch, closing a bug as wont-fix, modifying
+# production test data, and disabling a failing test in main are
+# intentionally absent and route through
+# `[escalation].human_approval_required` in vertical.toml. Defence in
+# depth: even if a future edit grants `merge_test_branch` as a wake
+# type, the escalation gate still fires because deny+approval-required
+# always wins.
+wake_action_types = [
+  "propose_regression_test",
+  "author_bug_report",
+  "investigate_flake",
+  "propose_test_plan",
+]

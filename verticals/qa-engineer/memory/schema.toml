@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "flake_history"
+type = "list-of-objects"
+purpose = "Per-test flake record. Each row carries: test_id, suite, flake_rate_30d (decimal 0-1), failures_30d, cause_classification (test-bug|code-race|external-dep|environment|unclassified), last_failed_at, last_investigation_summary, fix_landed (bool)."
+
+[[entry]]
+key = "test_data_inventory"
+type = "list-of-objects"
+purpose = "Named test fixtures and their PII status. Each row carries: fixture_id, path_or_table, fixture_kind (seed|factory|recorded_response|sql_dump), pii (bool), pii_categories (list — names|emails|ssn|payment|health|address|other), owner_team, last_reviewed."
+
+[[entry]]
+key = "known_dependencies"
+type = "list-of-objects"
+purpose = "External services tests depend on. Each row carries: dependency_id, kind (http_api|message_queue|database|file_storage|third_party_saas), sla_uptime, sla_latency_p99_ms, mock_available (bool), contract_test_pact_id, owner_team."
+
+[[entry]]
+key = "release_test_matrix"
+type = "list-of-objects"
+purpose = "Per-version coverage snapshot. Each row carries: release_version, released_at, unit_count, integration_count, e2e_count, smoke_count, dropped_coverage_clusters (list of {cluster, reason}), pass_rate, flake_count."
