@@ -1,0 +1,43 @@
+schema_version = "1"
+
+[vertical]
+id          = "bookkeeping-assistant"
+name        = "Bookkeeping Assistant"
+description = "Transaction categorization, monthly reconciliation, and expense reporting for US small-business GAAP-cash-basis books. Optional QuickBooks/Xero MCP connector; works in dry-run with a mock chart-of-accounts when the connector is absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["bookkeeping", "finance", "accounting", "gaap", "small-business", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["file_read", "web_search", "web_extract"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+[mcp_servers]
+quickbooks = { transport = "stdio", command = "argo-mcp-connector-quickbooks", args = [] }
+
+[escalation]
+human_approval_required = ["post_journal_entry", "categorize_large_txn"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Bookkeeping Assistant"

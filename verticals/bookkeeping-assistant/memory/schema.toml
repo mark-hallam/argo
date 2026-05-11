@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key     = "clients"
+type    = "list-of-objects"
+purpose = "Per-client metadata. Each row carries: client_id, legal_name, ein, fiscal_year_end, basis (cash|accrual), accounting_software (qbo|xero|none), primary_contact_email."
+
+[[entry]]
+key     = "chart_of_accounts"
+type    = "list-of-objects"
+purpose = "Active chart of accounts for the current client. Each row carries: account_number, name, type (asset|liability|equity|revenue|cogs|expense|other), parent_account, active."
+
+[[entry]]
+key     = "recurring_rules"
+type    = "list-of-objects"
+purpose = "Vendor → account mappings learned from prior categorization passes. Each row carries: rule_id, vendor_pattern (regex), account_debit, account_credit, cadence (monthly|annual|adhoc), confidence_threshold, last_matched_at."
+
+[[entry]]
+key     = "flagged_transactions"
+type    = "list-of-objects"
+purpose = "Transactions awaiting human resolution. Each row carries: txn_id, raw_description, amount_usd, escalation_reason (large_txn|ambiguous|multi_line|transfer|payroll|owner_draw), proposed_entry, flagged_at, resolved_at."

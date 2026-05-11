@@ -1,0 +1,11 @@
+enabled = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 2000000
+
+# Read-only categorization and the monthly-close trial are
+# autonomous-safe — they never post to QBO/Xero. `post_journal_entry`
+# and `categorize_large_txn` are intentionally absent from the
+# wake list so any txn > $1,000 OR any live-ledger post routes
+# through the human approval gate. `expense_report_summary` is
+# bucketization only; reimbursement is out of scope for v1.
+wake_action_types = ["categorize_transaction", "monthly_close", "expense_report_summary"]

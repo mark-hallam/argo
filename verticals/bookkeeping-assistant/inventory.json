@@ -1,0 +1,36 @@
+{
+  "client": "Acme LLC (dry-run demo client)",
+  "ein": "00-0000000",
+  "fiscal_year_end": "12-31",
+  "basis": "cash",
+  "accounting_software": "none",
+  "chart_of_accounts": [
+    {"number": "1100", "name": "Operating Bank — Checking",       "type": "asset"},
+    {"number": "1110", "name": "Savings",                          "type": "asset"},
+    {"number": "1200", "name": "Accounts Receivable (memo only)",  "type": "asset"},
+    {"number": "2100", "name": "Business Credit Card",             "type": "liability"},
+    {"number": "2200", "name": "Sales Tax Payable",                "type": "liability"},
+    {"number": "3100", "name": "Owner's Capital",                  "type": "equity"},
+    {"number": "3200", "name": "Owner's Draw",                     "type": "equity"},
+    {"number": "4000", "name": "Sales Revenue",                    "type": "revenue"},
+    {"number": "4900", "name": "Refunds & Allowances (contra)",    "type": "revenue"},
+    {"number": "5100", "name": "Cost of Goods Sold",               "type": "cogs"},
+    {"number": "6100", "name": "Utilities",                        "type": "expense"},
+    {"number": "6200", "name": "Software & Subscriptions",         "type": "expense"},
+    {"number": "6300", "name": "Meals & Groceries (50%)",          "type": "expense"},
+    {"number": "6400", "name": "Fuel & Vehicle",                   "type": "expense"},
+    {"number": "6500", "name": "Office Supplies",                  "type": "expense"},
+    {"number": "6700", "name": "Bank & Merchant Fees",             "type": "expense"},
+    {"number": "6810", "name": "Travel — Airfare",                 "type": "expense"},
+    {"number": "6820", "name": "Travel — Lodging",                 "type": "expense"},
+    {"number": "6830", "name": "Travel — Other",                   "type": "expense"},
+    {"number": "6850", "name": "Mileage (IRS standard rate)",      "type": "expense"},
+    {"number": "6900", "name": "Other / Unmapped",                 "type": "expense"}
+  ],
+  "recurring_rules_seed": [
+    {"rule_id": "recurring/comcast-business-monthly", "vendor_pattern": "COMCAST BUSINESS",   "account_debit": "6100", "account_credit": "1100", "cadence": "monthly"},
+    {"rule_id": "recurring/adobe-creative-monthly",   "vendor_pattern": "ADOBE\\s*\\*",      "account_debit": "6200", "account_credit": "2100", "cadence": "monthly"},
+    {"rule_id": "recurring/github-team-monthly",      "vendor_pattern": "GITHUB",             "account_debit": "6200", "account_credit": "2100", "cadence": "monthly"},
+    {"rule_id": "recurring/wf-monthly-service-fee",   "vendor_pattern": "MONTHLY SERVICE CHARGE", "account_debit": "6700", "account_credit": "1100", "cadence": "monthly"}
+  ]
+}
