@@ -370,7 +370,7 @@ def compute_tier_stats(ledger: dict[str, dict], tier_map: dict[str, str]) -> dic
 #   | <Letter> | <Scope> | <Who> | **<STATUS>** [<date>] [— <note>] | <Closes> |
 # Where STATUS ∈ {DONE, IN PROGRESS, QUEUED, NOT STARTED}.
 ROADMAP_ROW_RE = re.compile(
-    r"^\|\s*([A-G])\s*\|([^|]+)\|([^|]+)\|\s*\*\*([A-Z ]+?)\*\*([^|]*)\|([^|]+)\|\s*$"
+    r"^\|\s*([A-Z])\s*\|([^|]+)\|([^|]+)\|\s*\*\*([A-Z ]+?)\*\*([^|]*)\|([^|]+)\|\s*$"
 )
 
 ROADMAP_STATUS_WEIGHT = {
@@ -1484,7 +1484,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 
 <div class="panel" id="roadmap-panel" style="margin-bottom:16px;display:none;">
   <h2>Product roadmap · tracks A–G <span class="right" id="roadmap-note">post-MVP product-surface program · PRODUCT_ROADMAP.md (operative 2026-05-11)</span></h2>
-  <div id="roadmap-tracks" class="grid" style="grid-template-columns:repeat(7,1fr);gap:10px;"></div>
+  <div id="roadmap-tracks" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;"></div>
   <div id="roadmap-legend" style="margin-top:14px;color:var(--ink-3);font-size:11px;"></div>
 </div>
 
