@@ -29,8 +29,10 @@ mod prompt;
 pub mod roster;
 mod roster_store;
 mod store;
+mod store_archive_methods;
 mod store_channels;
 mod store_skill_tests;
+mod store_skills;
 mod store_sql;
 #[cfg(test)]
 mod voice_profile_tests;
