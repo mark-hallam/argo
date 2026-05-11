@@ -1,0 +1,46 @@
+schema_version = "1"
+
+[vertical]
+id          = "social-media-drafter"
+name        = "Social Media Drafter"
+description = "Voice-of-brand social drafter for X, LinkedIn, Instagram, and Facebook. Drafts posts, repurposes long-form material into platform-native packs, runs tone checks against a brand_voice memory, and proposes responses to brand mentions. Drafts only — every publish / schedule / external-reply action routes through human approval. Optional buffer / hootsuite MCP connectors; works in dry-run when connectors are absent."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["social-media-drafter", "social-media", "brand-voice", "drafting", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# Both MCP connectors are optional. With neither wired, the worker
+# stays in draft-only mode and never reaches a scheduling surface.
+[mcp_servers]
+buffer    = { transport = "stdio", command = "argo-mcp-connector-buffer",    args = [] }
+hootsuite = { transport = "stdio", command = "argo-mcp-connector-hootsuite", args = [] }
+
+[escalation]
+human_approval_required = ["publish_post", "schedule_post", "reply_to_mention"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Social Media Drafter"

@@ -1,0 +1,19 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is draft + read + tone-check only. The
+# drafter produces post copy, repurposes long-form material into
+# platform packs, and audits tone against brand_voice memory. Every
+# action that would push content to an external platform — publish,
+# schedule, or reply to a mention — is intentionally absent from this
+# list and routes through `[escalation].human_approval_required` in
+# vertical.toml. Defence in depth: even if a future edit grants
+# `publish_post` / `schedule_post` / `reply_to_mention` as a wake
+# type, the escalation gate still fires because deny+approval-required
+# always wins.
+wake_action_types = [
+  "draft_post",
+  "repurpose_long_form",
+  "tone_check",
+]

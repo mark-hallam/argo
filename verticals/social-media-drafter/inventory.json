@@ -1,0 +1,35 @@
+{
+  "drafter": {
+    "default_channels": ["x", "linkedin", "instagram", "facebook"],
+    "default_locale": "en-US",
+    "hashtag_caps": {"x": 1, "linkedin": 2, "instagram": 3, "facebook": 1},
+    "char_caps": {"x": 280, "linkedin": 3000, "instagram": 2200, "facebook": 2000},
+    "image_prompt_required_on_visual_channels": ["instagram", "facebook", "linkedin"]
+  },
+  "brand_voice_seed": {
+    "tone_descriptors": ["calm", "specific", "warm but reserved"],
+    "do_say": ["plain-language", "we shipped", "for teams that ship"],
+    "dont_say": ["leverage", "synergy", "best-in-class", "revolutionary", "game-changer"],
+    "signature_emoji": [],
+    "approved_claims": [
+      {"claim": "Single-binary architecture", "source": "internal-docs/argo-build-plan.md"},
+      {"claim": "Multi-tenant by construction", "source": "internal-docs/argo-build-plan.md"}
+    ],
+    "support_handles": {"dm": "@skycot_support", "email": "support@skycot.com"}
+  },
+  "campaign_themes_seed": [
+    {"theme_id": "launch_v0_2",   "name": "v0.2 platform launch",     "message_pillars": ["reliability", "observability", "repeatability"], "approved_hashtags": ["#skycot", "#agentops"]},
+    {"theme_id": "verticals_drop","name": "Vertical templates drop",  "message_pillars": ["content-only verticals", "demo in minutes"],       "approved_hashtags": ["#skycot", "#aiagents"]}
+  ],
+  "crisis_keywords_seed": [
+    "outage", "data breach", "security incident", "lawsuit", "subpoena",
+    "regulator", "FTC inquiry", "layoff", "downsizing", "boycott"
+  ],
+  "escalation_routing": {
+    "crisis_keyword_match":     "operator_immediate",
+    "executive_quote_requested":"operator",
+    "customer_pii_in_thread":   "operator",
+    "regulated_claim_requested":"operator",
+    "political_content":        "operator"
+  }
+}

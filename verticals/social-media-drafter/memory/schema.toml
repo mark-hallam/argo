@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "brand_voice"
+type = "object"
+purpose = "Authoritative voice rules. Fields: do_say (list of phrases / vocabulary the brand uses), dont_say (list of phrases / idioms / emoji the brand refuses), signature_emoji (list), approved_claims (list of substantiated factual claims with source), support_handles (DM / email for de-escalation), tone_descriptors (e.g. 'calm', 'dry', 'warm'). This memory is load-bearing; the drafter mimics, never invents."
+
+[[entry]]
+key = "recent_posts"
+type = "list-of-objects"
+purpose = "Last 50 posts per channel. Each row: channel, body, char_count, hashtags, posted_at, engagement (likes / replies / shares if available). Used by tone_check and draft_post to ground voice in actual recent output, not abstract guidelines."
+
+[[entry]]
+key = "campaign_themes"
+type = "list-of-objects"
+purpose = "Active campaigns. Each row: theme_id, name, message_pillars (list), approved_hashtags, start_date, end_date, owner. Drafts must scope to an active theme when one is supplied; freestyle drafts use brand_voice only."
+
+[[entry]]
+key = "crisis_keywords"
+type = "list-of-strings"
+purpose = "Case-insensitive substring triggers that auto-route any matching prompt or mention thread to escalation rather than draft. Includes incident terms, regulatory triggers, sensitive executive names, named competitors in active litigation. Updates require operator review — drafter never writes here."
