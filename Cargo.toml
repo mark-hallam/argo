@@ -73,6 +73,7 @@ members = [
   "crates/argo-mcp-connector-imessage",
   "crates/argo-mcp-connector-telegram",
   "crates/argo-mcp-connector-quickbooks",
+  "crates/argo-mcp-connector-greenhouse",
   "crates/argo-mcp-connector-image-gen",
   "crates/argo-mcp-image-gen",
   "crates/argo-orchestrator",
