@@ -1,0 +1,45 @@
+{
+  "analyst": {
+    "default_geography": "global",
+    "default_timeframe_months": 24,
+    "preferred_currency": "USD",
+    "citation_style": "inline_with_url_tier_date",
+    "min_sources_per_load_bearing_claim": 2,
+    "max_tier3_per_brief": 2,
+    "default_confidence_calibration": "high_requires_two_primary"
+  },
+  "sector_taxonomies": [
+    {
+      "sector_id": "saas_horizontal",
+      "name": "Horizontal B2B SaaS",
+      "segments": ["collaboration", "productivity", "data_platform", "devtools", "security"],
+      "geography_scope": ["US", "EU", "UK"]
+    },
+    {
+      "sector_id": "fintech_payments",
+      "name": "Payments & Fintech",
+      "segments": ["acquiring", "issuing", "cross_border_rails", "treasury_apis", "buy_now_pay_later"],
+      "geography_scope": ["US", "EU", "UK", "SG"]
+    },
+    {
+      "sector_id": "industrial_robotics",
+      "name": "Industrial Robotics",
+      "segments": ["amrs", "collaborative_arms", "vision_systems", "fleet_software"],
+      "geography_scope": ["US", "EU", "JP"]
+    }
+  ],
+  "trusted_source_seed": [
+    {"domain": "sec.gov",           "tier": 1, "note": "issuer filings; treat as primary"},
+    {"domain": "eur-lex.europa.eu", "tier": 1, "note": "EU statute / regulation text"},
+    {"domain": "reuters.com",       "tier": 1, "note": "named-byline wire; corrections policy"},
+    {"domain": "ft.com",            "tier": 1, "note": "paywall — only cite if authorized access"},
+    {"domain": "gartner.com",       "tier": 2, "note": "methodology disclosed; cite with caveat"},
+    {"domain": "g2.com",            "tier": 2, "note": "user reviews; methodology disclosed"}
+  ],
+  "escalation_routing": {
+    "mnpi_risk":                  "operator_immediate",
+    "regulated_without_primary":  "operator",
+    "contradicts_primary":        "operator",
+    "paywall_unauthorized":       "operator"
+  }
+}

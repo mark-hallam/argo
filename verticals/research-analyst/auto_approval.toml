@@ -1,0 +1,20 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is read + draft only. Sector overviews,
+# competitor scans, regulatory briefs, and source-credibility checks
+# never mutate external state — they read public sources and produce
+# drafts. Publishing a report (sending the memo to an external
+# distribution list, posting to a public site, sharing with a third
+# party) is intentionally absent and routes through
+# `[escalation].human_approval_required` in vertical.toml. Defence
+# in depth: even if a future edit grants `publish_report` as a wake
+# type, the escalation gate still fires because deny+approval-required
+# always wins.
+wake_action_types = [
+  "sector_overview",
+  "competitor_scan",
+  "regulatory_brief",
+  "source_credibility_check",
+]

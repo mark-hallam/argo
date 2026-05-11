@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "prior_reports"
+type = "list-of-objects"
+purpose = "Drafted or published research outputs. Each row carries: report_id, topic, jurisdiction_or_sector, status (draft / published / withdrawn), confidence, list of citations consulted, date_drafted, date_published."
+
+[[entry]]
+key = "trusted_sources"
+type = "list-of-objects"
+purpose = "Source-credibility working set. Each row carries: domain_or_doc_id, tier (1 / 2 / 3), default_caveats, last_reviewed, reviewer_notes. Used to skip re-running source_credibility_check on previously-vetted domains within a 90-day window."
+
+[[entry]]
+key = "sector_taxonomies"
+type = "list-of-objects"
+purpose = "Canonical segment maps the analyst has agreed to. Each row carries: sector_id, name, segments (list of strings), geography_scope, last_reviewed. Inventory.json seeds the demo set; live runs replace these with operator-curated taxonomies."
+
+[[entry]]
+key = "flagged_claims"
+type = "list-of-objects"
+purpose = "Claims that failed the citation rule or fired an escalation. Each row carries: claim_text, source_attempted, tier, flag_reason (mnpi_risk / paywall / regulated_without_primary / contradicts_primary / unsourced), date_flagged, disposition (reviewed / dropped / replaced)."
