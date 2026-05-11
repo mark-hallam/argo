@@ -86,6 +86,12 @@ pub enum GenesisCmd {
         /// Emit a JSON envelope.
         #[arg(long)]
         json: bool,
+        /// After the refinement pass, print the list of
+        /// action_types newly added to the manifest's vocabulary
+        /// during this run (#60 mission load-bearing wire). Empty
+        /// list when no vocabulary grew.
+        #[arg(long)]
+        show_vocab_evolution: bool,
     },
     /// Walk the operator through a 6-prompt Q&A then generate a
     /// vertical from the answers. Stream

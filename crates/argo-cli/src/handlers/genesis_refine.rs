@@ -1,7 +1,7 @@
 //! `argo genesis refine <vertical-id>` handler.
 use argo_genesis::archetype::classify_charter;
 use argo_genesis::refine::{http::ReqwestCaller, AnthropicCaller, RefinementResponse};
-use argo_genesis::{refine_plan, write_vertical, GenesisPlan, RefineConfig};
+use argo_genesis::{refine_plan_with_cap, write_vertical, GenesisPlan, RefineConfig};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{ActionDeclaration, ExecutorDeclaration, LoadedVertical};
 use serde::Serialize;
@@ -13,6 +13,7 @@ pub(crate) struct RefineOptions {
     pub judge: bool,
     pub max_iterations: usize,
     pub dry_run: bool,
+    pub max_vocab_size: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -25,6 +26,11 @@ pub(crate) struct RefineOutcome {
     pub diff: String,
     pub output_dir: String,
     pub archive_dir: Option<String>,
+    /// Action_types newly added to the manifest's vocabulary
+    /// across all refinement iterations. Always present (empty
+    /// when no growth) for JSON consumers; the human path only
+    /// prints under `--show-vocab-evolution`.
+    pub evolved_vocab: Vec<String>,
 }
 
 pub(crate) fn run(
@@ -34,6 +40,7 @@ pub(crate) fn run(
     max_iterations: usize,
     dry_run: bool,
     json: bool,
+    show_vocab_evolution: bool,
 ) -> ArgoResult<()> {
     if max_iterations == 0 {
         return Err(ArgoError::Provider(
@@ -41,17 +48,19 @@ pub(crate) fn run(
         ));
     }
     let config = RefineConfig::from_env().map_err(ArgoError::from)?;
+    let max_vocab_size = config.max_vocab_size;
     let caller = ReqwestCaller::new(config).map_err(ArgoError::from)?;
     let opts = RefineOptions {
         vertical_id: vertical_id.to_string(),
         judge: !no_judge,
         max_iterations,
         dry_run,
+        max_vocab_size,
     };
     let handle = tokio::runtime::Handle::try_current()
         .map_err(|e| ArgoError::Provider(format!("genesis refine needs a tokio runtime: {e}")))?;
     let outcome = tokio::task::block_in_place(|| handle.block_on(refine_existing(&opts, &caller)))?;
-    print_outcome(&outcome, json);
+    print_outcome(&outcome, json, show_vocab_evolution);
     Ok(())
 }
 
@@ -71,8 +80,11 @@ pub(crate) async fn refine_existing(
     let original_plan = plan_from_loaded(loaded)?;
     let original_toml = manifest_toml(&original_plan)?;
     let mut refined = original_plan.clone();
+    let mut evolved_vocab: Vec<String> = Vec::new();
     for _ in 0..opts.max_iterations {
-        refined = refine_once(refined, caller, opts.judge).await?;
+        let (plan, evolved) = refine_once(refined, caller, opts.judge, opts.max_vocab_size).await?;
+        refined = plan;
+        evolved_vocab.extend(evolved);
     }
     let refined_toml = manifest_toml(&refined)?;
     let diff = render_diff(&original_toml, &refined_toml);
@@ -92,6 +104,7 @@ pub(crate) async fn refine_existing(
         diff,
         output_dir: loaded.root.display().to_string(),
         archive_dir: archive_dir.map(|p| p.display().to_string()),
+        evolved_vocab,
     })
 }
 
@@ -99,19 +112,22 @@ async fn refine_once(
     plan: GenesisPlan,
     caller: &dyn AnthropicCaller,
     judge: bool,
-) -> ArgoResult<GenesisPlan> {
+    max_vocab_size: usize,
+) -> ArgoResult<(GenesisPlan, Vec<String>)> {
     if judge {
-        return refine_plan(plan, caller).await.map_err(ArgoError::from);
+        return refine_plan_with_cap(plan, caller, max_vocab_size)
+            .await
+            .map_err(ArgoError::from);
     }
     let raw = match caller.call(build_refine_prompt(&plan)).await {
         Ok(raw) => raw,
-        Err(_) => return Ok(plan),
+        Err(_) => return Ok((plan, Vec::new())),
     };
     let response = match serde_json::from_str::<RefinementResponse>(&raw) {
         Ok(response) if response.additional_actions.len() <= 3 => response,
-        _ => return Ok(plan),
+        _ => return Ok((plan, Vec::new())),
     };
-    Ok(apply_without_judge(plan, response))
+    Ok(apply_without_judge(plan, response, max_vocab_size))
 }
 
 fn plan_from_loaded(loaded: &LoadedVertical) -> ArgoResult<GenesisPlan> {
@@ -167,19 +183,32 @@ fn extract_persona(manifest: &argo_vertical::VerticalManifest) -> String {
         .unwrap_or_else(|| "worker".into())
 }
 
-fn apply_without_judge(mut plan: GenesisPlan, response: RefinementResponse) -> GenesisPlan {
+fn apply_without_judge(
+    mut plan: GenesisPlan,
+    response: RefinementResponse,
+    max_vocab_size: usize,
+) -> (GenesisPlan, Vec<String>) {
+    let mut evolved = Vec::new();
     if let Some(actions) = plan.manifest.actions.as_mut() {
         for proposed in response.additional_actions {
-            actions
-                .actions
-                .entry(proposed.action_type.clone())
-                .or_insert_with(|| ActionDeclaration {
+            if actions.actions.contains_key(&proposed.action_type) {
+                continue;
+            }
+            if actions.actions.len() >= max_vocab_size {
+                continue;
+            }
+            let name = proposed.action_type.clone();
+            actions.actions.insert(
+                name.clone(),
+                ActionDeclaration {
                     risk: proposed.risk,
                     requires_approval: proposed.requires_approval,
                     description: proposed.description,
                     executor: ExecutorDeclaration::default(),
                     ..ActionDeclaration::default()
-                });
+                },
+            );
+            evolved.push(name);
         }
     }
     if !response.system_prompt_addendum.is_empty() {
@@ -188,7 +217,7 @@ fn apply_without_judge(mut plan: GenesisPlan, response: RefinementResponse) -> G
             plan.manifest.vertical.description, response.system_prompt_addendum
         );
     }
-    plan
+    (plan, evolved)
 }
 
 fn manifest_toml(plan: &GenesisPlan) -> ArgoResult<String> {
@@ -250,7 +279,7 @@ fn build_refine_prompt(plan: &GenesisPlan) -> String {
     )
 }
 
-fn print_outcome(outcome: &RefineOutcome, json: bool) {
+fn print_outcome(outcome: &RefineOutcome, json: bool, show_vocab_evolution: bool) {
     if json {
         println!(
             "{}",
@@ -265,6 +294,16 @@ fn print_outcome(outcome: &RefineOutcome, json: bool) {
     println!("  output:  {}", outcome.output_dir);
     if let Some(archive) = &outcome.archive_dir {
         println!("  archived previous version: {archive}");
+    }
+    if show_vocab_evolution {
+        if outcome.evolved_vocab.is_empty() {
+            println!("  evolved vocabulary: (none)");
+        } else {
+            println!("  evolved vocabulary:");
+            for name in &outcome.evolved_vocab {
+                println!("    - {name}");
+            }
+        }
     }
     println!("{}", outcome.diff);
 }
@@ -320,7 +359,14 @@ mod tests {
             calls: AtomicUsize::new(0),
             response: response("send_special_offer", false),
         };
-        let refined = refine_once(plan, &caller, false).await.unwrap();
+        let (refined, _evolved) = refine_once(
+            plan,
+            &caller,
+            false,
+            RefineConfig::DEFAULT_MAX_VOCAB_SIZE,
+        )
+        .await
+        .unwrap();
         let action = refined
             .manifest
             .actions
@@ -344,10 +390,15 @@ mod tests {
             judge: false,
             max_iterations: 2,
             dry_run: true,
+            max_vocab_size: RefineConfig::DEFAULT_MAX_VOCAB_SIZE,
         };
         let mut refined = plan;
         for _ in 0..opts.max_iterations {
-            refined = refine_once(refined, &caller, opts.judge).await.unwrap();
+            let (plan, _evolved) =
+                refine_once(refined, &caller, opts.judge, opts.max_vocab_size)
+                    .await
+                    .unwrap();
+            refined = plan;
         }
         assert_eq!(caller.calls.load(Ordering::SeqCst), 2);
     }

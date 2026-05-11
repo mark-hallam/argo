@@ -70,7 +70,9 @@ pub use quality::{
     check_plan, require_pass, CheckResult, QualityReport, ACTION_MIN, EVAL_SEED_MIN,
     MEMORY_LAYER_MIN, PROMPT_WORD_MIN,
 };
-pub use refine::{refine_plan, AnthropicCaller, RefineConfig, RefinementResponse};
+pub use refine::{
+    refine_plan, refine_plan_with_cap, AnthropicCaller, RefineConfig, RefinementResponse,
+};
 pub use safety_judge::{judge as run_safety_judge, SENSITIVE_VERBS};
 pub use templates::{
     load_all as load_templates, match_template, merge_with_overrides, GeneratedVertical,
