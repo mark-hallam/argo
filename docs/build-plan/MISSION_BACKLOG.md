@@ -417,24 +417,24 @@ unblocks a mission claim.
      (folded) `[SHIPPED]`
 195. Build planner-bias-from-template. `[BRIEF: mission-planner-bias-from-template]`
 196. Single Forge-cron-tick scheduler (skill versioning + A/B +
-     quality + Forge). `[NEW]`
+     quality + Forge). `[BRIEF: mission-cron-tick-maintenance-jobs]`
 197. Build operator-feedback channel into Dreams curation. `[NEW]`
 198. Build skill-cohort UI. `[NEW]`
 199. Build skill-explanation (provenance + improvement history).
-     `[NEW]`
+     `[BRIEF: mission-skill-explanation-provenance]`
 200. Build trust grade UI. `[NEW]`
 
 ### Self-improvement infra
 
 201. Build cron-tick architecture (Forge + quality recompute +
-     dreams + ab-status). `[NEW]`
+     dreams + ab-status). `[BRIEF: mission-cron-tick-maintenance-jobs]` (folded into #196)
 202. Build multi-host orchestrator design.
      `[SHIPPED]`
 203. Sample-trajectory aggregation across tenants (with consent).
      `[NEW]`
 204. Cross-tenant skill propagation. `[NEW]`
 205. Build benchmark suite (perf regression detection over skill
-     versions). `[NEW]`
+     versions). `[BRIEF: mission-bench-perf-regression-detection]`
 206. Build cost-attribution per Forge run. `[BRIEF: mission-forge-cost-attribution]`
 207. Build judge-disagreement evaluation suite. `[BRIEF: mission-judge-disagreement-eval]`
 208. Build skill quality trend dashboard.
