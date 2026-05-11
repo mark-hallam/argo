@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
+  AlertCircle,
   Bell,
   ChevronDown,
   Filter,
   Inbox,
+  Loader2,
   Plus,
   Search,
   Settings,
@@ -18,25 +20,29 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
-import { ApprovalCard, type ApprovalDecision } from "@/components/skycot/ApprovalCard";
+import { ApprovalCard } from "@/components/skycot/ApprovalCard";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
-import { groupApprovals, SAMPLE_APPROVALS, type ApprovalItem } from "@/lib/sample-approvals";
+import { groupApprovals, type ApprovalItem } from "@/lib/sample-approvals";
+import { useApprovals, useSubmitDecision, useUndoDecision } from "@/lib/hooks/use-approvals";
 
 export default function ApprovalsInboxPage() {
-  // Decisions are mock state; in Track E this becomes a TanStack Query mutation against the gateway.
-  const [decisions, setDecisions] = useState<Record<string, ApprovalDecision | null>>({});
+  const approvalsQuery = useApprovals();
+  const submitDecision = useSubmitDecision();
+  const undoDecision = useUndoDecision();
   const [query, setQuery] = useState("");
 
+  const items = approvalsQuery.data ?? [];
+
   const filtered = useMemo<ApprovalItem[]>(() => {
-    if (!query.trim()) return SAMPLE_APPROVALS;
+    if (!query.trim()) return items;
     const q = query.trim().toLowerCase();
-    return SAMPLE_APPROVALS.filter((a) =>
+    return items.filter((a) =>
       [a.worker.name, a.verb, a.detail].some((s) => s.toLowerCase().includes(q)),
     );
-  }, [query]);
+  }, [items, query]);
 
   const groups = useMemo(() => groupApprovals(filtered), [filtered]);
-  const pendingCount = filtered.filter((a) => decisions[a.id] == null).length;
+  const pendingCount = filtered.filter((a) => a.decision == null).length;
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -73,27 +79,31 @@ export default function ApprovalsInboxPage() {
         <PageHeader query={query} setQuery={setQuery} pendingCount={pendingCount} />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-          {filtered.length === 0 ? (
+          {approvalsQuery.isPending ? (
+            <LoadingState />
+          ) : approvalsQuery.isError ? (
+            <ErrorState message={(approvalsQuery.error as Error)?.message ?? "Couldn't load approvals"} onRetry={() => approvalsQuery.refetch()} />
+          ) : filtered.length === 0 ? (
             <EmptyState query={query} />
           ) : (
             <>
               <ApprovalGroup
                 label="Today"
                 items={groups.today}
-                decisions={decisions}
-                setDecisions={setDecisions}
+                onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
+                onUndo={(id) => undoDecision.mutate(id)}
               />
               <ApprovalGroup
                 label="Yesterday"
                 items={groups.yesterday}
-                decisions={decisions}
-                setDecisions={setDecisions}
+                onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
+                onUndo={(id) => undoDecision.mutate(id)}
               />
               <ApprovalGroup
                 label="Earlier"
                 items={groups.earlier}
-                decisions={decisions}
-                setDecisions={setDecisions}
+                onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
+                onUndo={(id) => undoDecision.mutate(id)}
               />
             </>
           )}
@@ -172,16 +182,16 @@ function PageHeader({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Button variant="ghost" size="icon" aria-label="Filter">
               <Filter />
             </Button>
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell />
             </Button>
-            <Button variant="primary" size="md" className="shadow-sm">
+            <Button variant="primary" size="md" className="shadow-sm" aria-label="Hire teammate">
               <Plus />
-              Hire teammate
+              <span className="hidden sm:inline">Hire teammate</span>
             </Button>
           </div>
         </div>
@@ -204,13 +214,13 @@ function PageHeader({
 function ApprovalGroup({
   label,
   items,
-  decisions,
-  setDecisions,
+  onDecide,
+  onUndo,
 }: {
   label: string;
   items: ApprovalItem[];
-  decisions: Record<string, ApprovalDecision | null>;
-  setDecisions: React.Dispatch<React.SetStateAction<Record<string, ApprovalDecision | null>>>;
+  onDecide: (approvalId: string, decision: "approve" | "refuse") => void;
+  onUndo: (approvalId: string) => void;
 }) {
   if (items.length === 0) return null;
 
@@ -239,17 +249,39 @@ function ApprovalGroup({
             reason={item.reason}
             channel={item.channel}
             receivedAt={item.receivedAt}
-            decision={decisions[item.id] ?? null}
-            onDecide={(d) =>
-              setDecisions((m) => ({ ...m, [item.id]: d }))
-            }
-            onUndo={() =>
-              setDecisions((m) => ({ ...m, [item.id]: null }))
-            }
+            decision={item.decision ?? null}
+            onDecide={(d) => onDecide(item.id, d)}
+            onUndo={() => onUndo(item.id)}
           />
         ))}
       </div>
     </section>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-3">
+      <Loader2 className="size-6 mx-auto animate-spin text-[var(--muted-foreground)]" />
+      <p className="text-sm text-[var(--muted-foreground)]">Loading approvals…</p>
+    </div>
+  );
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 py-12 px-6 text-center space-y-4">
+      <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--destructive)]/10 text-[var(--destructive)]">
+        <AlertCircle />
+      </div>
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-[var(--foreground)]">Couldn't reach the gateway</h2>
+        <p className="text-sm text-[var(--muted-foreground)]">{message}</p>
+      </div>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   );
 }
 

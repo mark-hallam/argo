@@ -17,15 +17,21 @@ export function ThemePicker() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Avoid SSR/CSR mismatch — mode is only known on the client.
-  const currentMode = mounted ? mode : undefined;
-
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--border)] p-0.5">
-        <ModeButton current={currentMode} value="light" onClick={() => setMode("light")} icon={<Sun />} label="Light" />
-        <ModeButton current={currentMode} value="system" onClick={() => setMode("system")} icon={<SunMoon />} label="System" />
-        <ModeButton current={currentMode} value="dark" onClick={() => setMode("dark")} icon={<Moon />} label="Dark" />
+      <div
+        className="inline-flex rounded-[var(--radius-md)] border border-[var(--border)] p-0.5"
+        suppressHydrationWarning
+      >
+        {mounted ? (
+          <>
+            <ModeButton current={mode} value="light" onClick={() => setMode("light")} icon={<Sun />} label="Light" />
+            <ModeButton current={mode} value="system" onClick={() => setMode("system")} icon={<SunMoon />} label="System" />
+            <ModeButton current={mode} value="dark" onClick={() => setMode("dark")} icon={<Moon />} label="Dark" />
+          </>
+        ) : (
+          <div aria-hidden className="h-7 w-[122px]" />
+        )}
       </div>
 
       <div className="inline-flex items-center gap-2 text-xs text-[var(--muted-foreground)]">

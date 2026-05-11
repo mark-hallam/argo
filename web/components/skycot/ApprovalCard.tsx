@@ -69,6 +69,26 @@ function toRelative(iso: string): string {
   return `${Math.round(diff / 86400)}d ago`;
 }
 
+/**
+ * Client-only relative-time renderer. Avoids SSR/CSR hydration
+ * mismatch on `Date.now()`-derived strings without resorting to
+ * suppressHydrationWarning (which doesn't cover attribute values).
+ */
+function RelativeTime({ iso }: { iso: string }) {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    setLabel(toRelative(iso));
+    const tick = setInterval(() => setLabel(toRelative(iso)), 30_000);
+    return () => clearInterval(tick);
+  }, [iso]);
+  if (label == null) return null;
+  return (
+    <time dateTime={iso} title={iso}>
+      {label}
+    </time>
+  );
+}
+
 export function ApprovalCard({
   worker,
   verb,
@@ -152,11 +172,7 @@ export function ApprovalCard({
               </span>
             ) : null}
             {channel && receivedAt ? <span aria-hidden>·</span> : null}
-            {receivedAt ? (
-              <time dateTime={receivedAt} title={new Date(receivedAt).toLocaleString()}>
-                {toRelative(receivedAt)}
-              </time>
-            ) : null}
+            {receivedAt ? <RelativeTime iso={receivedAt} /> : null}
           </div>
         </div>
       </div>

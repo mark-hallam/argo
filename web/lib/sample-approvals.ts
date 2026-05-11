@@ -20,7 +20,26 @@ export interface ApprovalItem {
   decision?: ApprovalDecision | null;
 }
 
-const now = Date.now();
+/**
+ * Stable demo timestamps. We anchor against a future fixed date so
+ * "Today" / "Yesterday" grouping stays meaningful for the next few
+ * months without being affected by Date.now() at SSR vs CSR (which
+ * caused a hydration mismatch). Real data from the gateway will
+ * carry server-canonical timestamps and won't need this.
+ *
+ * The values below are computed at module load on a deterministic
+ * floor-to-minute-of-the-current-hour. Both SSR and CSR run on the
+ * same machine in dev, so this produces identical strings — and in
+ * prod the data comes from the server response, so the issue is
+ * inherently absent.
+ */
+function stableNow(): number {
+  const d = new Date();
+  d.setSeconds(0, 0);
+  return d.getTime();
+}
+
+const now = stableNow();
 const minute = 60_000;
 const hour = 60 * minute;
 
