@@ -292,6 +292,7 @@ fn row_to_persona(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<PersonaRow> {
         name: row.get("name"),
         voice_profile: argo_identity::VoiceProfile {
             preamble: row.get("voice_preamble"),
+            ..Default::default()
         },
         avatar: row.get("avatar"),
         bio: row.get("bio"),

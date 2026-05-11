@@ -12,7 +12,7 @@ mod memory_compose;
 #[path = "types_role.rs"]
 mod types_role;
 
-pub use types_role::{Duty, Persona, Role, VoiceProfile};
+pub use types_role::{Duty, Formality, Persona, Role, Tone, VoiceProfile};
 
 /// Stable worker identity.
 ///

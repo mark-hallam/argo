@@ -32,6 +32,8 @@ mod store;
 mod store_channels;
 mod store_skill_tests;
 mod store_sql;
+#[cfg(test)]
+mod voice_profile_tests;
 mod store_trust_grade;
 mod types;
 pub mod worker_budget;
@@ -45,8 +47,8 @@ pub use prompt::compose_system_prompt;
 pub use roster::{Roster, RosterId, RosterStore};
 pub use store::IdentityStore;
 pub use types::{
-    AutoApprovalPolicy, Duty, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role, VoiceProfile,
-    Worker, WorkerId, WorkerLevel, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,
+    AutoApprovalPolicy, Duty, Formality, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role,
+    Tone, VoiceProfile, Worker, WorkerId, WorkerLevel, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,
 };
 pub use worker_update::WorkerUpdate;
 

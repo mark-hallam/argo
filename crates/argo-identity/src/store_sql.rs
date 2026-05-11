@@ -230,6 +230,7 @@ pub(crate) fn worker_from_row(
         name: row.get("name"),
         voice_profile: VoiceProfile {
             preamble: row.get("voice_preamble"),
+            ..Default::default()
         },
         avatar: row.get("avatar"),
         bio: row.get("bio"),

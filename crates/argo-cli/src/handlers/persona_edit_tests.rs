@@ -10,6 +10,7 @@ fn sample_persona() -> Persona {
         name: "Maya".into(),
         voice_profile: VoiceProfile {
             preamble: "Be concise and direct.".into(),
+            ..Default::default()
         },
         avatar: Some("https://example.com/maya.png".into()),
         bio: Some("Marketplace SDR.".into()),
