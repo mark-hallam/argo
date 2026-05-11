@@ -401,8 +401,10 @@ dependencies = [
 name = "argo-eval"
 version = "0.0.1"
 dependencies = [
+ "argo-judge",
  "argo-types",
  "async-trait",
+ "chrono",
  "serde",
  "serde_json",
  "tempfile",

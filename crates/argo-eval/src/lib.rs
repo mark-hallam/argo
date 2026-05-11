@@ -46,6 +46,7 @@
 
 mod runner;
 mod compare;
+pub mod honesty;
 mod streaming;
 mod task;
 
@@ -55,6 +56,9 @@ mod tests;
 pub use compare::{
     compare_runs, ComparisonGroup, ComparisonItem, ComparisonReport, EvalRunFixture,
     EvalRunReport, GroupComparison,
+};
+pub use honesty::{
+    run_honesty_test, AuditSampler, HonestyConfig, HonestyResult, SampleVerdict, SkillSample,
 };
 pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
 pub use streaming::{

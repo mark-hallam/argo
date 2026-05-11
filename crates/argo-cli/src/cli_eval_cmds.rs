@@ -65,6 +65,28 @@ pub enum EvalCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Self-evaluation honesty test: sample recent skill runs, re-judge
+    /// them via `argo-judge::adjudicate`, and flag the skill as
+    /// SUSPICIOUS when its self-reported success rate diverges from the
+    /// independent judge by more than the configured threshold
+    /// (mission-eval-self-honesty-test). Diagnostic only — does not
+    /// demote trust grades.
+    SkillHonesty {
+        /// Skill id to audit.
+        skill_id: String,
+        /// Override the default 20-sample window.
+        #[arg(long)]
+        sample: Option<usize>,
+        /// Provider manifest id used to construct the judge transport.
+        #[arg(long, default_value = "anthropic")]
+        provider: String,
+        /// Judge model id (e.g. `claude-sonnet-4-6`).
+        #[arg(long, default_value = "claude-sonnet-4-6")]
+        model: String,
+        /// Output as a single JSON object.
+        #[arg(long)]
+        json: bool,
+    },
     /// Compare two eval runs side by side.
     Compare {
         /// Baseline eval run id or JSON path.

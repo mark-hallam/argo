@@ -8,6 +8,11 @@ repository.workspace = true
 description = "Argo — eval harness runtime (forge bench / forge optimize)"
 
 [dependencies]
+# `honesty` reuses `argo_judge::Judge::adjudicate` as the independent
+# re-classification step (mission-eval-self-honesty-test); the brief
+# explicitly says "do NOT invent a new judge here", so the seam is
+# the shipped trait rather than a callback.
+argo-judge = { path = "../argo-judge", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 async-trait = { workspace = true }
 serde = { workspace = true }
@@ -17,4 +22,6 @@ tokio = { workspace = true, features = ["fs", "macros"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
+# Honesty unit tests build deterministic `JudgeRecord`s via `chrono::Utc::now()`.
+chrono = { workspace = true }
 tempfile = "3"
