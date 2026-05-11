@@ -23,6 +23,7 @@ pub mod discord;
 pub mod fallback;
 pub mod imessage;
 pub mod manifest;
+pub mod matrix;
 pub mod operator_preferences;
 pub mod operator_risk_overrides;
 pub mod push;
@@ -41,6 +42,7 @@ pub mod webinbox;
 pub mod whatsapp;
 
 pub use discord::DiscordChannel;
+pub use matrix::{MatrixChannel, MatrixChannelConfig};
 pub use teams::{TeamsApprovalChannel, TeamsApprovalChannelConfig};
 pub use teams_payload::TeamsAttachment;
 pub use operator_preferences::{

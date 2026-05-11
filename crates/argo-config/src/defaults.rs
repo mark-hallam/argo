@@ -170,6 +170,18 @@ pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST: f64 = 2.0;
 /// operators rotate without restart-and-edit-config.
 pub const DEFAULT_TEAMS_CLIENT_SECRET_ENV: &str = "ARGO_TEAMS_CLIENT_SECRET";
 
+// --- [channels.matrix] ----------------------------------------------
+
+/// `channels.matrix.access_token_env` default — env var the operator
+/// populates with the long-lived Matrix access token. Env-indirect
+/// avoids plaintext credentials in `argo.toml`.
+pub const DEFAULT_MATRIX_ACCESS_TOKEN_ENV: &str = "ARGO_MATRIX_ACCESS_TOKEN";
+
+/// `channels.matrix.homeserver_url` default — matrix.org is the
+/// reference homeserver. Self-hosted Synapse/Dendrite/Conduit users
+/// override per-tenant.
+pub const DEFAULT_MATRIX_HOMESERVER_URL: &str = "https://matrix.org";
+
 // --- [loop] ----------------------------------------------------------
 
 /// `document_csv.output_root` default — sandbox root for the

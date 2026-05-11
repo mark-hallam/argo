@@ -340,14 +340,16 @@ pub struct PluginConfig {
 }
 
 /// `[channels]` — parent for per-channel TOML config blocks.
-/// Today only `[channels.teams]`; sibling blocks land here as other
-/// channels (slack, discord, whatsapp, etc.) move off env-only
-/// configuration.
+/// Today `[channels.teams]` and `[channels.matrix]`; sibling blocks
+/// land here as other channels (slack, discord, whatsapp, etc.) move
+/// off env-only configuration.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChannelsConfig {
     /// `[channels.teams]`.
     pub teams: TeamsTomlConfig,
+    /// `[channels.matrix]`.
+    pub matrix: MatrixTomlConfig,
 }
 
 /// `[channels.teams]` — Microsoft Teams (Graph API app-only auth).
@@ -385,6 +387,40 @@ impl Default for TeamsTomlConfig {
             default_team_id: None,
             default_channel_id: None,
             markdown_to_html: true,
+        }
+    }
+}
+
+/// `[channels.matrix]` — Matrix Client-Server API r0.6.1 cleartext
+/// send.
+///
+/// The access token is loaded indirectly from the env var named by
+/// `access_token_env` (default `ARGO_MATRIX_ACCESS_TOKEN`). End-to-
+/// end encryption (Olm/Megolm) is out of scope for v1; see the
+/// follow-up brief for the encrypted path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MatrixTomlConfig {
+    /// Master enable. Defaults to `false` — opt-in.
+    pub enabled: bool,
+    /// Homeserver base URL (e.g. `https://matrix.org`).
+    pub homeserver_url: String,
+    /// Bot user id, `@local:domain` form.
+    pub user_id: String,
+    /// Env var name holding the long-lived access token.
+    pub access_token_env: String,
+    /// Default room id (`!opaque:domain`); explicit override wins.
+    pub default_room_id: Option<String>,
+}
+
+impl Default for MatrixTomlConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            homeserver_url: defaults::DEFAULT_MATRIX_HOMESERVER_URL.into(),
+            user_id: String::new(),
+            access_token_env: defaults::DEFAULT_MATRIX_ACCESS_TOKEN_ENV.into(),
+            default_room_id: None,
         }
     }
 }

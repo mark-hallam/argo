@@ -50,8 +50,8 @@ pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
     ForgeConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig, JudgeConfig,
-    LoopConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig, TeamsTomlConfig,
-    TelemetryConfig, TenantConfig,
+    LoopConfig, MatrixTomlConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
+    TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
