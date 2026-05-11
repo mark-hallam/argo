@@ -65,6 +65,7 @@ members = [
   "crates/argo-mcp-connector-google-meet",
   "crates/argo-mcp-connector-calendly",
   "crates/argo-mcp-connector-mailchimp",
+  "crates/argo-mcp-connector-mailgun",
   "crates/argo-mcp-connector-sendgrid",
   "crates/argo-mcp-connector-monday",
   "crates/argo-mcp-connector-fireflies",

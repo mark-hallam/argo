@@ -886,6 +886,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-mailgun"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "hex",
+ "hmac 0.12.1",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tokio",
+]
+
+[[package]]
 name = "argo-mcp-connector-monday"
 version = "0.0.1"
 dependencies = [

@@ -1,0 +1,20 @@
+[package]
+name = "argo-mcp-connector-mailgun"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo MCP connector for Mailgun outbound email + webhook signature verification"
+
+[dependencies]
+argo-types = { path = "../argo-types", version = "0.0.1" }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
