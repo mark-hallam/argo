@@ -33,6 +33,10 @@ const _WORKER_LEVEL_SCHEMA: &str =
 // `mvp-worker-trust-grade-column`.
 const _WORKER_TRUST_GRADE_SCHEMA: &str =
     include_str!("../../argo-store/migrations/50__worker_trust_grade.sql");
+// Raw schema for the worker↔skill association table, applied via
+// [`ensure_worker_skill_table`]. Stream `mvp-worker-skills-table`.
+const WORKER_SKILL_SCHEMA: &str =
+    include_str!("../../argo-store/migrations/51__worker_skill.sql");
 
 pub(crate) const WORKER_SELECT: &str = "SELECT
     w.id, w.tenant_id, w.vertical_id, w.memory_scope,
@@ -132,6 +136,28 @@ pub(crate) async fn ensure_worker_trust_grade_columns(
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("create idx_worker_last_used_at: {e}")))?;
+    Ok(())
+}
+
+/// Idempotent additive helper for the `worker_skill` table (Stream
+/// `mvp-worker-skills-table`). Mirrors [`ensure_worker_level_columns`]:
+/// applies each statement from the raw SQL file via
+/// `CREATE TABLE/INDEX IF NOT EXISTS`, so the crate-scoped
+/// `ensure_schema` path matches the versioned-migration path
+/// (`v47.rs`) on fresh DBs.
+pub(crate) async fn ensure_worker_skill_table(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    for stmt in WORKER_SKILL_SCHEMA.split_terminator(';') {
+        let sql = stmt.trim();
+        if sql.is_empty() {
+            continue;
+        }
+        sqlx::query(sql)
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("ensure worker_skill: {e}")))?;
+    }
     Ok(())
 }
 
