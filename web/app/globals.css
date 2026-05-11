@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/* --------------------------------------------------------------
+   SKYCOT theme tokens.
+
+   The contract is: every visual choice is a CSS custom property
+   on :root, overridable by a [data-theme="..."] selector. No
+   color or radius literal in component files. See
+   docs/build-plan/streams/adr-frontend-design-language.md §D3.
+   -------------------------------------------------------------- */
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: var(--radius-sm-value);
+  --radius-md: var(--radius-md-value);
+  --radius-lg: var(--radius-lg-value);
+
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+}
+
+/* --------------------------------------------------------------
+   Default SKYCOT light theme.
+   -------------------------------------------------------------- */
+:root,
+[data-theme="skycot-light"] {
+  --background:            oklch(0.99 0.005 248);  /* near-white, slight cool */
+  --foreground:            oklch(0.18 0.020 248);  /* near-black, slight cool */
+
+  --card:                  oklch(1.00 0.000 0);
+  --card-foreground:       oklch(0.18 0.020 248);
+
+  --popover:               oklch(1.00 0.000 0);
+  --popover-foreground:    oklch(0.18 0.020 248);
+
+  --primary:               oklch(0.55 0.22 264);   /* indigo-600 equivalent — placeholder accent */
+  --primary-foreground:    oklch(0.99 0.005 264);
+
+  --secondary:             oklch(0.96 0.010 248);
+  --secondary-foreground:  oklch(0.25 0.020 248);
+
+  --muted:                 oklch(0.96 0.010 248);
+  --muted-foreground:      oklch(0.52 0.015 248);
+
+  --accent:                oklch(0.96 0.010 248);
+  --accent-foreground:     oklch(0.25 0.020 248);
+
+  --destructive:           oklch(0.58 0.21 25);
+  --destructive-foreground:oklch(0.99 0.005 25);
+
+  --success:               oklch(0.62 0.16 145);
+  --success-foreground:    oklch(0.99 0.005 145);
+
+  --warning:               oklch(0.72 0.16 75);
+  --warning-foreground:    oklch(0.20 0.020 75);
+
+  --info:                  oklch(0.62 0.17 230);
+  --info-foreground:       oklch(0.99 0.005 230);
+
+  --border:                oklch(0.92 0.010 248);
+  --input:                 oklch(0.92 0.010 248);
+  --ring:                  oklch(0.55 0.22 264);
+
+  --radius-sm-value:       4px;
+  --radius-md-value:       6px;
+  --radius-lg-value:       12px;
+}
+
+/* --------------------------------------------------------------
+   Default SKYCOT dark theme.
+   Class .dark is what next-themes toggles; the explicit
+   data-theme alias keeps tenant-theme machinery uniform.
+   -------------------------------------------------------------- */
+.dark,
+[data-theme="skycot-dark"] {
+  --background:            oklch(0.16 0.020 248);
+  --foreground:            oklch(0.96 0.010 248);
+
+  --card:                  oklch(0.20 0.020 248);
+  --card-foreground:       oklch(0.96 0.010 248);
+
+  --popover:               oklch(0.20 0.020 248);
+  --popover-foreground:    oklch(0.96 0.010 248);
+
+  --primary:               oklch(0.70 0.18 264);   /* lighter accent for dark */
+  --primary-foreground:    oklch(0.16 0.020 264);
+
+  --secondary:             oklch(0.26 0.020 248);
+  --secondary-foreground:  oklch(0.96 0.010 248);
+
+  --muted:                 oklch(0.26 0.020 248);
+  --muted-foreground:      oklch(0.65 0.015 248);
+
+  --accent:                oklch(0.26 0.020 248);
+  --accent-foreground:     oklch(0.96 0.010 248);
+
+  --destructive:           oklch(0.62 0.20 25);
+  --destructive-foreground:oklch(0.16 0.020 25);
+
+  --success:               oklch(0.70 0.16 145);
+  --success-foreground:    oklch(0.16 0.020 145);
+
+  --warning:               oklch(0.78 0.16 75);
+  --warning-foreground:    oklch(0.16 0.020 75);
+
+  --info:                  oklch(0.72 0.17 230);
+  --info-foreground:       oklch(0.16 0.020 230);
+
+  --border:                oklch(0.30 0.020 248);
+  --input:                 oklch(0.30 0.020 248);
+  --ring:                  oklch(0.70 0.18 264);
+}
+
+/* --------------------------------------------------------------
+   Tenant theme example: "Acme Corp" — warm-orange brand.
+
+   Tenants override the same token contract; everything else
+   inherits. Light + dark pair per tenant. The synth-from-hue
+   logic that lets an Operator pick one color and get a full
+   palette lives in lib/theme/synthesize.ts.
+   -------------------------------------------------------------- */
+[data-theme="acme-light"] {
+  --primary:               oklch(0.65 0.20 50);    /* warm orange */
+  --primary-foreground:    oklch(0.99 0.005 50);
+  --ring:                  oklch(0.65 0.20 50);
+}
+
+[data-theme="acme-dark"] {
+  --background:            oklch(0.16 0.015 50);
+  --foreground:            oklch(0.96 0.008 50);
+  --card:                  oklch(0.20 0.015 50);
+  --primary:               oklch(0.78 0.16 50);
+  --primary-foreground:    oklch(0.16 0.015 50);
+  --secondary:             oklch(0.26 0.015 50);
+  --muted:                 oklch(0.26 0.015 50);
+  --muted-foreground:      oklch(0.65 0.012 50);
+  --accent:                oklch(0.26 0.015 50);
+  --border:                oklch(0.30 0.015 50);
+  --input:                 oklch(0.30 0.015 50);
+  --ring:                  oklch(0.78 0.16 50);
+}
+
+/* --------------------------------------------------------------
+   Base reset + body defaults.
+   -------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-size: 15px; /* ADR §D4 base size */
+    color-scheme: light dark;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
