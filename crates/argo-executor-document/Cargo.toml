@@ -13,6 +13,10 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 argo-types = { path = "../argo-types" }
 pulldown-cmark = { version = "0.10", default-features = false, features = ["html"] }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 tempfile = "3"
+base64 = "0.22"

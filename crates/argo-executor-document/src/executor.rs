@@ -19,6 +19,7 @@
 //! the dispatch + payload-parsing seam.
 
 use crate::error::{DocExecutorError, DocResult};
+use crate::msgraph::MsGraphFormat;
 use crate::{csv, markdown, pdf, slides};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -29,7 +30,7 @@ pub use crate::pdf::ENV_CHROME_PATH;
 
 /// Stable list of the four kinds the executor knows about. Surfaced
 /// for the dispatch shim's "unknown kind" error message.
-pub const DOC_KINDS: &[&str] = &["markdown", "csv", "pdf", "slides"];
+pub const DOC_KINDS: &[&str] = &["markdown", "csv", "pdf", "slides", "msgraph"];
 
 /// Parsed action payload. The dispatch shim deserialises
 /// `action.payload` straight into this enum (`#[serde(tag = "kind")]`)
@@ -65,6 +66,21 @@ pub enum DocRequest {
         output_path: String,
         title: String,
         body: String,
+    },
+    /// Microsoft Graph (OneDrive / Office) document op. The actual
+    /// upload/download is async and runs through
+    /// [`crate::MsGraphExecutor`]; this sync [`DocExecutor`] surfaces
+    /// the variant for ActionExecutor discoverability (`executor.kind
+    /// = "msgraph"`) but the dispatch arm returns an explicit error
+    /// directing callers to invoke [`crate::MsGraphExecutor::create`]
+    /// from an async context. `payload_b64` is the optional
+    /// caller-supplied bytes for `UploadOnly` (base64-encoded so the
+    /// payload survives JSON transport).
+    MsGraph {
+        output_path: String,
+        format: MsGraphFormat,
+        #[serde(default)]
+        payload_b64: String,
     },
 }
 
@@ -224,6 +240,13 @@ impl DocExecutor {
                     bytes_written: n,
                 })
             }
+            DocRequest::MsGraph { .. } => Err(DocExecutorError::io(
+                "msgraph is async-only — invoke MsGraphExecutor::create / ::read from an async caller",
+                std::io::Error::new(
+                    std::io::ErrorKind::Unsupported,
+                    "msgraph requires async dispatch",
+                ),
+            )),
         }
     }
 }
@@ -337,7 +360,25 @@ mod tests {
     }
 
     #[test]
-    fn doc_kinds_lists_all_four_backends() {
-        assert_eq!(DOC_KINDS, &["markdown", "csv", "pdf", "slides"]);
+    fn doc_kinds_lists_all_known_backends() {
+        assert_eq!(DOC_KINDS, &["markdown", "csv", "pdf", "slides", "msgraph"]);
+    }
+
+    #[test]
+    fn doc_executor_rejects_msgraph_in_sync_dispatch() {
+        let bundle = tempfile::tempdir().unwrap();
+        let exec = DocExecutor::new();
+        let req = DocRequest::MsGraph {
+            output_path: "x.docx".into(),
+            format: MsGraphFormat::UploadOnly,
+            payload_b64: String::new(),
+        };
+        let err = exec.run(&req, bundle.path()).unwrap_err();
+        match err {
+            DocExecutorError::Io { source, .. } => {
+                assert_eq!(source.kind(), std::io::ErrorKind::Unsupported);
+            }
+            other => panic!("expected Io/Unsupported, got {other:?}"),
+        }
     }
 }

@@ -37,6 +37,7 @@ pub mod csv;
 pub mod error;
 pub mod executor;
 pub mod markdown;
+pub mod msgraph;
 pub mod pdf;
 pub mod slides;
 
@@ -44,3 +45,4 @@ pub use error::{DocExecutorError, DocResult};
 pub use executor::{
     CsvRow, DocExecutor, DocOutcome, DocRequest, OutputPath, DOC_KINDS, ENV_CHROME_PATH,
 };
+pub use msgraph::{MsGraphExecutor, MsGraphFile, MsGraphFormat};
