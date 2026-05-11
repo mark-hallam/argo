@@ -148,7 +148,7 @@ fn assemble_response_picks_text_thinking_and_tool_use() {
         "usage": {"input_tokens": 12, "output_tokens": 7}
     }))
     .unwrap();
-    let r = assemble_response(parsed, serde_json::json!({}));
+    let r = assemble_response(parsed, serde_json::json!({}), "anthropic", "claude-haiku-4-5");
     assert_eq!(r.text.as_deref(), Some("Calling tool."));
     assert_eq!(r.reasoning.as_deref(), Some("let me think"));
     assert_eq!(r.stop_reason, StopReason::ToolUse);
@@ -278,6 +278,6 @@ fn assemble_response_handles_missing_stop_reason_as_end_turn() {
         "content":[{"type":"text","text":"hi"}]
     }))
     .unwrap();
-    let r = assemble_response(parsed, serde_json::json!({}));
+    let r = assemble_response(parsed, serde_json::json!({}), "anthropic", "claude-haiku-4-5");
     assert_eq!(r.stop_reason, StopReason::EndTurn);
 }

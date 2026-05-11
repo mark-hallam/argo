@@ -9,6 +9,8 @@ description = "Argo — provider manifests + transports"
 
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
+# Process-global prompt cache hit-rate counters (mission-prompt-cache-hit-rate-observability).
+argo-telemetry = { path = "../argo-telemetry", version = "0.0.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }

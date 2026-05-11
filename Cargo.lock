@@ -1086,6 +1086,7 @@ dependencies = [
 name = "argo-provider"
 version = "0.0.1"
 dependencies = [
+ "argo-telemetry",
  "argo-types",
  "async-trait",
  "aws-config",

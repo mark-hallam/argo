@@ -15,6 +15,9 @@ pub async fn run(cmd: ProviderCmd) -> ArgoResult<()> {
         ProviderCmd::Validate { manifest } => validate(&PathBuf::from(manifest)),
         ProviderCmd::ValidateAll => validate_all(),
         ProviderCmd::Test { provider } => test(&provider).await,
+        ProviderCmd::CacheStats { provider, model, json } => {
+            super::provider_cache_stats::run(provider.as_deref(), model.as_deref(), json)
+        }
     }
 }
 

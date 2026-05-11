@@ -257,12 +257,29 @@ pub(super) struct AnthropicUsage {
     pub input_tokens: Option<u32>,
     #[serde(default)]
     pub output_tokens: Option<u32>,
+    /// Tokens used to create a prompt-cache entry (mission-prompt-cache-hit-rate-observability).
+    #[serde(default)]
+    pub cache_creation_input_tokens: Option<u32>,
+    /// Tokens served from a prompt-cache entry.
+    #[serde(default)]
+    pub cache_read_input_tokens: Option<u32>,
 }
 
 pub(super) fn assemble_response(
     parsed: AnthropicResponse,
     raw: serde_json::Value,
+    provider_id: &str,
+    model_id: &str,
 ) -> ProviderResponse {
+    if let Some(usage) = parsed.usage.as_ref() {
+        argo_telemetry::metrics_prompt_cache::record(
+            provider_id,
+            model_id,
+            usage.input_tokens.unwrap_or(0),
+            usage.cache_creation_input_tokens.unwrap_or(0),
+            usage.cache_read_input_tokens.unwrap_or(0),
+        );
+    }
     let stop_reason = parsed
         .stop_reason
         .as_deref()

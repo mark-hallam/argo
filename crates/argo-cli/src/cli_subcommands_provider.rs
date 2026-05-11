@@ -31,6 +31,22 @@ pub enum ProviderCmd {
     Test {
         provider: String,
     },
+    /// Print prompt-cache hit-rate metrics aggregated per provider+model
+    /// (mission-prompt-cache-hit-rate-observability). Numbers come from
+    /// the in-process counters incremented on every Anthropic response;
+    /// the gateway also exposes them under the standard `/metrics`
+    /// endpoint.
+    CacheStats {
+        /// Filter to one provider id (e.g. `anthropic`).
+        #[arg(long)]
+        provider: Option<String>,
+        /// Filter to one model id (e.g. `claude-opus-4-7`).
+        #[arg(long)]
+        model: Option<String>,
+        /// Emit a JSON array instead of human-readable text.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

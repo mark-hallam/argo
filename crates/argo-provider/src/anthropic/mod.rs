@@ -128,7 +128,12 @@ impl Transport for AnthropicTransport {
         let raw = retry_post_json(self, &body).await?;
         let parsed: AnthropicResponse = serde_json::from_value(raw.clone())
             .map_err(|e| ArgoError::Provider(format!("anthropic response parse: {e}")))?;
-        let mut resp = assemble_response(parsed, raw.clone());
+        let mut resp = assemble_response(
+            parsed,
+            raw.clone(),
+            &self.manifest.provider.id,
+            self.manifest.resolve_model_id(&req.model),
+        );
         // Prefer the manifest-declared extractor if it agrees; otherwise the
         // wire-typed assembler already populated tool_calls. extract_tool_calls
         // is the cross-family hook for cost-router / replay parity.
