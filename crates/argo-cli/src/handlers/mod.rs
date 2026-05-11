@@ -266,6 +266,7 @@ pub mod tenant_quota_clear;
 pub mod tenant_quota_list;
 pub mod tenant_quota_set;
 pub mod tenant_quota_show;
+pub mod tenant_rate_limit;
 pub mod tenant_rename;
 pub mod tenant_show;
 pub mod tenant_summary;

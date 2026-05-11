@@ -43,9 +43,9 @@ pub use loader::{load, load_from};
 pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
-    AuditConfig, BudgetConfig, CoreConfig, DelegateConfig, ForgeConfig, GatewayConfig, JudgeConfig,
-    LoopConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig, TelemetryConfig,
-    TenantConfig,
+    AuditConfig, BudgetConfig, CoreConfig, DelegateConfig, ForgeConfig, GatewayConfig,
+    GatewayRateLimitConfig, GatewayRateLimitTenantConfig, JudgeConfig, LoopConfig, ParallelConfig,
+    PluginConfig, RoutingConfig, RoutingTieredConfig, TelemetryConfig, TenantConfig,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};

@@ -76,4 +76,49 @@ pub enum TenantCmd {
         #[command(subcommand)]
         cmd: TenantQuotaCmd,
     },
+    /// Per-tenant gateway rate-limit overrides (Stream
+    /// `mission-per-tenant-rate-limiting`). Missing override → use
+    /// the `[gateway.rate_limit.tenant]` config default.
+    #[command(name = "rate-limit")]
+    RateLimit {
+        #[command(subcommand)]
+        cmd: TenantRateLimitCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TenantRateLimitCmd {
+    /// Set or replace one tenant's per-minute budget.
+    Set {
+        /// Tenant id (UUID).
+        tenant: String,
+        /// Per-minute budget (`> 0`).
+        #[arg(long)]
+        rpm: u32,
+        /// Emit JSON instead of a one-line summary.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one tenant's override, if any.
+    Get {
+        /// Tenant id (UUID).
+        tenant: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List every stored override.
+    List {
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Clear one tenant's override; falls back to the config default.
+    Delete {
+        /// Tenant id (UUID).
+        tenant: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }

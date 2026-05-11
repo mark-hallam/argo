@@ -61,6 +61,7 @@ pub async fn run(cmd: TenantCmd) -> ArgoResult<()> {
             super::tenant_transfer::run(&id, &owner, json).await
         }
         TenantCmd::Quota { cmd } => super::tenant_quota_set::run_cmd(cmd).await,
+        TenantCmd::RateLimit { cmd } => super::tenant_rate_limit::run(cmd).await,
     }
 }
 

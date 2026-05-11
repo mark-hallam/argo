@@ -119,6 +119,15 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             // and spawn its eviction sweep before the listener accepts.
             // Idempotent — only the first caller actually wires state.
             let _ = rate_limit::init();
+            // mission-per-tenant-rate-limiting: layer the per-tenant
+            // limiter on top of the `[gateway.rate_limit.tenant]`
+            // config block and hydrate per-tenant overrides from the
+            // workspace `tenant_rate_limit` table. Best-effort: a
+            // missing store falls through to the limiter's default.
+            let tenant_limiter = rate_limit_tenant::init_with_config(&cfg.gateway.rate_limit.tenant);
+            if let Ok(overrides) = load_tenant_rate_limit_overrides().await {
+                tenant_limiter.install_overrides(overrides);
+            }
             boot::start(
                 &bind,
                 port,
@@ -180,6 +189,29 @@ fn status(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
         }
     }
     Ok(())
+}
+
+/// Best-effort load of the per-tenant rate-limit override map from
+/// the workspace store. Returns the `(tenant_id_string, rpm)` pairs
+/// suitable for `TenantRateLimiter::install_overrides`. Errors fall
+/// through to an empty Vec so a missing/uninitialised store leaves
+/// the limiter at its config-driven default. Lives here rather than
+/// in `boot.rs` so the gateway-mod boot path stays inside the
+/// mission brief's may-touch list.
+async fn load_tenant_rate_limit_overrides() -> ArgoResult<Vec<(String, u32)>> {
+    use crate::home::{db_path, ensure_dir, resolve_home};
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = argo_store::SessionStore::open(db_path(&home)).await?;
+    store.migrate().await?;
+    let rows = argo_store::tenant_rate_limit::TenantRateLimitStore::new(store.pool())
+        .list()
+        .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.tenant_id.to_string(), r.requests_per_minute))
+        .collect())
 }
 
 pub(super) fn store_unavailable() -> (&'static str, String) {

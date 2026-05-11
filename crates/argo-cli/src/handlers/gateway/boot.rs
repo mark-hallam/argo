@@ -211,6 +211,7 @@ pub(super) async fn start(
                     let bytes = rate_limited_response_bytes(retry_after_secs);
                     let _ = stream.write_all(&bytes).await;
                     let _ = stream.shutdown().await;
+                } else if super::rate_limit_tenant::write_if_throttled(req, &mut stream, &sec).await {
                 } else if runs_streaming::is_streaming_runs_request(req) {
                     let _ = runs_streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
                     let _ = stream.shutdown().await;

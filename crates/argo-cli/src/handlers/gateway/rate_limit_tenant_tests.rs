@@ -1,6 +1,6 @@
-//! Unit tests for [`super::rate_limit_tenant`] (mvp-rate-limit).
+//! Unit tests for [`super::rate_limit_tenant`].
 //!
-//! Coverage:
+//! Coverage (pre-mission, mvp-rate-limit):
 //!   1. first request from a new tenant is allowed
 //!   2. burst up to capacity is allowed
 //!   3. exceeding capacity → deny with `retry_after_secs`
@@ -11,8 +11,20 @@
 //!   8. `from_env` reads `ARGO_RATE_LIMIT_TENANT_PER_MIN` (override + 0-disables + invalid)
 //!   9. denied request body carries the documented JSON shape
 //!  10. `ARGO_GATEWAY_AUTH_BYPASS=1` short-circuits `check_request`
+//!
+//! Coverage (mission-per-tenant-rate-limiting):
+//!  11. `with_config` honours the burst_multiplier (capacity = rpm * burst)
+//!  12. installed per-tenant override supersedes the config default
+//!  13. zero rpm in an installed override clears the override
+//!  14. `with_config` with `requests_per_minute = 0` disables the limiter
+//!  15. `is_public_get` allowlist bypasses `check_request`
+//!  16. `merge_env_over_config` lets the env knob shadow the config rpm
 
-use super::{Bucket, CheckResult, TenantRateLimiter, EVICT_AGE_SECS, MAX_ENTRIES};
+use super::{
+    capacity_for, merge_env_over_config, Bucket, CheckResult, TenantRateLimiter, EVICT_AGE_SECS,
+    MAX_ENTRIES,
+};
+use argo_config::GatewayRateLimitTenantConfig;
 use std::time::{Duration, Instant};
 
 #[test]
@@ -177,3 +189,133 @@ fn matches_deny(r: CheckResult) {
 // tests in parallel; serializing avoids cross-test leakage on
 // `ARGO_RATE_LIMIT_TENANT_PER_MIN` / `ARGO_GATEWAY_AUTH_BYPASS`.
 static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+// ---------------------------------------------------------------
+// mission-per-tenant-rate-limiting additions
+// ---------------------------------------------------------------
+
+#[test]
+fn with_config_applies_burst_multiplier() {
+    // rpm=600, burst=2.0 ⇒ bucket holds 1200 tokens; the 1201st
+    // request in the same instant is rejected.
+    let cfg = GatewayRateLimitTenantConfig {
+        requests_per_minute: 600,
+        burst_multiplier: 2.0,
+    };
+    assert_eq!(capacity_for(600, 2.0), 1200);
+    let limiter = TenantRateLimiter::with_config(&cfg);
+    let now = Instant::now();
+    for i in 0..1200 {
+        assert_eq!(
+            limiter.check_with_now("acme", now),
+            CheckResult::Allow,
+            "request {i} should be allowed inside the burst envelope"
+        );
+    }
+    matches_deny(limiter.check_with_now("acme", now));
+}
+
+#[test]
+fn installed_override_supersedes_config_default() {
+    // Config default: tiny (rpm=5, burst=1) — drained in 5 calls.
+    // Per-tenant override raises a single tenant to rpm=120 (cap=120
+    // at burst=1).
+    let cfg = GatewayRateLimitTenantConfig {
+        requests_per_minute: 5,
+        burst_multiplier: 1.0,
+    };
+    let limiter = TenantRateLimiter::with_config(&cfg);
+    limiter.install_overrides([("vip".to_string(), 120)]);
+    assert_eq!(limiter.rpm_for("vip"), 120);
+    assert_eq!(limiter.rpm_for("regular"), 5);
+    let now = Instant::now();
+    // `regular` drains at 5; the 6th request is denied.
+    for _ in 0..5 {
+        assert_eq!(limiter.check_with_now("regular", now), CheckResult::Allow);
+    }
+    matches_deny(limiter.check_with_now("regular", now));
+    // `vip` keeps going past the config default, all the way up to
+    // 120 (the override cap).
+    for _ in 0..120 {
+        assert_eq!(limiter.check_with_now("vip", now), CheckResult::Allow);
+    }
+    matches_deny(limiter.check_with_now("vip", now));
+}
+
+#[test]
+fn install_overrides_zero_rpm_clears_existing() {
+    let cfg = GatewayRateLimitTenantConfig {
+        requests_per_minute: 10,
+        burst_multiplier: 1.0,
+    };
+    let limiter = TenantRateLimiter::with_config(&cfg);
+    limiter.install_overrides([("vip".to_string(), 999)]);
+    assert_eq!(limiter.rpm_for("vip"), 999);
+    // Zero in a subsequent install_overrides clears the row → tenant
+    // falls back to the config default.
+    limiter.install_overrides([("vip".to_string(), 0)]);
+    assert_eq!(
+        limiter.rpm_for("vip"),
+        10,
+        "rpm=0 in install_overrides should clear the override"
+    );
+}
+
+#[test]
+fn with_config_zero_rpm_disables_limiter() {
+    let cfg = GatewayRateLimitTenantConfig {
+        requests_per_minute: 0,
+        burst_multiplier: 2.0,
+    };
+    let limiter = TenantRateLimiter::with_config(&cfg);
+    let now = Instant::now();
+    for _ in 0..10_000 {
+        assert_eq!(limiter.check_with_now("acme", now), CheckResult::Allow);
+    }
+}
+
+#[test]
+fn public_get_routes_bypass_check_request() {
+    let _g = ENV_LOCK.lock().unwrap();
+    // Without bypass env, `/health` would normally hit the limiter
+    // for the `anonymous` tenant. The mission brief requires that
+    // probe paths skip the limiter so a shared NAT IP behind /health
+    // doesn't drain the anonymous bucket.
+    std::env::remove_var("ARGO_GATEWAY_AUTH_BYPASS");
+    for path in &[
+        "GET / HTTP/1.1\r\n\r\n",
+        "GET /health HTTP/1.1\r\n\r\n",
+        "GET /health/ready HTTP/1.1\r\n\r\n",
+        "GET /version HTTP/1.1\r\n\r\n",
+        "GET /routes HTTP/1.1\r\n\r\n",
+    ] {
+        assert!(
+            super::check_request(path).is_none(),
+            "public GET {path:?} should bypass the limiter"
+        );
+    }
+}
+
+#[test]
+fn merge_env_over_config_layers_env_on_top_of_toml() {
+    let _g = ENV_LOCK.lock().unwrap();
+    let cfg = GatewayRateLimitTenantConfig {
+        requests_per_minute: 600,
+        burst_multiplier: 2.0,
+    };
+    // Env override raises rpm to 1500.
+    std::env::set_var("ARGO_RATE_LIMIT_TENANT_PER_MIN", "1500");
+    let limiter = merge_env_over_config(&cfg);
+    assert_eq!(limiter.rpm_for("any"), 1500);
+    // Env "0" disables outright.
+    std::env::set_var("ARGO_RATE_LIMIT_TENANT_PER_MIN", "0");
+    let disabled = merge_env_over_config(&cfg);
+    let now = Instant::now();
+    for _ in 0..5_000 {
+        assert_eq!(disabled.check_with_now("acme", now), CheckResult::Allow);
+    }
+    // Unset → falls back to config rpm.
+    std::env::remove_var("ARGO_RATE_LIMIT_TENANT_PER_MIN");
+    let plain = merge_env_over_config(&cfg);
+    assert_eq!(plain.rpm_for("any"), 600);
+}

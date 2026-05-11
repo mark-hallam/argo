@@ -150,6 +150,18 @@ pub const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
 /// interval.
 pub const DEFAULT_HANDOFF_SWEEP_SECS: u64 = 60;
 
+/// `gateway.rate_limit.tenant.requests_per_minute` default — per-
+/// tenant rate-limit budget for the `RateLimitTenant` middleware
+/// (Stream `mission-per-tenant-rate-limiting`). 10 rps sustained.
+pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_RPM: u32 = 600;
+
+/// `gateway.rate_limit.tenant.burst_multiplier` default — the
+/// in-memory token bucket holds `requests_per_minute * multiplier`
+/// tokens, so a cold-start tenant can burst up to 2× the steady
+/// rate (~1200 req/min by default) before the refill rate bounds
+/// them at the configured rpm.
+pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST: f64 = 2.0;
+
 // --- [loop] ----------------------------------------------------------
 
 /// `loop.on_restart` default.

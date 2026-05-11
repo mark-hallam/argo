@@ -138,6 +138,11 @@ pub mod worker_budget_write;
 /// Worker presence (`last_active_at`) and fleet listing helpers
 /// (Stream `claude-worker-presence-tracking`).
 pub mod worker_presence;
+/// Per-tenant gateway rate-limit overrides (Stream
+/// `mission-per-tenant-rate-limiting`, MISSION_BACKLOG Section 1
+/// #21). Stores one row per tenant that supersedes the gateway's
+/// config-driven `requests_per_minute` default.
+pub mod tenant_rate_limit;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
 /// `show_tenant` + `rename_tenant` family — split out from
@@ -181,7 +186,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 55;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 56;
 
 /// A SQLite-backed session store.
 ///
