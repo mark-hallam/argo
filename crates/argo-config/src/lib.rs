@@ -36,6 +36,7 @@ pub mod provider;
 mod sandbox;
 mod sections;
 mod sections_budget;
+pub mod store;
 pub mod tui;
 
 pub use loader::{load, load_from};
@@ -46,6 +47,7 @@ pub use sections::{
     LoopConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig, TelemetryConfig,
     TenantConfig,
 };
+pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
 
 use argo_types::{ArgoError, ArgoResult};
@@ -85,6 +87,8 @@ pub struct ArgoConfig {
     pub loop_: LoopConfig,
     /// `[plugin]`.
     pub plugin: PluginConfig,
+    /// `[store]` (SQLite-backed session store knobs).
+    pub store: StoreConfig,
     /// `[tui]` (interactive TUI surface).
     pub tui: TuiConfig,
     /// `[sandbox]` (sandbox runtime — named-image map etc.).

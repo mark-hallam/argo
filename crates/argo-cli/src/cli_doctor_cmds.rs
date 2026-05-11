@@ -24,4 +24,12 @@ pub enum DoctorCmd {
         #[arg(long)]
         clear: bool,
     },
+    /// Inspect SQLite WAL state — checkpoints the WAL (PASSIVE) and
+    /// reports pragma readouts plus `*.db-wal` file size. Operator
+    /// inspection for the `mission-sqlite-wal-tuning` profiles.
+    WalStats {
+        /// Emit a single JSON object instead of the text report.
+        #[arg(long)]
+        json: bool,
+    },
 }

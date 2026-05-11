@@ -142,20 +142,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 }
             },
         },
-        Some(Command::Runtime(RuntimeCmd::Doctor {
-            cmd: Some(cli::DoctorCmd::Fix { auto, issue, json: fix_json }),
-            json,
-            ..
-        })) => handlers::doctor_fix::run(auto, issue.as_deref(), json || fix_json).await,
-        Some(Command::Runtime(RuntimeCmd::Doctor {
-            cmd: Some(cli::DoctorCmd::Watch { interval, clear }),
-            ..
-        })) => handlers::doctor_watch::run(&interval, clear).await,
-        Some(Command::Runtime(RuntimeCmd::Doctor {
-            cmd: None,
-            json,
-            format,
-        })) => handlers::doctor::run(json, &format).await,
+        Some(Command::Runtime(RuntimeCmd::Doctor { cmd, json, format })) => {
+            handlers::doctor::dispatch(cmd, json, format).await
+        }
         Some(Command::Runtime(RuntimeCmd::Health { json, format })) => {
             handlers::health::run(json, &format).await
         }

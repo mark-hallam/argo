@@ -1,15 +1,34 @@
 //! `argo doctor` — config / workspace sanity report. Default
 //! output is human-readable text; `--json` emits a single JSON
 //! object that monitoring pipelines can ingest.
+use crate::cli::DoctorCmd;
 use crate::home::{db_path, resolve_home};
 use argo_config::ArgoConfig;
+use argo_store::wal_tuning::{self, WalTuningProfile};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
+use std::str::FromStr;
 
 #[path = "doctor_channels.rs"]
 mod doctor_channels;
 #[path = "doctor_h_stack.rs"]
 mod doctor_h_stack;
+
+/// Single entry point for every `argo doctor [...]` invocation —
+/// keeps the per-subcommand wiring out of `main.rs` so the dispatch
+/// can grow without ballooning the binary entry file.
+pub async fn dispatch(cmd: Option<DoctorCmd>, json: bool, format: String) -> ArgoResult<()> {
+    match cmd {
+        None => run(json, &format).await,
+        Some(DoctorCmd::Fix { auto, issue, json: fix_json }) => {
+            super::doctor_fix::run(auto, issue.as_deref(), json || fix_json).await
+        }
+        Some(DoctorCmd::Watch { interval, clear }) => {
+            super::doctor_watch::run(&interval, clear).await
+        }
+        Some(DoctorCmd::WalStats { json: ws_json }) => wal_stats(json || ws_json).await,
+    }
+}
 
 pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     let payload = collect().await?;
@@ -400,4 +419,57 @@ fn print_creds(v: &serde_json::Value) {
             println!("              unset: {}", unset.join(", "));
         }
     }
+}
+
+/// `argo doctor wal-stats` — checkpoint the WAL (PASSIVE) and report
+/// the active WAL pragmas plus the `*.db-wal` file size. The store is
+/// opened with the profile from `[store.wal_tuning].profile` so the
+/// readout reflects what the runtime would actually apply.
+pub(crate) async fn wal_stats(json: bool) -> ArgoResult<()> {
+    let cwd =
+        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let home = resolve_home(&cwd).unwrap_or_else(|_| cfg.core.resolved_home());
+    let db = db_path(&home);
+    let profile = WalTuningProfile::from_str(&cfg.store.wal_tuning.profile)?;
+    let store = SessionStore::open_with_profile(&db, profile).await?;
+    sqlx::query("PRAGMA wal_checkpoint(PASSIVE)")
+        .execute(store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("wal_checkpoint: {e}")))?;
+    let mut readouts: Vec<(&'static str, String)> = Vec::new();
+    for name in ["journal_mode", "synchronous", "cache_size", "mmap_size"] {
+        readouts.push((name, wal_tuning::read_pragma(store.pool(), name).await?));
+    }
+    let wal_path = db.with_extension("db-wal");
+    let wal_bytes = std::fs::metadata(&wal_path).ok().map(|m| m.len());
+    if json {
+        let pragmas: serde_json::Map<String, serde_json::Value> = readouts
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), serde_json::Value::String(v.clone())))
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string(&serde_json::json!({
+                "db": db.display().to_string(),
+                "profile": cfg.store.wal_tuning.profile,
+                "pragmas": pragmas,
+                "wal_path": wal_path.display().to_string(),
+                "wal_bytes": wal_bytes,
+            }))
+            .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
+        );
+        return Ok(());
+    }
+    println!("argo doctor wal-stats");
+    println!("  db:         {}", db.display());
+    println!("  profile:    {}", cfg.store.wal_tuning.profile);
+    for (k, v) in &readouts {
+        println!("  {k:11}: {v}");
+    }
+    match wal_bytes {
+        Some(n) => println!("  wal_bytes:  {n}  ({})", wal_path.display()),
+        None => println!("  wal_bytes:  (no *.db-wal — checkpointed or memory)"),
+    }
+    Ok(())
 }

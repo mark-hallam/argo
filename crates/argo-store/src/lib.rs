@@ -108,6 +108,9 @@ pub mod tenant_quota_kinds;
 pub mod tenant_quota_usage;
 /// sqlx connection-pool tuning knobs (env-driven).
 pub mod pool_config;
+/// Opinionated SQLite WAL tuning profiles
+/// (Stream `mission-sqlite-wal-tuning`).
+pub mod wal_tuning;
 /// Worker archive (sleep / wake) — frozen JSON snapshot store
 /// (Stream `claude-worker-archive-rehydrate`).
 pub mod worker_archive;
@@ -207,6 +210,25 @@ impl SessionStore {
     /// # Ok(()) }
     /// ```
     pub async fn open(path: impl AsRef<Path>) -> StoreResult<Self> {
+        Self::open_with_profile(path, wal_tuning::WalTuningProfile::default()).await
+    }
+
+    /// Variant of [`SessionStore::open`] that takes an explicit
+    /// [`wal_tuning::WalTuningProfile`]. Used by `argo-cli` so the
+    /// `[store.wal_tuning].profile` knob from `argo.toml` flows
+    /// through to the pool open.
+    ///
+    /// ```
+    /// # async fn doc() -> argo_store::StoreResult<()> {
+    /// use argo_store::{SessionStore, wal_tuning::WalTuningProfile};
+    /// let store = SessionStore::open_with_profile(":memory:", WalTuningProfile::Default).await?;
+    /// store.migrate().await?;
+    /// # Ok(()) }
+    /// ```
+    pub async fn open_with_profile(
+        path: impl AsRef<Path>,
+        profile: wal_tuning::WalTuningProfile,
+    ) -> StoreResult<Self> {
         let path_str = path.as_ref().to_string_lossy().to_string();
         let opts = SqliteConnectOptions::from_str(&path_str)
             .map_err(|e| ArgoError::Provider(format!("sqlite open: {e}")))?
@@ -226,6 +248,7 @@ impl SessionStore {
             .await
             .map_err(|e| ArgoError::Provider(format!("sqlite pool: {e}")))?;
 
+        wal_tuning::apply_pragmas(&pool, profile).await?;
         Ok(Self { pool })
     }
 
