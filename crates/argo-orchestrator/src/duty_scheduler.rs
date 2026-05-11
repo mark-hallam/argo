@@ -30,7 +30,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
-pub use crate::duty_scheduler_gate::{ClosedGate, DutyGate, FireDecision, OpenGate};
+pub use crate::duty_scheduler_gate::{
+    gate_from_config, ClosedGate, DutyGate, FireDecision, GateConfig, OpenGate, QuietHoursGate,
+    ScheduleGate,
+};
 pub use crate::duty_scheduler_store::DutyStore;
 
 /// Persisted duty row (mirror of the `role_duty` table).
@@ -56,6 +59,11 @@ pub struct DutyRecord {
     pub last_fired_at: Option<DateTime<Utc>>,
     /// Created-at (used as cron evaluation origin when never fired).
     pub created_at: DateTime<Utc>,
+    /// Per-duty fire-gate selection. Defaults to
+    /// [`GateConfig::Open`], which delegates to the scheduler-level
+    /// gate so legacy rows preserve today's behavior.
+    #[serde(default)]
+    pub gate: GateConfig,
 }
 
 impl DutyRecord {
@@ -81,6 +89,7 @@ impl DutyRecord {
             paused_until: None,
             last_fired_at: None,
             created_at: trunc_to_micros(Utc::now()),
+            gate: GateConfig::default(),
         }
     }
 
@@ -136,6 +145,12 @@ impl DutyScheduler {
     /// Walk every active duty and fire those whose cron window has
     /// elapsed since `last_fired_at` (or `created_at` when never
     /// fired). Returns the per-tick report.
+    ///
+    /// Each fire is filtered through the duty's per-row gate
+    /// resolved from [`DutyRecord::gate`]. [`GateConfig::Open`]
+    /// (the default for legacy rows) delegates to the
+    /// scheduler-level gate so today's behavior is preserved. The
+    /// other variants override per-duty.
     pub async fn tick(&self, now: DateTime<Utc>) -> ArgoResult<TickReport> {
         let mut report = TickReport::default();
         let active = self.duties.list_active(now).await?;
@@ -144,7 +159,15 @@ impl DutyScheduler {
             if !duty.should_fire(now)? {
                 continue;
             }
-            match self.gate.evaluate(&duty).await? {
+            let per_duty: Option<Box<dyn DutyGate>> = match &duty.gate {
+                GateConfig::Open => None,
+                other => Some(gate_from_config(other)?),
+            };
+            let gate: &dyn DutyGate = match per_duty.as_deref() {
+                Some(g) => g,
+                None => self.gate.as_ref(),
+            };
+            match gate.evaluate(&duty).await? {
                 FireDecision::AutoApprove => {
                     let session_id = self.spawn_session(&duty, now).await?;
                     self.duties

@@ -4,7 +4,7 @@
 //! Extracted from `duty_scheduler.rs` (mvp-split-duty-scheduler);
 //! re-exported under that module for backward compatibility.
 use crate::duty_scheduler::DutyRecord;
-use crate::duty_scheduler_gate::FireDecision;
+use crate::duty_scheduler_gate::{FireDecision, GateConfig};
 use crate::SessionId;
 use argo_identity::WorkerId;
 use argo_store::SessionStore;
@@ -220,6 +220,7 @@ pub(crate) fn row_to_duty(row: sqlx::sqlite::SqliteRow) -> ArgoResult<DutyRecord
             .map(|v| micros_to_utc(v, "last_fired_at"))
             .transpose()?,
         created_at: micros_to_utc(created, "created_at")?,
+        gate: GateConfig::default(),
     })
 }
 
