@@ -8,7 +8,7 @@ use argo_types::MessageRole;
 async fn open_and_migrate() {
     let store = SessionStore::open(":memory:").await.unwrap();
     store.migrate().await.unwrap();
-    assert_eq!(store.schema_version().await.unwrap(), 54);
+    assert_eq!(store.schema_version().await.unwrap(), 55);
 }
 
 #[tokio::test]

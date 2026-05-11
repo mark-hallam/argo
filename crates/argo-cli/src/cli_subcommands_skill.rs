@@ -440,6 +440,27 @@ pub enum SkillCmd {
     /// store. Output is one line per skill:
     /// `<skill_id> <old_score> -> <new_score> (<delta>)`. Designed
     /// to be cron-driven; `--dry-run` is the rehearsal switch.
+    /// Set a per-skill operator flag (mission-forge-operator-feedback-eval-signal).
+    /// Today the only consumer is `argo forge` — the
+    /// `--no-forge-feedback` flag tells the Forge ingestion path
+    /// to skip operator-vote eval cases for this skill. The
+    /// underlying `skill_flag` table is generic, so future
+    /// per-skill toggles piggyback on the same surface.
+    SetFlag {
+        /// Skill name to flag.
+        name: String,
+        /// Set `no-forge-feedback=1` for this skill so the Forge
+        /// ingestion path skips its operator votes.
+        #[arg(long, conflicts_with = "clear_no_forge_feedback")]
+        no_forge_feedback: bool,
+        /// Clear `no-forge-feedback` for this skill (set value=0).
+        #[arg(long = "clear-no-forge-feedback")]
+        clear_no_forge_feedback: bool,
+        /// Emit a JSON envelope `{skill, flag, value}` instead of
+        /// the human-readable confirmation line.
+        #[arg(long)]
+        json: bool,
+    },
     QualityRecompute {
         /// Recompute one named skill. Mutually exclusive with `--all`.
         ///

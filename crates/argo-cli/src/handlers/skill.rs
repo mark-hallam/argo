@@ -245,6 +245,15 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             version,
             json,
         } => super::skill_ratings::run(&name, version.as_deref(), json).await,
+        SkillCmd::SetFlag {
+            name,
+            no_forge_feedback,
+            clear_no_forge_feedback,
+            json,
+        } => {
+            super::skill_set_flag::run(&name, no_forge_feedback, clear_no_forge_feedback, json)
+                .await
+        }
         SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
         SkillCmd::Keygen(args) => super::skill_keygen::run(args),

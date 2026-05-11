@@ -236,6 +236,7 @@ pub mod skill_rate;
 pub mod skill_ratings;
 pub mod skill_refine;
 pub mod skill_rollback;
+pub mod skill_set_flag;
 pub mod skill_update;
 pub mod skill_upgrade;
 pub mod skill_verify;

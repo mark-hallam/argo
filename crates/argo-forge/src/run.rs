@@ -74,6 +74,16 @@ pub struct ForgeOptions {
     /// (still needs a passing judge verdict per §26.5).
     #[serde(default = "default_auto_promote")]
     pub auto_promote_threshold: f64,
+    /// When true (default), the Forge ingestion path queries
+    /// `argo-store::feedback` for operator votes on recent action
+    /// runs of `skill_name` and folds them into the eval suite as
+    /// `FeedbackEvalCase`s tagged `source: "operator_feedback"`.
+    /// Per-skill opt-out lives in the `skill_flag` table — see
+    /// `argo-store::skill_flag::FLAG_NO_FORGE_FEEDBACK`. When false
+    /// (or no votes in window), Forge proceeds with synth-only
+    /// cases unchanged.
+    #[serde(default = "default_include_operator_feedback")]
+    pub include_operator_feedback: bool,
 }
 
 fn default_iterations() -> u32 {
@@ -84,6 +94,9 @@ fn default_budget_usd_micros() -> u64 {
 }
 fn default_auto_promote() -> f64 {
     0.85
+}
+fn default_include_operator_feedback() -> bool {
+    true
 }
 
 impl ForgeOptions {
@@ -97,6 +110,7 @@ impl ForgeOptions {
             iterations: default_iterations(),
             budget_usd_micros: default_budget_usd_micros(),
             auto_promote_threshold: default_auto_promote(),
+            include_operator_feedback: default_include_operator_feedback(),
         }
     }
 }
@@ -133,6 +147,15 @@ pub struct ForgeRun {
     /// `{"cost":{"llm_input_tokens":1000,…}}`.
     #[serde(default)]
     pub cost: ForgeCost,
+    /// Number of operator-feedback eval cases folded into this
+    /// run's suite by `feedback_eval::ingest_operator_feedback`.
+    /// 0 when `include_operator_feedback` is false OR the per-skill
+    /// `no-forge-feedback` flag is set OR no votes landed in the
+    /// look-back window. Provenance for the operator-facing
+    /// `argo forge show <run_id>` surface — "how many real votes
+    /// was this run trained against?"
+    #[serde(default)]
+    pub feedback_cases_count: u32,
 }
 
 impl ForgeRun {
@@ -152,6 +175,7 @@ impl ForgeRun {
             final_score: None,
             status: ForgeStatus::Pending,
             cost: ForgeCost::default(),
+            feedback_cases_count: 0,
         }
     }
 

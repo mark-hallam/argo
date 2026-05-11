@@ -18,7 +18,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod config;
 pub mod cost;
+pub mod feedback_eval;
 mod forge;
 mod persist;
 mod run;
@@ -26,8 +28,13 @@ mod run;
 #[cfg(test)]
 mod tests;
 
+pub use config::{FEEDBACK_CASE_WEIGHT, FEEDBACK_WINDOW_DAYS};
 pub use cost::{
     accumulate_e2b_seconds, accumulate_llm_call, pricing_for_model, ForgeCost, PricingTable,
+};
+pub use feedback_eval::{
+    ingest_operator_feedback, weighted_loss_score, CaseKind, ExpectedOutcome, FeedbackEvalCase,
+    ScoredCase,
 };
 pub use forge::{finalize_run, Forge, ForgeEvent, StubForge};
 pub use persist::{

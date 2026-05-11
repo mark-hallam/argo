@@ -49,6 +49,13 @@ pub mod skill_share;
 /// per `(skill_id, skill_version, rater_tenant)`, idempotent on the
 /// composite primary key.
 pub mod skill_rating;
+/// Per-skill operator flags (Stream
+/// `mission-forge-operator-feedback-eval-signal`, MISSION_BACKLOG
+/// Section 3 Claim 4 #85). Generic flag store consulted by the
+/// Forge ingestion path before pulling operator feedback as eval
+/// cases — `no-forge-feedback` toggles ingestion off for noisy
+/// skills.
+pub mod skill_flag;
 mod spend;
 /// Spend anomaly detector — Welford rolling stats per (worker,
 /// hour-of-day) + z-score check (Stream
@@ -171,7 +178,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 54;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 55;
 
 /// A SQLite-backed session store.
 ///
