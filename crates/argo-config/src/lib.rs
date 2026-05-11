@@ -29,12 +29,17 @@
 pub mod cred;
 pub mod defaults;
 pub mod loader;
+/// Per-provider TOML knobs parsed off `[provider.<name>]` (currently
+/// the circuit-breaker overrides — `BreakerSection` /
+/// `ProvidersConfig`).
+pub mod provider;
 mod sandbox;
 mod sections;
 mod sections_budget;
 pub mod tui;
 
 pub use loader::{load, load_from};
+pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, CoreConfig, DelegateConfig, ForgeConfig, GatewayConfig, JudgeConfig,

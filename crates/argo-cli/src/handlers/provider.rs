@@ -18,6 +18,7 @@ pub async fn run(cmd: ProviderCmd) -> ArgoResult<()> {
         ProviderCmd::CacheStats { provider, model, json } => {
             super::provider_cache_stats::run(provider.as_deref(), model.as_deref(), json)
         }
+        ProviderCmd::Breakers { json } => super::provider_breakers::run(json),
     }
 }
 

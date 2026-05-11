@@ -175,6 +175,7 @@ pub mod plan_template_show;
 pub mod plugin;
 pub mod policy_handlers;
 pub mod provider;
+pub mod provider_breakers;
 pub mod provider_cache_stats;
 pub mod recover;
 pub mod recover_cache;

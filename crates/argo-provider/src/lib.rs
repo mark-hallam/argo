@@ -24,6 +24,9 @@
 
 mod anthropic;
 mod bedrock;
+/// Per-provider breaker state-transition observability + the
+/// `ObservedBreakerTransport` composition wrapper.
+pub mod breaker_observability;
 /// Per-provider circuit breaker (Anthropic / OpenAI / Bedrock / …).
 pub mod circuit;
 mod discovery;
@@ -40,6 +43,7 @@ pub mod transport;
 
 pub use anthropic::AnthropicTransport;
 pub use bedrock::BedrockTransport;
+pub use breaker_observability::{ObservedBreakerTransport, StateObserver};
 pub use circuit::{Breaker, BreakerConfig, CircuitState, Permit};
 pub use discovery::resolve_latest;
 pub use extractors::{

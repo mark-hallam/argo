@@ -47,6 +47,16 @@ pub enum ProviderCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List per-provider circuit-breaker config + state. Reads
+    /// `[provider.<id>.breaker]` from `argo.toml` and the configured
+    /// providers from `manifests/providers/`; missing blocks fall back
+    /// to `BreakerConfig::default()`.
+    Breakers {
+        /// Emit a JSON envelope `{version, providers: [...]}` instead
+        /// of human-readable text.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

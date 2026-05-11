@@ -10,6 +10,8 @@ mod wire;
 #[cfg(test)]
 mod tests;
 
+use crate::breaker_observability::ObservedBreakerTransport;
+use crate::circuit::{Breaker, BreakerConfig};
 use crate::extractors::extract_tool_calls;
 use crate::manifest::{ProviderFamily, ProviderManifest, ToolCallFormat};
 use crate::sse::SseBuffer;
@@ -82,6 +84,25 @@ impl OpenAiResponsesTransport {
             client,
             capabilities,
         })
+    }
+
+    /// Build from a parsed manifest + a resolved API key, then wrap
+    /// the transport with a per-provider [`ObservedBreakerTransport`]
+    /// (HTTP-5xx + network-layer failures trip the breaker, every
+    /// state transition emits one `tracing::warn!`).
+    ///
+    /// Each call returns its own [`Breaker`]; never share across
+    /// providers.
+    pub fn from_manifest_with_breaker(
+        manifest: ProviderManifest,
+        api_key: &str,
+        breaker_config: BreakerConfig,
+    ) -> ArgoResult<ObservedBreakerTransport<Self>> {
+        let inner = Self::from_manifest(manifest, api_key)?;
+        Ok(ObservedBreakerTransport::new(
+            inner,
+            Breaker::new(breaker_config),
+        ))
     }
 
     /// Borrowed manifest.
