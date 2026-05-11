@@ -1,0 +1,30 @@
+{
+  "policy": {
+    "currency": "USD",
+    "three_bid_threshold_usd": 5000,
+    "ada_compliance_required": true,
+    "international_travel_escalates": true,
+    "vip_tier_escalates": true
+  },
+  "approved_vendors": [
+    {"vendor_id": "v_acme_catering",   "name": "Acme Catering",         "category": "catering",       "tier": 1, "primary_contact": "orders@acme-catering.example",      "last_review_date": "2026-01-12"},
+    {"vendor_id": "v_lakeside_venue",  "name": "Lakeside Conference Center", "category": "venue",     "tier": 1, "primary_contact": "events@lakeside-center.example",   "last_review_date": "2025-11-22"},
+    {"vendor_id": "v_lighthouse_av",   "name": "Lighthouse AV",         "category": "av",             "tier": 1, "primary_contact": "bookings@lighthouse-av.example",   "last_review_date": "2026-02-04"},
+    {"vendor_id": "v_metro_shuttle",   "name": "Metro Shuttle",         "category": "transportation", "tier": 2, "primary_contact": "dispatch@metro-shuttle.example",   "last_review_date": "2025-09-30"},
+    {"vendor_id": "v_inkwell_print",   "name": "Inkwell Printing",      "category": "printing",       "tier": 2, "primary_contact": "service@inkwell-print.example",    "last_review_date": "2025-10-18"}
+  ],
+  "budget_lines": [
+    {"line_id": "bl_offsite_q3_fy26",    "period": "Q3-FY26", "ceiling_usd":  80000, "used_usd":     0, "remaining_usd": 80000, "last_synced": "2026-05-10"},
+    {"line_id": "bl_conference_fy26",    "period": "FY26",    "ceiling_usd": 250000, "used_usd": 92400, "remaining_usd":157600, "last_synced": "2026-05-10"},
+    {"line_id": "bl_team_workshop_q2",   "period": "Q2-FY26", "ceiling_usd":  12000, "used_usd":  4200, "remaining_usd":  7800, "last_synced": "2026-05-10"}
+  ],
+  "attendee_preferences_history": [
+    {"attendee_alias": "att_004", "dietary": ["nut_free"], "accessibility": [], "vip_tier": null},
+    {"attendee_alias": "att_017", "dietary": ["vegan", "gluten_free"], "accessibility": ["hearing_loop"], "vip_tier": null},
+    {"attendee_alias": "att_032", "dietary": ["halal"], "accessibility": [], "vip_tier": "board_member"}
+  ],
+  "runbook_templates": [
+    {"template_id": "rt_conference_1day", "shape": "conference", "default_hours": ["07:00 setup", "08:30 registration", "09:00 opening", "10:30 block_a", "12:00 lunch", "13:30 block_b", "15:00 break", "15:30 block_c", "17:00 close", "18:00 teardown"], "risk_callouts": ["AV smoke-test before opening", "lunch dietary tagging", "captioning live by opening"]},
+    {"template_id": "rt_offsite_team_2day", "shape": "offsite", "default_hours": ["day1: 09:00 arrival", "10:00 kickoff", "12:30 lunch", "14:00 breakout", "17:30 close", "day2: 09:00 open", "12:30 lunch", "15:00 retrospective", "16:30 close"], "risk_callouts": ["transportation contingency", "dietary across both days", "ADA review on-site"]}
+  ]
+}

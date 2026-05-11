@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "approved_vendors"
+type = "list-of-objects"
+purpose = "Pre-qualified vendor roster across event categories. Each row carries: vendor_id, name, category (catering / venue / av / transportation / printing), tier (1 / 2 / 3), primary_contact, last_review_date, notes. A vendor not in this list is treated as unapproved — recommendations must escalate."
+
+[[entry]]
+key = "budget_lines"
+type = "list-of-objects"
+purpose = "Spend authorisations the assistant draws against. Each row carries: line_id, period (FY / Qx / event-id-scope), ceiling_usd, used_usd, remaining_usd, last_synced. Every recommendation cites line_id + ceiling + used + remaining in the system-prompt-enforced format."
+
+[[entry]]
+key = "attendee_preferences_history"
+type = "list-of-objects"
+purpose = "Per-attendee historical accommodations across prior events. Each row carries: attendee_alias, dietary (gluten / dairy / nut / halal / kosher / vegan flags), accessibility (mobility / hearing / vision flags), vip_tier (optional — populated triggers vip_attendee_named escalation), notes. Names are aliases; never store raw PII in inventory."
+
+[[entry]]
+key = "runbook_templates"
+type = "list-of-objects"
+purpose = "Per-event-shape runbook skeletons. Each row carries: template_id, shape (conference / offsite / workshop / hybrid), default_hours (registration → opening → blocks → lunch → close), risk_callouts (per-transition default risks). Used by build_runbook as the seed skeleton."
