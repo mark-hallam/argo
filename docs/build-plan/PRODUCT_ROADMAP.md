@@ -43,20 +43,37 @@ surface.
 
 Deliverables under [../skycot/ux-research/](../skycot/ux-research/):
 
-- 3 load-bearing personas: `delegator.md`, `approver.md`,
-  `operator.md`.
-- 3 persona stubs: `end-user.md`, `auditor.md`, `worker.md`.
-- 2 load-bearing journeys: `journey-hire-a-teammate.md`,
-  `journey-approve-on-mobile.md`.
-- 3 journey stubs: `journey-delegate-ongoing-work.md`,
-  `journey-audit-replay.md`, `journey-retrain-a-worker.md`.
-- `README.md` — index, conventions, validation plan.
+All 6 personas + 5 journey maps written in full as of 2026-05-11
+(initial 3-primary-personas + 2-primary-journeys landed
+earlier, remaining 3 personas + 3 journeys expanded later same
+day).
 
-**Validation status**: the load-bearing docs carry
-`(assumed — needs validation)` tags. Plan: 5–8 real user
-interviews (3 Delegators, 2 Approvers, 1 Operator) before
-Track D wireframes lock. Validation is operator-driven, NOT
-swarm work.
+Personas:
+- `delegator.md` — primary daily user (SMB owner / dept head).
+- `approver.md` — highest-frequency touchpoint (mobile, 10s decisions).
+- `operator.md` — technical admin / B2B buyer (RBAC, compliance).
+- `end-user.md` — external counterparty (candidate, buyer,
+  customer, patient). The reputation we're defending.
+- `auditor.md` — compliance / SOC2 / GDPR / HIPAA. Determines
+  regulated-industry deployability.
+- `worker.md` — the AI worker itself as a user of internal APIs.
+
+Journeys:
+- `journey-hire-a-teammate.md` — 10-minute conversational onboarding.
+- `journey-approve-on-mobile.md` — 10s decision card across channels.
+- `journey-delegate-ongoing-work.md` — recurring delegation, post-hire.
+- `journey-audit-replay.md` — forensic + compliance flow.
+- `journey-retrain-a-worker.md` — plain-English correction → durable change.
+
+Plus `README.md` — index, conventions, validation plan.
+
+**Validation status**: all docs carry `(assumed — needs
+validation)` tags. Per operator preference (memory
+`feedback_build_then_validate`), interviews are deferred until
+there's working software to test against — Track E's
+approvals-inbox slice is the first such surface. The intent is
+to update these docs in-place with what real-user feedback
+reveals rather than gate further work on validation.
 
 ## Track B — capability fill-ins (QUEUED)
 

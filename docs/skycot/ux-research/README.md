@@ -11,11 +11,12 @@ personas' day measurably better, push back.
 
 ## Personas
 
-The platform has six distinct human roles. Three are load-bearing
-(written in full), three are stubs that will be expanded when a
-design question forces the issue.
+The platform has six distinct human roles. All are now written in
+full as of 2026-05-11; tags below indicate which are primary (used
+for every design decision) vs which are secondary (used for
+specific surfaces).
 
-Load-bearing:
+Primary — read these before any frontend design decision:
 
 - [delegator.md](delegator.md) — the SMB owner / dept head who
   "hires" AI teammates. Primary daily user. Primary buyer in SMB.
@@ -25,21 +26,24 @@ Load-bearing:
 - [operator.md](operator.md) — the technical admin (RBAC, billing,
   key rotation, compliance evidence). The B2B buyer in mid-market+.
 
-Stubs:
+Secondary — read these when designing the surface they own:
 
 - [end-user.md](end-user.md) — the external counterparty (candidate,
   buyer, customer, patient). Doesn't use SKYCOT directly; receives
-  its outputs.
+  its outputs. The reputation we are defending. Disclosure policy
+  + voice consistency lives here.
 - [auditor.md](auditor.md) — internal compliance + external SOC2 /
-  GDPR audit.
+  GDPR / HIPAA audit. The persona that determines whether SKYCOT
+  is deployable in regulated industries.
 - [worker.md](worker.md) — the AI worker itself as a "user" of
-  internal APIs (memory, skills, escalation chain).
+  internal APIs (memory, skills, escalation chain). Not human, but
+  its needs constrain every human-facing design choice.
 
 ## Journey maps
 
-Five core flows. Two are written in full; three are stubs.
+Five core flows. All five are now written in full as of 2026-05-11.
 
-Load-bearing:
+Daily-touchpoint journeys (highest leverage):
 
 - [journey-hire-a-teammate.md](journey-hire-a-teammate.md) — the
   conversational onboarding flow. The first 10 minutes of the
@@ -47,15 +51,19 @@ Load-bearing:
 - [journey-approve-on-mobile.md](journey-approve-on-mobile.md) —
   the 10-second decision on a phone, between meetings. Closes the
   daily UX for mission claim #6.
-
-Stubs:
-
 - [journey-delegate-ongoing-work.md](journey-delegate-ongoing-work.md)
-  — the "give the worker a new responsibility" flow after onboarding.
+  — the "give the worker a new responsibility" flow after
+  onboarding. Closes recurring delegation for mission claim #2.
+
+Lower-frequency but stakes-heavy journeys:
+
 - [journey-audit-replay.md](journey-audit-replay.md) — the "show
-  me what happened" forensic flow.
+  me what happened" forensic flow. Compliance, customer-
+  complaint investigation, retrain-prep. Backbone of the
+  auditor persona.
 - [journey-retrain-a-worker.md](journey-retrain-a-worker.md) — the
-  "she keeps doing X wrong, fix it" loop.
+  "she keeps doing X wrong, fix it" loop. The journey that makes
+  the worker feel trainable, not replaceable.
 
 ## How to use this directory
 
