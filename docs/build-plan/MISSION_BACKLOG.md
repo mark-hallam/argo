@@ -79,7 +79,7 @@ unblocks a mission claim.
     tests against real test accounts (with secrets in repo
     secrets). `[BRIEF: mission-silent-skip-nightly-integration]`
 12. Replace silent-skip pattern with VCR/cassette fixtures so
-    live tests run deterministically in CI. `[NEW]`
+    live tests run deterministically in CI. `[BRIEF: mission-vcr-cassette-fixtures]`
 13. Add cargo-deny to CI matrix (currently `workflow_dispatch:`
     only). `[BRIEF: mission-cargo-deny-ci-matrix]`
 14. Add cargo-audit to CI (no current vulnerability scan). `[BRIEF: mission-cargo-audit-disabled-workflow]`
@@ -101,7 +101,7 @@ unblocks a mission claim.
 21. Add per-tenant rate limiting. `[BRIEF: mission-per-tenant-rate-limiting]`
 22. Add request audit log entry per HTTP request. `[BRIEF: mission-gateway-request-audit-log]`
 23. Document and harden the 127.0.0.1:7400 bind default.
-    `[NEW]`
+    `[BRIEF: mission-gateway-bind-default-harden]`
 
 ### Migrations / DB integrity
 
@@ -415,7 +415,7 @@ unblocks a mission claim.
 193. Wire judge into Dreams output validation. `[BRIEF: mission-judge-dreams-output]`
 194. Build LearnedPlanTemplate storage + TrustGrade ladder.
      (folded) `[SHIPPED]`
-195. Build planner-bias-from-template. `[NEW]`
+195. Build planner-bias-from-template. `[BRIEF: mission-planner-bias-from-template]`
 196. Single Forge-cron-tick scheduler (skill versioning + A/B +
      quality + Forge). `[NEW]`
 197. Build operator-feedback channel into Dreams curation. `[NEW]`
