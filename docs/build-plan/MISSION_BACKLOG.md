@@ -353,7 +353,7 @@ unblocks a mission claim.
 162. Build voice mode end-to-end (whisper-rs landed; piper-rs
      blocked on ort 2.x — find alternative or fork).
      `[SHIPPED]`
-163. Build image generation as MCP server. `[NEW]`
+163. Build image generation as MCP server. `[BRIEF: mission-image-generation-mcp-server]`
 164. Ship 25+ skills as starter library. `[NEW]`
 165. Build Skills Hub for browsing + installing community skills.
      `[NEW]`
@@ -364,7 +364,7 @@ unblocks a mission claim.
      `[SHIPPED]`
 169. Polish TUI v0.11 React/Ink quality.
      `[SHIPPED]`
-170. Build operator onboarding wizard end-to-end.
+170. Build operator onboarding wizard end-to-end. `[BRIEF: mission-operator-onboarding-wizard]`
      `[SHIPPED]`
 171. Build setup wizard for non-developer operators.
      `[SHIPPED]`
@@ -523,7 +523,7 @@ unblocks a mission claim.
      `[NEW]`
 260. Split LOC-ceiling violations (auction.rs, duty_scheduler.rs,
      routes_post.rs, metrics.rs, memory.rs are over 500). `[NEW]`
-261. Fix `/inbox/ws` to be real WebSocket. `[NEW]`
+261. Fix `/inbox/ws` to be real WebSocket. `[BRIEF: mission-inbox-ws-real-websocket]`
 262. Replace Forge trait `StubForge` with reality OR delete trait
      + rename `forge_optimize`. `[NEW]`
 263. Add `update_worker` API on IdentityStore. `[NEW]`
