@@ -18,9 +18,9 @@
 //! 1. Take a finalised `GenesisPlan` from
 //!    [`crate::pipeline::plan`].
 //! 2. Build a strict JSON-schema prompt asking the model to
-//!    confirm/revise the archetype, suggest 0–3 additional
-//!    actions, and add 5–10 lines of charter-specific context to
-//!    the system prompt.
+//!    confirm/revise the archetype, suggest additional actions
+//!    (up to [`RefineConfig::max_new_actions`]), and add 5–10
+//!    lines of charter-specific context to the system prompt.
 //! 3. Call Anthropic via [`AnthropicCaller`] (the trait below —
 //!    the production impl is in [`crate::refine::http`]; tests
 //!    inject a fake).
@@ -39,8 +39,10 @@
 //! ## Configuration
 //!
 //! [`RefineConfig::from_env`] returns a config built from
-//! `ANTHROPIC_API_KEY` (required) and `SKYCOT_REFINE_MODEL`
-//! (optional, defaults to `claude-sonnet-4-6`).
+//! `ANTHROPIC_API_KEY` (required), `SKYCOT_REFINE_MODEL`
+//! (optional, defaults to `claude-sonnet-4-6`), and
+//! `ARGO_GENESIS_REFINE_MAX_ACTIONS` (optional, defaults to
+//! [`RefineConfig::DEFAULT_MAX_NEW_ACTIONS`]).
 
 use crate::error::GenesisError;
 use crate::pipeline::GenesisPlan;
@@ -61,6 +63,13 @@ pub struct RefineConfig {
     /// API base URL. Tests override; production defaults to
     /// `https://api.anthropic.com`.
     pub base_url: String,
+    /// Soft cap on how many additional actions the refinement
+    /// pass will keep. The model is asked for up to this many in
+    /// the prompt, and the parser silently truncates anything
+    /// over the cap (a debug-level log records the truncation).
+    /// Default is [`Self::DEFAULT_MAX_NEW_ACTIONS`]; overridable
+    /// via `ARGO_GENESIS_REFINE_MAX_ACTIONS`.
+    pub max_new_actions: usize,
 }
 
 impl RefineConfig {
@@ -69,6 +78,11 @@ impl RefineConfig {
 
     /// Default base URL — Anthropic's public endpoint.
     pub const DEFAULT_BASE_URL: &'static str = "https://api.anthropic.com";
+
+    /// Default soft cap on refined `additional_actions`.
+    /// Generous enough for charters that genuinely need 4-6 new
+    /// actions; conservative enough to bound runaway LLM output.
+    pub const DEFAULT_MAX_NEW_ACTIONS: usize = 8;
 
     /// Build from env. Returns
     /// [`GenesisError::Validation`] when `ANTHROPIC_API_KEY` is
@@ -84,17 +98,37 @@ impl RefineConfig {
             .unwrap_or_else(|_| Self::DEFAULT_MODEL.to_string());
         let base_url = std::env::var("SKYCOT_REFINE_BASE_URL")
             .unwrap_or_else(|_| Self::DEFAULT_BASE_URL.to_string());
+        let max_new_actions = max_new_actions_from_env();
         Ok(Self {
             api_key,
             model,
             base_url,
+            max_new_actions,
         })
     }
 }
 
-/// One additional action the model proposes. The brief allows
-/// the model to suggest 0–3 of these. Each is auto-fix +
-/// safety-judge re-run before merging into the plan.
+/// Read the soft cap from the env, defaulting to
+/// [`RefineConfig::DEFAULT_MAX_NEW_ACTIONS`] when unset or
+/// unparseable. Used both by [`RefineConfig::from_env`] and by
+/// [`refine_plan`] (which doesn't take a `RefineConfig` directly
+/// — the cli builds the config and constructs the caller, but
+/// `refine_plan`'s public seam is `(plan, caller)` and we
+/// preserve that signature here).
+fn max_new_actions_from_env() -> usize {
+    std::env::var("ARGO_GENESIS_REFINE_MAX_ACTIONS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(RefineConfig::DEFAULT_MAX_NEW_ACTIONS)
+}
+
+/// One additional action the model proposes. The number kept
+/// is bounded by [`RefineConfig::max_new_actions`] (default
+/// [`RefineConfig::DEFAULT_MAX_NEW_ACTIONS`]); anything over the
+/// cap is silently truncated by [`refine_plan`]. Each kept
+/// action is auto-fix + safety-judge re-run before merging into
+/// the plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProposedAction {
@@ -126,8 +160,10 @@ pub struct RefinementResponse {
     /// classifier).
     #[serde(default)]
     pub archetype_suggested: Option<String>,
-    /// Up to 3 additional actions the model thinks the seed
-    /// vocab missed.
+    /// Additional actions the model thinks the seed vocab
+    /// missed. The number kept is bounded by
+    /// [`RefineConfig::max_new_actions`]; [`refine_plan`]
+    /// truncates any excess before merging.
     #[serde(default)]
     pub additional_actions: Vec<ProposedAction>,
     /// 5-10 lines of charter-specific context appended to the
@@ -137,19 +173,12 @@ pub struct RefinementResponse {
 }
 
 impl RefinementResponse {
-    /// Sanity bounds per the brief: 0-3 additional actions; the
-    /// addendum is non-binding length-wise but must not be
-    /// abusive (e.g. 100KB). We cap at 4096 chars.
+    /// Sanity bounds on the addendum: non-binding length-wise
+    /// but must not be abusive (e.g. 100KB). We cap at 4096
+    /// chars. The action-count cap is handled by
+    /// [`refine_plan`] via silent truncation, not by this
+    /// validator — over-cap counts are not parse errors.
     fn validate(&self) -> Result<(), GenesisError> {
-        if self.additional_actions.len() > 3 {
-            return Err(GenesisError::Validation {
-                stage: "refine.parse",
-                detail: format!(
-                    "model proposed {} additional actions; max 3",
-                    self.additional_actions.len()
-                ),
-            });
-        }
         if self.system_prompt_addendum.len() > 4096 {
             return Err(GenesisError::Validation {
                 stage: "refine.parse",
@@ -160,6 +189,25 @@ impl RefinementResponse {
             });
         }
         Ok(())
+    }
+}
+
+/// Silently truncate `additional_actions` down to `max`. A
+/// debug-level log records the cap firing so operators who care
+/// can tell the difference between "model under-shot" and "cap
+/// limited the output".
+fn truncate_additional_actions(resp: &mut RefinementResponse, max: usize) {
+    let proposed = resp.additional_actions.len();
+    if proposed > max {
+        let dropped = proposed - max;
+        resp.additional_actions.truncate(max);
+        tracing::debug!(
+            target: "argo_genesis::refine",
+            max_new_actions = max,
+            proposed,
+            dropped,
+            "refinement response over max_new_actions cap; truncated",
+        );
     }
 }
 
@@ -182,7 +230,8 @@ pub async fn refine_plan(
     plan: GenesisPlan,
     caller: &dyn AnthropicCaller,
 ) -> Result<GenesisPlan, GenesisError> {
-    let prompt = build_prompt(&plan);
+    let max_new_actions = max_new_actions_from_env();
+    let prompt = build_prompt(&plan, max_new_actions);
     let raw = match caller.call(prompt).await {
         Ok(r) => r,
         Err(e) => {
@@ -195,7 +244,8 @@ pub async fn refine_plan(
         }
     };
     match serde_json::from_str::<RefinementResponse>(&raw) {
-        Ok(resp) => {
+        Ok(mut resp) => {
+            truncate_additional_actions(&mut resp, max_new_actions);
             if let Err(validate_err) = resp.validate() {
                 tracing::warn!(
                     target: "argo_genesis::refine",
@@ -264,7 +314,7 @@ fn merge_proposed_actions(actions: &mut ActionsSection, proposed: Vec<ProposedAc
     }
 }
 
-fn build_prompt(plan: &GenesisPlan) -> String {
+fn build_prompt(plan: &GenesisPlan, max_new_actions: usize) -> String {
     let archetype_label = plan.archetype.label();
     let action_names: Vec<&str> = plan
         .manifest
@@ -284,7 +334,7 @@ fn build_prompt(plan: &GenesisPlan) -> String {
            \"additional_actions\": [\n\
              {{ \"action_type\": <snake_case>, \"risk\": \"low\"|\"medium\"|\"high\",\n\
                 \"requires_approval\": <bool>, \"description\": <string> }}\n\
-           ] (max 3 entries),\n\
+           ] (propose up to {max_new_actions} new actions),\n\
            \"system_prompt_addendum\": <string up to 4096 chars>\n\
          }}\n\n\
          Do not propose actions that already exist. Do not propose actions \
@@ -294,6 +344,7 @@ fn build_prompt(plan: &GenesisPlan) -> String {
         charter = plan.charter,
         archetype_label = archetype_label,
         actions = action_names.join(", "),
+        max_new_actions = max_new_actions,
     )
 }
 

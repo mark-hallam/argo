@@ -133,8 +133,11 @@ async fn safety_judge_re_runs_on_refined_actions() {
 }
 
 #[tokio::test]
-async fn over_three_additional_actions_falls_back() {
-    // The brief caps additional_actions at 3.
+async fn five_additional_actions_all_land() {
+    // Old behaviour capped additional_actions at 3 (over-cap
+    // responses were rejected as a parse error). The new
+    // default cap is RefineConfig::DEFAULT_MAX_NEW_ACTIONS (8),
+    // so 5 actions must all land in the manifest.
     let response = serde_json::json!({
         "archetype_confirmed": true,
         "additional_actions": [
@@ -142,6 +145,7 @@ async fn over_three_additional_actions_falls_back() {
             { "action_type": "x2", "risk": "low", "requires_approval": false, "description": "x" },
             { "action_type": "x3", "risk": "low", "requires_approval": false, "description": "x" },
             { "action_type": "x4", "risk": "low", "requires_approval": false, "description": "x" },
+            { "action_type": "x5", "risk": "low", "requires_approval": false, "description": "x" },
         ],
         "system_prompt_addendum": "",
     });
@@ -152,9 +156,90 @@ async fn over_three_additional_actions_falls_back() {
     let refined = refine_plan(sample_plan(), &caller).await.expect("refine");
     let refined_count = refined.manifest.actions.as_ref().unwrap().actions.len();
     assert_eq!(
-        refined_count, original_count,
-        "over-cap response must fall back unchanged"
+        refined_count,
+        original_count + 5,
+        "all 5 proposed actions should land under the default cap of 8"
     );
+    let actions = refined.manifest.actions.as_ref().unwrap();
+    for name in ["x1", "x2", "x3", "x4", "x5"] {
+        assert!(actions.actions.contains_key(name), "{name} merged");
+    }
+}
+
+#[tokio::test]
+async fn configurable_cap_truncates_excess_actions() {
+    // Set the env var so refine_plan reads max_new_actions=2,
+    // then send 5 proposed actions. Exactly 2 must land.
+    let prev = std::env::var("ARGO_GENESIS_REFINE_MAX_ACTIONS").ok();
+    std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", "2");
+    let response = serde_json::json!({
+        "archetype_confirmed": true,
+        "additional_actions": [
+            { "action_type": "y1", "risk": "low", "requires_approval": false, "description": "y" },
+            { "action_type": "y2", "risk": "low", "requires_approval": false, "description": "y" },
+            { "action_type": "y3", "risk": "low", "requires_approval": false, "description": "y" },
+            { "action_type": "y4", "risk": "low", "requires_approval": false, "description": "y" },
+            { "action_type": "y5", "risk": "low", "requires_approval": false, "description": "y" },
+        ],
+        "system_prompt_addendum": "",
+    });
+    let caller = NoopCaller {
+        response: response.to_string(),
+    };
+    let original_count = sample_plan().manifest.actions.as_ref().unwrap().actions.len();
+    let result = refine_plan(sample_plan(), &caller).await;
+    match prev {
+        Some(v) => std::env::set_var("ARGO_GENESIS_REFINE_MAX_ACTIONS", v),
+        None => std::env::remove_var("ARGO_GENESIS_REFINE_MAX_ACTIONS"),
+    }
+    let refined = result.expect("refine");
+    let refined_count = refined.manifest.actions.as_ref().unwrap().actions.len();
+    assert_eq!(
+        refined_count,
+        original_count + 2,
+        "configurable cap must truncate 5 → 2"
+    );
+}
+
+#[tokio::test]
+async fn safety_judge_fires_on_refined_sensitive_verb_with_uncapped_actions() {
+    // Lifting the count cap must NOT lift the safety gate. With
+    // 5 proposed actions (all of which land under the default
+    // cap of 8), the sensitive-verb one must still get its
+    // requires_approval flag auto-fixed to true.
+    let response = serde_json::json!({
+        "archetype_confirmed": true,
+        "additional_actions": [
+            { "action_type": "draft_summary", "risk": "low", "requires_approval": false, "description": "Draft a summary" },
+            { "action_type": "send_invoice", "risk": "high", "requires_approval": false, "description": "Send the buyer the invoice" },
+            { "action_type": "review_listing", "risk": "low", "requires_approval": false, "description": "Review a listing" },
+            { "action_type": "tag_inventory", "risk": "low", "requires_approval": false, "description": "Tag inventory" },
+            { "action_type": "summarise_metrics", "risk": "low", "requires_approval": false, "description": "Summarise metrics" },
+        ],
+        "system_prompt_addendum": "",
+    });
+    let caller = NoopCaller {
+        response: response.to_string(),
+    };
+    let refined = refine_plan(sample_plan(), &caller).await.expect("refine");
+    let actions = refined.manifest.actions.as_ref().unwrap();
+    assert!(
+        actions.actions.contains_key("send_invoice"),
+        "sensitive action still merges"
+    );
+    let send_invoice = actions.actions.get("send_invoice").unwrap();
+    assert!(
+        send_invoice.requires_approval,
+        "safety gate must still auto-fix sensitive verbs even with cap lifted"
+    );
+    // And the non-sensitive actions are not gratuitously gated.
+    let draft_summary = actions.actions.get("draft_summary").unwrap();
+    assert!(!draft_summary.requires_approval);
+}
+
+#[test]
+fn refine_config_default_max_new_actions_is_eight() {
+    assert_eq!(RefineConfig::DEFAULT_MAX_NEW_ACTIONS, 8);
 }
 
 #[tokio::test]
