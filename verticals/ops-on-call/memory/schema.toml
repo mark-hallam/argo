@@ -1,0 +1,16 @@
+schema_version = "1"
+
+[[entry]]
+key     = "recent_incidents"
+type    = "list-of-objects"
+purpose = "Recent triage passes. Each row carries: incident_id, service, alert_name, severity, classification (transient|runbook_applicable|human_required), runbook_id, escalation_reason, ack_at, resolved_at."
+
+[[entry]]
+key     = "runbooks_seen"
+type    = "list-of-objects"
+purpose = "Cache of runbook lookups that returned a match. Each row carries: runbook_id, service, symptom_signature, last_matched_at, match_count, confidence."
+
+[[entry]]
+key     = "escalation_contacts"
+type    = "list-of-objects"
+purpose = "On-call routing. Each row carries: service, primary_handle, secondary_handle, paging_policy (default|page-secondary-for|operator-only), updated_at."

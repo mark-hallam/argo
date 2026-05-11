@@ -1,0 +1,54 @@
+schema_version = "1"
+
+[vertical]
+id          = "ops-on-call"
+name        = "Ops On-Call"
+description = "First-line SRE incident triage. Reads PagerDuty pages, gathers context (metrics, recent deploys, prior alerts in the same component), looks up runbooks, drafts incident updates, and escalates to the human on-call when the symptom is ambiguous, customer-impacting, data-loss-risk, security-relevant, or outside its read-only authority. Never restarts, rolls back, or pages a secondary — those mutations are always human-approved."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["sre", "ops", "incident-response", "on-call", "pagerduty", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# PagerDuty connector is optional — when the operator hasn't
+# configured it, the vertical still runs in dry-run with hand-
+# pasted incident payloads. Slack is the escalation channel.
+[mcp_servers]
+pagerduty = { transport = "stdio", command = "argo-mcp-connector-pagerduty", args = [] }
+slack     = { transport = "stdio", command = "argo-mcp-connector-slack",     args = [] }
+
+# Conservative-by-design. Three mutation skills are listed here
+# even though this vertical doesn't define them as [actions] —
+# they're conceptual names a future executor will dispatch, and
+# they're listed so the human-approval gate is declarative + on
+# record. escalate_after_failures = 1 means a single failed
+# triage attempt routes to the human; we never silently retry
+# the wrong thing on a live page.
+[escalation]
+human_approval_required = ["restart_service", "rollback_deploy", "page_secondary"]
+escalate_after_failures = 1
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Ops On-Call"

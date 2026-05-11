@@ -1,0 +1,51 @@
+{
+  "tenant": "Acme Demo (dry-run)",
+  "runbook_root": "runbooks/",
+  "runbooks": [
+    {
+      "runbook_id": "rb-db-pool-saturation",
+      "service": "service-a",
+      "symptoms": ["db.pool.saturation_pct > 90%", "timeout errors in app logs", "error rate 2-5%"],
+      "severity_min": "SEV-3",
+      "path": "runbooks/db-pool-saturation.md",
+      "human_required": false,
+      "summary": "Pool exhaustion: increase pool size 50→100, then investigate slow queries. Mutation step (config push) is human-approved."
+    },
+    {
+      "runbook_id": "rb-disk-pressure",
+      "service": "service-b",
+      "symptoms": ["filesystem.usage_pct > 85%", "/var/log volume full", "log shipper backed up"],
+      "severity_min": "SEV-3",
+      "path": "runbooks/disk-pressure.md",
+      "human_required": false,
+      "summary": "Disk pressure: confirm log shipper health, propose rotation/cleanup. Cleanup commands are human-approved."
+    },
+    {
+      "runbook_id": "rb-cert-rotation",
+      "service": "service-c",
+      "symptoms": ["tls.cert.days_until_expiry < 7", "renewal job missed window"],
+      "severity_min": "SEV-3",
+      "path": "runbooks/cert-rotation.md",
+      "human_required": false,
+      "summary": "Cert expiry: confirm renewal job last-run + check ACME challenge logs. Manual renewal kick is human-approved."
+    },
+    {
+      "runbook_id": "rb-db-replication-lag",
+      "service": "database",
+      "symptoms": ["replication.lag_seconds rising", "primary write errors", "follower fall-behind"],
+      "severity_min": "SEV-1",
+      "path": "runbooks/db-replication-lag.md",
+      "human_required": true,
+      "summary": "Replication lag — DATA-LOSS RISK. Always wake the DBA per paging policy; never auto-handle."
+    },
+    {
+      "runbook_id": "rb-auth-error-burst",
+      "service": "auth",
+      "symptoms": ["sustained 401/403 burst", "cross-tenant credential failures", "single-ASN source cluster"],
+      "severity_min": "SEV-2",
+      "path": "runbooks/auth-error-burst.md",
+      "human_required": true,
+      "summary": "Auth burst — SECURITY-RELEVANT. Always wake security on-call; never auto-mitigate."
+    }
+  ]
+}
