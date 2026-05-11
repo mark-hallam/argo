@@ -167,6 +167,23 @@ pub enum GenesisCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Ingest a job description (PDF path, plain text, or http(s) URL),
+    /// synthesise a charter, and run the Genesis pipeline against it.
+    /// Mission `mission-genesis-job-description-ingest` (#64).
+    ///
+    /// Input is a single positional `<input>` interpreted in this order:
+    /// 1. `http://` or `https://` prefix → URL fetch (30s timeout, 5MB cap).
+    /// 2. Path that exists and ends in `.pdf` → PDF text extraction.
+    /// 3. Path that exists → read as plain text.
+    /// 4. Anything else → treated as a raw text body.
+    FromJobDescription {
+        /// Path-or-URL-or-raw-text body. See command docs above.
+        input: String,
+        /// Emit the full `GenesisDraft` as JSON instead of a human
+        /// readable summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Export an installed vertical as a portable tar.gz bundle.
     Export {
         /// Vertical id discoverable via ARGO_VERTICALS_DIR or ./verticals.

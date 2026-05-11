@@ -41,6 +41,7 @@ pub mod charter_dialogue;
 pub mod conflict;
 pub mod error;
 pub mod eval_seed;
+pub mod job_description;
 pub mod manifest_writer;
 pub mod memory_schema;
 pub mod pipeline;
@@ -58,6 +59,7 @@ pub use charter_dialogue::{
 };
 pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, ConflictReport};
 pub use error::GenesisError;
+pub use job_description::{genesis_from_job_description, GenesisDraft, JobDescInput};
 pub use pipeline::{
     plan, plan_with, plan_with_quality, write_vertical, write_vertical_with_overlap, GenesisConfig,
     GenesisPlan,

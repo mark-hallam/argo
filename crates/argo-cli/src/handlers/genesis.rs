@@ -8,10 +8,13 @@
 
 use crate::cli::GenesisCmd;
 use argo_genesis::archetype::{list_archetypes, show_archetype};
-use argo_genesis::{plan, refine, refine_plan, write_vertical, GenesisPlan, RefineConfig};
+use argo_genesis::{
+    genesis_from_job_description, plan, refine, refine_plan, write_vertical, GenesisDraft,
+    GenesisPlan, JobDescInput, RefineConfig,
+};
 use argo_types::{ArgoError, ArgoResult};
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize)]
 struct Suggestion {
@@ -63,6 +66,7 @@ pub(crate) fn run(cmd: GenesisCmd) -> ArgoResult<()> {
             json,
             refine,
         } => super::genesis_interactive::run(non_interactive, &output, json, refine),
+        GenesisCmd::FromJobDescription { input, json } => from_job_description(&input, json),
         GenesisCmd::Export {
             vertical,
             output,
@@ -290,6 +294,91 @@ fn print_plan(plan: &GenesisPlan, output: &Path, json: bool) {
             plan.vertical_id
         );
     }
+}
+
+/// Run `argo genesis from-job-description <input> [--json]`.
+/// Mission `mission-genesis-job-description-ingest` (#64). See
+/// the cli-level docs on [`crate::cli::GenesisCmd::FromJobDescription`]
+/// for input dispatch precedence.
+pub(crate) fn from_job_description(input: &str, json: bool) -> ArgoResult<()> {
+    let parsed = parse_job_description_input(input);
+    let handle = tokio::runtime::Handle::try_current().map_err(|e| {
+        ArgoError::Provider(format!("genesis from-job-description needs a tokio runtime: {e}"))
+    })?;
+    let draft =
+        tokio::task::block_in_place(|| handle.block_on(genesis_from_job_description(parsed)))?;
+    if json {
+        print_draft_json(&draft);
+    } else {
+        print_draft_text(&draft);
+    }
+    Ok(())
+}
+
+fn parse_job_description_input(input: &str) -> JobDescInput {
+    if input.starts_with("http://") || input.starts_with("https://") {
+        return JobDescInput::Url(input.to_string());
+    }
+    let path = PathBuf::from(input);
+    if path.is_file() {
+        if path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
+        {
+            return JobDescInput::Pdf(path);
+        }
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            return JobDescInput::Text(text);
+        }
+    }
+    JobDescInput::Text(input.to_string())
+}
+
+fn print_draft_json(draft: &GenesisDraft) {
+    let payload = serde_json::json!({
+        "synthesized_charter": draft.synthesized_charter,
+        "archetype": draft.archetype,
+        "vertical_id": draft.manifest.vertical.id,
+        "action_count": draft
+            .manifest
+            .actions
+            .as_ref()
+            .map(|a| a.actions.len())
+            .unwrap_or(0),
+        "eval_seed": draft.eval_seed,
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".into())
+    );
+}
+
+fn print_draft_text(draft: &GenesisDraft) {
+    println!("Genesis draft (from job description):");
+    println!("  archetype:   {:?}", draft.archetype);
+    println!("  vertical id: {}", draft.manifest.vertical.id);
+    println!(
+        "  actions:     {}",
+        draft
+            .manifest
+            .actions
+            .as_ref()
+            .map(|a| a.actions.len())
+            .unwrap_or(0)
+    );
+    println!("  eval seeds:  {}", draft.eval_seed.len());
+    println!("  charter ({} chars):", draft.synthesized_charter.len());
+    for line in draft.synthesized_charter.lines().take(20) {
+        println!("    {line}");
+    }
+    if draft.synthesized_charter.lines().count() > 20 {
+        println!("    …");
+    }
+    println!(
+        "Next: review the charter above. To persist, copy into a file then run \
+         `argo genesis create --charter <file> --persona <name> --output <dir>`."
+    );
 }
 
 #[cfg(test)]
