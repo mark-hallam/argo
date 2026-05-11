@@ -424,6 +424,69 @@ pub enum SkillCmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Record a publisher-side `skill_version_migration` row
+    /// linking `--from` to `--to`. Tenant workspaces with the
+    /// `--from` version installed will see this when they run
+    /// `argo skill upgrade <name>` or `argo skill list-migrations`.
+    /// Idempotent on the composite PK.
+    /// (`mission-skill-version-migration-path`).
+    Migrate {
+        /// Skill id (32-char hex from `argo skill versions --json`,
+        /// or dashed UUID).
+        skill_id: String,
+        /// Version the migration applies FROM.
+        #[arg(long)]
+        from: String,
+        /// Version the migration upgrades TO.
+        #[arg(long)]
+        to: String,
+        /// Mark the migration as auto-applicable: tenants running
+        /// `argo skill upgrade <name>` WITHOUT `--yes` will still
+        /// apply this row.
+        #[arg(long)]
+        auto_upgrade: bool,
+        /// Free-text rationale (truncated on insert).
+        #[arg(long)]
+        reason: Option<String>,
+        /// Publisher tenant id (UUID). Defaults to a fresh per-call
+        /// id when omitted; publisher-ownership enforcement is a
+        /// separate brief.
+        #[arg(long)]
+        publisher_tenant: Option<String>,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Apply a pending `skill_version_migration` to the locally-
+    /// installed version of `<name>`. With `--dry-run`, prints what
+    /// would happen without superseding. Without `--yes`, only
+    /// auto-upgrade migrations are applied (others are surfaced for
+    /// operator confirmation).
+    /// (`mission-skill-version-migration-path`).
+    Upgrade {
+        /// Skill name (the active version's `from_version` is the
+        /// lookup key).
+        name: String,
+        /// Print what would change without writing.
+        #[arg(long)]
+        dry_run: bool,
+        /// Apply even when the migration row's
+        /// `auto_upgrade=false`.
+        #[arg(long)]
+        yes: bool,
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List every pending migration across the tenant's installed
+    /// skills (for each active skill, the row whose `from_version`
+    /// matches its installed version). Operator dashboard input.
+    /// (`mission-skill-version-migration-path`).
+    ListMigrations {
+        /// Emit a JSON envelope.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Args, Debug)]

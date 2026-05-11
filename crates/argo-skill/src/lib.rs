@@ -54,6 +54,7 @@ mod store_vertical_judge;
 pub mod success_metric;
 pub mod trust;
 pub mod version;
+pub mod version_migration;
 
 #[cfg(test)]
 mod tests;
@@ -117,3 +118,7 @@ pub use canary::{
     CanaryDecision, CanaryStore,
 };
 pub use version::{find_version, list_versions, SkillVersion};
+pub use version_migration::{
+    list_for_skill, lookup_migration, parse_skill_id_hex, record_migration, MigrationRow,
+    MIGRATION_REASON_MAX_LEN,
+};

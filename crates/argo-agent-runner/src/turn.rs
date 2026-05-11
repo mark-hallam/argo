@@ -331,6 +331,7 @@ async fn build_system_prompt_with_ab(
     turn_canary::apply_canary_routing(store, &skills, session_id, &mut active).await?;
     let (active, pending) =
         turn_skills_runtime::resolve_variants_for_turn(store, invocation_id, active).await;
+    turn_skills_migration::emit_pending_migration_hints(store, &active).await;
     let mut out = String::new();
     if !active.is_empty() {
         out.push_str(
@@ -381,6 +382,9 @@ pub mod turn_planner;
 #[cfg(test)]
 #[path = "turn_planner_tests.rs"]
 mod turn_planner_tests;
+
+#[path = "turn_skills_migration.rs"]
+mod turn_skills_migration;
 
 #[cfg(test)]
 #[path = "turn_tests.rs"]

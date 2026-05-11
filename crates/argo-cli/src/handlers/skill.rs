@@ -227,6 +227,33 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
         SkillCmd::Keygen(args) => super::skill_keygen::run(args),
+        SkillCmd::Migrate {
+            skill_id,
+            from,
+            to,
+            auto_upgrade,
+            reason,
+            publisher_tenant,
+            json,
+        } => {
+            super::skill_migrate::run(
+                &skill_id,
+                &from,
+                &to,
+                auto_upgrade,
+                reason.as_deref(),
+                publisher_tenant.as_deref(),
+                json,
+            )
+            .await
+        }
+        SkillCmd::Upgrade {
+            name,
+            dry_run,
+            yes,
+            json,
+        } => super::skill_upgrade::run(&name, dry_run, yes, json).await,
+        SkillCmd::ListMigrations { json } => super::skill_list_migrations::run(json).await,
     }
 }
 
