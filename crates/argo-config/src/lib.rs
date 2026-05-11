@@ -29,11 +29,13 @@
 pub mod cred;
 pub mod defaults;
 pub mod loader;
+mod sandbox;
 mod sections;
 mod sections_budget;
 pub mod tui;
 
 pub use loader::{load, load_from};
+pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, CoreConfig, DelegateConfig, ForgeConfig, GatewayConfig, JudgeConfig,
     LoopConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig, TelemetryConfig,
@@ -80,6 +82,8 @@ pub struct ArgoConfig {
     pub plugin: PluginConfig,
     /// `[tui]` (interactive TUI surface).
     pub tui: TuiConfig,
+    /// `[sandbox]` (sandbox runtime — named-image map etc.).
+    pub sandbox: SandboxConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

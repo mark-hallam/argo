@@ -23,10 +23,12 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 mod docker;
+mod image_resolver;
 mod local;
 mod sandbox;
 
 pub use docker::DockerSandbox;
+pub use image_resolver::ImageResolver;
 pub use local::LocalSandbox;
 pub use sandbox::{
     truncate_stream, RunRequest, RunResult, Sandbox, DEFAULT_TIMEOUT, MAX_OUTPUT_BYTES,

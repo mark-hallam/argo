@@ -1,0 +1,6 @@
+# Pin Chromium to the Debian stable track so apt-get install is
+# reproducible across rebuilds. Bump the priority/origin when E2B's
+# base image changes its Debian release codename.
+Package: chromium chromium-driver chromium-common
+Pin: release a=stable
+Pin-Priority: 990
