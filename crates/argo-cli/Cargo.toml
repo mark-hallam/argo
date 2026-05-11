@@ -74,7 +74,7 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 regex = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 # Direct dep only for `tokio_util::sync::CancellationToken` used by the

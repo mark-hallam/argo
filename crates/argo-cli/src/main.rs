@@ -190,6 +190,13 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             json,
             config,
         })) => handlers::onboard::run(non_interactive, json, config).await,
+        Some(Command::Wizard { cmd }) => match cmd {
+            cli::cli_wizard_cmds::WizardCmd::Onboard {
+                non_interactive,
+                config,
+                answers,
+            } => handlers::wizard_onboard::run(non_interactive, config, answers).await,
+        },
         Some(Command::Vertical { cmd }) => handlers::vertical::run(cmd).await,
         Some(Command::Genesis { cmd }) => handlers::genesis::run(cmd),
         Some(Command::Messages { cmd }) => handlers::messages::run(cmd).await,

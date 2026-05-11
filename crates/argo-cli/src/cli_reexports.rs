@@ -119,6 +119,8 @@ pub mod cli_worker_deps_cmds;
 pub mod cli_worker_policy_cmds;
 #[path = "cli_workspace_cmds.rs"]
 pub mod cli_workspace_cmds;
+#[path = "cli_wizard_cmds.rs"]
+pub mod cli_wizard_cmds;
 
 pub use cli_action_cmds::*;
 pub use cli_audit_cmds::AuditQueryCmd;

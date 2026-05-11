@@ -377,6 +377,7 @@ mod worker_actions_transitions;
 mod worker_actions_transitions_lookup;
 mod worker_actions_type;
 mod worker_doctor;
+pub mod wizard_onboard;
 pub mod workflow;
 pub mod workflow_checkpoint;
 pub mod workflow_checkpoints;

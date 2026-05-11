@@ -379,4 +379,13 @@ pub enum Command {
     /// `argo doctor`, etc. all dispatch through this wrapper.
     #[command(flatten)]
     Runtime(cli_runtime_cmds::RuntimeCmd),
+    /// End-to-end operator setup wizard (Mission
+    /// `mission-operator-onboarding-wizard`). `argo wizard onboard`
+    /// replaces the five-command first-time bootstrap (detect →
+    /// provider key → operator identity → vertical → first worker)
+    /// with a single guided flow.
+    Wizard {
+        #[command(subcommand)]
+        cmd: cli_wizard_cmds::WizardCmd,
+    },
 }
