@@ -97,7 +97,7 @@ unblocks a mission claim.
     endpoint. `[SHIPPED]`
 19. Plumb Principal to capability engine. (folded into #18) `[SHIPPED]`
 20. Add TLS termination support OR document explicit
-    reverse-proxy requirement. `[NEW]`
+    reverse-proxy requirement. `[BRIEF: mission-gateway-tls-termination-or-proxy-doc]`
 21. Add per-tenant rate limiting. `[BRIEF: mission-per-tenant-rate-limiting]`
 22. Add request audit log entry per HTTP request. `[BRIEF: mission-gateway-request-audit-log]`
 23. Document and harden the 127.0.0.1:7400 bind default.
@@ -126,7 +126,7 @@ unblocks a mission claim.
     (folded into #30) `[SHIPPED]`
 32. Wire Prometheus exporter to `default_registry()`. `[BRIEF: mission-prometheus-exporter-default-registry]`
 33. Add structured logging with tenant_id + worker_id +
-    session_id fields on every log line. `[NEW]`
+    session_id fields on every log line. `[BRIEF: mission-structured-logging-tenant-worker-session]`
 34. Add log shipping target documentation (Loki, Datadog,
     CloudWatch). `[NEW]`
 35. Add real anomaly alerting via NotifyChannel (currently
@@ -275,7 +275,7 @@ unblocks a mission claim.
 112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; BRIEF: mission-mcp-connector-mailgun for Mailgun; Resend pending]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
      `[NEW]`
-114. Add MCP connector Replicate (any-model HF endpoint). `[NEW]`
+114. Add MCP connector Replicate (any-model HF endpoint). `[BRIEF: mission-mcp-connector-replicate]`
 
 ### Claim 6: Multi-channel approvals
 
