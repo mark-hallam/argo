@@ -34,3 +34,23 @@ purpose = "Routing log of every clause / filing handoff to the supervising attor
 key = "client_summaries"
 type = "list-of-objects"
 purpose = "Plain-language summaries shared with the client. Each row carries: contract_id, audience, word_count, summary_iso, output_path."
+
+[[entry]]
+key = "client_matters"
+type = "list-of-objects"
+purpose = "Citation-grade matter rows for the paralegal-memo surface. Each row carries: matter_id, parties (list), jurisdiction, privilege_status (privileged|waived|disputed). Treat as attorney-client privileged unless privilege_status is `waived`."
+
+[[entry]]
+key = "cited_authorities"
+type = "list-of-objects"
+purpose = "Cache of authorities validated by cite_check. Each row carries: citation (Bluebook form), signal_strength (good-law|criticized|overruled|not-found), shepardizing_date (ISO), jurisdiction, source_url, last_checked_by. Drives reuse-within-freshness-window in draft_memo."
+
+[[entry]]
+key = "firm_style_guide"
+type = "object"
+purpose = "Firm-wide voice and citation rules. Carries: citation_form (bluebook|firm_variant), voice_rules (list of strings), preferred_terminology (object of avoided-term -> replacement). Used by draft_memo + redline_contract + cite_check."
+
+[[entry]]
+key = "conflict_index"
+type = "list-of-objects"
+purpose = "Parties to avoid — engagement, drafting, and communication blocks. Each row carries: party_name, conflict_type (prior_client|adverse|family|other), source_matter_id, recorded_at. Memos / redlines / deposition-summaries STOP and escalate when a named party matches a row."

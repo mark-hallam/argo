@@ -1,4 +1,17 @@
-enabled = true
+enabled                   = true
 max_usd_micros_per_action = 100000
-daily_budget_usd_micros = 5000000
-wake_action_types = ["review_contract", "generate_summary"]
+daily_budget_usd_micros   = 5000000
+
+# Autonomous-safe surface is draft / check / summarize / redline.
+# Sending to client, filing with court, communicating with the
+# counterparty, and issuing a legal opinion are intentionally
+# absent — they route through `[escalation].human_approval_required`
+# in vertical.toml. Defence in depth: even if a future edit grants
+# `send_to_client` as a wake type, the escalation gate still fires
+# because deny+approval-required always wins.
+wake_action_types = [
+  "draft_memo",
+  "cite_check",
+  "summarize_deposition",
+  "redline_contract",
+]

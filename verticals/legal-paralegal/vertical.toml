@@ -30,8 +30,18 @@ bundle = "skills"
 [evaluation]
 suites = ["eval/seed.jsonl"]
 
+[mcp_servers]
+westlaw = { transport = "stdio", command = "argo-mcp-connector-westlaw", args = [] }
+lexis   = { transport = "stdio", command = "argo-mcp-connector-lexis",   args = [] }
+
 [escalation]
-human_approval_required = ["delegate_task"]
+human_approval_required = [
+  "delegate_task",
+  "send_to_client",
+  "file_with_court",
+  "communicate_with_counterparty",
+  "issue_legal_opinion",
+]
 escalate_after_failures = 2
 escalate_to             = "operator"
 

@@ -61,5 +61,48 @@
       "court": "Northern District of California",
       "next_deadline_iso": "2026-05-15"
     }
+  ],
+  "firm_style_guide": {
+    "citation_form": "bluebook",
+    "voice_rules": [
+      "Lead with the issue; reserve operative quotes for the rule and application sections.",
+      "Quote operative statutory and clause language verbatim; never paraphrase.",
+      "Name the controlling jurisdiction in every state-specific proposition.",
+      "Mark every proposition without a primary cite as `[unsourced — flagged for attorney review]`.",
+      "End client-facing artifacts with the cardinal-rule disclaimer."
+    ],
+    "preferred_terminology": {
+      "feel": "assess",
+      "best": "well-suited",
+      "obviously": "[remove]",
+      "the law says": "[name the statute or case]"
+    }
+  },
+  "client_matters": [
+    {
+      "matter_id": "MAT-2026-0007",
+      "parties": ["Drysdale Roastery LLC", "Northwind Co-op"],
+      "jurisdiction": "Northern District of California",
+      "privilege_status": "privileged"
+    },
+    {
+      "matter_id": "MAT-2026-0002",
+      "parties": ["Halcyon Labs Inc.", "Pinedale Studios LLC"],
+      "jurisdiction": "Delaware",
+      "privilege_status": "privileged"
+    },
+    {
+      "matter_id": "MAT-2026-0005",
+      "parties": ["Quokka Capital Management", "A. Singh"],
+      "jurisdiction": "California",
+      "privilege_status": "privileged"
+    }
+  ],
+  "conflict_index": [
+    {"party_name": "Northwind Co-op",        "conflict_type": "prior_client", "source_matter_id": "MAT-2024-0142", "recorded_at": "2024-11-03"},
+    {"party_name": "Drysdale Roastery LLC",  "conflict_type": "prior_client", "source_matter_id": "MAT-2025-0033", "recorded_at": "2025-02-14"},
+    {"party_name": "Halcyon Labs Inc.",      "conflict_type": "adverse",      "source_matter_id": "MAT-2025-0091", "recorded_at": "2025-06-09"},
+    {"party_name": "Beanstalk Co.",          "conflict_type": "prior_client", "source_matter_id": "MAT-2023-0017", "recorded_at": "2023-08-21"},
+    {"party_name": "Pinedale Studios LLC",   "conflict_type": "family",       "source_matter_id": "MAT-2024-0050", "recorded_at": "2024-04-30"}
   ]
 }
