@@ -1,0 +1,16 @@
+schema_version = "1"
+
+[[entry]]
+key = "accounts"
+type = "list-of-objects"
+purpose = "Per-company research rows. Each row carries: company, firmographic, contacts, news, tech_stack, confidence, researched_at."
+
+[[entry]]
+key = "recent_research"
+type = "list-of-objects"
+purpose = "Rolling log for SDR recall. Each row carries: company, summary, confidence, researched_at."
+
+[[entry]]
+key = "icp_definitions"
+type = "list-of-objects"
+purpose = "Operator-authored ICP definitions. Each row carries: name, target_industry, target_size_band, target_geos, signals_we_value, hard_disqualifiers."

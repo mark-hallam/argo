@@ -1,0 +1,54 @@
+{
+  "icp_examples": [
+    {
+      "id": "icp_b2b_eng_led_saas",
+      "name": "Series B–C engineering-led B2B SaaS",
+      "target_industry": "B2B SaaS",
+      "target_size_band": "51-500",
+      "target_geos": ["US", "EU", "AU"],
+      "signals_we_value": [
+        "recent infra-team hires",
+        "platform-engineering job ads",
+        "public commitment to multi-region deploys"
+      ],
+      "hard_disqualifiers": [
+        "Series A or earlier",
+        "single-region by design",
+        "consumer-only product"
+      ]
+    },
+    {
+      "id": "icp_devtools_self_serve",
+      "name": "Developer-tools with self-serve motion",
+      "target_industry": "Developer tools",
+      "target_size_band": "11-200",
+      "target_geos": ["US", "EU"],
+      "signals_we_value": [
+        "growing community/Discord",
+        "public usage dashboards",
+        "OSS adoption traction"
+      ],
+      "hard_disqualifiers": [
+        "enterprise-only pricing",
+        "no public docs"
+      ]
+    }
+  ],
+  "demo_accounts": [
+    {
+      "company": "Linear",
+      "domain": "linear.app",
+      "icp_match": "icp_b2b_eng_led_saas"
+    },
+    {
+      "company": "Notion",
+      "domain": "notion.so",
+      "icp_match": "icp_b2b_eng_led_saas"
+    },
+    {
+      "company": "Vercel",
+      "domain": "vercel.com",
+      "icp_match": "icp_devtools_self_serve"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+schema_version = "1"
+
+[vertical]
+id          = "lead-research"
+name        = "Lead Research"
+description = "Prospect-research vertical. Given a target company (or ICP), produces a structured 1-pager: firmographic facts, likely buying-committee contacts, recent news, tech stack, and ranked talking points. Every claim is sourced or marked inferred. Outreach is intentionally out of scope and gated behind human approval — `sales-sdr` is the sibling vertical that actually sends."
+version     = "0.1.0"
+authors     = ["Mark Hallam"]
+tags        = ["sales", "sdr-support", "research", "prospecting", "icp", "demo"]
+
+[role]
+system_prompt = "prompts/system.md"
+persona       = "prompts/persona.md"
+
+[provider]
+default   = "anthropic/claude-sonnet-4-6"
+fallback  = "openai/gpt-4o"
+cost_tier = "balanced"
+
+[tools]
+allowed = ["web_search", "web_extract", "file_read"]
+denied  = ["terminal", "file_write", "file_patch", "delegate_task"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[evaluation]
+suites = ["eval/seed.jsonl"]
+
+# All three MCP servers are OPTIONAL. The vertical loads + lints
+# clean without them installed; the worker degrades to web_search +
+# web_extract only when a connector is missing. Connector briefs
+# (mission-mcp-connector-zoominfo / -clearbit / -similarweb) ship
+# the actual binaries.
+[mcp_servers]
+zoominfo   = { transport = "stdio", command = "argo-mcp-connector-zoominfo", args = [] }
+clearbit   = { transport = "stdio", command = "argo-mcp-connector-clearbit", args = [] }
+similarweb = { transport = "stdio", command = "argo-mcp-connector-similarweb", args = [] }
+
+# Outreach sends are NOT in this vertical's vocabulary — they live
+# in `sales-sdr`. The entry below is a forward declaration so any
+# orchestrator that wires lead-research into a wider pipeline knows
+# the contract: if a downstream step proposes `send_outreach_email`
+# while this vertical is on the stack, it MUST gate behind human
+# approval.
+[escalation]
+human_approval_required = ["send_outreach_email"]
+escalate_after_failures = 2
+escalate_to             = "operator"
+
+[gateway]
+public_endpoints = []
+auth_required    = true
+
+[tui]
+overlay_label = "Lead Research"

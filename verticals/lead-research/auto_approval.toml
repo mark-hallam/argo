@@ -1,0 +1,13 @@
+enabled = true
+max_usd_micros_per_action = 200000
+daily_budget_usd_micros   = 5000000
+
+# Research skills are read-only / web-only and autonomous-safe.
+# `send_outreach_email` is intentionally absent so it must always
+# route through the human approval gate (defence-in-depth on top of
+# `[escalation].human_approval_required` in vertical.toml).
+wake_action_types = [
+  "research_company",
+  "identify_decision_makers",
+  "draft_research_brief",
+]
