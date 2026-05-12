@@ -35,6 +35,14 @@ pub mod action_throttle;
 /// verbatim, and exposes a `runtime.context_compressed` audit
 /// payload. Wiring into the agent-runner turn loop is a follow-up.
 pub mod context_compress;
+/// Adaptive context truncation
+/// (`mission-adaptive-context-truncation`). Deterministic fallback
+/// for the compression path: drops older turns FIFO and, as a last
+/// resort, replaces giant individual turns with a truncation
+/// marker. Returns `ArgoError::ContextWindowExhausted` when even
+/// the minimum-must-keep set doesn't fit. Exposes a
+/// `runtime.context_truncated` audit payload.
+pub mod context_truncate;
 /// Dreams plan-template learning — distill cohorts of similar
 /// successful Planner decompositions into [`PlanTemplate`]
 /// candidates that ride the TrustGrade ladder. Stream

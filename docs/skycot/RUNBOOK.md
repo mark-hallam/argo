@@ -427,6 +427,33 @@ shorten `keep_last_turns`.
 - **Not multimodal-aware.** Image / audio content blocks are not
   compressed in v1 — only text turns participate in the summary.
 
+### Fallback: adaptive truncation
+
+Compression is the preferred path, but it leans on an LLM call and so
+can itself fail (rate-limit, refusal, network). It also cannot help
+when a *single* turn is too big to fit — a 200K-token tool dump
+cannot be summarised below 200K tokens without losing the load-bearing
+output. For both cases, `argo_runtime::context_truncate` provides a
+deterministic fallback:
+
+- Drops older user/assistant turns FIFO; never touches the system
+  prompt, the last user turn, the last assistant turn, or
+  `Tool`-role messages within the last 3 user-turn boundaries.
+- As a last resort, replaces a single oversized turn (default
+  >50% of the window) with `[...truncated XXX tokens of tool
+  output...]` so the provider transport accepts the call.
+- Writes one `runtime.context_truncated` audit row per pass with
+  payload `{ pre_token_count, post_token_count, turns_dropped,
+  intra_turn_truncations }`.
+- Hard-fails with `ArgoError::ContextWindowExhausted` when even the
+  minimum (system prompt + last user turn) cannot fit — the caller
+  must handle, never silently accept.
+
+`argo audit query --kind runtime.context_truncated` answers "how
+often did the deterministic fallback kick in?" — a non-zero rate
+relative to `runtime.context_compressed` is the operator's signal to
+investigate compression failures.
+
 ---
 
 ## Action throttling

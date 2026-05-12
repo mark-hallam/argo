@@ -29,6 +29,7 @@
 //! | [`ArgoError::BudgetExhausted`] | Budget exhausted (iterations / tokens / latency).           | 429  |
 //! | [`ArgoError::Oci`]       | OCI registry / packaging error.                                   | 502  |
 //! | [`ArgoError::NotFound`]  | Addressed entity does not exist.                                  | 404  |
+//! | [`ArgoError::ContextWindowExhausted`] | Adaptive truncation cannot fit even the minimum.     | 500  |
 //!
 //! ## Common mismatches (audit fodder)
 //!
@@ -319,6 +320,30 @@ pub enum ArgoError {
         ceiling_micros: u64,
         /// Projected cost of the call that was blocked (USD micros).
         projected_cost_micros: u64,
+    },
+    /// Adaptive context truncation could not fit the message history
+    /// within the model's context window even after dropping older
+    /// turns and intra-turn truncating giant tool outputs. Maps to
+    /// HTTP 500.
+    ///
+    /// Returned by `argo_runtime::context_truncate::truncate_to_fit`
+    /// when even the minimum-must-keep set (system prompt + last user
+    /// turn) exceeds the window. The caller MUST handle this — a
+    /// silent malformed call is worse than failing loudly.
+    /// Distinct from [`ArgoError::BudgetExhausted`] (an in-flight
+    /// per-session budget tree) and from [`ArgoError::BudgetExceeded`]
+    /// (a pre-spend USD-micros ceiling) in that this is a *structural*
+    /// failure of the message envelope, not a cost-based gate.
+    #[error(
+        "context window exhausted: minimum {minimum_tokens} tokens \
+         exceeds window {window_tokens}"
+    )]
+    ContextWindowExhausted {
+        /// Token count of the minimum-must-keep set (system prompt +
+        /// last user turn).
+        minimum_tokens: usize,
+        /// Configured model context window in tokens.
+        window_tokens: usize,
     },
 }
 
