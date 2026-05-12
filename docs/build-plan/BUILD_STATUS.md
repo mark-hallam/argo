@@ -70,6 +70,14 @@
 > Fresh sessions: read PRODUCT_ROADMAP.md before picking up any
 > UI / UX / persona / journey row.
 >
+> **🧭 LIVE DIRECTIVES (2026-05-12):**
+> - **ACTIVE** — `conductor-prompt-deployment-path-v3.md`: overrides
+>   PROTOCOL_LOOP_PROMPT step-8 normal replenishment until §5 stop
+>   conditions met (7-box deployable-end-to-end gate).
+> - **ACTIONED** — `conductor-advisory-{E0-E1,E2-E5,F-reconciliation,G-J}.md`:
+>   rows inserted into this ledger; retained for traceability only.
+> - **PRIMER**: fresh sessions read `docs/build-plan/RESUME.md` first.
+>
 > **CONDUCTOR HARD RULE — ZOMBIE-CLAIM SWEEP (multi-machine
 > amendment 2026-05-10):** workers may run on multiple machines
 > (Mac/PC/Linux); pulse files at `/tmp/argo-worker-pulse/<brief-id>`

@@ -90,11 +90,13 @@ Plan documents, in order of operative precedence:
 The vertical-template system is documented in its own design doc
 once Phase 1 lands.
 
-**Fresh agents: read `docs/build-plan/BUILD_STATUS.md` (first 60
-lines) before making any decisions.** The header carries operator
-amendments (queue thresholds, agent-family availability, paused
-streams, etc.) that override doc-template instructions. Memory and
-template defaults are not authoritative; the live ledger is.
+**Fresh agents: start at [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)** — a single-page primer pointing you at the
+5 files to read (in order) to pick up the swarm. The
+`docs/build-plan/BUILD_STATUS.md` header (first ~90 lines) is the
+live ledger — operator amendments (queue thresholds, agent-family
+availability, paused streams, active directives) live there and
+override every other doc. Memory and template defaults are not
+authoritative; the live ledger is.
 
 PR title format: `<phase> — <section> — <one-line summary>`
 
@@ -106,11 +108,14 @@ Continue using `argo` everywhere for now (binary, crates, env vars,
 
 ## Multi-agent swarm protocol
 
-If you are running as a worker or conductor in the multi-agent swarm,
-the live operational rules are in
-[`docs/build-plan/SWARM_PROTOCOL.md`](docs/build-plan/SWARM_PROTOCOL.md).
-That document is the source of truth for: iteration sequence, hard
-rules, verification, stop conditions, manager-worker mode, and graceful
+**The swarm is currently active.** Any session opened in this repo
+is presumed to be a worker or conductor unless explicitly invoked
+otherwise. Follow [`docs/build-plan/RESUME.md`](docs/build-plan/RESUME.md)
+to pick up.
+
+[`docs/build-plan/SWARM_PROTOCOL.md`](docs/build-plan/SWARM_PROTOCOL.md)
+is the source of truth for: iteration sequence, hard rules,
+verification, stop conditions, manager-worker mode, and graceful
 exit. Re-read it on every iteration — the ledger on `origin/main` is
 authoritative, not memory.
 
@@ -121,6 +126,6 @@ Companion docs:
 - [`docs/build-plan/CONTRIBUTING_AGENT.md`](docs/build-plan/CONTRIBUTING_AGENT.md) — short worker companion.
 - [`docs/build-plan/KNOWN_FLAKES.md`](docs/build-plan/KNOWN_FLAKES.md) — pre-existing test flakes.
 
-Ad-hoc Claude sessions (not running as a swarm worker) can ignore
-SWARM_PROTOCOL.md and the build-plan companions. The rules above
-apply to all sessions.
+Genuinely ad-hoc sessions (invoked outside the swarm context — e.g.
+the operator running a one-off cleanup) can ignore the build-plan
+layer; the core rules above still apply.
