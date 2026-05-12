@@ -79,6 +79,7 @@ members = [
   "crates/argo-mcp-connector-quickbooks",
   "crates/argo-mcp-connector-greenhouse",
   "crates/argo-mcp-connector-dropbox",
+  "crates/argo-mcp-connector-box",
   "crates/argo-mcp-connector-signal",
   "crates/argo-mcp-connector-clearbit",
   "crates/argo-mcp-connector-apollo",
