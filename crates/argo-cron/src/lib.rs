@@ -39,6 +39,8 @@
 mod expr;
 mod job;
 mod scheduler;
+mod system_registry;
+mod target;
 mod tick_lock;
 
 #[cfg(test)]
@@ -47,4 +49,13 @@ mod tests;
 pub use expr::{CronExpr, CronParseError};
 pub use job::{CronJob, CronTarget, InMemoryJobStore, JobStore};
 pub use scheduler::{JobRunner, Scheduler, TickReport};
+pub use system_registry::{
+    SystemJobContext, SystemJobHandler, SystemJobOutcome, SystemJobRegistry,
+    SystemJobRegistryBuilder,
+};
+pub use target::{
+    system_job_name, system_target, CANONICAL_SYSTEM_JOBS, SYSTEM_JOB_AB_PROMOTION,
+    SYSTEM_JOB_DREAMS_CURATION, SYSTEM_JOB_FORGE_OPTIMIZE, SYSTEM_JOB_SKILL_QUALITY_RECOMPUTE,
+    SYSTEM_PLATFORM,
+};
 pub use tick_lock::{TickLock, TickLockError};

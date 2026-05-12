@@ -1,0 +1,24 @@
+{
+  "id": "00000000-0000-7000-8000-000000000002",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "name": "skill_quality_recompute",
+  "schedule": {
+    "source": "0 3 * * *",
+    "minute": {
+      "Values": [0]
+    },
+    "hour": {
+      "Values": [3]
+    },
+    "day_of_month": "Wildcard",
+    "month": "Wildcard",
+    "day_of_week": "Wildcard"
+  },
+  "prompt": "system: recompute quality scores for all active skill versions (14d window)",
+  "target": {
+    "platform": "system",
+    "chat": "skill.quality_recompute"
+  },
+  "enabled": true,
+  "last_fired_at": null
+}

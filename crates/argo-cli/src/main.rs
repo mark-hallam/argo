@@ -11,6 +11,7 @@ mod home;
 mod secrets_scrubber;
 #[cfg(test)]
 mod secrets_scrubber_tests;
+mod system_jobs;
 mod tracing_setup;
 
 use argo_types::ArgoResult;

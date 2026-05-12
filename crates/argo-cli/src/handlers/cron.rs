@@ -1,14 +1,50 @@
 //! `argo cron` — list / create / delete / trigger / tick jobs in
 //! the workspace's `cron/jobs/` directory.
 use crate::cli::CronCmd;
+use crate::system_jobs::{
+    ab_promotion_tick, dreams_curation_tick, forge_optimize, skill_quality_recompute,
+};
 use argo_cron::{
-    CronExpr, CronJob, CronTarget, InMemoryJobStore, JobRunner, JobStore, Scheduler, TickLock,
-    TickLockError,
+    system_job_name, CronExpr, CronJob, CronTarget, InMemoryJobStore, JobRunner, JobStore,
+    Scheduler, SystemJobContext, SystemJobRegistry, SystemJobRegistryBuilder, TickLock,
+    TickLockError, SYSTEM_JOB_AB_PROMOTION, SYSTEM_JOB_DREAMS_CURATION, SYSTEM_JOB_FORGE_OPTIMIZE,
+    SYSTEM_JOB_SKILL_QUALITY_RECOMPUTE,
 };
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use async_trait::async_trait;
 use std::path::PathBuf;
 use std::time::Duration;
+
+/// Names of the four canonical system maintenance jobs shipped by
+/// `argo cron init-system`. Stable order: `init-system` writes
+/// templates in this order and `--dry-run` summaries echo it.
+pub const SYSTEM_JOB_TEMPLATES: &[&str] = &[
+    "forge_optimize_tick",
+    "skill_quality_recompute",
+    "dreams_curation_tick",
+    "ab_promotion_tick",
+];
+
+/// Construct the default workspace-global [`SystemJobRegistry`].
+/// Today every entry is wired to a no-op handler — operators
+/// register real handlers via follow-up briefs once their store /
+/// forge / dreams / ab plumbing is ready. The registry itself goes
+/// live now so dispatch through `argo cron tick` works end-to-end.
+#[must_use]
+pub fn default_system_registry() -> SystemJobRegistry {
+    SystemJobRegistryBuilder::new()
+        .register(SYSTEM_JOB_FORGE_OPTIMIZE, forge_optimize::noop_handler())
+        .register(
+            SYSTEM_JOB_SKILL_QUALITY_RECOMPUTE,
+            skill_quality_recompute::noop_handler(),
+        )
+        .register(
+            SYSTEM_JOB_DREAMS_CURATION,
+            dreams_curation_tick::noop_handler(),
+        )
+        .register(SYSTEM_JOB_AB_PROMOTION, ab_promotion_tick::noop_handler())
+        .build()
+}
 
 pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
     let cwd =
@@ -33,16 +69,128 @@ pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
             );
             Ok(())
         }
-        CronCmd::Trigger { name } => trigger_job(&dir, &name).await,
-        CronCmd::Tick { dry_run } => tick(&dir, dry_run).await,
+        CronCmd::Trigger { name } => trigger_job(&cwd, &dir, &name).await,
+        CronCmd::Tick { dry_run } => tick(&cwd, &dir, dry_run).await,
         CronCmd::Daemon {
             interval_secs,
             max_ticks,
-        } => daemon(&dir, interval_secs, max_ticks).await,
+        } => daemon(&cwd, &dir, interval_secs, max_ticks).await,
+        CronCmd::InitSystem { dry_run, force } => init_system(&cwd, &dir, dry_run, force),
+    }
+}
+
+/// Install the four canonical system maintenance job templates into
+/// `cron/jobs/`. The source templates live in `cron/system/` at the
+/// workspace root. Existing files are preserved unless `force` is
+/// set; missing source files are reported and the call still
+/// installs whatever it can.
+fn init_system(
+    workspace_root: &std::path::Path,
+    jobs_dir: &std::path::Path,
+    dry_run: bool,
+    force: bool,
+) -> ArgoResult<()> {
+    let system_dir = workspace_root.join("cron").join("system");
+    if !system_dir.exists() {
+        return Err(ArgoError::Provider(format!(
+            "{} not found — `cron/system/` ships with the repo; \
+             reinstall or fetch a fresh checkout",
+            system_dir.display()
+        )));
+    }
+    let mut wrote = 0_usize;
+    let mut skipped = 0_usize;
+    let mut errors = 0_usize;
+    for name in SYSTEM_JOB_TEMPLATES {
+        let src = system_dir.join(format!("{name}.json"));
+        let dst = jobs_dir.join(format!("{name}.json"));
+        if !src.exists() {
+            eprintln!("  missing template: {} (skipping)", src.display());
+            errors += 1;
+            continue;
+        }
+        if dst.exists() && !force {
+            println!("  skip   {} (already installed; pass --force to overwrite)", dst.display());
+            skipped += 1;
+            continue;
+        }
+        if dry_run {
+            println!("  would write {} (from {})", dst.display(), src.display());
+            wrote += 1;
+            continue;
+        }
+        let body = std::fs::read_to_string(&src)
+            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", src.display())))?;
+        // Validate that the template parses as a CronJob before we
+        // commit it to cron/jobs/ — catches drift between the
+        // shipped templates and the on-disk schema.
+        let _: CronJob = serde_json::from_str(&body).map_err(|e| {
+            ArgoError::Provider(format!("template {} is not a valid CronJob: {e}", src.display()))
+        })?;
+        std::fs::write(&dst, body)
+            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", dst.display())))?;
+        println!("  wrote  {}", dst.display());
+        wrote += 1;
+    }
+    println!(
+        "argo cron init-system: {} {} / {} skipped / {} missing-template{}",
+        if dry_run { "would write" } else { "wrote" },
+        wrote,
+        skipped,
+        errors,
+        if dry_run { " (dry-run)" } else { "" }
+    );
+    Ok(())
+}
+
+/// Build a [`JobRunner`] that dispatches `system:*` targets via the
+/// registry and falls back to [`LoggingRunner`] for everything else.
+fn system_aware_runner(
+    registry: SystemJobRegistry,
+    workspace_root: PathBuf,
+) -> SystemAwareRunner {
+    SystemAwareRunner {
+        registry,
+        workspace_root,
+    }
+}
+
+struct SystemAwareRunner {
+    registry: SystemJobRegistry,
+    workspace_root: PathBuf,
+}
+
+#[async_trait]
+impl JobRunner for SystemAwareRunner {
+    async fn run(&self, job: &CronJob) -> ArgoResult<()> {
+        if let Some(name) = system_job_name(&job.target) {
+            match self.registry.get(name) {
+                Some(handler) => {
+                    let ctx = SystemJobContext::at_now(self.workspace_root.clone());
+                    let outcome = handler.run(ctx).await?;
+                    // Structured JSON for downstream log collectors.
+                    if let Ok(json) = serde_json::to_string(&outcome) {
+                        println!("{json}");
+                    }
+                    eprintln!("  system:{} → {}", name, outcome.summary);
+                    return Ok(());
+                }
+                None => {
+                    eprintln!(
+                        "  system:{} → handler not registered (skipping); \
+                         operators register handlers via the default registry",
+                        name
+                    );
+                    return Ok(());
+                }
+            }
+        }
+        LoggingRunner.run(job).await
     }
 }
 
 async fn daemon(
+    workspace_root: &std::path::Path,
     dir: &std::path::Path,
     interval_secs: u64,
     max_ticks: Option<u64>,
@@ -68,7 +216,7 @@ async fn daemon(
     let mut ticks = 0_u64;
     let mut sighup = sighup_stream();
     loop {
-        if let Err(e) = tick(dir, false).await {
+        if let Err(e) = tick(workspace_root, dir, false).await {
             eprintln!("tick error: {e}");
         }
         ticks += 1;
@@ -118,7 +266,11 @@ async fn wait_sighup(_s: &mut Option<()>) {
     std::future::pending::<()>().await
 }
 
-async fn trigger_job(dir: &std::path::Path, name: &str) -> ArgoResult<()> {
+async fn trigger_job(
+    workspace_root: &std::path::Path,
+    dir: &std::path::Path,
+    name: &str,
+) -> ArgoResult<()> {
     let path = dir.join(format!("{name}.json"));
     if !path.exists() {
         return Err(ArgoError::Provider(format!("{} not found", path.display())));
@@ -127,13 +279,17 @@ async fn trigger_job(dir: &std::path::Path, name: &str) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
     let job: CronJob = serde_json::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
-    let runner = LoggingRunner;
+    let runner = system_aware_runner(default_system_registry(), workspace_root.to_path_buf());
     runner.run(&job).await?;
     println!("triggered '{name}' (no-op delivery; daemon binding wires the gateway send)");
     Ok(())
 }
 
-async fn tick(dir: &std::path::Path, dry_run: bool) -> ArgoResult<()> {
+async fn tick(
+    workspace_root: &std::path::Path,
+    dir: &std::path::Path,
+    dry_run: bool,
+) -> ArgoResult<()> {
     // Load every job into an InMemoryJobStore so we can run a real
     // scheduler tick. This is the same path the daemon takes; the
     // only difference is the cursor lives in process memory, so
@@ -155,7 +311,7 @@ async fn tick(dir: &std::path::Path, dry_run: bool) -> ArgoResult<()> {
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", p.display())))?;
         store.save(&job).await?;
     }
-    let runner = LoggingRunner;
+    let runner = system_aware_runner(default_system_registry(), workspace_root.to_path_buf());
     let now = chrono::Utc::now();
     let report = if dry_run {
         // Dry run: list which jobs are due without invoking the

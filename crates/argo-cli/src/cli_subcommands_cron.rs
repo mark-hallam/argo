@@ -52,4 +52,17 @@ pub enum CronCmd {
         #[arg(long)]
         max_ticks: Option<u64>,
     },
+    /// Install the four canonical system maintenance jobs (Forge
+    /// optimize / quality recompute / Dreams curation / A/B
+    /// promotion) into `cron/jobs/` by copying the templates from
+    /// `cron/system/`. Existing files are preserved unless
+    /// `--force` is passed.
+    InitSystem {
+        /// Preview what would be written without touching disk.
+        #[arg(long)]
+        dry_run: bool,
+        /// Overwrite existing job files in `cron/jobs/`.
+        #[arg(long)]
+        force: bool,
+    },
 }

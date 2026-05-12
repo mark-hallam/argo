@@ -1,0 +1,24 @@
+{
+  "id": "00000000-0000-7000-8000-000000000003",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "name": "dreams_curation_tick",
+  "schedule": {
+    "source": "30 4 * * *",
+    "minute": {
+      "Values": [30]
+    },
+    "hour": {
+      "Values": [4]
+    },
+    "day_of_month": "Wildcard",
+    "month": "Wildcard",
+    "day_of_week": "Wildcard"
+  },
+  "prompt": "system: run Dreams curation over the last 24h of trajectories",
+  "target": {
+    "platform": "system",
+    "chat": "dreams.curation_tick"
+  },
+  "enabled": true,
+  "last_fired_at": null
+}
