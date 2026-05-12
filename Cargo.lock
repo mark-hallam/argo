@@ -1043,6 +1043,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-resend"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "argo-mcp-connector-salesforce"
 version = "0.0.1"
 dependencies = [
