@@ -47,6 +47,7 @@ mod routes_costs_by_day;
 mod routes_counts;
 mod routes_cron;
 mod routes_dispatch_costs;
+mod routes_elevated_view;
 mod routes_dispatch_forge;
 mod routes_dispatch_get;
 mod routes_dispatch_get_admin;

@@ -105,6 +105,12 @@ pub mod team_roster;
 /// re-exported from `team_roster` so external imports remain
 /// `argo_store::team_roster::create_team`.
 pub mod team_roster_mutations;
+/// Elevated-view grant store (Stream J16) — per-principal,
+/// per-category, time-bounded "show me the raw value" override
+/// consulted by the J2 redact-policy resolver. Rows are inserted by
+/// the `POST /api/v1/audit/elevated-view-request` handler and revoked
+/// by `DELETE /api/v1/audit/elevated-view-grants/<id>`.
+pub mod elevated_view_grant;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Quota kind enums + error type for the tenant_quota gate
@@ -199,7 +205,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 58;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 59;
 
 /// A SQLite-backed session store.
 ///

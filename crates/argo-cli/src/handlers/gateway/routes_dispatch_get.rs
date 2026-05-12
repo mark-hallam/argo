@@ -35,6 +35,14 @@ pub(super) async fn dispatch_get(
     if req.starts_with("GET /api/v1/approvals ") || req.starts_with("GET /api/v1/approvals?") {
         return Some(super::routes_approvals_json::list_response(req).await);
     }
+    // J16 — caller's elevated-view grants (active-only by default).
+    // Must come BEFORE the J14 `/api/v1/audit` arm — more-specific
+    // path wins so J14's prefix-match doesn't swallow this traffic.
+    if req.starts_with("GET /api/v1/audit/elevated-view-grants ")
+        || req.starts_with("GET /api/v1/audit/elevated-view-grants?")
+    {
+        return Some(super::routes_elevated_view::list_response(req, store).await);
+    }
     // J6 — tenant-scoped Team-page roster.
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::list_response(req, store).await);

@@ -153,6 +153,21 @@ async fn dispatch_post_inner(
     if req.starts_with("POST /api/v1/workers ") {
         return Some(super::routes_workers_hire::hire_response(req, store).await);
     }
+    // J16 — elevated-view request (auto-grants in v1). Bearer auth
+    // applied above; the handler validates body shape and inserts a
+    // row into `elevated_view_grant`.
+    if req.starts_with("POST /api/v1/audit/elevated-view-request ") {
+        return Some(super::routes_elevated_view::request_response(req, store).await);
+    }
+    // J16 — revoke a grant. DELETE shares dispatch_post's bearer +
+    // principal-header gate; the gateway has no separate DELETE
+    // dispatcher in v1.
+    if let Some(rest) = req.strip_prefix("DELETE /api/v1/audit/elevated-view-grants/") {
+        let id = rest.split_whitespace().next().unwrap_or("");
+        if !id.is_empty() {
+            return Some(super::routes_elevated_view::revoke_response(id, req, store).await);
+        }
+    }
     // J1 — JSON approvals API: per-id `decide` and `undo`. The list
     // GET arm is wired in `routes_dispatch_get`. The HTML `/inbox`
     // surface in `routes_channels_webinbox` is preserved separately.
