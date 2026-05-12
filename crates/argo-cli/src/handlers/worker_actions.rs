@@ -267,6 +267,9 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         WorkerCmd::Level { worker_id, tenant, json } => {
             super::worker_promote::level(&worker_id, &tenant, json).await
         }
+        WorkerCmd::Restarts { worker, since } => {
+            super::worker_restarts::run(worker.as_deref(), since.as_deref()).await
+        }
         WorkerCmd::Skills { worker_id, tenant, available_only, json } => {
             super::worker_skills::run(&worker_id, &tenant, available_only, json).await
         }

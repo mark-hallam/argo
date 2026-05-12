@@ -31,6 +31,11 @@ pub mod dreams_plan_templates;
 /// goals get a planner pass before falling through to single-task
 /// dispatch.
 pub mod dispatch_gate;
+/// OOM-kill detection + bounded exponential-backoff worker
+/// restart (mission-oom-restart-handler). Pure-logic primitives
+/// (`classify_exit` / `decide_restart`) plus an
+/// `emit_audit_row` helper for the supervisor wiring step.
+pub mod oom_restart;
 mod planner;
 mod planner_templates;
 /// Worker-pool elasticity recommender + applier

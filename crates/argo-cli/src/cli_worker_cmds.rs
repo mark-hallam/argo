@@ -353,6 +353,19 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List recent OOM / signal / hung-worker restart events
+    /// (mission-oom-restart-handler). Read-only view over
+    /// `worker.oom_restart` audit-chain rows. JSON-lines output;
+    /// pipe through `jq` for richer filtering.
+    Restarts {
+        /// Filter to one worker id.
+        #[arg(long = "worker")]
+        worker: Option<String>,
+        /// `now - <duration>` filter; suffixes `s` / `m` / `h` /
+        /// `d` (e.g. `1h`, `30d`).
+        #[arg(long)]
+        since: Option<String>,
+    },
     /// List the active skills one worker is permitted to surface
     /// (Stream `mission-skill-propagation-loop`). Calls
     /// `SkillStore::available_for_worker` so the operator can debug

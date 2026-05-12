@@ -103,6 +103,16 @@ pub enum AuditKind {
     /// Liveness probes (`/health*`, `/metrics*`) are skipped by the
     /// gateway wrapper to keep the chain free of probe noise.
     HttpRequest,
+    /// Whole-process worker subprocess died and the supervisor
+    /// reacted (mission-oom-restart-handler). Payload carries the
+    /// typed `WorkerExitReason` (Clean / OomKilled / OtherSignal /
+    /// Hung) + the supervisor's `RestartDecision` (Restart with
+    /// backoff / GiveUp with salvage note / IgnoreCleanExit) + the
+    /// attempt counter within the rolling restart window. Distinct
+    /// from `Halt` (per-turn iteration cap) and from the executor
+    /// `RestartStrategy` paths (per-action retry, not whole-process
+    /// death). One row per non-clean exit.
+    WorkerOomRestart,
 }
 
 impl AuditKind {
@@ -137,6 +147,7 @@ impl AuditKind {
             Self::SkillCandidatePromoted => "skill.candidate.promoted",
             Self::SkillRolledBack => "skill.rollback",
             Self::HttpRequest => "http.request",
+            Self::WorkerOomRestart => "worker.oom_restart",
         }
     }
 
@@ -173,6 +184,7 @@ impl AuditKind {
             "skill.candidate.promoted" => Self::SkillCandidatePromoted,
             "skill.rollback" => Self::SkillRolledBack,
             "http.request" => Self::HttpRequest,
+            "worker.oom_restart" => Self::WorkerOomRestart,
             _ => return None,
         })
     }
@@ -253,6 +265,7 @@ impl AuditKind {
             Self::SkillCandidatePromoted,
             Self::SkillRolledBack,
             Self::HttpRequest,
+            Self::WorkerOomRestart,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -341,6 +354,17 @@ mod tests {
         assert!(!kind.is_v02());
         let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
         assert!(labels.contains(&"capability.gap"));
+    }
+
+    #[test]
+    fn worker_oom_restart_round_trips_and_listed() {
+        let kind = AuditKind::WorkerOomRestart;
+        assert_eq!(AuditKind::from_label("worker.oom_restart"), Some(kind));
+        assert_eq!(kind.label(), "worker.oom_restart");
+        assert!(!kind.is_v02());
+        assert!(!kind.is_vertical());
+        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+        assert!(labels.contains(&"worker.oom_restart"));
     }
 
     #[test]
