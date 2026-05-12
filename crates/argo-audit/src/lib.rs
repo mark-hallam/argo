@@ -25,6 +25,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+/// Periodic evidence archival (#228, Tier S) — tar.gz bundle +
+/// signed manifest + verify + optional prune.
+pub mod archive;
 mod event;
 mod export;
 mod gap;

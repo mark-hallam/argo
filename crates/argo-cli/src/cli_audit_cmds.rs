@@ -239,6 +239,44 @@ pub enum AuditQueryCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Archive audit-chain rows older than `--retention-days` into a
+    /// signed `.tar.gz` bundle under `<archive-dir>` (#228, Tier S).
+    Archive {
+        /// Retention window in days; rows older are archive candidates.
+        #[arg(long, default_value_t = 90)]
+        retention_days: u32,
+        /// Delete archived rows from the live table after the bundle
+        /// is durable. Off by default — opt in only after verifying.
+        #[arg(long)]
+        prune: bool,
+        /// Floor (days) below which rows are NEVER pruned, regardless
+        /// of `--retention-days`. Guards against operator typos.
+        #[arg(long)]
+        hard_keep_days: Option<u32>,
+        /// Where to write the bundle + manifest.jsonl. Default
+        /// `<workspace>/audit-archive/`.
+        #[arg(long)]
+        archive_dir: Option<String>,
+        /// Emit a JSON summary instead of human text.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List every bundle recorded in `<archive-dir>/manifest.jsonl`.
+    ListArchives {
+        #[arg(long)]
+        archive_dir: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Recompute SHA-256 + HMAC of `<bundle_id>` and assert match.
+    VerifyArchive {
+        /// Bundle id (UUIDv7) as printed by `list-archives`.
+        bundle_id: String,
+        #[arg(long)]
+        archive_dir: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Replay one session's audit chain in seq order for incident
     /// investigation (Stream `claude-audit-replay`). `pretty`
     /// (default) prints one-line headlines per row; `raw` emits

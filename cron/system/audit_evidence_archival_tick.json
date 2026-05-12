@@ -1,0 +1,24 @@
+{
+  "id": "00000000-0000-7000-8000-000000000005",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "name": "audit_evidence_archival_tick",
+  "schedule": {
+    "source": "0 2 * * *",
+    "minute": {
+      "Values": [0]
+    },
+    "hour": {
+      "Values": [2]
+    },
+    "day_of_month": "Wildcard",
+    "month": "Wildcard",
+    "day_of_week": "Wildcard"
+  },
+  "prompt": "system: archive audit-chain rows beyond the retention window into a signed tar.gz bundle (#228)",
+  "target": {
+    "platform": "system",
+    "chat": "audit.evidence_archival"
+  },
+  "enabled": true,
+  "last_fired_at": null
+}

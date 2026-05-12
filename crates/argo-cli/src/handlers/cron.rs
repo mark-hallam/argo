@@ -2,7 +2,8 @@
 //! the workspace's `cron/jobs/` directory.
 use crate::cli::CronCmd;
 use crate::system_jobs::{
-    ab_promotion_tick, dreams_curation_tick, forge_optimize, skill_quality_recompute,
+    ab_promotion_tick, audit_evidence_archival_tick, dreams_curation_tick, forge_optimize,
+    skill_quality_recompute,
 };
 use argo_cron::{
     system_job_name, CronExpr, CronJob, CronTarget, InMemoryJobStore, JobRunner, JobStore,
@@ -23,6 +24,7 @@ pub const SYSTEM_JOB_TEMPLATES: &[&str] = &[
     "skill_quality_recompute",
     "dreams_curation_tick",
     "ab_promotion_tick",
+    "audit_evidence_archival_tick",
 ];
 
 /// Construct the default workspace-global [`SystemJobRegistry`].
@@ -43,6 +45,10 @@ pub fn default_system_registry() -> SystemJobRegistry {
             dreams_curation_tick::noop_handler(),
         )
         .register(SYSTEM_JOB_AB_PROMOTION, ab_promotion_tick::noop_handler())
+        .register(
+            audit_evidence_archival_tick::SYSTEM_JOB_AUDIT_EVIDENCE_ARCHIVAL,
+            audit_evidence_archival_tick::default_handler(),
+        )
         .build()
 }
 

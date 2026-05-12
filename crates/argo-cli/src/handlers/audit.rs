@@ -251,6 +251,30 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             until,
             format,
         } => super::audit_replay::run(&session_id, from_seq, until.as_deref(), &format).await,
+        AuditCmd::Archive {
+            retention_days,
+            prune,
+            hard_keep_days,
+            archive_dir,
+            json,
+        } => {
+            super::audit_archive::run_archive(
+                retention_days,
+                prune,
+                hard_keep_days,
+                archive_dir.as_deref(),
+                json,
+            )
+            .await
+        }
+        AuditCmd::ListArchives { archive_dir, json } => {
+            super::audit_archive::run_list(archive_dir.as_deref(), json).await
+        }
+        AuditCmd::VerifyArchive {
+            bundle_id,
+            archive_dir,
+            json,
+        } => super::audit_archive::run_verify(&bundle_id, archive_dir.as_deref(), json).await,
     }
 }
 

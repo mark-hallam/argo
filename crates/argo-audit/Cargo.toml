@@ -15,12 +15,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
+hmac = { workspace = true }
 chrono = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
+tar = "0.4"
+flate2 = "1"
+fs2 = { workspace = true }
 
 [[bench]]
 name = "audit_write"

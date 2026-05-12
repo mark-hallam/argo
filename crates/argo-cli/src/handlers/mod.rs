@@ -15,6 +15,7 @@ pub mod action_history;
 pub mod action_recent;
 pub mod action_timeline;
 pub mod audit;
+pub mod audit_archive;
 pub mod audit_by_day;
 pub mod audit_by_day_by_kind;
 pub mod audit_by_kind;

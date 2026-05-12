@@ -14,6 +14,7 @@
 //! aggregate per-sub-task outcomes into a structured
 //! [`argo_cron::SystemJobOutcome`].
 pub mod ab_promotion_tick;
+pub mod audit_evidence_archival_tick;
 pub mod dreams_curation_tick;
 pub mod forge_optimize;
 pub mod skill_quality_recompute;
