@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Worker } from "@/lib/types/worker";
@@ -147,12 +147,13 @@ describe("TeamPage", () => {
     expect(screen.queryByTestId("teammate-wkr_alpha")).not.toBeInTheDocument();
   });
 
-  it("shows the no-search-matches state when query has no hits", () => {
+  it("shows the no-search-matches state with a Clear-all CTA when query has no hits", () => {
     setSearchParams("q=zzz-nothing");
     render(<TeamPage />);
     const empty = screen.getByTestId("team-no-search-matches");
     expect(within(empty).getByText(/No matching teammates/)).toBeInTheDocument();
     expect(within(empty).getByText(/zzz-nothing/)).toBeInTheDocument();
+    expect(within(empty).getByTestId("team-no-matches-clear-all")).toBeInTheDocument();
   });
 
   it("filters the grid by ?status= and shows the no-status-matches state when empty", () => {
@@ -162,13 +163,18 @@ describe("TeamPage", () => {
     expect(screen.queryByTestId("teammate-wkr_alpha")).not.toBeInTheDocument();
   });
 
-  it("updates the URL when the user types in the search input", async () => {
+  it("updates the URL after a debounce when the user types in the search input", async () => {
     const user = userEvent.setup();
     render(<TeamPage />);
     await user.type(screen.getByTestId("team-search-input"), "a");
-    expect(replaceMock).toHaveBeenCalled();
-    const lastCall = replaceMock.mock.calls.at(-1);
-    expect(lastCall?.[0]).toContain("q=a");
+    await waitFor(
+      () => {
+        expect(replaceMock).toHaveBeenCalled();
+        const lastCall = replaceMock.mock.calls.at(-1);
+        expect(lastCall?.[0]).toContain("q=a");
+      },
+      { timeout: 1000 },
+    );
   });
 
   it("updates the URL when the user picks a status filter", async () => {
@@ -178,5 +184,65 @@ describe("TeamPage", () => {
     expect(replaceMock).toHaveBeenCalled();
     const lastCall = replaceMock.mock.calls.at(-1);
     expect(lastCall?.[0]).toContain("status=working");
+  });
+
+  // --- E3-d additions: chip rail + filter dot + filtered subtitle + clear flows ---
+
+  it("renders the filter dot on the status trigger when a status is active", () => {
+    setSearchParams("status=working");
+    render(<TeamPage />);
+    expect(screen.getByTestId("team-status-filter-dot")).toBeInTheDocument();
+  });
+
+  it("does not render the filter dot when status is All", () => {
+    render(<TeamPage />);
+    expect(screen.queryByTestId("team-status-filter-dot")).not.toBeInTheDocument();
+  });
+
+  it("renders chip rail with status + search chips when both filters are active", () => {
+    setSearchParams("status=working&q=alpha");
+    render(<TeamPage />);
+    const rail = screen.getByTestId("team-filter-chip-rail");
+    expect(within(rail).getByTestId("team-filter-chip-status")).toHaveTextContent(
+      /Status: Working/,
+    );
+    expect(within(rail).getByTestId("team-filter-chip-search")).toHaveTextContent(
+      /Search: "alpha"/,
+    );
+    expect(within(rail).getByTestId("team-filter-chip-rail-clear-all")).toBeInTheDocument();
+  });
+
+  it("hides the chip rail when no filters are active", () => {
+    render(<TeamPage />);
+    expect(screen.queryByTestId("team-filter-chip-rail")).not.toBeInTheDocument();
+  });
+
+  it("clears the status filter from the chip × button", async () => {
+    setSearchParams("status=working");
+    const user = userEvent.setup();
+    render(<TeamPage />);
+    await user.click(screen.getByTestId("team-filter-chip-status-remove"));
+    expect(replaceMock).toHaveBeenCalled();
+    const lastCall = replaceMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toBe("/team");
+  });
+
+  it("clears every active dimension when 'Clear all' is clicked", async () => {
+    setSearchParams("status=working&q=alpha");
+    const user = userEvent.setup();
+    render(<TeamPage />);
+    await user.click(screen.getByTestId("team-filter-chip-rail-clear-all"));
+    expect(replaceMock).toHaveBeenCalled();
+    const lastCall = replaceMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toBe("/team");
+  });
+
+  it("subtitle reflects the filtered count when a filter is active", () => {
+    setSearchParams("status=working");
+    render(<TeamPage />);
+    // Only wkr_alpha has status=working in the sample.
+    expect(screen.getByTestId("team-subtitle")).toHaveTextContent(
+      /1 teammate working/,
+    );
   });
 });

@@ -2,15 +2,28 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, useState, type ChangeEvent } from "react";
-import { ChevronDown, Plus, Search } from "lucide-react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from "react";
+import { ChevronDown, Plus, Search, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { Toast, ToastProvider, ToastViewport } from "@/components/ui/Toast";
 import { TeamEmptyState } from "@/components/skycot/TeamEmptyState";
 import { TeammateCard, type TeammateCardToast } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
+import { TeamFilterChipRail } from "@/components/skycot/TeamFilterChipRail";
 import { useTeam } from "@/lib/hooks/use-team";
+import {
+  applyTeamFilters,
+  parseTeamFilters,
+  type TeamFilters,
+} from "@/lib/filters/team";
 import {
   WORKER_STATUSES,
   WORKER_STATUS_LABELS,
@@ -20,28 +33,7 @@ import {
 } from "@/lib/types/worker";
 
 const LOADING_SKELETON_COUNT = 6;
-
-function isWorkerStatus(value: string): value is WorkerStatus {
-  return (WORKER_STATUSES as readonly string[]).includes(value);
-}
-
-function readStatusParam(value: string | null): WorkerStatus | null {
-  if (!value) return null;
-  return isWorkerStatus(value) ? value : null;
-}
-
-function readQueryParam(value: string | null): string {
-  return (value ?? "").trim();
-}
-
-function workerMatchesQuery(worker: Worker, query: string): boolean {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  return (
-    worker.name.toLowerCase().includes(q) ||
-    worker.role.tagline.toLowerCase().includes(q)
-  );
-}
+const URL_DEBOUNCE_MS = 150;
 
 export default function TeamPage() {
   return (
@@ -81,8 +73,19 @@ function TeamPageContent() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const query = readQueryParam(searchParams?.get("q") ?? null);
-  const status = readStatusParam(searchParams?.get("status") ?? null);
+  const filters = useMemo<TeamFilters>(
+    () => parseTeamFilters(searchParams ?? new URLSearchParams("")),
+    [searchParams],
+  );
+
+  // Local input mirror — updates immediately so typing feels responsive,
+  // then the effect below pushes the trimmed value into the URL after a
+  // 150ms debounce. Back/forward navigation flows through `filters.q`.
+  const [inputQuery, setInputQuery] = useState(filters.q);
+
+  useEffect(() => {
+    setInputQuery(filters.q);
+  }, [filters.q]);
 
   const updateParam = useCallback(
     (key: "q" | "status", next: string | null) => {
@@ -95,29 +98,66 @@ function TeamPageContent() {
     [pathname, router, searchParams],
   );
 
+  useEffect(() => {
+    const trimmed = inputQuery.trim();
+    if (trimmed === filters.q) return;
+    const t = setTimeout(
+      () => updateParam("q", trimmed.length > 0 ? trimmed : null),
+      URL_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(t);
+  }, [inputQuery, filters.q, updateParam]);
+
   const onSearchChange = (e: ChangeEvent<HTMLInputElement>) =>
-    updateParam("q", e.target.value);
+    setInputQuery(e.target.value);
+  const onSearchClear = () => {
+    setInputQuery("");
+    updateParam("q", null);
+  };
   const onStatusChange = (e: ChangeEvent<HTMLSelectElement>) =>
     updateParam("status", e.target.value === "all" ? null : e.target.value);
+
+  const onClearDimension = useCallback(
+    (dimension: keyof TeamFilters) => {
+      if (dimension === "status") {
+        updateParam("status", null);
+      } else {
+        setInputQuery("");
+        updateParam("q", null);
+      }
+    },
+    [updateParam],
+  );
+
+  const onClearAll = useCallback(() => {
+    setInputQuery("");
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("q");
+    params.delete("status");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   const workers = teamQuery.data?.workers ?? [];
   const total = workers.length;
 
-  const filtered = useMemo<Worker[]>(() => {
-    const list = workers
-      .filter((w) => (status ? w.status === status : true))
-      .filter((w) => workerMatchesQuery(w, query));
-    return [...list].sort(compareWorkersForGrid);
-  }, [workers, query, status]);
+  const filtered = useMemo<Worker[]>(
+    () => [...applyTeamFilters(workers, filters)].sort(compareWorkersForGrid),
+    [workers, filters],
+  );
 
   return (
     <ToastProvider swipeDirection="right" duration={5000}>
       <PageHeader
         total={total}
-        query={query}
-        status={status}
+        filteredCount={filtered.length}
+        filters={filters}
+        inputQuery={inputQuery}
         onSearchChange={onSearchChange}
+        onSearchClear={onSearchClear}
         onStatusChange={onStatusChange}
+        onClearDimension={onClearDimension}
+        onClearAll={onClearAll}
       />
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
@@ -126,7 +166,7 @@ function TeamPageContent() {
         ) : total === 0 ? (
           <TeamEmptyState />
         ) : filtered.length === 0 ? (
-          <NoMatchesState query={query} status={status} />
+          <NoMatchesState filters={filters} onClearAll={onClearAll} />
         ) : (
           <TeammateGrid>
             {filtered.map((w) => (
@@ -154,19 +194,29 @@ function TeamPageContent() {
 
 interface PageHeaderProps {
   total: number;
-  query: string;
-  status: WorkerStatus | null;
+  filteredCount: number;
+  filters: TeamFilters;
+  inputQuery: string;
   onSearchChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onSearchClear: () => void;
   onStatusChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+  onClearDimension: (dimension: keyof TeamFilters) => void;
+  onClearAll: () => void;
 }
 
 function PageHeader({
   total,
-  query,
-  status,
+  filteredCount,
+  filters,
+  inputQuery,
   onSearchChange,
+  onSearchClear,
   onStatusChange,
+  onClearDimension,
+  onClearAll,
 }: PageHeaderProps) {
+  const filterActive = filters.status !== null || filters.q.length > 0;
+  const subtitleCount = filterActive ? filteredCount : total;
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-5">
@@ -180,13 +230,13 @@ function PageHeader({
                 className="text-sm text-[var(--muted-foreground)]"
                 data-testid="team-subtitle"
               >
-                {total} {total === 1 ? "teammate" : "teammates"} working
+                {subtitleCount} {subtitleCount === 1 ? "teammate" : "teammates"} working
               </p>
             ) : null}
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <StatusFilter value={status} onChange={onStatusChange} />
+            <StatusFilter value={filters.status} onChange={onStatusChange} />
             <Link
               href="/hire"
               aria-label="Hire teammate"
@@ -205,15 +255,32 @@ function PageHeader({
             className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--muted-foreground)]"
           />
           <input
-            type="search"
-            value={query}
+            type="text"
+            value={inputQuery}
             onChange={onSearchChange}
             placeholder="Filter by name..."
             aria-label="Filter teammates by name"
             data-testid="team-search-input"
-            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--card)]/60 text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent transition-shadow"
+            className="w-full h-10 pl-9 pr-9 rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--card)]/60 text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent transition-shadow"
           />
+          {inputQuery.length > 0 ? (
+            <button
+              type="button"
+              onClick={onSearchClear}
+              aria-label="Clear search"
+              data-testid="team-search-clear"
+              className="absolute right-2 top-1/2 -translate-y-1/2 grid size-6 place-items-center rounded-full text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+            >
+              <X className="size-3.5" />
+            </button>
+          ) : null}
         </div>
+
+        <TeamFilterChipRail
+          filters={filters}
+          onClearDimension={onClearDimension}
+          onClearAll={onClearAll}
+        />
       </div>
     </div>
   );
@@ -226,6 +293,7 @@ function StatusFilter({
   value: WorkerStatus | null;
   onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
 }) {
+  const active = value !== null;
   return (
     <label className="relative inline-flex items-center text-sm">
       <span className="sr-only">Filter by status</span>
@@ -247,6 +315,13 @@ function StatusFilter({
         aria-hidden
         className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 size-4 text-[var(--muted-foreground)]"
       />
+      {active ? (
+        <span
+          aria-hidden
+          data-testid="team-status-filter-dot"
+          className="pointer-events-none absolute -top-0.5 -right-0.5 size-2 rounded-full bg-[var(--primary)] ring-2 ring-[var(--background)]"
+        />
+      ) : null}
     </label>
   );
 }
@@ -262,24 +337,25 @@ function LoadingGrid() {
 }
 
 function NoMatchesState({
-  query,
-  status,
+  filters,
+  onClearAll,
 }: {
-  query: string;
-  status: WorkerStatus | null;
+  filters: TeamFilters;
+  onClearAll: () => void;
 }) {
-  if (query) {
+  if (filters.q.length > 0) {
     return (
       <div
         data-testid="team-no-search-matches"
-        className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-12 px-6 text-center space-y-2"
+        className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-12 px-6 text-center space-y-3"
       >
         <h2 className="text-base font-semibold text-[var(--foreground)]">
           No matching teammates
         </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Nothing matches &ldquo;{query}&rdquo;. Try a different search or clear the filter.
+          Nothing matches &ldquo;{filters.q}&rdquo;. Try a different search or clear the filter.
         </p>
+        <ClearAllButton onClick={onClearAll} />
       </div>
     );
   }
@@ -287,12 +363,26 @@ function NoMatchesState({
   return (
     <div
       data-testid="team-no-status-matches"
-      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-12 px-6 text-center"
+      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-12 px-6 text-center space-y-3"
     >
       <p className="text-sm text-[var(--muted-foreground)]">
         No teammates in this state right now.
-        {status ? ` (${WORKER_STATUS_LABELS[status]})` : null}
+        {filters.status ? ` (${WORKER_STATUS_LABELS[filters.status]})` : null}
       </p>
+      <ClearAllButton onClick={onClearAll} />
     </div>
+  );
+}
+
+function ClearAllButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="team-no-matches-clear-all"
+      className="text-xs text-[var(--primary)] underline-offset-4 hover:underline"
+    >
+      Clear all filters
+    </button>
   );
 }
