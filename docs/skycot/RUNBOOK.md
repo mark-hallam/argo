@@ -221,3 +221,56 @@ Error envelopes follow `{ "error": { "code": "...", "message":
 "..." } }`. Standard codes: `bad_request` (400),
 `approval_not_found` (404), `already_decided` (409),
 `undo_window_expired` (410), `internal_error` (500).
+
+---
+
+## Team API
+
+The gateway exposes a tenant-scoped roster for the SPA Team page at
+`/api/v1/team` (Stream J6). Each `WorkerSummary` carries the persona
++ role + a derived runtime `status` + the E3-c Today-block headline.
+
+```bash
+# List the workspace tenant's workers:
+curl -sH "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  http://127.0.0.1:8734/api/v1/team
+
+# Explicit tenant scope (must match the workspace tenant; mismatch → 403):
+curl -sH "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  "http://127.0.0.1:8734/api/v1/team?tenant_id=<uuid>"
+```
+
+Response shape:
+
+```json
+{
+  "workers": [
+    {
+      "id": "<uuid>",
+      "name": "Maya",
+      "avatar_url": null,
+      "role": { "tagline": "Own outbound follow-up.", "vertical": "gtm-engineer" },
+      "status": "waiting",
+      "department": { "id": "...", "name": "Sales" },
+      "team": { "id": "...", "name": "Outbound" },
+      "headline": {
+        "bullets": ["8 replies sent", "$340 in pending offers"],
+        "tomorrow": "morning routine at 06:30"
+      },
+      "last_active_at": "2026-05-12T17:42:00Z",
+      "pending_approval_count": 2
+    }
+  ],
+  "total_count": 47
+}
+```
+
+`status` is derived: circuit `Open` → `blocked`, `HalfOpen` →
+`paused`, pending approval > 0 → `waiting`, activity within the
+last 5 minutes → `working`, else `idle`. The list is sorted
+waiting → working → idle → paused → blocked, ties broken by
+`last_active_at` desc. Workers are capped at 200 in v1; check
+`total_count > workers.length` to detect truncation
+(`mission-enterprise-team-pagination` lifts the cap). RBAC is
+tenant-scoped only in v1 — per-role visibility ships via
+`mission-enterprise-team-rbac-scoping`.

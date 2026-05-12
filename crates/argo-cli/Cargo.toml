@@ -44,6 +44,7 @@ argo-provider = { path = "../argo-provider", version = "0.0.1" }
 argo-redact = { path = "../argo-redact", version = "0.0.1" }
 argo-routing = { path = "../argo-routing", version = "0.0.1" }
 argo-skill = { path = "../argo-skill", version = "0.0.1" }
+argo-team-headline = { path = "../argo-team-headline", version = "0.0.1" }
 argo-sandbox = { path = "../argo-sandbox", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-telemetry = { path = "../argo-telemetry", version = "0.0.1" }

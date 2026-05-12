@@ -302,6 +302,7 @@ dependencies = [
  "argo-sandbox",
  "argo-skill",
  "argo-store",
+ "argo-team-headline",
  "argo-telemetry",
  "argo-tool",
  "argo-tui",
