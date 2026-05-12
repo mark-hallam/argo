@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Pencil } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { RetrainDialog } from "@/components/skycot/worker/RetrainDialog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,8 +18,10 @@ import { cn } from "@/lib/utils";
  * `onSave(next)` callback so the parent page can wire it as soon as
  * the mutation hook exists.
  *
- * "✎ Adjust" opens the RetrainDialog from E4-g; v1 stubs that as a
- * toast via `onAdjust()`.
+ * "✎ Adjust" opens the RetrainDialog (E4-g). The optional
+ * `onAdjust` prop is fired alongside for analytics / parent
+ * announcement hooks; the dialog mounts internally so callers
+ * don't have to thread state through.
  */
 
 export interface WhatSheDoesCardProps {
@@ -26,8 +29,12 @@ export interface WhatSheDoesCardProps {
   canEdit: boolean;
   /** Called when the user commits an edit (blur / Enter). */
   onSave?: (next: string) => void;
-  /** Called when the "Adjust" button is clicked. */
+  /** Optional analytics hook — fired in addition to opening the dialog. */
   onAdjust?: () => void;
+  /** Worker id for the retrain dialog. Required to wire mutations. */
+  workerId?: string;
+  /** Worker first-name; surfaces in the dialog copy. Defaults to "this worker". */
+  workerName?: string;
   /** Shows the per-card error state instead of the charter body. */
   error?: string | null;
   /** Retry handler for the error state. */
@@ -40,13 +47,21 @@ export function WhatSheDoesCard({
   canEdit,
   onSave,
   onAdjust,
+  workerId,
+  workerName = "this worker",
   error,
   onRetry,
   className,
 }: WhatSheDoesCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(charter);
+  const [retrainOpen, setRetrainOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const handleAdjustClick = () => {
+    onAdjust?.();
+    if (workerId) setRetrainOpen(true);
+  };
 
   useEffect(() => {
     if (!editing) setDraft(charter);
@@ -89,7 +104,7 @@ export function WhatSheDoesCard({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onAdjust}
+          onClick={handleAdjustClick}
           data-testid="charter-adjust"
           aria-label="Adjust how this worker behaves"
         >
@@ -142,6 +157,15 @@ export function WhatSheDoesCard({
           </p>
         )}
       </CardBody>
+      {workerId ? (
+        <RetrainDialog
+          open={retrainOpen}
+          onOpenChange={setRetrainOpen}
+          workerId={workerId}
+          workerName={workerName}
+          triggerContext="charter"
+        />
+      ) : null}
     </Card>
   );
 }

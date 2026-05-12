@@ -307,12 +307,12 @@ describe("Memory page wiring", () => {
     }));
   });
 
-  it("opens a stub toast pointing at E4-g when Adjust voice is clicked", async () => {
+  it("opens the RetrainDialog (E4-g) when Adjust voice is clicked", async () => {
     const user = userEvent.setup();
     render(<PageWrapper />);
     await user.click(await screen.findByTestId("voice-adjust"));
-    await waitFor(() =>
-      expect(screen.getByTestId("memory-toast")).toHaveTextContent(/E4-g/));
+    expect(await screen.findByTestId("retrain-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("retrain-step-capture")).toBeInTheDocument();
   });
 
   it("calls deleteFact when a row is confirmed for deletion", async () => {

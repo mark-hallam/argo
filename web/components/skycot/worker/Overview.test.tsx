@@ -234,13 +234,12 @@ describe("RecentActivityCard", () => {
 });
 
 describe("Overview page wiring", () => {
-  it("opens a stub toast pointing at E4-g when Adjust is clicked", async () => {
+  it("opens the RetrainDialog (E4-g) when Adjust is clicked", async () => {
     const user = userEvent.setup();
     render(<PageWrapper />);
     await user.click(await screen.findByTestId("charter-adjust"));
-    await waitFor(() =>
-      expect(screen.getByTestId("overview-toast")).toHaveTextContent(/E4-g/),
-    );
+    expect(await screen.findByTestId("retrain-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("retrain-step-capture")).toBeInTheDocument();
   });
 
   it("opens a stub toast pointing at E4-h when Add responsibility is clicked", async () => {

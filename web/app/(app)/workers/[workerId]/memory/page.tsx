@@ -69,10 +69,11 @@ export default function WorkerMemoryPage() {
     return () => clearTimeout(t);
   }, [announcement]);
 
-  const onAdjustVoice = useCallback(
-    () => setAnnouncement("Adjust voice in E4-g"),
-    [],
-  );
+  // RetrainDialog (E4-g) mounts inside VoiceProfileSummary. Kept as
+  // an analytics seam for callers; the dialog itself opens internally.
+  const onAdjustVoice = useCallback(() => {
+    /* no-op — dialog mount lives in VoiceProfileSummary */
+  }, []);
   const onRequestAdd = useCallback(() => setAddDialogOpen(true), []);
   const onSaveFact = useCallback(
     async (text: string) => {
@@ -181,7 +182,12 @@ export default function WorkerMemoryPage() {
 
       <RecentDecisionsCard decisions={memory.recentDecisions} />
 
-      <VoiceProfileSummary voice={memory.voiceProfile} onAdjust={onAdjustVoice} />
+      <VoiceProfileSummary
+        voice={memory.voiceProfile}
+        onAdjust={onAdjustVoice}
+        workerId={workerId}
+        workerName={workerQuery.data?.name}
+      />
 
       <AddFactDialog
         open={addDialogOpen}

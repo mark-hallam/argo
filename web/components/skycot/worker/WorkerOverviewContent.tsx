@@ -61,10 +61,12 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
     return () => clearTimeout(t);
   }, [announcement]);
 
-  const onAdjust = useCallback(
-    () => setAnnouncement("Adjust dialog ships in E4-g"),
-    [],
-  );
+  // RetrainDialog (E4-g) mounts inside WhatSheDoesCard; this callback
+  // is kept as an analytics seam for callers who want to know an
+  // adjust was launched without intercepting the dialog itself.
+  const onAdjust = useCallback(() => {
+    /* no-op — dialog mount lives in WhatSheDoesCard */
+  }, []);
   const onAddDuty = useCallback(
     () => setAnnouncement("Add responsibility dialog ships in E4-h"),
     [],
@@ -138,6 +140,8 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
         canEdit={permissions.canEditCharter}
         onSave={onSaveCharter}
         onAdjust={onAdjust}
+        workerId={workerId}
+        workerName={workerQuery.data?.name}
       />
       <DutiesCard
         duties={overview.duties}

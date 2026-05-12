@@ -1,20 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
+import { RetrainDialog } from "@/components/skycot/worker/RetrainDialog";
 import type { VoiceProfile, VoiceTone } from "@/lib/api/worker-memory";
 
 /**
  * Voice profile summary — tone, formality, and a short list of
- * signature phrases the worker leans on. The `[✎ Adjust]` button is
- * a placeholder until E4-g lands the retrain dialog; the parent
- * page wires it to a toast announcing the deferred surface.
+ * signature phrases the worker leans on. The `[✎ Adjust]` button
+ * opens the RetrainDialog (E4-g) with `triggerContext: "voice"`.
+ * The optional `onAdjust` prop fires alongside as an analytics
+ * hook so callers can track the click without intercepting.
  */
 
 export interface VoiceProfileSummaryProps {
   voice: VoiceProfile;
-  onAdjust: () => void;
+  onAdjust?: () => void;
+  /** Worker id for the retrain dialog. Required to wire mutations. */
+  workerId?: string;
+  /** Worker first-name; surfaces in the dialog copy. Defaults to "this worker". */
+  workerName?: string;
   className?: string;
 }
 
@@ -34,8 +41,15 @@ function formalityLabel(value: number): string {
 export function VoiceProfileSummary({
   voice,
   onAdjust,
+  workerId,
+  workerName = "this worker",
   className,
 }: VoiceProfileSummaryProps) {
+  const [retrainOpen, setRetrainOpen] = useState(false);
+  const handleAdjustClick = () => {
+    onAdjust?.();
+    if (workerId) setRetrainOpen(true);
+  };
   return (
     <Card data-testid="card-voice-profile" className={className}>
       <CardHeader className="flex flex-row items-start justify-between gap-2">
@@ -43,7 +57,7 @@ export function VoiceProfileSummary({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onAdjust}
+          onClick={handleAdjustClick}
           data-testid="voice-adjust"
           aria-label="Adjust voice profile"
         >
@@ -92,6 +106,15 @@ export function VoiceProfileSummary({
           )}
         </div>
       </CardBody>
+      {workerId ? (
+        <RetrainDialog
+          open={retrainOpen}
+          onOpenChange={setRetrainOpen}
+          workerId={workerId}
+          workerName={workerName}
+          triggerContext="voice"
+        />
+      ) : null}
     </Card>
   );
 }
