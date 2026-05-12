@@ -73,6 +73,18 @@ pub(super) async fn dispatch_get(
                 );
             }
         }
+        // J7 — bare /api/v1/workers/<id> for the worker profile page.
+        // Matches only when the path has no further slash before the
+        // space/query, so sibling sub-path arms above (retros,
+        // trust-grade) keep priority.
+        if let Some((head, _)) = rest.split_once(' ') {
+            let id_only = head.split('?').next().unwrap_or(head);
+            if !id_only.is_empty() && !id_only.contains('/') {
+                return Some(
+                    super::routes_worker_detail::show_response(id_only, req, store).await,
+                );
+            }
+        }
     }
     // J14 — audit feed with 7 filter dims; unblocks E5-a from mock.
     if req.starts_with("GET /api/v1/audit ") || req.starts_with("GET /api/v1/audit?") {
