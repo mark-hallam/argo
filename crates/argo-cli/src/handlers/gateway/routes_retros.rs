@@ -16,11 +16,17 @@
 //!   is a case-insensitive substring search against the sections
 //!   JSON column.
 //!
-//! Audit side-effects: each `create` emits an `event_type=retro.created`
-//! row; `finalize` emits `event_type=retro.finalized`. Both are
-//! recorded as `AuditKind::HttpRequest` rows (matching the
-//! `routes_elevated_view` pattern) so we don't expand the
-//! `argo-audit::AuditKind` enum from a UI brief.
+//! Audit side-effects: each `create` emits an
+//! `AuditKind::RetroCreated` row; `finalize` emits
+//! `AuditKind::RetroFinalized`. These were originally recorded as
+//! `AuditKind::HttpRequest` rows with a `payload.event_type` carrier
+//! because `argo-audit` was outside the may-touch list of the
+//! `mission-retro-review-ui` brief; the variants were promoted to
+//! first-class kinds in `mission-audit-kind-runtime-events`. Legacy
+//! rows on disk still carry `kind="http.request"` with
+//! `payload.event_type="retro.created"`/`"retro.finalized"` and
+//! remain chain-valid; audit-feed clients should accept either
+//! representation during the transition.
 
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
@@ -93,7 +99,7 @@ pub(super) async fn create_response(
     emit_audit(
         store,
         &principal_id,
-        "retro.created",
+        AuditKind::RetroCreated,
         json!({
             "retro_id": retro_id.to_string(),
             "worker_id": worker_id.to_string(),
@@ -173,7 +179,7 @@ pub(super) async fn finalize_response(
     emit_audit(
         store,
         &principal_id,
-        "retro.finalized",
+        AuditKind::RetroFinalized,
         json!({
             "retro_id": id.to_string(),
             "finalized_at": now,
@@ -346,12 +352,11 @@ fn worker_blob_to_uuid_string(blob: &[u8]) -> String {
 async fn emit_audit(
     store: &Arc<SessionStore>,
     principal_id: &str,
-    event_type: &str,
+    kind: AuditKind,
     extras: Value,
 ) {
     let mut payload = json!({
         "endpoint": "workers.retros",
-        "event_type": event_type,
     });
     if let (Value::Object(ref mut head), Value::Object(rest)) = (&mut payload, extras) {
         for (k, v) in rest {
@@ -360,18 +365,13 @@ async fn emit_audit(
     }
     let sink = AuditSink::new(Arc::clone(store));
     if let Err(e) = sink
-        .write(
-            None,
-            AuditKind::HttpRequest,
-            payload,
-            Some(principal_id.to_string()),
-        )
+        .write(None, kind, payload, Some(principal_id.to_string()))
         .await
     {
         tracing::warn!(
             target: "gateway::retros",
             error = %e,
-            event_type = event_type,
+            kind = kind.label(),
             "retro audit write failed"
         );
     }

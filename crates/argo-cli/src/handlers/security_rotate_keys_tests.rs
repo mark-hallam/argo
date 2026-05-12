@@ -14,6 +14,17 @@ async fn fresh_store() -> SessionStore {
     store
 }
 
+#[test]
+fn audit_kind_const_matches_enum_label() {
+    // Drift check: the local `AUDIT_KIND` const is sourced from
+    // `AuditKind::SecurityKeyRotated.label()` (added in
+    // mission-audit-kind-runtime-events). If anyone renames the
+    // variant's wire label, this assertion fires before the chain
+    // diverges from on-disk rows.
+    assert_eq!(AUDIT_KIND, AuditKind::SecurityKeyRotated.label());
+    assert_eq!(AUDIT_KIND, "security.key_rotated");
+}
+
 #[tokio::test]
 async fn list_rows_cover_every_registered_key() {
     let store = fresh_store().await;

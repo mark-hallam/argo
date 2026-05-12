@@ -19,9 +19,11 @@
 //!   `runtime.context_compressed` audit row. The constant
 //!   [`AUDIT_KIND_LABEL`] is duplicated here so this crate does not
 //!   need to take an `argo-audit` dependency (which would close a
-//!   workspace cycle via `argo-store → argo-runtime`); the matching
-//!   `AuditKind::RuntimeContextCompressed` enum variant lands in a
-//!   follow-up wiring brief along with the supervisor call site.
+//!   workspace cycle via `argo-store → argo-runtime`); it is the
+//!   wire equivalent of `AuditKind::RuntimeContextCompressed.label()`
+//!   from `argo-audit`. Supervisor call sites that already depend on
+//!   `argo-audit` should pass the enum variant directly; callers
+//!   inside `argo-runtime` keep using [`AUDIT_KIND_LABEL`].
 //!
 //! ## What this is NOT
 //!
@@ -46,9 +48,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Stable `kind` label persisted in the `audit_record.kind` column
-/// for compression-pass rows. The matching `AuditKind` enum variant
-/// is added in the wiring brief; the constant is duplicated here so
-/// this crate does not need an `argo-audit` dependency.
+/// for compression-pass rows. Matches
+/// `AuditKind::RuntimeContextCompressed.label()` from `argo-audit`;
+/// the constant is duplicated here so this crate does not need an
+/// `argo-audit` dependency (which would close a workspace cycle).
 pub const AUDIT_KIND_LABEL: &str = "runtime.context_compressed";
 
 /// Default trigger threshold (% of model context window).

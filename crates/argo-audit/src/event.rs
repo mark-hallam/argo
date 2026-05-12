@@ -113,12 +113,56 @@ pub enum AuditKind {
     /// `RestartStrategy` paths (per-action retry, not whole-process
     /// death). One row per non-clean exit.
     WorkerOomRestart,
+    /// Runtime compressed the conversation history because the
+    /// next turn would have exceeded the model's context window
+    /// (`mission-context-window-aware-compression`). Payload shape
+    /// matches `argo_runtime::context_compress::build_audit_payload`:
+    /// `{ pre_token_count, post_token_count, summary_length_tokens,
+    /// turns_compressed }`. Distinct from `TurnStart`/`TurnEnd`
+    /// (per-turn lifecycle) — one row per compression pass.
+    /// Promoted from `HttpRequest+event_type="runtime.context_compressed"`
+    /// to a first-class variant (PR-deferral from #1465).
+    RuntimeContextCompressed,
+    /// A retro row was created via the gateway
+    /// `POST /api/v1/workers/<id>/retros` route
+    /// (`mission-retro-review-ui`). Payload carries
+    /// `retro_id`, `worker_id`, and the metrics window
+    /// (`window_start`/`window_end`). Promoted from
+    /// `HttpRequest+event_type="retro.created"` (PR-deferral
+    /// from #1480) so the audit-chain verifier can categorize it.
+    RetroCreated,
+    /// A retro row was finalized via the gateway
+    /// `POST /api/v1/workers/<id>/retros/<retro_id>/finalize`
+    /// route (`mission-retro-review-ui`). Payload carries
+    /// `retro_id` and `finalized_at`. Promoted from
+    /// `HttpRequest+event_type="retro.finalized"` (PR-deferral
+    /// from #1480).
+    RetroFinalized,
+    /// `argo security rotate-keys commit` recorded a rotation
+    /// (`mission-automated-key-rotation`). Payload carries
+    /// `actor`, `action`, `key`, `category`, `env_var`,
+    /// `rotation_command`, redacted `new_key_source`,
+    /// `rotation_id`, and `at`. The chain self-hash also
+    /// depends on the canonical kind label, so promoting the
+    /// historical `"security.key_rotated"` string into the
+    /// enum keeps existing rows valid.
+    SecurityKeyRotated,
+    /// An approval-request row was promoted to its
+    /// `default_decision` by the timeout sweeper after its
+    /// `deadline_at` elapsed (downstream of
+    /// `claude-approval-timeout-default-decision`). Payload
+    /// carries `count` (rows promoted in this sweep) and
+    /// `swept_at` (ISO-8601 UTC). One row per non-zero sweep,
+    /// not per promoted approval. Variant added ahead of the
+    /// sweeper's first emit so the brief that wires it can
+    /// reference a first-class kind from day one.
+    ApprovalExpiredByTimeout,
 }
 
 impl AuditKind {
     /// Wire label persisted in the `kind` column.
     #[must_use]
-    pub fn label(self) -> &'static str {
+    pub const fn label(self) -> &'static str {
         match self {
             Self::TurnStart => "turn_start",
             Self::AssistantMessage => "assistant_message",
@@ -148,6 +192,11 @@ impl AuditKind {
             Self::SkillRolledBack => "skill.rollback",
             Self::HttpRequest => "http.request",
             Self::WorkerOomRestart => "worker.oom_restart",
+            Self::RuntimeContextCompressed => "runtime.context_compressed",
+            Self::RetroCreated => "retro.created",
+            Self::RetroFinalized => "retro.finalized",
+            Self::SecurityKeyRotated => "security.key_rotated",
+            Self::ApprovalExpiredByTimeout => "approval.expired_by_timeout",
         }
     }
 
@@ -185,6 +234,11 @@ impl AuditKind {
             "skill.rollback" => Self::SkillRolledBack,
             "http.request" => Self::HttpRequest,
             "worker.oom_restart" => Self::WorkerOomRestart,
+            "runtime.context_compressed" => Self::RuntimeContextCompressed,
+            "retro.created" => Self::RetroCreated,
+            "retro.finalized" => Self::RetroFinalized,
+            "security.key_rotated" => Self::SecurityKeyRotated,
+            "approval.expired_by_timeout" => Self::ApprovalExpiredByTimeout,
             _ => return None,
         })
     }
@@ -266,6 +320,11 @@ impl AuditKind {
             Self::SkillRolledBack,
             Self::HttpRequest,
             Self::WorkerOomRestart,
+            Self::RuntimeContextCompressed,
+            Self::RetroCreated,
+            Self::RetroFinalized,
+            Self::SecurityKeyRotated,
+            Self::ApprovalExpiredByTimeout,
         ];
         v.sort_by_key(|k| k.label());
         v
@@ -273,117 +332,5 @@ impl AuditKind {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn label_round_trip_for_every_kind() {
-        for k in AuditKind::all() {
-            assert_eq!(AuditKind::from_label(k.label()), Some(k), "{:?}", k);
-        }
-    }
-
-    #[test]
-    fn all_eleven_v02_kinds_present() {
-        let v02_count = AuditKind::all().iter().filter(|k| k.is_v02()).count();
-        assert_eq!(v02_count, 11);
-    }
-
-    #[test]
-    fn unknown_label_yields_none() {
-        assert!(AuditKind::from_label("not_a_kind").is_none());
-    }
-
-    #[test]
-    fn phase1_kinds_marked_not_v02() {
-        for k in [
-            AuditKind::TurnStart,
-            AuditKind::AssistantMessage,
-            AuditKind::ToolCall,
-            AuditKind::ToolResult,
-            AuditKind::TurnEnd,
-            AuditKind::Halt,
-        ] {
-            assert!(!k.is_v02(), "{:?} should not be v02", k);
-        }
-    }
-
-    #[test]
-    fn escalation_required_is_known_vertical_kind() {
-        // Locked: gateway rollups, CLI filters, and the verifier
-        // all walk `AuditKind::all()` — escalation.required must
-        // be enumerable there.
-        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-        assert!(
-            labels.contains(&"escalation.required"),
-            "got: {labels:?}"
-        );
-        assert!(AuditKind::EscalationRequired.is_vertical());
-        assert!(!AuditKind::EscalationRequired.is_v02());
-        assert_eq!(
-            AuditKind::from_label("escalation.required"),
-            Some(AuditKind::EscalationRequired)
-        );
-    }
-
-    #[test]
-    fn approval_kinds_round_trip_and_are_vertical() {
-        for (label, kind) in [
-            ("approval.granted", AuditKind::ApprovalGranted),
-            ("approval.revoked", AuditKind::ApprovalRevoked),
-            ("approval.consumed", AuditKind::ApprovalConsumed),
-        ] {
-            assert_eq!(AuditKind::from_label(label), Some(kind));
-            assert_eq!(kind.label(), label);
-            assert!(kind.is_vertical(), "{kind:?} should be vertical");
-            assert!(!kind.is_v02(), "{kind:?} must not be v02");
-        }
-        // all three must appear in all()
-        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-        assert!(labels.contains(&"approval.granted"));
-        assert!(labels.contains(&"approval.revoked"));
-        assert!(labels.contains(&"approval.consumed"));
-    }
-
-    #[test]
-    fn capability_gap_round_trips_and_is_vertical() {
-        let kind = AuditKind::CapabilityGap;
-        assert_eq!(AuditKind::from_label("capability.gap"), Some(kind));
-        assert_eq!(kind.label(), "capability.gap");
-        assert!(kind.is_vertical());
-        assert!(!kind.is_v02());
-        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-        assert!(labels.contains(&"capability.gap"));
-    }
-
-    #[test]
-    fn worker_oom_restart_round_trips_and_listed() {
-        let kind = AuditKind::WorkerOomRestart;
-        assert_eq!(AuditKind::from_label("worker.oom_restart"), Some(kind));
-        assert_eq!(kind.label(), "worker.oom_restart");
-        assert!(!kind.is_v02());
-        assert!(!kind.is_vertical());
-        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-        assert!(labels.contains(&"worker.oom_restart"));
-    }
-
-    #[test]
-    fn skill_review_kinds_round_trip_and_are_vertical() {
-        for (label, kind) in [
-            ("skill.approved", AuditKind::SkillApproved),
-            ("skill.rejected", AuditKind::SkillRejected),
-            ("skill.candidate.promoted", AuditKind::SkillCandidatePromoted),
-            ("skill.rollback", AuditKind::SkillRolledBack),
-        ] {
-            assert_eq!(AuditKind::from_label(label), Some(kind));
-            assert_eq!(kind.label(), label);
-            assert!(kind.is_vertical());
-            assert!(!kind.is_v02());
-        }
-        let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
-        assert!(labels.contains(&"skill.approved"));
-        assert!(labels.contains(&"skill.rejected"));
-        assert!(labels.contains(&"skill.candidate.promoted"));
-        assert!(labels.contains(&"skill.rollback"));
-    }
-}
+#[path = "event_tests.rs"]
+mod event_tests;

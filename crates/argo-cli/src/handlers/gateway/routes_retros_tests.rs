@@ -269,18 +269,15 @@ async fn create_emits_retro_created_audit_row() {
     let (status, _body) = create_response(&worker, &post_req(&path, "{}"), Some(&store)).await;
     assert!(status.starts_with("201"));
     let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT payload_json FROM audit_record WHERE kind = 'http.request' ORDER BY seq DESC LIMIT 5",
+        "SELECT payload_json FROM audit_record WHERE kind = 'retro.created' ORDER BY seq DESC LIMIT 5",
     )
     .fetch_all(store.pool())
     .await
     .expect("audit query");
-    let saw_created = rows.iter().any(|(p,)| {
-        serde_json::from_str::<Value>(p)
-            .ok()
-            .and_then(|v| v["event_type"].as_str().map(str::to_string))
-            == Some("retro.created".to_string())
-    });
-    assert!(saw_created, "expected retro.created event; rows: {rows:?}");
+    assert!(
+        !rows.is_empty(),
+        "expected retro.created audit row; rows: {rows:?}"
+    );
 }
 
 #[tokio::test]
@@ -296,18 +293,15 @@ async fn finalize_emits_retro_finalized_audit_row() {
     let finalize_path = format!("/api/v1/workers/{worker}/retros/{retro_id}/finalize");
     finalize_response(&worker, &retro_id, &post_req(&finalize_path, ""), Some(&store)).await;
     let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT payload_json FROM audit_record WHERE kind = 'http.request' ORDER BY seq DESC LIMIT 5",
+        "SELECT payload_json FROM audit_record WHERE kind = 'retro.finalized' ORDER BY seq DESC LIMIT 5",
     )
     .fetch_all(store.pool())
     .await
     .expect("audit query");
-    let saw_finalized = rows.iter().any(|(p,)| {
-        serde_json::from_str::<Value>(p)
-            .ok()
-            .and_then(|v| v["event_type"].as_str().map(str::to_string))
-            == Some("retro.finalized".to_string())
-    });
-    assert!(saw_finalized, "expected retro.finalized event; rows: {rows:?}");
+    assert!(
+        !rows.is_empty(),
+        "expected retro.finalized audit row; rows: {rows:?}"
+    );
 }
 
 #[tokio::test]

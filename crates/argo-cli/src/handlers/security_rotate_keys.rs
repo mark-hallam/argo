@@ -18,7 +18,7 @@ use crate::cli::cli_security_cmds::{
 };
 use crate::handlers::security_rotate_keys_registry::{lookup, KeyEntry, DEFAULT_KEYS};
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::compute_chain_hash;
+use argo_audit::{compute_chain_hash, AuditKind};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
@@ -26,7 +26,11 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-pub const AUDIT_KIND: &str = "security.key_rotated";
+/// Canonical label persisted in `audit_record.kind` for rotation
+/// rows. Sourced from `AuditKind::SecurityKeyRotated` (promoted from
+/// a local-only string constant in `mission-audit-kind-runtime-events`)
+/// so the chain verifier and CLI filters categorize it consistently.
+pub const AUDIT_KIND: &str = AuditKind::SecurityKeyRotated.label();
 const FORMAT_MARKDOWN: &str = "markdown";
 const FORMAT_JSON: &str = "json";
 
