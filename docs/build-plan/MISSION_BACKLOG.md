@@ -456,7 +456,7 @@ unblocks a mission claim.
      `[PARTIAL — claude-data-classification SHIPPED #893 tags only]`
 216. System keyring integration. `[BRIEF: mission-system-keyring-integration]`
 217. Automated key-rotation tooling. `[NEW]`
-218. Vulnerability management workflow. `[NEW]`
+218. Vulnerability management workflow. `[BRIEF: mission-vulnerability-management-workflow]`
 219. Policy-as-code extensions (approval matrices).
      `[PARTIAL — claude-policy-as-code SHIPPED #888]`
 220. Data-classification per-class retention enforcement.
@@ -529,11 +529,11 @@ unblocks a mission claim.
      + rename `forge_optimize`. `[NEW]`
 263. Add `update_worker` API on IdentityStore. `[NEW]`
 264. Add typed lifecycle methods on IdentityStore. `[NEW]`
-265. Fix CU `argo-sandbox` vs E2B `Sandbox` naming. `[NEW]`
+265. Fix CU `argo-sandbox` vs E2B `Sandbox` naming. `[BRIEF: mission-sandbox-namespace-reconcile]`
 266. Move 26 raw SQL files into versioned modules.
      `[SHIPPED]`
 267. Document explicitly that v12+ is forward-only (until #266).
-     `[NEW]`
+     `[BRIEF: mission-document-migrations-forward-only]`
 268. Fix `forge_run.spend_usd_micros` polling race. `[NEW]`
 269. Add proper streaming retry-on-timeout in `argo-provider`.
      `[NEW]`
