@@ -140,6 +140,19 @@ async fn dispatch_post_inner(
             r#"{"error":"bad principal"}"#.to_string(),
         ));
     }
+    // J1 — JSON approvals API: per-id `decide` and `undo`. The list
+    // GET arm is wired in `routes_dispatch_get`. The HTML `/inbox`
+    // surface in `routes_channels_webinbox` is preserved separately.
+    if let Some(rest) = req.strip_prefix("POST /api/v1/approvals/") {
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("decide ") || tail.starts_with("decide?") {
+                return Some(super::routes_approvals_json::decide_response(id, req).await);
+            }
+            if tail.starts_with("undo ") || tail.starts_with("undo?") {
+                return Some(super::routes_approvals_json::undo_response(id, req).await);
+            }
+        }
+    }
     if req.starts_with("POST /sessions ") {
         if let Some(s) = store {
             if let Some(resp) = check_quota_or_reject(s, QuotaActionKind::Sessions).await {

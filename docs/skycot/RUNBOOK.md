@@ -67,3 +67,37 @@ separate files now.
   [Production deploy §12](runbook/production-deploy.md#12-production-deploy)
 - **Customer-demo readiness check?** →
   [Reference Appendix B](runbook/reference.md#appendix-b--file-checklist-for-a-customer-demo)
+
+---
+
+## Approvals JSON API
+
+The gateway exposes a JSON wrapper over the worker-action
+approval state machine at `/api/v1/approvals` (the legacy HTML
+`/inbox` route is preserved separately). All endpoints require
+`Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN` when the
+gateway bearer-auth token is configured.
+
+```bash
+# List pending approvals (default 50 per page, max 100):
+curl -sH "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  http://127.0.0.1:8734/api/v1/approvals
+
+# Resume from prior page using next_cursor from the response body:
+curl -sH "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  "http://127.0.0.1:8734/api/v1/approvals?limit=50&cursor=<token>"
+
+# Approve / refuse a specific approval:
+curl -sX POST -H "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  -d '{"decision":"approve"}' \
+  http://127.0.0.1:8734/api/v1/approvals/<id>/decide
+
+# Reverse a decision within the 30-second undo window:
+curl -sX POST -H "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  http://127.0.0.1:8734/api/v1/approvals/<id>/undo
+```
+
+Error envelopes follow `{ "error": { "code": "...", "message":
+"..." } }`. Standard codes: `bad_request` (400),
+`approval_not_found` (404), `already_decided` (409),
+`undo_window_expired` (410), `internal_error` (500).

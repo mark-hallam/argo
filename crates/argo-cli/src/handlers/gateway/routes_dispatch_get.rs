@@ -30,6 +30,11 @@ pub(super) async fn dispatch_get(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    // J1 — JSON approvals API. The HTML `/inbox` route stays mounted
+    // in `routes_channels_webinbox` for legacy operators.
+    if req.starts_with("GET /api/v1/approvals ") || req.starts_with("GET /api/v1/approvals?") {
+        return Some(super::routes_approvals_json::list_response(req).await);
+    }
     if req.starts_with("GET /verticals ") || req.starts_with("GET /verticals?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let format = parse_query_kv(tail, "format");
