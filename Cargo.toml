@@ -36,6 +36,7 @@ members = [
   "crates/argo-marketplace",
   "crates/argo-identity",
   "crates/argo-vertical",
+  "crates/argo-team-headline",
   "crates/argo-executor-computer-use",
   "crates/argo-executor-computer-use-linux",
   "crates/argo-executor-computer-use-macos",

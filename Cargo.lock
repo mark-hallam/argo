@@ -1485,6 +1485,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-team-headline"
+version = "0.0.1"
+dependencies = [
+ "argo-audit",
+ "argo-identity",
+ "argo-store",
+ "argo-types",
+ "chrono",
+ "cron",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "argo-telemetry"
 version = "0.0.1"
 dependencies = [
