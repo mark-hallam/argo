@@ -140,6 +140,14 @@ async fn dispatch_post_inner(
             r#"{"error":"bad principal"}"#.to_string(),
         ));
     }
+    // POST /api/v1/genesis/{classify,draft-worker} — Stream J4.
+    // Thin HTTP wrappers around `argo-genesis`; bearer-gated above.
+    if req.starts_with("POST /api/v1/genesis/classify ") {
+        return Some(super::routes_genesis::classify_response(req, store).await);
+    }
+    if req.starts_with("POST /api/v1/genesis/draft-worker ") {
+        return Some(super::routes_genesis::draft_worker_response(req, store).await);
+    }
     // J1 — JSON approvals API: per-id `decide` and `undo`. The list
     // GET arm is wired in `routes_dispatch_get`. The HTML `/inbox`
     // surface in `routes_channels_webinbox` is preserved separately.
