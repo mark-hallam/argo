@@ -4,9 +4,32 @@ schema_version = "1"
 id          = "sales-follow-up"
 name        = "Sales Follow-up"
 description = "Follow-up worker for warm leads — research, draft personalised outreach, propose follow-up cadence. Approval-gated for anything that touches a prospect's inbox or the CRM."
-version     = "0.0.1"
+version     = "0.1.0"
 authors     = ["Argo platform team"]
 tags        = ["sales", "outreach", "draft-only", "follow-up"]
+
+[memory]
+schema = "memory/schema.toml"
+
+[escalation]
+# Anything that touches a prospect's inbox, the CRM, the operator's
+# sequencer, or exports lead PII is approval-gated. The four
+# autonomous-safe skills (research_lead_signals /
+# draft_followup_message / propose_cadence /
+# summarize_conversation_thread) never appear in this list; their
+# outputs route into these gated actions when the operator approves.
+human_approval_required = [
+  "send_email",
+  "send_followup_email",
+  "update_crm",
+  "log_to_crm",
+  "schedule_call",
+  "schedule_followup_cadence",
+  "add_to_sequence",
+  "export_lead_list",
+]
+escalate_after_failures = 3
+escalate_to             = "operator"
 
 [role]
 system_prompt = "prompts/system.md"
@@ -128,8 +151,43 @@ argo worker actions complete {{ action_id }} --note "logged" \\
 ```
 """
 
+# ───────────────────────── new skill actions ─────────────────────────
+# Four autonomous-safe skills layered on top of the existing six
+# actions (mission-vertical-sales-follow-up-flesh-out). Each emits a
+# DRAFT artifact only — none send, schedule, write to CRM, or export.
+# The five external-effect action_types named in
+# `[escalation].human_approval_required` cover every path from these
+# skills to a real prospect inbox or CRM mutation.
+
+[actions.research_lead_signals]
+risk              = "low"
+requires_approval = false
+description       = "Summarise recent public signals for a warm lead and propose one relevance hook for the next touch. Recommends skip when no fresh signal in 30 days. Draft-only."
+executor          = "human"
+
+[actions.draft_followup_message]
+risk              = "low"
+requires_approval = false
+description       = "Produce a personalised follow-up draft + warm/professional/brief tone variants + suggested subject line. Flags CAN-SPAM unsubscribe-line inclusion and blocks GDPR opt-out leads + forbidden-phrase trips. Draft-only."
+executor          = "human"
+
+[actions.propose_cadence]
+risk              = "low"
+requires_approval = false
+description       = "Recommend the next-touch day + channel, an escalation threshold, and a dormancy threshold given the lead's stage + last-touch + engagement-history. Recommendation only — the operator commits any sequence change."
+executor          = "human"
+
+[actions.summarize_conversation_thread]
+risk              = "low"
+requires_approval = false
+description       = "Distil a message thread into objection themes, buying signals, recommended next action, and CRM-tag suggestions. The vertical never writes to the CRM; the operator commits any tags."
+executor          = "human"
+
 [evaluation]
 # Follow-up eval suite (#759). Validates signal-led drafting,
 # personalization grounding, the abstain contract on thin signals,
-# and approval-gate discipline for send actions.
-suites = ["eval/followup_core.jsonl"]
+# and approval-gate discipline for send actions. The seed.jsonl
+# suite added in mission-vertical-sales-follow-up-flesh-out adds
+# coverage for the four new skills + three escalation cases
+# (GDPR opt-out / explicit-do-not-contact / forbidden-phrase).
+suites = ["eval/followup_core.jsonl", "eval/seed.jsonl"]

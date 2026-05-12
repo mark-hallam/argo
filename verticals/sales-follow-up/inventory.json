@@ -1,0 +1,32 @@
+{
+  "operator_signature": "Jordan, Account Executive",
+  "operator_timezone": "America/Los_Angeles",
+  "lead_index": [
+    { "lead_id": "sfu_demo_priya_001", "name": "Priya Shah",    "company": "Northwind Fintech",  "role": "VP Engineering",     "stage": "engaged", "last_touch_at": "2026-05-04", "last_touch_channel": "email",            "do_not_contact": false, "jurisdiction": "US" },
+    { "lead_id": "sfu_demo_marco_002", "name": "Marco Bianchi", "company": "Trellis Growth",     "role": "Director of RevOps", "stage": "warm",    "last_touch_at": "2026-04-28", "last_touch_channel": "linkedin_message", "do_not_contact": false, "jurisdiction": "EU" },
+    { "lead_id": "sfu_demo_aisha_003", "name": "Aisha Khan",    "company": "Helix Logistics",    "role": "Head of Sales",      "stage": "dormant", "last_touch_at": "2026-01-15", "last_touch_channel": "email",            "do_not_contact": false, "jurisdiction": "UK" }
+  ],
+  "cadence_policy": [
+    { "stage": "warm",    "day_offset": 7,  "preferred_channel": "email",            "respect_holidays": true, "escalate_after_failures": 3 },
+    { "stage": "engaged", "day_offset": 4,  "preferred_channel": "email",            "respect_holidays": true, "escalate_after_failures": 3 },
+    { "stage": "dormant", "day_offset": 30, "preferred_channel": "linkedin_message", "respect_holidays": true, "escalate_after_failures": 2 }
+  ],
+  "compliance_register": [
+    { "jurisdiction": "US", "can_spam_applicability": true,  "gdpr_applicability": false, "opt_out_registry_present": false, "verified_opt_in_required": false, "mailing_address_for_can_spam": "Skycot Inc, 548 Market St #62421, San Francisco CA 94104, USA", "last_reviewed_at": "2026-04-01" },
+    { "jurisdiction": "EU", "can_spam_applicability": false, "gdpr_applicability": true,  "opt_out_registry_present": true,  "verified_opt_in_required": true,  "mailing_address_for_can_spam": null, "last_reviewed_at": "2026-04-01" },
+    { "jurisdiction": "UK", "can_spam_applicability": false, "gdpr_applicability": true,  "opt_out_registry_present": true,  "verified_opt_in_required": true,  "mailing_address_for_can_spam": null, "last_reviewed_at": "2026-04-01" }
+  ],
+  "messaging_voice": [
+    {
+      "tenant_id": "demo_tenant_default",
+      "voice_name": "consultative_direct",
+      "tone_config": "consultative",
+      "salutation_default": "Hi {{ first_name }},",
+      "forbidden_phrases": ["limited time", "act now", "guaranteed", "100%% free", "click here now", "amazing offer"],
+      "signoff": "— Jordan"
+    }
+  ],
+  "recent_signal_window_days": 30,
+  "drafts_only": true,
+  "default_jurisdictions": ["US", "EU", "UK"]
+}

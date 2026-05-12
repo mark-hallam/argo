@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "lead_index"
+type = "list-of-objects"
+purpose = "Per-lead context rows. Each row carries: lead_id (synthetic), name, company, role, stage (warm / engaged / dormant), last_touch_at, last_touch_channel, do_not_contact, jurisdiction (US / EU / UK / other). Never contains protected-class signals or PII beyond what the operator authored."
+
+[[entry]]
+key = "cadence_policy"
+type = "list-of-objects"
+purpose = "Per-stage cadence rules. Each row carries: stage, day_offset (days since last_touch_at), preferred_channel (email / linkedin_message), respect_holidays, escalate_after_failures. Operator-authored; the vertical never invents a stage or an offset."
+
+[[entry]]
+key = "compliance_register"
+type = "list-of-objects"
+purpose = "Per-jurisdiction compliance rules. Each row carries: jurisdiction, can_spam_applicability (US-only), gdpr_applicability (EU + UK-PECR), opt_out_registry_present, verified_opt_in_required, mailing_address_for_can_spam, last_reviewed_at."
+
+[[entry]]
+key = "messaging_voice"
+type = "list-of-objects"
+purpose = "Per-tenant outreach voice. Each row carries: tenant_id, voice_name, tone_config (consultative / direct / warm), salutation_default, forbidden_phrases (list — spam triggers like 'limited time' / 'act now' / 'guaranteed'), signoff. The 4 skills inherit this voice; no per-skill override."
