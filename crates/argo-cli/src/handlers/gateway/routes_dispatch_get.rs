@@ -86,6 +86,31 @@ pub(super) async fn dispatch_get(
             }
         }
     }
+    // J15 — audit detail + signed-URL screenshot. Pinned ahead of
+    // the J14 audit-feed arm so the more-specific `/api/v1/audit/<id>`
+    // path wins over the prefix-match list endpoint.
+    if let Some(rest) = req.strip_prefix("GET /api/v1/audit/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let (path, query) = head.split_once('?').unwrap_or((head, ""));
+            let segments: Vec<&str> = path.split('/').collect();
+            if segments.len() == 3 && segments[1] == "screenshots" {
+                return Some(
+                    super::routes_audit_screenshot::screenshot_response(
+                        segments[0],
+                        segments[2],
+                        query,
+                        store,
+                    )
+                    .await,
+                );
+            }
+            if segments.len() == 1 {
+                return Some(
+                    super::routes_audit_detail::detail_response(req, segments[0], store).await,
+                );
+            }
+        }
+    }
     // J14 — audit feed with 7 filter dims; unblocks E5-a from mock.
     if req.starts_with("GET /api/v1/audit ") || req.starts_with("GET /api/v1/audit?") {
         return Some(super::routes_audit_feed::list_response(req, store).await);
