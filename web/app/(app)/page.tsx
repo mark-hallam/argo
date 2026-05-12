@@ -14,6 +14,7 @@ import {
 import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { FilterChipRail } from "@/components/skycot/FilterChipRail";
 import { FilterPopover } from "@/components/skycot/FilterPopover";
+import { LiveIndicator } from "@/components/skycot/LiveIndicator";
 import { NotificationsBell } from "@/components/skycot/NotificationsBell";
 import { RequestElevatedView } from "@/components/skycot/RequestElevatedView";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
@@ -214,6 +215,7 @@ function ApprovalsInboxShell() {
         setQuery={setQuery}
         pendingCount={pendingCount}
         dataSource={approvalsQuery.dataSource}
+        liveStatus={approvalsQuery.liveStatus}
         filters={filters}
         workerOptions={workerOptionList}
         onToggle={handleToggle}
@@ -325,13 +327,14 @@ interface PageHeaderProps {
   setQuery: (s: string) => void;
   pendingCount: number;
   dataSource: ReturnType<typeof useApprovals>["dataSource"];
+  liveStatus: ReturnType<typeof useApprovals>["liveStatus"];
   filters: ApprovalFilters;
   workerOptions: string[];
   onToggle: <K extends keyof ApprovalFilters>(d: K, v: ApprovalFilters[K][number]) => void;
   onClearAll: () => void;
 }
 
-function PageHeader({ query, setQuery, pendingCount, dataSource, filters, workerOptions, onToggle, onClearAll }: PageHeaderProps) {
+function PageHeader({ query, setQuery, pendingCount, dataSource, liveStatus, filters, workerOptions, onToggle, onClearAll }: PageHeaderProps) {
   const activeCount = activeFilterCount(filters);
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
@@ -350,6 +353,7 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, filters, worker
               <p className="text-sm text-[var(--muted-foreground)]">
                 Your AI teammates need a yes or no.
               </p>
+              <LiveIndicator status={liveStatus} />
               <DataSourceChip source={dataSource} />
             </div>
           </div>

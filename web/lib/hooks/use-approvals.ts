@@ -10,6 +10,7 @@ import {
   type ApprovalsResult,
   type DataSource,
 } from "@/lib/api/approvals";
+import { useApprovalsLive } from "@/lib/hooks/use-approvals-live";
 import type { ApprovalItem } from "@/lib/sample-approvals";
 
 const APPROVALS_KEY = ["approvals"] as const;
@@ -25,6 +26,7 @@ const APPROVALS_KEY = ["approvals"] as const;
  * a source.
  */
 export function useApprovals() {
+  const live = useApprovalsLive();
   const query = useQuery({
     queryKey: APPROVALS_KEY,
     queryFn: fetchApprovals,
@@ -33,6 +35,8 @@ export function useApprovals() {
     ...query,
     data: query.data?.items,
     dataSource: query.data?.source as DataSource | undefined,
+    liveStatus: live.status,
+    lastLiveEventAt: live.lastEventAt,
   };
 }
 
