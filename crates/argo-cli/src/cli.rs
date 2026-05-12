@@ -118,6 +118,24 @@ pub enum IncidentCmd {
         #[arg(long)]
         force: bool,
     },
+    /// Snapshot diagnostic state into a `tar.gz` for on-call sharing
+    /// (Stream `mission-incident-response-runbook`). Captures
+    /// `argo doctor`, audit tail, worker restarts, gateway metrics,
+    /// audit archives, build identity, redacted `argo.toml`, and a
+    /// log tail. Read-only on system state.
+    Bundle {
+        /// Time window for audit / restart / log captures (e.g.
+        /// `1h`, `30m`). Default `1h`.
+        #[arg(long, default_value = "1h")]
+        since: String,
+        /// Output path. Default `incident-<utc-ts>.tar.gz` in cwd.
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+        /// Path to recent stderr log tail; without it the section
+        /// records "no log path provided".
+        #[arg(long)]
+        log_tail: Option<std::path::PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

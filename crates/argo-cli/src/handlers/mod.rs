@@ -138,6 +138,7 @@ pub mod handoff_rules_test;
 pub mod handoff_stats;
 pub mod health;
 pub mod incident;
+pub mod incident_bundle;
 #[cfg(test)]
 mod incident_tests;
 pub mod judge;

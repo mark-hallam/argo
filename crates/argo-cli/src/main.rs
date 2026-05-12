@@ -435,6 +435,15 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
                 out_dir,
                 force,
             } => handlers::incident::run(from, out_dir, force),
+            cli::IncidentCmd::Bundle { since, output, log_tail } => {
+                let path = handlers::incident_bundle::run(handlers::incident_bundle::BundleArgs {
+                    since,
+                    output,
+                    log_tail,
+                })?;
+                println!("wrote incident bundle: {}", path.display());
+                Ok(())
+            }
         },
         Some(Command::Runtime(RuntimeCmd::Tui)) => handlers::tui::run().await,
         Some(Command::Runtime(RuntimeCmd::Tools { cmd })) => handlers::tools::run(cmd).await,
