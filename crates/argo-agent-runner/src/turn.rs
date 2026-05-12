@@ -353,6 +353,16 @@ async fn build_system_prompt_with_ab(
             out.push_str("\n\n---\n\n");
         }
     }
+    // mission-skill-session-boot-wire: render the trust-gated
+    // "Available skills" block (name + version + description only,
+    // no body) once per session boot, between the active workspace
+    // skills and the memory composition. Empty list / lookup error
+    // → omit; session boot never fails.
+    if let Some(block) =
+        turn_skills::compose_available_skills_block(store, tenant_id, worker_id).await
+    {
+        turn_skills::inject_skills_block(&mut out, &block);
+    }
     let memory = turn_memory::compose_prompt_memory(store, tenant_id, worker_id).await;
     if !memory.is_empty() {
         if !out.is_empty() {
@@ -375,6 +385,13 @@ mod turn_memory;
 
 #[path = "turn_skills_runtime.rs"]
 mod turn_skills_runtime;
+
+#[path = "turn_skills.rs"]
+mod turn_skills;
+
+#[cfg(test)]
+#[path = "turn_skills_tests.rs"]
+mod turn_skills_tests;
 
 #[path = "turn_planner.rs"]
 pub mod turn_planner;
