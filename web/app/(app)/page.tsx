@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ApprovalCard } from "@/components/skycot/ApprovalCard";
+import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { NotificationsBell } from "@/components/skycot/NotificationsBell";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
 import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
@@ -51,7 +52,12 @@ export default function ApprovalsInboxPage() {
 
   return (
     <>
-      <PageHeader query={query} setQuery={setQuery} pendingCount={pendingCount} />
+      <PageHeader
+        query={query}
+        setQuery={setQuery}
+        pendingCount={pendingCount}
+        dataSource={approvalsQuery.dataSource}
+      />
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {approvalsQuery.isPending ? (
@@ -125,10 +131,12 @@ function PageHeader({
   query,
   setQuery,
   pendingCount,
+  dataSource,
 }: {
   query: string;
   setQuery: (s: string) => void;
   pendingCount: number;
+  dataSource: ReturnType<typeof useApprovals>["dataSource"];
 }) {
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
@@ -143,9 +151,12 @@ function PageHeader({
                 {pendingCount} waiting
               </StatusPill>
             </div>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Your AI teammates need a yes or no.
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Your AI teammates need a yes or no.
+              </p>
+              <DataSourceChip source={dataSource} />
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">

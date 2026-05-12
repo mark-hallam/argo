@@ -6,24 +6,36 @@ import {
   submitDecision,
   submitUndo,
   type ApprovalDecisionRequest,
+  type ApprovalsResult,
+  type DataSource,
 } from "@/lib/api/approvals";
 import type { ApprovalItem } from "@/lib/sample-approvals";
 
 const APPROVALS_KEY = ["approvals"] as const;
 
-/** The approvals inbox. Server-cached + revalidated on window focus. */
+/**
+ * The approvals inbox. The cache stores the full `ApprovalsResult`
+ * (`{ items, source }`); we splay `data` back into `items` so the
+ * page's existing `query.data ?? []` access pattern keeps working,
+ * and expose `dataSource` separately for the DataSourceChip.
+ *
+ * `dataSource` is `undefined` while the first fetch is in flight;
+ * the chip should treat that as "no chip yet" rather than guessing
+ * a source.
+ */
 export function useApprovals() {
-  return useQuery({
+  const query = useQuery({
     queryKey: APPROVALS_KEY,
     queryFn: fetchApprovals,
   });
+  return {
+    ...query,
+    data: query.data?.items,
+    dataSource: query.data?.source as DataSource | undefined,
+  };
 }
 
-/**
- * Submit a decision with optimistic update. The card flips state
- * immediately; on error we roll back. On success we leave the
- * cached state in place — no refetch needed unless TTL expires.
- */
+/** Optimistic decision submit. The card flips immediately; on error we roll back. */
 export function useSubmitDecision() {
   const qc = useQueryClient();
 
@@ -31,10 +43,15 @@ export function useSubmitDecision() {
     mutationFn: submitDecision,
     onMutate: async ({ approvalId, decision }: ApprovalDecisionRequest) => {
       await qc.cancelQueries({ queryKey: APPROVALS_KEY });
-      const prev = qc.getQueryData<ApprovalItem[]>(APPROVALS_KEY);
-      qc.setQueryData<ApprovalItem[]>(APPROVALS_KEY, (items) =>
-        (items ?? []).map((i) => (i.id === approvalId ? { ...i, decision } : i)),
-      );
+      const prev = qc.getQueryData<ApprovalsResult>(APPROVALS_KEY);
+      if (prev) {
+        qc.setQueryData<ApprovalsResult>(APPROVALS_KEY, {
+          ...prev,
+          items: prev.items.map((i: ApprovalItem) =>
+            i.id === approvalId ? { ...i, decision } : i,
+          ),
+        });
+      }
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
@@ -51,10 +68,15 @@ export function useUndoDecision() {
     mutationFn: (approvalId: string) => submitUndo(approvalId),
     onMutate: async (approvalId: string) => {
       await qc.cancelQueries({ queryKey: APPROVALS_KEY });
-      const prev = qc.getQueryData<ApprovalItem[]>(APPROVALS_KEY);
-      qc.setQueryData<ApprovalItem[]>(APPROVALS_KEY, (items) =>
-        (items ?? []).map((i) => (i.id === approvalId ? { ...i, decision: null } : i)),
-      );
+      const prev = qc.getQueryData<ApprovalsResult>(APPROVALS_KEY);
+      if (prev) {
+        qc.setQueryData<ApprovalsResult>(APPROVALS_KEY, {
+          ...prev,
+          items: prev.items.map((i: ApprovalItem) =>
+            i.id === approvalId ? { ...i, decision: null } : i,
+          ),
+        });
+      }
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
