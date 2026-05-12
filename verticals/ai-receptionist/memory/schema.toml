@@ -1,0 +1,21 @@
+schema_version = "1"
+
+[[entry]]
+key = "roster"
+type = "list-of-objects"
+purpose = "Operator-curated team roster. Each row carries: name (string), role (string), handle (string — slack/email handle without @), topics_they_own (list of strings — short subject tags like 'billing', 'demo-requests', 'press', 'security'), vip (bool — VIP routing always escalates urgency), available_after_hours (bool — opt-in to after-hours pings). Used by triage_inbound_call + route_message_to_owner. Never contains PII beyond business handle."
+
+[[entry]]
+key = "business_hours"
+type = "object"
+purpose = "Operator-declared per-weekday open/close windows + holiday overrides. Shape: {mon = {open = '09:00', close = '17:00'}, ... fri, sat, sun (sat/sun = null = closed), holidays = [{date = 'YYYY-MM-DD', label = 'string', closed = bool}], timezone = 'IANA string', on_call_handle = string | null}. Used by draft_after_hours_response + propose_meeting_slot for slot bounds."
+
+[[entry]]
+key = "routing_policy"
+type = "list-of-objects"
+purpose = "Operator-tuned intent → owner_handle map. Each row carries: intent (string — one of 'booking', 'question', 'complaint', 'spam', or a subject tag like 'billing'), owner_handle (string — must reference a roster row's handle), notes (string — operator rationale). Used by route_message_to_owner to translate subject to owner."
+
+[[entry]]
+key = "caller_history"
+type = "list-of-objects"
+purpose = "Last-7-day caller-id → previous-interaction summary. Each row carries: caller_id (string — phone number or email handle), initials (string — anonymized 2-char), topic_tag (string), interaction_summary (string ≤ 80 chars), last_seen_at (RFC3339 string). PII-soft: never echo full name + interaction reason together in a single draft without operator approval. Rotated weekly."

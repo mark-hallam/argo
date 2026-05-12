@@ -1,0 +1,23 @@
+enabled                   = true
+max_usd_micros_per_action = 50000
+daily_budget_usd_micros   = 1000000
+
+# Autonomous-safe surface is triage + propose + route + draft only.
+# Every skill emits a DRAFT — none send, book, or transfer. Four
+# actions are intentionally absent from this allowlist and route
+# through `[escalation].human_approval_required` in vertical.toml:
+#
+#   - book_meeting                  (writes to the calendar)
+#   - send_reply                    (touches another human's inbox)
+#   - transfer_call                 (reaches a teammate in real time)
+#   - share_caller_data_externally  (PII disclosure outside the org)
+#
+# Defence in depth: even if a future edit slips one of these into
+# wake_action_types, the escalation gate still fires because
+# human-approval-required always wins.
+wake_action_types = [
+  "triage_inbound_call",
+  "propose_meeting_slot",
+  "route_message_to_owner",
+  "draft_after_hours_response",
+]

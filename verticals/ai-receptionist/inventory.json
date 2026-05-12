@@ -1,0 +1,41 @@
+{
+  "operator_signature": "the team at Acmeco",
+  "roster": [
+    { "name": "Alex Rivera", "role": "Founder / CEO", "handle": "alex",
+      "topics_they_own": ["press", "leadership", "investor-relations"],
+      "vip": true, "available_after_hours": false },
+    { "name": "Priya Shah", "role": "Head of Customer Support", "handle": "priya",
+      "topics_they_own": ["complaint", "billing", "account-access"],
+      "vip": false, "available_after_hours": true },
+    { "name": "Jordan Lee", "role": "Sales Lead", "handle": "jordan",
+      "topics_they_own": ["booking", "demo-requests", "enterprise-quote"],
+      "vip": false, "available_after_hours": false },
+    { "name": "Sam Okafor", "role": "Security / On-Call", "handle": "sam",
+      "topics_they_own": ["security", "incident", "on-call"],
+      "vip": false, "available_after_hours": true }
+  ],
+  "business_hours": {
+    "timezone": "America/Los_Angeles",
+    "mon": { "open": "09:00", "close": "17:00" },
+    "tue": { "open": "09:00", "close": "17:00" },
+    "wed": { "open": "09:00", "close": "17:00" },
+    "thu": { "open": "09:00", "close": "17:00" },
+    "fri": { "open": "09:00", "close": "17:00" },
+    "sat": null, "sun": null,
+    "holidays": [{ "date": "2026-05-25", "label": "Memorial Day", "closed": true }],
+    "on_call_handle": "sam"
+  },
+  "routing_policy": [
+    { "intent": "booking",   "owner_handle": "jordan", "notes": "Demos + enterprise quotes route to Sales." },
+    { "intent": "complaint", "owner_handle": "priya",  "notes": "Complaints route to Support lead, never the implicated owner." },
+    { "intent": "security",  "owner_handle": "sam",    "notes": "Security tickets + suspected incidents page the on-call." },
+    { "intent": "press",     "owner_handle": "alex",   "notes": "Press / investor / leadership inquiries always go to the CEO." }
+  ],
+  "caller_history": [
+    { "caller_id": "+1-555-0142",        "initials": "J.L.", "topic_tag": "demo-requests", "interaction_summary": "asked for enterprise demo last Tue",       "last_seen_at": "2026-05-06T18:24:00Z" },
+    { "caller_id": "billing@example.com","initials": "M.K.", "topic_tag": "billing",       "interaction_summary": "invoice mismatch escalated to support",     "last_seen_at": "2026-05-08T15:10:00Z" },
+    { "caller_id": "+1-555-9988",        "initials": "R.O.", "topic_tag": "press",         "interaction_summary": "industry reporter, brief comment requested","last_seen_at": "2026-05-09T22:02:00Z" }
+  ],
+  "default_slot_minutes": 30,
+  "buffer_minutes_between_meetings": 15
+}

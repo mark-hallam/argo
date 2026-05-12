@@ -4,7 +4,7 @@ schema_version = "1"
 id          = "ai-receptionist"
 name        = "AI Receptionist"
 description = "Front-desk worker that triages incoming calls, schedules meetings, and routes messages to the right team member. Approval-gated for anything that touches the calendar or the human."
-version     = "0.0.1"
+version     = "0.1.0"
 authors     = ["Argo platform team"]
 tags        = ["receptionist", "calendar", "messages", "draft-only"]
 
@@ -171,9 +171,65 @@ argo worker actions complete {{ action_id }} --note "sent" \\
 ```
 """
 
+[memory]
+# Receptionist memory schema (#132 flesh-out). Defines the four
+# operator-curated tables that the four drafts-only skills read:
+# roster, business_hours, routing_policy, caller_history.
+# caller_history is PII-soft — drafts use initials + topic_tag only.
+schema = "memory/schema.toml"
+
 [evaluation]
-# Receptionist eval suite (#759). Validates triage-shape behaviour:
-# the worker must take_message for ambiguous inbound, send_calendar_invite
-# only behind approval, refuse undeclared actions, and never claim
-# external-mutation outcomes it can't actually perform.
-suites = ["eval/triage_core.jsonl"]
+# Receptionist eval suites:
+#   - triage_core.jsonl (#759) — original action-emission shape.
+#   - seed.jsonl (#132 flesh-out) — 10 fixtures covering the four
+#     new skills + 3 escalation cases (customer-data disclosure,
+#     urgency without on-call, leadership-conflict).
+suites = ["eval/triage_core.jsonl", "eval/seed.jsonl"]
+
+# ─────────────────────────── new skills (drafts-only) ───────────────
+# Each of the four `[actions.<skill>]` blocks below maps to a skill
+# definition under `skills/<name>.md`. All four are autonomous-safe
+# drafts — they never book, send, transfer, or disclose. Operator-
+# touching surface is gated through `[escalation]` below.
+
+[actions.triage_inbound_call]
+risk              = "low"
+requires_approval = false
+description       = "Classify a pre-transcribed inbound call (booking / question / complaint / spam), pick a suggested routing target from the roster, and draft a callback message. Drafts only — never transfers."
+executor          = "human"
+# skill: skills/triage_inbound_call.md
+
+[actions.propose_meeting_slot]
+risk              = "low"
+requires_approval = false
+description       = "Propose 3 candidate meeting slots from the calendar-availability cache + draft a confirmation message. NEVER books — proposes only; the book_meeting action is approval-gated."
+executor          = "human"
+# skill: skills/propose_meeting_slot.md
+
+[actions.route_message_to_owner]
+risk              = "low"
+requires_approval = false
+description       = "Recommend a roster owner for an inbound message + classify urgency + suggest a response template. Drafts only — send_reply is approval-gated."
+executor          = "human"
+# skill: skills/route_message_to_owner.md
+
+[actions.draft_after_hours_response]
+risk              = "low"
+requires_approval = false
+description       = "Compose an on-brand after-hours acknowledgement that names the next available business window + escalation path if urgency is asserted. Drafts only — never sends."
+executor          = "human"
+# skill: skills/draft_after_hours_response.md
+
+[escalation]
+# Operator-touching surface gating for the AI Receptionist. Any
+# action that commits state externally or discloses caller data
+# routes through human approval — defence in depth alongside
+# `auto_approval.toml` wake-list exclusion.
+human_approval_required = [
+  "book_meeting",
+  "send_reply",
+  "transfer_call",
+  "share_caller_data_externally",
+]
+escalate_after_failures = 2
+escalate_to             = "operator"
