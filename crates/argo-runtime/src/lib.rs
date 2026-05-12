@@ -33,6 +33,11 @@ pub mod dreams_plan_templates;
 pub mod dispatch_gate;
 mod planner;
 mod planner_templates;
+/// Worker-pool elasticity recommender + applier
+/// (`mission-worker-pool-elasticity`).
+pub mod pool_elasticity;
+/// Cron-tick wrapper for the elasticity recommender.
+pub mod pool_elasticity_cron;
 
 #[cfg(test)]
 mod dispatch_gate_tests;
@@ -45,4 +50,9 @@ pub use dispatch_gate::{
 pub use planner::{
     record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, PlannedSubtask,
     Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,
+};
+pub use pool_elasticity::{
+    apply_recommendation, emit_audit_row, latest_tick, recommend, scale_down_total, scale_up_total,
+    ElasticityAuditRow, ElasticityConfig, ElasticityMode, PoolController, PoolMetricsSnapshot,
+    ScaleRecommendation, TickState,
 };

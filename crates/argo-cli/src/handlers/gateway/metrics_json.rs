@@ -150,6 +150,25 @@ pub(super) async fn render_json(store: Option<&Arc<SessionStore>>) -> String {
     // text format.
     let action_counts = super::metrics_actions::gather(store).await;
     super::metrics_actions::render_json(&mut payload, &action_counts);
+    // Worker-pool elasticity gauges (mission-worker-pool-elasticity).
+    let latest = argo_runtime::latest_tick();
+    let (active, depth, target) = latest.as_ref().map_or((0, 0, 0), |t| {
+        (
+            t.snapshot.active_workers,
+            t.snapshot.queue_depth,
+            t.recommendation.target_or(t.snapshot.active_workers),
+        )
+    });
+    payload.insert("argo_worker_pool_active_total".into(), serde_json::json!(active));
+    payload.insert("argo_worker_pool_queue_depth".into(), serde_json::json!(depth));
+    payload.insert("argo_worker_pool_target".into(), serde_json::json!(target));
+    payload.insert(
+        "argo_worker_pool_scale_events_total".into(),
+        serde_json::json!({
+            "up": argo_runtime::scale_up_total(),
+            "down": argo_runtime::scale_down_total(),
+        }),
+    );
     match argo_audit::verify_all(store).await {
         Ok(report) => {
             payload.insert(

@@ -374,6 +374,28 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Worker-pool elasticity status + configuration
+    /// (`mission-worker-pool-elasticity`). Surfaces the most recent
+    /// recommender tick and the active `[worker_pool.elasticity]`
+    /// bounds. Read-only in v1; AutoScale flip is via `argo.toml`.
+    #[command(subcommand)]
+    Elasticity(WorkerElasticityCmd),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WorkerElasticityCmd {
+    /// Current pool snapshot + most recent recommendation as JSON.
+    Status {
+        /// Render as human-readable text instead of JSON.
+        #[arg(long)]
+        text: bool,
+    },
+    /// Show the resolved elasticity config (mode + bounds + cooldowns).
+    Config {
+        /// Render as human-readable text instead of JSON.
+        #[arg(long)]
+        text: bool,
+    },
 }
 
 // Leaf enums live in sibling files so this module stays well below

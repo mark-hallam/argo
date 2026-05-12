@@ -2,8 +2,8 @@
 
 use crate::cli::cli_worker_channels_cmds::WorkerChannelsCmd;
 use crate::cli::cli_worker_cmds::{
-    WorkerActionsCmd, WorkerArchiveCmd, WorkerCharterCmd, WorkerCmd, WorkerItemsCmd,
-    WorkerKpiCmd, WorkerOkrCmd, WorkerPolicyCmd,
+    WorkerActionsCmd, WorkerArchiveCmd, WorkerCharterCmd, WorkerCmd, WorkerElasticityCmd,
+    WorkerItemsCmd, WorkerKpiCmd, WorkerOkrCmd, WorkerPolicyCmd,
 };
 use crate::cli::cli_worker_deps_cmds::WorkerDepsCmd;
 use argo_identity::WorkerId;
@@ -270,6 +270,10 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
         WorkerCmd::Skills { worker_id, tenant, available_only, json } => {
             super::worker_skills::run(&worker_id, &tenant, available_only, json).await
         }
+        WorkerCmd::Elasticity(cmd) => match cmd {
+            WorkerElasticityCmd::Status { text } => super::worker_elasticity::status(!text),
+            WorkerElasticityCmd::Config { text } => super::worker_elasticity::config(!text),
+        },
         WorkerCmd::Kpi(kpi_cmd) => match kpi_cmd {
             WorkerKpiCmd::Record { worker_id, kpi, value, tenant, note, json } => {
                 super::worker_kpi::record(&worker_id, &kpi, value, &tenant, note.as_deref(), json).await

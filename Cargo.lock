@@ -1397,6 +1397,7 @@ dependencies = [
  "argo-types",
  "argo-workflow",
  "async-trait",
+ "chrono",
  "criterion",
  "serde",
  "serde_json",

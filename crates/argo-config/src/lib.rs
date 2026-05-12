@@ -38,6 +38,9 @@ pub mod cred;
 pub mod cred_keyring;
 pub mod defaults;
 pub mod loader;
+/// `[worker_pool]` TOML section — worker-pool elasticity recommender
+/// bounds (`mission-worker-pool-elasticity`).
+pub mod worker_pool;
 /// Per-provider TOML knobs parsed off `[provider.<name>]` (currently
 /// the circuit-breaker overrides — `BreakerSection` /
 /// `ProvidersConfig`).
@@ -59,6 +62,7 @@ pub use sections::{
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
+pub use worker_pool::{WorkerPoolConfig, WorkerPoolElasticityConfig};
 
 use argo_types::{ArgoError, ArgoResult};
 use serde::{Deserialize, Serialize};
@@ -107,6 +111,8 @@ pub struct ArgoConfig {
     pub document_csv: DocumentCsvConfig,
     /// `[channels]` (per-channel TOML config blocks).
     pub channels: ChannelsConfig,
+    /// `[worker_pool]` — pool elasticity recommender bounds.
+    pub worker_pool: WorkerPoolConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]
