@@ -35,6 +35,10 @@ pub(super) async fn dispatch_get(
     if req.starts_with("GET /api/v1/approvals ") || req.starts_with("GET /api/v1/approvals?") {
         return Some(super::routes_approvals_json::list_response(req).await);
     }
+    // J14 — audit feed with 7 filter dims; unblocks E5-a from mock.
+    if req.starts_with("GET /api/v1/audit ") || req.starts_with("GET /api/v1/audit?") {
+        return Some(super::routes_audit_feed::list_response(req, store).await);
+    }
     if req.starts_with("GET /verticals ") || req.starts_with("GET /verticals?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
         let format = parse_query_kv(tail, "format");

@@ -33,6 +33,7 @@ mod startup_check;
 mod sweepers;
 mod routes_approvals_json;
 mod routes_audit;
+mod routes_audit_feed;
 mod routes_audit_rollups;
 mod routes_audit_rollups_tools;
 mod routes_audit_session;
