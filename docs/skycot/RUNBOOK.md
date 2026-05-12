@@ -729,3 +729,17 @@ recognise.
 - **Not a skill-learning feedback loop.** Retros surface
   patterns; promoting them into learned skills runs through the
   separate skill-review path.
+
+## Migrations
+
+SKYCOT's workspace schema is **forward-only**. Each numbered
+`vN.rs` migration is applied exactly once, in order, on startup;
+there is no `down`-migration CLI and no supported in-place
+rollback. A buggy `vN` is corrected by shipping a `vN+1` that
+fix-forwards; a disastrous apply is recovered by restoring the
+pre-upgrade backup, not by reversing the schema.
+
+Full operator-facing reference (model, fix-forward recipe,
+additive-only compatibility rules, the 3-step dance for
+non-additive change, disaster recovery): see
+[`operator/migrations.md`](operator/migrations.md).

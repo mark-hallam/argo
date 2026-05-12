@@ -1,5 +1,12 @@
 # Dev runtime guardrails
 
+> **⚠️ DEV ONLY — not production posture.** This file documents
+> dev-mode loopholes (disk-cleanup scripts, autonomous-session
+> safety nets) that production deployments **never see**. If you
+> arrived here from an operator runbook by accident, the
+> production runbook is [`skycot/RUNBOOK.md`](skycot/RUNBOOK.md);
+> do not treat anything below as prod policy.
+
 > ╔══════════════════════════════════════════════════════════════════╗
 > ║ 🔧 **DEV / STAGING ONLY** — the scripts described in this doc    ║
 > ║ are safety nets for autonomous-coding sessions against THIS repo.║

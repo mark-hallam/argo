@@ -35,7 +35,7 @@ crates unless the abstraction is reusable across multiple verticals.
 - single-binary architecture
 - Rust 1.75 compatibility
 - <500 LOC per file
-- additive migrations
+- additive migrations (see `docs/skycot/operator/migrations.md`)
 - tests for every feature
 - JSON output for CLI list/show/status commands
 
