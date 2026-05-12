@@ -353,6 +353,27 @@ pub enum WorkerCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List the active skills one worker is permitted to surface
+    /// (Stream `mission-skill-propagation-loop`). Calls
+    /// `SkillStore::available_for_worker` so the operator can debug
+    /// "why doesn't worker X see skill Y?" without poking at SQL.
+    /// Read-only.
+    Skills {
+        /// Worker id (UUIDv7).
+        worker_id: String,
+        /// Tenant id whose worker namespace owns the row.
+        #[arg(long)]
+        tenant: String,
+        /// Restrict the listing to skills that carry a non-NULL
+        /// `min_trust_grade` floor — i.e. the gated subset that
+        /// actually depends on the worker's trust grade.
+        #[arg(long = "available-only")]
+        available_only: bool,
+        /// Emit one JSON object per skill instead of the columnar
+        /// text layout.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 // Leaf enums live in sibling files so this module stays well below
