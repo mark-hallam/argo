@@ -1,0 +1,26 @@
+schema_version = "1"
+
+# Library tier — NOT a deployable vertical.
+#
+# The leading underscore on the directory name (`_starter-library/`)
+# signals to operators that this bundle exists to be referenced by
+# OTHER verticals, not loaded as its own product. The manifest id
+# below omits the underscore because `vertical.id` is constrained to
+# lowercase letters / digits / hyphens by the loader's validator;
+# the directory-name convention carries the "library tier" social
+# signal, and the description + `library` tag reinforce it.
+#
+# No `[role]`, `[provider]`, or `[actions]` block: this manifest
+# exists only to publish the skills bundle to the loader. There is
+# no agent to deploy, no model to route to, no actions to emit.
+
+[vertical]
+id          = "starter-library"
+name        = "Starter Skill Library"
+description = "Library tier (NOT a deployable vertical). Vertical-agnostic skills (summarise / draft / schedule / extract / weigh / cite / convert / propose) that compose into custom workflows. Reference by name from per-vertical prompts."
+version     = "0.1.0"
+authors     = ["Argo contributors"]
+tags        = ["library", "starter", "vertical-agnostic"]
+
+[skills]
+bundle = "skills/"
