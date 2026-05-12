@@ -10,6 +10,10 @@ on:
 # Stays `.disabled` until GitHub Actions billing is restored. To
 # enable: rename to `bench.yml`. See
 # `docs/skycot/runbook/perf-benches.md` for context.
+#
+# Runner deps: jq (preinstalled on ubuntu-latest). scripts/bench-*.sh
+# parse criterion's estimates.json and emit the comparison envelope
+# via jq; the workflow does not need a separate jq install step.
 
 jobs:
   bench:
@@ -43,6 +47,33 @@ jobs:
           cargo bench -p argo-cli --bench gateway_request -- --baseline main || cargo bench -p argo-cli --bench gateway_request
           cargo bench -p argo-store --bench memory_store -- --baseline main || cargo bench -p argo-store --bench memory_store
           cargo bench -p argo-skill --bench select_variant -- --baseline main || cargo bench -p argo-skill --bench select_variant
+      - name: Compare run against committed baseline
+        # Threshold matches the runbook's 5% noise floor. The committed
+        # baseline at scripts/bench-baselines/main.json is refreshed
+        # manually by operators via scripts/bench-baseline-refresh.sh
+        # (see docs/skycot/runbook/perf-benches.md → Regression
+        # detection). The script exits 1 on any REGRESS-classified
+        # bench, which fails this step. IMPROVE-only runs pass but
+        # the JSON artifact surfaces them so the operator can refresh
+        # the baseline to lock in the gain.
+        #
+        # --allow-cross-host: the shipped placeholder main.json has
+        # a placeholder host_fingerprint. Remove this flag once the
+        # operator has refreshed the baseline from a real runner.
+        run: |
+          set -euo pipefail
+          bash scripts/bench-compare.sh \
+            --baseline scripts/bench-baselines/main.json \
+            --threshold-pct 5 \
+            --allow-cross-host \
+            --json | tee bench-comparison.json
+      - name: Upload comparison JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-comparison
+          path: bench-comparison.json
+          retention-days: 30
       - name: Upload criterion report
         if: always()
         uses: actions/upload-artifact@v4

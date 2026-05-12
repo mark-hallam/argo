@@ -164,12 +164,91 @@ To enable when billing resumes:
   shape. A regression in the real gateway's routes will not show
   up here.
 
+## Regression detection
+
+The `scripts/bench-*.sh` family lifts criterion's raw numbers into a
+record / compare loop with a tunable threshold and a CI fail mode.
+Source brief: `mission-bench-perf-regression-detection`.
+
+### Record a baseline locally
+
+```bash
+bash scripts/bench-record.sh                # runs benches → target/bench-baseline-<sha>.json
+bash scripts/bench-record.sh --skip-run     # parse existing target/criterion/
+bash scripts/bench-record.sh --quiet        # bench logs go to /tmp/...
+```
+
+The JSON captures `mean.point_estimate` (as `ns`) and
+`mean.standard_error` (as `stderr_ns`) per bench, plus `git_sha`,
+`recorded_at`, and a `host_fingerprint`.
+
+### Compare a current run
+
+```bash
+bash scripts/bench-compare.sh \
+  --baseline target/bench-baseline-<sha>.json --threshold-pct 5
+```
+
+Each bench → `REGRESS` (delta > threshold), `OK` (|delta| ≤
+threshold), or `IMPROVE` (delta < -threshold). Exit `1` iff any
+`REGRESS`. `--json` swaps the human table for a structured envelope
+(`results[]` + `summary`).
+
+### Threshold + per-bench (future)
+
+Default 5% matches the noise-floor guidance above ("≥ 5% on a
+100-iteration bench is real signal"); tunable via `--threshold-pct`.
+V1 is one threshold globally — a v2 may take per-bench overrides
+(`gateway 10% / memory 5%`) since `gateway_request` is more variable
+than `memory_store` or `agent_turn`. Follow-up, not v1.
+
+### Refresh the committed baseline
+
+The workflow compares against `scripts/bench-baselines/main.json`.
+After a deliberate perf-affecting merge:
+
+```bash
+bash scripts/bench-baseline-refresh.sh        # wraps bench-record.sh
+git add scripts/bench-baselines/main.json && git diff --cached scripts/bench-baselines/main.json
+git commit -m "bench: refresh baseline after <perf change>"
+```
+
+Commit alongside the perf-changing PR. Drift detection requires the
+baseline stay stable across non-perf merges, so do **not**
+auto-update on green runs.
+
+### Cross-host caveat
+
+`host_fingerprint` is `uname -sm` plus a short hash of the CPU
+model; M1 and x86_64 baselines are not comparable. `bench-compare.sh`
+refuses cross-host comparisons unless `--allow-cross-host`. CI is
+single-host (ubuntu-latest) in v1; multi-host matrix is a v2.
+
+### Interpreting a CI regression failure
+
+The workflow uploads a `bench-comparison` artifact with the `--json`
+envelope. Triage:
+
+1. Download artifact;
+   `jq '.results[] | select(.classification=="REGRESS")'`.
+2. Reproduce on the suspect commit:
+   `cargo bench -p <crate> --bench <bench>` then
+   `bash scripts/bench-compare.sh --baseline scripts/bench-baselines/main.json`.
+3. Reproducible → bisect or revert. Not reproducible → re-run once
+   (thermal / co-tenant variance can clear 5% occasionally).
+4. Intentional → refresh the baseline (above) and commit with the PR.
+
 ## See also
 
 - `scripts/run-bench.sh` — the wrapper
+- `scripts/bench-record.sh` / `scripts/bench-compare.sh` /
+  `scripts/bench-baseline-refresh.sh` — the regression-detection trio
+- `scripts/bench-baselines/main.json` — committed CI baseline
 - `.github/workflows/bench.yml.disabled` — the workflow
 - `docs/build-plan/streams/mission-criterion-load-tests.md` —
-  the brief
+  the prior brief (benches themselves)
+- `docs/build-plan/streams/mission-bench-perf-regression-detection.md` —
+  the regression-detection brief
 - `docs/build-plan/streams/mission-cargo-audit-disabled-workflow.md`
   (#1325 precedent) — the disabled-workflow pattern this
   mirrors

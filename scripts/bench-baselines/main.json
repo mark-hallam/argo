@@ -1,0 +1,16 @@
+{
+  "git_sha": "placeholder",
+  "recorded_at": "2026-05-12T00:00:00Z",
+  "host_fingerprint": "Linux-x86_64-placeholder",
+  "_note": "Placeholder baseline. Refresh via scripts/bench-baseline-refresh.sh after the first real CI run (or after a deliberate perf-affecting merge). Until refreshed, the workflow runs with --allow-cross-host so the placeholder fingerprint doesn't block CI.",
+  "results": {
+    "agent_turn::loop_overhead_one_turn": { "ns": 1000000, "stderr_ns": 50000 },
+    "audit_write::seq":   { "ns": 200000,  "stderr_ns": 10000 },
+    "audit_write::8par":  { "ns": 1500000, "stderr_ns": 75000 },
+    "gateway_request::serial":    { "ns": 800000,  "stderr_ns": 40000 },
+    "gateway_request::16par":     { "ns": 4000000, "stderr_ns": 200000 },
+    "memory_store::batch":        { "ns": 600000,  "stderr_ns": 30000 },
+    "memory_store::interleaved":  { "ns": 900000,  "stderr_ns": 45000 },
+    "select_variant::10k_iter":   { "ns": 5000000, "stderr_ns": 250000 }
+  }
+}
