@@ -6,7 +6,11 @@ import { Suspense, useCallback, useMemo, useState, type ReactNode } from "react"
 import { AlertCircle, Filter, Inbox, Loader2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { ApprovalCard } from "@/components/skycot/ApprovalCard";
+import {
+  ApprovalDaySection,
+  IDLE_BATCH_UI,
+  type BatchUiState,
+} from "@/components/skycot/BatchGroupBlock";
 import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { FilterChipRail } from "@/components/skycot/FilterChipRail";
 import { FilterPopover } from "@/components/skycot/FilterPopover";
@@ -15,8 +19,14 @@ import { RequestElevatedView } from "@/components/skycot/RequestElevatedView";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
 import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
 import { useRedactionPolicy } from "@/lib/hooks/use-redaction-policy";
-import { groupApprovals, type ApprovalItem } from "@/lib/sample-approvals";
-import { useApprovals, useSubmitDecision, useUndoDecision } from "@/lib/hooks/use-approvals";
+import { groupApprovals as groupByDay, type ApprovalItem } from "@/lib/sample-approvals";
+import type { ApprovalGroup } from "@/lib/similarity/group-approvals";
+import {
+  useApprovals,
+  useBatchSubmitDecisions,
+  useSubmitDecision,
+  useUndoDecision,
+} from "@/lib/hooks/use-approvals";
 import {
   maskedCategories,
   redactPII,
@@ -55,8 +65,11 @@ function ApprovalsInboxShell() {
   const approvalsQuery = useApprovals();
   const submitDecision = useSubmitDecision();
   const undoDecision = useUndoDecision();
+  const batchSubmit = useBatchSubmitDecisions();
   const redactionPolicy = useRedactionPolicy();
   const [query, setQuery] = useState("");
+  const [batchUi, setBatchUi] = useState<Record<string, BatchUiState>>({});
+  const [approvedByGroup, setApprovedByGroup] = useState<Record<string, string[]>>({});
 
   const router = useRouter();
   const pathname = usePathname();
@@ -97,7 +110,13 @@ function ApprovalsInboxShell() {
     );
   }, [filteredByFilters, query]);
 
-  const groups = useMemo(() => groupApprovals(filteredByAll), [filteredByAll]);
+  const dayGroups = useMemo(() => groupByDay(filteredByAll), [filteredByAll]);
+  const decisionsById = useMemo(() => {
+    const map: Record<string, ApprovalItem["decision"]> = {};
+    for (const it of items) map[it.id] = it.decision ?? null;
+    return map;
+  }, [items]);
+
   const pendingCount = filteredByAll.filter((a) => a.decision == null).length;
 
   // Pre-scan visible cards to know whether to surface the elevated-view
@@ -116,6 +135,77 @@ function ApprovalsInboxShell() {
     }
     return Array.from(seen);
   }, [filteredByAll, redactionPolicy]);
+
+  const onDecide = useCallback(
+    (id: string, decision: "approve" | "refuse") =>
+      submitDecision.mutate({ approvalId: id, decision }),
+    [submitDecision],
+  );
+  const onUndo = useCallback(
+    (id: string) => undoDecision.mutate(id),
+    [undoDecision],
+  );
+
+  const handleApproveAll = useCallback(
+    async (group: ApprovalGroup, idsOverride?: string[]) => {
+      const ids = idsOverride ?? group.items.filter((it) => it.decision == null).map((it) => it.id);
+      if (ids.length === 0) return;
+      setBatchUi((s) => ({
+        ...s,
+        [group.key]: { ...IDLE_BATCH_UI, phase: "loading" },
+      }));
+      const outcomes = await batchSubmit.submit(
+        ids.map((approvalId) => ({ approvalId, decision: "approve" as const })),
+      );
+      const failed = outcomes.filter((o) => !o.ok);
+      const completed = outcomes.length - failed.length;
+      const approvedIds = outcomes.filter((o) => o.ok).map((o) => o.approvalId);
+      setBatchUi((s) => ({
+        ...s,
+        [group.key]: {
+          ...IDLE_BATCH_UI,
+          phase: "settled",
+          completed,
+          failed: failed.length,
+          failedIds: failed.map((o) => o.approvalId),
+        },
+      }));
+      setApprovedByGroup((m) => ({ ...m, [group.key]: approvedIds }));
+    },
+    [batchSubmit],
+  );
+
+  const handleReviewEach = useCallback(
+    (group: ApprovalGroup) =>
+      setBatchUi((s) => ({
+        ...s,
+        [group.key]: { ...(s[group.key] ?? IDLE_BATCH_UI), carouselOpen: true },
+      })),
+    [],
+  );
+
+  const handleCloseCarousel = useCallback(
+    (groupKey: string) =>
+      setBatchUi((s) => ({
+        ...s,
+        [groupKey]: { ...(s[groupKey] ?? IDLE_BATCH_UI), carouselOpen: false },
+      })),
+    [],
+  );
+
+  const handleUndoBatch = useCallback(
+    (groupKey: string) => {
+      const ids = approvedByGroup[groupKey] ?? [];
+      for (const id of ids) undoDecision.mutate(id);
+      setBatchUi((s) => ({ ...s, [groupKey]: IDLE_BATCH_UI }));
+      setApprovedByGroup((m) => {
+        const next = { ...m };
+        delete next[groupKey];
+        return next;
+      });
+    },
+    [undoDecision, approvedByGroup],
+  );
 
   return (
     <>
@@ -153,16 +243,47 @@ function ApprovalsInboxShell() {
         ) : filteredByAll.length === 0 ? (
           <EmptyState query={query} hasFilters={!isFilterEmpty(filters)} onClearAll={handleClearAll} />
         ) : (
-          (["today", "yesterday", "earlier"] as const).map((key) => (
-            <ApprovalGroup
-              key={key}
-              label={key === "today" ? "Today" : key === "yesterday" ? "Yesterday" : "Earlier"}
-              items={groups[key]}
+          <>
+            <ApprovalDaySection
+              label="Today"
+              items={dayGroups.today}
+              decisionsById={decisionsById}
+              batchUi={batchUi}
               redactionPolicy={redactionPolicy}
-              onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
-              onUndo={(id) => undoDecision.mutate(id)}
+              onDecide={onDecide}
+              onUndo={onUndo}
+              onApproveAll={handleApproveAll}
+              onReviewEach={handleReviewEach}
+              onCloseCarousel={handleCloseCarousel}
+              onUndoBatch={handleUndoBatch}
             />
-          ))
+            <ApprovalDaySection
+              label="Yesterday"
+              items={dayGroups.yesterday}
+              decisionsById={decisionsById}
+              batchUi={batchUi}
+              redactionPolicy={redactionPolicy}
+              onDecide={onDecide}
+              onUndo={onUndo}
+              onApproveAll={handleApproveAll}
+              onReviewEach={handleReviewEach}
+              onCloseCarousel={handleCloseCarousel}
+              onUndoBatch={handleUndoBatch}
+            />
+            <ApprovalDaySection
+              label="Earlier"
+              items={dayGroups.earlier}
+              decisionsById={decisionsById}
+              batchUi={batchUi}
+              redactionPolicy={redactionPolicy}
+              onDecide={onDecide}
+              onUndo={onUndo}
+              onApproveAll={handleApproveAll}
+              onReviewEach={handleReviewEach}
+              onCloseCarousel={handleCloseCarousel}
+              onUndoBatch={handleUndoBatch}
+            />
+          </>
         )}
 
         <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
@@ -172,6 +293,7 @@ function ApprovalsInboxShell() {
           </div>
         </footer>
       </div>
+
     </>
   );
 }
@@ -277,57 +399,6 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, filters, worker
         </div>
       </div>
     </div>
-  );
-}
-
-function ApprovalGroup({
-  label,
-  items,
-  redactionPolicy,
-  onDecide,
-  onUndo,
-}: {
-  label: string;
-  items: ApprovalItem[];
-  redactionPolicy: ReturnType<typeof useRedactionPolicy>;
-  onDecide: (approvalId: string, decision: "approve" | "refuse") => void;
-  onUndo: (approvalId: string) => void;
-}) {
-  if (items.length === 0) return null;
-
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-          {label}
-        </h2>
-        <div className="flex-1 h-px bg-[var(--border)]" />
-        <span className="text-xs text-[var(--muted-foreground)]">
-          {items.length} {items.length === 1 ? "request" : "requests"}
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {items.map((item) => (
-          <ApprovalCard
-            key={item.id}
-            className="max-w-full"
-            worker={item.worker}
-            verb={item.verb}
-            detail={item.detail}
-            consequenceIfYes={item.consequenceIfYes}
-            consequenceIfNo={item.consequenceIfNo}
-            reason={item.reason}
-            channel={item.channel}
-            receivedAt={item.receivedAt}
-            decision={item.decision ?? null}
-            redactionPolicy={redactionPolicy}
-            onDecide={(d) => onDecide(item.id, d)}
-            onUndo={() => onUndo(item.id)}
-          />
-        ))}
-      </div>
-    </section>
   );
 }
 
