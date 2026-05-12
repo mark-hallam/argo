@@ -74,6 +74,16 @@
 > - **ACTIVE** — `conductor-prompt-deployment-path-v3.md`: overrides
 >   PROTOCOL_LOOP_PROMPT step-8 normal replenishment until §5 stop
 >   conditions met (7-box deployable-end-to-end gate).
+> - **QUEUED (succeed v3)** — `conductor-prompt-post-v3-directives.md`
+>   carries two paste-ready successor directives:
+>     - **BLOCK 1 — SKILL-CANVAS-v1**: operator paste when v3 §5 met.
+>       Drives Track L (17 briefs L1-L17 per `streams/L0-skill-canvas-track-overview.md`).
+>       Phase 1 (L1-L6 MERGED) triggers CANVAS-PHASE-1-MERGED handoff.
+>     - **BLOCK 2 — ENTERPRISE-PARITY-v1**: operator paste on
+>       CANVAS-PHASE-1-MERGED signal. Drives Track M (19 active + 1
+>       deferred per `streams/M0-enterprise-parity-track-overview.md`).
+>       Runs PARALLEL to Track L Tiers 3-5; doesn't pause L.
+>       **Operator prereq**: `github.com/skycot/skycot-packs` repo created.
 > - **ACTIONED** — `conductor-advisory-{E0-E1,E2-E5,F-reconciliation,G-J}.md`:
 >   rows inserted into this ledger; retained for traceability only.
 > - **PRIMER**: fresh sessions read `docs/build-plan/RESUME.md` first.
