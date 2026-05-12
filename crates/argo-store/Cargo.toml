@@ -26,6 +26,10 @@ tracing = { workspace = true }
 name = "memory_store"
 harness = false
 
+[[bench]]
+name = "batched_message_write"
+harness = false
+
 [dev-dependencies]
 tokio = { workspace = true }
 tempfile = "3"

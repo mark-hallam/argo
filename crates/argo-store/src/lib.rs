@@ -4,6 +4,11 @@
 
 pub mod anomaly;
 mod anomaly_persistence;
+/// Generic write coalescer used by the message + audit hot paths
+/// (Stream `claude-perf-store-batched-writes`). Each per-row insert
+/// becomes a `submit()` into the writer; many concurrent submits
+/// share one `BEGIN`/`COMMIT` to amortize WAL fsync.
+pub mod batched_writer;
 /// First-class approval requests for the auto-approval gate
 /// (Stream `claude-approval-request-store`). Records pending grants,
 /// who can decide them, and a deadline + `default_decision` the
@@ -196,6 +201,10 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Pool, Sqlite};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
+
+use batched_writer::BatchedWriter;
+use message_query::{flush_messages, MessageItem};
 
 /// Result alias.
 pub type StoreResult<T> = Result<T, ArgoError>;
@@ -221,6 +230,7 @@ pub const EXPECTED_SCHEMA_VERSION: u32 = 59;
 /// ```
 pub struct SessionStore {
     pub(crate) pool: Pool<Sqlite>,
+    pub(crate) messages: Arc<BatchedWriter<MessageItem>>,
 }
 
 impl SessionStore {
@@ -273,7 +283,13 @@ impl SessionStore {
             .map_err(|e| ArgoError::Provider(format!("sqlite pool: {e}")))?;
 
         wal_tuning::apply_pragmas(&pool, profile).await?;
-        Ok(Self { pool })
+        let pool_for_writer = pool.clone();
+        let messages = Arc::new(BatchedWriter::new(
+            move |batch| flush_messages(pool_for_writer.clone(), batch),
+            batched_writer::batch_size_from_env(),
+            batched_writer::batch_latency_from_env(),
+        ));
+        Ok(Self { pool, messages })
     }
 
     /// Apply all pending migrations.
@@ -334,7 +350,19 @@ impl SessionStore {
     /// # }
     /// ```
     pub async fn close(&self) {
+        // Drain in-flight batched writes before tearing the pool
+        // down — otherwise pending message rows would be lost.
+        // `flush_now` is a no-op when the buffer is empty.
+        let _ = self.messages.flush_now().await;
         self.pool.close().await;
+    }
+
+    /// Force any in-flight batched writes (messages, audit) to flush
+    /// to disk. Used by tests that read a row immediately after
+    /// submitting it without waiting for the latency window, and by
+    /// the gateway's graceful-shutdown hook ahead of `close()`.
+    pub async fn flush_pending_writes(&self) -> StoreResult<()> {
+        self.messages.flush_now().await
     }
 
     /// Run `VACUUM` to reclaim SQLite-page space (typically after a
