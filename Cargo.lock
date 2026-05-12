@@ -693,6 +693,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-apollo"
+version = "0.0.1"
+dependencies = [
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
 name = "argo-mcp-connector-asana"
 version = "0.0.1"
 dependencies = [
