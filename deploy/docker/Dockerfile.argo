@@ -1,0 +1,50 @@
+# Multi-stage build for the argo single-binary.
+#
+# Build stage compiles the workspace `argo` binary with release optimizations.
+# Runtime stage is distroless/cc-debian12 — minimal glibc/libstdc++ surface that
+# matches what cargo links against (the `cc` variant; `static` would fail on
+# workspace deps that pull in libssl).
+#
+# Build context is the repo root (`../..` from this Dockerfile). Layers are
+# ordered so `cargo fetch` caches independently of source edits.
+
+FROM rust:1.75-slim AS build
+
+WORKDIR /src
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Cache dependency layer: copy manifests first so `cargo fetch` is cacheable.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates ./crates
+COPY tools ./tools
+COPY manifests ./manifests
+COPY mcp-servers ./mcp-servers
+
+RUN cargo build --release --bin argo
+
+# ---- runtime ----
+FROM gcr.io/distroless/cc-debian12 AS runtime
+
+COPY --from=build /src/target/release/argo /usr/local/bin/argo
+
+# Persistent state lives under /data. ARGO_HOME points the binary at it so
+# the SQLite store and credentials persist across container restarts.
+ENV ARGO_HOME=/data
+VOLUME ["/data"]
+
+EXPOSE 8080
+
+# `argo gateway probe live` is an in-binary K8s-style probe (exit 0 healthy,
+# 1 unhealthy). Distroless ships no curl/wget so we reuse the binary that's
+# already in the image. Probe targets the same port the entrypoint binds.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["/usr/local/bin/argo", "gateway", "probe", "live", "--port", "8080"]
+
+# `--insecure-bind` is required to bind a non-loopback address; argo refuses
+# 0.0.0.0 by default because it ships without TLS. Operators terminate TLS
+# upstream (compose-level reverse proxy / k8s ingress).
+ENTRYPOINT ["/usr/local/bin/argo", "gateway", "start", \
+            "--bind", "0.0.0.0", "--port", "8080", "--insecure-bind"]

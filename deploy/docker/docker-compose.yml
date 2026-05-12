@@ -1,0 +1,71 @@
+# Single-machine end-to-end deployment for the argo platform.
+#
+# Services:
+#   postgres — scaffolding for the future postgres-backed store. Argo today
+#              uses SQLite via the `argo-data` volume; postgres is included
+#              per the K-track interface contract (K2 k8s manifests reuse
+#              the same compose surface) and is harmless if argo doesn't
+#              connect to it.
+#   argo     — the platform binary, gateway HTTP listener on :8080.
+#   web      — the product-surface Next.js SPA on :3000, talking to argo
+#              over the compose network.
+#
+# Bring up:   docker-compose -f deploy/docker/docker-compose.yml up --build
+# Tear down:  docker-compose -f deploy/docker/docker-compose.yml down
+# Cleanup:    docker-compose -f deploy/docker/docker-compose.yml down -v
+#             (the -v flag wipes volumes — destructive)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: argo
+      POSTGRES_DB: argo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argo -d argo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Intentionally NOT exposed externally — postgres is reachable only on
+    # the compose network at `postgres:5432`.
+
+  argo:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.argo
+    image: argo:dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ARGO_GATEWAY_BEARER_TOKEN: ${ARGO_GATEWAY_BEARER_TOKEN:?ARGO_GATEWAY_BEARER_TOKEN must be set in .env}
+      DATABASE_URL: ${DATABASE_URL:-postgres://argo:${POSTGRES_PASSWORD}@postgres:5432/argo}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ARGO_TENANT_DEFAULT: ${ARGO_TENANT_DEFAULT:-default}
+      ARGO_LOG_LEVEL: ${ARGO_LOG_LEVEL:-info}
+    volumes:
+      - argo-data:/data
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.web
+    image: argo-web:dev
+    depends_on:
+      argo:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_GATEWAY_URL: ${NEXT_PUBLIC_GATEWAY_URL:-http://argo:8080}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pg-data:
+  argo-data:

@@ -1,0 +1,19 @@
+# Keep build contexts small and avoid copying state into images.
+
+target/
+**/target/
+**/node_modules/
+.git/
+.gitignore
+.github/
+.claude/
+.env
+**/.env
+*.log
+*.tgz
+*.tar.gz
+deploy/docker/.env
+docs/
+book/
+eval-actuals/
+.DS_Store

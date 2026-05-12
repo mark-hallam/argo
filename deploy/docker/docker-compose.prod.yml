@@ -1,0 +1,62 @@
+# Production overlay for the docker-compose stack.
+#
+# Layer on top of docker-compose.yml:
+#   docker-compose -f deploy/docker/docker-compose.yml \
+#                  -f deploy/docker/docker-compose.prod.yml up -d
+#
+# Adds: resource limits, restart policy, log rotation, optional Traefik
+# labels (commented — operators opt in).
+
+services:
+  postgres:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  argo:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Optional Traefik labels for TLS-fronted deployment. Uncomment and
+    # adjust the host rule once Traefik is fronting the stack.
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.argo.rule=Host(`api.example.com`)"
+    #   - "traefik.http.routers.argo.entrypoints=websecure"
+    #   - "traefik.http.routers.argo.tls.certresolver=letsencrypt"
+    #   - "traefik.http.services.argo.loadbalancer.server.port=8080"
+
+  web:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.web.rule=Host(`example.com`)"
+    #   - "traefik.http.routers.web.entrypoints=websecure"
+    #   - "traefik.http.routers.web.tls.certresolver=letsencrypt"
+    #   - "traefik.http.services.web.loadbalancer.server.port=3000"

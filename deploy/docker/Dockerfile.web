@@ -1,0 +1,51 @@
+# Multi-stage build for the Next.js product surface (`web/`).
+#
+# Uses pnpm (the repo's package manager — `web/pnpm-lock.yaml` is canonical).
+# Build context is the repo root (`../..` from this Dockerfile) so the
+# build can access `web/` and any future workspace-level config.
+#
+# The Next config does not (yet) opt into `output: 'standalone'`, so we run
+# `next start` from the built `.next/` directory with `node_modules` present
+# rather than the leaner `server.js` standalone form. Sensible deviation
+# from the brief; documented in deploy/docker/README.md.
+
+FROM node:20-slim AS build
+
+WORKDIR /app/web
+
+RUN corepack enable
+
+# Cache dependency layer: lockfiles first.
+COPY web/package.json web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Source + build. `next build` emits `.next/` and copies static assets.
+COPY web ./
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm build
+
+# Prune devDependencies for the runtime image.
+RUN pnpm prune --prod
+
+# ---- runtime ----
+FROM node:20-slim AS runtime
+
+WORKDIR /app/web
+
+RUN corepack enable
+
+# Copy only the artifacts needed to serve in production.
+COPY --from=build /app/web/.next ./.next
+COPY --from=build /app/web/public ./public
+COPY --from=build /app/web/node_modules ./node_modules
+COPY --from=build /app/web/package.json ./package.json
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://localhost:3000/ > /dev/null || exit 1
+
+ENTRYPOINT ["pnpm", "start"]
