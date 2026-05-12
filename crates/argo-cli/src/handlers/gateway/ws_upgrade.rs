@@ -61,15 +61,33 @@ pub(super) enum Route {
 
 /// Top-level entry from the accept loop. Owns the stream for the
 /// lifetime of the WS connection (handshake → frame loop → close).
+///
+/// J3 sensible deviation: the inbox route now accepts `?token=<JWT>`
+/// in addition to the legacy bearer-token path. When a JWT verifies,
+/// we subscribe to the per-tenant broadcast (isolated from other
+/// tenants) and send a connection-time `hello` frame; legacy
+/// bearer-token connections fall through to the original global
+/// broadcast so the HTML inbox keeps working unchanged.
 pub(super) async fn serve(
     req: &str,
     _store: Option<&Arc<SessionStore>>,
     stream: &mut TcpStream,
 ) -> tokio::io::Result<()> {
     let route = pick_route(req);
-    if let Err((status, body)) = check_auth(req, route) {
-        return write_http_response(stream, status, &body).await;
-    }
+    let tenant_for_inbox = if route == Route::Inbox {
+        match super::ws_inbox_events::authorize(req, chrono::Utc::now().timestamp()) {
+            Ok(auth) => match auth {
+                super::ws_inbox_events::WsAuth::Jwt(_) => Some(auth.tenant_key().to_string()),
+                super::ws_inbox_events::WsAuth::Legacy => None,
+            },
+            Err((status, body)) => return write_http_response(stream, status, &body).await,
+        }
+    } else {
+        if let Err((status, body)) = check_auth(req, route) {
+            return write_http_response(stream, status, &body).await;
+        }
+        None
+    };
     let Some(client_key) = parse_client_key(req) else {
         return write_http_response(
             stream,
@@ -87,9 +105,20 @@ pub(super) async fn serve(
     );
     stream.write_all(head.as_bytes()).await?;
     stream.flush().await?;
-    let mut rx = match route {
-        Route::Inbox => inbox_broadcast().subscribe(),
-        Route::Audit => {
+    if route == Route::Inbox && tenant_for_inbox.is_some() {
+        // JWT-authed clients get the structured hello frame first so
+        // they can negotiate protocol version before any data event.
+        write_frame(
+            stream,
+            OPCODE_TEXT,
+            super::ws_inbox_events::hello_frame().as_bytes(),
+        )
+        .await?;
+    }
+    let mut rx = match (route, tenant_for_inbox.as_deref()) {
+        (Route::Inbox, Some(tenant)) => super::ws_inbox_events::subscribe_tenant(tenant),
+        (Route::Inbox, None) => inbox_broadcast().subscribe(),
+        (Route::Audit, _) => {
             // No shared `AuditSink` is wired through the gateway yet
             // (each call-site builds its own `AuditSink::new(store)`).
             // Hold a never-fed receiver so keepalive runs unchanged.

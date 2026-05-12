@@ -75,12 +75,37 @@ async fn inbox_decide(operator: &str, approval_id: &str, decision: Decision) -> 
     };
     match settle(&claims, operator, Some("web inbox"), "webinbox").await {
         Ok(v) => {
+            // Legacy text-frame reload signal for the HTML inbox — kept
+            // verbatim so old consumers still refetch on decision.
             super::ws_upgrade::publish_inbox_event(json!({
                 "event": "decision",
                 "approval_id": approval_id,
                 "decision": match decision { Decision::Approve => "approve", Decision::Reject => "reject" },
                 "operator": operator,
             }));
+            // J3 structured event — per-tenant fan-out for SPA
+            // consumers. v1 maps operator_id → tenant_id (see
+            // ws_inbox_events.rs).
+            argo_channels::webinbox::dispatch_event(
+                argo_channels::webinbox::WebInboxEvent::ApprovalDecided {
+                    tenant_id: operator.to_string(),
+                    row: argo_channels::webinbox::WebInboxRow {
+                        operator_id: operator.to_string(),
+                        approval_id: approval_id.to_string(),
+                        action_id: approval_id.to_string(),
+                        risk_level: argo_channels::RiskLevel::High,
+                        prompt_body: String::new(),
+                        approve_url: String::new(),
+                        reject_url: String::new(),
+                        expiry: chrono::Utc::now(),
+                        enqueued_at: chrono::Utc::now(),
+                    },
+                    decision: match decision {
+                        Decision::Approve => "approve".into(),
+                        Decision::Reject => "refuse".into(),
+                    },
+                },
+            );
             ("200 OK", v)
         }
         Err(e) => server_error(&e.to_string()),

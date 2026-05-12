@@ -1,4 +1,12 @@
 //! File-backed web inbox approval notification channel.
+//!
+//! In addition to the JSONL queue used by the HTML inbox, the module
+//! exposes a process-global event hook ([`set_event_hook`]) so the
+//! gateway's `/inbox/ws` route can fan out structured
+//! `approval.{created,decided,undone,expired}` frames in lock-step
+//! with state-machine transitions (J3). The hook is `Option<…>` and
+//! defaults to a no-op, so callers that don't care (CLI sends,
+//! background sweepers) pay nothing.
 
 use crate::quiet_hours::QuietHours;
 use crate::{
@@ -9,6 +17,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use tokio::io::AsyncWriteExt;
 
 /// Configuration for [`WebInboxChannel`].
@@ -60,6 +69,64 @@ pub struct WebInboxRow {
     pub expiry: DateTime<Utc>,
     /// Queue insertion time.
     pub enqueued_at: DateTime<Utc>,
+}
+
+/// Lifecycle event published when an approval row's state changes
+/// (J3). Decoupled from the gateway's WS layer so the channels crate
+/// has no upward dependency.
+#[derive(Debug, Clone)]
+pub enum WebInboxEvent {
+    /// New approval row was appended to the inbox.
+    ApprovalCreated {
+        /// Per-tenant broadcast key. v1 uses the operator id.
+        tenant_id: String,
+        /// Created row.
+        row: WebInboxRow,
+    },
+    /// Operator decided the approval (`approve` or `refuse`).
+    ApprovalDecided {
+        /// Per-tenant broadcast key.
+        tenant_id: String,
+        /// Updated row.
+        row: WebInboxRow,
+        /// Locked wire value: `"approve"` or `"refuse"`.
+        decision: String,
+    },
+    /// Operator undid a recent decision (within the 30s window).
+    ApprovalUndone {
+        /// Per-tenant broadcast key.
+        tenant_id: String,
+        /// Reverted row.
+        row: WebInboxRow,
+    },
+    /// Approval timed out without a decision.
+    ApprovalExpired {
+        /// Per-tenant broadcast key.
+        tenant_id: String,
+        /// Expired row.
+        row: WebInboxRow,
+    },
+}
+
+/// Process-global event hook. The gateway sets it on first WS
+/// subscribe to fan events out to per-tenant broadcast channels.
+type EventHook = Box<dyn Fn(WebInboxEvent) + Send + Sync + 'static>;
+
+static EVENT_HOOK: OnceLock<EventHook> = OnceLock::new();
+
+/// Register the global event hook. Idempotent — only the first
+/// caller wins, subsequent calls are silently ignored so tests
+/// re-using process state don't double-register.
+pub fn set_event_hook(hook: EventHook) {
+    let _ = EVENT_HOOK.set(hook);
+}
+
+/// Fire a lifecycle event through the registered hook (no-op when no
+/// hook is set).
+pub fn dispatch_event(event: WebInboxEvent) {
+    if let Some(hook) = EVENT_HOOK.get() {
+        hook(event);
+    }
 }
 
 impl From<Notification> for WebInboxRow {
@@ -132,6 +199,13 @@ impl NotifyChannel for WebInboxChannel {
         file.flush()
             .await
             .map_err(|e| ChannelError::Provider(format!("flush inbox: {e}")))?;
+        // v1 tenant key = operator id (single-tenant-per-operator
+        // model). v1.5 replaces with a proper tenant_id once the
+        // channels layer carries one end-to-end.
+        dispatch_event(WebInboxEvent::ApprovalCreated {
+            tenant_id: row.operator_id.clone(),
+            row: row.clone(),
+        });
         Ok(DeliveryReceipt {
             channel_id: self.id(),
             notification_id: row.approval_id,
