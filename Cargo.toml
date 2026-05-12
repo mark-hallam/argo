@@ -35,6 +35,7 @@ members = [
   "crates/argo-replay",
   "crates/argo-marketplace",
   "crates/argo-identity",
+  "crates/argo-redact",
   "crates/argo-vertical",
   "crates/argo-team-headline",
   "crates/argo-executor-computer-use",

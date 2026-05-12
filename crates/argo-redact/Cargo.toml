@@ -1,0 +1,18 @@
+[package]
+name = "argo-redact"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Server-side PII redaction fence for gateway response paths (Track J / E1-e companion)."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }

@@ -296,6 +296,7 @@ dependencies = [
  "argo-memory",
  "argo-orchestrator",
  "argo-provider",
+ "argo-redact",
  "argo-routing",
  "argo-runtime",
  "argo-sandbox",
@@ -1358,6 +1359,17 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "toml",
+ "tracing",
+]
+
+[[package]]
+name = "argo-redact"
+version = "0.0.1"
+dependencies = [
+ "chrono",
+ "regex",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

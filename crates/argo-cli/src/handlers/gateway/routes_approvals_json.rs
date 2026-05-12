@@ -33,6 +33,10 @@ use crate::handlers::worker_actions_transitions::{
     self, find_action, open_workspace_memory,
 };
 use argo_memory::MemoryFile;
+use argo_redact::{
+    active_grants_for_principal, audit_payload, redact_approval_row, resolve_policy,
+    ViewerPermissions,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -82,7 +86,34 @@ pub(super) async fn list_response(req: &str) -> (&'static str, String) {
     } else {
         None
     };
-    let items: Vec<Value> = page.iter().map(approval_row_json).collect();
+    let actor_id = principal_id_for_audit(req).unwrap_or_else(|| "anonymous".to_string());
+    // v1 viewer-permissions resolution: the gateway has no
+    // principal→permission mapping yet (RBAC permissions row lands
+    // with mission-enterprise-approvals-rbac). Until then the fence
+    // applies the strict default to every viewer — defence in depth
+    // matches what E1-e's client layer already shows users.
+    let viewer = ViewerPermissions::strict();
+    let grants = active_grants_for_principal(&actor_id);
+    let policy = resolve_policy(&viewer, &grants);
+    let items: Vec<Value> = page
+        .iter()
+        .map(|rec| {
+            let row = approval_row_json(rec);
+            let redaction = redact_approval_row(row, &policy, grants.first_id().map(str::to_string));
+            if redaction.was_masked() {
+                let payload = audit_payload(&actor_id, &rec.action_id, &redaction);
+                tracing::info!(
+                    target: "audit::approval_row_redacted",
+                    event_type = argo_redact::AUDIT_EVENT_TYPE,
+                    actor_id = %actor_id,
+                    approval_id = %rec.action_id,
+                    payload = %payload,
+                    "approval row redacted by server fence"
+                );
+            }
+            redaction.row
+        })
+        .collect();
     let mut body = json!({ "items": items });
     if let Some(c) = next_cursor {
         body["next_cursor"] = Value::String(c);
