@@ -1,24 +1,25 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, type ReactNode } from "react";
-import {
-  AlertCircle,
-  Filter,
-  Inbox,
-  Loader2,
-  Plus,
-  Search,
-} from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState, type ReactNode } from "react";
+import { AlertCircle, Filter, Inbox, Loader2, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ApprovalCard } from "@/components/skycot/ApprovalCard";
 import { DataSourceChip } from "@/components/skycot/DataSourceChip";
+import { FilterChipRail } from "@/components/skycot/FilterChipRail";
+import { FilterPopover } from "@/components/skycot/FilterPopover";
 import { NotificationsBell } from "@/components/skycot/NotificationsBell";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
 import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
 import { groupApprovals, type ApprovalItem } from "@/lib/sample-approvals";
 import { useApprovals, useSubmitDecision, useUndoDecision } from "@/lib/hooks/use-approvals";
+import {
+  activeFilterCount, applyFilters, clearDimension, EMPTY_FILTERS, isFilterEmpty,
+  parseFilters, serializeFilters, toggleFilterValue, workerOptions as deriveWorkerOptions,
+  type ApprovalFilters,
+} from "@/lib/filters/approvals";
 
 // Lazy-load the popover (Radix popover + grouping logic adds ~20KB to
 // First Load JS). The bell glyph + unread dot still render
@@ -32,23 +33,63 @@ const NotificationsPopover = dynamic(
 );
 
 export default function ApprovalsInboxPage() {
+  // useSearchParams() requires a Suspense boundary during static
+  // generation (Next 15 prerender contract). The inner shell carries
+  // all filter / popover state.
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <ApprovalsInboxShell />
+    </Suspense>
+  );
+}
+
+function ApprovalsInboxShell() {
   const approvalsQuery = useApprovals();
   const submitDecision = useSubmitDecision();
   const undoDecision = useUndoDecision();
   const [query, setQuery] = useState("");
 
-  const items = approvalsQuery.data ?? [];
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const filters = useMemo<ApprovalFilters>(() => parseFilters(searchParams), [searchParams]);
 
-  const filtered = useMemo<ApprovalItem[]>(() => {
-    if (!query.trim()) return items;
+  const items = approvalsQuery.data ?? [];
+  const workerOptionList = useMemo(() => deriveWorkerOptions(items), [items]);
+
+  const setFilters = useCallback((next: ApprovalFilters) => {
+    const filterQs = serializeFilters(next);
+    const preserved = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+      if (key !== "worker" && key !== "channel" && key !== "status") preserved.set(key, value);
+    });
+    const merged = [filterQs, preserved.toString()].filter(Boolean).join("&");
+    router.replace(merged ? `${pathname}?${merged}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  const handleToggle = useCallback(
+    <K extends keyof ApprovalFilters>(d: K, v: ApprovalFilters[K][number]) =>
+      setFilters(toggleFilterValue(filters, d, v)),
+    [filters, setFilters],
+  );
+  const handleClearDimension = useCallback(
+    (d: keyof ApprovalFilters) => setFilters(clearDimension(filters, d)),
+    [filters, setFilters],
+  );
+  const handleClearAll = useCallback(() => setFilters(EMPTY_FILTERS), [setFilters]);
+
+  const filteredByFilters = useMemo(() => applyFilters(items, filters), [items, filters]);
+
+  const filteredByAll = useMemo<ApprovalItem[]>(() => {
+    if (!query.trim()) return filteredByFilters;
     const q = query.trim().toLowerCase();
-    return items.filter((a) =>
+    return filteredByFilters.filter((a) =>
       [a.worker.name, a.verb, a.detail].some((s) => s.toLowerCase().includes(q)),
     );
-  }, [items, query]);
+  }, [filteredByFilters, query]);
 
-  const groups = useMemo(() => groupApprovals(filtered), [filtered]);
-  const pendingCount = filtered.filter((a) => a.decision == null).length;
+  const groups = useMemo(() => groupApprovals(filteredByAll), [filteredByAll]);
+  const pendingCount = filteredByAll.filter((a) => a.decision == null).length;
 
   return (
     <>
@@ -57,6 +98,16 @@ export default function ApprovalsInboxPage() {
         setQuery={setQuery}
         pendingCount={pendingCount}
         dataSource={approvalsQuery.dataSource}
+        filters={filters}
+        workerOptions={workerOptionList}
+        onToggle={handleToggle}
+        onClearAll={handleClearAll}
+      />
+
+      <FilterChipRail
+        filters={filters}
+        onClearDimension={handleClearDimension}
+        onClearAll={handleClearAll}
       />
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
@@ -67,29 +118,18 @@ export default function ApprovalsInboxPage() {
             message={(approvalsQuery.error as Error)?.message ?? "Couldn't load approvals"}
             onRetry={() => approvalsQuery.refetch()}
           />
-        ) : filtered.length === 0 ? (
-          <EmptyState query={query} />
+        ) : filteredByAll.length === 0 ? (
+          <EmptyState query={query} hasFilters={!isFilterEmpty(filters)} onClearAll={handleClearAll} />
         ) : (
-          <>
+          (["today", "yesterday", "earlier"] as const).map((key) => (
             <ApprovalGroup
-              label="Today"
-              items={groups.today}
+              key={key}
+              label={key === "today" ? "Today" : key === "yesterday" ? "Yesterday" : "Earlier"}
+              items={groups[key]}
               onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
               onUndo={(id) => undoDecision.mutate(id)}
             />
-            <ApprovalGroup
-              label="Yesterday"
-              items={groups.yesterday}
-              onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
-              onUndo={(id) => undoDecision.mutate(id)}
-            />
-            <ApprovalGroup
-              label="Earlier"
-              items={groups.earlier}
-              onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
-              onUndo={(id) => undoDecision.mutate(id)}
-            />
-          </>
+          ))
         )}
 
         <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
@@ -105,8 +145,6 @@ export default function ApprovalsInboxPage() {
 
 function NotificationsBellTrigger() {
   const unreadCount = useUnreadNotificationCount();
-  // Defer mounting the Radix popover until first interaction. Once
-  // mounted, leave it in the tree so subsequent opens are instant.
   const [armed, setArmed] = useState(false);
 
   const bellButton: ReactNode = (
@@ -127,17 +165,19 @@ function NotificationsBellTrigger() {
   );
 }
 
-function PageHeader({
-  query,
-  setQuery,
-  pendingCount,
-  dataSource,
-}: {
+interface PageHeaderProps {
   query: string;
   setQuery: (s: string) => void;
   pendingCount: number;
   dataSource: ReturnType<typeof useApprovals>["dataSource"];
-}) {
+  filters: ApprovalFilters;
+  workerOptions: string[];
+  onToggle: <K extends keyof ApprovalFilters>(d: K, v: ApprovalFilters[K][number]) => void;
+  onClearAll: () => void;
+}
+
+function PageHeader({ query, setQuery, pendingCount, dataSource, filters, workerOptions, onToggle, onClearAll }: PageHeaderProps) {
+  const activeCount = activeFilterCount(filters);
   return (
     <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-5">
@@ -160,9 +200,30 @@ function PageHeader({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <Button variant="ghost" size="icon" aria-label="Filter">
-              <Filter />
-            </Button>
+            <FilterPopover
+              filters={filters}
+              workerOptions={workerOptions}
+              onToggle={onToggle}
+              onClearAll={onClearAll}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Filter"
+                aria-pressed={activeCount > 0}
+                className="relative"
+                data-testid="filter-trigger"
+              >
+                <Filter />
+                {activeCount > 0 ? (
+                  <span
+                    className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[var(--primary)]"
+                    aria-hidden
+                    data-testid="filter-trigger-dot"
+                  />
+                ) : null}
+              </Button>
+            </FilterPopover>
             <NotificationsBellTrigger />
             <Button variant="primary" size="md" className="shadow-sm" aria-label="Hire teammate">
               <Plus />
@@ -260,20 +321,25 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-function EmptyState({ query }: { query: string }) {
+function EmptyState({ query, hasFilters, onClearAll }: { query: string; hasFilters: boolean; onClearAll: () => void }) {
+  const idle = !hasFilters && !query;
+  const title = idle ? "All clear" : "No matching approvals";
   return (
-    <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-3">
+    <div
+      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-3"
+      data-testid={hasFilters ? "approvals-empty-filtered" : "approvals-empty"}
+    >
       <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--muted)] text-[var(--muted-foreground)]">
         <Inbox />
       </div>
       <div>
-        <h2 className="text-base font-semibold text-[var(--foreground)]">
-          {query ? "No matching approvals" : "All clear"}
-        </h2>
+        <h2 className="text-base font-semibold text-[var(--foreground)]">{title}</h2>
         <p className="text-sm text-[var(--muted-foreground)] mt-1">
-          {query
-            ? `Nothing matches "${query}". Try different keywords or clear the filter.`
-            : "Your teammates have nothing waiting on you. Get back to work — they've got the rest."}
+          {idle
+            ? "Your teammates have nothing waiting on you. Get back to work — they've got the rest."
+            : hasFilters
+              ? <>Try different filters or <button type="button" onClick={onClearAll} className="text-[var(--primary)] underline-offset-4 hover:underline" data-testid="approvals-empty-clear-all">Clear all</button>.</>
+              : `Nothing matches "${query}". Try different keywords or clear the filter.`}
         </p>
       </div>
     </div>
