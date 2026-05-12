@@ -36,11 +36,17 @@ Slack-approval scenarios.
    Operative plan for the post-MVP product-surface program (Tracks
    A–G). Read before touching any UI / persona / journey row.
 
-5. **Active operator directive**, if one is named in the
-   BUILD_STATUS.md header's "Live directives" line. Currently:
-   `conductor-prompt-deployment-path-v3.md` (drives the swarm to
-   "deployable end-to-end" — overrides PROTOCOL_LOOP_PROMPT step-8
-   normal replenishment until its §5 stop conditions are met).
+5. **Active + queued operator directives**, named in the
+   BUILD_STATUS.md header's "Live directives" block:
+   - **ACTIVE**: `conductor-prompt-deployment-path-v3.md` (drives
+     swarm to "deployable end-to-end" — overrides PROTOCOL_LOOP_PROMPT
+     step-8 replenishment until §5 stop conditions met).
+   - **QUEUED (succeed v3)**: `conductor-prompt-post-v3-directives.md`
+     carries BLOCK 1 (SKILL-CANVAS-v1, Track L, 17 briefs) +
+     BLOCK 2 (ENTERPRISE-PARITY-v1, Track M, 19+1 briefs, parallel
+     to remaining L). Operator pastes each at its trigger. L0+M0
+     design docs are `streams/L0-skill-canvas-track-overview.md`
+     + `streams/M0-enterprise-parity-track-overview.md`.
 
 ## Your role — pick one
 
@@ -97,5 +103,39 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-Last refreshed: 2026-05-12. If this file is stale, it's the
-conductor's job to refresh it during the next freshness pass.
+## Right-now snapshot (2026-05-12 ~14:15Z)
+
+Refreshed as the prior conductor session approached weekly quota.
+If you are a fresh session resuming after that cap:
+
+- **Last commit on origin/main**: `bc357476` (load-bearing post-v3
+  directives + L0/M0 design docs persisted; see commit body).
+- **Queue**: claude_todo = 51 · BLOCKED = 50ish · MERGED = ~642+
+  (run `grep -cE '^\| .* \| (claude\|codex) \| MERGED ' docs/build-plan/BUILD_STATUS.md`).
+- **4 PRs in review** at hand-off:
+  - `#1445` mission-vertical-legal-paralegal-skills — fix-recipe
+    posted (rename `.md` → `.skill.md`); idle 100+ min.
+  - `#1447` mission-enterprise-audit-full-text-search — fix-recipe
+    posted (slot 64 → 65 rebase, after #1450); idle 100+ min.
+  - `#1450` mission-enterprise-cross-tenant-audit — fix-recipe
+    posted (slot 63 → 64 rebase, J16 took 63); idle 100+ min.
+  - `#1461` mission-encryption-at-rest-sqlcipher — fix-recipe
+    posted (rebase after #1460); fresh ~25 min.
+- **Cron loop CANCELLED** before quota cap (was job `d593e23e`).
+  A fresh conductor resuming should re-arm via the operator's
+  preferred cadence (`/loop 5m <prompt>` or manual ticks).
+- **Stale-IN_REVIEW sweep due**: #1445 / #1447 / #1450 will cross
+  the 2h-since-last-push threshold within ~15 min of this snapshot.
+  Per af500037 amendment, demote them BLOCKED → TODO with salvage
+  notes (PR num + branch + fix-recipe excerpt). Do NOT close PRs.
+- **DEPLOYMENT-PATH-v3 §5 unmet** — K5-deploy-smoke-test-e2e is
+  TODO (cascade-unblocked but unclaimed). No worker has picked it
+  up yet. v3 is still ACTIVE; post-v3 directives stay QUEUED.
+
+## When this file is stale
+
+The conductor refreshes it during freshness passes. If you read
+this file and the snapshot dates look weeks old, treat the
+BUILD_STATUS.md header as authoritative and ignore the snapshot.
+
+Last refreshed: 2026-05-12 (resume-safety pass at ~95% weekly).
