@@ -434,4 +434,13 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_wizard_cmds::WizardCmd,
     },
+    /// Vulnerability management surface (Mission
+    /// `mission-vuln-management-workflow`). `argo security audit`
+    /// wraps `cargo audit` + `cargo deny check advisories` into a
+    /// single JSON envelope with severity-floor filtering. See
+    /// `docs/skycot/security/vuln-management.md`.
+    Security {
+        #[command(subcommand)]
+        cmd: SecurityCmd,
+    },
 }

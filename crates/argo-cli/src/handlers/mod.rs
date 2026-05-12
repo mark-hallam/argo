@@ -193,6 +193,9 @@ pub mod team;
 mod team_mutations;
 pub mod route;
 pub mod sandbox_e2b;
+pub mod security_audit;
+#[cfg(test)]
+mod security_audit_tests;
 pub mod session;
 mod session_aggregates;
 pub mod session_approval;

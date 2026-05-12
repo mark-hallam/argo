@@ -9,10 +9,13 @@ pub use cli_reexports::{
 };
 #[path = "cli_runtime_cmds.rs"]
 pub mod cli_runtime_cmds;
+#[path = "cli_security_cmds.rs"]
+pub mod cli_security_cmds;
 #[path = "cli_command_enum.rs"]
 mod cli_command_enum;
 use clap::{Args, Parser, Subcommand};
 pub use cli_command_enum::{Command, E2bSandboxCmd, SandboxCmd};
+pub use cli_security_cmds::SecurityCmd;
 #[derive(Parser, Debug)]
 #[command(
     name = "argo",

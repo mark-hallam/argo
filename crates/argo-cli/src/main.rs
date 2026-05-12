@@ -310,6 +310,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Operator { cmd }) => handlers::operator_risk_overrides::dispatch(cmd).await,
         Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,
         Some(Command::Sandbox { cmd }) => handlers::sandbox_e2b::run(cmd).await,
+        Some(Command::Security { cmd }) => handlers::security_audit::run(cmd).await,
         Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
         Some(Command::Roster { cmd }) => handlers::roster_list::run(cmd).await,
         Some(Command::Team { cmd }) => handlers::team::run(cmd).await,

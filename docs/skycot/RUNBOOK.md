@@ -274,3 +274,30 @@ waiting → working → idle → paused → blocked, ties broken by
 (`mission-enterprise-team-pagination` lifts the cap). RBAC is
 tenant-scoped only in v1 — per-role visibility ships via
 `mission-enterprise-team-rbac-scoping`.
+
+---
+
+## Vuln management
+
+The vulnerability-management workflow is the operator process for
+triaging RustSec advisories, GitHub Security Advisories, and NVD
+CVEs that affect the build. SEV 1–4 taxonomy, P0/P1/P2/P3 triage
+SLAs, named-owner table, and the `argo security audit` CLI live in
+[`security/vuln-management.md`](security/vuln-management.md).
+
+Quick start:
+
+```bash
+# One-shot: merge cargo audit + cargo deny check advisories into a
+# single envelope; exit 1 if anything unmitigated above the floor.
+argo security audit --severity-floor high
+
+# Daily cron sweep — compact JSON for piping into the ops dashboard.
+argo security audit --severity-floor low --compact
+```
+
+Exit codes: `0` clean, `1` unmitigated advisories above floor, `2`
+tooling error (missing `cargo audit` / `cargo deny`, network
+failure pulling the RustSec feed). The envelope shape +
+named-owner table + disclosure policy are documented in
+[`security/vuln-management.md`](security/vuln-management.md).
