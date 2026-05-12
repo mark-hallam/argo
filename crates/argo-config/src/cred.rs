@@ -9,9 +9,55 @@ use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 const ARGO_DIR: &str = ".argo";
 const CREDENTIALS_FILE: &str = "credentials.toml";
+const ARGO_TOML: &str = "argo.toml";
+
+/// Credential storage backend selector.
+///
+/// `Auto` (the default) prefers the OS keyring when one is available
+/// AND has an entry for the requested key, otherwise falls back to
+/// the workspace credentials file. Operators move keys into the
+/// keyring with `argo cred migrate-to-keyring`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CredentialBackend {
+    /// `<workspace>/.argo/credentials.toml` (back-compat default).
+    File,
+    /// OS keyring (macOS Keychain / Linux Secret Service / Windows
+    /// Credential Manager).
+    Keyring,
+    /// Keyring when populated + available, else file.
+    #[default]
+    Auto,
+}
+
+impl CredentialBackend {
+    /// Stable lowercase identifier used in `argo.toml` and CLI args.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::File => "file",
+            Self::Keyring => "keyring",
+            Self::Auto => "auto",
+        }
+    }
+}
+
+impl FromStr for CredentialBackend {
+    type Err = ArgoError;
+    fn from_str(s: &str) -> Result<Self, ArgoError> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "file" => Ok(Self::File),
+            "keyring" => Ok(Self::Keyring),
+            "auto" => Ok(Self::Auto),
+            other => Err(ArgoError::Provider(format!(
+                "invalid credential backend '{other}': expected file, keyring, or auto"
+            ))),
+        }
+    }
+}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct CredentialDocument {
@@ -40,18 +86,76 @@ pub fn get(key: &str) -> Result<String, VarError> {
 
 /// Read a credential by key from a specific workspace, after checking env first.
 ///
+/// The backend is resolved from `<workspace>/argo.toml`
+/// `[credentials] backend = "..."` (default `auto`). Env-var
+/// precedence is preserved for every backend.
+///
 /// # Errors
 /// Returns [`VarError::NotPresent`] when neither source has the key, or
 /// [`VarError::NotUnicode`] when the environment value is not valid Unicode.
 pub fn get_from_workspace(workspace: &Path, key: &str) -> Result<String, VarError> {
+    let backend = read_configured_backend(workspace);
+    get_with_backend(workspace, key, backend)
+}
+
+/// Read a credential using an explicit backend choice.
+///
+/// Env-var precedence is unchanged: a value in the process environment
+/// is returned regardless of `backend`. For `Auto`, the keyring is
+/// consulted only when [`crate::cred_keyring::keyring_available`]
+/// returns true; missing keyring entries fall through to the file
+/// backend.
+///
+/// # Errors
+/// Returns [`VarError::NotPresent`] when no backend has the key, or
+/// [`VarError::NotUnicode`] when the environment value is not valid
+/// Unicode.
+pub fn get_with_backend(
+    workspace: &Path,
+    key: &str,
+    backend: CredentialBackend,
+) -> Result<String, VarError> {
     match env::var(key) {
-        Ok(value) => Ok(value),
-        Err(VarError::NotUnicode(value)) => Err(VarError::NotUnicode(value)),
-        Err(VarError::NotPresent) => load(workspace)
-            .ok()
-            .and_then(|credentials| credentials.get(key).cloned())
-            .ok_or(VarError::NotPresent),
+        Ok(value) => return Ok(value),
+        Err(VarError::NotUnicode(value)) => return Err(VarError::NotUnicode(value)),
+        Err(VarError::NotPresent) => {}
     }
+    match backend {
+        CredentialBackend::File => load_from_file(workspace, key),
+        CredentialBackend::Keyring => crate::cred_keyring::keyring_get(workspace, key)
+            .map_err(|_| VarError::NotPresent),
+        CredentialBackend::Auto => {
+            if crate::cred_keyring::keyring_available() {
+                if let Ok(value) = crate::cred_keyring::keyring_get(workspace, key) {
+                    return Ok(value);
+                }
+            }
+            load_from_file(workspace, key)
+        }
+    }
+}
+
+fn load_from_file(workspace: &Path, key: &str) -> Result<String, VarError> {
+    load(workspace)
+        .ok()
+        .and_then(|credentials| credentials.get(key).cloned())
+        .ok_or(VarError::NotPresent)
+}
+
+fn read_configured_backend(workspace: &Path) -> CredentialBackend {
+    let path = workspace.join(ARGO_TOML);
+    let Ok(body) = fs::read_to_string(&path) else {
+        return CredentialBackend::Auto;
+    };
+    let Ok(parsed) = toml::from_str::<toml::Value>(&body) else {
+        return CredentialBackend::Auto;
+    };
+    parsed
+        .get("credentials")
+        .and_then(|c| c.get("backend"))
+        .and_then(|b| b.as_str())
+        .and_then(|s| CredentialBackend::from_str(s).ok())
+        .unwrap_or(CredentialBackend::Auto)
 }
 
 /// Load all stored credentials from a workspace.

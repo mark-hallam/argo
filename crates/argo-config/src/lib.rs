@@ -32,6 +32,10 @@
 /// `mission-llm-budget-hard-ceiling`).
 pub mod budget_ceiling;
 pub mod cred;
+/// OS-keyring backend for [`cred`] (Stream
+/// `mission-system-keyring-integration`). See module docs for service
+/// naming and availability semantics.
+pub mod cred_keyring;
 pub mod defaults;
 pub mod loader;
 /// Per-provider TOML knobs parsed off `[provider.<name>]` (currently

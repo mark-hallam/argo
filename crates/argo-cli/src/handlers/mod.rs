@@ -68,6 +68,7 @@ pub mod cred_clear;
 pub mod cred_export;
 pub mod cred_import;
 pub mod cred_list;
+pub mod cred_migrate_to_keyring;
 pub mod cred_set;
 pub mod cu_replay;
 mod cu_replay_render;

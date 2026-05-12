@@ -198,6 +198,12 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             cli::CredCmd::ClearAll => handlers::cred_clear::clear_all(),
             cli::CredCmd::Export { shell } => handlers::cred_export::run(&shell),
             cli::CredCmd::Import { shell } => handlers::cred_import::run(&shell),
+            cli::CredCmd::Backend { backend } => {
+                handlers::cred_migrate_to_keyring::run_backend(&backend)
+            }
+            cli::CredCmd::MigrateToKeyring { dry_run, from_file } => {
+                handlers::cred_migrate_to_keyring::run_migrate(dry_run, from_file)
+            }
         },
         Some(Command::Backup { cmd }) => match cmd {
             cli::BackupCmd::Create {
