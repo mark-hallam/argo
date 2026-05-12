@@ -20,6 +20,13 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+/// Context-window-aware compression
+/// (`mission-context-window-aware-compression`). LLM-summarises
+/// older turns once running token-count crosses the operator-tuned
+/// trigger threshold, keeps the system prompt + last N user turns
+/// verbatim, and exposes a `runtime.context_compressed` audit
+/// payload. Wiring into the agent-runner turn loop is a follow-up.
+pub mod context_compress;
 /// Dreams plan-template learning — distill cohorts of similar
 /// successful Planner decompositions into [`PlanTemplate`]
 /// candidates that ride the TrustGrade ladder. Stream

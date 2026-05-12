@@ -48,6 +48,7 @@ pub mod provider;
 mod sandbox;
 mod sections;
 mod sections_budget;
+mod sections_context;
 pub mod store;
 pub mod tui;
 
@@ -60,6 +61,7 @@ pub use sections::{
     LoopConfig, MatrixTomlConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
     TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
+pub use sections_context::{ContextCompressConfig, RuntimeConfig};
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
 pub use worker_pool::{WorkerPoolConfig, WorkerPoolElasticityConfig};
@@ -113,6 +115,9 @@ pub struct ArgoConfig {
     pub channels: ChannelsConfig,
     /// `[worker_pool]` — pool elasticity recommender bounds.
     pub worker_pool: WorkerPoolConfig,
+    /// `[runtime]` — runtime-side knobs (currently
+    /// `[runtime.context_compress]`).
+    pub runtime: RuntimeConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]
