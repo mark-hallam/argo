@@ -69,6 +69,7 @@ pub mod learn;
 pub mod pool;
 pub mod profile;
 pub mod restart;
+pub mod sandbox_prewarm;
 pub mod screenshot_persist;
 pub mod success_metric;
 #[cfg(any(test, feature = "test-harness"))]

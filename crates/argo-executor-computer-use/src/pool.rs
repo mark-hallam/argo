@@ -11,6 +11,7 @@
 //! single-binary invariant means all dispatches share this map.
 
 use crate::e2b::{E2bClient, Sandbox as E2bSandbox};
+use crate::sandbox_prewarm::{PrewarmedSandbox, SandboxPrewarmer};
 use crate::CuError;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,6 +42,10 @@ pub struct SandboxPool {
     inner: Arc<Mutex<PoolInner>>,
     e2b: E2bClient,
     idle_ttl: Duration,
+    /// Pre-warm reservoir. `None` until the operator opts in via
+    /// `[runtime.sandbox_prewarm] enabled = true` and the executor
+    /// stamps one on via [`Self::with_prewarmer`].
+    prewarmer: Option<Arc<Mutex<SandboxPrewarmer>>>,
 }
 
 #[derive(Debug, Default)]
@@ -57,6 +62,7 @@ impl SandboxPool {
             inner: Arc::new(Mutex::new(PoolInner::default())),
             e2b,
             idle_ttl: DEFAULT_IDLE_TTL,
+            prewarmer: None,
         }
     }
 
@@ -68,9 +74,22 @@ impl SandboxPool {
         self
     }
 
+    /// Attach a [`SandboxPrewarmer`]. Without one, [`Self::acquire`]
+    /// behaves exactly as before (cold-open on every slot miss).
+    /// With one, the pool consults the reservoir for matching
+    /// templates before falling through to E2B, and fires
+    /// background pre-warm bursts when the spawn rate crosses the
+    /// configured threshold.
+    #[must_use]
+    pub fn with_prewarmer(mut self, prewarmer: Arc<Mutex<SandboxPrewarmer>>) -> Self {
+        self.prewarmer = Some(prewarmer);
+        self
+    }
+
     /// Acquire a sandbox for the given key + sandbox template.
-    /// Returns an idle sandbox if available, otherwise opens a
-    /// fresh one via E2B. The pool stamps the slot's
+    /// Returns an idle sandbox if available, otherwise consults
+    /// the pre-warm reservoir (when configured), otherwise opens
+    /// a fresh one via E2B. The pool stamps the slot's
     /// `last_used` so the reaper doesn't clobber it mid-use.
     pub async fn acquire(
         &self,
@@ -85,8 +104,14 @@ impl SandboxPool {
                 return Ok(slot.sandbox.clone());
             }
         }
-        // Miss: provision a fresh sandbox without holding the
-        // lock. Re-acquire to insert.
+        // Slot miss: record demand + check the pre-warm reservoir
+        // (audit row + slot-insert happens inside the helper).
+        if let Some(sandbox) = self.try_take_prewarmed(&key, sandbox_template).await {
+            self.maybe_trigger_prewarm(sandbox_template).await;
+            return Ok(sandbox);
+        }
+        // Reservoir miss: provision a fresh sandbox without
+        // holding the lock. Re-acquire to insert.
         let fresh = self.e2b.open_sandbox(sandbox_template).await?;
         let mut inner = self.inner.lock().await;
         // Race-safe: another caller may have inserted while we
@@ -109,7 +134,99 @@ impl SandboxPool {
                 last_used: Instant::now(),
             },
         );
+        drop(inner);
+        // Cold spawn complete; the spawn was already recorded by
+        // `try_take_prewarmed`, so the burst trigger can fire now.
+        self.maybe_trigger_prewarm(sandbox_template).await;
         Ok(fresh)
+    }
+
+    /// Record a spawn demand event and try to satisfy it from
+    /// the pre-warm reservoir. Returns `Some(sandbox)` on hit
+    /// (slot updated, audit emitted) or `None` if pre-warming is
+    /// off or no entry matches the template. Always records the
+    /// demand event when a prewarmer is attached, so the
+    /// rate-trigger sees the load even when the reservoir is
+    /// empty.
+    async fn try_take_prewarmed(
+        &self,
+        key: &PoolKey,
+        sandbox_template: &str,
+    ) -> Option<E2bSandbox> {
+        let prewarmer = self.prewarmer.as_ref()?;
+        let consumed = {
+            let mut p = prewarmer.lock().await;
+            p.record_spawn(Instant::now());
+            p.try_consume(sandbox_template)
+        };
+        let sandbox = consumed?;
+        let mut inner = self.inner.lock().await;
+        inner.slots.insert(
+            key.clone(),
+            Slot {
+                sandbox: sandbox.clone(),
+                last_used: Instant::now(),
+            },
+        );
+        Some(sandbox)
+    }
+
+    /// Consult the prewarmer's burst + hourly triggers and, if
+    /// either fires, spawn a background task to open the
+    /// requested number of sandboxes and admit them. The trigger
+    /// math is synchronous + mutex-bounded; the actual E2B I/O
+    /// runs detached so the dispatch path is never blocked on
+    /// pre-warm. Best-effort: a failed `open_sandbox` is logged
+    /// and otherwise ignored — pre-warming is an optimisation,
+    /// not a correctness requirement.
+    async fn maybe_trigger_prewarm(&self, sandbox_template: &str) {
+        let Some(prewarmer) = self.prewarmer.as_ref() else {
+            return;
+        };
+        let now = Instant::now();
+        let now_utc = chrono::Utc::now();
+        let to_open = {
+            let mut p = prewarmer.lock().await;
+            let burst = p.should_burst_prewarm(now);
+            let hourly = u32::from(p.should_hourly_prewarm(now_utc));
+            burst.saturating_add(hourly)
+        };
+        if to_open == 0 {
+            return;
+        }
+        let prewarmer = Arc::clone(prewarmer);
+        let client = self.e2b.clone();
+        let template = sandbox_template.to_owned();
+        tokio::spawn(async move {
+            for _ in 0..to_open {
+                match client.open_sandbox(&template).await {
+                    Ok(sandbox) => {
+                        let entry = PrewarmedSandbox {
+                            template: template.clone(),
+                            sandbox: sandbox.clone(),
+                            prewarmed_at: Instant::now(),
+                        };
+                        let admitted = {
+                            let mut p = prewarmer.lock().await;
+                            p.try_admit(entry)
+                        };
+                        if !admitted {
+                            // Reservoir full between trigger and
+                            // admit — close so we don't leak.
+                            let _ = client.close_sandbox(&sandbox).await;
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            kind = "runtime.sandbox_prewarm_open_failed",
+                            template = %template,
+                            error = %err,
+                            "pre-warm open_sandbox failed"
+                        );
+                    }
+                }
+            }
+        });
     }
 
     /// Mark a sandbox as idle (resets the TTL clock). Called by

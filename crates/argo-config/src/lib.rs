@@ -63,7 +63,7 @@ pub use sections::{
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, RuntimeConfig,
-    DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
+    SandboxPrewarmConfig, DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
