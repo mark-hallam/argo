@@ -1,6 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
-import { KpiSparkline } from "@/components/skycot/worker/KpiSparkline";
+import { KpiSparkline } from "@/components/ui/charts";
 import { cn } from "@/lib/utils";
 import type { KpiTone, WorkerKpi } from "@/lib/api/worker-overview";
 
@@ -64,7 +64,7 @@ function KpiRow({ kpi }: { kpi: WorkerKpi }) {
         {kpi.value}
       </p>
       <KpiSparkline
-        series={kpi.series}
+        data={kpi.series}
         tone={kpi.tone}
         ariaLabel={`7-day trend for ${kpi.label}`}
         className="col-span-2 sm:col-span-1 justify-self-stretch sm:justify-self-center"

@@ -8,7 +8,7 @@ import { WhatSheDoesCard } from "@/components/skycot/worker/WhatSheDoesCard";
 import { DutiesCard } from "@/components/skycot/worker/DutiesCard";
 import { KpiCard } from "@/components/skycot/worker/KpiCard";
 import { RecentActivityCard } from "@/components/skycot/worker/RecentActivityCard";
-import { KpiSparkline } from "@/components/skycot/worker/KpiSparkline";
+import { KpiSparkline } from "@/components/ui/charts";
 import {
   fetchWorkerOverview,
   type FetchWorkerOverviewResult,
@@ -199,7 +199,7 @@ describe("KpiCard + KpiSparkline", () => {
   });
 
   it("renders a non-empty path even when the series is degenerate", () => {
-    const { container } = render(<KpiSparkline series={[5, 5, 5, 5]} tone="muted" />);
+    const { container } = render(<KpiSparkline data={[5, 5, 5, 5]} tone="muted" />);
     const path = container.querySelector("path");
     expect(path).toBeTruthy();
     expect(path?.getAttribute("d") ?? "").toMatch(/^M/);
