@@ -22,7 +22,7 @@
 use crate::anthropic::{AnthropicCall, CuStepRequest, CuStepResponse, StopReason};
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall, Sandbox as E2bSandbox};
+use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall, E2bSandbox};
 use crate::e2b_reap::E2bSandboxInfo;
 use crate::executor::{Outcome, RunRequest, RunResult};
 use crate::profile::Profile;

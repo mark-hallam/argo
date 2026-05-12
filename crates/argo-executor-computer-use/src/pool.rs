@@ -10,7 +10,7 @@
 //! more than one worker daemon per tenant; until then the
 //! single-binary invariant means all dispatches share this map.
 
-use crate::e2b::{E2bClient, Sandbox as E2bSandbox};
+use crate::e2b::{E2bClient, E2bSandbox};
 use crate::sandbox_prewarm::{PrewarmedSandbox, SandboxPrewarmer};
 use crate::CuError;
 use std::collections::HashMap;

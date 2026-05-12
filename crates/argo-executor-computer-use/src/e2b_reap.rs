@@ -23,7 +23,7 @@
 //! operator runbooks; v2 may add a `--workspace-filter` once E2B
 //! exposes per-sandbox metadata.
 
-use crate::e2b::{E2bClient, Sandbox};
+use crate::e2b::{E2bClient, E2bSandbox};
 use crate::CuError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -163,12 +163,12 @@ pub fn filter_idle(
         .collect()
 }
 
-/// Wrap a bare sandbox id in the shared [`Sandbox`] handle so the
+/// Wrap a bare sandbox id in the shared [`E2bSandbox`] handle so the
 /// reaper can call [`crate::e2b::E2bCall::close_sandbox`] without
 /// constructing the type out-of-module.
 #[must_use]
-pub fn sandbox_handle(id: &str) -> Sandbox {
-    Sandbox { id: id.to_owned() }
+pub fn sandbox_handle(id: &str) -> E2bSandbox {
+    E2bSandbox { id: id.to_owned() }
 }
 
 #[cfg(test)]

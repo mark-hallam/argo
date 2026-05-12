@@ -9,7 +9,7 @@ use crate::anthropic::{AnthropicClient, CuStepRequest, CuStepResponse, StopReaso
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
 use crate::e2b::{
-    decode_inline_screenshot, ActionResult, CuAction, E2bClient, Sandbox as E2bSandbox,
+    decode_inline_screenshot, ActionResult, CuAction, E2bClient, E2bSandbox,
 };
 use crate::executor::AnthropicClientTemplate;
 use crate::executor_loop_exit::{handle_restart, stringify_verdict, LoopExit};

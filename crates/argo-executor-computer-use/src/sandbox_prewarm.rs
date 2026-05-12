@@ -45,7 +45,7 @@
 //! the reservoir goes unused, so the default respects operator
 //! wallet.
 
-use crate::e2b::Sandbox as E2bSandbox;
+use crate::e2b::E2bSandbox;
 use chrono::{DateTime, Timelike, Utc};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};

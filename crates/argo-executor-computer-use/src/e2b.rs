@@ -28,17 +28,17 @@ use serde::{Deserialize, Serialize};
 #[async_trait]
 pub trait E2bCall: Send + Sync {
     /// Open a fresh sandbox of the requested template.
-    async fn open_sandbox(&self, template: &str) -> Result<Sandbox, CuError>;
+    async fn open_sandbox(&self, template: &str) -> Result<E2bSandbox, CuError>;
     /// Capture a fresh screenshot.
-    async fn screenshot(&self, sandbox: &Sandbox) -> Result<Vec<u8>, CuError>;
+    async fn screenshot(&self, sandbox: &E2bSandbox) -> Result<Vec<u8>, CuError>;
     /// Execute one CU primitive in the sandbox.
     async fn execute_action(
         &self,
-        sandbox: &Sandbox,
+        sandbox: &E2bSandbox,
         action: &CuAction,
     ) -> Result<ActionResult, CuError>;
     /// Close + reclaim the sandbox.
-    async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError>;
+    async fn close_sandbox(&self, sandbox: &E2bSandbox) -> Result<(), CuError>;
     /// List sandboxes the configured API-key owns. Default impl
     /// returns empty — production [`E2bClient`] overrides to hit
     /// E2B's `GET /sandboxes`; test mocks override to return
@@ -76,20 +76,20 @@ pub trait E2bCall: Send + Sync {
 
 #[async_trait]
 impl E2bCall for E2bClient {
-    async fn open_sandbox(&self, template: &str) -> Result<Sandbox, CuError> {
+    async fn open_sandbox(&self, template: &str) -> Result<E2bSandbox, CuError> {
         E2bClient::open_sandbox(self, template).await
     }
-    async fn screenshot(&self, sandbox: &Sandbox) -> Result<Vec<u8>, CuError> {
+    async fn screenshot(&self, sandbox: &E2bSandbox) -> Result<Vec<u8>, CuError> {
         E2bClient::screenshot(self, sandbox).await
     }
     async fn execute_action(
         &self,
-        sandbox: &Sandbox,
+        sandbox: &E2bSandbox,
         action: &CuAction,
     ) -> Result<ActionResult, CuError> {
         E2bClient::execute_action(self, sandbox, action).await
     }
-    async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError> {
+    async fn close_sandbox(&self, sandbox: &E2bSandbox) -> Result<(), CuError> {
         E2bClient::close_sandbox(self, sandbox).await
     }
     async fn list_sandboxes(&self) -> Result<Vec<E2bSandboxInfo>, CuError> {
@@ -135,7 +135,7 @@ impl E2bClient {
 
     /// Open a sandbox of the requested template. Returns the
     /// sandbox handle the rest of the API uses.
-    pub async fn open_sandbox(&self, template: &str) -> Result<Sandbox, CuError> {
+    pub async fn open_sandbox(&self, template: &str) -> Result<E2bSandbox, CuError> {
         let url = format!("{}/sandboxes", self.base_url);
         let body = serde_json::json!({
             "templateId": template,
@@ -163,14 +163,14 @@ impl E2bClient {
             stage: "e2b/sandbox.open.parse",
             source: e,
         })?;
-        Ok(Sandbox {
+        Ok(E2bSandbox {
             id: parsed.sandbox_id,
         })
     }
 
     /// Capture a fresh PNG screenshot. Returns raw bytes; the
     /// caller persists to the audit dir.
-    pub async fn screenshot(&self, sandbox: &Sandbox) -> Result<Vec<u8>, CuError> {
+    pub async fn screenshot(&self, sandbox: &E2bSandbox) -> Result<Vec<u8>, CuError> {
         let url = format!("{}/sandboxes/{}/screenshot", self.base_url, sandbox.id);
         let resp = self
             .http
@@ -202,7 +202,7 @@ impl E2bClient {
     /// from the synthesised tool, or success/failure marker).
     pub async fn execute_action(
         &self,
-        sandbox: &Sandbox,
+        sandbox: &E2bSandbox,
         action: &CuAction,
     ) -> Result<ActionResult, CuError> {
         let path = match action {
@@ -244,7 +244,7 @@ impl E2bClient {
     /// Close the sandbox + reclaim resources. The pool holds
     /// onto sandboxes for 10 min idle TTL; explicit close is
     /// only used at executor shutdown / TTL eviction.
-    pub async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError> {
+    pub async fn close_sandbox(&self, sandbox: &E2bSandbox) -> Result<(), CuError> {
         let url = format!("{}/sandboxes/{}", self.base_url, sandbox.id);
         let resp = self
             .http
@@ -271,13 +271,14 @@ impl E2bClient {
 /// Opaque sandbox handle. The id is a UUID-like string the E2B
 /// service stamps at open time.
 ///
-/// Import this type as `E2bSandbox` at use sites — three distinct
-/// `Sandbox` types coexist in the workspace (`argo_sandbox::Sandbox`
-/// is the canonical workspace seam; `argo_executor_filesystem::Sandbox`
-/// is the filesystem isolation primitive). Aliasing at the use site
-/// keeps the type's role obvious in the code body.
+/// Named `E2bSandbox` (not plain `Sandbox`) to disambiguate from the
+/// other `Sandbox` types in the workspace: `argo_sandbox::Sandbox` is
+/// the canonical command-execution seam, and
+/// `argo_executor_filesystem::Sandbox` is the filesystem isolation
+/// primitive. Keeping the E2B-specific prefix keeps the type's role
+/// obvious in the code body without per-site `as ...` aliases.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Sandbox {
+pub struct E2bSandbox {
     pub id: String,
 }
 
