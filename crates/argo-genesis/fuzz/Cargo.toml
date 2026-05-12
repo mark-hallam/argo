@@ -1,0 +1,35 @@
+[package]
+name = "argo-genesis-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+authors = ["Argo Engineering"]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.argo-genesis]
+path = ".."
+
+[[bin]]
+name = "archetype_classify"
+path = "fuzz_targets/archetype_classify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "archetype_from_slug"
+path = "fuzz_targets/archetype_from_slug.rs"
+test = false
+doc = false
+bench = false
+
+[profile.release]
+debug = 1
+
+[workspace]
+members = ["."]

@@ -579,3 +579,70 @@ knob should watch both audit streams together.
   reservoir cap. Per-tenant pre-warm budgets are a follow-up.
 - **Not for non-E2B sandbox types.** Wayland and native sandboxes
   have different lifecycle costs; this brief covers E2B only.
+
+## Fuzz testing
+
+Argo ships cargo-fuzz harnesses against four parse-once boundaries
+where malformed input could panic or behave unexpectedly: the audit
+chain hasher, the redaction-rule scanner, the Genesis keyword
+classifier, and the MCP JSON-RPC frame parser. The harnesses live
+under `crates/<crate>/fuzz/` and form their own cargo workspace —
+they don't appear in the main `cargo build`.
+
+### Running a smoke locally
+
+cargo-fuzz wraps LLVM libFuzzer, so the nightly toolchain is
+required.
+
+```bash
+rustup toolchain install nightly
+cargo install cargo-fuzz --locked
+
+# 60-second smoke of the audit chain-hash target.
+cd crates/argo-audit/fuzz
+mkdir -p corpus/audit_chain_hash
+cp -n seeds/audit_chain_hash/* corpus/audit_chain_hash/ 2>/dev/null || true
+cargo +nightly fuzz run audit_chain_hash -- -max_total_time=60
+```
+
+Targets shipped today:
+
+| Crate           | Target               | What it fuzzes                                |
+| --------------- | -------------------- | --------------------------------------------- |
+| `argo-audit`   | `audit_chain_hash`   | `compute_chain_hash(parent, kind, payload)`   |
+| `argo-audit`   | `audit_chain_walk`   | Multi-row chain composition + replay          |
+| `argo-redact`  | `redact_text`        | Regex scanner over arbitrary UTF-8            |
+| `argo-redact`  | `redact_row`         | JSON-row redaction wrapper                    |
+| `argo-genesis` | `archetype_classify` | Charter → archetype keyword classifier        |
+| `argo-genesis` | `archetype_from_slug`| Slug-tolerant `Archetype::from_slug` lookup   |
+| `argo-mcp`     | `jsonrpc_request`    | JSON-RPC request frame decoder + round-trip   |
+| `argo-mcp`     | `jsonrpc_response`   | JSON-RPC response frame decoder + round-trip  |
+| `argo-mcp`     | `call_tool_result`   | `tools/call` response content decoder         |
+
+### Reproducing a crash from an artifact
+
+When libFuzzer finds an input that panics, it writes the bytes to
+`fuzz/artifacts/<target>/crash-<sha1>` (and a sibling
+`leak-<sha1>` for leak detections). Reproduce locally:
+
+```bash
+cd crates/argo-audit/fuzz
+cargo +nightly fuzz run audit_chain_hash artifacts/audit_chain_hash/crash-<sha1>
+```
+
+The argument after the target name is the path to a single input
+file; libFuzzer runs the harness once against that input and
+returns the panic backtrace.
+
+When triaging, save the crash artifact into
+`crates/<crate>/tests/fixtures/fuzz-regressions/` and add a regular
+`#[test]` that feeds the bytes through the same entrypoint — the
+crash artifact becomes a permanent regression test.
+
+### Continuous fuzzing in CI
+
+The nightly cron `.github/workflows/fuzz-nightly.yml.disabled` runs
+every target for 60 seconds against the checked-in seed corpus.
+It's disabled by default (rename to `.yml` once CI billing is
+restored); the workflow uploads any crash artifacts so operators
+can re-run the input locally via the recipe above.

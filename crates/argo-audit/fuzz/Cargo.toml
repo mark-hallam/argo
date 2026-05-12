@@ -1,0 +1,37 @@
+[package]
+name = "argo-audit-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+authors = ["Argo Engineering"]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.argo-audit]
+path = ".."
+
+[[bin]]
+name = "audit_chain_hash"
+path = "fuzz_targets/audit_chain_hash.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "audit_chain_walk"
+path = "fuzz_targets/audit_chain_walk.rs"
+test = false
+doc = false
+bench = false
+
+[profile.release]
+debug = 1
+
+# Standalone workspace — keeps the fuzz crate out of the main argo workspace
+# so `cargo clippy --workspace` in the parent never touches nightly-only deps.
+[workspace]
+members = ["."]

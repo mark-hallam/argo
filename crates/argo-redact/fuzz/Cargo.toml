@@ -1,0 +1,36 @@
+[package]
+name = "argo-redact-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+authors = ["Argo Engineering"]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+
+[dependencies.argo-redact]
+path = ".."
+
+[[bin]]
+name = "redact_text"
+path = "fuzz_targets/redact_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "redact_row"
+path = "fuzz_targets/redact_row.rs"
+test = false
+doc = false
+bench = false
+
+[profile.release]
+debug = 1
+
+[workspace]
+members = ["."]

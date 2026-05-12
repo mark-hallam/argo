@@ -14,3 +14,9 @@ node_modules/
 BURST_PLAN.md
 book-output/
 .claude/
+# cargo-fuzz working state (corpus grows unbounded; artifacts are
+# crash inputs the operator triages locally). Checked-in seeds live
+# under `crates/<c>/fuzz/seeds/<target>/`.
+**/fuzz/corpus/
+**/fuzz/artifacts/
+**/fuzz/target/
