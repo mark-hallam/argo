@@ -1,9 +1,17 @@
-//! `[runtime.context_compress]` config section
-//! (`mission-context-window-aware-compression`). Extracted into its
-//! own sibling file because [`crate::sections`] sits at the
-//! 500-LOC ceiling. Re-exported through [`crate`] so callers see
-//! the same flat surface as the other section structs.
+//! `[runtime.*]` config sections. Extracted into its own sibling
+//! file because [`crate::sections`] sits at the 500-LOC ceiling.
+//! Re-exported through [`crate`] so callers see the same flat
+//! surface as the other section structs.
+//!
+//! Currently holds:
+//!
+//! - `[runtime.context_compress]` — context-window-aware
+//!   compression knobs (`mission-context-window-aware-compression`).
+//! - `[runtime.action_throttle]` + `[runtime.action_throttle.<action_type>]`
+//!   — per-action-type token-bucket throttling knobs
+//!   (`mission-per-action-type-throttling`).
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Default trigger threshold (% of model context window) at which
 /// compression fires.
@@ -52,14 +60,80 @@ impl Default for ContextCompressConfig {
     }
 }
 
-/// `[runtime]` — parent for runtime-side TOML knobs. Currently
-/// only `[runtime.context_compress]`; future runtime sections land
-/// here without another schema flip.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// Default cumulative-wait threshold (seconds) past which a
+/// dispatch emits a `runtime.action_throttled` audit row. Mirrors
+/// [`argo_runtime::action_throttle::DEFAULT_AUDIT_THRESHOLD`].
+pub const DEFAULT_ACTION_THROTTLE_AUDIT_SECS: u32 = 10;
+
+/// `[runtime.action_throttle.<action_type>]` — operator-defined
+/// per-action-type rate-limit policy. Parsed off the TOML and
+/// mapped to `argo_runtime::action_throttle::ThrottlePolicy` at
+/// registry construction time.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ActionThrottlePolicyConfig {
+    /// Average sustained dispatch rate (tokens / sec). `0` or
+    /// negative is treated as misconfigured and the runtime
+    /// silently skips installing the bucket.
+    pub tokens_per_sec: f32,
+    /// Maximum burst depth (tokens). `0` is treated as
+    /// misconfigured.
+    pub burst: u32,
+}
+
+impl Default for ActionThrottlePolicyConfig {
+    fn default() -> Self {
+        Self {
+            tokens_per_sec: 1.0,
+            burst: 1,
+        }
+    }
+}
+
+/// `[runtime.action_throttle]` — master enable + per-action-type
+/// policy map (`mission-per-action-type-throttling`, MISSION_BACKLOG
+/// §8 #254).
+///
+/// Disabled by default for backward compatibility — the runtime
+/// dispatch path is zero-overhead until an operator sets `enabled
+/// = true`. Per-action policies live in nested
+/// `[runtime.action_throttle.policies.<action_type>]` blocks. The
+/// `.policies` sub-key (rather than `[runtime.action_throttle.<action_type>]`
+/// directly) sidesteps a serde-flatten foot-gun where bool / u32
+/// scalars at the same level as a `HashMap<String, struct>` collide
+/// during deserialisation; the operator UX is otherwise identical.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ActionThrottleConfig {
+    /// Master enable. When `false`, the runtime never installs
+    /// the gate regardless of configured policies.
+    pub enabled: bool,
+    /// Cumulative-wait threshold (seconds) past which a dispatch
+    /// emits a `runtime.action_throttled` audit row.
+    pub audit_threshold_secs: u32,
+    /// Per-action-type policy table. Each entry binds one TOML
+    /// block `[runtime.action_throttle.policies.<action_type>]`.
+    pub policies: HashMap<String, ActionThrottlePolicyConfig>,
+}
+
+impl Default for ActionThrottleConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            audit_threshold_secs: DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
+            policies: HashMap::new(),
+        }
+    }
+}
+
+/// `[runtime]` — parent for runtime-side TOML knobs.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RuntimeConfig {
     /// `[runtime.context_compress]`.
     pub context_compress: ContextCompressConfig,
+    /// `[runtime.action_throttle]` + per-action sub-tables.
+    pub action_throttle: ActionThrottleConfig,
 }
 
 #[cfg(test)]
@@ -95,5 +169,39 @@ summary_max_tokens = 800
     fn empty_toml_yields_defaults() {
         let cfg: RuntimeConfig = toml::from_str("").expect("parse");
         assert_eq!(cfg.context_compress, ContextCompressConfig::default());
+    }
+
+    #[test]
+    fn action_throttle_defaults_off() {
+        let cfg = ActionThrottleConfig::default();
+        assert!(!cfg.enabled);
+        assert_eq!(cfg.audit_threshold_secs, 10);
+        assert!(cfg.policies.is_empty());
+    }
+
+    #[test]
+    fn action_throttle_parses_from_toml() {
+        let body = r#"
+[action_throttle]
+enabled = true
+audit_threshold_secs = 20
+
+[action_throttle.policies.send_email]
+tokens_per_sec = 5.0
+burst = 10
+
+[action_throttle.policies.post_listing]
+tokens_per_sec = 2.0
+burst = 3
+"#;
+        let cfg: RuntimeConfig = toml::from_str(body).expect("parse");
+        assert!(cfg.action_throttle.enabled);
+        assert_eq!(cfg.action_throttle.audit_threshold_secs, 20);
+        let email = &cfg.action_throttle.policies["send_email"];
+        assert!((email.tokens_per_sec - 5.0).abs() < 1e-6);
+        assert_eq!(email.burst, 10);
+        let listing = &cfg.action_throttle.policies["post_listing"];
+        assert!((listing.tokens_per_sec - 2.0).abs() < 1e-6);
+        assert_eq!(listing.burst, 3);
     }
 }

@@ -61,7 +61,10 @@ pub use sections::{
     LoopConfig, MatrixTomlConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
     TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
-pub use sections_context::{ContextCompressConfig, RuntimeConfig};
+pub use sections_context::{
+    ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, RuntimeConfig,
+    DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
+};
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
 pub use worker_pool::{WorkerPoolConfig, WorkerPoolElasticityConfig};

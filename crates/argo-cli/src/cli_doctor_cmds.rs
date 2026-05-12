@@ -32,4 +32,14 @@ pub enum DoctorCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List the in-process per-action-type throttle buckets
+    /// (`mission-per-action-type-throttling`). Reports the
+    /// configured policies and any live `(tenant_id, action_type)`
+    /// bucket state held by the dispatch gate. Output is empty
+    /// when `[runtime.action_throttle] enabled = false`.
+    Throttles {
+        /// Emit a single JSON object instead of the text report.
+        #[arg(long)]
+        json: bool,
+    },
 }

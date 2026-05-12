@@ -20,6 +20,14 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+/// Per-action-type token-bucket throttling
+/// (`mission-per-action-type-throttling`). Token-bucket per
+/// `(tenant_id, action_type)` tuple that the dispatch layer queries
+/// before firing; bucket-empty returns a typed `Wait { delay }`
+/// instead of busy-spinning and emits a `runtime.action_throttled`
+/// audit row on long cumulative waits. Disabled by default so the
+/// wire is zero-overhead until operators opt in.
+pub mod action_throttle;
 /// Context-window-aware compression
 /// (`mission-context-window-aware-compression`). LLM-summarises
 /// older turns once running token-count crosses the operator-tuned

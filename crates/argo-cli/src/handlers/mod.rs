@@ -88,6 +88,7 @@ pub mod db;
 pub mod doctor;
 pub mod doctor_fix;
 mod doctor_md;
+pub mod doctor_throttles;
 pub mod doctor_watch;
 pub mod eval_compare;
 pub mod eval_list;
