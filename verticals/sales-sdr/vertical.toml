@@ -28,7 +28,8 @@ schema = "memory/schema.toml"
 suites = ["eval/seed.jsonl"]
 
 [mcp_servers]
-gcal = { transport = "stdio", command = "argo-mcp-connector-gcal", args = [] }
+gcal  = { transport = "stdio", command = "argo-mcp-connector-gcal",  args = [] }
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
 
 [escalation]
 human_approval_required = ["send_outreach", "book_meeting"]
@@ -63,8 +64,22 @@ description       = "Compose a personalised outreach message citing one specific
 risk              = "high"
 requires_approval = true
 description       = "Send the approved draft via the connector. ALWAYS approval-gated; the operator signs off so the brand voice + claim accuracy are checked before the prospect sees it."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = "Send outreach to `{{ payload.prospect_id }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Recipient `{{ payload.recipient_email }}`, subject `{{ payload.subject }}`. Body: {{ payload.body }}. Never alter the cited research signal or attach unapproved collateral while sending."
+
+[actions.send_outreach.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
 
 [actions.book_meeting]
 risk              = "medium"
 requires_approval = true
 description       = "Send a calendar invite via the gcal connector when the prospect agrees to talk. Approval-gated so the operator confirms the slot + agenda."
+executor          = { kind = "mcp", server = "gcal", tool = "events.insert", budget_usd = 0.05 }
+platforms         = ["gcal"]
+instruction_template = "Book a meeting with `{{ payload.prospect_id }}` for slot `{{ payload.slot_iso }}` ({{ payload.duration_minutes }} min). Approved by `{{ approved_by }}` at `{{ approved_at }}`. Attendees: `{{ payload.attendees }}`. Agenda: {{ payload.agenda }}. Keep the rubric / score out of the event body."
+
+[actions.book_meeting.retry]
+max_attempts = 2

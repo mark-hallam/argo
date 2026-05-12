@@ -27,15 +27,16 @@ schema = "memory/schema.toml"
 [evaluation]
 suites = ["eval/seed.jsonl"]
 
-# All three MCP servers are OPTIONAL. The vertical loads + lints
-# clean without them installed; the worker degrades to web_search +
-# web_extract only when a connector is missing. Connector briefs
-# (mission-mcp-connector-zoominfo / -clearbit / -similarweb) ship
-# the actual binaries.
+# MCP servers. Enrichment connectors (zoominfo / clearbit /
+# similarweb) are OPTIONAL — the vertical loads + lints clean
+# without them; the worker degrades to web_search + web_extract.
+# Dropbox is the document-storage destination for the live-wired
+# `draft_research_brief` action.
 [mcp_servers]
-zoominfo   = { transport = "stdio", command = "argo-mcp-connector-zoominfo", args = [] }
-clearbit   = { transport = "stdio", command = "argo-mcp-connector-clearbit", args = [] }
+zoominfo   = { transport = "stdio", command = "argo-mcp-connector-zoominfo",   args = [] }
+clearbit   = { transport = "stdio", command = "argo-mcp-connector-clearbit",   args = [] }
 similarweb = { transport = "stdio", command = "argo-mcp-connector-similarweb", args = [] }
+dropbox    = { transport = "stdio", command = "argo-mcp-connector-dropbox",    args = [] }
 
 # Outreach sends are NOT in this vertical's vocabulary — they live
 # in `sales-sdr`. The entry below is a forward declaration so any
@@ -44,7 +45,7 @@ similarweb = { transport = "stdio", command = "argo-mcp-connector-similarweb", a
 # while this vertical is on the stack, it MUST gate behind human
 # approval.
 [escalation]
-human_approval_required = ["send_outreach_email"]
+human_approval_required = ["send_outreach_email", "draft_research_brief"]
 escalate_after_failures = 2
 escalate_to             = "operator"
 
@@ -54,3 +55,28 @@ auth_required    = true
 
 [tui]
 overlay_label = "Lead Research"
+
+[actions]
+
+[actions.research_company]
+risk              = "low"
+requires_approval = false
+description       = "Pull firmographic + recent-news + tech-stack signals for the target company. Read-only across web_search + optional zoominfo/clearbit/similarweb connectors. No external mutation."
+
+[actions.identify_decision_makers]
+risk              = "low"
+requires_approval = false
+description       = "Map the likely buying committee (titles + relevance signal). Read-only; sources every contact or marks it `inferred`."
+
+[actions.draft_research_brief]
+risk              = "medium"
+requires_approval = true
+description       = "Render the structured 1-pager brief and upload it to Dropbox as the durable handoff artefact for sales-sdr. Approval-gated — the operator approves the brief content + destination path before any file leaves the workspace. The brief is the demo-ready surface for this vertical."
+executor          = { kind = "mcp", server = "dropbox", tool = "dropbox.upload", budget_usd = 0.05 }
+platforms         = ["dropbox"]
+instruction_template = "Upload research brief for `{{ payload.company_id }}` to Dropbox path `{{ payload.dropbox_path }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. The brief body MUST cite every firmographic claim or mark it `inferred`; never include outreach copy in the brief itself — sales-sdr owns the send step."
+
+[actions.draft_research_brief.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60

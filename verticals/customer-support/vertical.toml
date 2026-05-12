@@ -27,6 +27,9 @@ schema = "memory/schema.toml"
 [evaluation]
 suites = ["eval/seed.jsonl"]
 
+[mcp_servers]
+gmail = { transport = "stdio", command = "argo-mcp-connector-gmail", args = [] }
+
 [escalation]
 human_approval_required = ["reply_to_customer", "close_ticket"]
 escalate_after_failures = 2
@@ -55,6 +58,14 @@ description       = "Compose a draft reply citing the relevant knowledge-base sn
 risk              = "high"
 requires_approval = true
 description       = "Send the approved draft reply on the ticket. Approval-gated — never autonomous; the operator signs off before send."
+executor          = { kind = "mcp", server = "gmail", tool = "gmail.send", budget_usd = 0.05 }
+platforms         = ["gmail"]
+instruction_template = "Send approved reply for ticket `{{ payload.ticket_id }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Recipient `{{ payload.recipient_email }}`. Subject: `{{ payload.subject }}`. Body to send: {{ payload.body }}. Never alter the ticket id, recipient, or quoted KB snippets while sending."
+
+[actions.reply_to_customer.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
 
 [actions.close_ticket]
 risk              = "medium"

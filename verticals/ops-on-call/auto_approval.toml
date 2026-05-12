@@ -3,11 +3,13 @@ max_usd_micros_per_action = 100000
 daily_budget_usd_micros   = 5000000
 
 # Conservative-by-design wake list. Only the read-only triage +
-# drafting skills are autonomous-safe. ALL mutations
-# (restart_service, rollback_deploy, page_secondary) are absent
-# from this list so they route through the human-approval gate
-# declared in `vertical.toml`'s `[escalation]` block. The
-# `escalate_to_human` skill is itself approval-gated — the
-# operator confirms wording, recipient, and urgency before any
-# Slack ping fires.
-wake_action_types = ["triage_page", "find_runbook", "draft_incident_update"]
+# runbook lookup are autonomous-safe. `draft_incident_update` was
+# previously on the wake list but is removed now that it is wired
+# to a live Slack send — the operator approves the wording before
+# responders see it. ALL mutations (restart_service,
+# rollback_deploy, page_secondary) are absent from this list so
+# they route through the human-approval gate declared in
+# `vertical.toml`'s `[escalation]` block. The `escalate_to_human`
+# skill is itself approval-gated — the operator confirms wording,
+# recipient, and urgency before any Slack ping fires.
+wake_action_types = ["triage_page", "find_runbook"]

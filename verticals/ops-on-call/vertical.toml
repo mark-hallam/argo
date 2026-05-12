@@ -38,11 +38,13 @@ slack     = { transport = "stdio", command = "argo-mcp-connector-slack",     arg
 # even though this vertical doesn't define them as [actions] —
 # they're conceptual names a future executor will dispatch, and
 # they're listed so the human-approval gate is declarative + on
-# record. escalate_after_failures = 1 means a single failed
-# triage attempt routes to the human; we never silently retry
-# the wrong thing on a live page.
+# record. `draft_incident_update` joins the list now that it is
+# wired to a live Slack send and operator wording-approval is
+# the non-negotiable gate. escalate_after_failures = 1 means a
+# single failed triage attempt routes to the human; we never
+# silently retry the wrong thing on a live page.
 [escalation]
-human_approval_required = ["restart_service", "rollback_deploy", "page_secondary"]
+human_approval_required = ["restart_service", "rollback_deploy", "page_secondary", "draft_incident_update"]
 escalate_after_failures = 1
 escalate_to             = "operator"
 
@@ -52,3 +54,33 @@ auth_required    = true
 
 [tui]
 overlay_label = "Ops On-Call"
+
+[actions]
+
+[actions.triage_page]
+risk              = "low"
+requires_approval = false
+description       = "Read the incoming page payload, classify by component + severity, and pull recent deploy / alert history. Read-only triage — no Slack post, no mutation."
+
+[actions.find_runbook]
+risk              = "low"
+requires_approval = false
+description       = "Look up the runbook entry for the triaged page. Read-only file lookup; emits a runbook path + a one-line summary."
+
+[actions.draft_incident_update]
+risk              = "medium"
+requires_approval = true
+description       = "Post an incident-update message to the on-call Slack channel. Approval-gated — the operator approves the wording before responders or stakeholders see it. The agent NEVER restarts services, rolls back, or pages a secondary; the live-wired surface is communication only."
+executor          = { kind = "mcp", server = "slack", tool = "slack.send_message", budget_usd = 0.02 }
+platforms         = ["slack"]
+instruction_template = "Post incident update for `{{ payload.incident_id }}` to Slack channel `{{ payload.incident_channel }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Severity: `{{ payload.severity }}`. Update body: {{ payload.body }}. Always prefix with `[INCIDENT {{ payload.incident_id }}]`. Never imply restart / rollback action has been taken — those are human-approved mutations outside this action."
+
+[actions.draft_incident_update.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
+
+[actions.escalate_to_human]
+risk              = "low"
+requires_approval = false
+description       = "Hand the page to the human on-call when the symptom is ambiguous, customer-impacting, data-loss-risk, security-relevant, or outside the agent's read-only authority. Routing-only; if a Slack post is needed during escalation, the wording goes through `draft_incident_update`."

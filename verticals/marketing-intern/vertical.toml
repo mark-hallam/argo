@@ -27,8 +27,14 @@ schema = "memory/schema.toml"
 [evaluation]
 suites = ["eval/seed.jsonl"]
 
+# Slack is the *internal review* channel — drafts post to an operator-
+# only space, NEVER to a public social platform. Public posting stays a
+# manual operator copy step. This is the safety posture for v1.
+[mcp_servers]
+slack = { transport = "stdio", command = "argo-mcp-connector-slack", args = [] }
+
 [escalation]
-human_approval_required = ["post_social", "post_blog", "send_newsletter"]
+human_approval_required = ["draft_social_post", "post_social", "post_blog", "send_newsletter"]
 escalate_after_failures = 2
 escalate_to             = "operator"
 
@@ -52,9 +58,17 @@ requires_approval = false
 description       = "Web-search for mentions of the workspace brand across blogs/news/social over the last 7 days. Tagged sentiment + source."
 
 [actions.draft_social_post]
-risk              = "low"
-requires_approval = false
-description       = "Compose a draft social post. Stored as draft; the brief reminder is in the persona — NEVER autonomously post."
+risk              = "medium"
+requires_approval = true
+description       = "Compose a draft social post and post it to the internal Slack review channel. Approval-gated — the operator approves the draft text before it lands in Slack, then manually copies the approved draft to the public social platform. Public posting is NEVER autonomous."
+executor          = { kind = "mcp", server = "slack", tool = "slack.send_message", budget_usd = 0.02 }
+platforms         = ["slack"]
+instruction_template = "Post draft social copy for review to Slack channel `{{ payload.review_channel }}`. Approved by `{{ approved_by }}` at `{{ approved_at }}`. Platform: `{{ payload.platform }}` (intended target — operator copies manually). Draft body: {{ payload.body }}. Always include the `DRAFT — review before posting` prefix in the Slack message body."
+
+[actions.draft_social_post.retry]
+max_attempts          = 2
+backoff               = "exponential"
+initial_delay_seconds = 60
 
 [actions.post_social]
 risk              = "high"
