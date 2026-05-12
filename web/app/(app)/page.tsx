@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   AlertCircle,
-  Bell,
   Filter,
   Inbox,
   Loader2,
@@ -13,9 +13,22 @@ import {
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { ApprovalCard } from "@/components/skycot/ApprovalCard";
+import { NotificationsBell } from "@/components/skycot/NotificationsBell";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
+import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
 import { groupApprovals, type ApprovalItem } from "@/lib/sample-approvals";
 import { useApprovals, useSubmitDecision, useUndoDecision } from "@/lib/hooks/use-approvals";
+
+// Lazy-load the popover (Radix popover + grouping logic adds ~20KB to
+// First Load JS). The bell glyph + unread dot still render
+// synchronously; the popover content fetches on first open.
+const NotificationsPopover = dynamic(
+  () =>
+    import("@/components/skycot/NotificationsPopover").then((m) => ({
+      default: m.NotificationsPopover,
+    })),
+  { ssr: false },
+);
 
 export default function ApprovalsInboxPage() {
   const approvalsQuery = useApprovals();
@@ -84,6 +97,30 @@ export default function ApprovalsInboxPage() {
   );
 }
 
+function NotificationsBellTrigger() {
+  const unreadCount = useUnreadNotificationCount();
+  // Defer mounting the Radix popover until first interaction. Once
+  // mounted, leave it in the tree so subsequent opens are instant.
+  const [armed, setArmed] = useState(false);
+
+  const bellButton: ReactNode = (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Notifications"
+      onClick={armed ? undefined : () => setArmed(true)}
+    >
+      <NotificationsBell unreadCount={unreadCount} />
+    </Button>
+  );
+
+  if (!armed) return bellButton;
+
+  return (
+    <NotificationsPopover defaultOpen>{bellButton}</NotificationsPopover>
+  );
+}
+
 function PageHeader({
   query,
   setQuery,
@@ -115,9 +152,7 @@ function PageHeader({
             <Button variant="ghost" size="icon" aria-label="Filter">
               <Filter />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Notifications">
-              <Bell />
-            </Button>
+            <NotificationsBellTrigger />
             <Button variant="primary" size="md" className="shadow-sm" aria-label="Hire teammate">
               <Plus />
               <span className="hidden sm:inline">Hire teammate</span>
