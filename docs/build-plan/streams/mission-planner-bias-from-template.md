@@ -42,11 +42,17 @@ Also EXTEND the `worker_actions_emit` dispatch (the path the worker takes to gen
 
 ### Provenance + reporting
 
-EXTEND `argo-types::PlanProvenance` enum (≤ 15 LOC) — add the `FromLearnedTemplate` variant; keep existing `ColdGenerated` + `BuiltIn` variants.
+**NEW** `argo-types::PlanProvenance` enum (≤ 25 LOC) — define the enum from scratch with three variants: `ColdGenerated`, `BuiltIn`, `FromLearnedTemplate { template_id, trust_grade, signature }`. Earlier draft of this brief incorrectly claimed the enum already existed; verified against origin/main 2026-05-12 — `PlanProvenance` does not appear anywhere in the workspace.
 
-ONE migration is needed (Rust v59 + SQL 63 — verify next-free slot at claim time, as v58 / 62 just shipped per `mission-operator-specific-risk-overrides` #1361). Adds `plan_provenance TEXT NOT NULL DEFAULT 'ColdGenerated'` column to the appropriate audit/plan-history table:
+**NEW** migration: this brief uses **slot 68** per the header pin (slots 63-70 reserved; this brief owns 68). There is NO `plan_history` table on origin/main 2026-05-12; verified via `rg -n 'CREATE TABLE plan_history\|plan_history (' crates/argo-store/migrations/`. Two options for the schema, pick the cleaner one at claim time:
 
-EXTEND `crates/argo-store/src/migrations/vNN.rs` (NEW; verify slot — likely v59) — ALTER TABLE plan_history ADD COLUMN plan_provenance TEXT NOT NULL DEFAULT 'ColdGenerated'. Coordinate with `mission-gateway-request-audit-log` + `mission-audit-chain-watchdog` briefs (both reservation-only) — they have flexibility to take v60+/SQL 64+ if this brief claims v59 first.
+  (a) **NEW** `plan_provenance` table — `(id INTEGER PRIMARY KEY, session_id BLOB, worker_id BLOB, created_at INTEGER NOT NULL, provenance_json TEXT NOT NULL)` — keeps provenance out of `audit_record` payload (parallel observability table).
+
+  (b) Stamp the provenance into `audit_record.payload_json` directly under a top-level `plan_provenance` key. No new table; reuses the existing audit chain. Lower complexity, but couples provenance reads to audit-row scans.
+
+The brief preference is (b) — pure additive stamping inside the audit chain — unless the operator wants a dedicated query surface, in which case (a). Document the choice + reasoning in the PR body.
+
+If (a) is chosen, the migration goes to slot 68 (`68__plan_provenance.sql`). If (b), no migration needed; just additive payload stamping in `worker_actions_emit` audit-chain write.
 
 ## Acceptance criteria
 

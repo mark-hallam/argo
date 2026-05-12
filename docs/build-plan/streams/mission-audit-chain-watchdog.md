@@ -76,7 +76,7 @@ This is NOT in scope: actual chain-repair tooling (separate forensics brief — 
 - `crates/argo-audit/src/watchdog_tests.rs` (NEW, sibling, ≤ 280 LOC) — 9 unit tests (intact-chain / break-at-mid / break-at-last / empty-chain / batch-size-cap / cursor-resume / notifier-error-doesn't-crash-loop / tamper-event-shape / VerifyReport-roundtrip-through-JSON)
 - `crates/argo-audit/src/tamper_notifier_channels.rs` (NEW, ≤ 150 LOC) — concrete TamperNotifier hitting `argo-channels`
 - `crates/argo-audit/src/lib.rs` — narrowly scoped: register modules
-- `crates/argo-audit/src/chain.rs` (EXTEND, ≤ 30 LOC delta if needed) — add `pub async fn scan(from: u64, n: usize) -> Vec<AuditRow>` if it doesn't exist yet (low risk — pure read)
+- `crates/argo-audit/src/sink.rs` (EXTEND, ≤ 30 LOC delta if needed) — add `pub async fn scan(from: u64, n: usize) -> Vec<AuditRow>` if it doesn't exist yet (low risk — pure read). NOTE: there is no `crates/argo-audit/src/chain.rs` on origin/main 2026-05-12; chain-hash logic lives in `sink.rs::compute_chain_hash` + `verify.rs::verify_session`/`verify_all`.
 - `crates/argo-store/src/audit_watchdog.rs` (NEW, ≤ 120 LOC)
 - `crates/argo-store/src/audit_watchdog_tests.rs` (NEW, sibling, ≤ 100 LOC) — 4 unit tests
 - `crates/argo-store/src/lib.rs` — narrowly scoped: register module
@@ -120,7 +120,7 @@ This is NOT in scope: actual chain-repair tooling (separate forensics brief — 
 
 ## Notes for the implementer
 
-- First read `crates/argo-audit/src/chain.rs` to confirm the chain primitive shape. The brief assumes `chain_hash = sha256(prev_chain_hash || row_canonical_bytes)` — if the actual encoding is different (e.g. blake3, or different canonicalization), match the existing scheme exactly. Don't invent a new format.
+- First read `crates/argo-audit/src/sink.rs` (specifically `compute_chain_hash` near line 196) AND `crates/argo-audit/src/verify.rs` to confirm the chain primitive shape. There is NO `chain.rs` file — earlier draft of this brief had a typo. The brief assumes `chain_hash = sha256(prev_chain_hash || row_canonical_bytes)` — if the actual encoding is different (e.g. blake3, or different canonicalization), match the existing scheme exactly. Don't invent a new format.
 - `run_forever()` is a `loop { run_once().await; tokio::time::sleep(interval).await; }` — interruptible by drop. Don't add custom shutdown signaling.
 - Batch size: verify rows in slices of `config.batch_size` (default 1000) so a watchdog tick on a 10M-row chain doesn't lock the read pool for minutes. Cursor advances per batch.
 - Notifier-error-doesn't-crash: wrap the notify call in `if let Err(e) = self.notifier.notify(&report).await { tracing::error!(error=?e, "tamper notifier failed"); }`. The loop continues regardless. The `tracing::error!` event is the fallback signal — even if all channels are broken, the operator still has the structured log.

@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_skill_provenance_name ON skill_provenance(skill_n
 EXTEND the 4 known skill-mutation sites to append a provenance row alongside the version bump:
 
 - `crates/argo-skill/src/dreams_distillation.rs` (≤ 15 LOC delta) — on Dreams-derived skill creation, append `DreamsDerived { parent_template_id }`
-- `crates/argo-cli/src/handlers/skill_propose.rs` (or `skill_publish.rs`; verify) (≤ 15 LOC delta) — on operator-authored skill, append `OperatorAuthored { actor }`
+- `crates/argo-cli/src/handlers/skill_publish.rs` (≤ 15 LOC delta) — on operator-authored skill, append `OperatorAuthored { actor }`. (Verified on origin/main 2026-05-12: no `skill_propose.rs` exists; `skill_publish.rs` is the canonical operator-authored path.)
 - `crates/argo-forge/src/forge.rs` (verify path; ≤ 15 LOC delta) — on Forge-promoted version, append `ForgePromoted { from_version }`
 - Bootstrap-shipped skills get back-filled by the migration itself: `INSERT INTO skill_provenance (skill_name, skill_version, provenance_kind, ts) SELECT name, version, 'Bootstrap', strftime('%s','now') FROM skill_versions WHERE ...` (idempotent guard).
 
@@ -95,7 +95,7 @@ This is NOT in scope: the operator-facing UI for browsing provenance (separate p
 - `crates/argo-store/src/skill_provenance_tests.rs` (NEW, ≤ 150 LOC)
 - `crates/argo-skill/src/dreams_distillation.rs` (EXTEND, ≤ 15 LOC delta)
 - `crates/argo-forge/src/forge.rs` (EXTEND, ≤ 15 LOC delta — append Forge-promoted provenance)
-- `crates/argo-cli/src/handlers/skill_propose.rs` OR `skill_publish.rs` (EXTEND, ≤ 15 LOC delta — verify which is the canonical operator-authored path)
+- `crates/argo-cli/src/handlers/skill_publish.rs` (EXTEND, ≤ 15 LOC delta — canonical operator-authored path verified 2026-05-12)
 
 ## Files you must NOT touch
 

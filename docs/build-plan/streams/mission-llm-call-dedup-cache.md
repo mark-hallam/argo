@@ -8,7 +8,7 @@
 
 ## Scope
 
-Add a `DedupCache` wrapper around the existing `Provider` trait that:
+Add a `DedupCache` wrapper around the existing `Transport` trait (defined at `crates/argo-provider/src/transport.rs:147`; mirror of the existing `BreakerTransport<T: Transport>` pattern at line 216). NOTE: earlier draft of this brief incorrectly referenced a `Provider` trait — the actual workspace trait is `Transport`; do a careful s/Provider/Transport/ at claim time on this brief.
 
 1. Hashes the request key: `sha256(model + json(messages) + json(params))`.
 2. Looks up the key in an in-process `Arc<RwLock<HashMap<[u8;32], (Instant, Response)>>>`.
@@ -17,7 +17,7 @@ Add a `DedupCache` wrapper around the existing `Provider` trait that:
 5. Periodic GC (every 5 min via tokio interval) drops entries older than TTL.
 
 ```rust
-pub struct DedupCache<P: Provider> {
+pub struct DedupCache<P: Transport> {
     inner: Arc<P>,
     cache: Arc<RwLock<HashMap<[u8; 32], CachedEntry>>>,
     ttl: Duration,
@@ -28,14 +28,14 @@ struct CachedEntry {
     at: Instant,
 }
 
-impl<P: Provider> DedupCache<P> {
+impl<P: Transport> DedupCache<P> {
     pub fn new(inner: P, ttl: Duration) -> Self;
 }
 
-impl<P: Provider> Provider for DedupCache<P> { /* delegates */ }
+impl<P: Transport> Transport for DedupCache<P> { /* delegates */ }
 ```
 
-Wired via NEW `Provider::with_dedup(ttl)` builder helper. Opt-in: not on by default. Operators enable via `ARGO_PROVIDER_DEDUP_TTL_SECS=60`.
+Wired via NEW `Transport::with_dedup(ttl)` builder helper. Opt-in: not on by default. Operators enable via `ARGO_PROVIDER_DEDUP_TTL_SECS=60` (env-var name stays `PROVIDER` because the **crate** is `argo-provider` even though the **trait** is `Transport`).
 
 This is NOT in scope: cross-process cache (in-process only — workers in different processes have separate caches); persistent cache (TTL is process-lifetime bounded); hashing tool_use blocks (only flat messages cache cleanly); LRU eviction (TTL-only); streaming responses (skip the cache layer for streaming calls).
 
