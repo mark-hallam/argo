@@ -204,6 +204,9 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
             cli::CredCmd::MigrateToKeyring { dry_run, from_file } => {
                 handlers::cred_migrate_to_keyring::run_migrate(dry_run, from_file)
             }
+            cli::CredCmd::EncryptAll { path, json } => {
+                handlers::credentials_encrypt_all::run(path, json)
+            }
         },
         Some(Command::Backup { cmd }) => match cmd {
             cli::BackupCmd::Create {

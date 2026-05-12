@@ -1,0 +1,21 @@
+[package]
+name = "argo-credentials"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "At-rest age encryption for argo credentials.toml (mission-encryption-at-rest-credentials-toml)"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+age = "0.11"
+argo-types = { path = "../argo-types" }
+base64 = "0.22"
+serde = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

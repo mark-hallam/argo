@@ -51,4 +51,18 @@ pub enum CredCmd {
         #[arg(long)]
         from_file: Option<PathBuf>,
     },
+    /// Rewrite the workspace credentials file with every plaintext
+    /// entry wrapped in an age envelope under the workspace master
+    /// key (`ARGO_CREDENTIALS_MASTER_KEY` env or
+    /// `~/.skycot/.master_key` file). Already-encrypted entries pass
+    /// through unchanged.
+    EncryptAll {
+        /// Override the credentials file path (defaults to
+        /// `<workspace>/.argo/credentials.toml`).
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Emit a JSON report instead of human-readable output.
+        #[arg(long)]
+        json: bool,
+    },
 }

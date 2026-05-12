@@ -71,6 +71,7 @@ pub mod cred_import;
 pub mod cred_list;
 pub mod cred_migrate_to_keyring;
 pub mod cred_set;
+pub mod credentials_encrypt_all;
 pub mod cu_replay;
 mod cu_replay_render;
 pub mod daemon_install;
