@@ -1,0 +1,42 @@
+# systemd unit for the SKYCOT product-surface SPA (single-VM recipe).
+#
+# Installed at /etc/systemd/system/web.service by deploy/vm/install.sh.
+# `npm start` invokes the script defined in web/package.json which runs
+# `next start` against the pre-built `.next/` artifact. The install
+# script runs `npm run build` once during bootstrap so this unit does
+# not need to compile on every restart.
+#
+# Brief originally specified `node /var/lib/argo/web/server.js` (Next.js
+# standalone). The web app is not currently configured for standalone
+# output, so we use the conventional `npm start` path. The install
+# script keeps the recipe operable without flipping a next.config flag.
+# Documented in deploy/vm/README.md.
+
+[Unit]
+Description=SKYCOT web SPA (single-VM recipe)
+Documentation=https://github.com/mark-hallam/Argo-Agent/blob/main/deploy/vm/README.md
+After=argo.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=argo
+Group=argo
+WorkingDirectory=/var/lib/argo/web
+EnvironmentFile=/etc/argo/web.env
+ExecStart=/usr/bin/npm start --silent
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening — see systemd.exec(5).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/var/lib/argo
+
+[Install]
+WantedBy=multi-user.target

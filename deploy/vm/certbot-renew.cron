@@ -1,0 +1,19 @@
+# /etc/cron.d/skycot-certbot — Let's Encrypt cert renewal.
+#
+# Installed by deploy/vm/install.sh when --with-tls is used. certbot
+# itself ships a systemd timer on Ubuntu, but the timer fires daily at
+# a uniform :00 minute which contributes to the LE rate-limit
+# thundering-herd at midnight UTC. This cron entry replaces the timer
+# with a twice-daily schedule jittered to :23 past the hour, far from
+# any common automation boundary.
+#
+# The post-renew hook reloads nginx so the newly-issued cert is picked
+# up without dropping connections. certbot's --nginx plugin also adds
+# its own deploy hook; reloading twice is idempotent.
+#
+# Format: minute hour dom month dow user command
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+23 3,15 * * * root certbot renew --quiet --deploy-hook "systemctl reload nginx"

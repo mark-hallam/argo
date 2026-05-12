@@ -1,0 +1,46 @@
+# systemd unit for the argo gateway (single-VM recipe).
+#
+# Installed at /etc/systemd/system/argo.service by deploy/vm/install.sh.
+# WorkingDirectory and ReadWritePaths point at /var/lib/argo so the
+# SQLite store, install-state markers, and credential files all live in
+# one place owned by the argo system user.
+#
+# Type=exec (not notify) — argo does not call sd_notify(READY=1).
+# Switching to notify would block the unit in `activating` until the
+# TimeoutStartSec window expired. exec activates as soon as the binary
+# successfully exec()'s, which is the right semantics for a long-running
+# HTTP listener.
+#
+# Bind is 127.0.0.1:8080 — operators terminate TLS at nginx (see
+# nginx-skycot.conf). 0.0.0.0 binds would require --insecure-bind per
+# `argo gateway start --help`; we deliberately do not expose the gateway
+# directly.
+
+[Unit]
+Description=Argo gateway (single-VM recipe)
+Documentation=https://github.com/mark-hallam/Argo-Agent/blob/main/deploy/vm/README.md
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=argo
+Group=argo
+WorkingDirectory=/var/lib/argo
+EnvironmentFile=/etc/argo/argo.env
+ExecStart=/usr/local/bin/argo gateway start --bind 127.0.0.1 --port 8080
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening — see systemd.exec(5).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/var/lib/argo
+
+[Install]
+WantedBy=multi-user.target
