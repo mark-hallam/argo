@@ -1,5 +1,12 @@
 # 14-day build plan — SKYCOT v1
 
+> **STATUS: ARCHIVED 2026-05-12.** The original 14-day v1 sprint
+> completed in the tick-57 era. This file is retained for the v1.0
+> ship-gate definition (final section) and for historical context.
+> Streams A–H described below are NOT live work. Live plan:
+> `BUILD_PLAN_V11.md` (backend) + `PRODUCT_ROADMAP.md` (product
+> surface) + `BUILD_STATUS.md` (live ledger).
+
 **Mission**: see [`docs/skycot/MISSION.md`](../skycot/MISSION.md).
 
 **Deadline**: 14 working days from PR-merge of this plan.

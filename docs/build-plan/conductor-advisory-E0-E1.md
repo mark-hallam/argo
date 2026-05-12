@@ -1,5 +1,10 @@
 # Conductor advisory — Track E foundation + slice E1 (7 briefs)
 
+> **STATUS: ACTIONED 2026-05-12** — rows inserted into BUILD_STATUS.md;
+> Track E slice E1 closed (6/6 briefs MERGED, plus E0 contract).
+> This advisory is retained for traceability only. Live state:
+> BUILD_STATUS.md.
+
 Authored 2026-05-11 against origin/main `0cc3fdba` after the
 post-E1 checkpoint sign-off. Paste the fenced block below into
 the running conductor at the next tick. The conductor inserts 7

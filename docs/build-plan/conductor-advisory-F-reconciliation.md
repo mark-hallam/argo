@@ -1,5 +1,9 @@
 # Conductor advisory — Track F reconciliation (skill/marketplace status flips)
 
+> **STATUS: ACTIONED 2026-05-12** — flips applied to BUILD_STATUS.md;
+> Track F substantively MERGED. This advisory is retained for
+> traceability only. Live state: BUILD_STATUS.md.
+
 Authored 2026-05-11 against origin/main `2537eae7` after Track F
 audit. Track F (skill + marketplace backend fill-ins for mission
 claim 4) is **largely complete by the swarm**: 11 of 14

@@ -32,7 +32,7 @@ surface.
 | Track | Scope | Who | Status | Closes |
 |---|---|---|---|---|
 | A | UX research — personas + journey maps | operator + claude | **DONE** 2026-05-11 | design brief for B/C/D/E |
-| B | Capability fill-ins (Windows native CU + real-LLM journey test) | swarm | **QUEUED** 2026-05-11 — 2 briefs in [streams/](streams/) | mission claim 5 (Windows leg) |
+| B | Capability fill-ins (Windows native CU + real-LLM journey test) | swarm | **DONE** 2026-05-12 — both briefs MERGED (mission-cu-native-windows-poc #1332, mission-real-llm-operator-journey-test #1333) | mission claim 5 (Windows leg) |
 | C | Design language — stack pick, brand tokens, component primitives | operator + 1 focused thread | **IN PROGRESS** 2026-05-11 — ADR + scaffold + 8 primitives + theming layer landed in [web/](../../web/); typecheck + build + 6/6 unit tests green | foundation for D + E |
 | D | Wireframes for the 5 surfaces (hire / team / worker profile / approvals inbox / audit timeline) | operator + claude, validated against real users | **DONE** 2026-05-11 — README + 5 surface specs in [skycot/ux-research/wireframes/](../skycot/ux-research/wireframes/); each wireframe carries ASCII layouts, exact strings, mobile reflow, and 5-10 Track-E brief slicing hints | implementation brief for E |
 | E | Frontend implementation, sliced thin (approvals inbox → hire → team → worker profile → audit) | swarm, after C+D land | **IN PROGRESS** 2026-05-11 — all 38 briefs authored across E0/E1/E2/E3/E4/E5 in [streams/](streams/); two conductor advisories queued ([E0-E1](conductor-advisory-E0-E1.md) + [E2-E5](conductor-advisory-E2-E5.md)). Flips to DONE only after merges land. | mission claims 1, 2, 3, 6 |
@@ -76,7 +76,7 @@ approvals-inbox slice is the first such surface. The intent is
 to update these docs in-place with what real-user feedback
 reveals rather than gate further work on validation.
 
-## Track B — capability fill-ins (QUEUED)
+## Track B — capability fill-ins (DONE 2026-05-12)
 
 Two briefs authored 2026-05-11, queued for swarm pickup:
 
@@ -139,7 +139,7 @@ parallelize cleanly.
 Sizing: ~1 week of focused operator work plus one supporting
 claude thread.
 
-## Track D — wireframes (NOT STARTED)
+## Track D — wireframes (DONE 2026-05-11)
 
 Five surfaces, low-fi in Figma or paper, validated against the
 Track A personas with real users before locking. Order matters —
@@ -158,7 +158,7 @@ each surface is a single Figma file linked from this section:
 Sizing: ~1–2 weeks. Operator + claude in a focused thread, with
 2–3 user-validation passes per surface.
 
-## Track E — frontend implementation (NOT STARTED)
+## Track E — frontend implementation (IN PROGRESS — E1 closed, E3 closed, E2/E4/E5 in flight)
 
 Sliced thin by surface, in the order above. Each slice is
 5–10 swarmable briefs once the C+D foundation is locked.
@@ -185,7 +185,7 @@ Sizing: ~6–10 weeks of swarm work. Conductor manages dependency
 ordering inside each slice; slices ship sequentially but briefs
 within a slice parallelize.
 
-## Track F — backend fill-ins for mission claim 4 (NOT STARTED)
+## Track F — backend fill-ins for mission claim 4 (substantively MERGED 2026-05-12)
 
 Six outstanding TODO mission rows in the ledger that close the
 "skills shared and learned" claim:
@@ -206,7 +206,7 @@ Plus marketplace-side:
 Sizing: ~2–3 weeks of swarm work. Independent of Track E;
 runnable in parallel.
 
-## Track G — mission claim 5 finish (NOT STARTED)
+## Track G — mission claim 5 finish (DONE 2026-05-12 — G1/G2/G3 MERGED)
 
 Follow-ups after Track B lands:
 
@@ -221,14 +221,21 @@ Sizing: ~1 week of swarm work.
 
 ## Mission-claim coverage map
 
+> **Refreshed 2026-05-12** — reflects the live ledger
+> (BUILD_STATUS.md). Track A (research) and B (capability fill-ins)
+> are DONE. Track E slice E1 (approvals) is DONE (6/6); E3 (team)
+> is DONE (5/5); E2/E4/E5 in flight. Track F substantively MERGED
+> (claim 4 backend). Track G fully MERGED (claim 5). Track J
+> substantively in flight (J1/J3/J4/J5/J14 MERGED).
+
 | Claim | Tracks that close it | Status |
 |---|---|---|
-| 1. Teammate, not tool | A (design) → C → D → E (team page + worker profile) | A done; rest not started |
-| 2. Delegation is the unit | A (design) → C → D → E (hire flow + delegate-ongoing) | A done; rest not started |
-| 3. Platform builds workers | Backend MERGED; A → D → E (hire-flow UI) | A done; UI not started |
-| 4. Skills shared and learned | F (backend) + E (skill library UI, deferred slice) | not started |
-| 5. MCP + computer-use | B (Windows POC) → G (dispatch + Wayland) | B queued; G not started |
-| 6. Multi-channel approval gates | All channels wired; A → D → E (approvals inbox) | A done; UI not started |
+| 1. Teammate, not tool | A (design) → C → D → E (team page + worker profile) | A+B+D done; C in progress; E partial (E3 closed; E4 in flight) |
+| 2. Delegation is the unit | A (design) → C → D → E (hire flow + delegate-ongoing) | A+B+D done; E partial (E2 in flight) |
+| 3. Platform builds workers | Backend MERGED; A → D → E (hire-flow UI) | A+D done; E partial (E2 in flight) |
+| 4. Skills shared and learned | F (backend) + E (skill library UI, deferred slice) | F substantively MERGED; E partial (E4-e Skills tab MERGED) |
+| 5. MCP + computer-use | B (Windows POC) → G (dispatch + Wayland) | B+G fully MERGED |
+| 6. Multi-channel approval gates | All channels wired; A → D → E (approvals inbox) | A+D done; E1 closed (6/6 MERGED) |
 
 ## Sequencing rules
 

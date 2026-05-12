@@ -1,5 +1,10 @@
 # Conductor advisory — Tracks G + J (21 briefs combined)
 
+> **STATUS: ACTIONED 2026-05-12** — rows inserted into BUILD_STATUS.md;
+> Track G fully MERGED (G1/G2/G3), Track J substantively in flight
+> (J1/J3/J4/J5/J14 MERGED; J6/J16 in PR-review; J7+ cascade-gated).
+> Live state: BUILD_STATUS.md.
+
 Authored 2026-05-12 against origin/main `fb0ddeb2` after the
 G+J author phase completed. Paste the fenced block below into
 the running conductor at the next tick. The conductor inserts

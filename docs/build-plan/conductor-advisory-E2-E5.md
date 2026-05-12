@@ -1,5 +1,10 @@
 # Conductor advisory — Track E slices E2 / E3 / E4 / E5 (31 briefs)
 
+> **STATUS: ACTIONED 2026-05-12** — rows inserted into BUILD_STATUS.md;
+> E3 closed (5/5), E1 closed (6/6), E2/E4/E5 in flight. This
+> advisory is retained for traceability only. Live state:
+> BUILD_STATUS.md.
+
 Authored 2026-05-11 against origin/main `3c4b72fe` after Track-E
 author phase completed. Companion to the earlier
 `conductor-advisory-E0-E1.md`. Paste the fenced block below into
