@@ -47,6 +47,8 @@ pub const KNOWN_EXECUTOR_KINDS: &[&str] = &[
     "computer-use-macos",
     "computer_use_linux",
     "computer-use-linux",
+    "computer_use_windows",
+    "computer-use-windows",
     "api",
     "browser",
     "filesystem",

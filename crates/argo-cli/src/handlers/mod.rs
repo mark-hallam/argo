@@ -371,6 +371,7 @@ mod worker_actions_executor_browser_binding;
 mod worker_actions_executor_code;
 mod worker_actions_executor_cu_linux;
 mod worker_actions_executor_cu_macos;
+mod worker_actions_executor_cu_windows;
 mod worker_actions_executor_document;
 mod worker_actions_executor_document_csv;
 mod worker_actions_executor_mcp;

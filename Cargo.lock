@@ -282,6 +282,7 @@ dependencies = [
  "argo-executor-computer-use",
  "argo-executor-computer-use-linux",
  "argo-executor-computer-use-macos",
+ "argo-executor-computer-use-windows",
  "argo-executor-document",
  "argo-executor-document-csv",
  "argo-executor-filesystem",

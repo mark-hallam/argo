@@ -29,6 +29,7 @@ use super::worker_actions::ActionRecord;
 use super::worker_actions_executor_code::CodeExecutor;
 use super::worker_actions_executor_cu_linux::ComputerUseLinuxExecutor;
 use super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor;
+use super::worker_actions_executor_cu_windows::ComputerUseWindowsExecutor;
 use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_document_csv::DocumentCsvExecutor;
 use super::worker_actions_executor_stubs::{
@@ -80,6 +81,16 @@ pub(crate) enum ExecutorKind {
     /// hosts. Full Anthropic run-loop port is a follow-up brief;
     /// v1 lands as HumanHandoff with a bundle.
     ComputerUseLinux,
+    /// Native Windows computer-use via `SendInput` + `BitBlt` +
+    /// `IUIAutomation`. Wired by
+    /// `G1-cu-native-windows-executor-dispatch` (follow-up to the
+    /// Windows POC crate `mission-cu-native-windows-poc`).
+    /// Platform-gated: dispatch on non-Windows returns a clean
+    /// Provider error so manifests that pin `computer_use_windows`
+    /// fail loudly on macOS/Linux hosts. Full Anthropic run-loop
+    /// port is a follow-up brief; v1 lands as HumanHandoff with a
+    /// bundle.
+    ComputerUseWindows,
     /// Calls a registered REST API binding directly. Wired by
     /// Stream H connectors that ship as `ApiExecutor` flavours.
     Api,
@@ -119,6 +130,7 @@ impl ExecutorKind {
             "computer_use" => Ok(Self::ComputerUse),
             "computer_use_macos" | "computer-use-macos" => Ok(Self::ComputerUseMacOS),
             "computer_use_linux" | "computer-use-linux" => Ok(Self::ComputerUseLinux),
+            "computer_use_windows" | "computer-use-windows" => Ok(Self::ComputerUseWindows),
             "api" => Ok(Self::Api),
             "browser" => Ok(Self::Browser),
             "filesystem" => Ok(Self::Filesystem),
@@ -128,8 +140,8 @@ impl ExecutorKind {
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
                  valid: human | mcp | computer_use | computer_use_macos | \
-                 computer_use_linux | api | browser | filesystem | \
-                 code_execution | document_creation | document_csv"
+                 computer_use_linux | computer_use_windows | api | browser | \
+                 filesystem | code_execution | document_creation | document_csv"
             ))),
         }
     }
@@ -144,6 +156,7 @@ impl ExecutorKind {
             Self::ComputerUse => "computer_use",
             Self::ComputerUseMacOS => "computer_use_macos",
             Self::ComputerUseLinux => "computer_use_linux",
+            Self::ComputerUseWindows => "computer_use_windows",
             Self::Api => "api",
             Self::Browser => "browser",
             Self::Filesystem => "filesystem",
@@ -252,6 +265,9 @@ pub(crate) fn resolve_executor(
         }
         ExecutorKind::ComputerUseLinux => {
             Box::new(ComputerUseLinuxExecutor::with_declaration(decl.clone()))
+        }
+        ExecutorKind::ComputerUseWindows => {
+            Box::new(ComputerUseWindowsExecutor::with_declaration(decl.clone()))
         }
         ExecutorKind::Api => Box::new(ApiExecutor::with_manifest(decl.clone())),
         ExecutorKind::Browser => Box::new(BrowserExecutor::with_manifest(decl.clone())),
