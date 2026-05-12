@@ -270,8 +270,8 @@ unblocks a mission claim.
 108. Add MCP connector Zoom/Microsoft Teams. `[PARTIAL — codex-connector-zoom PR closed-as-obsolete; BRIEF: mission-mcp-connector-zoom for Zoom; Microsoft Teams pending]`
 109. Add MCP connector QuickBooks/Xero. `[PARTIAL — codex-connector-quickbooks PR closed-as-obsolete; BRIEF: mission-mcp-connector-quickbooks for QuickBooks; Xero pending]`
 110. Add MCP connector Greenhouse/Lever. `[PARTIAL — BRIEF: mission-mcp-connector-greenhouse for Greenhouse; Lever pending]`
-111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[PARTIAL — BRIEF: mission-mcp-connector-clearbit for Clearbit; BRIEF: mission-mcp-connector-apollo for Apollo; ZoomInfo pending]`
-112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; BRIEF: mission-mcp-connector-mailgun for Mailgun; Resend pending]`
+111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[PARTIAL — Clearbit SHIPPED; BRIEF: mission-mcp-connector-apollo for Apollo; BRIEF: mission-mcp-connector-zoominfo for ZoomInfo]`
+112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; Mailgun SHIPPED; BRIEF: mission-mcp-connector-resend for Resend]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
      `[NEW]`
 114. Add MCP connector Replicate (any-model HF endpoint). `[BRIEF: mission-mcp-connector-replicate]`
@@ -452,7 +452,7 @@ unblocks a mission claim.
 214. Add encryption-at-rest for credentials.toml. `[NEW]`
 215. Field-level encryption for memory rows tagged Pii/Phi.
      `[PARTIAL — claude-data-classification SHIPPED #893 tags only]`
-216. System keyring integration. `[NEW]`
+216. System keyring integration. `[BRIEF: mission-system-keyring-integration]`
 217. Automated key-rotation tooling. `[NEW]`
 218. Vulnerability management workflow. `[NEW]`
 219. Policy-as-code extensions (approval matrices).
@@ -494,7 +494,7 @@ unblocks a mission claim.
 241. Horizontal-scaling story (PostgreSQL or shared DB topology).
      `[NEW]`
 242. Worker pool elasticity (auto-scale on queue depth). `[NEW]`
-243. E2B sandbox cost optimization (`reap_idle` caller). `[NEW]`
+243. E2B sandbox cost optimization (`reap_idle` caller). `[BRIEF: mission-e2b-reap-idle]`
 244. Per-tenant LLM budget enforcement at provider call time.
      `[NEW]`
 245. Sticky-session affinity (worker reuses same session warm
