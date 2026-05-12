@@ -25,11 +25,12 @@ test("walks through all 6 hire-flow steps and lands on the celebration redirect"
   await expect(page.getByText(/Step 1 — placeholder for E2-b/)).toBeVisible();
 
   // Step 1 -> Step 2 (Continue is disabled on the shell-only build, so
-  // route directly until E2-b unlocks it). Subsequent steps use the
-  // shell's Continue button.
-  await page.goto("/hire/step/2");
-  await expect(page.getByText(/Step 2 — placeholder for E2-c/)).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
+  // route directly until E2-b unlocks it). Step 2 now renders the real
+  // Listen UI (E2-c); without a `problem` in the draft store it
+  // bounces back to `/hire`, so a direct visit no longer paints Step 2
+  // unless we seed state first. Skip the placeholder check and let the
+  // step-2-specific spec cover that path.
+  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
 
   await page.goto("/hire/step/3");
   await expect(page.getByText(/Step 3 — placeholder for E2-d/)).toBeVisible();
@@ -53,7 +54,9 @@ test("Back button is disabled on step 1 and navigates between later steps", asyn
 
   await page.goto("/hire/step/3");
   await page.getByTestId("hire-shell-back").click();
-  await expect(page).toHaveURL(/\/hire\/step\/2$/);
+  // Step 3 → back lands on step 2; step 2's no-problem invariant then
+  // bounces to `/hire`. Accept either as a valid landing point.
+  await expect(page).toHaveURL(/\/hire(\/step\/2)?$/);
 });
 
 test("invalid step segment returns 404 within the hire route group", async ({ page }) => {
