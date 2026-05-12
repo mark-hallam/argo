@@ -434,11 +434,16 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_wizard_cmds::WizardCmd,
     },
-    /// Vulnerability management surface (Mission
-    /// `mission-vuln-management-workflow`). `argo security audit`
-    /// wraps `cargo audit` + `cargo deny check advisories` into a
-    /// single JSON envelope with severity-floor filtering. See
-    /// `docs/skycot/security/vuln-management.md`.
+    /// Coordinated security operations. Subcommands:
+    /// - `audit` — vuln-scan wrapper around `cargo audit` +
+    ///   `cargo deny check advisories` (Mission
+    ///   `mission-vuln-management-workflow`). See
+    ///   `docs/skycot/security/vuln-management.md`.
+    /// - `rotate-keys` — key-rotation coordinator across DB
+    ///   encryption / credentials master / gateway bearer /
+    ///   channel HMAC / per-connector OAuth (Mission
+    ///   `mission-automated-key-rotation`). See the "Key rotation"
+    ///   section of `docs/skycot/RUNBOOK.md`.
     Security {
         #[command(subcommand)]
         cmd: SecurityCmd,

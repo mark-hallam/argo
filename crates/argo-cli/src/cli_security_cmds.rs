@@ -1,12 +1,19 @@
-//! `argo security ...` subcommand surface (Mission
-//! `mission-vuln-management-workflow`). v1 ships a single thin
-//! wrapper — `argo security audit` — over `cargo audit` and
-//! `cargo deny check advisories`, emitting a merged JSON envelope.
+//! `argo security ...` subcommand surface.
 //!
-//! See `docs/skycot/security/vuln-management.md` for the workflow
-//! these commands are designed to feed.
-
-use clap::Subcommand;
+//! Two coordinated security families share this enum:
+//!
+//! - `argo security audit` — vuln-scan wrapper around
+//!   `cargo audit` + `cargo deny check advisories` (Mission
+//!   `mission-vuln-management-workflow`).
+//! - `argo security rotate-keys` — key-rotation coordinator
+//!   covering DB encryption, credentials master, gateway bearer,
+//!   channel HMAC, and per-connector OAuth refresh tokens (Mission
+//!   `mission-automated-key-rotation`).
+//!
+//! See `docs/skycot/security/vuln-management.md` and the "Key
+//! rotation" section of `docs/skycot/RUNBOOK.md` for the workflows
+//! these commands feed.
+use clap::{Args, Subcommand};
 
 #[derive(Subcommand, Debug)]
 pub enum SecurityCmd {
@@ -29,4 +36,81 @@ pub enum SecurityCmd {
         #[arg(long)]
         compact: bool,
     },
+    /// Coordinated key-rotation operations across the workspace
+    /// (Mission `mission-automated-key-rotation`).
+    RotateKeys {
+        #[command(subcommand)]
+        cmd: RotateKeysCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RotateKeysCmd {
+    /// Enumerate every named key with its last-rotated date and age
+    /// in days. Default output is a Markdown table; `--json` emits
+    /// a JSON array suitable for scripting.
+    List(RotateKeysListArgs),
+    /// Show the rotation plan for `<key-name>`: which subsystem owns
+    /// it, what re-encryption / re-keying steps run, and any
+    /// operator follow-ups (config edits, restarts). Read-only.
+    Plan(RotateKeysPlanArgs),
+    /// Execute the rotation plan for `<key-name>`. Idempotent —
+    /// re-running with the same `--new-key-source` after a
+    /// successful rotation is a no-op. Always writes a
+    /// `security.key_rotated` audit row.
+    Commit(RotateKeysCommitArgs),
+    /// Exit non-zero when any registered key is older than
+    /// `--threshold` days (default 90). Designed for cron-driven
+    /// monitoring. Exit codes: 0 = all fresh, 1 = ≥1 stale,
+    /// 2 = config error.
+    AuditKeyAge(RotateKeysAuditAgeArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct RotateKeysListArgs {
+    /// Equivalent to `--format json`.
+    #[arg(long)]
+    pub json: bool,
+    /// Output format: `markdown` (default) or `json`.
+    #[arg(long, default_value = "markdown")]
+    pub format: String,
+}
+
+#[derive(Args, Debug)]
+pub struct RotateKeysPlanArgs {
+    /// Registered key name. Use `list` to enumerate.
+    pub key_name: String,
+    /// Equivalent to `--format json`.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct RotateKeysCommitArgs {
+    /// Registered key name. Use `list` to enumerate.
+    pub key_name: String,
+    /// Optional source for the new key material. Accepted values:
+    /// `random` (default — OS RNG), `prompt` (read from stdin
+    /// without echo), or `env:<VAR>` (read from an env var).
+    /// Never logged.
+    #[arg(long, default_value = "random")]
+    pub new_key_source: String,
+    /// Skip the audit row + last-rotated bump; print the plan only.
+    /// Equivalent to `argo security rotate-keys plan <name>`.
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Emit a single JSON envelope instead of human-readable status.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct RotateKeysAuditAgeArgs {
+    /// Age threshold in days. Keys older than this exit non-zero.
+    #[arg(long, default_value_t = 90)]
+    pub threshold: u32,
+    /// Emit a single JSON envelope (`{stale, fresh, threshold_days}`)
+    /// instead of human-readable status.
+    #[arg(long)]
+    pub json: bool,
 }

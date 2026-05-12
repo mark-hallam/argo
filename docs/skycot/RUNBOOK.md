@@ -301,3 +301,50 @@ tooling error (missing `cargo audit` / `cargo deny`, network
 failure pulling the RustSec feed). The envelope shape +
 named-owner table + disclosure policy are documented in
 [`security/vuln-management.md`](security/vuln-management.md).
+
+## Key rotation
+
+`argo security rotate-keys` is the operator-facing coordinator for
+rotating workspace-managed secrets. It does NOT generate key
+material itself — actual rotation is delegated to subsystem
+commands (`argo db rekey`, `argo credentials encrypt-all`,
+`argo connector reauth <name>`, etc.). Every commit writes a
+`security.key_rotated` audit row, so `audit-key-age` can answer
+"is anything overdue?" by reading the audit chain.
+
+Registered key categories (v1):
+
+| Slug | Subsystem | Rotation primitive |
+| --- | --- | --- |
+| `db-encryption` | SQLCipher database | `argo db rekey` |
+| `credentials-master` | credentials.toml | `argo credentials encrypt-all --new-master-key` |
+| `gateway-bearer` | Gateway HTTP auth | operator follow-up (config + restart) |
+| `channel-hmac` | Voice / channel HMAC | operator follow-up (config + restart) |
+| `connector-oauth` | Per-connector OAuth | `argo connector reauth <name>` |
+
+### Suggested operator cadence
+
+- **Weekly (cron-friendly):** `argo security rotate-keys
+  audit-key-age --json` exits non-zero (1) if any key is older
+  than the threshold (default 90 days). Wire to PagerDuty /
+  email by checking the exit code; exit 2 means a config error
+  and warrants a human eye, not a page.
+- **Monthly:** for any key that the audit flagged, run
+  `argo security rotate-keys plan <slug>` to preview the work
+  (subsystem command + operator follow-ups) and copy it into the
+  maintenance-window doc.
+- **Maintenance window:** `argo security rotate-keys commit
+  <slug> --new-key-source <src>` to record the rotation, then
+  run the subsystem command printed by `commit`. Re-running
+  `commit` with the same `--new-key-source` on the same UTC day
+  is a no-op (deterministic `rotation_id`), so it is safe to
+  retry after a partial failure.
+
+`--new-key-source` is one of `random` (default; OS RNG via the
+`rand` crate inside the subsystem command), `prompt` (read from
+stdin without echo), or `env:<VAR>` (read from an env var). Only
+the redacted descriptor (`random` / `prompt` / `env`) appears in
+the audit row; the raw value is never logged.
+
+Cross-process synchronization and HSM / KMS integration are
+explicit non-goals in v1. Single-tenant deployments only.

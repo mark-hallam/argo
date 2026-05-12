@@ -40,6 +40,9 @@ pub async fn run(cmd: SecurityCmd) -> ArgoResult<()> {
         SecurityCmd::Audit { severity_floor, compact } => {
             run_audit(&severity_floor, compact)
         }
+        SecurityCmd::RotateKeys { .. } => unreachable!(
+            "security rotate-keys is dispatched separately from main.rs"
+        ),
     }
 }
 
