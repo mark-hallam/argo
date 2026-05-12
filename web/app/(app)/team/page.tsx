@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useMemo, useState, type ChangeEvent } from "react";
-import { ChevronDown, Plus, Search, Users } from "lucide-react";
+import { ChevronDown, Plus, Search } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { Toast, ToastProvider, ToastViewport } from "@/components/ui/Toast";
+import { TeamEmptyState } from "@/components/skycot/TeamEmptyState";
 import { TeammateCard, type TeammateCardToast } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
@@ -123,7 +124,7 @@ function TeamPageContent() {
         {teamQuery.isPending ? (
           <LoadingGrid />
         ) : total === 0 ? (
-          <EmptyTeamState />
+          <TeamEmptyState />
         ) : filtered.length === 0 ? (
           <NoMatchesState query={query} status={status} />
         ) : (
@@ -257,40 +258,6 @@ function LoadingGrid() {
         <TeammateCardSkeleton key={i} data-testid={`teammate-loading-${i}`} />
       ))}
     </TeammateGrid>
-  );
-}
-
-function EmptyTeamState() {
-  return (
-    <div
-      data-testid="team-empty-state"
-      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-4"
-    >
-      <div className="mx-auto grid size-12 place-items-center rounded-full bg-[var(--muted)] text-[var(--muted-foreground)]">
-        <Users />
-      </div>
-      <div className="space-y-1">
-        <h2 className="text-base font-semibold text-[var(--foreground)]">
-          No teammates yet.
-        </h2>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          What do you need help with day-to-day?
-        </p>
-      </div>
-      <div className="flex flex-col items-center gap-1.5">
-        <Link
-          href="/hire"
-          data-testid="team-empty-hire-cta"
-          className={buttonVariants({ variant: "primary", size: "md" }) + " shadow-sm"}
-        >
-          <Plus />
-          <span>Hire your first teammate</span>
-        </Link>
-        <p className="text-xs text-[var(--muted-foreground)]">
-          It takes about 5 minutes.
-        </p>
-      </div>
-    </div>
   );
 }
 

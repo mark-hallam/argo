@@ -113,17 +113,22 @@ describe("TeamPage", () => {
     expect(screen.queryByTestId("team-empty-state")).not.toBeInTheDocument();
   });
 
-  it("renders the empty-team state when the roster has zero workers", () => {
+  it("renders the first-hire empty state when the roster has zero workers", () => {
     useTeamMock.mockReturnValue({
       data: { workers: [], source: "mock-offline" },
       isPending: false,
     });
     render(<TeamPage />);
     const empty = screen.getByTestId("team-empty-state");
-    expect(within(empty).getByText(/No teammates yet/)).toBeInTheDocument();
-    expect(within(empty).getByText(/What do you need help with day-to-day/)).toBeInTheDocument();
-    expect(within(empty).getByText(/Hire your first teammate/)).toBeInTheDocument();
-    expect(within(empty).getByText(/about 5 minutes/)).toBeInTheDocument();
+    expect(within(empty).getByText(/hire your first ai teammate\./i)).toBeInTheDocument();
+    expect(
+      within(empty).getByText(/pick a starting point — you can adjust everything/i),
+    ).toBeInTheDocument();
+    expect(within(empty).getByTestId("team-empty-state-tiles")).toBeInTheDocument();
+    expect(within(empty).getByTestId("team-empty-state-describe-own")).toHaveAttribute(
+      "href",
+      "/hire",
+    );
     expect(screen.queryByTestId("team-subtitle")).not.toBeInTheDocument();
   });
 

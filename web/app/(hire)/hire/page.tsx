@@ -1,14 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo } from "react";
 import { HireShell } from "@/components/skycot/HireShell";
 import { Step1Land } from "@/components/skycot/hire/Step1Land";
+import { findExampleRoleById } from "@/lib/hire/examples";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
 import { useStep1 } from "@/lib/hire/use-step1";
 
 /**
- * Step 1 — Land. Real free-text input + examples popover (E2-b).
+ * Step 1 — Land. Real free-text input + examples popover (E2-b),
+ * with optional `?example=<id>` pre-fill from the team empty state
+ * (E3-e). When the param is present and the saved draft has no
+ * problem text yet, the matching `EXAMPLE_ROLES` description seeds
+ * the textarea so Continue activates immediately. Editing the seeded
+ * text remains unrestricted.
  *
  * On mount we hydrate the draft store; if the user has progressed past
  * step 1 in a previous session and the draft is still within its 7-day
@@ -21,8 +27,23 @@ import { useStep1 } from "@/lib/hire/use-step1";
  * `/hire/step/2`. No server call yet — Genesis-lite lives in E2-c.
  */
 export default function HireLandingPage() {
+  return (
+    <Suspense fallback={null}>
+      <HireLandingContent />
+    </Suspense>
+  );
+}
+
+function HireLandingContent() {
   const router = useRouter();
   const draft = useHireDraft();
+  const searchParams = useSearchParams();
+  const exampleId = searchParams?.get("example") ?? null;
+
+  const examplePrefill = useMemo(
+    () => findExampleRoleById(exampleId)?.description ?? "",
+    [exampleId],
+  );
 
   useEffect(() => {
     if (draft.isLoading) return;
@@ -33,8 +54,12 @@ export default function HireLandingPage() {
     }
   }, [draft.isLoading, draft.state, router]);
 
+  const initialValue = draft.state?.problem
+    ? draft.state.problem
+    : examplePrefill;
+
   const step1 = useStep1({
-    initialValue: draft.state?.problem ?? "",
+    initialValue,
     onSubmit: (value) => {
       void (async () => {
         await draft.update({ step: 2, problem: value });
