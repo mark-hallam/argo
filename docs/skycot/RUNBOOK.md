@@ -69,6 +69,7 @@ separate files now.
   [Reference Appendix B](runbook/reference.md#appendix-b--file-checklist-for-a-customer-demo)
 - **Driving the hire flow over HTTP?** → [Genesis API](#genesis-api)
 - **Approval flow over JSON?** → [Approvals JSON API](#approvals-json-api)
+- **Planning a read-replica deployment?** → [Architecture: read-replica design](architecture/read-replica-design.md)
 
 ---
 
