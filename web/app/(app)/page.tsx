@@ -2,24 +2,16 @@
 
 import { useMemo, useState } from "react";
 import {
-  Activity,
   AlertCircle,
   Bell,
-  ChevronDown,
   Filter,
   Inbox,
   Loader2,
   Plus,
   Search,
-  Settings,
-  Sparkles,
-  Users,
-  Workflow,
 } from "lucide-react";
-import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { NavDrawer, NavItem } from "@/components/ui/NavDrawer";
 import { ApprovalCard } from "@/components/skycot/ApprovalCard";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
 import { groupApprovals, type ApprovalItem } from "@/lib/sample-approvals";
@@ -45,113 +37,50 @@ export default function ApprovalsInboxPage() {
   const pendingCount = filtered.filter((a) => a.decision == null).length;
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <NavDrawer brand={<Brand />}>
-        <NavItem href="#" active>
-          <Inbox /> Approvals
-          {pendingCount > 0 ? (
-            <StatusPill tone="info" size="sm" dot={false} className="ml-auto">
-              {pendingCount}
-            </StatusPill>
-          ) : null}
-        </NavItem>
-        <NavItem href="#">
-          <Users /> Team
-        </NavItem>
-        <NavItem href="#">
-          <Workflow /> Workers
-        </NavItem>
-        <NavItem href="#">
-          <Activity /> Audit
-        </NavItem>
-        <NavItem href="#">
-          <Sparkles /> Skills
-        </NavItem>
-        <div className="mt-auto flex flex-col gap-1 pt-3 border-t border-[var(--border)]">
-          <NavItem href="#">
-            <Settings /> Settings
-          </NavItem>
-          <WorkspaceFooter />
-        </div>
-      </NavDrawer>
+    <>
+      <PageHeader query={query} setQuery={setQuery} pendingCount={pendingCount} />
 
-      <main className="md:pl-64">
-        <PageHeader query={query} setQuery={setQuery} pendingCount={pendingCount} />
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+        {approvalsQuery.isPending ? (
+          <LoadingState />
+        ) : approvalsQuery.isError ? (
+          <ErrorState
+            message={(approvalsQuery.error as Error)?.message ?? "Couldn't load approvals"}
+            onRetry={() => approvalsQuery.refetch()}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState query={query} />
+        ) : (
+          <>
+            <ApprovalGroup
+              label="Today"
+              items={groups.today}
+              onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
+              onUndo={(id) => undoDecision.mutate(id)}
+            />
+            <ApprovalGroup
+              label="Yesterday"
+              items={groups.yesterday}
+              onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
+              onUndo={(id) => undoDecision.mutate(id)}
+            />
+            <ApprovalGroup
+              label="Earlier"
+              items={groups.earlier}
+              onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
+              onUndo={(id) => undoDecision.mutate(id)}
+            />
+          </>
+        )}
 
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-          {approvalsQuery.isPending ? (
-            <LoadingState />
-          ) : approvalsQuery.isError ? (
-            <ErrorState message={(approvalsQuery.error as Error)?.message ?? "Couldn't load approvals"} onRetry={() => approvalsQuery.refetch()} />
-          ) : filtered.length === 0 ? (
-            <EmptyState query={query} />
-          ) : (
-            <>
-              <ApprovalGroup
-                label="Today"
-                items={groups.today}
-                onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
-                onUndo={(id) => undoDecision.mutate(id)}
-              />
-              <ApprovalGroup
-                label="Yesterday"
-                items={groups.yesterday}
-                onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
-                onUndo={(id) => undoDecision.mutate(id)}
-              />
-              <ApprovalGroup
-                label="Earlier"
-                items={groups.earlier}
-                onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
-                onUndo={(id) => undoDecision.mutate(id)}
-              />
-            </>
-          )}
-
-          <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>SKYCOT preview — design system Track C. Switch theme to test white-label:</span>
-              <ThemePicker />
-            </div>
-          </footer>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function Brand() {
-  return (
-    <a href="#" className="flex items-center gap-2.5 group">
-      <span
-        aria-hidden
-        className="grid size-8 place-items-center rounded-[var(--radius-md)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-sm shadow-sm"
-      >
-        S
-      </span>
-      <span className="flex flex-col leading-tight">
-        <span className="text-sm font-semibold text-[var(--foreground)]">SKYCOT</span>
-        <span className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">
-          AI teammates
-        </span>
-      </span>
-    </a>
-  );
-}
-
-function WorkspaceFooter() {
-  return (
-    <button
-      type="button"
-      className="mt-1 flex items-center gap-2.5 rounded-[var(--radius-md)] px-3 py-2 hover:bg-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
-    >
-      <Avatar alt="Sam Harlow" size="sm" />
-      <span className="flex-1 flex flex-col items-start leading-tight">
-        <span className="text-sm font-medium text-[var(--foreground)]">Sam Harlow</span>
-        <span className="text-[11px] text-[var(--muted-foreground)]">Acmeco · Owner</span>
-      </span>
-      <ChevronDown className="size-4 text-[var(--muted-foreground)]" />
-    </button>
+        <footer className="pt-8 mt-12 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>SKYCOT preview — design system Track C. Switch theme to test white-label:</span>
+            <ThemePicker />
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }
 
@@ -275,7 +204,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
         <AlertCircle />
       </div>
       <div className="space-y-1">
-        <h2 className="text-base font-semibold text-[var(--foreground)]">Couldn't reach the gateway</h2>
+        <h2 className="text-base font-semibold text-[var(--foreground)]">Couldn&apos;t reach the gateway</h2>
         <p className="text-sm text-[var(--muted-foreground)]">{message}</p>
       </div>
       <Button variant="secondary" size="sm" onClick={onRetry}>

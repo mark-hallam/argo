@@ -115,6 +115,46 @@ The home page is currently a static demo; live gateway wiring
 (approvals fetched from `/inbox`) lands in the Track E
 `approvals-inbox` slice.
 
+## Authentication
+
+Auth is bridged from NextAuth v5 to the gateway's bearer-token
+flow (see `crates/argo-gateway` for the server side).
+
+1. **Token issuance.** Operator-side; mint via the gateway CLI:
+   `argo gateway token issue --tenant <id> --role <role>`. The
+   token is the only credential the SPA needs.
+2. **Sign in.** Visit `/auth/signin`. Paste the token; on submit
+   NextAuth's `gateway-bearer` credentials provider verifies it
+   by calling `GET /healthz` on the gateway with the token
+   attached. A successful 200 persists the token into a JWT
+   session.
+3. **Session usage.** The `lib/api/client.ts` wrapper reads the
+   session via `/api/auth/session` on the client and `auth()` on
+   the server, then attaches `Authorization: Bearer <token>` to
+   every gateway request.
+4. **Middleware.** `web/middleware.ts` redirects any non-auth
+   request to `/auth/signin?from=<path>` when no session cookie
+   is present.
+
+### Dev auth bypass
+
+Set `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS=1` in `.env.local` to skip
+the middleware redirect during local development. This mirrors
+the gateway's `ARGO_GATEWAY_AUTH_BYPASS=1` precedent. The flag is
+hard-disabled in production builds — the middleware checks
+`process.env.NODE_ENV !== "production"` before honouring it.
+
+### Env vars
+
+Copy `.env.example` → `.env.local` and fill in:
+
+| Var | Required | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_GATEWAY_URL` | yes | Gateway base URL. |
+| `NEXT_PUBLIC_GATEWAY_AUTH_BYPASS` | dev only | `1` to bypass middleware. Ignored in prod. |
+| `NEXTAUTH_SECRET` | yes | 32-byte secret (`openssl rand -base64 32`). |
+| `NEXTAUTH_URL` | yes | Public URL of the SPA. |
+
 ## Quality rules (inherited from the Rust side)
 
 - **No file > 500 LOC.** If a component grows past that, split.
