@@ -204,6 +204,32 @@ This is the smoke test to run after a fresh setup to confirm
 "yes, the agent actually thinks" — the companion to the mock-mode
 `./scripts/smoke-skycot.sh`.
 
+## Automation
+
+The real-LLM smoke is wired into GitHub Actions via
+`.github/workflows/real-llm-smoke.yml`. It runs nightly at 06:00 UTC
+(≈19:00 NZST) against the operator-configured `ANTHROPIC_API_KEY`
+(preferred) or `OPENAI_API_KEY` (fallback) repo secret. A run with no
+provider key configured reports `SKIPPED` and counts as passing, so
+forks and key-less environments don't false-fail.
+
+The workflow currently ships as `real-llm-smoke.yml.disabled` —
+operators rename to `.yml` to activate, per the broader CI-disabled
+posture documented in
+[`CI_FALLBACK_RUNBOOK.md`](CI_FALLBACK_RUNBOOK.md).
+
+**Manual trigger**: from the GitHub UI, navigate to
+**Actions → Real-LLM smoke → Run workflow** (the
+`workflow_dispatch` button). Use this to verify the workflow on a
+branch before merging, or to re-trigger after a transient provider
+failure.
+
+**Failure alerts**: when a nightly run fails, the workflow posts to
+the `SLACK_NOTIF_WEBHOOK_URL` repo secret. The alert links to the run
+and includes the failing log line. Triage steps live in
+[`CI_FALLBACK_RUNBOOK.md`'s
+"Real-LLM smoke failures" section](CI_FALLBACK_RUNBOOK.md#real-llm-smoke-failures).
+
 ## What's next
 
 - See [the demo script](demo_script.md) for a fuller walkthrough

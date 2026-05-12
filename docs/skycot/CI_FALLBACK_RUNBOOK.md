@@ -168,3 +168,84 @@ done
 Any failure on a merged PR is structural — file an issue with the
 specific cross-platform delta and the merge SHA, then queue a
 follow-up brief to fix.
+
+## Real-LLM smoke failures
+
+The `real-llm-smoke.yml` workflow (shipped as
+`real-llm-smoke.yml.disabled` until billing is restored; rename to
+activate) runs `scripts/smoke-skycot-real-llm.sh` nightly at 06:00 UTC
+against a real provider. It is the regression detector for
+"is the agent still thinking coherently?" — a green nightly proves the
+shipped binary still meets mission claim 1.
+
+### Triage steps when a nightly run fails
+
+1. **Read the run summary first.** The workflow writes a
+   `$GITHUB_STEP_SUMMARY` panel with `Provider:`, `Cost:`, and
+   `Outcome:` lines. The provider line tells you whether Anthropic or
+   OpenAI was exercised; the cost line tells you whether the run got
+   far enough to bill tokens.
+
+2. **Distinguish coherence failures from infrastructure failures.**
+   The script's assertions are numbered:
+   - Step 1-3 (workspace init, vertical list, work add): failure here
+     means the **binary** is broken — likely a regression in
+     `argo-cli` or `argo-workspace`. Bisect recent merges to
+     `crates/argo-cli/` or `crates/argo-workspace/`.
+   - Step 4 (`work serve` real-LLM run): failure with a non-zero exit
+     usually means the provider returned an error (rate limit, model
+     deprecated, key revoked) — check the run log for the provider's
+     error message. Failure with `BUDGET EXCEEDED` means the
+     90-second cap tripped — provider latency spike, or the worker is
+     stuck in a loop.
+   - Step 5 (coherence assertion): failure here is the **interesting**
+     one. The LLM produced output that's empty, too short, or
+     contains mock tokens. This is the regression detector firing:
+     either the model changed (e.g. Claude Haiku 4.5 → Haiku 5.0
+     altered prompt-response shape) or the worker fell back to mock
+     mode silently. Read the assistant_output excerpt in the run log
+     to judge which.
+   - Step 6-7 (artifact bundle, action ledger): failure means the
+     ledger pipeline broke — likely a recent change to
+     `argo-actions` or `argo-store`. Bisect.
+
+3. **Reproduce locally.** Pull the failing branch (or main) and run
+   the script directly:
+   ```bash
+   ANTHROPIC_API_KEY=sk-ant-... \
+     ./scripts/smoke-skycot-real-llm.sh
+   ```
+   The script exits 1 with a `FAIL: <reason>` line you can grep for in
+   the source to find the assertion site.
+
+4. **If reproducible: file a regression issue.** Title:
+   `Real-LLM smoke nightly failed YYYY-MM-DD — <assertion>`. Body:
+   - Workflow run URL.
+   - Provider used (Anthropic / OpenAI).
+   - Failing assertion (the `FAIL:` line).
+   - Last-known-green run URL.
+   - Suspected cause (model change / regression / infra blip).
+
+5. **If transient (rate limit / 5xx from provider): note in the
+   run, no issue needed.** Manually re-trigger via the workflow's
+   `workflow_dispatch` button. Two consecutive failures with the
+   same provider → file an issue.
+
+6. **Slack alert.** On failure, the workflow posts to
+   `SLACK_NOTIF_WEBHOOK_URL` (operator-configured repo secret). The
+   alert links to the run and includes the last log line — usually
+   enough to triage at a glance without opening the GitHub UI.
+
+### When the workflow is disabled
+
+While `real-llm-smoke.yml.disabled` is the shipped state (CI billing
+restored), the operator can still run the script manually:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... ./scripts/smoke-skycot-real-llm.sh
+```
+
+This is the substitute for the nightly automation. Recommended cadence
+while CI is off: once a week, or after any merge touching
+`argo-cli`, `argo-workspace`, `argo-actions`, or provider routing in
+`argo-providers`.

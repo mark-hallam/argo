@@ -1,0 +1,117 @@
+name: Real-LLM smoke
+# Nightly run of scripts/smoke-skycot-real-llm.sh against a real
+# provider (Anthropic preferred, OpenAI fallback). The script asserts
+# coherence + cost + 90s wall-clock budget and skips cleanly when no
+# provider key is set, so this workflow is safe even when secrets are
+# absent (a missing-key run reports SKIPPED and counts as passing).
+#
+# Disabled until CI billing is restored. Operators rename
+# `real-llm-smoke.yml.disabled` → `real-llm-smoke.yml` to activate, per
+# the same pattern as `silent-skip-nightly.yml.disabled`,
+# `ci.yml.disabled`, etc. See `docs/skycot/CI_FALLBACK_RUNBOOK.md`.
+#
+# Secrets consumed (configured by operator at the repo level):
+#   ANTHROPIC_API_KEY        primary provider (preferred)
+#   OPENAI_API_KEY           fallback provider
+#   SLACK_NOTIF_WEBHOOK_URL  Slack incoming-webhook URL for failure alerts
+#
+# Cron timezone: GitHub Actions cron is UTC. 06:00 UTC ≈ 19:00 NZST,
+# deliberately scheduled to run while the operator sleeps.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  real-llm-smoke:
+    name: Real-LLM journey smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: real-llm-smoke
+
+      - name: Build argo binary
+        run: cargo build --release -p argo-cli
+
+      - name: Run real-LLM smoke
+        id: smoke
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        shell: bash
+        run: |
+          set +e
+          log="${RUNNER_TEMP:-/tmp}/real-llm-smoke.log"
+          ./scripts/smoke-skycot-real-llm.sh target/release/argo \
+            2>&1 | tee "$log"
+          status=${PIPESTATUS[0]}
+          echo "log=$log" >> "$GITHUB_OUTPUT"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Render run summary
+        if: always()
+        shell: bash
+        run: |
+          log="${{ steps.smoke.outputs.log }}"
+          status="${{ steps.smoke.outputs.status }}"
+          provider="unknown"
+          if [ -f "$log" ]; then
+            if grep -q '=== SKIPPED' "$log"; then
+              provider="SKIPPED"
+            elif grep -q '=== RAN (anthropic) ===' "$log"; then
+              provider="Anthropic"
+            elif grep -q '=== RAN (openai) ===' "$log"; then
+              provider="OpenAI"
+            fi
+          fi
+          cost="(not reported)"
+          if [ -f "$log" ]; then
+            cost_line="$(grep -oE '=== COST: \$[0-9.]+ \(input=[^)]*\) ===' "$log" | head -1 || true)"
+            if [ -n "$cost_line" ]; then
+              cost="$cost_line"
+            fi
+          fi
+          outcome="PASS"
+          if [ "$status" != "0" ]; then
+            outcome="FAIL"
+          elif [ "$provider" = "SKIPPED" ]; then
+            outcome="PASS (SKIPPED — no provider key set)"
+          fi
+          {
+            echo "### Real-LLM smoke"
+            echo ""
+            echo "- Provider: \`$provider\`"
+            echo "- Cost: \`$cost\`"
+            echo "- Outcome: \`$outcome\`"
+            echo ""
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_NOTIF_WEBHOOK_URL }}
+        shell: bash
+        run: |
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "SLACK_NOTIF_WEBHOOK_URL not set; skipping Slack notification."
+            exit 0
+          fi
+          log="${{ steps.smoke.outputs.log }}"
+          last_line="no output captured"
+          if [ -f "$log" ]; then
+            last_line="$(tail -n 1 "$log" | tr -d '\r')"
+          fi
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          message=$(printf '🚨 Real-LLM smoke FAILED\nRun: %s\nLast log line: %s' \
+            "$run_url" "$last_line")
+          payload=$(jq -n --arg text "$message" '{text: $text}')
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            --data "$payload" "$SLACK_WEBHOOK" || true
