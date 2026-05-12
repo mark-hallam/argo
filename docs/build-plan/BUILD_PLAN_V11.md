@@ -1,10 +1,19 @@
 # Build plan beyond v1 — toward the SKYCOT mission
 
-**Status as of tick 57:** v1 demo gate is GREEN (9/9). 58 PRs
-merged. The platform shows a Genesis-output vertical going
-through the full stack: action emission → auto-approval gate →
-channel notify → executor → audit. **But that's the demo.
-The mission is bigger.**
+> **STATUS 2026-05-12 (refreshed):** the tick-57 e2e demo gate
+> (referenced below as "v1 demo gate") shipped long ago; backend
+> mission claims are substantively wired (Phase A drained, Phase B
+> well in flight). **The OPERATIVE ship gate for v1.0 is now the
+> mission-MVP demo recording + extended smoke** — see
+> BUILD_STATUS.md header. The tick-57 framing below is retained
+> for the strategic plan's structure but is no longer the gating
+> milestone. Live state: `docs/build-plan/BUILD_STATUS.md`.
+
+**Status as of tick 57 (historical):** v1 demo gate is GREEN
+(9/9). 58 PRs merged. The platform shows a Genesis-output
+vertical going through the full stack: action emission →
+auto-approval gate → channel notify → executor → audit. **But
+that's the demo. The mission is bigger.**
 
 This document plans the work between v1 (a green e2e test) and
 "AI workers as teammates that humans can delegate to."
@@ -245,17 +254,22 @@ v2.2 demo verticals — the highest-impact-now slice of the
 plan above.
 
 The conductor's standing replenishment loop continues to
-fire whenever either queue dips ≤3, drawing from this plan
-+ recent PR-body deferrals + git-log direction.
+fire whenever the claude queue dips ≤25 (per operator
+amendment 2026-05-10; target depth 30-40 — verify the live
+threshold in `BUILD_STATUS.md` header), drawing from this
+plan + MISSION_BACKLOG.md + recent PR-body deferrals + git-log
+direction.
 
 ## Stop condition
 
-The conductor's stop condition stays as defined in the loop
-prompt: *"every brief MERGED AND claude-e2e-integration-test
-is green"*. As of tick 56, v1's e2e test is green; the
-condition holds while new briefs land + their tests pass.
+The OPERATIVE v1.0 ship gate is per BUILD_STATUS.md header:
+**`docs/skycot/demos/v1-mission-mvp.mp4` exists AND
+`./scripts/smoke-skycot.sh` passes including BrowserExecutor +
+Slack-approval scenarios**. The historical tick-57
+"claude-e2e-integration-test green" milestone is shipped and
+no longer the gating condition.
 
-When the queue is empty AND no new replenishment ideas
+When the v1.0 gate is met AND no new replenishment ideas
 remain (full mission delivered), append a `Plan complete`
 note to BUILD_STATUS.md with the date + a link to the
 production-deploy recording.

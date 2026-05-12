@@ -22,8 +22,11 @@ How to run:
 3. Run the prompt below through your platform's loop/automation surface
    or execute the same sequence manually without changing the repository
    protocol.
-4. Cancel the loop when every brief in BUILD_STATUS.md is MERGED
-   AND the v1 demo gate is green, or by Ctrl-C / human intervention.
+4. Cancel the loop when the v1.0 ship gate is met:
+   `docs/skycot/demos/v1-mission-mvp.mp4` exists AND
+   `./scripts/smoke-skycot.sh` passes including BrowserExecutor +
+   Slack-approval scenarios (per BUILD_STATUS.md header). Or by
+   Ctrl-C / human intervention.
 
 The lines flagged `[PROJECT-SPECIFIC]` are the ones you'll change
 per project. Every other line is reusable verbatim.
@@ -147,7 +150,7 @@ commit that adds the brief file.
    "swarm healthy, X PRs in review, Y briefs claimed, Z merged, codex_todo=A, claude_todo=B"
    and end the tick.
 
-Do not stop the loop. Cancel only when the user asks to stop OR when every brief in BUILD_STATUS.md is MERGED AND the v1 demo gate is green.
+Do not stop the loop. Cancel only when the user asks to stop OR when the v1.0 ship gate is met: `docs/skycot/demos/v1-mission-mvp.mp4` exists AND `./scripts/smoke-skycot.sh` passes including BrowserExecutor + Slack-approval scenarios (per BUILD_STATUS.md header).
 ```
 
 ---

@@ -288,14 +288,11 @@ codex_todo  = grep -c "| codex |.*| TODO |"  <PLAN_DIR>/BUILD_STATUS.md
 claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
 ```
 
-and fires the replenishment branch for each owner whose count is
-≤25 (target depth 30-40). Both queues above 25 → the step is a
-no-op. (Tick 59 raised this threshold from the original ≤3 to ≤8
-— workers can drain ~3 briefs in a single tick window, so ≤3 risked
-workers running out of queued work between ticks. The 2026-05-10
-operator amendment in BUILD_STATUS.md raised it again from ≤8 to
-≤25 with target depth 30-40, reflecting higher worker concurrency.
-Re-check the live ledger header — that is authoritative.)
+and fires the replenishment branch when the claude count is ≤25
+(target depth 30-40, per BUILD_STATUS.md operator amendment
+2026-05-10). Codex side is offline as of 2026-05-09 — skip it.
+**The live ledger header is authoritative**; this threshold has
+drifted twice (≤3 → ≤8 → ≤25) and may drift again.
 
 ### Idea sources
 
@@ -482,10 +479,11 @@ clause for new sections. Bake into the template.
   minutes of slack; longer ticks usually mean the conductor got
   drawn into hand-fixing a merge conflict, which is fine
   occasionally but a smell if it becomes routine.
-- Stop condition: every brief MERGED **and the v1 demo gate is
-  green** (e.g. the integration-test brief passes), or human
-  intervention. Queue replenishment keeps the loop alive
-  indefinitely otherwise.
+- Stop condition: the v1.0 ship gate is met (`docs/skycot/demos/
+  v1-mission-mvp.mp4` exists AND `./scripts/smoke-skycot.sh`
+  passes including BrowserExecutor + Slack-approval scenarios,
+  per BUILD_STATUS.md header), or human intervention. Queue
+  replenishment keeps the loop alive indefinitely otherwise.
 
 ### Worker (Claude or Codex)
 
@@ -667,6 +665,13 @@ That's it. The swarm is live.
 
 ## Phase 2 — beyond the v1 demo gate
 
+> **HISTORICAL NOTE (refreshed 2026-05-12):** the tick-57 "v1 demo
+> gate" (`claude-e2e-integration-test` GREEN, PR #832) shipped long
+> ago. The OPERATIVE v1.0 ship gate is now `docs/skycot/demos/
+> v1-mission-mvp.mp4` + extended `./scripts/smoke-skycot.sh` per
+> BUILD_STATUS.md header. The tick-57 framing below is retained
+> for the protocol's structural commentary.
+
 The protocol described above bootstrapped on a finite plan: 22
 seed briefs → v1 demo gate. As of tick 57, that gate is **GREEN**
 (9/9 e2e steps passing; ~800+ PRs landed since the seed run; the
@@ -746,10 +751,11 @@ rules:
 
 ### What does NOT change post-v1
 
-- **The stop condition.** Still "every brief MERGED **and** the
-  e2e gate is green." The gate stays the production-readiness
-  oracle. New briefs land → new e2e steps land alongside them →
-  the gate keeps the bar.
+- **The stop condition.** Per BUILD_STATUS.md header: the v1.0
+  ship gate (`v1-mission-mvp.mp4` + extended smoke). The tick-57
+  e2e-integration-test gate shipped long ago; the live gate is
+  now the mission-MVP demo + extended smoke. New briefs land →
+  new smoke steps land alongside them → the gate keeps the bar.
 - **The conductor tick shape.** Same 9 steps, same 5-minute
   cadence. Step 8 just has a richer list to draw from.
 - **The four state machines.** Brief lifecycle, conductor tick,
