@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argo
+  labels:
+    app.kubernetes.io/name: argo
+  annotations:
+    # Assumes nginx-ingress-controller. Operators on Traefik / HAProxy /
+    # Istio gateway substitute the appropriate ingressClassName + annotations.
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
+    # TLS via cert-manager — operator opts in by uncommenting and setting
+    # the cluster-issuer name + tls.hosts/secretName below.
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  # tls:
+  #   - hosts:
+  #       - argo.example.com
+  #     secretName: argo-tls
+  rules:
+    - host: argo.example.com
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: argo
+                port:
+                  number: 8080
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: argo
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 3000

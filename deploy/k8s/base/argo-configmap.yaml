@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argo-config
+  labels:
+    app.kubernetes.io/name: argo
+    app.kubernetes.io/component: gateway
+data:
+  # Logging level for the argo binary. Common values: trace, debug, info, warn, error.
+  ARGO_LOG_LEVEL: "info"
+  # Default tenant id used when a request omits an explicit tenant header.
+  ARGO_TENANT_DEFAULT: "default"
+  # Public URL the web SPA hits. Inside the cluster this is the in-cluster
+  # service DNS; operators MUST override this in the prod overlay (or via
+  # an env-specific patch) when the SPA is served behind a public hostname.
+  NEXT_PUBLIC_GATEWAY_URL: "http://argo:8080"

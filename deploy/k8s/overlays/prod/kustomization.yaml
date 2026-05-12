@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Prod overlay — operator overrides image tags, hostname, and TLS issuer.
+
+namespace: skycot
+
+resources:
+  - ../../base
+  - hpa-argo.yaml
+
+commonAnnotations:
+  skycot.com/environment: prod
+
+# Operators replace newTag with their built/published image versions, e.g.
+#   images:
+#     - name: argo
+#       newName: ghcr.io/your-org/argo
+#       newTag: v1.2.3
+images:
+  - name: argo
+    newName: argo
+    newTag: dev
+  - name: argo-web
+    newName: argo-web
+    newTag: dev
+
+replicas:
+  - name: argo
+    count: 1
+  - name: web
+    count: 3
+
+# cert-manager + a real public hostname. Operator MUST replace
+# argo.example.com and the cluster-issuer name with their environment's
+# values before applying.
+patches:
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: argo
+    patch: |-
+      - op: add
+        path: /metadata/annotations/cert-manager.io~1cluster-issuer
+        value: letsencrypt-prod
+      - op: add
+        path: /spec/tls
+        value:
+          - hosts:
+              - argo.example.com
+            secretName: argo-tls

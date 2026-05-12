@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Dev overlay — `kind` / `minikube` / `k3d` friendly.
+#
+#   kind load docker-image argo:dev argo-web:dev
+#   kubectl apply -k deploy/k8s/overlays/dev
+
+namespace: skycot-dev
+
+resources:
+  - ../../base
+
+commonAnnotations:
+  skycot.com/environment: dev
+
+# Image tags pinned to the local-build convention from K1.
+images:
+  - name: argo
+    newName: argo
+    newTag: dev
+  - name: argo-web
+    newName: argo-web
+    newTag: dev
+
+# Single-replica everywhere; the dev cluster is a one-node toy.
+replicas:
+  - name: argo
+    count: 1
+  - name: web
+    count: 1
+
+# Strip the production hostname rule out of the Ingress for dev — operators
+# typically `kubectl port-forward svc/web 3000:3000` instead of wiring DNS.
+patches:
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: argo
+    patch: |-
+      - op: remove
+        path: /spec/rules/0/host
