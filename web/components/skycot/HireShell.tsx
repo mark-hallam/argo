@@ -1,43 +1,102 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { AlertDialog } from "@/components/ui/AlertDialog";
 import { Button } from "@/components/ui/Button";
 import { ProgressDots } from "@/components/ui/ProgressDots";
 
 /**
- * Chrome-free shell for the hire onboarding flow: a header bar with
- * a brand square (returns to `/`), progress dots fed by the step
- * props, and an escape (X) button. No sidebar — the flow owns the
- * full viewport.
+ * Chrome-free shell for the hire onboarding flow.
  *
- * `unsavedHire` (when true) triggers a `confirm()` dialog before
- * navigating away. Downstream E2 briefs wire this to the in-flight
- * draft state.
+ * Renders:
+ *  - Brand square (lucide `Sparkles`) top-left → clicks return to `/`.
+ *  - `ProgressDots` showing 7 steps (per wireframe) with the active
+ *    step highlighted and hover tooltips.
+ *  - Escape × button top-right → same exit behavior as brand square.
+ *  - Footer with Back + Continue buttons (Back disabled on Step 1).
+ *
+ * When `unsavedHire` is true, exit attempts (brand square, escape
+ * button, and back-from-Step-1) raise an AlertDialog confirm; on
+ * confirm the parent's `onDiscard` callback fires (clears the draft).
+ *
+ * Navigation is fully controlled: parents provide `onBack` /
+ * `onContinue` per step. The shell does not assume a route shape.
  */
 export interface HireShellProps {
+  /** 1-based current step. 1–6 are valid. */
+  step: 1 | 2 | 3 | 4 | 5 | 6;
+  /** Step content (placeholder text in this brief; real content in E2-b..h). */
   children: ReactNode;
-  /** Zero-indexed current step. */
-  step: number;
-  /** Total step count. */
-  totalSteps: number;
-  /** Show a confirm() before navigating away. */
+  /** Set true if the user has entered any in-progress hire data. */
   unsavedHire?: boolean;
+  /** Disable the Continue button (no input yet, validation pending, etc.). */
+  continueDisabled?: boolean;
+  /** Override the default Back handler (`router.back()` to previous step). */
+  onBack?: () => void;
+  /** Required for Continue to be operable. */
+  onContinue?: () => void;
+  /** Called when the user confirms leaving an in-progress flow. */
+  onDiscard?: () => void;
+  /** Override the back button label (defaults to "Back"). */
+  backLabel?: string;
+  /** Override the continue button label (defaults to "Continue"). */
+  continueLabel?: string;
 }
 
-const LEAVE_CONFIRM_MESSAGE =
-  "Leave the hire flow? Your in-progress teammate setup will be discarded.";
+const STEP_LABELS = [
+  "Step 1 — Land",
+  "Step 2 — Listen",
+  "Step 3 — Drafting",
+  "Step 4 — Introduce",
+  "Step 5 — Connect",
+  "Step 6 — First action",
+  "Step 7 — Day-1 wrap",
+] as const;
+const TOTAL_STEPS = 7;
 
-export function HireShell({ children, step, totalSteps, unsavedHire }: HireShellProps) {
+export function HireShell({
+  step,
+  children,
+  unsavedHire = false,
+  continueDisabled = false,
+  onBack,
+  onContinue,
+  onDiscard,
+  backLabel = "Back",
+  continueLabel = "Continue",
+}: HireShellProps) {
   const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  function leaveFlow() {
-    if (unsavedHire && typeof window !== "undefined") {
-      const ok = window.confirm(LEAVE_CONFIRM_MESSAGE);
-      if (!ok) return;
+  function attemptLeave() {
+    if (unsavedHire) {
+      setConfirmOpen(true);
+      return;
     }
     router.push("/");
+  }
+
+  function confirmDiscard() {
+    onDiscard?.();
+    router.push("/");
+  }
+
+  function handleBack() {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    router.back();
+  }
+
+  function handleJumpBack(targetStep: number) {
+    if (targetStep === 1) {
+      router.push("/hire");
+    } else {
+      router.push(`/hire/step/${targetStep}`);
+    }
   }
 
   return (
@@ -46,23 +105,26 @@ export function HireShell({ children, step, totalSteps, unsavedHire }: HireShell
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
           <button
             type="button"
-            onClick={leaveFlow}
+            onClick={attemptLeave}
             aria-label="Return to approvals"
-            className="grid size-8 place-items-center rounded-[var(--radius-md)] bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            data-testid="hire-shell-brand"
+            className="grid size-8 place-items-center rounded-[var(--radius-md)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           >
-            S
+            <Sparkles className="size-4" aria-hidden />
           </button>
           <div className="flex-1 flex justify-center">
             <ProgressDots
-              total={totalSteps}
+              total={TOTAL_STEPS}
               current={step}
-              label={`Hire flow — step ${step + 1} of ${totalSteps}`}
+              stepLabels={[...STEP_LABELS]}
+              onJumpBack={handleJumpBack}
+              label={`Hire flow — step ${step} of ${TOTAL_STEPS}`}
             />
           </div>
           <Button
             variant="ghost"
             size="icon"
-            onClick={leaveFlow}
+            onClick={attemptLeave}
             aria-label="Exit hire flow"
             data-testid="hire-shell-escape"
           >
@@ -70,7 +132,38 @@ export function HireShell({ children, step, totalSteps, unsavedHire }: HireShell
           </Button>
         </div>
       </header>
-      <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-10">{children}</main>
+      <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
+        {children}
+      </main>
+      <footer className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            disabled={step === 1}
+            onClick={handleBack}
+            data-testid="hire-shell-back"
+          >
+            {backLabel}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={continueDisabled || !onContinue}
+            onClick={() => onContinue?.()}
+            data-testid="hire-shell-continue"
+          >
+            {continueLabel}
+          </Button>
+        </div>
+      </footer>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Discard your in-progress teammate?"
+        description="Your draft will be cleared and you'll go back to the approvals inbox."
+        confirmLabel="Discard and leave"
+        cancelLabel="Keep working"
+        onConfirm={confirmDiscard}
+      />
     </div>
   );
 }
