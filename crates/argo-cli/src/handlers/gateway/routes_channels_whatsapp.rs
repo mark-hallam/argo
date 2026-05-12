@@ -3,6 +3,9 @@
 //! Sibling of [`super::routes_channels`]. Owns Twilio signature
 //! verification, form parsing, and free-form reply keyword parsing.
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
+
 use super::routes_channels::{
     bad_request, clean_token, constant_time_eq, header_value, hmac_secret, percent_decode,
     server_error, settle, unauthorized, verify_token, Decision,
@@ -146,7 +149,7 @@ fn verify_twilio_signature(
         data.push_str(&k);
         data.push_str(&v);
     }
-    let expected = base64_encode(&hmac_sha1(data.as_bytes(), auth_token.as_bytes()));
+    let expected = STANDARD.encode(hmac_sha1(data.as_bytes(), auth_token.as_bytes()));
     constant_time_eq(expected.as_bytes(), signature.trim().as_bytes())
 }
 
@@ -228,29 +231,6 @@ fn sha1_digest(data: &[u8]) -> [u8; 20] {
     out
 }
 
-fn base64_encode(data: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0];
-        let b1 = chunk.get(1).copied().unwrap_or(0);
-        let b2 = chunk.get(2).copied().unwrap_or(0);
-        out.push(TABLE[(b0 >> 2) as usize] as char);
-        out.push(TABLE[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
-        out.push(if chunk.len() > 1 {
-            TABLE[(((b1 & 0x0F) << 2) | (b2 >> 6)) as usize] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            TABLE[(b2 & 0x3F) as usize] as char
-        } else {
-            '='
-        });
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,7 +283,7 @@ mod tests {
             ("Body".to_string(), "yes act.approve.999.sig".to_string()),
             ("From".to_string(), "whatsapp:+15555550199".to_string()),
         ];
-        let sig = base64_encode(&hmac_sha1(
+        let sig = STANDARD.encode(hmac_sha1(
             format!("{url}Bodyyes act.approve.999.sigFromwhatsapp:+15555550199").as_bytes(),
             b"auth",
         ));

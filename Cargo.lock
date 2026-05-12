@@ -1688,6 +1688,7 @@ dependencies = [
  "argo-store",
  "argo-types",
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "ego-tree",
  "libc",

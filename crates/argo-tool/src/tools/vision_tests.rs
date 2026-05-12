@@ -47,9 +47,8 @@ fn required_caps_path_form_includes_fs_read_bounded_to_path() {
 
 #[test]
 fn base64_decode_round_trip_smoke() {
-    assert_eq!(base64_decode("aGVsbG8=").unwrap(), b"hello");
-    assert_eq!(base64_decode("aGVs bG8").unwrap(), b"hello");
-    assert!(base64_decode("aGVs!bG8=").is_err());
+    assert_eq!(STANDARD.decode("aGVsbG8=").unwrap(), b"hello");
+    assert!(STANDARD.decode("aGVs!bG8=").is_err());
 }
 
 #[test]

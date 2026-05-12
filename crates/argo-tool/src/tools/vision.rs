@@ -51,6 +51,8 @@ use crate::path_guard::confine_path;
 use crate::tool::{error_text, success_text, Tool, ToolContext};
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, ToolCallResult};
 use async_trait::async_trait;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Instant;
@@ -349,7 +351,7 @@ fn decode_data_url(url: &str) -> Result<ResolvedImage, String> {
     if mime.is_empty() {
         return Err("data url mime is empty".into());
     }
-    let bytes = base64_decode(payload.trim())?;
+    let bytes = STANDARD.decode(payload.trim()).map_err(|e| e.to_string())?;
     if bytes.len() > MAX_IMAGE_BYTES {
         return Err(format!(
             "data url payload is {} bytes; exceeds {}-byte ceiling",
@@ -361,46 +363,6 @@ fn decode_data_url(url: &str) -> Result<ResolvedImage, String> {
         bytes,
         mime: mime.to_string(),
     })
-}
-
-/// Minimal base64 decoder — avoids pulling a new dep just
-/// for the data-url path. Whitespace ignored; padding (`=`)
-/// honoured but optional.
-fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
-    const TABLE: [i8; 256] = build_b64_table();
-    let mut out = Vec::with_capacity(input.len() * 3 / 4);
-    let mut buf: u32 = 0;
-    let mut bits: u8 = 0;
-    for b in input.bytes() {
-        if b == b'=' {
-            break;
-        }
-        if b.is_ascii_whitespace() {
-            continue;
-        }
-        let v = TABLE[b as usize];
-        if v < 0 {
-            return Err(format!("invalid base64 char: {b:#x}"));
-        }
-        buf = (buf << 6) | (v as u32);
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push(((buf >> bits) & 0xff) as u8);
-        }
-    }
-    Ok(out)
-}
-
-const fn build_b64_table() -> [i8; 256] {
-    let mut t = [-1i8; 256];
-    let alpha = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut i = 0;
-    while i < alpha.len() {
-        t[alpha[i] as usize] = i as i8;
-        i += 1;
-    }
-    t
 }
 
 #[cfg(test)]

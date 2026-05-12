@@ -5,6 +5,8 @@
 //! `pub(super)` visibility so existing call sites in `routes_voice.rs`
 //! are unchanged.
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 use sha2::{Digest, Sha256};
 
 use super::routes_voice::{form_param, header_value, query_value, request_target};
@@ -28,7 +30,7 @@ pub(super) fn verify_twilio_signature(
         data.push_str(&k);
         data.push_str(&v);
     }
-    let expected = base64_encode(&hmac_sha1(data.as_bytes(), auth_token.as_bytes()));
+    let expected = STANDARD.encode(hmac_sha1(data.as_bytes(), auth_token.as_bytes()));
     constant_time_eq(expected.as_bytes(), signature.trim().as_bytes())
 }
 
@@ -190,29 +192,6 @@ fn sha1_digest(data: &[u8]) -> [u8; 20] {
     out
 }
 
-fn base64_encode(data: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0];
-        let b1 = chunk.get(1).copied().unwrap_or(0);
-        let b2 = chunk.get(2).copied().unwrap_or(0);
-        out.push(TABLE[(b0 >> 2) as usize] as char);
-        out.push(TABLE[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
-        out.push(if chunk.len() > 1 {
-            TABLE[(((b1 & 0x0F) << 2) | (b2 >> 6)) as usize] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            TABLE[(b2 & 0x3F) as usize] as char
-        } else {
-            '='
-        });
-    }
-    out
-}
-
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0_u8, |diff, (x, y)| diff | (x ^ y)) == 0
 }
@@ -225,7 +204,7 @@ mod tests {
     fn twilio_signature_accepts_valid_and_rejects_forged() {
         let url = "https://gw.example.com/twilio/voice/decision?vt=abc";
         let params = vec![("Digits".to_string(), "1".to_string())];
-        let sig = base64_encode(&hmac_sha1(format!("{url}Digits1").as_bytes(), b"auth"));
+        let sig = STANDARD.encode(hmac_sha1(format!("{url}Digits1").as_bytes(), b"auth"));
         assert!(verify_twilio_signature(url, &params, &sig, "auth"));
         let forged = vec![("Digits".to_string(), "2".to_string())];
         assert!(!verify_twilio_signature(url, &forged, &sig, "auth"));

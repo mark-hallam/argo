@@ -349,12 +349,3 @@ fn build_messages_body_uses_configured_tool_variant_and_beta_header() {
     // so a future config-only bump still produces a valid call.
     assert_eq!(beta_header_for("computer_99999999"), "computer-use-2025-11-24");
 }
-
-#[test]
-fn encode_b64_round_trips_a_known_vector() {
-    // RFC 4648: "Man" → "TWFu"; "Ma" → "TWE="; "M" → "TQ=="
-    assert_eq!(encode_b64(b"Man"), "TWFu");
-    assert_eq!(encode_b64(b"Ma"), "TWE=");
-    assert_eq!(encode_b64(b"M"), "TQ==");
-    assert_eq!(encode_b64(b""), "");
-}

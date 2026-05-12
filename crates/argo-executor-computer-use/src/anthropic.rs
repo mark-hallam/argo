@@ -17,6 +17,8 @@ use crate::anthropic_parse::parse_response;
 use crate::e2b::CuAction;
 use crate::CuError;
 use async_trait::async_trait;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 
 /// One CU loop step against an Anthropic-style backend. The
 /// production [`AnthropicClient`] implements it over real HTTP;
@@ -179,7 +181,7 @@ fn build_messages_body(
     model: &str,
     tool_variant: &str,
 ) -> serde_json::Value {
-    let screenshot_b64 = encode_b64(req.screenshot_png);
+    let screenshot_b64 = STANDARD.encode(req.screenshot_png);
     let prior_actions_text = if req.prior_actions.is_empty() {
         "(none yet)".to_string()
     } else {
@@ -235,40 +237,6 @@ pub(crate) fn beta_header_for(tool_variant: &str) -> &'static str {
         // with `DEFAULT_TOOL_VARIANT` in `config.rs`).
         _ => "computer-use-2025-11-24",
     }
-}
-
-/// Minimal base64 encoder. We don't pull in the `base64` crate
-/// just for one call — the CU loop body is the only consumer.
-fn encode_b64(bytes: &[u8]) -> String {
-    const CHARS: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    let mut i = 0;
-    while i + 3 <= bytes.len() {
-        let b0 = bytes[i];
-        let b1 = bytes[i + 1];
-        let b2 = bytes[i + 2];
-        out.push(CHARS[(b0 >> 2) as usize] as char);
-        out.push(CHARS[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
-        out.push(CHARS[(((b1 & 0x0f) << 2) | (b2 >> 6)) as usize] as char);
-        out.push(CHARS[(b2 & 0x3f) as usize] as char);
-        i += 3;
-    }
-    if i < bytes.len() {
-        let rem = bytes.len() - i;
-        let b0 = bytes[i];
-        let b1 = if rem > 1 { bytes[i + 1] } else { 0 };
-        out.push(CHARS[(b0 >> 2) as usize] as char);
-        out.push(CHARS[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
-        if rem == 2 {
-            out.push(CHARS[((b1 & 0x0f) << 2) as usize] as char);
-            out.push('=');
-        } else {
-            out.push('=');
-            out.push('=');
-        }
-    }
-    out
 }
 
 async fn read_body_truncated(resp: reqwest::Response) -> String {
