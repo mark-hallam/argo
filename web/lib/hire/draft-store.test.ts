@@ -4,7 +4,22 @@ import {
   HIRE_DRAFT_STORAGE_KEY,
   HIRE_DRAFT_TTL_MS,
   HIRE_DRAFT_VERSION,
+  type WorkerDraft,
 } from "./draft-types";
+
+const SAMPLE_WORKER_DRAFT: WorkerDraft = {
+  suggestedName: "Mariah",
+  persona: {
+    tagline: "Marketplace assistant",
+    avatarKind: "initials",
+    voiceProfile: { tone: "warm", formality: "medium", signaturePhrases: [] },
+  },
+  charter: "Handles inbound marketplace messages.",
+  duties: [],
+  exampleReplies: [],
+  approvalPolicy: { level: "balanced" },
+  suggestedVertical: "marketplace-seller",
+};
 
 // Node 25 ships a built-in `localStorage` global that shadows happy-dom's
 // when both are present; the built-in surfaces with no methods unless
@@ -48,14 +63,14 @@ describe("draft-store", () => {
     const ok = await saveDraft({
       step: 2,
       problem: "hire a marketplace receptionist",
-      workerDraft: { name: "Mariah" },
+      workerDraft: SAMPLE_WORKER_DRAFT,
     });
     expect(ok).toBe(true);
     const draft = await loadDraft();
     expect(draft).not.toBeNull();
     expect(draft?.step).toBe(2);
     expect(draft?.problem).toBe("hire a marketplace receptionist");
-    expect(draft?.workerDraft).toEqual({ name: "Mariah" });
+    expect(draft?.workerDraft).toEqual(SAMPLE_WORKER_DRAFT);
     expect(draft?.version).toBe(HIRE_DRAFT_VERSION);
     expect(typeof draft?.ts).toBe("number");
   });

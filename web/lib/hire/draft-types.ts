@@ -27,16 +27,56 @@ export interface HireDraftState {
 }
 
 /**
- * Server-side worker spec accumulated through the hire flow. Fields
- * are optional during draft state; the gateway hire endpoint validates
+ * Voice profile inferred for the worker — drives reply tone in Step 4
+ * preview. v1 ships a fixed default (warm/medium); the architectural
+ * target reads operator's prior messages and infers a starting
+ * profile (`mission-enterprise-genesis-voice-inference`).
+ */
+export interface WorkerVoiceProfile {
+  tone: "warm" | "neutral" | "formal";
+  formality: "low" | "medium" | "high";
+  signaturePhrases: string[];
+}
+
+/** A single scheduled duty surfaced in Step 4 for editing. */
+export interface WorkerDuty {
+  label: string;
+  schedule: { kind: "cron" | "event"; spec: string };
+  defaultEnabled: boolean;
+}
+
+/** One inbound-context → suggested-reply pair for the Step 4 preview. */
+export interface WorkerExampleReply {
+  inboundContext: string;
+  /** Generic field name — applies regardless of the worker's `suggestedName`. */
+  mariahResponse: string;
+}
+
+/**
+ * Server-side worker spec generated in Step 3 by Genesis-lite and
+ * edited through Steps 4–5. Fields are populated all-at-once by the
+ * draft-worker mutation; the gateway hire endpoint validates
  * required-ness on Step 6 submit.
+ *
+ * The v1 type is locked by the E2-d brief — Steps 4..i depend on this
+ * exact shape. Any change here is a coordinated reshape across the
+ * remaining E2 chain.
  */
 export interface WorkerDraft {
-  name?: string;
-  role?: string;
-  persona?: string;
-  /** Free-form notes from any step. */
-  notes?: string;
+  suggestedName: string;
+  persona: {
+    tagline: string;
+    avatarKind: "initials" | "generated" | "uploaded";
+    voiceProfile: WorkerVoiceProfile;
+  };
+  /** 2–3 sentences describing the worker's role and remit. */
+  charter: string;
+  duties: WorkerDuty[];
+  exampleReplies: WorkerExampleReply[];
+  approvalPolicy: {
+    level: "conservative" | "balanced" | "aggressive";
+  };
+  suggestedVertical: string;
 }
 
 /** Tag the localStorage key in one place so renames don't drift. */

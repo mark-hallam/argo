@@ -43,6 +43,13 @@ export interface HireShellProps {
   backLabel?: string;
   /** Override the continue button label (defaults to "Continue"). */
   continueLabel?: string;
+  /**
+   * Hide the Back/Continue footer entirely. Used by non-interactive
+   * steps that auto-advance (e.g. Step 3 — Drafting transition).
+   * The footer chrome (border, padding) is also dropped so the main
+   * content can occupy the full vertical space.
+   */
+  hideFooter?: boolean;
 }
 
 const STEP_LABELS = [
@@ -66,6 +73,7 @@ export function HireShell({
   onDiscard,
   backLabel = "Back",
   continueLabel = "Continue",
+  hideFooter = false,
 }: HireShellProps) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -135,26 +143,28 @@ export function HireShell({
       <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
         {children}
       </main>
-      <footer className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            disabled={step === 1}
-            onClick={handleBack}
-            data-testid="hire-shell-back"
-          >
-            {backLabel}
-          </Button>
-          <Button
-            variant="primary"
-            disabled={continueDisabled || !onContinue}
-            onClick={() => onContinue?.()}
-            data-testid="hire-shell-continue"
-          >
-            {continueLabel}
-          </Button>
-        </div>
-      </footer>
+      {hideFooter ? null : (
+        <footer className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--background)]/85 backdrop-blur-md">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              disabled={step === 1}
+              onClick={handleBack}
+              data-testid="hire-shell-back"
+            >
+              {backLabel}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={continueDisabled || !onContinue}
+              onClick={() => onContinue?.()}
+              data-testid="hire-shell-continue"
+            >
+              {continueLabel}
+            </Button>
+          </div>
+        </footer>
+      )}
       <AlertDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
