@@ -548,7 +548,7 @@ unblocks a mission claim.
      `[SHIPPED]`
 275. Fix headline misalignment in BUILD_STATUS.
      `[SHIPPED]`
-276. Sweep stale BUILD_STATUS rows. `[NEW]`
+276. Sweep stale BUILD_STATUS rows. `[BRIEF: mission-sweep-stale-build-status-rows + mission-reconcile-backlog-tags-vs-ledger]`
 277. Document voice_chat paper-only status. `[NEW]`
 278. Document absence of native macOS CU.
      (preceded by `[BRIEF: claude-computer-use-native-macos-poc]`)
