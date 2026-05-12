@@ -1037,6 +1037,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-mcp-connector-lever"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "chrono",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "argo-mcp-connector-linear"
 version = "0.0.1"
 dependencies = [
