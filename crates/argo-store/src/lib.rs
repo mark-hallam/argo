@@ -167,6 +167,12 @@ pub mod tenant_rate_limit;
 /// `(operator_id, action_kind, vertical_id)` triple. Missing row →
 /// caller falls back to the manifest-driven default.
 pub mod operator_risk_overrides;
+/// Per-worker retrospective store (Stream `mission-retro-review-ui`,
+/// MISSION_BACKLOG Section 6 #209). One row per retro over a time
+/// window; aggregated metrics from `audit_record` are frozen at
+/// creation, and the editable 5-section operator template lives on
+/// `sections_json`. `finalized_at` locks the row for further edits.
+pub mod retro;
 /// Tenant inspection and id-rename helpers.
 pub mod tenant_query;
 /// `show_tenant` + `rename_tenant` family — split out from
@@ -214,7 +220,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 59;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 60;
 
 /// A SQLite-backed session store.
 ///

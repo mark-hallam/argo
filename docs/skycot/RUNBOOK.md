@@ -658,3 +658,74 @@ every target for 60 seconds against the checked-in seed corpus.
 It's disabled by default (rename to `.yml` once CI billing is
 restored); the workflow uploads any crash artifacts so operators
 can re-run the input locally via the recipe above.
+
+## Retros
+
+After a worker completes a batch of actions (or a long-running
+duty wraps), the operator can run a structured **retrospective**
+over a time window. A retro pairs auto-aggregated metrics from
+the audit chain with a 5-section operator-fillable template:
+
+1. **Surface metrics** (read-only counts)
+2. **What went well**
+3. **Surprises**
+4. **What to change**
+5. **Action items**
+
+### Endpoints (mission-retro-review-ui, #209)
+
+- `POST   /api/v1/workers/<id>/retros` — create a retro. Body
+  keys (both optional): `window_start_unix`, `window_end_unix`.
+  Defaults to `[now-7d, now]`. Aggregated metrics are frozen at
+  creation and persisted on `retro.metrics_json`.
+- `PATCH  /api/v1/workers/<id>/retros/<retro_id>` — overwrite
+  one or more of the five section slots. Returns 409 once the
+  retro is finalised; unknown section keys are rejected with 400
+  so typos surface immediately.
+- `POST   /api/v1/workers/<id>/retros/<retro_id>/finalize` —
+  lock the retro. Subsequent PATCH/finalize calls return 409.
+- `GET    /api/v1/workers/<id>/retros` — list retros for one
+  worker, newest first.
+- `GET    /api/v1/retros[?q=<theme>]` — tenant-scoped index. The
+  `q` parameter does a case-insensitive substring match against
+  the sections JSON column.
+
+### Aggregated metrics
+
+The `metrics_json` column carries six counts derived from
+`audit_record` joined against `session.worker_id`:
+
+- `actions_total` — `tool_call` rows
+- `actions_approved` — `approval.granted`
+- `actions_refused` — `approval.revoked`
+- `escalations` — `escalation.required`
+- `learned_skills_added` — `skill.approved`
+- `error_count_by_category` — JSON object keyed by the offending
+  audit kind (`halt`, `rbac.deny`, `lock.violate`, …) so future
+  audit-kind additions land additional buckets without a wire
+  migration.
+
+### Audit trail
+
+Every retro mutation emits one `http.request` row with an
+`event_type` discriminator inside the payload:
+
+- `retro.created` — written by the create handler with the
+  retro id, worker id, and the chosen window.
+- `retro.finalized` — written by the finalize handler with the
+  retro id and the locked timestamp.
+
+This mirrors the elevated-view pattern: the retro brief did NOT
+expand `argo_audit::AuditKind`, so the audit chain stays under
+the same enumerable kinds the verifier and dashboards already
+recognise.
+
+### What this is NOT
+
+- **Not cross-worker.** v1 scopes one retro to one worker — the
+  brief explicitly defers fleet-level retro aggregation.
+- **Not vertical-specific.** v1 ships one canonical 5-section
+  template; per-vertical retro shapes are a follow-up.
+- **Not a skill-learning feedback loop.** Retros surface
+  patterns; promoting them into learned skills runs through the
+  separate skill-review path.

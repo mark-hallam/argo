@@ -159,6 +159,13 @@ async fn dispatch_post_inner(
     if req.starts_with("POST /api/v1/audit/elevated-view-request ") {
         return Some(super::routes_elevated_view::request_response(req, store).await);
     }
+    // mission-retro-review-ui — worker retrospective endpoints.
+    // POST  /api/v1/workers/<id>/retros               → create
+    // PATCH /api/v1/workers/<id>/retros/<retro_id>    → update sections
+    // POST  /api/v1/workers/<id>/retros/<retro_id>/finalize
+    if let Some(resp) = dispatch_retros(req, store).await {
+        return Some(resp);
+    }
     // J16 — revoke a grant. DELETE shares dispatch_post's bearer +
     // principal-header gate; the gateway has no separate DELETE
     // dispatcher in v1.
@@ -394,6 +401,40 @@ async fn dispatch_post_inner(
             if tail.starts_with("revoke-approval ") {
                 return Some(session_revoke_approval_response(sid, req, store).await);
             }
+        }
+    }
+    None
+}
+
+/// Match the three retro write paths anchored under
+/// `/api/v1/workers/<id>/retros`. Returns `None` when the request
+/// doesn't match so the caller falls through to the rest of the
+/// dispatch chain.
+async fn dispatch_retros(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    if let Some(rest) = req.strip_prefix("POST /api/v1/workers/") {
+        let (head, _) = rest.split_once(' ')?;
+        let parts: Vec<&str> = head.split('/').collect();
+        // [worker_id, "retros"] → create
+        if parts.len() == 2 && parts[1] == "retros" {
+            return Some(super::routes_retros::create_response(parts[0], req, store).await);
+        }
+        // [worker_id, "retros", retro_id, "finalize"] → finalize
+        if parts.len() == 4 && parts[1] == "retros" && parts[3] == "finalize" {
+            return Some(
+                super::routes_retros::finalize_response(parts[0], parts[2], req, store).await,
+            );
+        }
+    }
+    if let Some(rest) = req.strip_prefix("PATCH /api/v1/workers/") {
+        let (head, _) = rest.split_once(' ')?;
+        let parts: Vec<&str> = head.split('/').collect();
+        if parts.len() == 3 && parts[1] == "retros" {
+            return Some(
+                super::routes_retros::update_response(parts[0], parts[2], req, store).await,
+            );
         }
     }
     None

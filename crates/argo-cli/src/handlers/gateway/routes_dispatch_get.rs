@@ -47,8 +47,24 @@ pub(super) async fn dispatch_get(
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::list_response(req, store).await);
     }
-    // mission-trust-grade-ui — informational per-worker trust grade.
+    // mission-retro-review-ui — tenant-scoped retro index.
+    if req.starts_with("GET /api/v1/retros ") || req.starts_with("GET /api/v1/retros?") {
+        return Some(super::routes_retros::index_response(req, store).await);
+    }
+    // Per-worker GETs under `/api/v1/workers/<id>/...`:
+    //   • trust-grade  (mission-trust-grade-ui)
+    //   • retros       (mission-retro-review-ui)
+    // Pinned ahead of the J14 audit-feed arm so the more-specific
+    // prefix wins.
     if let Some(rest) = req.strip_prefix("GET /api/v1/workers/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let parts: Vec<&str> = head.split('/').collect();
+            if parts.len() == 2 && parts[1] == "retros" {
+                return Some(
+                    super::routes_retros::list_for_worker_response(parts[0], req, store).await,
+                );
+            }
+        }
         if let Some((id_with_suffix, tail)) = rest.split_once('/') {
             if tail.starts_with("trust-grade ") || tail.starts_with("trust-grade?") {
                 return Some(
