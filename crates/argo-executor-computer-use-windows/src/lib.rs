@@ -1,79 +1,75 @@
-//! Native Windows computer-use proof of concept.
+//! `argo-executor-computer-use-windows` — V1.5: native Windows
+//! computer-use executor.
 //!
-//! Subprocess-only: every primitive shells out to `powershell.exe`
-//! with `-NoProfile -NonInteractive -Command` plus an inline script.
-//! No new workspace deps; mirrors the macOS (#941) and Linux POCs.
+//! Sibling of [`argo_executor_computer_use_macos`] — same 9-file
+//! shape, same step semantics, same `RunRequest → Outcome` flow.
+//! The Windows-specific surface area is:
+//!
+//! - **Accessibility**: `IUIAutomation` (COM) for control-tree
+//!   introspection. [`a11y`]
+//! - **Input injection**: `SendInput` (Win32) for mouse / keyboard
+//!   events (absolute-coordinate mouse via `MOUSEEVENTF_ABSOLUTE`,
+//!   normalised over the virtual screen). [`events`]
+//! - **Screenshot**: `BitBlt` + `EnumDisplayMonitors` for
+//!   per-monitor PNG capture. [`screenshot`]
+//! - **Preflight**: UAC consent / secure-desktop / DPI awareness /
+//!   UIAutomation service / monitor count probes. [`preflight`]
+//!
+//! ## Crate layout
+//!
+//! - [`config`] — `WindowsCuConfig` (allowlists + DPI + dwell)
+//! - [`error`] — `WindowsCuError` (one variant per failure class)
+//! - [`screenshot`] — multi-monitor `BitBlt → PNG` capture
+//! - [`events`] — `SendInput` mouse / keyboard / scroll
+//! - [`a11y`] — UIAutomation tree traversal helpers
+//! - [`notes`] — Windows-platform caveats for operators
+//! - [`preflight`] — six-axis preflight report
+//! - [`executor`] — public `WindowsCuExecutor` orchestrator
+//!
+//! ## Quick example
+//!
+//! ```no_run
+//! use argo_executor_computer_use_windows::{WindowsCuExecutor, WindowsCuConfig};
+//! # async fn demo() -> Result<(), argo_executor_computer_use_windows::WindowsCuError> {
+//! let config = WindowsCuConfig::for_notepad_app();
+//! let exec = WindowsCuExecutor::new(config)?;
+//! let report = exec.preflight().await;
+//! if !report.all_passed() {
+//!     eprintln!("preflight gaps:\n{}", report.actionable_summary());
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## COM runtime requirement
+//!
+//! UIAutomation is a COM API; consumers must initialise COM on the
+//! calling thread via `CoInitializeEx(COINIT_MULTITHREADED)` before
+//! invoking [`a11y`] helpers. The executor performs this
+//! initialisation lazily inside [`WindowsCuExecutor::warm_up`].
+//!
+//! ## Platform support
+//!
+//! Compiles on every platform; the Windows-only modules return
+//! [`WindowsCuError::NotWindows`] when called from a non-Windows
+//! host. That keeps the workspace `cargo check` green on Linux /
+//! macOS CI runners while the Windows-host integration test is
+//! gated on `ARGO_NATIVE_WINDOWS_INTEGRATION=1`.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod a11y;
+pub mod config;
 pub mod error;
-pub mod input;
-pub mod probe;
+pub mod events;
+pub mod executor;
+pub mod notes;
+pub mod preflight;
 pub mod screenshot;
-pub mod session;
-pub mod window;
 
+pub use config::{ScreenshotKind, WindowsCuConfig};
 pub use error::WindowsCuError;
-pub use input::InputResult;
-pub use probe::{probe, ProbeReport, ProbeStatus};
-pub use screenshot::Screenshot;
-pub use session::{Session, SessionOptions, StepLog, StepRecord};
-pub use window::WindowInfo;
+pub use executor::{StepRecord, WindowsCuExecutor, WindowsCuOutcome, WindowsCuRunRequest};
+pub use preflight::{PreflightCheck, PreflightStatus, WindowsPreflightReport};
 
+/// Result alias for the crate.
 pub type WindowsCuResult<T> = Result<T, WindowsCuError>;
-
-/// Native Windows computer-use facade.
-///
-/// All methods route through `powershell.exe` subprocess wrappers.
-/// On non-Windows hosts each method returns
-/// [`WindowsCuError::Unsupported`] via the runtime probe.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct WindowsComputerUse;
-
-impl WindowsComputerUse {
-    #[must_use]
-    pub fn new() -> Self {
-        Self
-    }
-
-    #[must_use]
-    pub fn probe(&self) -> ProbeReport {
-        probe::probe()
-    }
-
-    pub fn screenshot(&self, dest: &std::path::Path) -> WindowsCuResult<Screenshot> {
-        screenshot::capture(dest)
-    }
-
-    pub fn click(&self, x: i32, y: i32) -> WindowsCuResult<InputResult> {
-        input::click(x, y)
-    }
-
-    pub fn key(&self, vk: &str) -> WindowsCuResult<InputResult> {
-        input::key(vk)
-    }
-
-    pub fn r#type(&self, text: &str) -> WindowsCuResult<InputResult> {
-        input::type_text(text)
-    }
-
-    pub fn type_text(&self, text: &str) -> WindowsCuResult<InputResult> {
-        self.r#type(text)
-    }
-
-    pub fn windows(&self, pattern: &str) -> WindowsCuResult<Vec<WindowInfo>> {
-        window::search_by_name(pattern)
-    }
-
-    pub fn focus(&self, window_handle: i64) -> WindowsCuResult<()> {
-        window::focus(window_handle)
-    }
-
-    #[must_use]
-    pub fn session(&self, opts: SessionOptions) -> Session {
-        Session::new(*self, opts)
-    }
-}
-
-#[cfg(test)]
-#[path = "lib_tests.rs"]
-mod tests;
