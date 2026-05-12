@@ -37,3 +37,9 @@ test-harness = []
 argo-executor-computer-use = { path = ".", features = ["test-harness"] }
 tempfile = "3"
 uuid = { workspace = true }
+# HTTP-level mocking for the E2B reaper unit tests
+# (mission-e2b-reap-idle): wiremock stamps a localhost stub that
+# the production E2bClient code path exercises through real
+# reqwest calls — catches pagination + status-code handling that
+# a pure trait mock can't see.
+wiremock = "0.6"

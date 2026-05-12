@@ -12,7 +12,7 @@ pub mod cli_runtime_cmds;
 #[path = "cli_command_enum.rs"]
 mod cli_command_enum;
 use clap::{Args, Parser, Subcommand};
-pub use cli_command_enum::Command;
+pub use cli_command_enum::{Command, E2bSandboxCmd, SandboxCmd};
 #[derive(Parser, Debug)]
 #[command(
     name = "argo",

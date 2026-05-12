@@ -23,11 +23,12 @@ use crate::anthropic::{AnthropicCall, CuStepRequest, CuStepResponse, StopReason}
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
 use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall, Sandbox as E2bSandbox};
+use crate::e2b_reap::E2bSandboxInfo;
 use crate::executor::{Outcome, RunRequest, RunResult};
 use crate::profile::Profile;
 use crate::CuError;
 use async_trait::async_trait;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -129,6 +130,8 @@ pub struct MockE2bClient {
     received: Mutex<Vec<CuAction>>,
     screenshot_png: Vec<u8>,
     screenshot_calls: Mutex<u32>,
+    sandboxes: Mutex<Vec<E2bSandboxInfo>>,
+    close_errors: Mutex<HashMap<String, String>>,
 }
 
 impl MockE2bClient {
@@ -142,7 +145,23 @@ impl MockE2bClient {
             received: Mutex::new(Vec::new()),
             screenshot_png,
             screenshot_calls: Mutex::new(0),
+            sandboxes: Mutex::new(Vec::new()),
+            close_errors: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Script the rows [`E2bCall::list_sandboxes`] returns.
+    #[must_use]
+    pub fn with_sandboxes(self, sandboxes: Vec<E2bSandboxInfo>) -> Self {
+        if let Ok(mut g) = self.sandboxes.lock() { *g = sandboxes; }
+        self
+    }
+
+    /// Configure [`E2bCall::close_sandbox`] to fail for `id` with `message`.
+    #[must_use]
+    pub fn with_close_error(self, id: impl Into<String>, message: impl Into<String>) -> Self {
+        if let Ok(mut g) = self.close_errors.lock() { g.insert(id.into(), message.into()); }
+        self
     }
 
     /// CU actions the mock observed in order. The harness reads
@@ -209,8 +228,17 @@ impl E2bCall for MockE2bClient {
         Ok(scripted.response)
     }
 
-    async fn close_sandbox(&self, _sandbox: &E2bSandbox) -> Result<(), CuError> {
+    async fn close_sandbox(&self, sandbox: &E2bSandbox) -> Result<(), CuError> {
+        if let Ok(g) = self.close_errors.lock() {
+            if let Some(msg) = g.get(&sandbox.id) {
+                return Err(CuError::Protocol(msg.clone()));
+            }
+        }
         Ok(())
+    }
+
+    async fn list_sandboxes(&self) -> Result<Vec<E2bSandboxInfo>, CuError> {
+        Ok(self.sandboxes.lock().map(|g| g.clone()).unwrap_or_default())
     }
 }
 

@@ -13,6 +13,7 @@
 //! no streaming, no logs, no file mount API yet (mounts land in
 //! a follow-up PR alongside the photo_paths feature).
 
+use crate::e2b_reap::{filter_idle, sandbox_handle, E2bReapReport, E2bSandboxInfo};
 use crate::CuError;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -38,6 +39,39 @@ pub trait E2bCall: Send + Sync {
     ) -> Result<ActionResult, CuError>;
     /// Close + reclaim the sandbox.
     async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError>;
+    /// List sandboxes the configured API-key owns. Default impl
+    /// returns empty — production [`E2bClient`] overrides to hit
+    /// E2B's `GET /sandboxes`; test mocks override to return
+    /// scripted rows.
+    async fn list_sandboxes(&self) -> Result<Vec<E2bSandboxInfo>, CuError> {
+        Ok(Vec::new())
+    }
+    /// Close sandboxes idle longer than `max_idle_secs`. Default
+    /// impl drives [`list_sandboxes`] + [`close_sandbox`] so any
+    /// implementor that overrides those two automatically gets a
+    /// working reaper. Reaping continues past per-sandbox close
+    /// errors; the report carries `(id, message)` pairs for any
+    /// failed close so operators see partial progress.
+    async fn reap_idle(&self, max_idle_secs: u64) -> Result<E2bReapReport, CuError> {
+        let sandboxes = self.list_sandboxes().await?;
+        let scanned = sandboxes.len();
+        let now = chrono::Utc::now();
+        let idle = filter_idle(&sandboxes, max_idle_secs, now);
+        let mut reaped: Vec<String> = Vec::new();
+        let mut errors: Vec<(String, String)> = Vec::new();
+        for info in idle {
+            let handle = sandbox_handle(&info.id);
+            match self.close_sandbox(&handle).await {
+                Ok(()) => reaped.push(info.id),
+                Err(e) => errors.push((info.id, e.to_string())),
+            }
+        }
+        Ok(E2bReapReport {
+            scanned,
+            reaped,
+            errors,
+        })
+    }
 }
 
 #[async_trait]
@@ -58,6 +92,9 @@ impl E2bCall for E2bClient {
     async fn close_sandbox(&self, sandbox: &Sandbox) -> Result<(), CuError> {
         E2bClient::close_sandbox(self, sandbox).await
     }
+    async fn list_sandboxes(&self) -> Result<Vec<E2bSandboxInfo>, CuError> {
+        E2bClient::list_sandboxes(self).await
+    }
 }
 
 /// Thin HTTP client. Holds a `reqwest::Client` so connection
@@ -66,9 +103,9 @@ impl E2bCall for E2bClient {
 /// helpers.
 #[derive(Debug, Clone)]
 pub struct E2bClient {
-    base_url: String,
-    api_key: String,
-    http: reqwest::Client,
+    pub(crate) base_url: String,
+    pub(crate) api_key: String,
+    pub(crate) http: reqwest::Client,
 }
 
 impl E2bClient {

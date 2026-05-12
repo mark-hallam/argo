@@ -59,6 +59,8 @@ pub mod audit;
 pub mod budget;
 pub mod config;
 pub mod e2b;
+pub mod e2b_reap;
+pub mod e2b_reap_cron;
 pub mod executor;
 pub(crate) mod executor_loop_exit;
 pub(crate) mod executor_step_helpers;
@@ -73,6 +75,7 @@ pub mod success_metric;
 pub mod testing;
 
 pub use config::CuConfig;
+pub use e2b_reap::{E2bReapReport, E2bSandboxInfo};
 pub use error::CuError;
 pub use executor::{ComputerUseExecutor, Outcome, RunRequest, RunResult};
 pub use profile::{Profile, ProfileRegistry};

@@ -189,6 +189,7 @@ pub mod roster_show;
 pub mod team;
 mod team_mutations;
 pub mod route;
+pub mod sandbox_e2b;
 pub mod session;
 mod session_aggregates;
 pub mod session_approval;
