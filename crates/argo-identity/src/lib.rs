@@ -31,6 +31,7 @@ mod roster_store;
 mod store;
 mod store_archive_methods;
 mod store_channels;
+mod store_hire;
 mod store_role;
 mod store_skill_tests;
 mod store_skills;
@@ -49,6 +50,7 @@ pub use org_ingest::{OrgChartYaml, OrgMemberYaml, OrgUnitYaml};
 pub use prompt::compose_system_prompt;
 pub use roster::{Roster, RosterId, RosterStore};
 pub use store::IdentityStore;
+pub use store_hire::{ApprovalPolicyChoice, HireDraft, HireDutyDraft};
 pub use types::{
     AutoApprovalPolicy, Duty, Formality, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role,
     Tone, VoiceProfile, Worker, WorkerId, WorkerLevel, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,

@@ -4,6 +4,7 @@ use crate::store_sql::{
     ensure_worker_trust_grade_columns, insert_duty, kpis_to_json, parse_worker_id, to_json,
     worker_from_row, IDENTITY_SCHEMA, WORKER_SELECT,
 };
+use crate::store_hire::{assemble_worker_from_draft, validate_hire_draft, HireDraft};
 use crate::{circuit, Duty, Worker, WorkerId, WorkerLevel, WorkerUpdate};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -410,6 +411,26 @@ impl<'a> IdentityStore<'a> {
         })
     }
 
+    /// Commit a worker from a hire draft (Stream J5).
+    ///
+    /// Assembles a [`Worker`] from `draft`, the caller's `tenant_id`,
+    /// and the `principal_id` of the operator placing the hire (stored
+    /// as `persona.builder_attribution`), then forwards to the existing
+    /// [`Self::create_worker`] transactional path. Validation errors
+    /// surface as [`ArgoError::Schema`] so the HTTP layer can map them
+    /// to 400; the underlying `create_worker` SQL errors continue to
+    /// surface as [`ArgoError::Provider`].
+    pub async fn create_worker_from_draft(
+        &self,
+        draft: &HireDraft,
+        tenant_id: TenantId,
+        principal_id: &str,
+    ) -> ArgoResult<WorkerId> {
+        validate_hire_draft(draft)?;
+        let worker = assemble_worker_from_draft(draft, tenant_id, principal_id);
+        self.create_worker(&worker).await?;
+        Ok(worker.id)
+    }
 }
 
 #[cfg(test)]

@@ -148,6 +148,11 @@ async fn dispatch_post_inner(
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }
+    // J5 — hire-commit endpoint. Bearer auth applied above; body
+    // shape is `{worker_draft, problem, answers}` per the brief.
+    if req.starts_with("POST /api/v1/workers ") {
+        return Some(super::routes_workers_hire::hire_response(req, store).await);
+    }
     // J1 — JSON approvals API: per-id `decide` and `undo`. The list
     // GET arm is wired in `routes_dispatch_get`. The HTML `/inbox`
     // surface in `routes_channels_webinbox` is preserved separately.
