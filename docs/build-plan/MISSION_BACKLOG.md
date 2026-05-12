@@ -275,7 +275,7 @@ unblocks a mission claim.
 111. Add MCP connector ZoomInfo/Apollo/Clearbit. `[PARTIAL — Clearbit SHIPPED; BRIEF: mission-mcp-connector-apollo for Apollo; BRIEF: mission-mcp-connector-zoominfo for ZoomInfo]`
 112. Add MCP connector SendGrid/Mailgun/Resend. `[PARTIAL — SendGrid SHIPPED; Mailgun SHIPPED; BRIEF: mission-mcp-connector-resend for Resend]`
 113. Add MCP connector image gen (Stability/DALL-E/Replicate).
-     `[NEW]`
+     `[SHIPPED — argo-mcp-connector-image-gen (Stability + DALL-E + Replicate) + argo-mcp-image-gen (server with stub + OpenAI backends); verified on origin/main 2026-05-12]`
 114. Add MCP connector Replicate (any-model HF endpoint). `[BRIEF: mission-mcp-connector-replicate]`
 
 ### Claim 6: Multi-channel approvals
@@ -293,7 +293,7 @@ unblocks a mission claim.
      `[BRIEF: mission-quiet-hours-channels]`
 122. Add operator-specific risk overrides. `[BRIEF: mission-operator-specific-risk-overrides]`
 123. Replace `setInterval(reload, 5000)` with real WebSocket on
-     `/inbox/ws`. `[NEW]`
+     `/inbox/ws`. `[SHIPPED — E1-f #1420 (ManagedWebSocket + useApprovalsLive); J3 #1418 (structured event protocol). No setInterval reload remains in web/.]`
 124. Add Telegram channel. `[BRIEF: mission-mcp-connector-telegram]`
 125. Add Microsoft Teams channel. `[BRIEF: mission-channel-microsoft-teams]`
 126. Add Signal channel. `[BRIEF: mission-mcp-connector-signal]`
@@ -518,8 +518,8 @@ unblocks a mission claim.
 ## SECTION 9 — Cleanup + polish
 
 256. Reconcile two Sandbox namespaces. `[NEW]`
-257. Move `voice.rs` HMAC inline impl to shared `token.rs`. `[NEW]`
-258. Fix CU `tool_use` parser to handle multi-action turns. `[NEW]`
+257. Move `voice.rs` HMAC inline impl to shared `token.rs`. `[SHIPPED — voice.rs uses argo-channels::token::signed_decision_url; no inline HMAC remains. Verified on origin/main 2026-05-12.]`
+258. Fix CU `tool_use` parser to handle multi-action turns. `[SHIPPED — mission-cu-parser-multi-action #1286 MERGED 2026-05-11. parse_response returns Vec<CuStepResponse>.]`
 259. Remove hand-rolled base64 encoder; pull in `base64` crate.
      `[NEW]`
 260. Split LOC-ceiling violations (auction.rs, duty_scheduler.rs,
