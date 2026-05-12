@@ -1436,6 +1436,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-test-cassette"
+version = "0.0.1"
+dependencies = [
+ "chrono",
+ "hex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "argo-tool"
 version = "0.0.1"
 dependencies = [

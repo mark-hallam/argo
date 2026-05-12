@@ -1,0 +1,35 @@
+{
+  "version": "1",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.example.test/v1/echo",
+        "headers": {
+          "authorization": "<REDACTED>",
+          "content-type": "application/json"
+        },
+        "body_sha256": "9eb2a4f0a3a3f0d9c6a8e7c4b5a3f2e1d0c9b8a7f6e5d4c3b2a1908070605040",
+        "body_json_redacted": {
+          "model": "skycot-demo",
+          "api_key": "<REDACTED>",
+          "messages": [
+            { "role": "user", "content": "ping" }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body_json": {
+          "ok": true,
+          "echo": "pong",
+          "completion_id": "demo-0001"
+        }
+      },
+      "recorded_at": "2026-05-12T03:00:00Z"
+    }
+  ]
+}
