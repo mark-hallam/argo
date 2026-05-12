@@ -1,0 +1,14 @@
+{
+  "name": "@skycot/deploy-smoke",
+  "private": true,
+  "version": "0.0.0",
+  "description": "K5 deployment smoke checks (API-level, hits the compose-deployed stack).",
+  "scripts": {
+    "checks": "ts-node --transpile-only checks.ts"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "@types/node": "^20.11.30"
+  }
+}
