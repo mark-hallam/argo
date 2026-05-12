@@ -298,8 +298,8 @@ unblocks a mission claim.
 125. Add Microsoft Teams channel. `[BRIEF: mission-channel-microsoft-teams]`
 126. Add Signal channel. `[BRIEF: mission-mcp-connector-signal]`
 127. Add Matrix channel. `[BRIEF: mission-channel-matrix]`
-128. Build approval-bundle UI. `[NEW]`
-129. Build approval-policy UI. `[NEW]`
+128. Build approval-bundle UI. `[BRIEF: mission-approval-bundle-ui]`
+129. Build approval-policy UI. `[BRIEF: mission-approval-policy-ui]`
 130. Add escalation-on-no-reply. `[BRIEF: mission-escalation-on-no-reply]`
 
 ---
@@ -314,14 +314,14 @@ unblocks a mission claim.
 134. Charter seed for customer-support. `[PARTIAL — #873 stub charter]`
 135. Charter seed for sales-sdr. `[PARTIAL — #873 stub charter]`
 136. Charter seed for marketing-intern. `[PARTIAL — #873 stub charter]`
-137. Add 5+ skills for each charter-stub vertical. `[NEW]`
+137. Add 5+ skills for each charter-stub vertical. `[BRIEF: mission-vertical-<slug>-skills family]`  ← 16+ briefs MERGED across customer-support / sales-sdr / marketing-intern / finance-ar / healthcare-intake / recruiter / tax-prep / product-manager / real-estate-agent / customer-onboarding / data-entry-clerk / event-coordinator / fundraising-coordinator / hr-screener / legal-paralegal / marketplace-seller / medical-coder / ops-on-call / procurement-assistant / qa-engineer
 138. Full action executor/instruction_template/retry policies for
      stub verticals. `[NEW]`
 139. Per-vertical regression test for each. `[NEW]`
-140. Expand eval suites to ≥7 fixtures each. `[NEW]`
+140. Expand eval suites to ≥7 fixtures each. `[SHIPPED]`  ← #1485
 141. `gtm_engineer_learning_loop.sh`-shape demo for each. `[NEW]`
 142. Live executor wiring (≥1 approval-gated action per vertical).
-     `[NEW]`
+     `[SHIPPED]`  ← #1491
 143. Demonstrate marketplace-seller end-to-end against E2B + real
      Marketplace test account. `[NEW]`
 
@@ -355,10 +355,10 @@ unblocks a mission claim.
      blocked on ort 2.x — find alternative or fork).
      `[SHIPPED]`
 163. Build image generation as MCP server. `[BRIEF: mission-image-generation-mcp-server]`
-164. Ship 25+ skills as starter library. `[NEW]`
+164. Ship 25+ skills as starter library. `[SHIPPED]`  ← #1481
 165. Build Skills Hub for browsing + installing community skills.
-     `[NEW]`
-166. Build Docusaurus-equivalent documentation site. `[NEW]`
+     `[BRIEF: mission-cli-skill-catalog]`  ← CLI browse only; UI-Hub install flow still outstanding
+166. Build Docusaurus-equivalent documentation site. `[STALE]`  ← superseded by #168 (mdBook site SHIPPED)
 167. Add public API reference auto-generated from `argo --help`.
      `[NEW]`
 168. Build mdBook site.
@@ -420,10 +420,10 @@ unblocks a mission claim.
 196. Single Forge-cron-tick scheduler (skill versioning + A/B +
      quality + Forge). `[BRIEF: mission-cron-tick-maintenance-jobs]`
 197. Build operator-feedback channel into Dreams curation. `[BRIEF: mission-operator-feedback-dreams-curation]`
-198. Build skill-cohort UI. `[NEW]`
+198. Build skill-cohort UI. `[BRIEF: mission-skill-cohort-ui]`
 199. Build skill-explanation (provenance + improvement history).
      `[BRIEF: mission-skill-explanation-provenance]`
-200. Build trust grade UI. `[NEW]`
+200. Build trust grade UI. `[SHIPPED]`  ← #1479
 
 ### Self-improvement infra
 
@@ -433,14 +433,14 @@ unblocks a mission claim.
      `[SHIPPED]`
 203. Sample-trajectory aggregation across tenants (with consent).
      `[NEW]`
-204. Cross-tenant skill propagation. `[NEW]`
+204. Cross-tenant skill propagation. `[BRIEF: mission-cross-tenant-skill-propagation]`
 205. Build benchmark suite (perf regression detection over skill
      versions). `[BRIEF: mission-bench-perf-regression-detection]`
 206. Build cost-attribution per Forge run. `[BRIEF: mission-forge-cost-attribution]`
 207. Build judge-disagreement evaluation suite. `[BRIEF: mission-judge-disagreement-eval]`
 208. Build skill quality trend dashboard.
      `[SHIPPED]`
-209. Build retro-review UI. `[NEW]`
+209. Build retro-review UI. `[SHIPPED]`  ← #1480
 210. Build self-evaluation honesty test. `[BRIEF: mission-eval-self-honesty-test]`
 
 ---
@@ -448,14 +448,14 @@ unblocks a mission claim.
 ## SECTION 7 — Compliance + governance + enterprise
 
 211. Add SOC2 Type 2 audit trail capabilities (CC1-CC9 evidence).
-     `[NEW]`
-212. Add HIPAA path (BAA-compatible). `[NEW]`
-213. Add encryption-at-rest for SQLite (sqlcipher). `[NEW]`
-214. Add encryption-at-rest for credentials.toml. `[NEW]`
+     `[SHIPPED]`  ← #1047 (`argo compliance soc2` CLI)
+212. Add HIPAA path (BAA-compatible). `[BRIEF: mission-hipaa-path-baa]`
+213. Add encryption-at-rest for SQLite (sqlcipher). `[BRIEF: mission-encryption-at-rest-sqlcipher]`
+214. Add encryption-at-rest for credentials.toml. `[SHIPPED]`  ← #1460 (`argo-credentials` age-encrypted)
 215. Field-level encryption for memory rows tagged Pii/Phi.
      `[PARTIAL — claude-data-classification SHIPPED #893 tags only]`
 216. System keyring integration. `[BRIEF: mission-system-keyring-integration]`
-217. Automated key-rotation tooling. `[NEW]`
+217. Automated key-rotation tooling. `[SHIPPED]`  ← #1462 (`argo security rotate-keys`)
 218. Vulnerability management workflow. `[BRIEF: mission-vulnerability-management-workflow]`
 219. Policy-as-code extensions (approval matrices).
      `[PARTIAL — claude-policy-as-code SHIPPED #888]`
@@ -472,14 +472,14 @@ unblocks a mission claim.
 225. Hard $$$ ceilings per session/day/month at enforcement time.
      `[BRIEF: mission-llm-budget-hard-ceiling]`
 226. Incident-response runbook beyond failure_modes.md. `[BRIEF: mission-incident-response-runbook]`
-227. SIEM integration (Splunk/ELK/Datadog). `[NEW]`
+227. SIEM integration (Splunk/ELK/Datadog). `[BRIEF: mission-siem-integration]`
 228. Evidence archival for audit responses. `[BRIEF: mission-evidence-archival-audit]`
-229. Zero-trust networking design for multi-host. `[NEW]`
-230. BYOK (bring your own key) for enterprise tenants. `[NEW]`
-231. SCIM provisioning. `[NEW]`
-232. SSO via SAML/OIDC at gateway edge. `[NEW]`
-233. IP allowlist / VPN-only deployment mode. `[NEW]`
-234. GDPR data residency (per-tenant DB region pinning). `[NEW]`
+229. Zero-trust networking design for multi-host. `[SHIPPED]`  ← #1457 (design-doc only; impl is named follow-up briefs)
+230. BYOK (bring your own key) for enterprise tenants. `[BRIEF: mission-byok-enterprise-tenants]`
+231. SCIM provisioning. `[BRIEF: mission-scim-provisioning]`
+232. SSO via SAML/OIDC at gateway edge. `[BRIEF: mission-sso-saml-oidc-gateway]`
+233. IP allowlist / VPN-only deployment mode. `[BRIEF: mission-ip-allowlist-deployment-mode]`
+234. GDPR data residency (per-tenant DB region pinning). `[BRIEF: mission-gdpr-data-residency]`
 235. Right-to-be-forgotten propagation through Dreams output.
      `[NEW]`
 
@@ -492,32 +492,32 @@ unblocks a mission claim.
 237. OOM kill detection + graceful restart. `[BRIEF: mission-oom-restart-handler]`
 238. Concurrent worker safety (multi-vertical lock). `[NEW]`
 239. SQLite WAL tuning per workload pattern. `[BRIEF: mission-sqlite-wal-tuning]`
-240. Read replica pattern for heavy audit query loads. `[NEW]`
+240. Read replica pattern for heavy audit query loads. `[SHIPPED]`  ← #1470 (design-doc only; litestream Tier 0)
 241. Horizontal-scaling story (PostgreSQL or shared DB topology).
-     `[NEW]`
+     `[SHIPPED]`  ← #1335 (postgres-support-path ADR; impl deferred to v1.x+)
 242. Worker pool elasticity (auto-scale on queue depth). `[BRIEF: mission-worker-pool-elasticity]`
 243. E2B sandbox cost optimization (`reap_idle` caller). `[BRIEF: mission-e2b-reap-idle]`
 244. Per-tenant LLM budget enforcement at provider call time.
-     `[NEW]`
+     `[SHIPPED]`  ← #1349 (`SpendGate<T: Transport>` ceiling at enforcement time)
 245. Sticky-session affinity (worker reuses same session warm
      cache). `[NEW]`
 246. Prompt cache hit rate observability. `[BRIEF: mission-prompt-cache-hit-rate-observability]`
-247. Context-window-aware compression (Amendment §5.8). `[NEW]`
-248. Adaptive context truncation. `[NEW]`
-249. Streaming-aware retry (don't lose mid-stream content). `[NEW]`
+247. Context-window-aware compression (Amendment §5.8). `[SHIPPED]`  ← #1465
+248. Adaptive context truncation. `[BRIEF: mission-adaptive-context-truncation]`
+249. Streaming-aware retry (don't lose mid-stream content). `[BRIEF: mission-streaming-aware-retry]`
 250. WebSocket-based live audit stream (currently snapshot). `[NEW]`
 251. Connector auto-retry with exponential backoff. `[BRIEF: mission-connector-auto-retry-backoff]`
 252. Connection pooling for MCP connectors (currently per-turn).
      `[NEW]`
 253. LLM call deduplication. `[BRIEF: mission-llm-call-dedup-cache]`
 254. Per-action-type throttling. `[NEW]`
-255. Burst pre-warming (predictive sandbox creation). `[NEW]`
+255. Burst pre-warming (predictive sandbox creation). `[SHIPPED]`  ← #1473
 
 ---
 
 ## SECTION 9 — Cleanup + polish
 
-256. Reconcile two Sandbox namespaces. `[NEW]`
+256. Reconcile two Sandbox namespaces. `[BRIEF: mission-sandbox-namespace-reconcile]`
 257. Move `voice.rs` HMAC inline impl to shared `token.rs`. `[SHIPPED — voice.rs uses argo-channels::token::signed_decision_url; no inline HMAC remains. Verified on origin/main 2026-05-12.]`
 258. Fix CU `tool_use` parser to handle multi-action turns. `[SHIPPED — mission-cu-parser-multi-action #1286 MERGED 2026-05-11. parse_response returns Vec<CuStepResponse>.]`
 259. Remove hand-rolled base64 encoder; pull in `base64` crate.
@@ -526,9 +526,9 @@ unblocks a mission claim.
      routes_post.rs, metrics.rs, memory.rs are over 500). `[NEW]`
 261. Fix `/inbox/ws` to be real WebSocket. `[BRIEF: mission-inbox-ws-real-websocket]`
 262. Replace Forge trait `StubForge` with reality OR delete trait
-     + rename `forge_optimize`. `[NEW]`
-263. Add `update_worker` API on IdentityStore. `[NEW]`
-264. Add typed lifecycle methods on IdentityStore. `[NEW]`
+     + rename `forge_optimize`. `[BRIEF: mission-forge-stubforge-cleanup]`
+263. Add `update_worker` API on IdentityStore. `[SHIPPED]`  ← #1280
+264. Add typed lifecycle methods on IdentityStore. `[BRIEF: mission-identity-delete-worker]`  ← update_worker SHIPPED via #1280; delete/archive pending
 265. Fix CU `argo-sandbox` vs E2B `Sandbox` naming. `[BRIEF: mission-sandbox-namespace-reconcile]`
 266. Move 26 raw SQL files into versioned modules.
      `[SHIPPED]`
@@ -536,9 +536,9 @@ unblocks a mission claim.
      `[BRIEF: mission-document-migrations-forward-only]`
 268. Fix `forge_run.spend_usd_micros` polling race. `[NEW]`
 269. Add proper streaming retry-on-timeout in `argo-provider`.
-     `[NEW]`
+     `[BRIEF: mission-streaming-aware-retry]`
 270. Add proper exponential backoff. `[NEW]`
-271. Document `dev-runtime-guardrails.md` as DEV ONLY. `[NEW]`
+271. Document `dev-runtime-guardrails.md` as DEV ONLY. `[SHIPPED]`  ← #1474
 272. Update `launch_readiness.md` to reflect actual production
      gaps. (folded into headline-reconciliation)
      `[SHIPPED]`
@@ -652,3 +652,11 @@ The mission paragraph in [docs/skycot/MISSION.md](../skycot/MISSION.md)
 remains the immutable source of truth. This file is the work
 breakdown that traces from the mission's six claims to specific
 landed/pending implementation work.
+
+---
+
+## Tick 198+ — reconciliation log
+
+Reconciled 2026-05-13: 16 [NEW]→[SHIPPED], 20 [NEW]→[BRIEF:…], 1 [NEW]→[STALE], 23 [NEW] kept (no matching ledger row or genuinely operative).
+
+Brief: `mission-reconcile-backlog-tags-vs-ledger`. Ledger (`BUILD_STATUS.md` @ `1f97ade2`) read for ground truth; transitions cite the merged PR # for SHIPPED rows and the live `mission-<slug>` for BRIEF rows. Kept-NEW rows have no current ledger match and remain candidates for future conductor authoring.
