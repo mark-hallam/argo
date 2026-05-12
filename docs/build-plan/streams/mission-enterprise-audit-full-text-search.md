@@ -29,8 +29,9 @@ This is NOT in scope: tenant_id column (sibling brief); FTS5 virtual table (sepa
 ## Files you may touch
 
 - `crates/argo-store/migrations/64__audit_record_filter_columns.sql` (NEW, ≤ 80 LOC) — 7 columns + 3 indexes (slot 63 taken by J16 elevated_view_grant #1426 2026-05-12)
-- `crates/argo-store/src/audit.rs` (≤ 480 LOC after) — write path populates new columns from `payload_json`; `verify_chain` denorm sanity check
-- `crates/argo-store/src/audit_tests.rs` (NEW or extend, ≤ 350 LOC) — 5 tests: column populated on write, downgrade-safe (NULL columns), verify_chain catches denorm drift, index used (EXPLAIN QUERY PLAN), no chain hash impact
+- `crates/argo-audit/src/sink.rs` (≤ 480 LOC after — currently ~280 LOC) — write path populates new columns from `payload_json`; `verify_chain` (in sibling `verify.rs`) gets denorm sanity check
+- `crates/argo-audit/src/sink_tests.rs` or extend `crates/argo-audit/src/tests.rs` (≤ 480 LOC after) — 5 tests: column populated on write, downgrade-safe (NULL columns), verify_chain catches denorm drift, index used (EXPLAIN QUERY PLAN), no chain hash impact
+- `crates/argo-audit/src/verify.rs` (≤ 300 LOC after) — extend `verify_session` / `verify_all` with denorm-column-matches-payload check
 - `crates/argo-cli/src/handlers/gateway/routes_audit_feed.rs` (≤ 480 LOC after) — SQL branch + fallback
 - `crates/argo-cli/src/handlers/gateway/routes_audit_feed_tests.rs` (≤ 480 LOC after) — extend with 3 tests: SQL path returns same shape as app-layer path; index used; legacy NULL rows fall through to app-layer parse
 - `crates/argo-cli/benches/audit_feed.rs` (NEW, ≤ 220 LOC) — criterion harness
