@@ -381,15 +381,60 @@ ROADMAP_STATUS_WEIGHT = {
 }
 
 
+# Letter-prefix brief filename: K1-..., E0-..., E1-a-..., G3-..., J18-..., etc.
+# Captures the leading single-letter track tag.
+TRACK_BRIEF_FILE_RE = re.compile(r"^([A-Z])\d+(?:-|$)")
+
+
+def _discover_track_briefs() -> dict[str, list[str]]:
+    """Scan streams/ for letter-prefix brief filenames and group by letter.
+
+    Returns {letter -> [brief_id, ...]}. Letters surface in the roadmap
+    panel even when PRODUCT_ROADMAP.md hasn't documented them yet — e.g.
+    Track K (deployment-path-directive-v3, 5 briefs authored 2026-05-12)
+    appears as a DRAFT card before its row lands in the roadmap table.
+    """
+    if not STREAMS_DIR.is_dir():
+        return {}
+    by_letter: dict[str, list[str]] = defaultdict(list)
+    for p in sorted(STREAMS_DIR.iterdir()):
+        if not p.is_file() or p.suffix != ".md":
+            continue
+        m = TRACK_BRIEF_FILE_RE.match(p.name)
+        if not m:
+            continue
+        by_letter[m.group(1)].append(p.stem)
+    return dict(by_letter)
+
+
 def parse_product_roadmap() -> dict:
     """Return {tracks, pct, by_status, available}.
 
     Tracks come from the "## The seven tracks" table at the top of
     PRODUCT_ROADMAP.md. Returns available=False if the file is missing
     (old worktrees) so the renderer hides the panel cleanly.
+
+    Discovered letters in streams/ that are NOT in the roadmap table
+    are merged in as DRAFT entries so newly-authored tracks (e.g. K
+    from deployment-path-directive-v3) surface immediately rather than
+    blocking on PRODUCT_ROADMAP.md updates. Every track card carries
+    a `brief_count` derived from the streams/ scan.
     """
+    discovered = _discover_track_briefs()
+
     if not ROADMAP.is_file():
-        return {"tracks": [], "pct": 0.0, "by_status": {}, "available": False}
+        # Roadmap missing (old worktrees) — but if streams/ has letter-
+        # prefix briefs, surface them as DRAFT so the panel isn't empty.
+        if not discovered:
+            return {"tracks": [], "pct": 0.0, "by_status": {}, "available": False}
+        tracks = _draft_tracks_from_letters(sorted(discovered.keys()), discovered)
+        return {
+            "tracks": tracks,
+            "pct": 0.0,
+            "by_status": {"DRAFT": len(tracks)},
+            "available": True,
+        }
+
     text = ROADMAP.read_text(encoding="utf-8")
     tracks: list[dict] = []
     in_section = False
@@ -411,6 +456,16 @@ def parse_product_roadmap() -> dict:
             "note": status_tail.strip().lstrip("—").strip(),
             "closes": closes.strip(),
         })
+
+    # Stamp brief_count on each documented track.
+    for t in tracks:
+        t["brief_count"] = len(discovered.get(t["letter"], []))
+
+    # Merge discovered-but-undocumented letters as DRAFT entries.
+    documented = {t["letter"] for t in tracks}
+    undocumented = [l for l in sorted(discovered.keys()) if l not in documented]
+    tracks.extend(_draft_tracks_from_letters(undocumented, discovered))
+
     by_status: dict[str, int] = defaultdict(int)
     wn, wd = 0.0, 0
     for t in tracks:
@@ -427,6 +482,60 @@ def parse_product_roadmap() -> dict:
         "by_status": dict(by_status),
         "available": True,
     }
+
+
+def _draft_tracks_from_letters(letters: list[str], discovered: dict[str, list[str]]) -> list[dict]:
+    """Build DRAFT track cards for letters present in streams/ but absent
+    from PRODUCT_ROADMAP.md's seven-tracks table. Scope is derived from the
+    common prefix of the discovered brief ids so operators can see what the
+    track is at a glance without opening any file.
+    """
+    out: list[dict] = []
+    for letter in letters:
+        brief_ids = discovered.get(letter, [])
+        scope = _scope_hint_from_briefs(brief_ids) or f"Track {letter} (discovered)"
+        out.append({
+            "letter": letter,
+            "scope": scope,
+            "who": "swarm",
+            "status": "DRAFT",
+            "note": f"{len(brief_ids)} briefs authored under streams/; row not yet in PRODUCT_ROADMAP.md",
+            "closes": "—",
+            "brief_count": len(brief_ids),
+        })
+    return out
+
+
+def _scope_hint_from_briefs(brief_ids: list[str]) -> str:
+    """Derive a one-line scope hint from a list of brief ids by stripping
+    the leading letter-digit prefix and finding the common word prefix.
+    Example: ["K1-deploy-docker-compose-stack", "K2-deploy-k8s-manifests"]
+    -> "deploy". Returns "" if no useful common prefix.
+    """
+    if not brief_ids:
+        return ""
+    # Strip leading "L<digits>(-letter)?-" -> remaining slug
+    stripped: list[list[str]] = []
+    pref_re = re.compile(r"^[A-Z]\d+(?:-[a-z])?-")
+    for bid in brief_ids:
+        rest = pref_re.sub("", bid)
+        parts = rest.split("-")
+        if parts:
+            stripped.append(parts)
+    if not stripped:
+        return ""
+    # Find longest common word prefix.
+    common: list[str] = []
+    for i in range(min(len(s) for s in stripped)):
+        word = stripped[0][i]
+        if all(s[i] == word for s in stripped):
+            common.append(word)
+        else:
+            break
+    if not common:
+        # Fall back to the first brief's first word, if any.
+        return stripped[0][0] if stripped[0] else ""
+    return " ".join(common)
 
 
 # ─── Repo freshness (auto-pull staleness) ───────────────────────────────────
@@ -2168,7 +2277,7 @@ function stackBar(counts, total, palette) {
   $("#tier-other").innerHTML = others || '';
 })();
 
-// ── Product Roadmap · tracks A–G ──
+// ── Product Roadmap · tracks A–G (+ discovered DRAFT tracks) ──
 (() => {
   const r = DATA.product_roadmap;
   if (!r || !r.available || !r.tracks || !r.tracks.length) return;
@@ -2179,12 +2288,18 @@ function stackBar(counts, total, palette) {
     "IN PROGRESS": "#2563eb",
     "QUEUED": "#d97706",
     "NOT STARTED": "#6b7280",
+    "DRAFT": "#9333ea",
   };
   const cards = r.tracks.map(t => {
     const c = statusColor[t.status] || "#6b7280";
     const scopeShort = (t.scope || "").split(/[—\-–]/)[0].trim().slice(0, 28);
     const noteShort = (t.note || "").replace(/\[[^\]]*\]\([^)]*\)/g, '').slice(0, 90);
-    return `<div class="phase-card" style="border-color:${c}40">
+    const briefCount = (typeof t.brief_count === "number") ? t.brief_count : null;
+    const badge = briefCount !== null
+      ? `<span class="ph-badge" title="${briefCount} brief file${briefCount === 1 ? '' : 's'} under streams/" style="position:absolute;top:6px;right:8px;font-size:10px;background:${c}1a;color:${c};border:1px solid ${c}40;border-radius:9px;padding:1px 7px;font-weight:600;letter-spacing:0.02em;">${briefCount}</span>`
+      : "";
+    return `<div class="phase-card" style="border-color:${c}40;position:relative;">
+      ${badge}
       <div class="ph-letter" style="font-size:22px;">${t.letter}</div>
       <div class="ph-title" style="min-height:2.6em;">${escapeHtml(scopeShort)}</div>
       <div class="ph-pct" style="color:${c};font-size:14px;text-transform:uppercase;letter-spacing:0.04em;">${t.status}</div>
@@ -2200,12 +2315,15 @@ function stackBar(counts, total, palette) {
   const inProg = (r.by_status||{})["IN PROGRESS"] || 0;
   const queued = (r.by_status||{})["QUEUED"] || 0;
   const notStarted = (r.by_status||{})["NOT STARTED"] || 0;
+  const draft = (r.by_status||{})["DRAFT"] || 0;
+  const draftBit = draft ? ` · <span style="color:${statusColor.DRAFT}">${draft} draft</span>` : "";
   $("#roadmap-legend").innerHTML =
     `<b>${r.pct.toFixed(0)}%</b> weighted · ` +
     `<span style="color:${statusColor.DONE}">${done} done</span> · ` +
     `<span style="color:${statusColor['IN PROGRESS']}">${inProg} in progress</span> · ` +
     `<span style="color:${statusColor.QUEUED}">${queued} queued</span> · ` +
-    `<span style="color:${statusColor['NOT STARTED']}">${notStarted} not started</span>`;
+    `<span style="color:${statusColor['NOT STARTED']}">${notStarted} not started</span>` +
+    draftBit;
 })();
 
 // ── backlog-gap panel ──
