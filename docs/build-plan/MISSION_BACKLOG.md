@@ -469,9 +469,9 @@ unblocks a mission claim.
      `[SHIPPED]`
 225. Hard $$$ ceilings per session/day/month at enforcement time.
      `[BRIEF: mission-llm-budget-hard-ceiling]`
-226. Incident-response runbook beyond failure_modes.md. `[NEW]`
+226. Incident-response runbook beyond failure_modes.md. `[BRIEF: mission-incident-response-runbook]`
 227. SIEM integration (Splunk/ELK/Datadog). `[NEW]`
-228. Evidence archival for audit responses. `[NEW]`
+228. Evidence archival for audit responses. `[BRIEF: mission-evidence-archival-audit]`
 229. Zero-trust networking design for multi-host. `[NEW]`
 230. BYOK (bring your own key) for enterprise tenants. `[NEW]`
 231. SCIM provisioning. `[NEW]`
@@ -487,13 +487,13 @@ unblocks a mission claim.
 
 236. Per-worker resource limits (cgroup, memory cap, CPU share).
      `[NEW]`
-237. OOM kill detection + graceful restart. `[NEW]`
+237. OOM kill detection + graceful restart. `[BRIEF: mission-oom-restart-handler]`
 238. Concurrent worker safety (multi-vertical lock). `[NEW]`
 239. SQLite WAL tuning per workload pattern. `[BRIEF: mission-sqlite-wal-tuning]`
 240. Read replica pattern for heavy audit query loads. `[NEW]`
 241. Horizontal-scaling story (PostgreSQL or shared DB topology).
      `[NEW]`
-242. Worker pool elasticity (auto-scale on queue depth). `[NEW]`
+242. Worker pool elasticity (auto-scale on queue depth). `[BRIEF: mission-worker-pool-elasticity]`
 243. E2B sandbox cost optimization (`reap_idle` caller). `[BRIEF: mission-e2b-reap-idle]`
 244. Per-tenant LLM budget enforcement at provider call time.
      `[NEW]`
