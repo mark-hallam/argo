@@ -77,6 +77,7 @@ members = [
   "crates/argo-mcp-connector-imessage",
   "crates/argo-mcp-connector-telegram",
   "crates/argo-mcp-connector-quickbooks",
+  "crates/argo-mcp-connector-xero",
   "crates/argo-mcp-connector-greenhouse",
   "crates/argo-mcp-connector-dropbox",
   "crates/argo-mcp-connector-box",
