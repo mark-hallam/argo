@@ -115,6 +115,10 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             skip_startup_check,
             insecure_bind,
         } => {
+            // Record gateway-start instant for the `/health` +
+            // `/readyz` `uptime_seconds` field. Idempotent across
+            // re-entry — see `routes_health::mark_start`.
+            routes_health::mark_start();
             // Initialise the per-route, per-tenant token-bucket limiter
             // and spawn its eviction sweep before the listener accepts.
             // Idempotent — only the first caller actually wires state.

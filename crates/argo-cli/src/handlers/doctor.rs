@@ -102,6 +102,7 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     print_cron(&payload["cron"]);
     print_creds(&payload["creds"]);
     print_gateway(&payload["gateway"]);
+    print_health(&payload["gateway_health"]);
     print_routes(&payload["routes"]);
     doctor_h_stack::print_text(&payload["auto_approval"]);
     print_channels(&payload["channels"]);
@@ -147,6 +148,45 @@ fn print_gateway(v: &serde_json::Value) {
     }
 }
 
+async fn gateway_health_probe(gateway: &serde_json::Value) -> serde_json::Value {
+    if !gateway["running"].as_bool().unwrap_or(false) {
+        return serde_json::json!({"reachable": false, "reason": "gateway not running"});
+    }
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let url = format!("http://127.0.0.1:{}/health", cfg.gateway.port);
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(500))
+        .build()
+    else {
+        return serde_json::json!({"reachable": false, "reason": "client_build_failed"});
+    };
+    match client.get(&url).send().await {
+        Ok(r) => {
+            let code = r.status().as_u16();
+            let body = serde_json::from_str::<serde_json::Value>(
+                &r.text().await.unwrap_or_default(),
+            )
+            .unwrap_or(serde_json::Value::Null);
+            serde_json::json!({"reachable": true, "status_code": code, "body": body})
+        }
+        Err(e) => serde_json::json!({"reachable": false, "reason": format!("{e}")}),
+    }
+}
+
+fn print_health(v: &serde_json::Value) {
+    if v["reachable"].as_bool().unwrap_or(false) {
+        let code = v["status_code"].as_u64().unwrap_or(0);
+        let s = v["body"]["status"].as_str().unwrap_or("?");
+        println!("  /health:    HTTP {code}  status={s}");
+    } else {
+        println!(
+            "  /health:    {}",
+            v["reason"].as_str().unwrap_or("unreachable")
+        );
+    }
+}
+
 /// Gather every doctor check into a single JSON document. Shared
 /// between the CLI handler and the gateway's `GET /doctor`
 /// endpoint.
@@ -175,6 +215,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let cron = cron_status(&cwd);
     let creds = creds_status();
     let gateway = gateway_status(&home);
+    let gateway_health = gateway_health_probe(&gateway).await;
     let routes = routes_count();
     let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
     let channels = doctor_channels::collect().await;
@@ -191,6 +232,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "cron": cron,
         "creds": creds,
         "gateway": gateway,
+        "gateway_health": gateway_health,
         "routes": routes,
         "auto_approval": auto_approval,
         "channels": channels,

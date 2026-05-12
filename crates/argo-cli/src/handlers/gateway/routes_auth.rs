@@ -55,6 +55,7 @@ pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
 /// Members:
 /// - `GET /` — root index
 /// - `GET /health`, `/health/live`, `/health/ready`, `/health/full`
+/// - `GET /livez`, `/readyz` — k8s-convention probes (mission-health-check-endpoint)
 /// - `GET /version`
 /// - `GET /routes`
 ///
@@ -83,6 +84,8 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/health/live"
             | "/health/ready"
             | "/health/full"
+            | "/livez"
+            | "/readyz"
             | "/version"
             | "/routes"
     )

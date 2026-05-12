@@ -71,8 +71,11 @@ pub(super) async fn dispatch_get_admin(
     if req.starts_with("GET /health/full ") {
         return Some(health_full_response().await);
     }
-    if req.starts_with("GET /health ") {
-        return Some(super::routes_health::health_response());
+    if req.starts_with("GET /health ") || req.starts_with("GET /readyz ") {
+        return Some(super::routes_health::health_response(store).await);
+    }
+    if req.starts_with("GET /livez ") {
+        return Some(super::routes_health::live_response());
     }
     if req.starts_with("GET /doctor ") || req.starts_with("GET /doctor?") {
         let tail = req.strip_prefix("GET ").unwrap_or(req);
