@@ -87,6 +87,7 @@ members = [
   "crates/argo-mcp-connector-apollo",
   "crates/argo-mcp-connector-zoominfo",
   "crates/argo-mcp-connector-zoom",
+  "crates/argo-mcp-connector-microsoft-teams",
   "crates/argo-mcp-connector-image-gen",
   "crates/argo-mcp-connector-replicate",
   "crates/argo-mcp-connector-whatsapp-cloud",
