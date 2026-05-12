@@ -72,6 +72,14 @@ pub(super) async fn dispatch_get(
                         .await,
                 );
             }
+            // J9 — per-worker audit timeline. Pinned alongside trust-grade
+            // so the `/api/v1/workers/<id>/<verb>` family stays grouped.
+            if tail.starts_with("activity ") || tail.starts_with("activity?") {
+                return Some(
+                    super::routes_worker_activity::list_response(id_with_suffix, req, store)
+                        .await,
+                );
+            }
         }
         // J7 — bare /api/v1/workers/<id> for the worker profile page.
         // Matches only when the path has no further slash before the
