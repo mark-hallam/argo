@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { RedactedText } from "@/components/skycot/RedactedText";
+import { POLICY_SHOW_ALL, type RedactionPolicy } from "@/lib/redaction/redact";
 import { cn } from "@/lib/utils";
 
 /**
@@ -48,6 +50,15 @@ export interface ApprovalCardProps {
   undoWindowMs?: number;
   /** Reflects host-side state; once non-null the card is in post-decision mode. */
   decision?: ApprovalDecision | null;
+  /**
+   * Client-side PII redaction policy for `detail`, `consequenceIfYes`,
+   * `consequenceIfNo`, and `reason`. Defaults to `POLICY_SHOW_ALL`
+   * (no redaction) so card-only consumers and the existing test
+   * fixtures keep rendering raw prose. The approvals page wires
+   * `useRedactionPolicy()` and pushes the resolved policy down.
+   * Defense-in-depth — see `lib/redaction/redact.ts`.
+   */
+  redactionPolicy?: RedactionPolicy;
   className?: string;
 }
 
@@ -102,6 +113,7 @@ export function ApprovalCard({
   onUndo,
   undoWindowMs = 30_000,
   decision: controlledDecision,
+  redactionPolicy = POLICY_SHOW_ALL,
   className,
 }: ApprovalCardProps) {
   const [showReason, setShowReason] = useState(false);
@@ -177,16 +189,22 @@ export function ApprovalCard({
         </div>
       </div>
 
-      <div className="px-5 py-4 text-[14px] leading-relaxed text-[var(--foreground)]">{detail}</div>
+      <div className="px-5 py-4 text-[14px] leading-relaxed text-[var(--foreground)]">
+        <RedactedText policy={redactionPolicy}>{detail}</RedactedText>
+      </div>
 
       <div className="mx-5 mb-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/40 px-4 py-3 text-[13px] leading-relaxed space-y-1.5">
         <div className="flex gap-2.5">
           <span className="font-semibold text-[var(--success)] shrink-0 tabular-nums">If YES →</span>
-          <span className="text-[var(--muted-foreground)]">{consequenceIfYes}</span>
+          <span className="text-[var(--muted-foreground)]">
+            <RedactedText policy={redactionPolicy}>{consequenceIfYes}</RedactedText>
+          </span>
         </div>
         <div className="flex gap-2.5">
           <span className="font-semibold text-[var(--muted-foreground)] shrink-0 tabular-nums">If NO →</span>
-          <span className="text-[var(--muted-foreground)]">{consequenceIfNo}</span>
+          <span className="text-[var(--muted-foreground)]">
+            <RedactedText policy={redactionPolicy}>{consequenceIfNo}</RedactedText>
+          </span>
         </div>
       </div>
 
@@ -250,7 +268,7 @@ export function ApprovalCard({
           id="approval-why"
           className="border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--muted-foreground)] leading-relaxed bg-[var(--muted)]/30"
         >
-          {reason}
+          <RedactedText policy={redactionPolicy}>{reason}</RedactedText>
         </div>
       ) : null}
     </Card>

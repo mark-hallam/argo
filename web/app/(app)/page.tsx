@@ -11,10 +11,18 @@ import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { FilterChipRail } from "@/components/skycot/FilterChipRail";
 import { FilterPopover } from "@/components/skycot/FilterPopover";
 import { NotificationsBell } from "@/components/skycot/NotificationsBell";
+import { RequestElevatedView } from "@/components/skycot/RequestElevatedView";
 import { ThemePicker } from "@/components/skycot/ThemePicker";
 import { useUnreadNotificationCount } from "@/lib/hooks/use-notifications";
+import { useRedactionPolicy } from "@/lib/hooks/use-redaction-policy";
 import { groupApprovals, type ApprovalItem } from "@/lib/sample-approvals";
 import { useApprovals, useSubmitDecision, useUndoDecision } from "@/lib/hooks/use-approvals";
+import {
+  maskedCategories,
+  redactPII,
+  resultHasMasks,
+} from "@/lib/redaction/redact";
+import type { RedactionCategory } from "@/lib/redaction/patterns";
 import {
   activeFilterCount, applyFilters, clearDimension, EMPTY_FILTERS, isFilterEmpty,
   parseFilters, serializeFilters, toggleFilterValue, workerOptions as deriveWorkerOptions,
@@ -47,6 +55,7 @@ function ApprovalsInboxShell() {
   const approvalsQuery = useApprovals();
   const submitDecision = useSubmitDecision();
   const undoDecision = useUndoDecision();
+  const redactionPolicy = useRedactionPolicy();
   const [query, setQuery] = useState("");
 
   const router = useRouter();
@@ -91,6 +100,23 @@ function ApprovalsInboxShell() {
   const groups = useMemo(() => groupApprovals(filteredByAll), [filteredByAll]);
   const pendingCount = filteredByAll.filter((a) => a.decision == null).length;
 
+  // Pre-scan visible cards to know whether to surface the elevated-view
+  // CTA, and what categories to record on the audit POST. Cheap; the
+  // regex passes run once per filter change.
+  const maskedOnPage = useMemo<RedactionCategory[]>(() => {
+    const seen = new Set<RedactionCategory>();
+    for (const a of filteredByAll) {
+      for (const field of [a.detail, a.consequenceIfYes, a.consequenceIfNo, a.reason ?? ""]) {
+        if (!field) continue;
+        const result = redactPII(field, redactionPolicy);
+        if (resultHasMasks(result)) {
+          for (const c of maskedCategories(result)) seen.add(c);
+        }
+      }
+    }
+    return Array.from(seen);
+  }, [filteredByAll, redactionPolicy]);
+
   return (
     <>
       <PageHeader
@@ -110,6 +136,12 @@ function ApprovalsInboxShell() {
         onClearAll={handleClearAll}
       />
 
+      {maskedOnPage.length > 0 ? (
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-3">
+          <RequestElevatedView categories={maskedOnPage} />
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {approvalsQuery.isPending ? (
           <LoadingState />
@@ -126,6 +158,7 @@ function ApprovalsInboxShell() {
               key={key}
               label={key === "today" ? "Today" : key === "yesterday" ? "Yesterday" : "Earlier"}
               items={groups[key]}
+              redactionPolicy={redactionPolicy}
               onDecide={(id, d) => submitDecision.mutate({ approvalId: id, decision: d })}
               onUndo={(id) => undoDecision.mutate(id)}
             />
@@ -250,11 +283,13 @@ function PageHeader({ query, setQuery, pendingCount, dataSource, filters, worker
 function ApprovalGroup({
   label,
   items,
+  redactionPolicy,
   onDecide,
   onUndo,
 }: {
   label: string;
   items: ApprovalItem[];
+  redactionPolicy: ReturnType<typeof useRedactionPolicy>;
   onDecide: (approvalId: string, decision: "approve" | "refuse") => void;
   onUndo: (approvalId: string) => void;
 }) {
@@ -286,6 +321,7 @@ function ApprovalGroup({
             channel={item.channel}
             receivedAt={item.receivedAt}
             decision={item.decision ?? null}
+            redactionPolicy={redactionPolicy}
             onDecide={(d) => onDecide(item.id, d)}
             onUndo={() => onUndo(item.id)}
           />
