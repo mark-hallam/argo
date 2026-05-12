@@ -31,6 +31,17 @@ vi.mock("@/lib/hooks/use-team", () => ({
   useTeam: () => useTeamMock(),
 }));
 
+// Replace TeammateCard with a thin stub. The card has its own
+// test file (TeammateCard.test.tsx); page-level tests assert the
+// page's filtering / routing / empty-state logic and just need a
+// stable testid per worker. Avoids dragging QueryClientProvider +
+// router push into the page-test render tree.
+vi.mock("@/components/skycot/TeammateCard", () => ({
+  TeammateCard: ({ worker }: { worker: Worker }) => (
+    <div data-testid={`teammate-${worker.id}`}>{worker.name}</div>
+  ),
+}));
+
 import TeamPage from "./page";
 
 const SAMPLE_WORKERS: Worker[] = [

@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, type ChangeEvent } from "react";
+import { Suspense, useCallback, useMemo, useState, type ChangeEvent } from "react";
 import { ChevronDown, Plus, Search, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
+import { Toast, ToastProvider, ToastViewport } from "@/components/ui/Toast";
+import { TeammateCard, type TeammateCardToast } from "@/components/skycot/TeammateCard";
 import { TeammateGrid } from "@/components/skycot/TeammateGrid";
 import { TeammateCardSkeleton } from "@/components/skycot/TeammateCardSkeleton";
 import { useTeam } from "@/lib/hooks/use-team";
@@ -68,6 +70,15 @@ function TeamPageContent() {
   const router = useRouter();
   const pathname = usePathname() ?? "/team";
   const searchParams = useSearchParams();
+  const [toasts, setToasts] = useState<TeammateCardToast[]>([]);
+
+  const showToast = useCallback((toast: TeammateCardToast) => {
+    setToasts((prev) => [...prev, toast]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const query = readQueryParam(searchParams?.get("q") ?? null);
   const status = readStatusParam(searchParams?.get("status") ?? null);
@@ -99,7 +110,7 @@ function TeamPageContent() {
   }, [workers, query, status]);
 
   return (
-    <>
+    <ToastProvider swipeDirection="right" duration={5000}>
       <PageHeader
         total={total}
         query={query}
@@ -118,12 +129,25 @@ function TeamPageContent() {
         ) : (
           <TeammateGrid>
             {filtered.map((w) => (
-              <TeammateCardSkeleton key={w.id} data-testid={`teammate-${w.id}`} />
+              <TeammateCard key={w.id} worker={w} onShowToast={showToast} />
             ))}
           </TeammateGrid>
         )}
       </div>
-    </>
+
+      {toasts.map((t) => (
+        <Toast
+          key={t.id}
+          tone={t.tone}
+          title={t.title}
+          data-testid={`team-toast-${t.id}`}
+          onOpenChange={(open) => {
+            if (!open) dismissToast(t.id);
+          }}
+        />
+      ))}
+      <ToastViewport />
+    </ToastProvider>
   );
 }
 
