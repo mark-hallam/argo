@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ============================================================
+# DEV ONLY — autonomous-coding-session safety net.
+# NOT production tooling. Do not run on customer-facing
+# SKYCOT deployments. Production cleanup goes through the
+# operator runbook: docs/skycot/RUNBOOK.md.
+# ============================================================
+#
 # Dev runtime safe-test gate.
 #
 # The "before autonomous coding" preflight. Runs:

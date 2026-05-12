@@ -1,5 +1,16 @@
 # Dev runtime guardrails
 
+> ╔══════════════════════════════════════════════════════════════════╗
+> ║ 🔧 **DEV / STAGING ONLY** — the scripts described in this doc    ║
+> ║ are safety nets for autonomous-coding sessions against THIS repo.║
+> ║ They are NOT production tooling. Don't run them on customer-     ║
+> ║ facing SKYCOT deployments: `target/`, `/private/tmp/argo*`, and  ║
+> ║ `/private/tmp/claude-*` are dev-machine artefact paths, and      ║
+> ║ pointing the whitelist at a prod path WILL delete customer data. ║
+> ║ Production disk-usage and cleanup go through the operational     ║
+> ║ runbook — see [`skycot/RUNBOOK.md`](skycot/RUNBOOK.md).          ║
+> ╚══════════════════════════════════════════════════════════════════╝
+
 This is the safety system for long autonomous coding sessions
 against the Argo repo. Autonomous build loops fill disk via
 `target/`, `/private/tmp/argo*`, `/private/tmp/claude-*`, and
@@ -9,6 +20,11 @@ activity can brick the dev machine.
 The guardrails are 3 shell scripts + this doc + a test script.
 Nothing modifies product runtime behaviour. Nothing requires
 new Rust state or migrations.
+
+For production / customer-facing cleanup and disk-usage
+procedures, use the operator runbook at
+[`skycot/RUNBOOK.md`](skycot/RUNBOOK.md), not the scripts
+described below.
 
 ## Commands
 

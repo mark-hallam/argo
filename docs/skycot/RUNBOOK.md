@@ -12,6 +12,10 @@ how to drive it, and where to look when something goes wrong.
 If you want the *why*, read [MISSION.md](MISSION.md). This
 document is the *how*.
 
+> For dev / staging cleanup tooling (autonomous-coding-session
+> disk guardrails — NOT production), see
+> [`../dev-runtime-guardrails.md`](../dev-runtime-guardrails.md).
+
 This runbook was split into topic-grouped sub-files so each one
 stays under the project's 500-LOC-per-file ceiling. The sections
 below are unchanged in content and ordering — they just live in
