@@ -80,6 +80,14 @@ pub(super) async fn dispatch_get(
                         .await,
                 );
             }
+            // J10 — Memory-tab bundle (facts + voice-profile + namespace_id).
+            // Sub-paths under `/memory/facts/<id>` write through the POST
+            // dispatcher (POST/PUT/DELETE).
+            if tail.starts_with("memory ") || tail.starts_with("memory?") {
+                return Some(
+                    super::routes_worker_memory::list_response(id_with_suffix, req, store).await,
+                );
+            }
         }
         // J7 — bare /api/v1/workers/<id> for the worker profile page.
         // Matches only when the path has no further slash before the

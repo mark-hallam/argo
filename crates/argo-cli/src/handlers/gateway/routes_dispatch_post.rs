@@ -159,6 +159,12 @@ async fn dispatch_post_inner(
     if req.starts_with("POST /api/v1/audit/elevated-view-request ") {
         return Some(super::routes_elevated_view::request_response(req, store).await);
     }
+    // J10 — worker memory facts CRUD. POST/PUT/DELETE all routed
+    // through this dispatcher (no separate PUT/DELETE dispatchers
+    // in the gateway).
+    if let Some(resp) = dispatch_worker_memory_facts(req, store).await {
+        return Some(resp);
+    }
     // mission-retro-review-ui — worker retrospective endpoints.
     // POST  /api/v1/workers/<id>/retros               → create
     // PATCH /api/v1/workers/<id>/retros/<retro_id>    → update sections
@@ -401,6 +407,51 @@ async fn dispatch_post_inner(
             if tail.starts_with("revoke-approval ") {
                 return Some(session_revoke_approval_response(sid, req, store).await);
             }
+        }
+    }
+    None
+}
+
+/// J10 — match `POST /api/v1/workers/<id>/memory/facts`,
+/// `PUT /api/v1/workers/<id>/memory/facts/<fact_id>`, and
+/// `DELETE /api/v1/workers/<id>/memory/facts/<fact_id>`. Returns
+/// `None` when no arm matches so the caller falls through.
+async fn dispatch_worker_memory_facts(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    if let Some(rest) = req.strip_prefix("POST /api/v1/workers/") {
+        let (head, _) = rest.split_once(' ')?;
+        let parts: Vec<&str> = head.split('/').collect();
+        // [worker_id, "memory", "facts"] → create
+        if parts.len() == 3 && parts[1] == "memory" && parts[2] == "facts" {
+            return Some(
+                super::routes_worker_memory::fact_create_response(parts[0], req, store).await,
+            );
+        }
+    }
+    if let Some(rest) = req.strip_prefix("PUT /api/v1/workers/") {
+        let (head, _) = rest.split_once(' ')?;
+        let parts: Vec<&str> = head.split('/').collect();
+        if parts.len() == 4 && parts[1] == "memory" && parts[2] == "facts" {
+            return Some(
+                super::routes_worker_memory::fact_update_response(
+                    parts[0], parts[3], req, store,
+                )
+                .await,
+            );
+        }
+    }
+    if let Some(rest) = req.strip_prefix("DELETE /api/v1/workers/") {
+        let (head, _) = rest.split_once(' ')?;
+        let parts: Vec<&str> = head.split('/').collect();
+        if parts.len() == 4 && parts[1] == "memory" && parts[2] == "facts" {
+            return Some(
+                super::routes_worker_memory::fact_delete_response(
+                    parts[0], parts[3], req, store,
+                )
+                .await,
+            );
         }
     }
     None
