@@ -21,6 +21,7 @@ export const WORKER_TAB_IDS = [
   "activity",
   "memory",
   "skills",
+  "trust",
   "settings",
 ] as const;
 
@@ -31,6 +32,7 @@ export const WORKER_TAB_LABELS: Record<WorkerTabId, string> = {
   activity: "Activity",
   memory: "Memory",
   skills: "Skills",
+  trust: "Trust",
   settings: "Settings",
 };
 

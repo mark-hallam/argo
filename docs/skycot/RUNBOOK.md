@@ -280,6 +280,18 @@ waiting → working → idle → paused → blocked, ties broken by
 tenant-scoped only in v1 — per-role visibility ships via
 `mission-enterprise-team-rbac-scoping`.
 
+### Per-worker trust grade
+
+`GET /api/v1/workers/<id>/trust-grade` (mission-trust-grade-ui)
+returns a read-only snapshot of the worker's autonomy grade:
+current rung on the `argo_skill::TrustGrade` ladder, the signals
+behind it, and the criteria gap to the next rung. The SPA Trust
+tab (`/workers/<id>/trust`) consumes this directly. Trust grade
+is derived from observed behavior and is intentionally NOT
+operator-tunable from the UI; the underlying `worker.trust_grade`
+u8 is set by the evaluation logic in `argo-identity` and the
+routing engine.
+
 ---
 
 ## Vuln management

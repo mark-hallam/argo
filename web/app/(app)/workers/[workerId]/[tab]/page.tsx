@@ -19,6 +19,7 @@ const TAB_BRIEFS: Record<WorkerTabId, string> = {
   activity: "E4-c",
   memory: "E4-d",
   skills: "E4-e",
+  trust: "mission-trust-grade-ui",
   settings: "E4-f",
 };
 

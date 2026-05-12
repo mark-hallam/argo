@@ -47,6 +47,17 @@ pub(super) async fn dispatch_get(
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::list_response(req, store).await);
     }
+    // mission-trust-grade-ui — informational per-worker trust grade.
+    if let Some(rest) = req.strip_prefix("GET /api/v1/workers/") {
+        if let Some((id_with_suffix, tail)) = rest.split_once('/') {
+            if tail.starts_with("trust-grade ") || tail.starts_with("trust-grade?") {
+                return Some(
+                    super::routes_worker_trust_grade::show_response(id_with_suffix, req, store)
+                        .await,
+                );
+            }
+        }
+    }
     // J14 — audit feed with 7 filter dims; unblocks E5-a from mock.
     if req.starts_with("GET /api/v1/audit ") || req.starts_with("GET /api/v1/audit?") {
         return Some(super::routes_audit_feed::list_response(req, store).await);
