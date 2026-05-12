@@ -71,6 +71,96 @@ pub struct WebInboxRow {
     pub enqueued_at: DateTime<Utc>,
 }
 
+/// Worker reference embedded in [`ApprovalRowFull`]. Mirrors the
+/// `worker` sub-object the JSON API at `GET /api/v1/approvals` emits
+/// so SPA consumers can splice the wire payload straight into their
+/// TanStack cache.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ApprovalWorkerRef {
+    /// Stable worker id (may equal `name` when no separate id exists).
+    pub id: String,
+    /// Display name shown on the approval card.
+    pub name: String,
+    /// Optional avatar URL.
+    pub avatar_url: Option<String>,
+}
+
+/// Wire-shape-compatible payload for `approval.created`. Matches the
+/// `ApprovalRowJson` shape returned by `GET /api/v1/approvals` so the
+/// SPA can `setQueryData` surgically without a follow-up refetch.
+///
+/// v1 derivation is purely from the in-hand `WebInboxRow` + the channel
+/// context (no argo-store roundtrip): the brief's enrichment-join would
+/// require argo-channels to depend on argo-store, which it does not,
+/// and the may-touch list excludes both `Cargo.toml` and the store
+/// crate. The placeholder pattern matches `routes_approvals_json::
+/// approval_row_json` (see acceptance-criteria deviation in the PR
+/// body), so consumers get the same shape they get from the JSON
+/// endpoint today.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ApprovalRowFull {
+    /// Approval id (mirrors `WebInboxRow::approval_id`).
+    pub id: String,
+    /// Same as `id` — explicit for parity with the bare WebInboxRow
+    /// shape so existing subscribers reading `approval_id` keep working.
+    pub approval_id: String,
+    /// Worker reference object.
+    pub worker: ApprovalWorkerRef,
+    /// Action verb shown on the card ("wants to <verb>").
+    pub verb: String,
+    /// Approval detail body.
+    pub detail: String,
+    /// Consequence shown next to the approve button. Empty when unknown.
+    pub consequence_if_yes: String,
+    /// Consequence shown next to the refuse button. Empty when unknown.
+    pub consequence_if_no: String,
+    /// Optional reason / context.
+    pub reason: Option<String>,
+    /// Source channel (we are `webinbox`).
+    pub channel: String,
+    /// Manifest-stamped risk level.
+    pub risk_level: RiskLevel,
+    /// When the row was enqueued (the "received" time for the SPA).
+    pub received_at: DateTime<Utc>,
+    /// Approval expiry.
+    pub expires_at: DateTime<Utc>,
+}
+
+impl WebInboxRow {
+    /// Best-effort enrichment into the wider [`ApprovalRowFull`] shape.
+    /// Returns `None` when the row lacks the fields a card needs to
+    /// render (empty `prompt_body` or `action_id`); callers fall back
+    /// to publishing the partial-row shape with `partial: true`. This
+    /// stands in for the brief's "worker deleted in the same tick"
+    /// race — there is no DB roundtrip to lose, but the failure shape
+    /// matters more than the trigger.
+    #[must_use]
+    pub fn enrich(&self) -> Option<ApprovalRowFull> {
+        if self.prompt_body.is_empty() || self.action_id.is_empty() {
+            return None;
+        }
+        let worker_label = self.action_id.clone();
+        Some(ApprovalRowFull {
+            id: self.approval_id.clone(),
+            approval_id: self.approval_id.clone(),
+            worker: ApprovalWorkerRef {
+                id: worker_label.clone(),
+                name: worker_label,
+                avatar_url: None,
+            },
+            verb: "wants to act".to_string(),
+            detail: self.prompt_body.clone(),
+            consequence_if_yes: String::new(),
+            consequence_if_no: String::new(),
+            reason: None,
+            channel: "web".to_string(),
+            risk_level: self.risk_level,
+            received_at: self.enqueued_at,
+            expires_at: self.expiry,
+        })
+    }
+}
+
 /// Lifecycle event published when an approval row's state changes
 /// (J3). Decoupled from the gateway's WS layer so the channels crate
 /// has no upward dependency.
@@ -82,6 +172,12 @@ pub enum WebInboxEvent {
         tenant_id: String,
         /// Created row.
         row: WebInboxRow,
+        /// Optional widened payload for surgical SPA cache inserts.
+        /// `None` when enrichment failed; the WS layer publishes the
+        /// partial-row shape with `partial: true` so subscribers can
+        /// fall back to `invalidateQueries`. Boxed so this variant
+        /// doesn't blow up the enum size relative to its siblings.
+        full: Option<Box<ApprovalRowFull>>,
     },
     /// Operator decided the approval (`approve` or `refuse`).
     ApprovalDecided {
@@ -202,9 +298,11 @@ impl NotifyChannel for WebInboxChannel {
         // v1 tenant key = operator id (single-tenant-per-operator
         // model). v1.5 replaces with a proper tenant_id once the
         // channels layer carries one end-to-end.
+        let full = row.enrich().map(Box::new);
         dispatch_event(WebInboxEvent::ApprovalCreated {
             tenant_id: row.operator_id.clone(),
             row: row.clone(),
+            full,
         });
         Ok(DeliveryReceipt {
             channel_id: self.id(),

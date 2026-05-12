@@ -13,32 +13,37 @@
  * underlying [`ManagedWebSocket`] trips into the polling-fallback
  * state and the indicator surfaces it.
  *
- * v1 sensible deviations from the brief:
+ * `approval.created` semantics:
  *
- * - `approval.created` triggers `invalidateQueries(["approvals"])`
- *   rather than a surgical cache insert: the J3 wire payload is the
- *   gateway's `WebInboxRow` (operator_id / approval_id / risk_level
- *   / prompt_body / expiry / enqueued_at) which lacks the
- *   `ApprovalItem` fields the SPA needs (worker.name, verb, detail,
- *   consequence_if_*, reason, channel, received_at). A refetch via
- *   the J1 JSON endpoint is the only path to a correctly-shaped
- *   item until the gateway emits a richer payload (tracked as a
- *   follow-up: `mission-gateway-ws-emit-full-approval-row`). The
- *   operator still sees the new card without manual refresh — the
- *   brief's "no full refetch" criterion was about UX, not network
- *   shape.
- * - `approval.decided` / `.undone` / `.expired` ARE surgical: the
- *   approval id is sufficient and the matching item already lives
- *   in the cache.
+ * - When the wire payload carries the full `ApprovalRowFull` shape
+ *   (the post-`mission-gateway-ws-emit-full-approval-row` default),
+ *   we `setQueryData` and splice the new item into the cache without
+ *   re-fetching, preserving the operator's scroll position.
+ * - When the wire payload is the partial-row fallback
+ *   (`partial: true`, e.g. worker-deleted race), we invalidate the
+ *   query and re-fetch via the J1 JSON endpoint. The LiveIndicator
+ *   stays on `live` — partial fallback is brief degradation, not a
+ *   transport failure.
  */
 
 import { useEffect, useState } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { ManagedWebSocket, type WebSocketStatus } from "@/lib/api/websocket";
 import type { ApprovalsResult } from "@/lib/api/approvals";
+import type { ApprovalItem, ChannelKind } from "@/lib/sample-approvals";
+import type { WireApprovalCreatedPayload } from "@/lib/api/types";
 
 const APPROVALS_KEY = ["approvals"] as const;
 const DEFAULT_GATEWAY = "http://127.0.0.1:8787";
+const KNOWN_CHANNELS: ReadonlySet<string> = new Set<ChannelKind>([
+  "slack",
+  "imessage",
+  "sms",
+  "push",
+  "web",
+  "voice",
+  "whatsapp",
+]);
 
 /** UI-facing connection state surfaced to LiveIndicator. */
 export type LiveStatus = "connecting" | "live" | "polling" | "offline";
@@ -46,7 +51,7 @@ export type LiveStatus = "connecting" | "live" | "polling" | "offline";
 /** Subset of the J3 wire vocabulary we surface to the cache. */
 type WireEvent =
   | { type: "hello"; protocol_version?: string; capabilities?: string[]; seq?: number }
-  | { type: "approval.created"; payload: { approval_id: string } & Record<string, unknown>; seq?: number; ts?: string }
+  | { type: "approval.created"; payload: WireApprovalCreatedPayload; seq?: number; ts?: string }
   | { type: "approval.decided"; payload: { approval_id: string }; decision: "approve" | "refuse"; seq?: number; ts?: string }
   | { type: "approval.undone"; payload: { approval_id: string }; seq?: number; ts?: string }
   | { type: "approval.expired"; payload: { approval_id: string }; seq?: number; ts?: string };
@@ -79,12 +84,65 @@ async function readSessionToken(): Promise<string | undefined> {
   }
 }
 
-function applyEvent(qc: QueryClient, evt: WireEvent): void {
+/**
+ * Convert a full wire payload into an `ApprovalItem`. Returns `null`
+ * when required fields are missing — caller invalidates instead.
+ */
+export function wireToApprovalItem(
+  payload: WireApprovalCreatedPayload,
+): ApprovalItem | null {
+  if (payload.partial) return null;
+  if (
+    typeof payload.id !== "string" ||
+    !payload.worker ||
+    typeof payload.worker.name !== "string" ||
+    typeof payload.verb !== "string" ||
+    typeof payload.detail !== "string" ||
+    typeof payload.channel !== "string" ||
+    typeof payload.received_at !== "string"
+  ) {
+    return null;
+  }
+  const channel: ChannelKind = KNOWN_CHANNELS.has(payload.channel)
+    ? (payload.channel as ChannelKind)
+    : "web";
+  return {
+    id: payload.id,
+    worker: {
+      name: payload.worker.name,
+      avatarUrl: payload.worker.avatar_url ?? undefined,
+    },
+    verb: payload.verb,
+    detail: payload.detail,
+    consequenceIfYes: payload.consequence_if_yes ?? "",
+    consequenceIfNo: payload.consequence_if_no ?? "",
+    reason: payload.reason ?? undefined,
+    channel,
+    receivedAt: payload.received_at,
+    decision: null,
+  };
+}
+
+export function applyEvent(qc: QueryClient, evt: WireEvent): void {
+  if (evt.type === "hello") return;
   if (evt.type === "approval.created") {
-    void qc.invalidateQueries({ queryKey: APPROVALS_KEY });
+    const item = wireToApprovalItem(evt.payload);
+    if (!item) {
+      void qc.invalidateQueries({ queryKey: APPROVALS_KEY });
+      return;
+    }
+    qc.setQueryData<ApprovalsResult>(APPROVALS_KEY, (prev) => {
+      if (!prev) {
+        // Cache hasn't loaded yet — invalidate so the first fetch
+        // grabs the latest list including this row.
+        void qc.invalidateQueries({ queryKey: APPROVALS_KEY });
+        return prev;
+      }
+      if (prev.items.some((i) => i.id === item.id)) return prev; // dedupe
+      return { ...prev, items: [item, ...prev.items] };
+    });
     return;
   }
-  if (evt.type === "hello") return;
   const id = evt.payload?.approval_id;
   if (!id) return;
   qc.setQueryData<ApprovalsResult>(APPROVALS_KEY, (prev) => {

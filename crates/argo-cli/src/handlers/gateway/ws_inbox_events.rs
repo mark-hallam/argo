@@ -24,7 +24,7 @@
 //!   broadcast on the global channel (back-compat).
 
 use super::jwt::{self, Claims, JwtError};
-use argo_channels::webinbox::{WebInboxEvent as ChannelEvent, WebInboxRow};
+use argo_channels::webinbox::{ApprovalRowFull, WebInboxEvent as ChannelEvent, WebInboxRow};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -267,10 +267,14 @@ fn ensure_channel_hook() {
     static REGISTERED: OnceLock<()> = OnceLock::new();
     REGISTERED.get_or_init(|| {
         argo_channels::webinbox::set_event_hook(Box::new(|evt| match evt {
-            ChannelEvent::ApprovalCreated { tenant_id, row } => publish_event(
+            ChannelEvent::ApprovalCreated {
+                tenant_id,
+                row,
+                full,
+            } => publish_event(
                 &tenant_id,
                 WebInboxEvent::ApprovalCreated {
-                    payload: row_payload(&row),
+                    payload: created_payload(&row, full.as_deref()),
                 },
             ),
             ChannelEvent::ApprovalDecided {
@@ -305,6 +309,21 @@ fn ensure_channel_hook() {
 /// will trim per-Principal permissions.
 fn row_payload(row: &WebInboxRow) -> Value {
     serde_json::to_value(row).unwrap_or_else(|_| json!({}))
+}
+
+/// Build the `approval.created` payload. When the channel-side
+/// enrichment succeeded we ship the wider [`ApprovalRowFull`] shape so
+/// the SPA can `setQueryData` surgically. When enrichment failed (the
+/// brief's worker-deleted-race fallback) we ship the legacy
+/// `WebInboxRow` shape with `partial: true` so subscribers fall back to
+/// `invalidateQueries`.
+fn created_payload(row: &WebInboxRow, full: Option<&ApprovalRowFull>) -> Value {
+    if let Some(f) = full {
+        return serde_json::to_value(f).unwrap_or_else(|_| row_payload(row));
+    }
+    let mut obj = row_payload(row).as_object().cloned().unwrap_or_default();
+    obj.insert("partial".into(), json!(true));
+    Value::Object(obj)
 }
 
 #[cfg(test)]
