@@ -1,4 +1,23 @@
-enabled = true
+enabled                   = true
 max_usd_micros_per_action = 1000000
-daily_budget_usd_micros = 20000000
-wake_action_types = []
+daily_budget_usd_micros   = 20000000
+
+# Autonomous-safe surface is audit + draft + summary only. The four
+# wake-listed types produce drafts, checklists, and recommendations;
+# none post a public listing, message a buyer, share a pickup
+# address, mark a sale, or accept a refund. Five external-effect
+# action_types are intentionally absent and gated through the
+# per-action `requires_approval = true` field on `[actions.post_listing]`
+# / `[actions.send_buyer_followup_email]` / `[actions.mark_item_sold]`
+# in vertical.toml (or future `[escalation].human_approval_required`):
+#
+#   - post_listing_public  - send_buyer_message  - mark_sold
+#   - share_pickup_address - accept_refund
+#
+# Defence in depth: the per-action approval gate always wins.
+wake_action_types = [
+  "audit_inventory_readiness",
+  "draft_buyer_response",
+  "summarize_sold_state_cleanup",
+  "post_listing",
+]

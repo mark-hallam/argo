@@ -4,7 +4,7 @@ schema_version = "1"
 id          = "marketplace-seller"
 name        = "Marketplace Seller"
 description = "Runs a small marketplace-selling workflow for inline skates: inventory review, price sanity checks, public listing posts, buyer follow-up, and sold-state cleanup. Approval-gated for every public or buyer-touching action."
-version     = "0.1.0"
+version     = "0.2.0"
 authors     = ["Mark Hallam"]
 tags        = ["marketplace", "seller", "inline-skates", "computer-use", "gmail", "demo"]
 
@@ -167,3 +167,33 @@ max_attempts = 2
 
 [actions.mark_item_sold.retry]
 max_attempts = 2
+
+# Three autonomous-safe skills layered on top of the existing six
+# actions (mission-vertical-marketplace-seller-flesh-out). Each emits
+# a DRAFT artifact only — none post a public listing, message a buyer,
+# share a pickup address, mark a sale, or accept a refund. The five
+# external-effect action_types named in the auto_approval.toml comment
+# (post_listing_public / send_buyer_message / mark_sold /
+# share_pickup_address / accept_refund) cover every path from these
+# skills to a marketplace mutation; the existing per-action
+# `requires_approval = true` gate on `post_listing` /
+# `send_buyer_followup_email` / `mark_item_sold` is the defence-in-depth
+# line below.
+
+[actions.audit_inventory_readiness]
+risk              = "low"
+requires_approval = false
+description       = "Walk one inventory.json entry against the missing-fields checklist (photos / size-label / soulplate / wheels / pricing-anchor) and propose a price-band with rationale from cached comparable listings. Read-only; never posts."
+executor          = "human"
+
+[actions.draft_buyer_response]
+risk              = "low"
+requires_approval = false
+description       = "Draft three tone variants (friendly / informative / firm-on-price) for one buyer message + a pickup-logistics template. Escalates on off-platform-contact, below-floor counter-offers ≥ 30%, or damage/refund/dispute hints. Draft-only."
+executor          = "human"
+
+[actions.summarize_sold_state_cleanup]
+risk              = "low"
+requires_approval = false
+description       = "Produce the post-sale checklist (mark sold / archive / inventory update / thank-you draft / suggest review-request) for one sold listing + transaction log. Escalates on refund-request, dispute, or damaged-on-pickup. Draft-only — never mutates."
+executor          = "human"
