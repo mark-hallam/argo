@@ -360,7 +360,7 @@ unblocks a mission claim.
      `[BRIEF: mission-cli-skill-catalog]`  ← CLI browse only; UI-Hub install flow still outstanding
 166. Build Docusaurus-equivalent documentation site. `[STALE]`  ← superseded by #168 (mdBook site SHIPPED)
 167. Add public API reference auto-generated from `argo --help`.
-     `[NEW]`
+     `[BRIEF: mission-cli-help-public-api-reference]`
 168. Build mdBook site.
      `[SHIPPED]`
 169. Polish TUI v0.11 React/Ink quality.
@@ -521,7 +521,7 @@ unblocks a mission claim.
 257. Move `voice.rs` HMAC inline impl to shared `token.rs`. `[SHIPPED — voice.rs uses argo-channels::token::signed_decision_url; no inline HMAC remains. Verified on origin/main 2026-05-12.]`
 258. Fix CU `tool_use` parser to handle multi-action turns. `[SHIPPED — mission-cu-parser-multi-action #1286 MERGED 2026-05-11. parse_response returns Vec<CuStepResponse>.]`
 259. Remove hand-rolled base64 encoder; pull in `base64` crate.
-     `[NEW]`
+     `[BRIEF: mission-base64-crate-migration]`
 260. Split LOC-ceiling violations (auction.rs, duty_scheduler.rs,
      routes_post.rs, metrics.rs, memory.rs are over 500). `[NEW]`
 261. Fix `/inbox/ws` to be real WebSocket. `[BRIEF: mission-inbox-ws-real-websocket]`
