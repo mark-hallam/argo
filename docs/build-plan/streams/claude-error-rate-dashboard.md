@@ -3,6 +3,8 @@
 **Owner**: claude. **Depends on**: existing gateway request log + provider
 call log in argo-store.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: brief depends on a "gateway request log + provider call log in argo-store" that **does not exist**. Audited migrations v1..v60 — no per-HTTP-route table, no provider-call outcome table. `audit_record` carries typed `AuditKind` events (ToolResult / Halt / RbacDeny / etc.) but no `http.request`, `route.*`, `provider.call`, or HTTP-status kind; `routing_decision` records pre-call provider choice with no outcome column; `spend_ledger` records charged calls with no error column. The brief's "HTTP 5xx for routes" + "provider call where outcome != Ok" definitions cannot be answered from the store as it stands. **Recommended precursors**: queue `claude-gateway-request-log-table` (persist `(ts, route, status_code, transport_error)` rows — coordinate with `mission-gateway-request-audit-log` which covers this exact ground) + `claude-provider-call-outcome-log` (persist `(provider, model, outcome, ts)` rows). Once those land, this dashboard brief can be reattempted unchanged.
+
 ## Scope
 
 Operators currently grep logs to spot a regression. This brief adds a CLI

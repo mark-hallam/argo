@@ -4,6 +4,8 @@
 **Authored against**: origin/main `08c4ff04` on `2026-05-12`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh K4-deploy-first-run-setup-wizard`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated HTTP-route surface. (1) `crates/argo-gateway/src/router.rs` is a chat-adapter routing module (resolves `TenantId` / `AgentName` / `SessionId` from Slack/Discord/Telegram `InboundMessage`), NOT an HTTP-route registrar. (2) Similarly `crates/argo-gateway/src/adapters/{slack,discord,telegram}.rs` are chat platform adapters, not HTTP handlers — adding `adapters/setup.rs` there is a category mismatch. (3) **Actual HTTP route dispatcher**: lives in `crates/argo-cli/src/handlers/gateway/routes*.rs`. Registering `GET/POST /api/v1/setup` + `POST /api/v1/setup/complete` requires editing: `crates/argo-cli/src/handlers/gateway/routes.rs` (dispatch), `crates/argo-cli/src/handlers/gateway/routes_auth.rs` (is_public_get allowlist for unauth'd first-run), `crates/argo-cli/src/handlers/gateway/mod.rs` (mod decl), `crates/argo-cli/src/handlers/gateway/routes_setup.rs` (NEW, ≤250 LOC). Drop `crates/argo-gateway/` from may-touch unless the brief intentionally publishes shared DTOs there (in which case keep one `dto.rs` for serde types only).
+
 > SOURCE: DEPLOYMENT-PATH DIRECTIVE v3 §3 (Tier 5b). **Tier K (deployment recipe).** Bridges the gap between "stack is running" (K1/K2/K3 land you here) and "operator can actually use it." First boot detects an unconfigured workspace, redirects browser visits to `/setup`, walks the operator through workspace dir / sqlite path / default tenant / root bearer token (generated) / provider key prompts. CLI parity via `argo setup`.
 
 ## Scope
@@ -64,9 +66,10 @@ This is NOT in scope: multi-tenant setup at first run (single tenant in v1; oper
 
 - `crates/argo-cli/src/handlers/setup.rs` (EXTEND, ≤ 60 LOC delta)
 - `crates/argo-cli/src/handlers/setup_steps.rs` (EXTEND, ≤ 80 LOC delta)
-- `crates/argo-gateway/src/router.rs` (EXTEND, ≤ 15 LOC delta — register routes)
-- `crates/argo-gateway/src/adapters/setup.rs` (NEW, ≤ 180 LOC)
-- `crates/argo-gateway/src/lib.rs` (EXTEND, ≤ 3 LOC — re-export adapter)
+- `crates/argo-cli/src/handlers/gateway/routes_setup.rs` (NEW, ≤ 250 LOC — per Drift-fix 2026-05-13: this is the actual HTTP-route home; `argo-gateway/src/router.rs` is a chat-adapter, NOT an HTTP router)
+- `crates/argo-cli/src/handlers/gateway/routes.rs` (EXTEND, ≤ 8 LOC — register `/api/v1/setup` dispatch)
+- `crates/argo-cli/src/handlers/gateway/routes_auth.rs` (EXTEND, ≤ 5 LOC — add setup routes to `is_public_get` allowlist for pre-setup unauthed access)
+- `crates/argo-cli/src/handlers/gateway/mod.rs` (EXTEND, ≤ 2 LOC — `pub mod routes_setup;`)
 - `web/app/(setup)/setup/page.tsx` (NEW, ≤ 220 LOC)
 - `web/app/(setup)/setup/page_tests.tsx` (NEW, ≤ 100 LOC)
 - `web/lib/api/setup.ts` (NEW, ≤ 90 LOC)

@@ -4,6 +4,8 @@
 **Authored against**: origin/main `694a50ee` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-anomaly-alerting-notifychannel`.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: There is no `NotifyChannelDispatch` on current main; live `argo-channels::NotifyChannel` sends approval-shaped `Notification`s, and the only multi-channel dispatcher is CLI-private `worker_actions_notify::EnvChannelSender` / `NotifySender`, both outside may-touch. The tracing subscriber is built in `crates/argo-cli/src/tracing_setup.rs`, NOT `argo-telemetry::init_subscriber`, so `[alerting].enabled=false` cannot provide the promised zero-overhead registration path without widening may-touch. Conductor rewrite should either expose a reusable alert dispatch adapter in `argo-channels`, OR include `worker_actions_notify*` + `tracing_setup.rs` in scope.
+
 > SOURCE: MISSION_BACKLOG.md Section 1 #35 ("Add real anomaly alerting via NotifyChannel (currently `tracing::warn!` only)"). **Tier M (observability).** Today when bad things happen (provider 5xx storm, budget-ceiling hit, audit-chain break, gateway boot fail) the runtime emits `tracing::warn!` / `tracing::error!`. Operators staring at logs see them; operators NOT staring at logs (most of the time) miss them. This brief wires the existing `argo-channels::NotifyChannel` dispatch into an `anomaly_alerter` so configured conditions page through Slack/PagerDuty/Email/Voice etc.
 
 ## Scope

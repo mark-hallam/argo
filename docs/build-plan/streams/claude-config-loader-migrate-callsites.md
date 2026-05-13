@@ -4,6 +4,8 @@
 
 **Authored against**: origin/main b3949a73 on 2026-05-09 (split-out from the original combined `claude-config-loader-overhaul` brief).
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: brief premise has two compounding gaps. (1) **Audit stale**: `docs/skycot/CONFIG_CALLSITE_AUDIT.md` snapshot says 21 files / 25 env-var keys; current `scripts/check-no-direct-env-reads.sh` reports **31 files / 39 distinct env-var keys**. New keys not in audit: `ARGO_CSP_REPORT_ONLY`, `ARGO_CU_SCREENSHOT_RETENTION_DAYS`, `ARGO_DELIVERY_REPORTS_PATH`, `ARGO_IP_RATE_{CAPACITY,LIMIT,REFILL}`, `ARGO_MCP_HEALTH_CHECK`, `ARGO_MCP_REGISTRY_BACKED`, `ARGO_PII_{AUTOREDACT,DETECT,LOG_FINDINGS}`, `ARGO_RATE_LIMIT_TENANT_PER_MIN`, `ARGO_SHUTDOWN_DEADLINE_SECS`, `ARGO_TRUST_XFF`. (2) **Scaffold extension forbidden**: brief explicitly forbids `crates/argo-config/src/**`, but the audit itself notes "~30 of 39 env vars need new ArgoConfig fields" — i.e. scaffold extension is **mandatory** to satisfy "0 mismatches" + CI fail. **Recommended unblock**: conductor authors a follow-up brief that (a) refreshes `CONFIG_CALLSITE_AUDIT.md` from current callsites, (b) permits extending `crates/argo-config/src/sections_*.rs` siblings to bind the new env vars (note: `sections.rs` is a barrel re-export; new sections go in `sections_<topic>.rs`), and (c) splits the migration into per-crate sub-PRs given expanded scope (gateway-rate-limit cluster alone is 8+ keys).
+
 ## Why
 
 The scaffold phase produced `docs/skycot/CONFIG_CALLSITE_AUDIT.md` listing every direct env-var / TOML callsite outside `argo-config` with a recommended `ArgoConfig` field replacement. This brief mechanically migrates those callsites and flips the CI guard from warning to fail.

@@ -4,6 +4,8 @@
 **Authored against**: origin/main `b66b1924` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-identity-delete-worker`.
 
+**DEEP-DRIFT — ALREADY SHIPPED**: per ledger note 2026-05-13, this brief shipped via PR #1290 (commit f6c2ae34) merged 2026-05-11. `worker_archive.rs::delete_worker` + `force_delete_worker` + `delete_grace_days` + migration 51 + `worker_archive_delete_tests.rs` all present on origin/main. Conductor should convert ledger row to MERGED (#1290) or delete; brief was re-added in error during 2026-05-13 replenishment. **No worker action — wait for conductor to flip ledger.**
+
 > SOURCE: MISSION_BACKLOG.md Section 3 Claim 1 item #40 ("Add `IdentityStore::archive_worker` / `delete_worker`"). Archive is shipped; **delete is the gap**. Operators today can archive a worker (soft-delete with rehydration option) and list archived rows, but cannot permanently purge — meaning archived rows accumulate forever, fail GDPR cascade alignment, and clutter `list_archived` indefinitely.
 
 ## Scope

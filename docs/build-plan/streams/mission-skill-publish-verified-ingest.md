@@ -4,6 +4,8 @@
 **Authored against**: origin/main `f24073c3` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-skill-publish-verified-ingest`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated CLI path + error variant. (1) **CLI install handler**: `crates/argo-cli/src/handlers/skill_install.rs` does NOT exist as a separate file; the install handler is `crates/argo-cli/src/handlers/skill.rs::install`. The brief's allowed alternate "may be `handlers/skill.rs::install`" is the correct path. (2) **CLI flag wiring**: adding 3 flags to `Install` variant requires editing `crates/argo-cli/src/cli_subcommands_skill.rs` (596 LOC) — **OVER 500-LOC CEILING** (HARD RULE 6). This is genuinely BLOCKED on a CLI-skill-split precursor; queue `claude-cli-subcommands-skill-split` first. (3) **Error variant**: `ArgoError::Capability` does NOT exist; current variants include `CapabilityDenied(String)`. Use `ArgoError::CapabilityDenied(format!("skill signature verification failed: ..."))` instead. (4) **NOT** a DEEP-DRIFT — the underlying skill::sign API is intact, just CLI-surface blocked.
+
 > SOURCE: MISSION_BACKLOG.md Section 3 Claim 4 #74 — "Build `published:verified:*` ingestion path with signature attestation." Today `argo skill verify-sig` works as a manual one-shot, but the install pipeline does NOT auto-verify signed skills on pull from marketplace. Mission promise: when a skill carries a `signed` annotation/sidecar, the install path runs `verify_skill_signature` BEFORE writing to the local skill store; on verification failure the install aborts with a clear error.
 
 ## Scope
@@ -13,7 +15,7 @@
    - The pulled manifest carries an `org.skycot.signed = "true"` annotation OR a co-located `<skill>.sig` sidecar artifact in the registry.
    - Call `verify_skill_signature(registry, name, tag, &pubkey, payload)` from `argo-skill::sign`.
    - On `SkillVerifyOutcome::Ok` → continue install; mark stored `Skill.trust_grade` = `PublishedVerified` (existing enum variant).
-   - On `Fail(reason)` → return `ArgoError::Capability("signature verification failed: {reason}")` — DO NOT install.
+   - On `Fail(reason)` → return `ArgoError::CapabilityDenied(format!("signature verification failed: {reason}"))` — DO NOT install. (Original brief used `ArgoError::Capability(...)` which is not a real variant; drift-fixed 2026-05-13.)
    - On `Missing` (no signature found) → behavior depends on `--require-signature` flag (see step 3).
 
 2. **Public-key trust store**: NEW `~/.argo/trusted-publishers.toml` (operator-managed):
@@ -48,7 +50,7 @@ This is NOT in scope: keyless verify via Sigstore Fulcio/Rekor (cosign keyless i
 - `crates/argo-skill/src/install_verified.rs` (NEW, ≤ 250 LOC) — verified-install path wrapping `SkillStore::install`.
 - `crates/argo-skill/src/install_verified_tests.rs` (NEW, sibling, ≤ 200 LOC) — 6 unit tests: ok-installs-marks-trust-grade; fail-aborts-no-write; missing-without-flag-allows; missing-with-require-signature-fails; insecure-skip-warns-and-installs; audit-row-recorded.
 - `crates/argo-skill/src/lib.rs` — narrowly scoped: re-export `trust_store::*` + `install_verified::*`.
-- `crates/argo-cli/src/handlers/skill_install.rs` (verify path; may be `handlers/skill.rs::install`) — narrowly scoped: thread new flags + call `install_verified` when source is marketplace. ≤ 50 LOC delta.
+- `crates/argo-cli/src/handlers/skill.rs::install` (the install handler lives here; the brief's primary `skill_install.rs` path does NOT exist on current main) — narrowly scoped: thread new flags + call `install_verified` when source is marketplace. ≤ 50 LOC delta.
 - `crates/argo-cli/src/cli_subcommands_skill.rs` (verify path) — narrowly scoped: ADD 3 new flags on `Install` variant.
 
 ## Files you must NOT touch

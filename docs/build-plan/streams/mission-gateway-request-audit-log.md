@@ -4,6 +4,8 @@
 **Authored against**: origin/main `bd7fd450` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-gateway-request-audit-log`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated migration slot + boot path. (1) **Migration slot**: live ledger header reserves SQL slot **66** + Rust v61 (next free after v60) for this brief. The brief's original v57/SQL 61 is stale. (2) **boot.rs surface**: gateway boot was split (`claude-gateway-boot-split` MERGED) — boot.rs is at 361 LOC with headroom; the request-audit ENTER+EMIT hooks belong in `boot.rs::handle_connection` as originally written (the file no longer blocks at 495 LOC). (3) **CLI dispatch surface**: `crates/argo-cli/src/handlers/gateway.rs` does not exist on current main; the gateway-cmd dispatch lives in the existing `cli_gateway_cmds.rs` (CLI) and corresponding handler under `crates/argo-cli/src/handlers/` — match the existing audit/gateway subcommand pattern (e.g. mirror `compliance_export.rs::run(args)` style). (4) **migrations/mod.rs** still at 493 LOC — same ceiling-coexistence note as `mission-escalation-on-no-reply`.
+
 > SOURCE: MISSION_BACKLOG.md Section 1 #22 ("Add request audit log entry per HTTP request"). **Tier M (compliance).** Today the gateway processes thousands of requests per day with zero audit trail per request — the audit sink only records app-level domain events (skill_proposed, action_dispatched, etc.). For SOC-2 / ISO-27001 attestation we need one audit row per HTTP request, including: timestamp, principal (or `anon`), source IP, method, path, status code, latency, request body hash (NOT body), and a request-id correlation key. Operators get a per-request "who did what when" trail without the cost of full body capture.
 
 ## Scope
@@ -28,7 +30,7 @@ pub struct RequestAuditEntry {
 pub async fn record(sink: &AuditSink, entry: RequestAuditEntry) -> ArgoResult<()>;
 ```
 
-NEW migration `vNN.rs` (verify next-free slot first; as of 2026-05-12 the live tail is v58 / SQL 62 after v57 routing-skillmatch (#1356) and v58 operator-risk-overrides (#1361) shipped — pick v59+ and SQL slot 63+) + raw SQL adding `gateway_request_audit` table:
+NEW migration `vNN.rs` (verify next-free slot first; as of 2026-05-13 the live tail is v60 / SQL 63 — live ledger header reserves SQL slot **66** for this brief; pick Rust slot ≥v61 to coexist) + raw SQL adding `gateway_request_audit` table:
 
 ```sql
 CREATE TABLE gateway_request_audit (

@@ -4,6 +4,8 @@
 
 **Authored against**: origin/main b3949a73 on 2026-05-09 (split-out from the original combined `claude-error-types-consolidation` brief).
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: two structural issues. (1) **Scale 15× brief estimate** — `bash scripts/check-error-variant-usage.sh` reports 438 live mismatches across 232 files in 13 crates (Io 338, Schema 84, Invariant 16); the brief estimated 10-30 and itself flags "consider splitting into per-crate sub-PRs" if >50. A single 438-edit PR is unreviewable. (2) **Invariant rewrites uncompilable as mechanical swaps** — `ArgoError::Invariant(&'static str)` cannot accept the `format!()` strings used at the 16 flagged sites; brief explicitly forbids widening the variant. Acceptance criteria "0 mismatches" + "flip CI to fail" cannot both be reached without conductor input. **Recommended split**: (a) `claude-error-types-rewrite-io` (~338 sites, mostly `?`-via-`From<io::Error>`); (b) `claude-error-types-rewrite-schema` (~84 sites, `Schema(format!…)`); (c) `claude-error-types-invariant-strategy` — conductor decides: widen `Invariant` to `String`, add a `Storage(String)` variant, or accept static-only Invariant with information loss; (d) `claude-error-types-flip-ci` flips warning→fail once 0 mismatches reached.
+
 ## Why
 
 The audit phase (`claude-error-types-consolidation`) produced `docs/skycot/ERROR_VARIANT_AUDIT.md` listing every mismatched `ArgoError::*` callsite in the workspace with a recommended variant + 1-line rationale. This brief mechanically applies those recommendations and flips the CI guard from warning to fail.

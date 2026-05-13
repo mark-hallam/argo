@@ -5,6 +5,8 @@
 **Validate before claim**: `bash scripts/check-brief-freshness.sh J17-compliance-hipaa-disclosure-log`.
 **Tier tag**: PRODUCT_ROADMAP.md Track J brief 17 of 18 — unblocks the HIPAA format option in E5-e's exporter dialog.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: `crates/argo-compliance/` crate DOES NOT EXIST on current main. Compliance functionality lives in `crates/argo-cli/src/handlers/compliance_export.rs`, `compliance_soc2.rs`, `compliance_delete.rs`, `compliance_tenant_tables.rs`. The SOC2 audit trail and GDPR data export both ship as CLI handlers under `argo-cli`, not as library functions in a dedicated crate. The brief's premise of "extend `argo-compliance::soc2`" is fundamentally misaligned. **Recommended conductor rewrite**: (a) re-target J17 to add `crates/argo-cli/src/handlers/compliance_hipaa.rs` (NEW, ≤350 LOC) alongside the existing `compliance_*.rs` siblings, with corresponding `cli_compliance_cmds.rs` extension; (b) match the existing `ReportFormat` enum pattern in `compliance_soc2.rs` (Json/Csv/Markdown) — extend with `Hipaa` variant if appropriate; (c) the migration for `phi_accessed` flag still applies — pick SQL slot ≥71 (next free after live ledger reservations 63-70).
+
 ## v1 posture vs enterprise target
 
 | Concern | v1 implementation | Architectural target | Closes via |

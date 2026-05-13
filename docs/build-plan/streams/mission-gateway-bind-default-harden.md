@@ -4,6 +4,8 @@
 **Authored against**: origin/main `f1b6b0d1` on `2026-05-12`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-gateway-bind-default-harden`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): NOT a path-drift issue — brief targets are valid. This row is BLOCKED on coordination collision: `mission-gateway-tls-termination-or-proxy-doc` is CLAIMED and BOTH briefs mutate the non-loopback bind contract and `crates/argo-cli/src/handlers/gateway/boot.rs`. Once TLS brief lands (worker picks Path A vs Path B), rebase this brief's flag rename/co-flag/audit behavior on top. Note `boot.rs` is now at 361 LOC (post-split) with headroom — `boot_spawns.rs` is the canonical place for new spawn helpers but this brief's edits stay in `boot.rs::start` proper (bind guard logic, not a spawn).
+
 > SOURCE: MISSION_BACKLOG.md Section 2 #23 ("Document and harden the 127.0.0.1:7400 bind default"). **Tier M (security).** Today the gateway defaults to `127.0.0.1:7400` and `check_bind_loopback` refuses to bind to a non-loopback address unless `--insecure-bind` is passed. The guard exists, but: (1) no audit-chain row is emitted when the operator passes `--insecure-bind` (so a compromise can't be reconstructed from the audit log alone), (2) no runbook documents the security model, (3) `--insecure-bind` is the wrong name — it should be `--bind-non-loopback` (descriptive) and require a co-flag `--accept-insecure-bind-warning` (deliberate). This brief closes those gaps.
 
 ## Scope

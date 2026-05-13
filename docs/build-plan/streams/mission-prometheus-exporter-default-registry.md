@@ -4,6 +4,8 @@
 **Authored against**: origin/main `bd7fd450` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-prometheus-exporter-default-registry`.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: `/metrics` is already wired in `crates/argo-cli/src/handlers/gateway/boot.rs:221` (early-dispatch `metrics::is_metrics_request` → `metrics::http_response` serving custom Prometheus-text exposition: `argo_sessions_total`, `argo_audit_chain_ok`, `argo_spend_usd_micros_total`, etc., via store SQL). Adding `/metrics` to `routes_dispatch_get_admin.rs` is dead code — boot.rs short-circuits before `routes::dispatch_route` runs. ALSO `default_registry()` does NOT exist in `crates/argo-telemetry/src/` (only `TelemetrySink` trait + Noop/InMemory/Tracing sinks). Either rescope to (a) convert the existing handler to use the `prometheus` crate registry while preserving store-derived metrics, OR (b) add a new path `/openmetrics` alongside existing `/metrics`. Either path requires expanding may-touch to include `boot.rs`, `metrics.rs`, `metrics_text.rs`, `metrics_actions.rs` — all currently forbidden by the brief. Conductor-level rewrite required.
+
 > SOURCE: MISSION_BACKLOG.md Section 1 #32 ("Wire Prometheus exporter to `default_registry()`"). **Tier M (observability).** Today metrics are emitted (via tracing events + `argo-telemetry::default_registry` Counter / Histogram primitives) but there is no scrape endpoint — operators can't point Prometheus / Grafana / Datadog at SKYCOT. This brief lands the OpenMetrics scrape endpoint on the gateway so operators get one drop-in target.
 
 ## Scope

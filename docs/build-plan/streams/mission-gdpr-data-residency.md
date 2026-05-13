@@ -3,6 +3,8 @@
 **Owner**: claude. **Depends on**: `mission-enterprise-cross-tenant-audit` MERGED (tenant_id threading).
 **Authored against**: origin/main `d454edb3` on `2026-05-12`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated `argo-config/src/sections.rs` reference. That file is now a barrel re-export file (34 LOC); `[storage.tenants.<id>]` parsing must live in NEW `crates/argo-config/src/sections_storage.rs` sibling with a ≤3-LOC re-export from `sections.rs`. Brief is genuinely dep-BLOCKED on `mission-enterprise-cross-tenant-audit` MERGED (#1450); the drift fix is informational.
+
 > SOURCE: MISSION_BACKLOG.md Section 7 #234. EU tenants need data-residency guarantees: their data lives in an EU-region DB, never crosses to US-region. Today: single-DB, single-region. Build the multi-DB routing layer.
 
 ## Scope
@@ -24,7 +26,7 @@ This is NOT in scope: live cross-region replication (operator's DB infra respons
 - `crates/argo-store/src/lib.rs` — narrowly scoped: `MultiTenantStore` export
 - `crates/argo-cli/src/handlers/gateway/region_gate.rs` (NEW, ≤ 180 LOC) — middleware enforcing region match
 - `crates/argo-cli/src/handlers/storage_cmds.rs` (NEW or extend, ≤ 350 LOC) — CLI subcommands
-- `argo-config/src/sections.rs` — `[storage.tenants.<id>]` map parsing
+- `crates/argo-config/src/sections_storage.rs` (NEW) — `[storage.tenants.<id>]` map parsing. `crates/argo-config/src/sections.rs` adds a ≤3-LOC re-export.
 - `docs/skycot/RUNBOOK.md` — "Data residency" subsection with EU/US deployment recipe
 
 ## Files you must NOT touch

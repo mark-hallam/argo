@@ -4,6 +4,8 @@
 **Authored against**: origin/main `bd7fd450` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-audit-chain-watchdog`.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: `crates/argo-audit/src/watchdog.rs` ALREADY EXISTS (222 LOC, MVP audit-tamper-watchdog from `mvp-audit-tamper-watchdog` MERGED). It exposes `spawn_watchdog(store, WatchdogConfig, on_break)`, `verify_all` integration, consecutive-failure counter, structured `tracing::error!` on streak. This brief is **superseded by what already shipped**. Confirm: `rg "spawn_watchdog\|WatchdogConfig" crates/argo-audit/src/`. Open follow-ups (if needed) are scoped extensions, not a NEW module:  (a) channel-fan-out `TamperNotifier` impl (still missing), (b) `argo audit verify [--full] [--from] [--limit]` CLI (still missing), (c) persistent `audit_watchdog_cursor` table (still missing — currently in-memory). Conductor should rewrite this brief as 3 narrow follow-ups against the existing `watchdog.rs` rather than a NEW module.
+
 > SOURCE: MISSION_BACKLOG.md Section 1 #37 ("Add audit-chain watchdog that periodically verifies and pages on tamper"). **Tier M (compliance / governance).** The audit chain is a hash-linked sequence: every row's `chain_hash = sha256(prev_chain_hash || row_canonical_bytes)`. If a row gets edited or deleted, the chain breaks at that row — every downstream `chain_hash` is now wrong. Today nobody checks. This brief adds a background watchdog that walks the chain periodically + on-demand, pages on break, and emits a structured tamper event.
 
 ## Scope

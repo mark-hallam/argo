@@ -2,6 +2,8 @@
 
 **Owner**: claude. **Depends on**: claude-docs-site-build (#934).
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated may-touch paths — `book/src/how-to/...` → `book/howto/...` (current `book.toml` sets `src = "book"`; existing how-to dir is `book/howto/`, no hyphen). Existing files in `book/howto/`: `approvals.md`, `pick-a-vertical.md`, `troubleshoot.md`. SUMMARY.md is at `book/SUMMARY.md`. No `index.md` exists today — keep optional. Tutorial cross-link target in claude-quickstart-guide-rewrite must use `../howto/build-vertical.md`.
+
 ## Why
 
 The Quickstart shows an operator how to *run* a pre-built
@@ -43,19 +45,20 @@ End with a "where to next" pointer block: production rollout
 (channels reference).
 
 ## Files you may touch
-- `book/src/how-to/build-vertical.md` (NEW)
-- `book/src/SUMMARY.md` (add the new entry under How-to)
-- `book/src/how-to/index.md` (extend How-to landing if it
-  exists; create if it doesn't)
+- `book/howto/build-vertical.md` (NEW)
+- `book/SUMMARY.md` (add the new entry under How-to)
+- `book/howto/index.md` (extend How-to landing if it
+  exists; create if it doesn't — currently no index page)
 
 ## Files you must NOT touch
 - Any `crates/**` Rust source
 - `docs/skycot/MISSION.md`
-- Other How-to pages (per-role demo guides — those exist
-  separately and are not in scope here)
-- `book/src/quickstart/*` (claude-quickstart-guide-rewrite
+- Other How-to pages (`approvals.md`, `pick-a-vertical.md`,
+  `troubleshoot.md` — those exist separately and are not in
+  scope here)
+- `book/quickstart/*` (claude-quickstart-guide-rewrite
   owns those)
-- `book/src/reference/*` (CLI reference is auto-gen)
+- `book/reference/*` (CLI reference is auto-gen)
 
 ## Acceptance criteria
 - [ ] `mdbook build` succeeds with no warnings

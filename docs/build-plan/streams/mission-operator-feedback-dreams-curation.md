@@ -4,6 +4,8 @@
 **Authored against**: origin/main `c26e63e1` on `2026-05-12`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-operator-feedback-dreams-curation`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated migration slot. Live ledger header reserves SQL slot **70** + Rust v61+ for this brief. The original "v59+ / SQL 63+" was authored before slots 60-63 shipped. **migrations/mod.rs** still at 493 LOC — same coexistence note: +2 LOC for `mod v<NN>;` + ladder entry lands at 495, still legal under HARD RULE 6, but uncomfortable until `claude-store-migrations-mod-split` lands.
+
 > SOURCE: MISSION_BACKLOG.md Section 5 Claim 7-9 #197 ("Build operator-feedback channel into Dreams curation"). **Tier M (self-improvement-infra).** Today: Dreams curation runs autonomously — it ingests trajectory samples, distills patterns, promotes templates. Operators can SEE the resulting templates (via `argo plan-template list`) but have NO channel to feed back "this template is great" / "this template is harmful, retire" / "this template is missing a fix-up step" into the curation loop. This brief lands the operator-feedback API + storage + the curation pipeline's consumption of it.
 
 ## Scope

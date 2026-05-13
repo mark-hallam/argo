@@ -4,6 +4,8 @@
 **Authored against**: origin/main `c91e37e5` on `2026-05-10`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-cu-sandbox-pool-reaper`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated boot path. (1) Gateway boot was split (`claude-gateway-boot-split` MERGED) — `boot.rs` is now 361 LOC with headroom; spawn helpers live in `crates/argo-cli/src/handlers/gateway/boot_spawns.rs` (165 LOC). Wire `spawn_pool_reaper` there alongside `spawn_duty_scheduler` / `spawn_cu_screenshot_sweep`. (2) **Architectural caveat (codex worker note 2026-05-13)**: the gateway boot path does NOT currently own or expose a live `SandboxPool` — `ComputerUseExecutor` constructs its pool privately at dispatch time. Implementing the brief as written would spawn a separate unused pool reaper that doesn't reap the real CU sandboxes. **CONDUCTOR DECISION NEEDED**: either (a) precursor brief to expose/share the runtime CU `SandboxPool` accessor via gateway state, OR (b) move the reaper closer to where the pool is owned (inside `ComputerUseExecutor`'s lifecycle). This brief should BLOCK on the precursor unless a different wire-site is chosen.
+
 > SOURCE: MISSION_BACKLOG.md Section 3 Claim 5 item #96 ("Wire CU sandbox pool reaper — `reap_idle` exists, no caller"). The pool's idle-TTL reaper is wired in code at `pool.rs:128` with a unit test at line 193, but nothing in the gateway boot path spawns a periodic tick to call it. Result: idle E2B sandboxes accumulate per `(tenant, persona, profile)` key until process restart — the 10-min TTL is a marketing claim, not a runtime invariant. Mission Claim 5 ("real-world execution") needs the pool to actually reap, not just declare an intent.
 
 ## Scope

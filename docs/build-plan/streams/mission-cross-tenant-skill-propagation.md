@@ -3,6 +3,8 @@
 **Owner**: claude. **Depends on**: `mission-enterprise-cross-tenant-audit` MERGED (tenant_id threading) + skill-publish-verified-ingest MERGED.
 **Authored against**: origin/main `1cca6a69` on `2026-05-12`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated migration slot + sections file. (1) **Migration slot**: SQL slot 73 is already taken by `72__retro.sql` (live tail) — but actually slot 72 IS taken; slots 64-71 are reserved by the live ledger header (63-70 named, 71 next free). Pick SQL slot ≥74 at claim time (collisions with #1447/#1450 if they merge first). (2) **Config section**: `argo-config/src/sections.rs` is a barrel re-export file; add a NEW `sections_marketplace.rs` sibling for `[marketplace.cross_tenant]`. (3) Brief is genuinely dep-BLOCKED on `mission-enterprise-cross-tenant-audit MERGED` (PR #1450) — the drift fix above is informational; underlying dep chain unchanged.
+
 > SOURCE: MISSION_BACKLOG.md Section 6 #204. Today skills propagate within a tenant. The next leverage: when a skill reaches `PublishedVerified` trust grade in tenant A, surface it to tenant B's marketplace as a candidate (NOT auto-installed). Operators in B decide to opt-in.
 
 ## Scope
@@ -26,7 +28,7 @@ This is NOT in scope: tenant-discovery (operators manually configure pool member
 - `web/components/skycot/CrossTenantSkillCard.tsx` (NEW, ≤ 280 LOC)
 - `web/components/skycot/InstallConsentDialog.tsx` (NEW, ≤ 320 LOC)
 - `web/lib/api/marketplace-cross-tenant.ts` + hook (NEW, ≤ 200 LOC each)
-- `argo-config/src/sections.rs` — `[marketplace.cross_tenant]` section
+- `crates/argo-config/src/sections_marketplace.rs` (NEW) — `[marketplace.cross_tenant]` section. `crates/argo-config/src/sections.rs` adds a ≤3-LOC re-export. (Original instruction to edit `sections.rs` directly drifts — that file is now a barrel re-export of sibling `sections_<topic>.rs` modules.)
 - `docs/skycot/RUNBOOK.md` — "Cross-tenant marketplace" subsection
 
 ## Files you must NOT touch

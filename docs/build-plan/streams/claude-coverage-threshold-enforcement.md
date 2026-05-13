@@ -2,6 +2,8 @@
 
 **Owner**: claude. **Depends on**: #942 (mission-coverage-tooling, merged).
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated may-touch paths and noted ceiling risk. (1) `.github/workflows/ci.yml` is currently `.github/workflows/ci.yml.disabled`; this brief must extend that file (so the threshold step ships latent for when CI is re-enabled by `mvp-ci-reenable`), or split out a tiny `make coverage-gate` Makefile target as the operator-side guard. (2) **CEILING_RISK on `docs/skycot/RUNBOOK.md` (1101 LOC, well over 500-LOC ceiling)** — the original "append a Coverage thresholds subsection" instruction violates HARD RULE 6. Workers should instead write the runbook subsection to a NEW `docs/skycot/runbook/coverage-thresholds.md` (sub-500) and add a one-line cross-link from RUNBOOK.md (existing entry-style link, NOT a new section), or queue a `docs-runbook-split` precursor brief before extending RUNBOOK.md.
+
 > SOURCE: production hardening Phase C. PR #942 wired
 > `cargo-llvm-cov` into CI but deliberately set NO threshold —
 > the pipeline reports coverage and never fails. This brief
@@ -32,15 +34,18 @@ Non-critical crates report-only (existing behavior).
 
 ## Files you may touch
 
-- `.github/workflows/ci.yml` — narrowly: append a step after the
-  existing `cargo llvm-cov --json` step that runs
+- `.github/workflows/ci.yml.disabled` — narrowly: append a step
+  after the existing `cargo llvm-cov --json` step that runs
   `scripts/check-coverage-threshold.sh`. Pin the bash version.
+  Note CI is currently disabled; the step ships latent and goes
+  live with `mvp-ci-reenable`.
 - `scripts/check-coverage-threshold.sh` (NEW) — ~80 LOC bash;
   parses the llvm-cov JSON, applies the per-crate floor table,
   emits the markdown summary, exits non-zero on failure.
-- `docs/skycot/RUNBOOK.md` — narrowly: append a "Coverage
-  thresholds" subsection (~10 lines) explaining how to tune the
-  floor and what to do when CI fails on coverage drop.
+- `docs/skycot/runbook/coverage-thresholds.md` (NEW, ≤200 LOC)
+  — "Coverage thresholds" runbook page (was previously a RUNBOOK
+  subsection; ceiling-fixed by sweeping into a sibling page).
+  Cross-link from existing RUNBOOK.md index entry (≤2 LOC delta).
 
 ## Files you must NOT touch
 

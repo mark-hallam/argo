@@ -4,6 +4,8 @@
 docs-site-build, but improves auto-gen reference once both
 land).
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated may-touch + CI paths. (1) `crates/cli/**/*.rs` → `crates/argo-cli/src/cli*.rs` (~50 files; the actual CLI clap definitions are split across `cli.rs`, `cli_command_enum.rs`, and `cli_<topic>_cmds.rs` / `cli_subcommands_<topic>.rs` siblings). (2) `.github/workflows/ci.yml` → `.github/workflows/ci.yml.disabled` (CI is currently disabled; adding the check there is forward-looking — re-enable when CI returns, or document a manual hook in `scripts/`). (3) **CEILING_RISK on `cli_subcommands_skill.rs` (596 LOC, already over 500-LOC ceiling)** — workspace-wide attribute edits to that file are forbidden by HARD RULE 6 until a `claude-cli-subcommands-skill-split` precursor lands. Workers should skip the skill subcommands subtree in this pass and queue a follow-up brief; `cli_command_enum.rs` (451) and `cli_worker_cmds.rs` (428) have ≤49 LOC headroom — keep attribute deltas small and prefer attribute moves inside the file over new attributes.
+
 ## Why
 
 `argo --help` and per-subcommand help is uneven: some commands
@@ -38,13 +40,16 @@ This is a workspace-wide *narrow* edit pass: only clap
 attributes change, no logic, no signatures, no behaviour.
 
 ## Files you may touch
-- `crates/cli/**/*.rs` (clap attributes only — no logic,
-  no signature changes)
+- `crates/argo-cli/src/cli*.rs` (clap attributes only — no logic,
+  no signature changes). Skip `cli_subcommands_skill.rs` (596
+  LOC, over ceiling) and keep small deltas in `cli_command_enum.rs`
+  (451) and `cli_worker_cmds.rs` (428) to stay under 500.
 - Any other crate's `main.rs` or clap definitions consumed by
   the CLI surface
 - `scripts/check-cli-help-examples.sh` (NEW)
-- `.github/workflows/ci.yml` (add the check to CI matrix —
-  narrow extension)
+- `.github/workflows/ci.yml.disabled` (add the check to CI matrix
+  — narrow extension; note CI is currently disabled, so a manual
+  `make check-cli-help` target is the practical guard)
 
 ## Files you must NOT touch
 - Any non-clap Rust logic

@@ -4,6 +4,8 @@
 **Authored against**: origin/main `f83b9836` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-llm-call-dedup-cache`.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: production wire target is stale. Gateway boot does NOT construct provider transports; the real construction path is `crates/argo-agent-runner/src/transport.rs::build_transport`, which is outside the brief's may-touch list. Implementing only the `DedupCache` + `with_dedup` helper would leave the operator env var unwired in the actual agent turn path; implementing the wire would violate the brief boundary. Conductor should rewrite to include the agent-runner transport builder, OR rescope to ship `DedupCache` + `with_dedup` as a library without the boot-time wire (operators apply it manually in their own provider construction). Either path requires widening may-touch.
+
 > SOURCE: MISSION_BACKLOG.md Section 9 #253 ("LLM call deduplication"). Within a single agent turn, multiple internal call sites (auto_approval policy check + agent dispatch + safety judge) may issue **identical** completion requests (same model, same messages, same params). Today each fires independently — burning input tokens 2-3× over for the same content. Adding an in-process dedup cache with a 60s TTL collapses the redundant calls without changing any caller's interface.
 
 ## Scope

@@ -3,9 +3,11 @@
 **Owner**: claude. **Depends on**: claude-docs-site-build (#934),
 claude-homebrew-formula-publish (#928).
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated may-touch paths — `book/src/quickstart/*` → `book/quickstart/*` (current `book.toml` sets `src = "book"`, no `src/` subdirectory). Existing files: `install.md`, `first-worker.md`, `first-action.md` — these are the targets to rewrite. `init.md`, `pick-vertical.md`, `credentials.md`, `next-steps.md` remain NEW (the operator-first flow doesn't exist yet). SUMMARY.md is at `book/SUMMARY.md`.
+
 ## Why
 
-Today's `book/src/quickstart/*` is dev-focused: it assumes the
+Today's `book/quickstart/*` is dev-focused: it assumes the
 reader can `cargo build`, edit Rust, and reason about the
 workspace. The target audience for v1 is an **operator** —
 marketing intern, SDR, support lead — who has never written
@@ -39,13 +41,14 @@ Each step has: copy-paste command, expected output snippet,
 "if you see X instead, see troubleshooting".
 
 ## Files you may touch
-- `book/src/quickstart/install.md` (rewrite)
-- `book/src/quickstart/init.md` (rewrite or NEW)
-- `book/src/quickstart/pick-vertical.md` (NEW)
-- `book/src/quickstart/credentials.md` (NEW)
-- `book/src/quickstart/first-run.md` (rewrite)
-- `book/src/quickstart/next-steps.md` (NEW)
-- `book/src/SUMMARY.md` (update Quickstart entries)
+- `book/quickstart/install.md` (rewrite — exists today)
+- `book/quickstart/init.md` (NEW — operator-init flow not yet written)
+- `book/quickstart/pick-vertical.md` (NEW)
+- `book/quickstart/credentials.md` (NEW)
+- `book/quickstart/first-worker.md` (rewrite — exists today, was the dev-focused first-run)
+- `book/quickstart/first-action.md` (rewrite — exists today)
+- `book/quickstart/next-steps.md` (NEW)
+- `book/SUMMARY.md` (update Quickstart entries)
 
 ## Files you must NOT touch
 - Any `crates/**` Rust source
@@ -55,7 +58,7 @@ Each step has: copy-paste command, expected output snippet,
   `architecture/`, `operations/`)
 
 ## Acceptance criteria
-- [ ] `mdbook build` succeeds with no warnings
+- [ ] `mdbook build` succeeds with no warnings (if `mdbook` is not on the worker PATH, document the install step in the PR description; the docs CI workflow at `.github/workflows/docs.yml.disabled` is not active so PR-time `mdbook build` is operator-side)
 - [ ] `mdbook test` passes (all internal links resolve)
 - [ ] Walkthrough is end-to-end runnable on a clean macOS
       box (mentally walk it; no `cargo` invocations anywhere

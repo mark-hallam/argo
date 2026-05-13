@@ -5,6 +5,8 @@
 **Validate before claim**: `bash scripts/check-brief-freshness.sh J18-compliance-generic-export`.
 **Tier tag**: PRODUCT_ROADMAP.md Track J brief 18 of 18 (LAST). Closes Track J author phase.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: Same issue as J17. `crates/argo-compliance/` does NOT exist on current main. Compliance functionality lives in `crates/argo-cli/src/handlers/compliance_*.rs`. **Recommended conductor rewrite**: re-target J18 to add `crates/argo-cli/src/handlers/compliance_generic.rs` (NEW, ≤350 LOC) + `compliance_pdf.rs` (NEW, ≤300 LOC, using `printpdf`) sibling to existing `compliance_export.rs`. Extend the existing `ReportFormat` enum in `compliance_soc2.rs` (Json/Csv/Markdown) with a `Generic` variant + dispatch arm. Cargo.toml `printpdf` dep goes on `argo-cli`, not on a nonexistent `argo-compliance` crate.
+
 ## v1 posture vs enterprise target
 
 | Concern | v1 implementation | Architectural target | Closes via |

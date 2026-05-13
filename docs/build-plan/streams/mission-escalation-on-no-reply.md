@@ -4,6 +4,8 @@
 **Authored against**: origin/main `e17857b0` on `2026-05-10`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-escalation-on-no-reply`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated migration slot + boot path + Notification surface. (1) **Migration slot**: v50/v51 are MERGED on origin/main (skill_min_trust_grade / skill_publish). Next free Rust slot is v61, next free SQL slot is **64** (slot reservations 63-70 are listed in the live ledger header; if claiming this brief picks any slot ≥64, verify against live header at claim time). (2) **boot.rs surface**: the gateway boot was split (`claude-gateway-boot-split` MERGED) — the canonical spot for spawn helpers is now `crates/argo-cli/src/handlers/gateway/boot_spawns.rs` (165 LOC headroom), NOT `boot.rs` directly. Wire the new `spawn_approval_reminder` alongside `spawn_duty_scheduler` and `spawn_cu_screenshot_sweep` there. (3) **Notification surface**: `argo_channels::Notification` is a struct, NOT a kind enum. Two options open: (a) widen scope to include `crates/argo-channels/**` and add a `kind: NotificationKind { ApprovalReminder, ... }` field with serde-default for back-compat (this is the recommended path); or (b) express reminders as the existing `Notification` struct populated with `title = "Approval reminder"` and `body = "...still awaiting your decision..."` (acceptable but loses structure for downstream filtering). Operator should pick (a) and update may-touch to include `argo-channels/src/notification.rs` for ≤30 LOC delta. (4) **migrations/mod.rs** is at 493 LOC, so adding `mod v61;` is technically possible (498 ≤ 500) but uncomfortable. If `claude-store-migrations-mod-split` is still BLOCKED at claim time, this brief may proceed with the +1 LOC add; otherwise defer to that split landing.
+
 > SOURCE: MISSION_BACKLOG.md Section 3 Claim 6 item #130 ("Add escalation-on-no-reply"). The approval-request store now records `deadline_at` per request (#1091 MERGED), and `expire_overdue` records the row's `default_decision` when the deadline lapses. But there's no escalation step BEFORE expiration — operators get one ping at request time, then silence, then auto-expire to default. Mission Claim 6 ("multi-channel approvals") promises a real reminder/escalation flow.
 
 ## Scope
@@ -17,7 +19,7 @@ For each row found: fan out a `Notification` of kind `ApprovalReminder` (NEW var
 
 Wire from gateway boot like other periodic tasks (`_alerts_loop`, `_sweeper`). Configurable via `ARGO_APPROVAL_REMINDER_WINDOW_MINUTES` (default 30) and `ARGO_APPROVAL_REMINDER_INTERVAL_SECS` (default 300 = scan every 5 min).
 
-Schema change: ADD column `approval_request.escalation_sent_at INTEGER NULL` via NEW migration v50 (next free slot — v49 is `mvp-worker-skills-table` which is in flight; verify v49 hasn't merged; if v49 still TODO/CLAIMED, this brief uses v51 to avoid collision).
+Schema change: ADD column `approval_request.escalation_sent_at INTEGER NULL` via NEW migration in the next free slot (Rust v61+ / SQL 64+ at 2026-05-13; check live ledger header reservations 63-70 before claiming).
 
 This is NOT in scope: multi-step escalation (only one reminder for v1; #118 multi-step-approval covers chain); changing approval channel routing; per-tenant reminder window override; recipient-side opt-out.
 
@@ -29,21 +31,22 @@ This is NOT in scope: multi-step escalation (only one reminder for v1; #118 mult
 
 ## Files you may touch
 
-- `crates/argo-store/migrations/50__approval_escalation.sql` (NEW; OR `51__...` if v50 contested) — `ALTER TABLE approval_request ADD COLUMN escalation_sent_at INTEGER NULL;`. Idempotent via `column_exists` PRAGMA probe (mirrors existing pattern in v22-v34).
-- `crates/argo-store/src/migrations/v50.rs` (NEW; OR v51) — versioned migration matching the raw SQL.
-- `crates/argo-store/src/migrations/mod.rs` — narrowly scoped: ONE `mod v50;` line + ONE ladder entry. NO other edits.
+- `crates/argo-store/migrations/<NN>__approval_escalation.sql` (NEW; SQL slot ≥64 — verify live ledger header reservations 63-70) — `ALTER TABLE approval_request ADD COLUMN escalation_sent_at INTEGER NULL;`. Idempotent via `column_exists` PRAGMA probe (mirrors existing pattern in v22-v34).
+- `crates/argo-store/src/migrations/v<NN>.rs` (NEW; Rust slot ≥v61) — versioned migration matching the raw SQL.
+- `crates/argo-store/src/migrations/mod.rs` — narrowly scoped: ONE `mod v<NN>;` line + ONE ladder entry. NO other edits. **CEILING_RISK: file is at 493 LOC; the +2-LOC add lands at 495 (still legal). If `claude-store-migrations-mod-split` lands first, target `registry.rs` instead.**
 - `crates/argo-store/src/lib_tests.rs` — narrowly scoped: schema-tip assert bump.
 - `crates/argo-store/src/migration_reconciliation_tests.rs` — narrowly scoped: schema-tip assert bumps (4-5 occurrences mirror existing pattern).
 - `crates/argo-store/src/approvals.rs` — narrowly scoped: ADD `pub async fn list_pending_near_deadline(tenant: &TenantId, window: Duration, now: DateTime<Utc>) -> ArgoResult<Vec<ApprovalRequest>>`. ADD `pub async fn mark_escalation_sent(request_id: &Uuid) -> ArgoResult<()>`. NO change to existing fns.
-- `crates/argo-cli/src/handlers/gateway/approval_reminder.rs` (NEW, ≤ 200 LOC) — periodic spawn, scan-and-notify loop, `Notification::ApprovalReminder` builder.
-- `crates/argo-cli/src/handlers/gateway/boot.rs` — narrowly scoped: ONE block adding `let _approval_reminder = spawn_approval_reminder(...);` next to existing `_sweeper` / `_alerts_loop` handles.
+- `crates/argo-cli/src/handlers/gateway/approval_reminder.rs` (NEW, ≤ 200 LOC) — periodic spawn, scan-and-notify loop, `Notification` builder.
+- `crates/argo-cli/src/handlers/gateway/boot_spawns.rs` — narrowly scoped: ONE block adding `let _approval_reminder = spawn_approval_reminder(...);` next to existing `_duty_scheduler` / `_cu_screenshot_sweep` handles. (boot.rs itself stays untouched; the spawn was moved to `boot_spawns.rs` by `claude-gateway-boot-split` MERGED.)
 - `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly scoped: ONE `pub(super) mod approval_reminder;` line.
+- (If Option (a) on Notification.kind is taken) `crates/argo-channels/src/notification.rs` — narrowly scoped: ADD `kind: NotificationKind` field with `#[serde(default)]`. ≤30 LOC.
 - `crates/argo-cli/src/handlers/gateway/approval_reminder_tests.rs` (NEW, sibling) — 4 unit tests: scan-finds-near-deadline; scan-skips-already-escalated; scan-skips-future-beyond-window; mark-escalation-is-idempotent.
 - `crates/argo-cli/tests/approval_reminder_smoke.rs` (NEW) — integration smoke: seed 3 approvals (one near-deadline + un-escalated, one near-deadline + already-escalated, one far-future); run reminder loop; assert exactly 1 notification fired.
 
 ## Files you must NOT touch
 
-- `crates/argo-channels/**` — NotifyChannel trait stable; reuse only
+- `crates/argo-channels/**` — NotifyChannel trait stable; reuse only. **Exception (per Drift-fix amendment 2026-05-13)**: if implementing Option (a), narrow ≤30 LOC delta to `crates/argo-channels/src/notification.rs` to add a `kind: NotificationKind` field with serde default. Document this choice in the PR description.
 - `crates/argo-store/migrations/48__approvals.sql` — original approvals migration is upstream
 - Any tool, any non-store/non-cli crate
 

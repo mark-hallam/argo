@@ -2,9 +2,11 @@
 
 **Owner**: claude. **Depends on**: claude-docs-site-build (#934).
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated may-touch + source-check paths. (1) `book/src/architecture/` → `book/architecture/` (current `book.toml` sets `src = "book"`); existing pages: `protocol.md`, `worker-v3.md`, `memory-and-skills.md`. SUMMARY.md is at `book/SUMMARY.md`. (2) Source-check paths updated to real `argo-*` crate layout: gateway routes live in `crates/argo-cli/src/handlers/gateway/routes_*.rs` (not `crates/gateway/`); executor is `crates/argo-executor-computer-use/`; memory is `crates/argo-memory/`; judge is `crates/argo-judge/`; "dreams" is not a standalone crate — pipeline is split across `crates/argo-skill/src/dreams_distillation.rs`, `crates/argo-runtime/src/dreams_plan_templates.rs`, `crates/argo-memory/src/dreams_backend.rs` (find with `rg dreams crates/`). (3) `.github/workflows/docs.yml` is currently `.github/workflows/docs.yml.disabled` — if Mermaid pre-processor needs CI install, either re-enable that workflow as a side-effect or document the manual `cargo install mdbook-mermaid` requirement in the PR description.
+
 ## Why
 
-`book/src/architecture/` currently links the protocol doc and
+`book/architecture/` currently links the protocol doc and
 a couple of investigations but lacks visual reference for how
 the pieces fit. Reviewers (new contributors, ops, evaluators)
 ask the same five questions every time:
@@ -31,29 +33,35 @@ Diagrams must be:
 - **Mermaid source**, not images. Mermaid renders
   responsively, diffs cleanly, and stays editable.
 - **Accurate as of merge.** Cross-check against current
-  `crates/gateway/src/routes.rs`, `crates/executor/src/`,
-  `crates/memory/`, `crates/judge/`, `crates/dreams/` before
-  pushing. If a diagram contradicts code, code wins.
+  `crates/argo-cli/src/handlers/gateway/routes_*.rs`,
+  `crates/argo-executor-computer-use/src/`, `crates/argo-memory/`,
+  `crates/argo-judge/`, and dreams sources scattered across
+  `argo-skill::dreams_distillation`, `argo-runtime::dreams_plan_templates`,
+  `argo-memory::dreams_backend` before pushing. If a diagram
+  contradicts code, code wins.
 
 Each page ends with a "see also" block pointing to the
 canonical source files.
 
 ## Files you may touch
-- `book/src/architecture/diagrams/gateway-routes.md` (NEW)
-- `book/src/architecture/diagrams/executor-dispatch.md` (NEW)
-- `book/src/architecture/diagrams/memory-layers.md` (NEW)
-- `book/src/architecture/diagrams/judge-integration.md` (NEW)
-- `book/src/architecture/diagrams/dreams-pipeline.md` (NEW)
-- `book/src/architecture/diagrams/index.md` (NEW — landing)
-- `book/src/SUMMARY.md` (add Architecture › Diagrams entries)
+- `book/architecture/diagrams/gateway-routes.md` (NEW)
+- `book/architecture/diagrams/executor-dispatch.md` (NEW)
+- `book/architecture/diagrams/memory-layers.md` (NEW)
+- `book/architecture/diagrams/judge-integration.md` (NEW)
+- `book/architecture/diagrams/dreams-pipeline.md` (NEW)
+- `book/architecture/diagrams/index.md` (NEW — landing)
+- `book/SUMMARY.md` (add Architecture › Diagrams entries)
 - `book.toml` (add `[preprocessor.mermaid]` if missing)
-- `.github/workflows/docs.yml` (add mdbook-mermaid install
-  step if needed for the build)
+- `.github/workflows/docs.yml.disabled` (add mdbook-mermaid install
+  step if needed for the build; note the workflow is currently
+  disabled — adding this here is forward-looking, or re-enable
+  the workflow if appropriate)
 
 ## Files you must NOT touch
 - Any `crates/**` Rust source
 - `docs/skycot/MISSION.md`
-- `book/src/architecture/protocol.md` (existing, owned
+- `book/architecture/protocol.md`, `book/architecture/worker-v3.md`,
+  `book/architecture/memory-and-skills.md` (existing pages, owned
   elsewhere)
 - Other doc sections
 

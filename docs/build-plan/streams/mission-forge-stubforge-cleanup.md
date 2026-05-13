@@ -4,6 +4,8 @@
 **Authored against**: origin/main `939e3bec` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-forge-stubforge-cleanup`.
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED (precursor missing)**: `argo-plugin` has no `PluginRegistry` / call-by-id surface (only single-shot `PluginHost::start(binary_path, args)`); `[plugin].auto_load` is a config field but no machinery launches plugins from it. Brief explicitly says "if no clean call-by-id surface, BLOCK and request a precursor brief rather than expand scope." Required precursor: `argo-plugin gains a PluginRegistry` that owns one `PluginHost` per id (probably loaded from `[plugin].auto_load`), with a `call(id, method, params)` surface — then this brief can wire `LocalForge → registry.call(worker_plugin_id, "optimize", opts)` cleanly. ALSO `crates/argo-config/src/forge.rs` does NOT exist; forge config lives in `crates/argo-config/src/sections_routing.rs` today. ALSO `crates/argo-cli/src/handlers/forge_run.rs` does not exist; forge handlers are `forge_optimize.rs`, `forge_admin.rs`, `forge_daemon.rs`, etc. The brief is blocked on the precursor regardless of these path fixes.
+
 > SOURCE: MISSION_BACKLOG.md Section 4/Section 7 Claim 4 #84 + #262 — "Replace `StubForge` trait OR delete trait + rename `forge_optimize` as canonical." Today the Forge surface has two awkward shapes coexisting: (1) a `Forge` trait with a single `optimize(...)` method whose only impl is `StubForge` (which always errors); (2) a gateway HTTP handler called `forge_optimize_response` that bypasses the trait entirely (no Python worker plugin shipped). Mission promise: ONE canonical entry point so downstream callers stop guessing.
 
 ## Scope

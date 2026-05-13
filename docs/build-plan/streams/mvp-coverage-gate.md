@@ -4,6 +4,8 @@
 
 **Authored against**: origin/main 7fdbbdb8 on 2026-05-10.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep noted `.github/workflows/ci.yml` is currently `.github/workflows/ci.yml.disabled`. This brief is genuinely dependency-BLOCKED on `mvp-ci-reenable`; when that lands, the file will be `ci.yml` again. No path rewrite needed — flagging only.
+
 ## Why
 
 V1.0 needs an enforced coverage floor on the load-bearing crates so regressions in core paths are caught at PR time. Spec target: ≥85% line coverage on `argo-core`, `argo-store`, `argo-capability`, `argo-routing`, `argo-judge`.

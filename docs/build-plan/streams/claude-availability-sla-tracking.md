@@ -3,6 +3,8 @@
 **Owner**: claude. **Depends on**: existing gateway request log
 (used to derive uptime: any 5xx or transport failure is downtime).
 
+**DEEP-DRIFT — CONDUCTOR REWRITE NEEDED**: same data-source gap as `claude-error-rate-dashboard`. Brief computes rolling-month uptime from "the gateway request log" (any 5xx or transport error → downtime), but no such table exists on current main. Audited migrations v1..v60 (74 CREATE TABLE statements) — no per-HTTP-request row with status/ts; the `argo-gateway` crate is for chat-platform adapters (Slack/Discord/Telegram), not HTTP request logging; `audit_record`, `routing_decision`, `spend_ledger` carry no HTTP status. The brief's must-NOT-touch list explicitly forbids argo-store schema changes ("read existing request log only"). Same precursor recommendation: queue `claude-gateway-request-log-table` (or wait for `mission-gateway-request-audit-log` which covers this) before reattempting this SLA brief.
+
 ## Scope
 
 Operators want to know "are we hitting 99.9% this month?" without

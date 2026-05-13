@@ -4,6 +4,8 @@
 **Authored against**: origin/main `f1b6b0d1` on `2026-05-12`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-planner-bias-from-template`.
 
+**Drift-fix amendment 2026-05-13** (vs HEAD 6159b789): brief-cleanup sweep updated section file + planner call-site + provenance type. (1) **Config section file**: `crates/argo-config/src/sections.rs` is now a barrel re-exports file only (34 LOC). New sections must live in sibling `sections_<topic>.rs` siblings — for this brief, add a NEW `crates/argo-config/src/sections_planner.rs` (≤200 LOC) for `[planner.bias]` and re-export via `sections.rs`. The original instruction to edit `sections.rs` directly drifts. (2) **Planner call-site**: live `TemplatePlanner::with_learned_templates` already exists, but the cold-plan generation actually happens via `crates/argo-cli/src/handlers/plan_generate.rs` (NOT `argo-runtime/src/lib.rs`). Wire the new `PlannerBias` shim into `plan_generate.rs` to consult learned templates before falling through to cold-generate. (3) **Plan provenance type**: `crates/argo-types/src/plan_provenance.rs` does NOT exist on current main. The brief should either: (a) create that file as part of this work (NEW, ≤80 LOC, just the enum), or (b) put the variant on an existing audit-payload type. Recommended (a). (4) **Migration slot**: live ledger header reserves SQL slot **68** + Rust v61+ for this brief; the original "v58 just shipped" line is stale. Confirm at claim. (5) **Trust grade**: `LearnedPlanTemplate` lifecycle is `Pending/Promoted/Rejected` (NOT `Bronze/Silver/Gold`). The brief's "min_trust_grade gate (default Bronze, configurable)" wording is misaligned — recommend dropping trust-grade for v1 and gating on `Promoted` status only; trust-grade gating becomes a follow-up brief.
+
 > SOURCE: MISSION_BACKLOG.md Section 5 Claim 7-9 #195 ("Build planner-bias-from-template"). **Tier M (self-improvement).** Today: `TemplatePlanner` exists with `with_learned_templates(Vec<PlanTemplate>)`, and `dreams_plan_templates` produces `LearnedPlanTemplate` from Dreams curation. BUT: the runtime dispatch loop does NOT consult learned templates before generating a fresh plan — every planner call is cold. This brief lands the BIAS path: when the planner has a learned-template that matches the current task signature with high enough trust-grade, it prefers that template over generating from scratch. The platform's "skills get better over time" promise depends on this wire.
 
 ## Scope
@@ -70,10 +72,12 @@ If (a) is chosen, the migration goes to slot 68 (`68__plan_provenance.sql`). If 
 
 - `crates/argo-runtime/src/planner_bias.rs` (NEW, ≤ 220 LOC)
 - `crates/argo-runtime/src/planner_bias_tests.rs` (NEW, ≤ 200 LOC, included via `#[path]`)
-- `crates/argo-runtime/src/lib.rs` (EXTEND, ≤ 15 LOC delta — swap planner call site)
-- `crates/argo-config/src/sections.rs` (EXTEND, ≤ 25 LOC delta — `[planner.bias]` section)
+- `crates/argo-cli/src/handlers/plan_generate.rs` (EXTEND, ≤ 30 LOC delta — wire `PlannerBias::plan(task)` consultation before cold-generate; the brief's original target `argo-runtime/src/lib.rs` is 86 LOC of module-decls only, no loop lives there)
+- `crates/argo-config/src/sections_planner.rs` (NEW, ≤ 200 LOC — `[planner.bias]` section)
+- `crates/argo-config/src/sections.rs` (EXTEND, ≤ 5 LOC — `pub use crate::sections_planner::PlannerBiasConfig;` re-export)
 - `crates/argo-config/src/defaults.rs` (EXTEND, ≤ 10 LOC delta)
-- `crates/argo-types/src/plan_provenance.rs` (EXTEND OR NEW, ≤ 25 LOC — add `FromLearnedTemplate` variant)
+- `crates/argo-types/src/plan_provenance.rs` (NEW, ≤ 80 LOC — the file doesn't exist yet on current main; create with `PlanProvenance::{ColdGenerated, FromLearnedTemplate { template_id, signature }}`)
+- `crates/argo-types/src/lib.rs` (EXTEND, ≤ 3 LOC — re-export `PlanProvenance`)
 - `crates/argo-store/src/migrations/vNN.rs` (NEW; verify slot — v59 at brief author time, but `mission-gateway-request-audit-log` + `mission-audit-chain-watchdog` are parallel reservation-only briefs in this range; check `ls crates/argo-store/src/migrations/v*.rs | sort -V | tail -3` at claim time)
 - `crates/argo-store/migrations/<NN>__plan_provenance.sql` (NEW; verify slot ≥ 63)
 - `crates/argo-store/src/migrations/mod.rs` (EXTEND only — register new migration module)
