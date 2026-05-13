@@ -387,6 +387,7 @@ mod worker_actions_executor_cu_macos;
 mod worker_actions_executor_cu_windows;
 mod worker_actions_executor_document;
 mod worker_actions_executor_document_csv;
+mod worker_actions_executor_document_gsuite;
 mod worker_actions_executor_mcp;
 mod worker_actions_executor_render;
 mod worker_actions_executor_stubs;

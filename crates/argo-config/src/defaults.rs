@@ -234,5 +234,15 @@ pub const DEFAULT_MATRIX_HOMESERVER_URL: &str = "https://matrix.org";
 /// time (mirrors the `core.home` convention).
 pub const DEFAULT_DOCUMENT_CSV_OUTPUT_ROOT: &str = "~/.argo/exports/csv/";
 
+/// `document_gsuite.permitted_doc_kinds` default — all three native
+/// Workspace kinds. Operators may restrict (e.g. `["Doc"]`) for
+/// verticals that should only emit text drafts.
+pub const DEFAULT_GSUITE_DOC_KINDS: &[&str] = &["Doc", "Sheet", "Slides"];
+
+/// `document_gsuite.max_doc_size_kb` default. Soft cap enforced at
+/// the executor's preflight; oversize requests reject before the
+/// Drive `files.create` round-trip.
+pub const DEFAULT_GSUITE_MAX_DOC_SIZE_KB: u32 = 256;
+
 /// `loop.on_restart` default.
 pub const DEFAULT_ON_RESTART: &str = "prompt_user";

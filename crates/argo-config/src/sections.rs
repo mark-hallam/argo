@@ -19,14 +19,14 @@
 //! - [`crate::sections_gateway`] — `[gateway]`, `[gateway.rate_limit]`
 //! - [`crate::sections_planner`] — `[planner]`, `[planner.bias]`
 //! - [`crate::sections_channels`] — `[channels]`, `[channels.teams]`, `[channels.matrix]`
-//! - [`crate::sections_executor`] — `[document_csv]`
+//! - [`crate::sections_executor`] — `[document_csv]`, `[document_gsuite]`
 //! - [`crate::sections_security`] — `[security]`, `[security.encryption]`, `[security.hipaa]`
 
 pub use crate::sections_audit::AuditConfig;
 pub use crate::sections_budget::{BudgetConfig, DelegateConfig, ParallelConfig};
 pub use crate::sections_channels::{ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig};
 pub use crate::sections_core::{CoreConfig, LoopConfig, PluginConfig, TenantConfig};
-pub use crate::sections_executor::DocumentCsvConfig;
+pub use crate::sections_executor::{DocumentCsvConfig, DocumentGsuiteConfig};
 pub use crate::sections_gateway::{
     GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
 };

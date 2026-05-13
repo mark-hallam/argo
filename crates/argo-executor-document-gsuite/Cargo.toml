@@ -1,0 +1,28 @@
+[package]
+name = "argo-executor-document-gsuite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo — Google Workspace (Docs / Sheets / Slides) document-creation executor"
+
+[dependencies]
+argo-executor-document-csv = { path = "../argo-executor-document-csv", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
+async-trait = { workspace = true }
+base64 = "0.22"
+chrono = { workspace = true }
+jsonwebtoken = { version = "9", default-features = false, features = ["use_pem"] }
+parking_lot = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+wiremock = "0.6"

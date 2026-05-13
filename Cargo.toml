@@ -46,6 +46,7 @@ members = [
   "crates/argo-executor-computer-use-windows",
   "crates/argo-executor-document",
   "crates/argo-executor-document-csv",
+  "crates/argo-executor-document-gsuite",
   "crates/argo-executor-filesystem",
   "crates/argo-genesis",
   "crates/argo-mcp-connector-slack",

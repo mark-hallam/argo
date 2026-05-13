@@ -32,6 +32,7 @@ use super::worker_actions_executor_cu_macos::ComputerUseMacOSExecutor;
 use super::worker_actions_executor_cu_windows::ComputerUseWindowsExecutor;
 use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_document_csv::DocumentCsvExecutor;
+use super::worker_actions_executor_document_gsuite::DocumentGsuiteExecutor;
 use super::worker_actions_executor_stubs::{
     ApiExecutor, BrowserExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
 };
@@ -117,6 +118,11 @@ pub(crate) enum ExecutorKind {
     /// primitive; this one carries the typed schema + sha256-stamped
     /// report.
     DocumentCsv,
+    /// Google Workspace draft-document writer (Docs / Sheets / Slides
+    /// via Drive + per-API `batchUpdate`). Wired by
+    /// `mission-doc-executor-gsuite`. Service-account OAuth2; env-
+    /// indirect creds; drafts-only by design.
+    DocumentGsuite,
 }
 
 impl ExecutorKind {
@@ -137,11 +143,13 @@ impl ExecutorKind {
             "code_execution" => Ok(Self::CodeExecution),
             "document_creation" => Ok(Self::DocumentCreation),
             "document_csv" | "document-csv" => Ok(Self::DocumentCsv),
+            "document_gsuite" | "document-gsuite" => Ok(Self::DocumentGsuite),
             other => Err(ArgoError::Provider(format!(
                 "unknown executor kind '{other}' — \
                  valid: human | mcp | computer_use | computer_use_macos | \
                  computer_use_linux | computer_use_windows | api | browser | \
-                 filesystem | code_execution | document_creation | document_csv"
+                 filesystem | code_execution | document_creation | document_csv | \
+                 document_gsuite"
             ))),
         }
     }
@@ -163,6 +171,7 @@ impl ExecutorKind {
             Self::CodeExecution => "code_execution",
             Self::DocumentCreation => "document_creation",
             Self::DocumentCsv => "document_csv",
+            Self::DocumentGsuite => "document_gsuite",
         }
     }
 }
@@ -275,6 +284,7 @@ pub(crate) fn resolve_executor(
         ExecutorKind::CodeExecution => Box::new(CodeExecutor::new()),
         ExecutorKind::DocumentCreation => Box::new(DocumentExecutor::new()),
         ExecutorKind::DocumentCsv => Box::new(DocumentCsvExecutor::new()),
+        ExecutorKind::DocumentGsuite => Box::new(DocumentGsuiteExecutor::new()),
     };
     Ok(Box::new(TimedExecutor::new(exec)))
 }

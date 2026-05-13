@@ -67,7 +67,8 @@ pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
-    ForgeConfig, GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig,
+    DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
+    GatewayRateLimitConfig,
     GatewayRateLimitTenantConfig, IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig,
     ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
     RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig,
@@ -180,6 +181,9 @@ pub struct ArgoConfig {
     pub sandbox: SandboxConfig,
     /// `[document_csv]` (RFC 4180 CSV executor — output_root etc.).
     pub document_csv: DocumentCsvConfig,
+    /// `[document_gsuite]` (Google Workspace draft writer — folder /
+    /// permitted-doc-kinds gates etc.).
+    pub document_gsuite: DocumentGsuiteConfig,
     /// `[channels]` (per-channel TOML config blocks).
     pub channels: ChannelsConfig,
     /// `[worker_pool]` — pool elasticity recommender bounds.

@@ -56,6 +56,8 @@ pub const KNOWN_EXECUTOR_KINDS: &[&str] = &[
     "document_creation",
     "document_csv",
     "document-csv",
+    "document_gsuite",
+    "document-gsuite",
 ];
 
 /// One validation failure surfaced from [`validate_strict`]. The

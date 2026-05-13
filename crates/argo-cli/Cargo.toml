@@ -59,6 +59,7 @@ argo-executor-computer-use = { path = "../argo-executor-computer-use", version =
 argo-executor-computer-use-macos = { path = "../argo-executor-computer-use-macos", version = "0.0.1" }
 argo-executor-document = { path = "../argo-executor-document", version = "0.0.1" }
 argo-executor-document-csv = { path = "../argo-executor-document-csv", version = "0.0.1" }
+argo-executor-document-gsuite = { path = "../argo-executor-document-gsuite", version = "0.0.1" }
 argo-executor-filesystem = { path = "../argo-executor-filesystem", version = "0.0.1" }
 argo-genesis = { path = "../argo-genesis", version = "0.0.1" }
 argo-identity = { path = "../argo-identity", version = "0.0.1" }
