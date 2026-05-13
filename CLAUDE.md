@@ -125,7 +125,45 @@ Companion docs:
 - [`docs/build-plan/PROTOCOL_LOOP_PROMPT.md`](docs/build-plan/PROTOCOL_LOOP_PROMPT.md) — conductor tick prompt.
 - [`docs/build-plan/CONTRIBUTING_AGENT.md`](docs/build-plan/CONTRIBUTING_AGENT.md) — short worker companion.
 - [`docs/build-plan/KNOWN_FLAKES.md`](docs/build-plan/KNOWN_FLAKES.md) — pre-existing test flakes.
+- [`docs/skycot/DRIFT_PREVENTION.md`](docs/skycot/DRIFT_PREVENTION.md) — drift patterns, brief pre-flight checklist, audit cadence, unfucking severity ladder.
 
 Genuinely ad-hoc sessions (invoked outside the swarm context — e.g.
 the operator running a one-off cleanup) can ignore the build-plan
 layer; the core rules above still apply.
+
+## Drift prevention (conductor + worker)
+
+The audit chain on 2026-05-13/14 surfaced a ~24% intent-drift rate in
+conductor-authored briefs (new parallel surfaces alongside ones that
+already shipped) plus systemic dead-code drift (subsystems landed
+without callers, 17 connector crates with zero workspace consumers,
+duplicate `SessionId`/`JudgeVerdict`/`Role` types across crates). The
+full playbook is [`docs/skycot/DRIFT_PREVENTION.md`](docs/skycot/DRIFT_PREVENTION.md).
+Load-bearing rules, inline so they cannot be missed:
+
+- **Grep before write.** Before declaring any new pub struct, enum, or
+  type alias in a brief, run `rg 'pub (struct|enum|type) <Name>' crates/`.
+  If a same-named or near-same-named surface exists, the brief either
+  extends it, supersedes it, or carries a one-line justification.
+- **Wire or defer.** Every new public surface in a brief names its
+  consumer. If the consumer doesn't exist yet, the brief either
+  includes the wire-up or is paired with a follow-up brief in the same
+  batch. "Land scaffold now, wire later" is the failure mode.
+- **No parallel abstractions.** Two structs with the same name and
+  overlapping responsibilities in different crates is a bug, not a
+  feature. Past examples that became P1s: `McpConnectionPool` (in
+  `argo-agent-runner`) parallel to canonical `McpClientPool` (in
+  `argo-mcp`) without per-tenant keying → cross-tenant credential
+  leak.
+- **Freshness gate.** Briefs declare `Authored against: origin/main
+  <SHA> on <YYYY-MM-DD>` within 24h of authoring, plus
+  `Validate before claim: bash scripts/check-brief-freshness.sh
+  <brief-id>`. Stale briefs are refused at claim time.
+- **Recovery briefs re-validate intent.** Before authoring
+  `claude-rebase-pr-<N>`, confirm the underlying intent is still
+  load-bearing on current `origin/main`. If the bug or feature has
+  already been fixed by another PR, close the original PR with
+  STALE-FIXED instead.
+- **Ledger drift sweep every tick.** Conductor runs
+  `scripts/find-stale-claim-drift.py --quiet` every tick. Zero drift
+  rows is the steady state.
