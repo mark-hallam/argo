@@ -339,6 +339,9 @@ Registered key categories (v1):
 | `channel-hmac` | Voice / channel HMAC | operator follow-up (config + restart) |
 | `connector-oauth` | Per-connector OAuth | `argo connector reauth <name>` |
 
+Bidirectional voice chat: not shipped in v1.0 — see
+[`operator/voice-channels-status.md`](operator/voice-channels-status.md).
+
 ### Suggested operator cadence
 
 - **Weekly (cron-friendly):** `argo security rotate-keys
