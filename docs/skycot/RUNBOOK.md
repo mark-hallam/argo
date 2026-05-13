@@ -573,3 +573,11 @@ for the full operator guide — opt-in SQLCipher page-level
 encryption of the workspace DB, the `[security.encryption]
 key_source` config, enabling on a fresh workspace, in-place
 rotation via `argo db rekey`, and the backup / key-custody model.
+
+## Per-vertical regression
+
+See [`runbook/per-vertical-regression.md`](runbook/per-vertical-regression.md)
+for the full operator guide — the `argo-vertical-regression`
+static structural test crate that walks every `verticals/<id>/`
+manifest + `eval/seed.jsonl` fixture and asserts action-type
+vocabulary + approval consistency, with no LLM and no E2B.

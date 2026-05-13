@@ -1773,6 +1773,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-vertical-regression"
+version = "0.0.1"
+dependencies = [
+ "argo-vertical",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "argo-voice-tui"
 version = "0.0.1"
 dependencies = [

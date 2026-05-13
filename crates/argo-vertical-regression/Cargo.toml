@@ -1,0 +1,15 @@
+[package]
+name = "argo-vertical-regression"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo — per-vertical regression harness (mission-per-vertical-regression-test). Static structural test: walks verticals/, asserts every eval fixture's action_type matches the manifest's [actions] vocab and that requires_approval is consistent with [escalation.human_approval_required]. No LLM, no E2B."
+
+[dependencies]
+argo-vertical = { path = "../argo-vertical", version = "0.0.1" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

@@ -38,6 +38,7 @@ members = [
   "crates/argo-identity",
   "crates/argo-redact",
   "crates/argo-vertical",
+  "crates/argo-vertical-regression",
   "crates/argo-team-headline",
   "crates/argo-executor-computer-use",
   "crates/argo-executor-computer-use-linux",
