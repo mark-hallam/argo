@@ -60,6 +60,14 @@ pub mod dispatch_gate;
 /// `emit_audit_row` helper for the supervisor wiring step.
 pub mod oom_restart;
 mod planner;
+/// Bias-aware planner wrapper
+/// (`mission-planner-bias-from-template`). Composes the existing
+/// [`TemplatePlanner`] with a [`planner_bias::LearnedPlanTemplateSource`]
+/// so the runtime consults Dreams-curated learned templates before
+/// falling through to cold-generate. Returns a
+/// `(DecomposeResult, argo_types::PlanProvenance)` pair so the
+/// caller can stamp the audit envelope with WHY a plan was emitted.
+pub mod planner_bias;
 mod planner_templates;
 /// Worker-pool elasticity recommender + applier
 /// (`mission-worker-pool-elasticity`).
@@ -94,6 +102,10 @@ pub use dispatch_gate::{
 pub use planner::{
     record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, PlannedSubtask,
     Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,
+};
+pub use planner_bias::{
+    BiasConfig, InMemoryTemplateSource, LearnedPlanTemplateSource, LearnedTemplateCandidate,
+    PlannerBias, TaskSignature,
 };
 pub use pool_elasticity::{
     apply_recommendation, emit_audit_row, latest_tick, recommend, scale_down_total, scale_up_total,

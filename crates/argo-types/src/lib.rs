@@ -15,6 +15,7 @@ mod ids;
 mod judge;
 mod lock;
 mod messages;
+mod plan_provenance;
 mod routing;
 
 pub use budget::{Budget, BudgetExhausted, BudgetKind, BudgetNode};
@@ -31,6 +32,7 @@ pub use ids::{
 pub use judge::{JudgeRecord, JudgeSubject, JudgeVerdict};
 pub use lock::Lock;
 pub use messages::{ContentBlock, Message, MessageRole, ToolCallRequest, ToolCallResult};
+pub use plan_provenance::PlanProvenance;
 pub use routing::{ProviderModel, RoutingDecision, RoutingPolicy, TieredRouting};
 
 #[cfg(test)]

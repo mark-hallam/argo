@@ -1,13 +1,26 @@
 //! `argo plan generate` handler — runs the offline TemplatePlanner
 //! (default) or LlmPlanner (with `--llm`) and emits YAML.
+//!
+//! Template path: the planner is wrapped in
+//! [`argo_runtime::PlannerBias`] (`mission-planner-bias-from-template`)
+//! so promoted Dreams-distilled templates bias the result before the
+//! shipped-default match fires. The decision is stamped on the JSON
+//! envelope as `PlanProvenance` so operators can answer "why this
+//! plan?" without re-running the planner.
 
 use argo_runtime::{
-    AnthropicCaller, DecomposeResult, LlmPlanner, Planner, PlannerContext, PlannerError,
+    AnthropicCaller, BiasConfig, DecomposeResult, InMemoryTemplateSource, LearnedPlanTemplateSource,
+    LearnedTemplateCandidate, LlmPlanner, Planner, PlannerBias, PlannerContext, PlannerError,
     TemplatePlanner,
 };
-use argo_types::{ArgoError, ArgoResult};
+use argo_store::learned_plan_template::{list_promoted, LearnedPlanTemplateRow};
+use argo_store::SessionStore;
+use argo_types::{ArgoError, ArgoResult, PlanProvenance};
 use async_trait::async_trait;
 use std::path::PathBuf;
+use std::sync::Arc;
+
+use crate::home::{db_path, resolve_home};
 
 pub async fn run(
     goal: &str,
@@ -21,19 +34,20 @@ pub async fn run(
     if let Some(v) = vertical {
         ctx = ctx.with_vertical(v);
     }
-    let result = if llm {
+    let (result, provenance) = if llm {
         let caller = build_anthropic_caller()?;
         let planner = LlmPlanner::new(caller);
-        planner
+        let result = planner
             .decompose(goal, &ctx)
             .await
-            .map_err(planner_to_argo)?
+            .map_err(planner_to_argo)?;
+        (result, PlanProvenance::ColdGenerated)
     } else {
         let planner = TemplatePlanner::shipped_defaults();
-        planner
-            .decompose(goal, &ctx)
-            .await
-            .map_err(planner_to_argo)?
+        let source = load_template_source().await;
+        let config = load_bias_config();
+        let bias = PlannerBias::new(planner, source, config);
+        bias.decompose(goal, &ctx).await.map_err(planner_to_argo)?
     };
     let yaml = serde_yaml::to_string(&result.workflow)
         .map_err(|e| ArgoError::Provider(format!("serialize workflow: {e}")))?;
@@ -48,22 +62,89 @@ pub async fn run(
             "planner_kind": result.planner_kind,
             "template_name": result.template_name,
             "reasoning": result.reasoning,
+            "provenance": provenance,
             "workflow_yaml": yaml,
             "tasks": result.workflow.tasks.len(),
             "output": output,
         });
         println!("{}", serde_json::to_string(&envelope).unwrap_or_default());
     } else if output.is_none() {
-        println!("# planner: {} ({})", result.planner_kind, result.reasoning);
+        println!(
+            "# planner: {} ({}) [{}]",
+            result.planner_kind,
+            result.reasoning,
+            provenance.kind()
+        );
         print!("{yaml}");
     } else {
         println!(
-            "wrote {} task workflow to {}",
+            "wrote {} task workflow to {} [{}]",
             result.workflow.tasks.len(),
-            output.unwrap_or("(stdout)")
+            output.unwrap_or("(stdout)"),
+            provenance.kind()
         );
     }
     Ok(())
+}
+
+/// Load `[planner.bias]` from the layered argo.toml. Falls back to
+/// `BiasConfig::default()` (bias enabled, 30-day recency) when no
+/// argo.toml is reachable from cwd. Config failures degrade
+/// silently — the planner stays functional even if the operator's
+/// config file is malformed.
+fn load_bias_config() -> BiasConfig {
+    let cfg = argo_config::load().unwrap_or_default();
+    BiasConfig {
+        enabled: cfg.planner.bias.enabled,
+        prefer_per_vertical: cfg.planner.bias.prefer_per_vertical,
+        require_recent_within_days: cfg.planner.bias.require_recent_within_days,
+    }
+}
+
+/// Build the learned-template source: SQL-backed when the workspace
+/// store is reachable, in-memory empty otherwise. Errors degrade to
+/// the empty source (the bias path treats no candidates the same as
+/// no match — cold-generate fall-through).
+async fn load_template_source() -> Arc<dyn LearnedPlanTemplateSource> {
+    let Ok(cwd) = std::env::current_dir() else {
+        return Arc::new(InMemoryTemplateSource::default());
+    };
+    let Ok(home) = resolve_home(&cwd) else {
+        return Arc::new(InMemoryTemplateSource::default());
+    };
+    match SessionStore::open(&db_path(&home)).await {
+        Ok(store) => Arc::new(StoreTemplateSource { store }),
+        Err(_) => Arc::new(InMemoryTemplateSource::default()),
+    }
+}
+
+/// SQL-backed [`LearnedPlanTemplateSource`] that reads promoted
+/// rows from the workspace's `learned_plan_template` table. Lives
+/// here (not in argo-runtime) to preserve runtime's zero-db
+/// invariant.
+struct StoreTemplateSource {
+    store: SessionStore,
+}
+
+#[async_trait]
+impl LearnedPlanTemplateSource for StoreTemplateSource {
+    async fn list_promoted(&self) -> Result<Vec<LearnedTemplateCandidate>, PlannerError> {
+        let rows = list_promoted(self.store.pool())
+            .await
+            .map_err(|e| PlannerError::Llm(format!("learned_plan_template list: {e}")))?;
+        Ok(rows.into_iter().map(row_to_candidate).collect())
+    }
+}
+
+fn row_to_candidate(row: LearnedPlanTemplateRow) -> LearnedTemplateCandidate {
+    let recency_micros = row.promoted_at.unwrap_or(row.created_at);
+    LearnedTemplateCandidate {
+        id: row.id,
+        name: row.name,
+        anchor_goal: row.parent_goal,
+        yaml: row.yaml,
+        recency_micros,
+    }
 }
 
 fn write_outputs(path: &str, yaml: &str, result: &DecomposeResult) -> ArgoResult<()> {

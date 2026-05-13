@@ -54,6 +54,7 @@ mod sections_context;
 mod sections_core;
 mod sections_executor;
 mod sections_gateway;
+mod sections_planner;
 mod sections_routing;
 mod sections_security;
 mod sections_telemetry;
@@ -67,8 +68,9 @@ pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
     ForgeConfig, GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig,
     GatewayRateLimitTenantConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
-    PluginConfig, RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
-    SecurityHipaaConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
+    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, TeamsTomlConfig,
+    TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
@@ -180,6 +182,9 @@ pub struct ArgoConfig {
     /// `[runtime]` — runtime-side knobs (currently
     /// `[runtime.context_compress]`).
     pub runtime: RuntimeConfig,
+    /// `[planner]` — planner bias knobs
+    /// (`mission-planner-bias-from-template`).
+    pub planner: PlannerConfig,
     /// `[security]` — at-rest encryption and compliance posture.
     pub security: SecurityConfig,
     /// Bookkeeping for which fields a particular layer explicitly

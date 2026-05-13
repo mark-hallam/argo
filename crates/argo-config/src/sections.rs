@@ -17,6 +17,7 @@
 //! - [`crate::sections_audit`] — `[audit]`
 //! - [`crate::sections_routing`] — `[routing]`, `[routing.tiered]`, `[judge]`, `[forge]`
 //! - [`crate::sections_gateway`] — `[gateway]`, `[gateway.rate_limit]`
+//! - [`crate::sections_planner`] — `[planner]`, `[planner.bias]`
 //! - [`crate::sections_channels`] — `[channels]`, `[channels.teams]`, `[channels.matrix]`
 //! - [`crate::sections_executor`] — `[document_csv]`
 //! - [`crate::sections_security`] — `[security]`, `[security.encryption]`, `[security.hipaa]`
@@ -29,6 +30,7 @@ pub use crate::sections_executor::DocumentCsvConfig;
 pub use crate::sections_gateway::{
     GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
 };
+pub use crate::sections_planner::{PlannerBiasConfig, PlannerConfig};
 pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, RoutingTieredConfig};
 pub use crate::sections_security::{SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig};
 pub use crate::sections_telemetry::TelemetryConfig;
