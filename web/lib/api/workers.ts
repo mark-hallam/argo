@@ -14,9 +14,19 @@
  * and gateway-unreachable errors fall back to a synthetic
  * `{ ok: true }` envelope in dev so the demo keeps working.
  *
+ * **Hire commit (E2-e)**: `hireWorker` POSTs `/api/v1/workers` with
+ * `{ workerDraft, problem, answers }` and resolves to a `{ workerId,
+ * success: true }` envelope. The dev fallback returns
+ * `{ workerId: "stub-<uuid>", success: true }` on 404 / gateway-
+ * unreachable; in strict production every error propagates so the
+ * Step 4 UI can surface a toast + stay-on-step. The architectural
+ * target (server-side hire endpoint, mandatory in prod) closes via
+ * `mission-enterprise-hire-commit-mandatory`.
+ *
  * Acceptance contract:
  * - `pauseWorker` / `resumeWorker` resolve to a `{ ok, workerId,
  *   status }` envelope.
+ * - `hireWorker` resolves to `{ workerId, success: true }`.
  * - 404 from the gateway → mock success in dev, propagates in prod.
  * - NetworkError (gateway unreachable) → mock success in dev,
  *   propagates in prod.
@@ -25,13 +35,13 @@
  * - Strict production (`NODE_ENV === 'production'` AND
  *   `NEXT_PUBLIC_ENV === 'production'`): every error propagates so it
  *   surfaces in the UI rather than silently faking success.
- *
- * E2-e's `hireWorker` lives alongside this file in its own brief.
  */
 
 import { apiGet, apiPost } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/types";
 import { findSampleWorker } from "@/lib/sample-workers-detail";
+import type { WorkerDraft } from "@/lib/hire/draft-types";
+import type { QuestionAnswer } from "@/lib/hire/genesis-types";
 import type { Worker, WorkerStatus } from "@/lib/types/worker";
 
 /** Thrown when the worker id doesn't resolve. */
@@ -121,4 +131,61 @@ export function pauseWorker(workerId: string): Promise<WorkerActionResult> {
 
 export function resumeWorker(workerId: string): Promise<WorkerActionResult> {
   return postWorkerAction(workerId, "resume", "idle");
+}
+
+export interface HireWorkerRequest {
+  workerDraft: WorkerDraft;
+  problem: string;
+  answers: Record<string, QuestionAnswer>;
+}
+
+export interface HireWorkerResult {
+  workerId: string;
+  success: true;
+}
+
+function stubWorkerId(): string {
+  // Browser-native UUID is sufficient for dev stubs; no extra dep.
+  const rand =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 10);
+  return `stub-${rand}`;
+}
+
+function isStubFallbackEligible(err: unknown): boolean {
+  if (isStrictProduction()) return false;
+  return isMissingOrUnreachable(err);
+}
+
+export async function hireWorker(req: HireWorkerRequest): Promise<HireWorkerResult> {
+  if (isAuthBypassed()) {
+    return { workerId: stubWorkerId(), success: true };
+  }
+  try {
+    const raw = await apiPost<unknown>("/api/v1/workers", req);
+    if (
+      raw &&
+      typeof raw === "object" &&
+      typeof (raw as { workerId?: unknown }).workerId === "string"
+    ) {
+      return {
+        workerId: (raw as { workerId: string }).workerId,
+        success: true,
+      };
+    }
+    if (isStrictProduction()) {
+      throw new ApiError(
+        502,
+        "Hire endpoint returned an unexpected payload",
+        "INVALID_HIRE_RESPONSE",
+      );
+    }
+    return { workerId: stubWorkerId(), success: true };
+  } catch (err) {
+    if (isStubFallbackEligible(err)) {
+      return { workerId: stubWorkerId(), success: true };
+    }
+    throw err;
+  }
 }

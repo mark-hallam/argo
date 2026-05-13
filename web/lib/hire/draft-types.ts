@@ -77,6 +77,16 @@ export interface WorkerDraft {
     level: "conservative" | "balanced" | "aggressive";
   };
   suggestedVertical: string;
+  /**
+   * Server-assigned worker id, set on successful hire commit (Step 4
+   * → E2-e). Absent during Steps 3–4; Step 5 (Connect) reads it from
+   * the draft to scope OAuth handshakes to the freshly-hired worker.
+   * Piggy-backs on the existing `workerDraft` field so the in-flight
+   * persistence layer (`use-hire-draft.ts`, locked from E2-a) can
+   * carry it across the Step 4 → Step 5 navigation without schema
+   * changes to `HireDraftState`.
+   */
+  workerId?: string;
 }
 
 /** Tag the localStorage key in one place so renames don't drift. */

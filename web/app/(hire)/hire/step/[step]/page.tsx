@@ -5,13 +5,13 @@ import { use, useCallback, useEffect, useState } from "react";
 import { HireShell } from "@/components/skycot/HireShell";
 import { Step2Listen } from "@/components/skycot/hire/Step2Listen";
 import { Step3Drafting } from "@/components/skycot/hire/Step3Drafting";
+import { Step4Introduce } from "@/components/skycot/hire/Step4Introduce";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { ExampleRole } from "@/lib/hire/examples";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
 
 const STEP_PLACEHOLDERS: Record<number, string> = {
-  4: "Step 4 — placeholder for E2-e (Introduce)",
   5: "Step 5 — placeholder for E2-g (Connect)",
 };
 
@@ -85,6 +85,17 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     }
   }, [draft.isLoading, draft.state?.answers, step, router]);
 
+  // Step 4 invariant: requires a `workerDraft` from Step 3. If
+  // missing, bounce to Step 3 so drafting runs (which in turn
+  // requires Step 2 answers — the redirect chain re-seeds the flow).
+  useEffect(() => {
+    if (draft.isLoading) return;
+    if (step !== 4) return;
+    if (!draft.state?.workerDraft) {
+      router.replace("/hire/step/3");
+    }
+  }, [draft.isLoading, draft.state?.workerDraft, step, router]);
+
   const handleStep2Change = useCallback(
     (snap: { answers: Record<string, QuestionAnswer>; canContinue: boolean }) => {
       setStep2Snapshot({ answers: snap.answers, canContinue: snap.canContinue });
@@ -116,6 +127,43 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     (example: ExampleRole) => {
       void (async () => {
         await draft.update({ step: 2, problem: example.description, answers: {} });
+        router.push("/hire/step/2");
+      })();
+    },
+    [draft, router],
+  );
+
+  const handleStep4Change = useCallback(
+    (workerDraft: WorkerDraft) => {
+      void draft.update({ workerDraft });
+    },
+    [draft],
+  );
+
+  const handleStep4Commit = useCallback(
+    (workerId: string) => {
+      void (async () => {
+        const current = draft.state?.workerDraft;
+        if (!current) return;
+        await draft.update({
+          step: 5,
+          workerDraft: { ...current, workerId },
+        });
+        router.push("/hire/step/5");
+      })();
+    },
+    [draft, router],
+  );
+
+  const handleStep4PickTemplate = useCallback(
+    (example: ExampleRole) => {
+      void (async () => {
+        await draft.update({
+          step: 2,
+          problem: example.description,
+          answers: {},
+          workerDraft: undefined,
+        });
         router.push("/hire/step/2");
       })();
     },
@@ -161,7 +209,7 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
   );
 
   const continueDisabled = activeStep === 2 ? !step2Snapshot.canContinue : true;
-  const hideFooter = activeStep === 3;
+  const hideFooter = activeStep === 3 || activeStep === 4;
 
   let stepContent: React.ReactNode;
   if (activeStep === 2) {
@@ -182,11 +230,24 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
         onSkipToTemplate={handleStep3SkipToTemplate}
       />
     );
+  } else if (activeStep === 4 && draft.state?.workerDraft) {
+    stepContent = (
+      <Step4Introduce
+        workerDraft={draft.state.workerDraft}
+        problem={draft.state?.problem ?? ""}
+        answers={readAnswersFromDraft(draft.state?.answers)}
+        onChange={handleStep4Change}
+        onCommit={handleStep4Commit}
+        onPickTemplate={handleStep4PickTemplate}
+      />
+    );
   } else {
     stepContent = (
       <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-20 px-6 text-center space-y-3">
         <h1 className="text-xl font-semibold text-[var(--foreground)]">Hire a teammate</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">{STEP_PLACEHOLDERS[step]}</p>
+        <p className="text-sm text-[var(--muted-foreground)]">
+          {STEP_PLACEHOLDERS[step] ?? ""}
+        </p>
       </div>
     );
   }

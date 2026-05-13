@@ -104,6 +104,15 @@ export async function classifyRole(req: ClassifyRequest): Promise<ClassifyResult
 export interface DraftWorkerRequest {
   problem: string;
   answers: Record<string, QuestionAnswer>;
+  /**
+   * Free-text re-draft hint surfaced by Step 4's Adjust drawer
+   * (E2-e). Server-side Genesis treats this as additional context
+   * ("make her more formal", "shorter replies", etc.). v1 stub
+   * ignores it — the user still gets the generic draft until the
+   * gateway endpoint lands. Optional so Step 3's first-pass draft
+   * call stays unchanged.
+   */
+  adjustment?: string;
 }
 
 export interface DraftWorkerResult {
@@ -184,11 +193,15 @@ function isWorkerDraft(value: unknown): value is WorkerDraft {
  */
 export async function draftWorker(req: DraftWorkerRequest): Promise<DraftWorkerResult> {
   let raw: unknown;
+  const payload: Record<string, unknown> = {
+    problem: req.problem,
+    answers: req.answers,
+  };
+  if (req.adjustment !== undefined && req.adjustment.length > 0) {
+    payload.adjustment = req.adjustment;
+  }
   try {
-    raw = await apiPost<unknown>("/api/v1/genesis/draft-worker", {
-      problem: req.problem,
-      answers: req.answers,
-    });
+    raw = await apiPost<unknown>("/api/v1/genesis/draft-worker", payload);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
       return { draft: stubWorkerDraft(req.problem), source: "stub" };
