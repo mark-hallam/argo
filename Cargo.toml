@@ -6,6 +6,7 @@ members = [
   "crates/argo-config",
   "crates/argo-store",
   "crates/argo-capability",
+  "crates/argo-compliance",
   "crates/argo-provider",
   "crates/argo-tool",
   "crates/argo-memory",

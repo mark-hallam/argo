@@ -31,6 +31,7 @@ argo-runtime = { path = "../argo-runtime", version = "0.0.1" }
 argo-workflow = { path = "../argo-workflow", version = "0.0.1" }
 argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-channels = { path = "../argo-channels", version = "0.0.1" }
+argo-compliance = { path = "../argo-compliance", version = "0.0.1" }
 argo-config = { path = "../argo-config", version = "0.0.1" }
 argo-credentials = { path = "../argo-credentials", version = "0.0.1" }
 argo-cron = { path = "../argo-cron", version = "0.0.1" }

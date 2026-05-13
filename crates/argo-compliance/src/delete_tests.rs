@@ -3,7 +3,6 @@
 //! Wired in from `compliance_delete.rs` via `#[path = ...] mod tests`
 //! so they share the file's private surface.
 use super::*;
-use crate::cli::ComplianceDeleteArgs;
 use argo_audit::compute_chain_hash;
 use argo_store::SessionStore;
 use argo_types::{SessionId, TenantId, WorkspaceId};
@@ -33,11 +32,7 @@ async fn seed_workspace(store: &SessionStore, tenant: TenantId, name: &str) -> W
     workspace
 }
 
-async fn seed_session(
-    store: &SessionStore,
-    tenant: TenantId,
-    workspace: WorkspaceId,
-) -> SessionId {
+async fn seed_session(store: &SessionStore, tenant: TenantId, workspace: WorkspaceId) -> SessionId {
     let session = SessionId::new();
     sqlx::query(
         "INSERT INTO session (id, tenant_id, workspace_id, started_at, model, provider) \
@@ -258,18 +253,31 @@ async fn audit_rows_are_tombstoned_and_chain_still_verifies() {
     .fetch_all(store.pool())
     .await
     .unwrap();
-    assert_eq!(rows.len(), 4, "tombstone preserves row count, never deletes");
+    assert_eq!(
+        rows.len(),
+        4,
+        "tombstone preserves row count, never deletes"
+    );
     let mut prev_self: Option<[u8; 32]> = None;
     for (kind, parent_hash, self_hash, payload) in &rows {
-        assert!(payload.contains("\"tombstone\":true"), "payload not tombstoned: {payload}");
-        assert!(!payload.contains("alice@example.com"), "PII leaked: {payload}");
+        assert!(
+            payload.contains("\"tombstone\":true"),
+            "payload not tombstoned: {payload}"
+        );
+        assert!(
+            !payload.contains("alice@example.com"),
+            "PII leaked: {payload}"
+        );
         let parent: [u8; 32] = parent_hash.as_slice().try_into().unwrap();
         let self_h: [u8; 32] = self_hash.as_slice().try_into().unwrap();
         if let Some(prev) = prev_self {
             assert_eq!(prev, parent, "chain link broken: parent != prev self_hash");
         }
         let recomputed = compute_chain_hash(&parent, kind, payload);
-        assert_eq!(recomputed, self_h, "self_hash does not match recomputed chain hash");
+        assert_eq!(
+            recomputed, self_h,
+            "self_hash does not match recomputed chain hash"
+        );
         prev_self = Some(self_h);
     }
 }
@@ -330,7 +338,9 @@ async fn mid_delete_failure_rolls_back_all_changes() {
             .await
             .unwrap();
     assert!(
-        audit_payloads.iter().all(|p| p.contains("alice@example.com")),
+        audit_payloads
+            .iter()
+            .all(|p| p.contains("alice@example.com")),
         "rollback must restore original audit payloads"
     );
 }

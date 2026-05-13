@@ -92,7 +92,10 @@ async fn out_path_writes_pretty_json_file() {
     let body = std::fs::read_to_string(&path).unwrap();
     let parsed: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(parsed["subject"], Uuid::nil().to_string());
-    assert!(body.contains('\n'), "pretty-printed body should contain newlines");
+    assert!(
+        body.contains('\n'),
+        "pretty-printed body should contain newlines"
+    );
 }
 
 #[tokio::test]

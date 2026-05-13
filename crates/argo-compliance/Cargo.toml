@@ -1,0 +1,23 @@
+[package]
+name = "argo-compliance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo compliance workflows and reports"
+
+[dependencies]
+argo-audit = { path = "../argo-audit", version = "0.0.1" }
+argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
+chrono = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

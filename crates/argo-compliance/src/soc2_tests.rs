@@ -29,12 +29,9 @@ fn args(from: &str, to: &str) -> ComplianceSoc2Args {
 async fn empty_window_returns_empty_report_with_zeroed_categories() {
     let store = fresh_store().await;
     seed(&store, &[("auth.login", serde_json::json!({"actor":"a"}))]).await;
-    let report = build_report(
-        args("2000-01-01T00:00:00Z", "2000-01-02T00:00:00Z"),
-        &store,
-    )
-    .await
-    .unwrap();
+    let report = build_report(args("2000-01-01T00:00:00Z", "2000-01-02T00:00:00Z"), &store)
+        .await
+        .unwrap();
     assert!(report.events.is_empty());
     for label in ["Access", "ChangeMgmt", "DataMgmt", "Security", "Other"] {
         let agg = report.categories.get(label).unwrap();
@@ -142,7 +139,11 @@ async fn tenant_filter_drops_non_matching_rows() {
 #[tokio::test]
 async fn markdown_render_includes_every_category_and_event_table() {
     let store = fresh_store().await;
-    seed(&store, &[("auth.login", serde_json::json!({"actor":"alice"}))]).await;
+    seed(
+        &store,
+        &[("auth.login", serde_json::json!({"actor":"alice"}))],
+    )
+    .await;
     let (from, to) = window();
     let report = build_report(args(&from, &to), &store).await.unwrap();
     let body = render_with_format(&report, ReportFormat::Markdown).unwrap();
@@ -185,12 +186,9 @@ async fn csv_render_has_stable_column_order() {
 #[tokio::test]
 async fn from_after_to_is_rejected() {
     let store = fresh_store().await;
-    let err = build_report(
-        args("2026-05-09T01:00:00Z", "2026-05-09T00:00:00Z"),
-        &store,
-    )
-    .await
-    .unwrap_err();
+    let err = build_report(args("2026-05-09T01:00:00Z", "2026-05-09T00:00:00Z"), &store)
+        .await
+        .unwrap_err();
     let msg = format!("{err}");
     assert!(msg.contains("--from") && msg.contains("--to"));
 }

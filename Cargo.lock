@@ -340,6 +340,7 @@ dependencies = [
  "argo-audit",
  "argo-capability",
  "argo-channels",
+ "argo-compliance",
  "argo-config",
  "argo-credentials",
  "argo-cron",
@@ -407,6 +408,23 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "argo-compliance"
+version = "0.0.1"
+dependencies = [
+ "argo-audit",
+ "argo-store",
+ "argo-types",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "tokio",
  "uuid",
 ]
 
