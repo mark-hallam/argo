@@ -103,34 +103,119 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-## Right-now snapshot (2026-05-12 ~14:15Z)
+## Right-now snapshot (2026-05-13 ~02:04Z)
 
-Refreshed as the prior conductor session approached weekly quota.
-If you are a fresh session resuming after that cap:
+Refreshed during a resume-safety pass. The previous
+conductor session (Claude lane A) was hitting weekly quota; this
+snapshot was written from Claude lane B which is now itself
+approaching the weekly cap. **A fresh session resuming
+should read this whole section + the SWARM_PROTOCOL + the 5 files
+named at the top of this doc, then start ticking.**
 
-- **Last commit on origin/main**: `bc357476` (load-bearing post-v3
-  directives + L0/M0 design docs persisted; see commit body).
-- **Queue**: claude_todo = 51 · BLOCKED = 50ish · MERGED = ~642+
-  (run `grep -cE '^\| .* \| (claude\|codex) \| MERGED ' docs/build-plan/BUILD_STATUS.md`).
-- **4 PRs in review** at hand-off:
-  - `#1445` mission-vertical-legal-paralegal-skills — fix-recipe
-    posted (rename `.md` → `.skill.md`); idle 100+ min.
-  - `#1447` mission-enterprise-audit-full-text-search — fix-recipe
-    posted (slot 64 → 65 rebase, after #1450); idle 100+ min.
-  - `#1450` mission-enterprise-cross-tenant-audit — fix-recipe
-    posted (slot 63 → 64 rebase, J16 took 63); idle 100+ min.
-  - `#1461` mission-encryption-at-rest-sqlcipher — fix-recipe
-    posted (rebase after #1460); fresh ~25 min.
-- **Cron loop CANCELLED** before quota cap (was job `d593e23e`).
-  A fresh conductor resuming should re-arm via the operator's
-  preferred cadence (`/loop 5m <prompt>` or manual ticks).
-- **Stale-IN_REVIEW sweep due**: #1445 / #1447 / #1450 will cross
-  the 2h-since-last-push threshold within ~15 min of this snapshot.
-  Per af500037 amendment, demote them BLOCKED → TODO with salvage
-  notes (PR num + branch + fix-recipe excerpt). Do NOT close PRs.
-- **DEPLOYMENT-PATH-v3 §5 unmet** — K5-deploy-smoke-test-e2e is
-  TODO (cascade-unblocked but unclaimed). No worker has picked it
-  up yet. v3 is still ACTIVE; post-v3 directives stay QUEUED.
+### Live state (origin/main)
+
+- **HEAD**: `157edfcc` (status: claim J12-gateway-retrain-endpoints)
+- **Queue counts** (run `grep -cE '^\| .* \| claude \| <STATE> '
+  docs/build-plan/BUILD_STATUS.md` to verify):
+  - TODO = **17**  (below 25 trigger but workers actively pulling)
+  - CLAIMED = **4**  (briefs in active worker progress, no PR yet)
+  - IN_REVIEW = **17**  (open PRs)
+  - BLOCKED = **33**  (mostly dep-chain; many unblock-cascade as
+    in-flight PRs land)
+  - MERGED = **220**  (live ledger; +463 archived to
+    `BUILD_STATUS_ARCHIVE_2026Q2.md` pre-#1300)
+
+### What just landed (last ~4 hours conductor work)
+
+Major push:
+- 🎯 **K5 v1.0 ship-gate** MERGED (#1490) — deploy-smoke-test-e2e
+- 🎉 **Track E5 100% complete** — all 8 audit briefs (a..h) MERGED
+- 🎉 **Track E4 complete** — all worker-profile dialogs MERGED
+- 🎉 **Track E2 mostly complete** — Step1–6 MERGED; E2-f/i CLAIMED
+- 🔓 **Track J 7/8/9/10/13/15 endpoints** all MERGED; J11/J12 in flight
+- 🚨 **4 unblock-swarm split-preps** all MERGED in <2h (#1524–#1527
+  for sections/store-lib/doctor/routes-dispatch-post)
+- 🎉 **Codex back online 2026-05-13** — first codex worker claimed
+  `claude-approval-timeout-default-decision` (in active worker
+  progress, no PR yet); `PROTOCOL_WORKER_PROMPT_CODEX.md` refreshed
+  for resumption
+
+### CLAIMED — workers in flight (no PR yet)
+
+1. **`claude-approval-timeout-default-decision`** — codex worker,
+   active. Used `ARGO_CLAIM_FORCE=1` to bypass boot.rs 498-LOC
+   ceiling. Implementation in `/tmp/claude-approval-timeout-default-
+   decision/` worktree. Cargo fmt mis-fire being reverted.
+2. **`mission-enterprise-audit-full-text-search`** — pre-existing
+   claim, stale (since 2026-05-12T16:45Z).
+3. **`E2-f-hire-flow-structured-adjust`** — claude worker.
+4. **`E2-i-hire-flow-day1-wrap-duty`** — claude worker.
+
+### IN_REVIEW — 16 open PRs (all DIRTY or UNSTABLE, fix-recipes on file)
+
+Two **MERGEABLE/UNSTABLE** (passing-but-CI-policy):
+- **#1498** `mission-vulnerability-management-workflow` — fix-recipe
+  posted: vuln-scan workflow PR introduces fires on its own lockfile
+  touch + correctly flags pre-existing advisories (chicken-egg).
+  Recipe: seed `vuln-waivers.toml` baseline OR `continue-on-error:
+  true` for first run OR cron-only trigger.
+- **#1506** `mission-cli-help-public-api-reference` — fix-recipe
+  posted: drift CI workflow PR introduces fails on its own
+  CI-vs-local terminal-width regen diff. Recipe: force `COLUMNS=120`
+  + strip ANSI in the script.
+
+Fourteen **DIRTY** (chain-rebase backlog from recent merges):
+#1447, #1450, #1461, #1463, #1464, #1466, #1467, #1469, #1472,
+#1482, #1494, #1503, #1504, #1511. Each has a fix-recipe comment;
+standard pattern is `gh pr checkout <N> && git fetch origin main
+&& git merge origin/main`, additive route-dispatch conflicts take
+both sides. Stalest is #1461 (~12h, but the row is already
+STALE-DEMOTED to TODO with salvage note — PR stays open).
+
+### Worker / quota situation
+
+- **Claude workers** (across 1+ machine, claude-worker-loop.sh):
+  exhausted weekly cap mid-tick. Will resume on cap reset.
+- **Codex** (operator-driven, single tab as of writing): live; one
+  brief claimed, implementation ~80% done. May continue or pause.
+- **This conductor session (Claude lane B)**: approaching weekly
+  cap; this snapshot is the hand-off artifact.
+
+### What a fresh conductor (Claude C) should do first
+
+1. `cd "$ARGO_REPO_ROOT" && git fetch origin main && git reset --hard origin/main`
+2. Read this `RESUME.md` first 100 lines, then `BUILD_STATUS.md`
+   first 90 lines (header).
+3. Run the 9-step conductor tick (or arm `/loop 5m` with the prompt
+   from `PROTOCOL_LOOP_PROMPT.md`).
+4. Expect codex worker to push `claude-approval-timeout-default-
+   decision` PR soon — Tier-1 review + merge per the usual pattern.
+5. The 14 DIRTY PRs need their workers to do `git fetch && git merge
+   origin/main && git push` (recipe on each PR). Conductor's job is
+   wait, not push — those workers are on quota-pause but their
+   recipes are clear when they resume.
+
+### Active directives (header is authoritative; do NOT trust this
+list if it disagrees)
+
+- **ACTIVE**: `conductor-prompt-deployment-path-v3.md` — §5 stop
+  condition technically met by K5 #1490 first green run. Operator's
+  call to formally close v3 and paste BLOCK 1 SKILL-CANVAS-v1.
+- **QUEUED**: `conductor-prompt-post-v3-directives.md` BLOCK 1
+  (SKILL-CANVAS-v1, Track L) + BLOCK 2 (ENTERPRISE-PARITY-v1,
+  Track M) per `streams/L0-skill-canvas-track-overview.md` +
+  `streams/M0-enterprise-parity-track-overview.md`.
+
+### Pending operator decision (unactioned by conductor)
+
+The operator pasted a tools/mission-dashboard improvement spec
+(4 changes: cross-link, advisory tracker, archive-aware burn-up,
+status-weight completeness). Conductor offered three execution
+paths (author brief / implement directly / acknowledge that
+operator will drive it). **No response yet** — current conductor
+behaviour is to wait for operator confirmation rather than
+implement Python operator-tooling unilaterally. Fresh conductor
+inheriting this: leave it alone unless operator re-asks.
 
 ## When this file is stale
 
@@ -138,4 +223,5 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-12 (resume-safety pass at ~95% weekly).
+Last refreshed: 2026-05-13 (session hand-off; Claude
+lane A → B → potentially C).
