@@ -317,7 +317,7 @@ unblocks a mission claim.
 137. Add 5+ skills for each charter-stub vertical. `[BRIEF: mission-vertical-<slug>-skills family]`  ← 16+ briefs MERGED across customer-support / sales-sdr / marketing-intern / finance-ar / healthcare-intake / recruiter / tax-prep / product-manager / real-estate-agent / customer-onboarding / data-entry-clerk / event-coordinator / fundraising-coordinator / hr-screener / legal-paralegal / marketplace-seller / medical-coder / ops-on-call / procurement-assistant / qa-engineer
 138. Full action executor/instruction_template/retry policies for
      stub verticals. `[NEW]`
-139. Per-vertical regression test for each. `[NEW]`
+139. Per-vertical regression test for each. `[BRIEF: mission-per-vertical-regression-test]`
 140. Expand eval suites to ≥7 fixtures each. `[SHIPPED]`  ← #1485
 141. `gtm_engineer_learning_loop.sh`-shape demo for each. `[NEW]`
 142. Live executor wiring (≥1 approval-gated action per vertical).
@@ -549,7 +549,7 @@ unblocks a mission claim.
 275. Fix headline misalignment in BUILD_STATUS.
      `[SHIPPED]`
 276. Sweep stale BUILD_STATUS rows. `[BRIEF: mission-sweep-stale-build-status-rows + mission-reconcile-backlog-tags-vs-ledger]`
-277. Document voice_chat paper-only status. `[NEW]`
+277. Document voice_chat paper-only status. `[BRIEF: mission-document-voice-chat-paper-only]`
 278. Document absence of native macOS CU.
      (preceded by `[BRIEF: claude-computer-use-native-macos-poc]`)
 279. Document absence of document-creation executor.
