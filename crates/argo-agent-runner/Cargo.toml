@@ -32,6 +32,8 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+argo-telemetry = { path = "../argo-telemetry", version = "0.0.1" }
 argo-workflow = { path = "../argo-workflow", version = "0.0.1" }
 tempfile = "3"
 tokio = { workspace = true }
+wiremock = "0.6"
