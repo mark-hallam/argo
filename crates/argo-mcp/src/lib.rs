@@ -26,11 +26,20 @@
 
 mod client;
 mod error;
+/// Connection pool for warm MCP subprocesses
+/// (`mission-mcp-connection-pooling`). See module docs.
+pub mod pool;
+#[cfg(test)]
+mod pool_tests;
 mod protocol;
 mod server;
 
 pub use client::{McpClient, DEFAULT_CALL_TIMEOUT};
 pub use error::{McpError, McpResult};
+pub use pool::{
+    McpClientPool, PoolConfig, PoolGuard, PoolKey, PoolStats, DEFAULT_POOL_IDLE_TTL_SECS,
+    DEFAULT_POOL_MAX_CLIENTS,
+};
 pub use protocol::{
     CallToolParams, CallToolResult, ClientInfo, InitializeParams, InitializeResult, JsonRpcError,
     JsonRpcRequest, JsonRpcResponse, ListToolsResult, McpContent, McpToolSchema, ServerInfo,

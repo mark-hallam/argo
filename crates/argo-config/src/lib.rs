@@ -71,9 +71,10 @@ pub use sections::{
     SecurityHipaaConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
-    ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig,
+    ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
     PromptCacheAffinityConfig, RuntimeConfig, SandboxPrewarmConfig,
-    DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
+    DEFAULT_ACTION_THROTTLE_AUDIT_SECS, DEFAULT_MCP_POOL_IDLE_TTL_SECS,
+    DEFAULT_MCP_POOL_MAX_CLIENTS,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};

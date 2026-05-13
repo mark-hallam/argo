@@ -194,6 +194,38 @@ impl Default for SandboxPrewarmConfig {
     }
 }
 
+/// Default LRU capacity of the MCP-client connection pool. Mirrors
+/// `argo_mcp::DEFAULT_POOL_MAX_CLIENTS`.
+pub const DEFAULT_MCP_POOL_MAX_CLIENTS: u32 = 32;
+/// Default idle-TTL for the MCP-client pool, in seconds. Mirrors
+/// `argo_mcp::DEFAULT_POOL_IDLE_TTL_SECS`.
+pub const DEFAULT_MCP_POOL_IDLE_TTL_SECS: u64 = 600;
+
+/// `[runtime.mcp_pool]` — operator-tunable knobs for the warm MCP
+/// subprocess pool (`mission-mcp-connection-pooling`,
+/// MISSION_BACKLOG §8 #252). The pool itself lives in
+/// `argo_mcp::pool`; this struct mirrors the TOML-side knobs and is
+/// mapped at AgentDeps wiring time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct McpPoolConfig {
+    /// Hard cap on cached MCP clients per pool. New acquisitions
+    /// past this evict the LRU entry.
+    pub max_clients: u32,
+    /// Seconds an entry can sit untouched before the idle reaper
+    /// removes it on the next tick.
+    pub idle_ttl_secs: u64,
+}
+
+impl Default for McpPoolConfig {
+    fn default() -> Self {
+        Self {
+            max_clients: DEFAULT_MCP_POOL_MAX_CLIENTS,
+            idle_ttl_secs: DEFAULT_MCP_POOL_IDLE_TTL_SECS,
+        }
+    }
+}
+
 /// `[runtime.prompt_cache_affinity]` — sticky-session affinity for
 /// the Anthropic prompt cache (`mission-prompt-cache-session-affinity`).
 ///
@@ -282,6 +314,8 @@ pub struct RuntimeConfig {
     pub action_throttle: ActionThrottleConfig,
     /// `[runtime.sandbox_prewarm]` — E2B pool burst pre-warming.
     pub sandbox_prewarm: SandboxPrewarmConfig,
+    /// `[runtime.mcp_pool]` — warm MCP subprocess pool sizing.
+    pub mcp_pool: McpPoolConfig,
     /// `[runtime.prompt_cache_affinity]` — sticky-session affinity
     /// for the Anthropic prompt cache.
     pub prompt_cache_affinity: PromptCacheAffinityConfig,
@@ -365,6 +399,31 @@ active_hours = [9, 10, 11, 14, 15, 16]
         assert_eq!(cfg.sandbox_prewarm.burst_size, 3);
         assert_eq!(cfg.sandbox_prewarm.idle_ttl_seconds, 900);
         assert_eq!(cfg.sandbox_prewarm.active_hours, vec![9, 10, 11, 14, 15, 16]);
+    }
+
+    #[test]
+    fn mcp_pool_defaults() {
+        let cfg = McpPoolConfig::default();
+        assert_eq!(cfg.max_clients, 32);
+        assert_eq!(cfg.idle_ttl_secs, 600);
+    }
+
+    #[test]
+    fn mcp_pool_parses_from_toml() {
+        let body = r#"
+[mcp_pool]
+max_clients = 8
+idle_ttl_secs = 120
+"#;
+        let cfg: RuntimeConfig = toml::from_str(body).expect("parse");
+        assert_eq!(cfg.mcp_pool.max_clients, 8);
+        assert_eq!(cfg.mcp_pool.idle_ttl_secs, 120);
+    }
+
+    #[test]
+    fn mcp_pool_absent_keeps_defaults() {
+        let cfg: RuntimeConfig = toml::from_str("").expect("parse");
+        assert_eq!(cfg.mcp_pool, McpPoolConfig::default());
     }
 
     #[test]
