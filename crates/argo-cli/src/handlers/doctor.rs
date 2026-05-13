@@ -2,12 +2,9 @@
 //! output is human-readable text; `--json` emits a single JSON
 //! object that monitoring pipelines can ingest.
 use crate::cli::DoctorCmd;
-use crate::home::{db_path, resolve_home};
+use crate::home::resolve_home;
 use argo_config::ArgoConfig;
-use argo_store::wal_tuning::{self, WalTuningProfile};
-use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
-use std::str::FromStr;
 
 #[path = "doctor_channels.rs"]
 mod doctor_channels;
@@ -26,7 +23,9 @@ pub async fn dispatch(cmd: Option<DoctorCmd>, json: bool, format: String) -> Arg
         Some(DoctorCmd::Watch { interval, clear }) => {
             super::doctor_watch::run(&interval, clear).await
         }
-        Some(DoctorCmd::WalStats { json: ws_json }) => wal_stats(json || ws_json).await,
+        Some(DoctorCmd::WalStats { json: ws_json }) => {
+            super::doctor_storage::wal_stats(json || ws_json).await
+        }
         Some(DoctorCmd::Throttles { json: t_json }) => {
             super::doctor_throttles::run(json || t_json).await
         }
@@ -100,23 +99,16 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
             memfiles_missing.join(", ")
         );
     }
-    print_db(&payload["db"]);
-    print_audit(&payload["audit"]);
-    print_cron(&payload["cron"]);
-    print_creds(&payload["creds"]);
-    print_gateway(&payload["gateway"]);
-    print_health(&payload["gateway_health"]);
-    print_routes(&payload["routes"]);
+    super::doctor_storage::print_db(&payload["db"]);
+    super::doctor_storage::print_audit(&payload["audit"]);
+    super::doctor_env::print_cron(&payload["cron"]);
+    super::doctor_env::print_creds(&payload["creds"]);
+    super::doctor_gateway::print_gateway(&payload["gateway"]);
+    super::doctor_gateway::print_health(&payload["gateway_health"]);
+    super::doctor_gateway::print_routes(&payload["routes"]);
     doctor_h_stack::print_text(&payload["auto_approval"]);
     print_channels(&payload["channels"]);
     Ok(())
-}
-
-fn print_routes(v: &serde_json::Value) {
-    let total = v["total"].as_u64().unwrap_or(0);
-    let get = v["get"].as_u64().unwrap_or(0);
-    let post = v["post"].as_u64().unwrap_or(0);
-    println!("  routes:     {total} endpoints ({get} GET, {post} POST)");
 }
 
 fn print_channels(v: &serde_json::Value) {
@@ -126,67 +118,6 @@ fn print_channels(v: &serde_json::Value) {
         let status = item["status"].as_str().unwrap_or("ERROR");
         let detail = item["detail"].as_str().unwrap_or("unavailable");
         println!("    {key}: {status} - {detail}");
-    }
-}
-
-fn print_audit(v: &serde_json::Value) {
-    if !v["available"].as_bool().unwrap_or(false) {
-        println!("  audit:      (store not available)");
-        return;
-    }
-    let ok = v["ok"].as_bool().unwrap_or(false);
-    let rows = v["rows"].as_u64().unwrap_or(0);
-    let breaks = v["breaks"].as_u64().unwrap_or(0);
-    let status = if ok { "OK" } else { "BROKEN" };
-    println!("  audit:      {status} ({rows} row(s), {breaks} break(s))");
-}
-
-fn print_gateway(v: &serde_json::Value) {
-    let running = v["running"].as_bool().unwrap_or(false);
-    if running {
-        let pid = v["pid"].as_u64().unwrap_or(0);
-        println!("  gateway:    RUNNING (pid={pid})");
-    } else {
-        println!("  gateway:    not running");
-    }
-}
-
-async fn gateway_health_probe(gateway: &serde_json::Value) -> serde_json::Value {
-    if !gateway["running"].as_bool().unwrap_or(false) {
-        return serde_json::json!({"reachable": false, "reason": "gateway not running"});
-    }
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
-    let url = format!("http://127.0.0.1:{}/health", cfg.gateway.port);
-    let Ok(client) = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(500))
-        .build()
-    else {
-        return serde_json::json!({"reachable": false, "reason": "client_build_failed"});
-    };
-    match client.get(&url).send().await {
-        Ok(r) => {
-            let code = r.status().as_u16();
-            let body = serde_json::from_str::<serde_json::Value>(
-                &r.text().await.unwrap_or_default(),
-            )
-            .unwrap_or(serde_json::Value::Null);
-            serde_json::json!({"reachable": true, "status_code": code, "body": body})
-        }
-        Err(e) => serde_json::json!({"reachable": false, "reason": format!("{e}")}),
-    }
-}
-
-fn print_health(v: &serde_json::Value) {
-    if v["reachable"].as_bool().unwrap_or(false) {
-        let code = v["status_code"].as_u64().unwrap_or(0);
-        let s = v["body"]["status"].as_str().unwrap_or("?");
-        println!("  /health:    HTTP {code}  status={s}");
-    } else {
-        println!(
-            "  /health:    {}",
-            v["reason"].as_str().unwrap_or("unreachable")
-        );
     }
 }
 
@@ -213,13 +144,13 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         .copied()
         .filter(|f| !cwd.join(f).exists())
         .collect();
-    let db = db_status(&home).await;
-    let audit = audit_status(&home).await;
-    let cron = cron_status(&cwd);
-    let creds = creds_status();
-    let gateway = gateway_status(&home);
-    let gateway_health = gateway_health_probe(&gateway).await;
-    let routes = routes_count();
+    let db = super::doctor_storage::db_status(&home).await;
+    let audit = super::doctor_storage::audit_status(&home).await;
+    let cron = super::doctor_env::cron_status(&cwd);
+    let creds = super::doctor_env::creds_status();
+    let gateway = super::doctor_gateway::gateway_status(&home);
+    let gateway_health = super::doctor_gateway::gateway_health_probe(&gateway).await;
+    let routes = super::doctor_gateway::routes_count();
     let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
     let channels = doctor_channels::collect().await;
     Ok(serde_json::json!({
@@ -240,281 +171,4 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "auto_approval": auto_approval,
         "channels": channels,
     }))
-}
-
-/// Reads the in-binary route catalog and reports counts by
-/// verb. Pure data — no daemon required.
-fn routes_count() -> serde_json::Value {
-    let (_status, body) =
-        crate::handlers::gateway::routes_catalog::routes_response(None);
-    let parsed: serde_json::Value =
-        serde_json::from_str(&body).unwrap_or(serde_json::Value::Array(Vec::new()));
-    let arr = parsed.as_array().cloned().unwrap_or_default();
-    let total = arr.len();
-    let get = arr
-        .iter()
-        .filter(|r| r["method"].as_str() == Some("GET"))
-        .count();
-    let post = arr
-        .iter()
-        .filter(|r| r["method"].as_str() == Some("POST"))
-        .count();
-    serde_json::json!({
-        "total": total,
-        "get": get,
-        "post": post,
-    })
-}
-
-/// Report whether the gateway daemon is running. Reads
-/// `<ARGO_HOME>/gateway.pid`; if the file exists and the PID
-/// is alive, returns `{running: true, pid: N}`. Otherwise
-/// `{running: false}` (the file may be present but stale —
-/// the live-PID check shells out to `kill -0` so we don't
-/// pull in libc just for this one call).
-fn gateway_status(home: &std::path::Path) -> serde_json::Value {
-    let pid_path = home.join("gateway.pid");
-    let Ok(s) = std::fs::read_to_string(&pid_path) else {
-        return serde_json::json!({"running": false});
-    };
-    let Ok(pid) = s.trim().parse::<u32>() else {
-        return serde_json::json!({"running": false});
-    };
-    // `kill -0 <pid>` exit 0 → live, !=0 → gone or not ours.
-    // Safe, side-effect-free probe; works on every Unix.
-    let alive = std::process::Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    serde_json::json!({
-        "running": alive,
-        "pid": pid,
-    })
-}
-
-/// Report `{ok, rows, breaks}` for the global audit chain so
-/// `argo doctor --json` can be wired into CI gates that should
-/// fail when the chain is broken. Errors silently degrade to
-/// `{"available": false}`.
-async fn audit_status(home: &std::path::Path) -> serde_json::Value {
-    let db = crate::home::db_path(home);
-    let store = match argo_store::SessionStore::open(&db).await {
-        Ok(s) => std::sync::Arc::new(s),
-        Err(_) => return serde_json::json!({"available": false}),
-    };
-    if store.migrate().await.is_err() {
-        return serde_json::json!({"available": false});
-    }
-    let report = match argo_audit::verify_all(&store).await {
-        Ok(r) => r,
-        Err(_) => return serde_json::json!({"available": false}),
-    };
-    serde_json::json!({
-        "available": true,
-        "ok": report.ok,
-        "rows": report.rows,
-        "breaks": report.breaks.len(),
-    })
-}
-
-fn cron_status(cwd: &std::path::Path) -> serde_json::Value {
-    let lock = cwd.join("cron").join(".tick.lock");
-    if !lock.exists() {
-        return serde_json::json!({"daemon_started": false});
-    }
-    let age_s = std::fs::metadata(&lock)
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .and_then(|t| t.elapsed().ok())
-        .map(|d| d.as_secs());
-    serde_json::json!({
-        "daemon_started": true,
-        "lock_path": lock.display().to_string(),
-        "lock_age_seconds": age_s,
-    })
-}
-
-fn creds_status() -> serde_json::Value {
-    let known = [
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "AWS_ACCESS_KEY_ID",
-        "ELEVENLABS_API_KEY",
-    ];
-    let mut found: Vec<&str> = Vec::new();
-    let mut missing: Vec<&str> = Vec::new();
-    for k in known {
-        if std::env::var_os(k).is_some_and(|v| !v.is_empty()) {
-            found.push(k);
-        } else {
-            missing.push(k);
-        }
-    }
-    serde_json::json!({"set": found, "unset": missing})
-}
-
-async fn db_status(home: &std::path::Path) -> serde_json::Value {
-    let db = db_path(home);
-    if !db.exists() {
-        return serde_json::json!({"present": false});
-    }
-    let store = match SessionStore::open(&db).await {
-        Ok(s) => s,
-        Err(e) => return serde_json::json!({"present": true, "open_error": e.to_string()}),
-    };
-    if let Err(e) = store.migrate().await {
-        return serde_json::json!({"present": true, "migrate_error": e.to_string()});
-    }
-    let version = store.schema_version().await.unwrap_or(0);
-    let workspace_ok = matches!(store.first_workspace().await, Ok(Some(_)));
-    let stats = store.db_stats().await.ok();
-    serde_json::json!({
-        "present": true,
-        "schema_version": version,
-        "workspace_registered": workspace_ok,
-        "rows": stats.map(|s| serde_json::json!({
-            "sessions": s.sessions,
-            "messages": s.messages,
-            "audit": s.audit_rows,
-            "memory": s.memory_entries,
-            "skills": s.skills,
-            "forge_runs": s.forge_runs,
-            "spend_rows": s.spend_rows,
-        })),
-    })
-}
-
-fn print_db(v: &serde_json::Value) {
-    let present = v.get("present").and_then(|b| b.as_bool()).unwrap_or(false);
-    if !present {
-        println!("  db:         (no sessions.db yet — run `argo workspace init`)");
-        return;
-    }
-    if let Some(e) = v.get("open_error").and_then(|s| s.as_str()) {
-        println!("  db:         OPEN FAILED ({e})");
-        return;
-    }
-    if let Some(e) = v.get("migrate_error").and_then(|s| s.as_str()) {
-        println!("  db:         MIGRATE FAILED ({e})");
-        return;
-    }
-    let version = v.get("schema_version").and_then(|n| n.as_u64()).unwrap_or(0);
-    let ws = v
-        .get("workspace_registered")
-        .and_then(|b| b.as_bool())
-        .unwrap_or(false);
-    println!(
-        "  db:         schema v{version}  workspace={}",
-        if ws { "registered" } else { "MISSING" }
-    );
-    if let Some(rows) = v.get("rows") {
-        let n = |k| rows.get(k).and_then(|n| n.as_u64()).unwrap_or(0);
-        println!(
-            "  rows:       sessions={} messages={} audit={} memory={} skills={}",
-            n("sessions"),
-            n("messages"),
-            n("audit"),
-            n("memory"),
-            n("skills")
-        );
-    }
-}
-
-fn print_cron(v: &serde_json::Value) {
-    if !v.get("daemon_started").and_then(|b| b.as_bool()).unwrap_or(false) {
-        println!("  cron:       no lock file (daemon not started)");
-        return;
-    }
-    let path = v.get("lock_path").and_then(|s| s.as_str()).unwrap_or("?");
-    let age = v.get("lock_age_seconds").and_then(|n| n.as_u64());
-    match age {
-        Some(s) => println!("  cron:       lock present at {path} (mtime {s}s ago)"),
-        None => println!("  cron:       lock present at {path}"),
-    }
-}
-
-fn print_creds(v: &serde_json::Value) {
-    let set: Vec<String> = v
-        .get("set")
-        .and_then(|a| a.as_array())
-        .map(|a| {
-            a.iter()
-                .filter_map(|x| x.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-    let unset: Vec<String> = v
-        .get("unset")
-        .and_then(|a| a.as_array())
-        .map(|a| {
-            a.iter()
-                .filter_map(|x| x.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-    if set.is_empty() {
-        println!(
-            "  creds:      none of {} are set",
-            unset.join(", ")
-        );
-    } else {
-        println!("  creds:      set: {}", set.join(", "));
-        if !unset.is_empty() {
-            println!("              unset: {}", unset.join(", "));
-        }
-    }
-}
-
-/// `argo doctor wal-stats` — checkpoint the WAL (PASSIVE) and report
-/// the active WAL pragmas plus the `*.db-wal` file size. The store is
-/// opened with the profile from `[store.wal_tuning].profile` so the
-/// readout reflects what the runtime would actually apply.
-pub(crate) async fn wal_stats(json: bool) -> ArgoResult<()> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
-    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
-    let home = resolve_home(&cwd).unwrap_or_else(|_| cfg.core.resolved_home());
-    let db = db_path(&home);
-    let profile = WalTuningProfile::from_str(&cfg.store.wal_tuning.profile)?;
-    let store = SessionStore::open_with_profile(&db, profile).await?;
-    sqlx::query("PRAGMA wal_checkpoint(PASSIVE)")
-        .execute(store.pool())
-        .await
-        .map_err(|e| ArgoError::Provider(format!("wal_checkpoint: {e}")))?;
-    let mut readouts: Vec<(&'static str, String)> = Vec::new();
-    for name in ["journal_mode", "synchronous", "cache_size", "mmap_size"] {
-        readouts.push((name, wal_tuning::read_pragma(store.pool(), name).await?));
-    }
-    let wal_path = db.with_extension("db-wal");
-    let wal_bytes = std::fs::metadata(&wal_path).ok().map(|m| m.len());
-    if json {
-        let pragmas: serde_json::Map<String, serde_json::Value> = readouts
-            .iter()
-            .map(|(k, v)| ((*k).to_string(), serde_json::Value::String(v.clone())))
-            .collect();
-        println!(
-            "{}",
-            serde_json::to_string(&serde_json::json!({
-                "db": db.display().to_string(),
-                "profile": cfg.store.wal_tuning.profile,
-                "pragmas": pragmas,
-                "wal_path": wal_path.display().to_string(),
-                "wal_bytes": wal_bytes,
-            }))
-            .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
-        );
-        return Ok(());
-    }
-    println!("argo doctor wal-stats");
-    println!("  db:         {}", db.display());
-    println!("  profile:    {}", cfg.store.wal_tuning.profile);
-    for (k, v) in &readouts {
-        println!("  {k:11}: {v}");
-    }
-    match wal_bytes {
-        Some(n) => println!("  wal_bytes:  {n}  ({})", wal_path.display()),
-        None => println!("  wal_bytes:  (no *.db-wal — checkpointed or memory)"),
-    }
-    Ok(())
 }
