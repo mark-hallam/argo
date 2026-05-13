@@ -28,8 +28,8 @@ use super::worker_actions_executor::ActionOutcome;
 use super::worker_actions_executor_browser_binding::{
     parse_binding, render_string, BrowserBinding, BrowserMode, BrowserStep, SessionScope,
 };
-use argo_mcp::{CallToolResult, McpClient, McpContent};
-use argo_types::{ArgoError, ArgoResult};
+use argo_mcp::{CallToolResult, McpClient, McpClientPool, McpContent, PoolConfig};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use argo_vertical::ActionDeclaration;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -37,6 +37,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 /// Default per-action wallclock budget. Overridable via
 /// `ARGO_BROWSER_ACTION_TIMEOUT_MS`.
@@ -61,6 +62,17 @@ pub(crate) fn default_pool() -> &'static BrowserPool {
     POOL.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Process-wide warm-pool of [`McpClient`] subprocesses keyed by
+/// `(tenant_id, manifest_id)`. Drives the cold-spawn replacement at
+/// [`acquire_client`] — `(tenant, manifest)` collision means a shared
+/// subprocess, so the [`SessionKey`] is folded into the manifest id to
+/// preserve the existing per-`(tenant, worker)` browser-session
+/// isolation invariant (cookies/state never leak across workers).
+fn shared_client_pool() -> &'static Arc<McpClientPool> {
+    static POOL: OnceLock<Arc<McpClientPool>> = OnceLock::new();
+    POOL.get_or_init(|| McpClientPool::new(PoolConfig::default()))
+}
+
 /// Default wallclock budget honouring `ARGO_BROWSER_ACTION_TIMEOUT_MS`.
 pub(crate) fn default_timeout() -> Duration {
     std::env::var(BROWSER_TIMEOUT_ENV)
@@ -79,6 +91,7 @@ pub(crate) async fn dispatch_action(
     cwd: &Path,
     decl: &ActionDeclaration,
     pool: &BrowserPool,
+    client_pool: &Arc<McpClientPool>,
     timeout: Duration,
 ) -> ArgoResult<ActionOutcome> {
     let binding = parse_binding(decl)?;
@@ -90,7 +103,7 @@ pub(crate) async fn dispatch_action(
         ))
     })?;
     let key = session_key(action, binding.session_scope);
-    let client = acquire_client(pool, &key).await?;
+    let client = acquire_client(pool, client_pool, &key).await?;
     let outcome = tokio::time::timeout(
         timeout,
         run_action(&client, &binding, &bundle_path, action),
@@ -148,7 +161,14 @@ pub(crate) fn dispatch_blocking(
     })?;
     let timeout = default_timeout();
     tokio::task::block_in_place(|| {
-        handle.block_on(dispatch_action(action, cwd, decl, default_pool(), timeout))
+        handle.block_on(dispatch_action(
+            action,
+            cwd,
+            decl,
+            default_pool(),
+            shared_client_pool(),
+            timeout,
+        ))
     })
 }
 
@@ -177,6 +197,7 @@ fn session_key(action: &ActionRecord, scope: SessionScope) -> SessionKey {
 
 async fn acquire_client(
     pool: &BrowserPool,
+    client_pool: &Arc<McpClientPool>,
     key: &SessionKey,
 ) -> ArgoResult<Arc<McpClient>> {
     let mut guard = pool.lock().await;
@@ -191,12 +212,22 @@ async fn acquire_client(
         ))
     })?;
     let (program, args) = split_program(&bin);
-    let client = McpClient::connect_stdio(&program, &args)
+    // mission-mcp-pool-wire-dispatch: route the cold spawn through the
+    // injected [`McpClientPool`]. The local `BrowserPool` still tracks
+    // per-`SessionKey` cookies, but the underlying subprocess lifecycle
+    // (warm reuse across turns, LRU + idle-TTL eviction) is owned by
+    // the injected pool. `manifest_id` folds the `SessionKey` in so
+    // per-worker isolation is preserved at the global-pool layer.
+    let manifest_id = format!("browser-mcp::{}::{}", key.0, key.1);
+    let pool_program = program.clone();
+    let pool_args = args.clone();
+    let arc = client_pool
+        .acquire(TenantId(Uuid::nil()), manifest_id, || async move {
+            McpClient::connect_stdio(&pool_program, &pool_args).await
+        })
         .await
-        .map_err(|e| {
-            ArgoError::Provider(format!("connect browser MCP '{program}': {e}"))
-        })?;
-    let arc = Arc::new(client);
+        .map_err(|e| ArgoError::Provider(format!("connect browser MCP '{program}': {e}")))?
+        .client_arc();
     guard.insert(key.clone(), arc.clone());
     Ok(arc)
 }

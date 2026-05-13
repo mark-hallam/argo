@@ -10,6 +10,7 @@
 //! exercised here against a real subprocess.
 use argo_mcp::{McpClient, McpClientPool, PoolConfig};
 use argo_types::TenantId;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -183,6 +184,111 @@ async fn pool_guard_drop_does_not_shutdown_client() {
         .await
         .expect("call_tool");
     assert!(!r.is_error);
+}
+
+// mission-mcp-pool-wire-dispatch acceptance smokes
+// ----------------------------------------------------------------
+// These two tests pin the invariants the dispatch-site wire-up was
+// authored to satisfy. They live alongside the pool unit tests because
+// the pool is the structural defence — every dispatch site delegates
+// its cold-spawn replacement to `pool.acquire(...)` and inherits these
+// guarantees by construction. Wiring regressions would surface here as
+// well as in the per-handler crate tests.
+
+#[tokio::test]
+async fn three_tool_calls_spawn_one_subprocess() {
+    // A 3-tool turn against the same (tenant, manifest) must reuse one
+    // warm subprocess. Each acquire→drop cycle simulates one tool call;
+    // `pool.stats().entries == 1` is the wire-up's warm-reuse contract.
+    let pool = McpClientPool::new(PoolConfig::default());
+    let tenant = TenantId::new();
+    let spawn_count = AtomicUsize::new(0);
+    for _ in 0..3 {
+        let guard = pool
+            .acquire(tenant, "echo", || {
+                spawn_count.fetch_add(1, Ordering::SeqCst);
+                spawn_echo()
+            })
+            .await
+            .expect("acquire");
+        let _ = guard
+            .call_tool("echo", serde_json::json!({"text": "tick"}))
+            .await
+            .expect("call_tool");
+    }
+    assert_eq!(
+        spawn_count.load(Ordering::SeqCst),
+        1,
+        "first acquire spawns; subsequent two must hit the warm cache"
+    );
+    assert_eq!(pool.stats().entries, 1);
+}
+
+#[tokio::test]
+async fn three_tenants_spawn_three_subprocesses() {
+    // Per-tenant isolation: three distinct tenants asking for the same
+    // `manifest_id` must each receive a distinct subprocess. This is
+    // the wire-up's hard correctness invariant; collapsing across
+    // tenants would leak credentials.
+    let pool = McpClientPool::new(PoolConfig::default());
+    let tenants = [TenantId::new(), TenantId::new(), TenantId::new()];
+    let mut arcs = Vec::with_capacity(3);
+    for t in tenants {
+        let guard = pool
+            .acquire(t, "shared-manifest", spawn_echo)
+            .await
+            .expect("acquire");
+        arcs.push(guard.client_arc());
+    }
+    for i in 0..arcs.len() {
+        for j in (i + 1)..arcs.len() {
+            assert!(
+                !Arc::ptr_eq(&arcs[i], &arcs[j]),
+                "tenants {i} and {j} must hold distinct subprocesses"
+            );
+        }
+    }
+    assert_eq!(pool.stats().entries, 3);
+}
+
+#[tokio::test]
+async fn max_clients_one_acts_as_disabled_pool_opt_out() {
+    // Operators can opt out of cross-turn warmth by setting
+    // `max_clients = 1`: each new key evicts the previous, so the
+    // observable pre-brief behaviour (one cold spawn per call when
+    // the keys differ) is recovered. The internal `.max(1)` clamp in
+    // `McpClientPool::new` makes `max_clients = 0` equivalent.
+    let pool = McpClientPool::new(PoolConfig {
+        max_clients: 1,
+        idle_ttl_secs: 600,
+    });
+    let tenant = TenantId::new();
+    let g_a = pool
+        .acquire(tenant, "a", spawn_echo)
+        .await
+        .expect("acquire a");
+    let a_arc = g_a.client_arc();
+    drop(g_a);
+    assert_eq!(pool.stats().entries, 1);
+    // Different manifest_id under the same tenant must evict `a`.
+    let g_b = pool
+        .acquire(tenant, "b", spawn_echo)
+        .await
+        .expect("acquire b");
+    drop(g_b);
+    assert_eq!(pool.stats().entries, 1, "max_clients = 1 enforces opt-out");
+    let g_a2 = pool
+        .acquire(tenant, "a", spawn_echo)
+        .await
+        .expect("re-acquire a after eviction");
+    let a2_arc = g_a2.client_arc();
+    assert!(
+        !Arc::ptr_eq(&a_arc, &a2_arc),
+        "evicted entry must spawn a fresh client under max_clients = 1"
+    );
+    drop(g_a2);
+    // Reap evicted subprocess shutdowns before the test exits.
+    tokio::time::sleep(Duration::from_millis(200)).await;
 }
 
 #[tokio::test]

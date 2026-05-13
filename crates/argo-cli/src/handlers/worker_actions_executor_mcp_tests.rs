@@ -14,11 +14,21 @@
 use super::*;
 use crate::handlers::worker_actions::ActionRecord;
 use argo_identity::WorkerId;
+use argo_mcp::{McpClientPool, PoolConfig};
 use argo_vertical::{ActionDeclaration, ExecutorDeclaration, ExecutorTagged, McpServerDeclaration};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Per-test [`McpClientPool`] so subprocesses spawned in one
+/// `#[tokio::test]` runtime don't leak into another's.
+/// `mission-mcp-pool-wire-dispatch` injects the pool through
+/// `dispatch_action`; this helper keeps test isolation intact.
+fn test_client_pool() -> Arc<McpClientPool> {
+    McpClientPool::new(PoolConfig::default())
+}
 
 fn fixture_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -132,12 +142,14 @@ async fn dispatch_action_rejects_missing_server() {
     let action = sample_action();
     let decl = tagged_decl(None, Some("echo"));
     let pool = McpPool::default();
+    let client_pool = test_client_pool();
     let err = dispatch_action(
         &action,
         Path::new("."),
         &decl,
         &HashMap::new(),
         &pool,
+        &client_pool,
         Duration::from_millis(100),
     )
     .await
@@ -153,12 +165,14 @@ async fn dispatch_action_rejects_missing_tool() {
     let action = sample_action();
     let decl = tagged_decl(Some("gmail"), None);
     let pool = McpPool::default();
+    let client_pool = test_client_pool();
     let err = dispatch_action(
         &action,
         Path::new("."),
         &decl,
         &HashMap::new(),
         &pool,
+        &client_pool,
         Duration::from_millis(100),
     )
     .await
@@ -178,12 +192,14 @@ async fn dispatch_action_success_path_returns_completed() {
     let action = echo_action("echo", json!({"text": "hi {{ item_id }}"}));
     let decl = tagged_decl(Some("echo"), Some("echo"));
     let pool = McpPool::default();
+    let client_pool = test_client_pool();
     let outcome = dispatch_action(
         &action,
         Path::new("."),
         &decl,
         &echo_servers(),
         &pool,
+        &client_pool,
         Duration::from_secs(5),
     )
     .await
@@ -212,12 +228,14 @@ async fn dispatch_action_tool_error_returns_provider() {
     let action = echo_action("tool_error", json!({}));
     let decl = tagged_decl(Some("echo"), Some("tool_error"));
     let pool = McpPool::default();
+    let client_pool = test_client_pool();
     let err = dispatch_action(
         &action,
         Path::new("."),
         &decl,
         &echo_servers(),
         &pool,
+        &client_pool,
         Duration::from_secs(5),
     )
     .await
@@ -236,12 +254,14 @@ async fn dispatch_action_timeout_returns_provider() {
     let action = echo_action("slow", json!({"ms": 1500}));
     let decl = tagged_decl(Some("echo"), Some("slow"));
     let pool = McpPool::default();
+    let client_pool = test_client_pool();
     let err = dispatch_action(
         &action,
         Path::new("."),
         &decl,
         &echo_servers(),
         &pool,
+        &client_pool,
         // Tight enough that `slow ms=1500` blows past the budget,
         // generous enough to absorb python3 spawn jitter on slow CI.
         Duration::from_millis(300),

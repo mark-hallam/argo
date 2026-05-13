@@ -16,10 +16,10 @@
 use super::worker_actions::ActionRecord;
 use super::worker_actions_executor::ActionOutcome;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_mcp::{McpClient, McpContent};
+use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
 use argo_store::queries::mcp_registry::McpRegistryStore;
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use argo_vertical::{ActionDeclaration, McpServerDeclaration};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
@@ -28,6 +28,7 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 /// Default per-action wallclock budget. The MCP `McpClient` enforces
 /// its own per-RPC timeout (30s) for line-by-line transport health;
@@ -50,6 +51,16 @@ pub(crate) fn default_pool() -> &'static McpPool {
     POOL.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Process-wide warm-pool of [`McpClient`] subprocesses keyed by
+/// `(tenant_id, manifest_id)`. Backs the cold-spawn replacement in
+/// [`acquire_client`] (mission-mcp-pool-wire-dispatch). The local
+/// [`McpPool`] is preserved because `mcp_health.rs` still consumes the
+/// type alias for its own cold-by-design probe path.
+pub(crate) fn shared_client_pool() -> &'static Arc<McpClientPool> {
+    static POOL: OnceLock<Arc<McpClientPool>> = OnceLock::new();
+    POOL.get_or_init(|| McpClientPool::new(PoolConfig::default()))
+}
+
 /// Default per-action wallclock budget.
 pub(crate) fn default_timeout() -> Duration {
     DEFAULT_ACTION_TIMEOUT
@@ -67,6 +78,7 @@ pub(crate) async fn dispatch_action(
     decl: &ActionDeclaration,
     servers: &HashMap<String, McpServerDeclaration>,
     pool: &McpPool,
+    client_pool: &Arc<McpClientPool>,
     timeout: Duration,
 ) -> ArgoResult<ActionOutcome> {
     let server_name = decl.executor.mcp_server().ok_or_else(|| {
@@ -89,7 +101,7 @@ pub(crate) async fn dispatch_action(
         .lookup(server_name, cwd, servers)
         .await?;
     let args = substitute_args(&action.payload, action);
-    let client = acquire_client(pool, server_name, &server_decl).await?;
+    let client = acquire_client(pool, client_pool, server_name, &server_decl).await?;
     super::mcp_rate_limit::acquire_for_dispatch(server_name).await?;
     let result = match tokio::time::timeout(timeout, client.call_tool(tool_name, args)).await {
         Ok(r) => r,
@@ -154,6 +166,7 @@ pub(crate) fn dispatch_blocking(
             decl,
             servers,
             default_pool(),
+            shared_client_pool(),
             timeout,
         ))
     })
@@ -234,6 +247,7 @@ async fn lookup_registry_server(cwd: &Path, server_name: &str) -> ArgoResult<Mcp
 
 async fn acquire_client(
     pool: &McpPool,
+    client_pool: &Arc<McpClientPool>,
     server_name: &str,
     server_decl: &McpServerDeclaration,
 ) -> ArgoResult<Arc<McpClient>> {
@@ -248,15 +262,27 @@ async fn acquire_client(
     if let Some(client) = guard.get(server_name) {
         return Ok(client.clone());
     }
-    let client = McpClient::connect_stdio(&server_decl.command, &server_decl.args)
+    // mission-mcp-pool-wire-dispatch: route cold spawn through the
+    // injected [`McpClientPool`] so subprocesses survive across turns.
+    // Tenant identity is not threaded to this call site today (the
+    // action-level executor pre-dates the multi-tenant orchestrator);
+    // a nil sentinel keeps all dispatch under one key until plumbed.
+    let command = server_decl.command.clone();
+    let args = server_decl.args.clone();
+    let arc = client_pool
+        .acquire(
+            TenantId(Uuid::nil()),
+            server_name.to_string(),
+            || async move { McpClient::connect_stdio(&command, &args).await },
+        )
         .await
         .map_err(|e| {
             ArgoError::Provider(format!(
                 "connect MCP server '{server_name}' (command '{}'): {e}",
                 server_decl.command
             ))
-        })?;
-    let arc = Arc::new(client);
+        })?
+        .client_arc();
     guard.insert(server_name.to_string(), arc.clone());
     Ok(arc)
 }

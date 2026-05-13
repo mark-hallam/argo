@@ -1,40 +1,67 @@
 //! Tool dispatch: registry assembly, capability-checked calls,
 //! and MCP dispatch wiring.
 use argo_capability::CapabilityEngine;
-use argo_mcp::{McpClient, McpContent};
+use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
 use argo_memory::MemoryStore;
 use argo_provider::ToolSchema as ProviderToolSchema;
 use argo_tool::{builtin_tools, builtin_tools_with_memory, ToolContext, ToolRegistry, ToolSchema};
 use argo_types::{
-    ArgoResult, Capability, ContentBlock, Principal, ToolCallRequest, ToolCallResult, WorkspaceId,
+    ArgoResult, Capability, ContentBlock, Principal, TenantId, ToolCallRequest, ToolCallResult,
+    WorkspaceId,
 };
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use uuid::Uuid;
 
-/// Per-turn MCP clients keyed by server name.
-#[derive(Debug, Default)]
+/// Sentinel tenant used by the in-process agent-runner dispatch path.
+/// Tenant identity is not threaded through `dispatch_one` (the inner
+/// agent loop is currently single-tenant per process); a stable nil
+/// UUID keeps every dispatch in this process under one pool key and
+/// preserves [`McpClientPool`]'s (tenant, manifest) isolation invariant
+/// for any future multi-tenant call site that does plumb a real tenant.
+fn dispatch_tenant() -> TenantId {
+    TenantId(Uuid::nil())
+}
+
+/// Wrapper around the process-wide [`McpClientPool`] (shipped in
+/// `mission-mcp-connection-pooling`). The agent-runner used to spawn a
+/// fresh subprocess per turn via a per-turn `HashMap`; the wrapper
+/// preserves the existing `ToolRegistry::set_mcp_pool` injection seam
+/// while routing every acquisition through the warm pool. Subprocesses
+/// stay live across turns; LRU + idle-TTL eviction reaps stale entries.
 pub(crate) struct McpConnectionPool {
-    clients: tokio::sync::Mutex<HashMap<String, Arc<McpClient>>>,
+    pool: Arc<McpClientPool>,
+}
+
+impl Default for McpConnectionPool {
+    fn default() -> Self {
+        Self {
+            pool: McpClientPool::new(PoolConfig::default()),
+        }
+    }
+}
+
+impl std::fmt::Debug for McpConnectionPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("McpConnectionPool")
+            .field("pool", &self.pool)
+            .finish()
+    }
 }
 
 impl McpConnectionPool {
     async fn client(&self, name: &str, transport: &Value) -> Result<Arc<McpClient>, String> {
-        if let Some(client) = self.clients.lock().await.get(name).cloned() {
-            return Ok(client);
-        }
         let (command, args) = parse_stdio_transport(transport)?;
-        let client = Arc::new(
-            McpClient::connect_stdio(command, &args)
-                .await
-                .map_err(|e| format!("connect MCP server '{name}': {e}"))?,
-        );
-        self.clients
-            .lock()
+        let guard = self
+            .pool
+            .acquire(dispatch_tenant(), name.to_string(), || async move {
+                McpClient::connect_stdio(&command, &args).await
+            })
             .await
-            .insert(name.to_string(), client.clone());
-        Ok(client)
+            .map_err(|e| format!("connect MCP server '{name}': {e}"))?;
+        Ok(guard.client_arc())
     }
 }
 

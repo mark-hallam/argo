@@ -12,12 +12,13 @@
 //! manifest is the only configuration site, so `--vertical` is
 //! required.
 use argo_mcp::{McpClient, McpToolSchema};
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::{ArgoError, ArgoResult, TenantId};
 use argo_vertical::{load_dir, McpServerDeclaration};
 use regex::Regex;
 use std::sync::Arc;
+use uuid::Uuid;
 
-use super::worker_actions_executor_mcp::default_pool;
+use super::worker_actions_executor_mcp::{default_pool, shared_client_pool};
 
 /// Inputs for [`run`].
 #[derive(Debug)]
@@ -128,15 +129,28 @@ async fn list_tools(
         if let Some(existing) = guard.get(server_id) {
             existing.clone()
         } else {
-            let new = McpClient::connect_stdio(&decl.command, &decl.args)
+            // mission-mcp-pool-wire-dispatch: cold spawn routed through
+            // the process-wide warm [`McpClientPool`]. Discovery is an
+            // operator CLI command with no per-call tenant scope, so a
+            // nil [`TenantId`] keeps every `argo mcp tools` invocation
+            // under one pool key (the underlying child stays warm for
+            // subsequent action-level dispatches against `server_id`).
+            let command = decl.command.clone();
+            let args = decl.args.clone();
+            let arc = shared_client_pool()
+                .acquire(
+                    TenantId(Uuid::nil()),
+                    server_id.to_string(),
+                    || async move { McpClient::connect_stdio(&command, &args).await },
+                )
                 .await
                 .map_err(|e| {
                     ArgoError::Provider(format!(
                         "connect MCP server '{server_id}' (command '{}'): {e}",
                         decl.command
                     ))
-                })?;
-            let arc = Arc::new(new);
+                })?
+                .client_arc();
             guard.insert(server_id.to_string(), arc.clone());
             arc
         }

@@ -17,10 +17,20 @@ use crate::handlers::worker_actions_executor_browser_binding::{
 };
 use crate::handlers::worker_actions::ActionRecord;
 use argo_identity::WorkerId;
+use argo_mcp::{McpClientPool, PoolConfig};
 use argo_vertical::{ActionDeclaration, ExecutorDeclaration, ExecutorTagged};
 use serde_json::json;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Per-test [`McpClientPool`] — see
+/// `worker_actions_executor_mcp_tests::test_client_pool`. Each
+/// `#[tokio::test]` gets its own runtime; the pool must not be
+/// process-wide or subprocesses leak across runtime boundaries.
+fn test_client_pool() -> Arc<McpClientPool> {
+    McpClientPool::new(PoolConfig::default())
+}
 
 fn fixture_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -175,12 +185,14 @@ async fn dispatch_action_rejects_missing_target_url() {
     let action = sample_action("alpha", "act-1");
     let decl = tagged_decl(json!({"mode": "script"}));
     let pool = BrowserPool::default();
+    let client_pool = test_client_pool();
     let cwd = tempdir();
     let err = dispatch_action(
         &action,
         cwd.path(),
         &decl,
         &pool,
+        &client_pool,
         Duration::from_millis(100),
     )
     .await
@@ -205,10 +217,18 @@ async fn dispatch_action_success_returns_completed_with_screenshot() {
         "steps": [{"action": "click", "selector": "#post"}],
     }));
     let pool = BrowserPool::default();
+    let client_pool = test_client_pool();
     let cwd = tempdir();
-    let outcome = dispatch_action(&action, cwd.path(), &decl, &pool, Duration::from_secs(10))
-        .await
-        .expect("success");
+    let outcome = dispatch_action(
+        &action,
+        cwd.path(),
+        &decl,
+        &pool,
+        &client_pool,
+        Duration::from_secs(10),
+    )
+    .await
+    .expect("success");
     let ActionOutcome::Completed { result_json, bundle_path } = outcome else {
         panic!("expected Completed");
     };
@@ -237,10 +257,18 @@ async fn dispatch_action_timeout_returns_provider() {
         "steps": [],
     }));
     let pool = BrowserPool::default();
+    let client_pool = test_client_pool();
     let cwd = tempdir();
-    let err = dispatch_action(&action, cwd.path(), &decl, &pool, Duration::from_millis(300))
-        .await
-        .expect_err("timeout");
+    let err = dispatch_action(
+        &action,
+        cwd.path(),
+        &decl,
+        &pool,
+        &client_pool,
+        Duration::from_millis(300),
+    )
+    .await
+    .expect_err("timeout");
     assert!(
         err.to_string().contains("exceeded wallclock budget"),
         "got: {err}"
@@ -255,6 +283,7 @@ async fn dispatch_action_per_worker_session_reuse() {
     };
     set_browser_bin(&py);
     let pool = BrowserPool::default();
+    let client_pool = test_client_pool();
     let cwd = tempdir();
     let decl = tagged_decl(json!({
         "target_url": "https://example.com/post",
@@ -263,12 +292,26 @@ async fn dispatch_action_per_worker_session_reuse() {
     }));
     let action_a = sample_action("gamma", "act-a");
     let action_b = sample_action("gamma", "act-b");
-    let _ = dispatch_action(&action_a, cwd.path(), &decl, &pool, Duration::from_secs(10))
-        .await
-        .expect("first dispatch");
-    let _ = dispatch_action(&action_b, cwd.path(), &decl, &pool, Duration::from_secs(10))
-        .await
-        .expect("second dispatch");
+    let _ = dispatch_action(
+        &action_a,
+        cwd.path(),
+        &decl,
+        &pool,
+        &client_pool,
+        Duration::from_secs(10),
+    )
+    .await
+    .expect("first dispatch");
+    let _ = dispatch_action(
+        &action_b,
+        cwd.path(),
+        &decl,
+        &pool,
+        &client_pool,
+        Duration::from_secs(10),
+    )
+    .await
+    .expect("second dispatch");
     let guard = pool.lock().await;
     assert_eq!(
         guard.len(),
