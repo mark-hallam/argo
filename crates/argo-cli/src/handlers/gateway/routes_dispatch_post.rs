@@ -137,6 +137,14 @@ async fn dispatch_post_inner(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
+    // bearer credential (`ARGO_SCIM_BEARER_TOKEN`) — distinct from the
+    // operator-facing gateway bearer so the IdP gets a scoped token.
+    // Mounted ahead of `check_bearer_auth` so POST/PATCH/DELETE under
+    // `/scim/v2/` reach the dedicated `scim_auth` gate instead.
+    if let Some(resp) = super::routes_scim_users::dispatch(req, store).await {
+        return Some(resp);
+    }
     if let Some(resp) = check_bearer_auth(req) {
         return Some(resp);
     }

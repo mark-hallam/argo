@@ -1,8 +1,9 @@
 # SKYCOT Operator Runbook — Security
 
 Gateway authentication, the public read-only allowlist, and the
-integration-test bypass. For the full table of contents, see
-[RUNBOOK.md](../RUNBOOK.md).
+integration-test bypass. For SCIM IdP provisioning, see
+[SCIM provisioning](scim-provisioning.md). For the full table of
+contents, see [RUNBOOK.md](../RUNBOOK.md).
 
 ---
 

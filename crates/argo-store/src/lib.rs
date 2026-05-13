@@ -116,6 +116,14 @@ pub mod team_roster_mutations;
 /// the `POST /api/v1/audit/elevated-view-request` handler and revoked
 /// by `DELETE /api/v1/audit/elevated-view-grants/<id>`.
 pub mod elevated_view_grant;
+/// SCIM 2.0 user provisioning store
+/// (Mission `mission-scim-provisioning`, MISSION_BACKLOG Section 7
+/// #231). Backs the `/scim/v2/Users` endpoints exposed by argo-cli's
+/// gateway; soft-delete writes a row in
+/// `scim_provisioned_tombstones` (same transaction) so the audit
+/// chain can still resolve tenant + `userName` for a deprovisioned
+/// user.
+pub mod scim_user;
 /// At-rest encryption key resolution + `PRAGMA key`/`rekey` helpers
 /// (Stream `mission-encryption-at-rest-sqlcipher`).
 pub mod encryption;
@@ -223,7 +231,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 62;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 64;
 
 /// A SQLite-backed session store.
 ///

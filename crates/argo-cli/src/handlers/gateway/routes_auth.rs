@@ -78,7 +78,7 @@ pub(super) fn is_public_get(req: &str) -> bool {
     let rest = req.strip_prefix("GET ").unwrap_or(req);
     let path_end = rest.find([' ', '?']).unwrap_or(rest.len());
     let path = &rest[..path_end];
-    matches!(
+    let exact = matches!(
         path,
         "/" | "/health"
             | "/health/live"
@@ -88,7 +88,12 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/readyz"
             | "/version"
             | "/routes"
-    )
+    );
+    // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
+    // bearer credential (`ARGO_SCIM_BEARER_TOKEN`); the dedicated
+    // `scim_auth` gate inside the SCIM dispatcher enforces it. Treat
+    // the path as "public" here so the operator-facing gate skips it.
+    exact || path.starts_with("/scim/v2/")
 }
 
 fn presented_bearer(req: &str) -> Option<String> {

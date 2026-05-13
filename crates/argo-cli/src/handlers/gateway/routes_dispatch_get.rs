@@ -30,6 +30,14 @@ pub(super) async fn dispatch_get(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
+    // bearer credential; mounted here so list/read calls reach the
+    // dedicated `scim_auth` gate. The operator-facing bearer gate in
+    // `routes::dispatch_route` allowlists `/scim/v2/` paths via
+    // `is_public_get` so the credential split is end-to-end.
+    if let Some(resp) = super::routes_scim_users::dispatch(req, store).await {
+        return Some(resp);
+    }
     // J1 — JSON approvals API. The HTML `/inbox` route stays mounted
     // in `routes_channels_webinbox` for legacy operators.
     if req.starts_with("GET /api/v1/approvals ") || req.starts_with("GET /api/v1/approvals?") {
