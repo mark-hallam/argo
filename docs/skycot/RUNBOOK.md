@@ -322,22 +322,26 @@ named-owner table + disclosure policy are documented in
 ## Key rotation
 
 `argo security rotate-keys` is the operator-facing coordinator for
-rotating workspace-managed secrets. It does NOT generate key
-material itself — actual rotation is delegated to subsystem
-commands (`argo db rekey`, `argo credentials encrypt-all`,
-`argo connector reauth <name>`, etc.). Every commit writes a
-`security.key_rotated` audit row, so `audit-key-age` can answer
-"is anything overdue?" by reading the audit chain.
+rotating workspace-managed secrets. For categories whose subsystem
+CLI is wired (`db-encryption` today), the coordinator spawns the
+subsystem command directly with `std::process::Command`, captures
+its stdout/stderr/exit-code into the `security.key_rotated` audit
+row, and propagates non-zero exits as a retryable failure. For
+env-var-rotation categories that can't self-rotate from inside a
+running process (`gateway-bearer`, `channel-hmac`), and for
+categories whose subsystem flag surface hasn't landed yet
+(`credentials-master`, `connector-oauth`), the coordinator records
+rotation intent and prints the operator follow-ups instead.
 
 Registered key categories (v1):
 
-| Slug | Subsystem | Rotation primitive |
-| --- | --- | --- |
-| `db-encryption` | SQLCipher database | `argo db rekey` |
-| `credentials-master` | credentials.toml | `argo credentials encrypt-all --new-master-key` |
-| `gateway-bearer` | Gateway HTTP auth | operator follow-up (config + restart) |
-| `channel-hmac` | Voice / channel HMAC | operator follow-up (config + restart) |
-| `connector-oauth` | Per-connector OAuth | `argo connector reauth <name>` |
+| Slug | Subsystem | Dispatch | Rotation primitive |
+| --- | --- | --- | --- |
+| `db-encryption` | SQLCipher database | auto-spawn | `argo db rekey --new-key-source <src>` |
+| `credentials-master` | credentials.toml | operator follow-up | `argo cred encrypt-all` (after `ARGO_CREDENTIALS_MASTER_KEY` rewrite) |
+| `gateway-bearer` | Gateway HTTP auth | operator follow-up | env-var change + daemon restart |
+| `channel-hmac` | Voice / channel HMAC | operator follow-up | env-var change + daemon restart |
+| `connector-oauth` | Per-connector OAuth | operator follow-up | `argo connector authorize <name>` per connector |
 
 Bidirectional voice chat: not shipped in v1.0 — see
 [`operator/voice-channels-status.md`](operator/voice-channels-status.md).
@@ -354,11 +358,19 @@ Bidirectional voice chat: not shipped in v1.0 — see
   (subsystem command + operator follow-ups) and copy it into the
   maintenance-window doc.
 - **Maintenance window:** `argo security rotate-keys commit
-  <slug> --new-key-source <src>` to record the rotation, then
-  run the subsystem command printed by `commit`. Re-running
+  <slug> --new-key-source <src>` to record the rotation. For
+  auto-spawn categories the coordinator runs the subsystem
+  command itself and captures the output into the audit row; for
+  operator-follow-up categories it prints the checklist. Re-running
   `commit` with the same `--new-key-source` on the same UTC day
-  is a no-op (deterministic `rotation_id`), so it is safe to
-  retry after a partial failure.
+  is a no-op when the prior attempt succeeded, and resumes the
+  rotation when the prior attempt failed (deterministic
+  `rotation_id` keyed on `<slug>:<redacted-source>:<utc-day>`).
+- **Dry-run:** `argo security rotate-keys commit <slug>
+  --new-key-source <src> --dry-run` prints the resolved
+  subprocess command line (subsystem categories) or the
+  follow-up checklist (operator-prompt categories) without
+  spawning a process or writing an audit row.
 
 `--new-key-source` is one of `random` (default; OS RNG via the
 `rand` crate inside the subsystem command), `prompt` (read from

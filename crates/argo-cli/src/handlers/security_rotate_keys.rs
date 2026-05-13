@@ -17,6 +17,10 @@ use crate::cli::cli_security_cmds::{
     RotateKeysPlanArgs,
 };
 use crate::handlers::security_rotate_keys_registry::{lookup, KeyEntry, DEFAULT_KEYS};
+use crate::handlers::security_rotate_keys_subprocess::{
+    commit_envelope, print_commit_human, print_dry_run, run_execution, PriorRotation,
+    SubprocessResult, ROTATION_FAILED, ROTATION_SUCCEEDED,
+};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_audit::{compute_chain_hash, AuditKind};
 use argo_store::SessionStore;
@@ -185,52 +189,50 @@ fn print_plan_text(entry: &KeyEntry, last: Option<DateTime<Utc>>) {
 
 async fn commit(args: RotateKeysCommitArgs) -> ArgoResult<()> {
     let entry = resolve_entry(&args.key_name)?;
-    if args.dry_run {
-        return plan(RotateKeysPlanArgs {
-            key_name: args.key_name.clone(),
-            json: args.json,
-        })
-        .await;
-    }
     let source = redact_source(&args.new_key_source);
+    if args.dry_run {
+        print_dry_run(entry, &args.new_key_source, source, args.json);
+        return Ok(());
+    }
     let store = open_store().await?;
     let rotation_id = rotation_id_for(entry.name, source);
-    let already = audit_row_for_rotation(&store, &rotation_id).await?;
-    let (status, audit_uuid) = if already.is_some() {
-        ("noop", already.unwrap_or_else(Uuid::nil))
-    } else {
-        let uuid = append_rotation_audit(&store, entry, source, &rotation_id).await?;
-        ("rotated", uuid)
+    // Retry semantics: dedup against prior audit rows for this
+    // rotation_id, but allow re-run when the prior attempt failed.
+    let prior = prior_rotation_outcome(&store, &rotation_id).await?;
+    let (status, audit_uuid, subprocess_result) = match prior {
+        Some(p) if p.outcome == ROTATION_SUCCEEDED => ("noop", p.audit_id, None),
+        Some(_) | None => {
+            let exec_result = run_execution(entry, &args.new_key_source)?;
+            let uuid =
+                append_rotation_audit(&store, entry, source, &rotation_id, exec_result.as_ref())
+                    .await?;
+            let status = match exec_result.as_ref() {
+                Some(r) if !r.succeeded => "failed",
+                _ => "rotated",
+            };
+            (status, uuid, exec_result)
+        }
     };
-    let envelope = json!({
-        "key": entry.name,
-        "status": status,
-        "audit_id": audit_uuid.to_string(),
-        "rotation_id": rotation_id,
-        "new_key_source": source,
-        "rotation_command": entry.rotation_command,
-        "operator_followups": entry.operator_followups,
-    });
+    let envelope = commit_envelope(
+        entry,
+        source,
+        status,
+        audit_uuid,
+        &rotation_id,
+        subprocess_result.as_ref(),
+    );
     if args.json {
         let body = serde_json::to_string_pretty(&envelope)
             .map_err(|e| ArgoError::Provider(format!("rotate-keys commit json: {e}")))?;
         println!("{body}");
-    } else if status == "noop" {
-        println!(
-            "{}: already recorded for source `{}` today (rotation_id {}); no audit row written.",
-            entry.name, source, rotation_id
-        );
     } else {
-        println!(
-            "{}: rotation recorded (audit_id {}, source `{}`).",
-            entry.name, audit_uuid, source
-        );
-        if !entry.rotation_command.is_empty() {
-            println!("Run the subsystem command to apply: `{}`", entry.rotation_command);
-        }
-        for step in entry.operator_followups {
-            println!("  • {step}");
-        }
+        print_commit_human(entry, source, status, audit_uuid, &rotation_id, subprocess_result.as_ref());
+    }
+    if status == "failed" {
+        return Err(ArgoError::Provider(format!(
+            "rotate-keys commit: subsystem command exited non-zero for `{}`; re-run to retry.",
+            entry.name
+        )));
     }
     Ok(())
 }
@@ -320,12 +322,17 @@ async fn last_rotated_at(
     Ok(micros.and_then(DateTime::<Utc>::from_timestamp_micros))
 }
 
-async fn audit_row_for_rotation(
+/// Look up the latest audit row for this `rotation_id` and surface
+/// its outcome. Drives the retry-on-failure semantics: prior
+/// `succeeded` rows short-circuit to noop; prior `failed` rows fall
+/// through to a fresh subsystem attempt. Older rows (written before
+/// `outcome` was added) default to `succeeded` for backward compat.
+async fn prior_rotation_outcome(
     store: &SessionStore,
     rotation_id: &str,
-) -> ArgoResult<Option<Uuid>> {
-    let row: Option<Vec<u8>> = sqlx::query_scalar(
-        "SELECT id FROM audit_record \
+) -> ArgoResult<Option<PriorRotation>> {
+    let row: Option<(Vec<u8>, String)> = sqlx::query_as(
+        "SELECT id, payload_json FROM audit_record \
          WHERE kind = ? AND json_extract(payload_json, '$.rotation_id') = ? \
          ORDER BY seq DESC LIMIT 1",
     )
@@ -333,8 +340,19 @@ async fn audit_row_for_rotation(
     .bind(rotation_id)
     .fetch_optional(store.pool())
     .await
-    .map_err(|e| ArgoError::Provider(format!("rotate-keys idempotency query: {e}")))?;
-    Ok(row.and_then(|bytes| Uuid::from_slice(&bytes).ok()))
+    .map_err(|e| ArgoError::Provider(format!("rotate-keys retry-lookup query: {e}")))?;
+    let Some((bytes, payload_json)) = row else {
+        return Ok(None);
+    };
+    let audit_id = Uuid::from_slice(&bytes)
+        .map_err(|e| ArgoError::Provider(format!("rotate-keys audit id parse: {e}")))?;
+    let parsed: Value = serde_json::from_str(&payload_json)
+        .map_err(|e| ArgoError::Provider(format!("rotate-keys audit payload parse: {e}")))?;
+    let outcome = match parsed.get("outcome").and_then(|v| v.as_str()) {
+        Some(ROTATION_FAILED) => ROTATION_FAILED,
+        _ => ROTATION_SUCCEEDED,
+    };
+    Ok(Some(PriorRotation { audit_id, outcome }))
 }
 
 fn rotation_id_for(key_name: &str, redacted_source: &str) -> String {
@@ -347,9 +365,23 @@ async fn append_rotation_audit(
     entry: &KeyEntry,
     redacted_source: &str,
     rotation_id: &str,
+    subprocess_result: Option<&SubprocessResult>,
 ) -> ArgoResult<Uuid> {
     let parent = last_global_hash(store).await?;
     let at = Utc::now();
+    let outcome = match subprocess_result {
+        Some(r) if !r.succeeded => ROTATION_FAILED,
+        _ => ROTATION_SUCCEEDED,
+    };
+    let subprocess_payload = subprocess_result.map(|r| {
+        json!({
+            "command": r.command_display,
+            "exit_code": r.exit_code,
+            "stdout": r.stdout,
+            "stderr": r.stderr,
+            "succeeded": r.succeeded,
+        })
+    });
     let payload = json!({
         "actor": "cli",
         "action": AUDIT_KIND,
@@ -359,6 +391,9 @@ async fn append_rotation_audit(
         "rotation_command": entry.rotation_command,
         "new_key_source": redacted_source,
         "rotation_id": rotation_id,
+        "execution": entry.execution,
+        "subprocess": subprocess_payload,
+        "outcome": outcome,
         "at": at.to_rfc3339(),
     });
     let canonical = serde_json::to_string(&payload)
