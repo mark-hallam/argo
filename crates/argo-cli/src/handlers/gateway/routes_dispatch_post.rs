@@ -167,6 +167,44 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_retrain::dispatch(req, store).await {
         return Some(resp);
     }
+    // J11 — worker settings PATCH (channels / quiet / budget / autonomy)
+    // + DELETE hard-delete. Bearer auth + principal-header validation
+    // applied above; these sub-dispatchers carry only routing logic.
+    if let Some(resp) = super::routes_dispatch_patch::dispatch_patch(req, store).await {
+        return Some(resp);
+    }
+    if let Some(resp) = super::routes_dispatch_delete::dispatch_delete(req, store).await {
+        return Some(resp);
+    }
+    // J11 — worker pause / resume / archive lifecycle POSTs.
+    if let Some(rest) = req.strip_prefix("POST /api/v1/workers/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let head_no_query = head.split('?').next().unwrap_or(head);
+            let parts: Vec<&str> = head_no_query.split('/').collect();
+            if parts.len() == 2 {
+                let worker_id = parts[0];
+                match parts[1] {
+                    "pause" => {
+                        return Some(
+                            super::routes_worker_settings::post_pause(worker_id, req, store).await,
+                        );
+                    }
+                    "resume" => {
+                        return Some(
+                            super::routes_worker_settings::post_resume(worker_id, req, store).await,
+                        );
+                    }
+                    "archive" => {
+                        return Some(
+                            super::routes_worker_settings::post_archive(worker_id, req, store)
+                                .await,
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
     // Domain-grouped sub-dispatchers (siblings). Each owns a
     // disjoint URL space; order between them is not significant.
     if let Some(resp) = super::routes_dispatch_post_workers::dispatch_workers(req, store).await {

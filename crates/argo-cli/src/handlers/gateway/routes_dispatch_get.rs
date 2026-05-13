@@ -104,6 +104,13 @@ pub(super) async fn dispatch_get(
                     super::routes_worker_memory::list_response(id_with_suffix, req, store).await,
                 );
             }
+            // J11 — bundled settings (channels / quiet / budget / autonomy
+            // + operator-only advanced block).
+            if tail.starts_with("settings ") || tail.starts_with("settings?") {
+                return Some(
+                    super::routes_worker_settings::get_settings(id_with_suffix, req, store).await,
+                );
+            }
         }
         // J7 — bare /api/v1/workers/<id> for the worker profile page.
         // Matches only when the path has no further slash before the
