@@ -4,10 +4,31 @@ import {
   POLICY_SHOW_ALL,
   maskedCategories,
   policyMasksAnything,
+  redactAuditDetail,
+  redactAuditRow,
   redactPII,
   resultHasMasks,
+  textHasRedaction,
 } from "./redact";
 import { digitCount, luhnValid } from "./patterns";
+import {
+  APPROVER_SENTINEL,
+  COUNTERPARTY_SENTINEL,
+  categoriesLackedBy,
+  redactCounterpartyHandles,
+} from "./audit-rules";
+import {
+  ALL_PERMISSIONS,
+  NO_PERMISSIONS,
+  ROLE_DEFAULT_PERMISSIONS,
+  VIEWER_POLICY_DELEGATOR,
+  VIEWER_POLICY_OPERATOR,
+  policyFromPermissions,
+  type ViewerPolicy,
+} from "./types";
+import { resolveViewerPolicy } from "@/lib/hooks/use-viewer-policy";
+import type { AuditRow } from "@/lib/types/audit";
+import type { AuditDetail } from "@/lib/types/audit-detail";
 
 describe("redactPII — email", () => {
   it("masks a single email with the [EMAIL] sentinel", () => {
@@ -143,5 +164,252 @@ describe("patterns — Luhn + digitCount", () => {
   it("digitCount ignores non-digit chars", () => {
     expect(digitCount("+64 21 555 0123")).toBe(11);
     expect(digitCount("no digits here")).toBe(0);
+  });
+});
+
+// ============================================================================
+// E5-g: audit-surface RBAC redaction
+// ============================================================================
+
+const sampleRow: AuditRow = {
+  id: "act_001",
+  timestamp: "2026-05-13T10:00:00Z",
+  worker: { id: "wrk_1", name: "Echo" },
+  actionType: "message_sent",
+  verb: "Emailed sam@acmeco.com about renewal",
+  status: "succeeded",
+  approver: { id: "usr_42", name: "Petra Operator" },
+  dataClassification: "confidential",
+};
+
+const sampleDetail: AuditDetail = {
+  ...sampleRow,
+  inputs: {
+    triggerKind: "message",
+    triggerSummary: "Buyer mailed sam@acmeco.com from @diego.alvarez",
+    predecessor: { id: "act_000", verb: "Received reply from @sam.k" },
+  },
+  decisionChain: [
+    { n: 1, title: "Read", body: "Customer phone +64 21 555 0123 surfaced" },
+    { n: 2, title: "Plan", body: "Reply with quote — no PII" },
+  ],
+  provenance: {
+    model: { id: "claude-opus-4-7", version: "2026-04" },
+    promptTemplate: { id: "pt_email_quote", hash: "sha256:abc" },
+    skill: { id: "sk_email", version: "1.2" },
+    memorySnapshot: { id: "mem_99" },
+    policy: { id: "po_default", version: "3", hash: "sha256:def" },
+  },
+  output: {
+    kind: "text",
+    body: "Replied to sam@acmeco.com, copying @diego.alvarez",
+    followUp: { id: "act_002", verb: "Awaiting reply from @sam.k" },
+  },
+};
+
+describe("redactCounterpartyHandles", () => {
+  it("masks @handles in prose", () => {
+    const { redacted, count } = redactCounterpartyHandles("ping @sam.k for follow-up");
+    expect(redacted).toBe(`ping ${COUNTERPARTY_SENTINEL} for follow-up`);
+    expect(count).toBe(1);
+  });
+
+  it("masks vendor#-style handles", () => {
+    const { redacted } = redactCounterpartyHandles("escalated to vendor#acme yesterday");
+    expect(redacted).toBe(`escalated to ${COUNTERPARTY_SENTINEL} yesterday`);
+  });
+
+  it("leaves bare email addresses alone (handled by redactPII)", () => {
+    const { redacted, count } = redactCounterpartyHandles("ping sam@acmeco.com");
+    expect(redacted).toBe("ping sam@acmeco.com");
+    expect(count).toBe(0);
+  });
+});
+
+describe("redactAuditRow", () => {
+  it("PII-redacts the verb when masking is in force", () => {
+    const out = redactAuditRow(sampleRow, VIEWER_POLICY_DELEGATOR);
+    expect(out.verb).toBe("Emailed [EMAIL] about renewal");
+  });
+
+  it("preserves the verb for an operator", () => {
+    const out = redactAuditRow(sampleRow, VIEWER_POLICY_OPERATOR);
+    expect(out.verb).toBe(sampleRow.verb);
+  });
+
+  it("masks approver name when unredactedApprover is false", () => {
+    const out = redactAuditRow(sampleRow, VIEWER_POLICY_DELEGATOR);
+    expect(out.approver?.name).toBe(APPROVER_SENTINEL);
+    expect(out.approver?.id).toBe("usr_42");
+  });
+
+  it("keeps approver name when unredactedApprover is true", () => {
+    const out = redactAuditRow(sampleRow, VIEWER_POLICY_OPERATOR);
+    expect(out.approver?.name).toBe("Petra Operator");
+  });
+
+  it("hides dataClassification when unredactedClassification is false", () => {
+    const out = redactAuditRow(sampleRow, VIEWER_POLICY_DELEGATOR);
+    expect(out.dataClassification).toBeUndefined();
+  });
+
+  it("keeps dataClassification when unredactedClassification is true", () => {
+    const out = redactAuditRow(sampleRow, VIEWER_POLICY_OPERATOR);
+    expect(out.dataClassification).toBe("confidential");
+  });
+
+  it("masks counterparty handles inside the verb", () => {
+    const row: AuditRow = { ...sampleRow, verb: "Pinged @sam.k about the deal" };
+    const out = redactAuditRow(row, VIEWER_POLICY_DELEGATOR);
+    expect(out.verb).toContain(COUNTERPARTY_SENTINEL);
+  });
+
+  it("is pure (does not mutate input)", () => {
+    const before = JSON.stringify(sampleRow);
+    redactAuditRow(sampleRow, VIEWER_POLICY_DELEGATOR);
+    expect(JSON.stringify(sampleRow)).toBe(before);
+  });
+});
+
+describe("redactAuditDetail", () => {
+  it("redacts triggerSummary and predecessor.verb", () => {
+    const out = redactAuditDetail(sampleDetail, VIEWER_POLICY_DELEGATOR);
+    expect(out.inputs.triggerSummary).toContain("[EMAIL]");
+    expect(out.inputs.triggerSummary).toContain(COUNTERPARTY_SENTINEL);
+    expect(out.inputs.predecessor?.verb).toContain(COUNTERPARTY_SENTINEL);
+  });
+
+  it("redacts every decisionChain body", () => {
+    const out = redactAuditDetail(sampleDetail, VIEWER_POLICY_DELEGATOR);
+    expect(out.decisionChain[0].body).toBe("Customer phone [PHONE] surfaced");
+    expect(out.decisionChain[1].body).toBe("Reply with quote — no PII");
+  });
+
+  it("redacts string output.body", () => {
+    const out = redactAuditDetail(sampleDetail, VIEWER_POLICY_DELEGATOR);
+    expect(out.output.body).toContain("[EMAIL]");
+    expect(out.output.body).toContain(COUNTERPARTY_SENTINEL);
+  });
+
+  it("recursively redacts object output.body", () => {
+    const detail: AuditDetail = {
+      ...sampleDetail,
+      output: {
+        ...sampleDetail.output,
+        kind: "json",
+        body: {
+          to: "sam@acmeco.com",
+          meta: { handle: "@diego.alvarez", phone: "+64 21 555 0123" },
+        },
+      },
+    };
+    const out = redactAuditDetail(detail, VIEWER_POLICY_DELEGATOR);
+    const body = out.output.body as Record<string, unknown>;
+    expect(body.to).toBe("[EMAIL]");
+    const meta = body.meta as Record<string, unknown>;
+    expect(meta.handle).toBe(COUNTERPARTY_SENTINEL);
+    expect(meta.phone).toBe("[PHONE]");
+  });
+
+  it("preserves provenance untouched (hashes are not PII)", () => {
+    const out = redactAuditDetail(sampleDetail, VIEWER_POLICY_DELEGATOR);
+    expect(out.provenance).toEqual(sampleDetail.provenance);
+  });
+
+  it("redacts followUp.verb when present", () => {
+    const out = redactAuditDetail(sampleDetail, VIEWER_POLICY_DELEGATOR);
+    expect(out.output.followUp?.verb).toContain(COUNTERPARTY_SENTINEL);
+  });
+
+  it("leaves detail untouched for an operator", () => {
+    const out = redactAuditDetail(sampleDetail, VIEWER_POLICY_OPERATOR);
+    expect(out.inputs.triggerSummary).toBe(sampleDetail.inputs.triggerSummary);
+    expect(out.output.body).toBe(sampleDetail.output.body);
+    expect(out.approver?.name).toBe("Petra Operator");
+    expect(out.dataClassification).toBe("confidential");
+  });
+});
+
+describe("per-category permissions", () => {
+  it("auditor policy: keeps email/phone, masks card", () => {
+    const policy: ViewerPolicy = {
+      ...policyFromPermissions(ROLE_DEFAULT_PERMISSIONS.auditor),
+      viewerRole: "auditor",
+      permissions: ROLE_DEFAULT_PERMISSIONS.auditor,
+      activeGrants: [],
+    };
+    const verb = "Sent sam@acmeco.com paid 4111 1111 1111 1111";
+    const { redacted } = redactPII(verb, policy);
+    expect(redacted).toContain("sam@acmeco.com"); // email preserved
+    expect(redacted).toContain("[CARD]"); // card masked
+  });
+
+  it("compliance-officer policy: passes everything through", () => {
+    const policy: ViewerPolicy = {
+      ...policyFromPermissions(ROLE_DEFAULT_PERMISSIONS["compliance-officer"]),
+      viewerRole: "compliance-officer",
+      permissions: ROLE_DEFAULT_PERMISSIONS["compliance-officer"],
+      activeGrants: [],
+    };
+    const out = redactAuditRow(sampleRow, policy);
+    expect(out.verb).toBe(sampleRow.verb);
+    expect(out.approver?.name).toBe("Petra Operator");
+  });
+
+  it("categoriesLackedBy: delegator lacks all 8", () => {
+    expect(categoriesLackedBy(NO_PERMISSIONS)).toHaveLength(8);
+  });
+
+  it("categoriesLackedBy: operator lacks none", () => {
+    expect(categoriesLackedBy(ALL_PERMISSIONS)).toEqual([]);
+  });
+});
+
+describe("textHasRedaction", () => {
+  it("detects pattern sentinels", () => {
+    expect(textHasRedaction("ping [EMAIL] then")).toBe(true);
+  });
+
+  it("detects audit sentinels", () => {
+    expect(textHasRedaction(`approved by ${APPROVER_SENTINEL}`)).toBe(true);
+    expect(textHasRedaction(`via ${COUNTERPARTY_SENTINEL}`)).toBe(true);
+  });
+
+  it("returns false for clean text", () => {
+    expect(textHasRedaction("ordinary log line, no sentinels")).toBe(false);
+  });
+});
+
+describe("resolveViewerPolicy", () => {
+  it("unredacted-view permission grants operator-equivalent", () => {
+    const policy = resolveViewerPolicy(["unredacted-view"], "delegator", []);
+    expect(policy.viewerRole).toBe("operator");
+    expect(policy.permissions).toEqual(ALL_PERMISSIONS);
+  });
+
+  it("delegator with no grants and no perms returns the canonical all-mask policy", () => {
+    const policy = resolveViewerPolicy([], "delegator", []);
+    expect(policy).toEqual(VIEWER_POLICY_DELEGATOR);
+  });
+
+  it("per-permission grants flip the matching key on", () => {
+    const policy = resolveViewerPolicy(["unredacted-email"], "delegator", []);
+    expect(policy.permissions.unredactedEmail).toBe(true);
+    expect(policy.permissions.unredactedPhone).toBe(false);
+    expect(policy.email).toBe("show");
+  });
+
+  it("active elevated-view grants merge into permissions", () => {
+    const policy = resolveViewerPolicy([], "delegator", [
+      {
+        grantedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+        categories: ["unredacted-counterparty"],
+        reason: "Compliance review #CR-2024-08",
+        requestId: "g_1",
+      },
+    ]);
+    expect(policy.permissions.unredactedCounterparty).toBe(true);
+    expect(policy.activeGrants).toHaveLength(1);
   });
 });

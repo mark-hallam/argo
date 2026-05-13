@@ -37,6 +37,11 @@ vi.mock("@/lib/hooks/use-audit-feed", () => ({
   auditFeedQueryKey: () => ["audit-feed"],
 }));
 
+vi.mock("@/lib/hooks/use-viewer-policy", async () => {
+  const { VIEWER_POLICY_OPERATOR } = await import("@/lib/redaction/types");
+  return { useViewerPolicy: () => VIEWER_POLICY_OPERATOR };
+});
+
 import AuditPage from "@/app/(app)/audit/page";
 
 function makeRow(overrides: Partial<AuditRow> = {}): AuditRow {

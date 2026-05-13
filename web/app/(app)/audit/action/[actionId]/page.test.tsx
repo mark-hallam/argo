@@ -28,6 +28,11 @@ vi.mock("@/lib/hooks/use-redaction-policy", async () => {
   return { useRedactionPolicy: () => POLICY_SHOW_ALL };
 });
 
+vi.mock("@/lib/hooks/use-viewer-policy", async () => {
+  const { VIEWER_POLICY_OPERATOR } = await import("@/lib/redaction/types");
+  return { useViewerPolicy: () => VIEWER_POLICY_OPERATOR };
+});
+
 vi.mock("@/lib/api/audit-detail", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api/audit-detail")>(
     "@/lib/api/audit-detail",

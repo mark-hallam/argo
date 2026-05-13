@@ -30,6 +30,17 @@ import {
   SENTINEL,
   type RedactionCategory,
 } from "./patterns";
+import {
+  APPROVER_SENTINEL,
+  COUNTERPARTY_SENTINEL,
+  redactApproverName,
+  redactCounterpartyHandles,
+  shouldHideClassification,
+  shouldRedactCounterparty,
+} from "./audit-rules";
+import type { ViewerPolicy } from "./types";
+import type { AuditRow } from "@/lib/types/audit";
+import type { AuditDetail } from "@/lib/types/audit-detail";
 
 export type RedactionMode = "mask" | "show";
 
@@ -144,4 +155,105 @@ export function maskedCategories(result: RedactionResult): RedactionCategory[] {
   return (Object.keys(result.masked) as RedactionCategory[]).filter(
     (c) => result.masked[c] > 0,
   );
+}
+
+/**
+ * Run the pattern pass + the counterparty pass (when permitted by
+ * the viewer's policy). Audit-only consumers; approval-inbox stays
+ * on `redactPII` to keep its behavior identical to E1-e.
+ */
+function redactAuditString(text: string, policy: ViewerPolicy): string {
+  const { redacted } = redactPII(text, policy);
+  if (!shouldRedactCounterparty(policy.permissions)) return redacted;
+  return redactCounterpartyHandles(redacted).redacted;
+}
+
+/** Recursively redact string values inside an unknown JSON-ish payload. */
+function redactAuditValue(value: unknown, policy: ViewerPolicy): unknown {
+  if (typeof value === "string") return redactAuditString(value, policy);
+  if (Array.isArray(value)) {
+    return value.map((item) => redactAuditValue(item, policy));
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = redactAuditValue(v, policy);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * RBAC-aware audit-row redaction. Applies PII patterns to `verb`,
+ * masks the approver name when the viewer lacks `unredactedApprover`,
+ * drops `dataClassification` when masked, and rewrites counterparty
+ * handles inside the verb.
+ *
+ * Pure function; returns a new row. The brief's `(row, policy,
+ * viewerRole)` signature collapses to `(row, policy)` because
+ * `ViewerPolicy` already carries the role — see PR "Sensible
+ * deviations".
+ */
+export function redactAuditRow(row: AuditRow, policy: ViewerPolicy): AuditRow {
+  const verb = redactAuditString(row.verb, policy);
+  const approver = row.approver
+    ? { ...row.approver, name: redactApproverName(row.approver.name, policy.permissions) }
+    : row.approver;
+  const dataClassification = shouldHideClassification(policy.permissions)
+    ? undefined
+    : row.dataClassification;
+  return { ...row, verb, approver, dataClassification };
+}
+
+/**
+ * RBAC-aware audit-detail redaction. Extends `redactAuditRow` to the
+ * detail-page payload: inputs.triggerSummary, every decisionChain
+ * body, the output.body (string or recursive object), and the
+ * follow-up verb. `provenance` is left untouched (hashes aren't
+ * PII).
+ */
+export function redactAuditDetail(detail: AuditDetail, policy: ViewerPolicy): AuditDetail {
+  const baseRow = redactAuditRow(detail, policy);
+  const inputs = {
+    ...detail.inputs,
+    triggerSummary: redactAuditString(detail.inputs.triggerSummary, policy),
+    predecessor: detail.inputs.predecessor
+      ? { ...detail.inputs.predecessor, verb: redactAuditString(detail.inputs.predecessor.verb, policy) }
+      : detail.inputs.predecessor,
+  };
+  const decisionChain = detail.decisionChain.map((step) => ({
+    ...step,
+    body: redactAuditString(step.body, policy),
+  }));
+  const output = {
+    ...detail.output,
+    body:
+      typeof detail.output.body === "string"
+        ? redactAuditString(detail.output.body, policy)
+        : (redactAuditValue(detail.output.body, policy) as Record<string, unknown>),
+    followUp: detail.output.followUp
+      ? { ...detail.output.followUp, verb: redactAuditString(detail.output.followUp.verb, policy) }
+      : detail.output.followUp,
+  };
+  return {
+    ...detail,
+    ...baseRow,
+    inputs,
+    decisionChain,
+    output,
+  };
+}
+
+/** All sentinels (pattern + audit-specific) — exposed so renderers
+ *  can detect any masked span without re-importing both modules. */
+export const ALL_SENTINELS: readonly string[] = [
+  ...(Object.values(SENTINEL) as string[]),
+  APPROVER_SENTINEL,
+  COUNTERPARTY_SENTINEL,
+] as const;
+
+/** True iff `text` contains at least one redaction sentinel. */
+export function textHasRedaction(text: string): boolean {
+  return ALL_SENTINELS.some((s) => text.includes(s));
 }

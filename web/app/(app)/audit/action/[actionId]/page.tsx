@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { ActionInputsCard } from "@/components/skycot/audit/ActionInputsCard";
@@ -11,12 +10,15 @@ import { AuditActionNotFound } from "@/components/skycot/audit/AuditActionNotFou
 import { DecisionChainCard } from "@/components/skycot/audit/DecisionChainCard";
 import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { ProvenanceBlock } from "@/components/skycot/audit/ProvenanceBlock";
+import { RedactionBanner } from "@/components/skycot/audit/RedactionBanner";
 import { singleActionScope } from "@/lib/sample-export";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui/Breadcrumb";
 import { useAuditDetail } from "@/lib/hooks/use-audit-detail";
 import { AuditDetailNotFoundError } from "@/lib/api/audit-detail";
-import { useRedactionPolicy } from "@/lib/hooks/use-redaction-policy";
-import { policyMasksAnything } from "@/lib/redaction/redact";
+import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
+import { redactAuditDetail } from "@/lib/redaction/redact";
+import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
+import type { RbacPermission } from "@/lib/redaction/types";
 
 /**
  * `/audit/action/<actionId>` — action drill-in surface. CONTRACT PR
@@ -62,10 +64,19 @@ function AuditActionDetailContent() {
   const params = useParams<{ actionId: string }>();
   const actionId = decodeURIComponent(params?.actionId ?? "");
   const router = useRouter();
-  const policy = useRedactionPolicy();
+  const policy = useViewerPolicy();
   const detailQuery = useAuditDetail(actionId);
   const [toast, setToast] = useState<string | null>(null);
   const [exporterOpen, setExporterOpen] = useState(false);
+  const rawDetail = detailQuery.data;
+  const detail = useMemo(
+    () => (rawDetail ? redactAuditDetail(rawDetail, policy) : undefined),
+    [rawDetail, policy],
+  );
+  const presentCategories = useMemo<RbacPermission[]>(
+    () => categoriesLackedBy(policy.permissions),
+    [policy.permissions],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -97,13 +108,11 @@ function AuditActionDetailContent() {
     );
   }
 
-  const detail = detailQuery.data;
   if (!detail) {
     return <AuditActionNotFound actionId={actionId} />;
   }
 
   const verbSummary = truncate(detail.verb, 64);
-  const showPiiBanner = policyMasksAnything(policy);
 
   return (
     <div
@@ -121,25 +130,11 @@ function AuditActionDetailContent() {
         <BackButton onBack={() => router.back()} />
       </div>
 
-      {showPiiBanner ? (
-        <div
-          role="status"
-          data-testid="audit-detail-pii-banner"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-3 py-2 text-xs text-[var(--foreground)]"
-        >
-          <span>
-            <strong className="font-medium">PII redacted</strong> — your role shows
-            masked customer data.
-          </span>
-          <Link
-            href="/account/permissions"
-            data-testid="audit-detail-elevate-link"
-            className="font-medium text-[var(--primary)] underline-offset-4 hover:underline"
-          >
-            Request elevated view →
-          </Link>
-        </div>
-      ) : null}
+      <RedactionBanner
+        policy={policy}
+        presentCategories={presentCategories}
+        surface="audit-detail"
+      />
 
       <ActionSummaryHero
         detail={detail}

@@ -10,8 +10,13 @@ import { AuditFilterChipRail } from "@/components/skycot/audit/AuditFilterChipRa
 import { AuditFilterPopover } from "@/components/skycot/audit/AuditFilterPopover";
 import { AuditPageHeader } from "@/components/skycot/audit/AuditPageHeader";
 import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
+import { RedactionBanner } from "@/components/skycot/audit/RedactionBanner";
 import { groupByDay } from "@/lib/api/audit";
 import { useAuditFeed } from "@/lib/hooks/use-audit-feed";
+import { useViewerPolicy } from "@/lib/hooks/use-viewer-policy";
+import { redactAuditRow } from "@/lib/redaction/redact";
+import { categoriesLackedBy } from "@/lib/redaction/audit-rules";
+import type { RbacPermission } from "@/lib/redaction/types";
 import {
   AUDIT_RANGE_PRESETS,
   DEFAULT_AUDIT_RANGE,
@@ -150,13 +155,22 @@ function AuditPageContent() {
   }, [router, pathname, searchParams]);
 
   const liveFilters = pendingFilters ?? multiFilters;
-  const remoteRows = useMemo(
+  const policy = useViewerPolicy();
+  const rawRemoteRows = useMemo(
     () => feed.data?.pages.flatMap((p) => p.rows) ?? [],
     [feed.data],
+  );
+  const remoteRows = useMemo(
+    () => rawRemoteRows.map((row) => redactAuditRow(row, policy)),
+    [rawRemoteRows, policy],
   );
   const rows = useMemo(
     () => applyAuditMultiFilters(remoteRows, multiFilters),
     [remoteRows, multiFilters],
+  );
+  const presentCategories = useMemo<RbacPermission[]>(
+    () => categoriesLackedBy(policy.permissions),
+    [policy.permissions],
   );
   const workers = useMemo(() => auditWorkerOptions(remoteRows), [remoteRows]);
   const approvers = useMemo(() => auditApproverOptions(remoteRows), [remoteRows]);
@@ -189,6 +203,12 @@ function AuditPageContent() {
       />
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+        <RedactionBanner
+          policy={policy}
+          presentCategories={presentCategories}
+          surface="audit-feed"
+        />
+
         <AuditFilterChipRail
           filters={liveFilters}
           workers={workers}
