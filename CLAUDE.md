@@ -167,3 +167,10 @@ Load-bearing rules, inline so they cannot be missed:
 - **Ledger drift sweep every tick.** Conductor runs
   `scripts/find-stale-claim-drift.py --quiet` every tick. Zero drift
   rows is the steady state.
+- **Lint briefs before commit.** `scripts/lint-brief.sh <brief-id>`
+  validates a brief's freshness header, `Validate before claim:`
+  line, parallel-surface declarations against `crates/`, and
+  parallel-name brief-id collisions against `streams/` + the ledger.
+  A pre-commit hook (install via `scripts/install-brief-hooks.sh`)
+  runs the lint on every staged brief in WARN mode; flip to enforce
+  with `git config skycot.brief-lint enforce`.

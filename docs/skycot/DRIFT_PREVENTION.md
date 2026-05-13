@@ -254,15 +254,23 @@ drift pattern #8 and should remain rare.
 
 ## Tooling that backstops this doc
 
+- `scripts/lint-brief.sh` — **pre-author / pre-commit lint**. Validates
+  freshness header + `Validate before claim:` line + parallel-surface
+  declarations against `crates/` + parallel-name brief-id collisions
+  against `streams/` + the ledger. The strongest gate against drift
+  patterns #2 and #3 because it fires *before* a brief is committed.
+  Wired into a pre-commit hook by `scripts/install-brief-hooks.sh`
+  (WARN mode by default; flip to enforce with
+  `git config skycot.brief-lint enforce`).
 - `scripts/find-stale-claim-drift.py` — read-only ledger consistency
   check. Catches drift patterns #4 and most of #5.
 - `scripts/check-pre-claim-ceiling.sh` — 500-LOC pre-claim gate.
   Backstops drift pattern #1 in the narrow case of "this file is already
   too big to extend".
 - `scripts/check-brief-freshness.sh` — invoked by the brief itself.
-  Backstops drift pattern #3.
+  Backstops drift pattern #3 at claim time.
 - Cluster-audit background agents (one per Tracks A–N grouping) — the
-  primary detector for drift patterns #2, #6, #7.
+  primary detector for drift patterns #6 and #7.
 
 If a drift pattern recurs that none of these catches, extend one of them
 or author a new one. **Detection that lives only in human attention does
