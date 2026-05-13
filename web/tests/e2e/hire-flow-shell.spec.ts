@@ -41,9 +41,10 @@ test("walks through all 6 hire-flow steps and lands on the celebration redirect"
   await page.goto("/hire/step/5");
   await expect(page.getByText(/Step 5 — placeholder for E2-g/)).toBeVisible();
 
-  // Step 6 lives at /hire/done/<workerId> and auto-redirects.
+  // Step 6 lives at /hire/done/<workerId> and auto-redirects to the
+  // approvals inbox after the 1.5s celebration overlay (E2-h).
   await page.goto("/hire/done/stub");
-  await expect(page).toHaveURL(/\/workers\/stub$/, { timeout: 2000 });
+  await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
 });
 
 test("Back button is disabled on step 1 and navigates between later steps", async ({

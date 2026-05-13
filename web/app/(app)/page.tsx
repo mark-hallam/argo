@@ -11,6 +11,7 @@ import {
   IDLE_BATCH_UI,
   type BatchUiState,
 } from "@/components/skycot/BatchGroupBlock";
+import { CelebrationBanner } from "@/components/skycot/CelebrationBanner";
 import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { FilterChipRail } from "@/components/skycot/FilterChipRail";
 import { FilterPopover } from "@/components/skycot/FilterPopover";
@@ -210,6 +211,8 @@ function ApprovalsInboxShell() {
 
   return (
     <>
+      <CelebrationBanner />
+
       <PageHeader
         query={query}
         setQuery={setQuery}
