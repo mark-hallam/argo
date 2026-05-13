@@ -10,6 +10,8 @@
 
 # How-to
 
+- [How-to guides](./howto/index.md)
+- [Build a vertical](./howto/build-vertical.md)
 - [Pick a vertical](./howto/pick-a-vertical.md)
 - [Set up approval channels](./howto/approvals.md)
 - [Troubleshoot a stuck worker](./howto/troubleshoot.md)
