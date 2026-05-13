@@ -11,10 +11,7 @@ fn write_argo_toml(dir: &Path, body: &str) {
 #[test]
 fn explicit_tenant_id_overrides_hash_fallback() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    write_argo_toml(
-        tmp.path(),
-        "[tenant]\ndefault_id = \"acme-prod\"\n",
-    );
+    write_argo_toml(tmp.path(), "[tenant]\ndefault_id = \"acme-prod\"\n");
     let id = workspace_tenant_id(tmp.path());
     assert_eq!(id, "acme-prod");
 }
@@ -44,10 +41,7 @@ fn never_returns_legacy_sentinel() {
     // the helper falls through to the hash fallback so historical-only
     // rows can never collide with a live workspace's reads.
     let tmp = tempfile::tempdir().expect("tempdir");
-    write_argo_toml(
-        tmp.path(),
-        "[tenant]\ndefault_id = \"__legacy__\"\n",
-    );
+    write_argo_toml(tmp.path(), "[tenant]\ndefault_id = \"__legacy__\"\n");
     let id = workspace_tenant_id(tmp.path());
     assert_ne!(id, LEGACY_AUDIT_TENANT_SENTINEL);
     assert!(id.starts_with("ws-"));
@@ -58,10 +52,7 @@ fn shipped_default_id_falls_through_to_hash() {
     // `default_id = "default"` is the shipped placeholder and must not
     // be interpreted as an explicit tenant.
     let tmp = tempfile::tempdir().expect("tempdir");
-    write_argo_toml(
-        tmp.path(),
-        "[tenant]\ndefault_id = \"default\"\n",
-    );
+    write_argo_toml(tmp.path(), "[tenant]\ndefault_id = \"default\"\n");
     let id = workspace_tenant_id(tmp.path());
     assert!(id.starts_with("ws-"));
 }

@@ -193,9 +193,7 @@ pub fn build_http_client(
         .connect_timeout(std::time::Duration::from_millis(connect_timeout_ms))
         .timeout(std::time::Duration::from_millis(read_timeout_ms))
         .build()
-        .map_err(|e| {
-            argo_types::ArgoError::Provider(format!("reqwest client build: {e}"))
-        })
+        .map_err(|e| argo_types::ArgoError::Provider(format!("reqwest client build: {e}")))
 }
 
 /// [`Transport`] adapter that gates calls through a per-provider circuit

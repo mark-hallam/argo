@@ -187,10 +187,14 @@ fn separate_providers_track_independently() {
 #[test]
 fn env_overrides_honored() {
     let _g = ENV_LOCK.lock().unwrap();
-    let prev: Vec<(_, _)> = ["ARGO_CB_FAILURE_THRESHOLD", "ARGO_CB_COOLDOWN_SECS", "ARGO_CB_COOLDOWN_MAX_SECS"]
-        .iter()
-        .map(|k| (*k, std::env::var(k).ok()))
-        .collect();
+    let prev: Vec<(_, _)> = [
+        "ARGO_CB_FAILURE_THRESHOLD",
+        "ARGO_CB_COOLDOWN_SECS",
+        "ARGO_CB_COOLDOWN_MAX_SECS",
+    ]
+    .iter()
+    .map(|k| (*k, std::env::var(k).ok()))
+    .collect();
     // SAFETY: serialised via ENV_LOCK; restored below.
     unsafe {
         std::env::set_var("ARGO_CB_FAILURE_THRESHOLD", "9");
@@ -208,7 +212,10 @@ fn env_overrides_honored() {
         std::env::remove_var("ARGO_CB_COOLDOWN_MAX_SECS");
     }
     let defaulted = BreakerConfig::from_env();
-    assert_eq!(defaulted.failure_threshold, super::DEFAULT_FAILURE_THRESHOLD);
+    assert_eq!(
+        defaulted.failure_threshold,
+        super::DEFAULT_FAILURE_THRESHOLD
+    );
     assert_eq!(
         defaulted.cooldown,
         Duration::from_secs(super::DEFAULT_COOLDOWN_SECS)

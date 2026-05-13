@@ -54,6 +54,7 @@ mod sections_gateway;
 mod sections_planner;
 mod sections_routing;
 mod sections_security;
+mod sections_streaming_retry;
 mod sections_telemetry;
 pub mod store;
 pub mod tui;
@@ -77,6 +78,10 @@ pub use sections_context::{
     PromptCacheAffinityConfig, RuntimeConfig, SandboxPrewarmConfig,
     DEFAULT_ACTION_THROTTLE_AUDIT_SECS, DEFAULT_MCP_POOL_IDLE_TTL_SECS,
     DEFAULT_MCP_POOL_MAX_CLIENTS,
+};
+pub use sections_streaming_retry::{
+    StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,
+    DEFAULT_STREAMING_RETRY_ENABLED, DEFAULT_STREAMING_RETRY_MAX_ATTEMPTS,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};
@@ -180,7 +185,8 @@ pub struct ArgoConfig {
     /// `[worker_pool]` — pool elasticity recommender bounds.
     pub worker_pool: WorkerPoolConfig,
     /// `[runtime]` — runtime-side knobs (currently
-    /// `[runtime.context_compress]`).
+    /// `[runtime.context_compress]` and
+    /// `[runtime.streaming_retry]`).
     pub runtime: RuntimeConfig,
     /// `[planner]` — planner bias knobs
     /// (`mission-planner-bias-from-template`).

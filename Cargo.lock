@@ -1501,6 +1501,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-bedrockruntime",
  "aws-smithy-types",
+ "chrono",
  "futures",
  "parking_lot",
  "proptest",

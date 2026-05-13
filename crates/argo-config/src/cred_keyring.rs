@@ -15,8 +15,8 @@
 //! [`crate::cred::get_with_backend`] which honors env-var precedence
 //! and falls back from keyring to file when `Auto` is selected.
 
-pub use keyring::Error as KeyringError;
 use keyring::Entry;
+pub use keyring::Error as KeyringError;
 use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::sync::OnceLock;

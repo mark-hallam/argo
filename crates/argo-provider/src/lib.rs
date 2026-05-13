@@ -45,6 +45,11 @@ pub mod pool_config;
 /// MISSION_BACKLOG Section 7 #225).
 pub mod spend_gate;
 mod sse;
+/// Streaming-aware retry wrapper (Stream
+/// `mission-streaming-aware-retry`, MISSION_BACKLOG #249) — buffers
+/// mid-stream chunks and retries with an `assistant_prefix`
+/// continuation hint instead of restarting from scratch.
+pub mod streaming_retry;
 /// Provider-transport trait, wire types, and `build_http_client` helper.
 pub mod transport;
 
@@ -67,6 +72,7 @@ pub use openai_compat::{event_to_deltas, OpenAiCompatTransport};
 pub use openai_responses::OpenAiResponsesTransport;
 pub use spend_gate::{BudgetEnforcer, SpendGate, FALLBACK_PROJECTED_COST_MICROS};
 pub use sse::SseBuffer;
+pub use streaming_retry::{retry_streaming, AttemptFactory, RetryConfig, RetryStreamTransport};
 pub use transport::{
     ProviderRequest, ProviderResponse, ProviderResponseDelta, Sampling, StopReason, ToolSchema,
     Transport,

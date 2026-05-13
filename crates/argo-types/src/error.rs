@@ -29,6 +29,7 @@
 //! | [`ArgoError::BudgetExhausted`] | Budget exhausted (iterations / tokens / latency).           | 429  |
 //! | [`ArgoError::Oci`]       | OCI registry / packaging error.                                   | 502  |
 //! | [`ArgoError::NotFound`]  | Addressed entity does not exist.                                  | 404  |
+//! | [`ArgoError::StreamingRetryExhausted`] | Streaming retry exhausted with partial text.      | 502  |
 //! | [`ArgoError::ContextWindowExhausted`] | Adaptive truncation cannot fit even the minimum.     | 500  |
 //!
 //! ## Common mismatches (audit fodder)
@@ -320,6 +321,36 @@ pub enum ArgoError {
         ceiling_micros: u64,
         /// Projected cost of the call that was blocked (USD micros).
         projected_cost_micros: u64,
+    },
+    /// A streaming LLM call exhausted its retry budget while attempting
+    /// to recover from one or more transient mid-stream failures.
+    /// Maps to HTTP 502 at the gateway boundary.
+    ///
+    /// Emitted by the `argo_provider::streaming_retry` wrapper after
+    /// `max_attempts` retries with continuation hints all failed. The
+    /// `partial_content` payload carries whatever assistant text was
+    /// buffered across attempts so the caller can surface "best-effort"
+    /// output to the user rather than discarding everything. Distinct
+    /// from [`ArgoError::Provider`] in that the latter signals a fatal
+    /// non-retryable wire failure (4xx, malformed body, etc.) without
+    /// recovered content.
+    ///
+    /// ```
+    /// use argo_types::ArgoError;
+    /// let err = ArgoError::StreamingRetryExhausted {
+    ///     partial_content: "Once upon a ti".into(),
+    /// };
+    /// assert!(format!("{err}").contains("streaming retry exhausted"));
+    /// ```
+    #[error(
+        "streaming retry exhausted: {} bytes of partial content recovered",
+        partial_content.len()
+    )]
+    StreamingRetryExhausted {
+        /// Whatever assistant text the wrapper buffered before the last
+        /// retry attempt failed. May be empty if every attempt failed
+        /// before yielding any chunks.
+        partial_content: String,
     },
     /// Adaptive context truncation could not fit the message history
     /// within the model's context window even after dropping older

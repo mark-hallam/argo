@@ -91,10 +91,7 @@ impl ProvidersConfig {
     /// Lookup by provider id. Missing → fresh default entry.
     #[must_use]
     pub fn entry_or_default(&self, provider_id: &str) -> ProviderEntry {
-        self.providers
-            .get(provider_id)
-            .cloned()
-            .unwrap_or_default()
+        self.providers.get(provider_id).cloned().unwrap_or_default()
     }
 
     /// Parse just the `[provider.*]` tables out of an `argo.toml`

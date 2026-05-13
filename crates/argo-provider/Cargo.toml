@@ -18,6 +18,11 @@ reqwest = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
+# `chrono` for constructing the synthetic `Assistant` message the
+# streaming_retry wrapper injects as a continuation hint
+# (`mission-streaming-aware-retry`). The struct field is already
+# `DateTime<Utc>` via argo-types; we only need the workspace re-export.
+chrono = { workspace = true }
 # tokio for `tokio::time::sleep` between retries (F-6, issue #3 (b)).
 # Workspace tokio is already `features = ["full"]`; we name `time` explicitly
 # so the local Cargo.toml documents the surface this crate uses.

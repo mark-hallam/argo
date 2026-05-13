@@ -1,6 +1,5 @@
 use super::{
-    BreakerSection, ProvidersConfig, DEFAULT_FAILURE_THRESHOLD,
-    DEFAULT_HALF_OPEN_PROBE_INTERVAL_MS,
+    BreakerSection, ProvidersConfig, DEFAULT_FAILURE_THRESHOLD, DEFAULT_HALF_OPEN_PROBE_INTERVAL_MS,
 };
 use std::time::Duration;
 

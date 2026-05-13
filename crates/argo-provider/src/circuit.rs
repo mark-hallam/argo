@@ -76,10 +76,9 @@ impl BreakerConfig {
     /// the defaults; `cooldown_max` is at least `cooldown`.
     #[must_use]
     pub fn from_env() -> Self {
-        let threshold = parse_env_u32("ARGO_CB_FAILURE_THRESHOLD")
-            .unwrap_or(DEFAULT_FAILURE_THRESHOLD);
-        let cooldown =
-            parse_env_u64("ARGO_CB_COOLDOWN_SECS").unwrap_or(DEFAULT_COOLDOWN_SECS);
+        let threshold =
+            parse_env_u32("ARGO_CB_FAILURE_THRESHOLD").unwrap_or(DEFAULT_FAILURE_THRESHOLD);
+        let cooldown = parse_env_u64("ARGO_CB_COOLDOWN_SECS").unwrap_or(DEFAULT_COOLDOWN_SECS);
         let cooldown_max = parse_env_u64("ARGO_CB_COOLDOWN_MAX_SECS")
             .unwrap_or(DEFAULT_COOLDOWN_MAX_SECS)
             .max(cooldown);
@@ -197,11 +196,7 @@ impl Breaker {
         self.try_acquire_at(provider_id, Instant::now())
     }
 
-    pub(crate) fn try_acquire_at(
-        &self,
-        provider_id: &str,
-        now: Instant,
-    ) -> ArgoResult<Permit> {
+    pub(crate) fn try_acquire_at(&self, provider_id: &str, now: Instant) -> ArgoResult<Permit> {
         let cfg = self.inner.config;
         let mut guard = self.inner.states.lock();
         let entry = guard
@@ -299,7 +294,8 @@ impl Permit {
 
     /// Record a successful call.
     pub fn record_success(mut self) {
-        self.breaker.record_success(&self.provider_id, self.is_probe);
+        self.breaker
+            .record_success(&self.provider_id, self.is_probe);
         self.consumed = true;
     }
 

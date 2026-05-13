@@ -11,9 +11,7 @@
 
 use super::{keyring_available, keyring_delete, keyring_get, keyring_set};
 use crate::cred::{self, set, CredentialBackend};
-use keyring::credential::{
-    Credential, CredentialApi, CredentialBuilderApi, CredentialPersistence,
-};
+use keyring::credential::{Credential, CredentialApi, CredentialBuilderApi, CredentialPersistence};
 use std::any::Any;
 use std::collections::HashMap;
 use std::env;
@@ -96,7 +94,10 @@ fn keyring_set_then_get_roundtrips() {
     install_mock();
     let dir = tempfile::tempdir().unwrap();
     keyring_set(dir.path(), "OPENAI_API_KEY", "sk-test-1").unwrap();
-    assert_eq!(keyring_get(dir.path(), "OPENAI_API_KEY").unwrap(), "sk-test-1");
+    assert_eq!(
+        keyring_get(dir.path(), "OPENAI_API_KEY").unwrap(),
+        "sk-test-1"
+    );
 }
 
 #[test]
@@ -115,8 +116,14 @@ fn workspaces_isolate_same_key() {
     let ws_b = tempfile::tempdir().unwrap();
     keyring_set(ws_a.path(), "POSTMARK_API_KEY", "value-a").unwrap();
     keyring_set(ws_b.path(), "POSTMARK_API_KEY", "value-b").unwrap();
-    assert_eq!(keyring_get(ws_a.path(), "POSTMARK_API_KEY").unwrap(), "value-a");
-    assert_eq!(keyring_get(ws_b.path(), "POSTMARK_API_KEY").unwrap(), "value-b");
+    assert_eq!(
+        keyring_get(ws_a.path(), "POSTMARK_API_KEY").unwrap(),
+        "value-a"
+    );
+    assert_eq!(
+        keyring_get(ws_b.path(), "POSTMARK_API_KEY").unwrap(),
+        "value-b"
+    );
 }
 
 #[test]

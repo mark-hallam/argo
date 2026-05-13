@@ -122,8 +122,9 @@ pub fn get_with_backend(
     }
     match backend {
         CredentialBackend::File => load_from_file(workspace, key),
-        CredentialBackend::Keyring => crate::cred_keyring::keyring_get(workspace, key)
-            .map_err(|_| VarError::NotPresent),
+        CredentialBackend::Keyring => {
+            crate::cred_keyring::keyring_get(workspace, key).map_err(|_| VarError::NotPresent)
+        }
         CredentialBackend::Auto => {
             if crate::cred_keyring::keyring_available() {
                 if let Ok(value) = crate::cred_keyring::keyring_get(workspace, key) {
@@ -318,7 +319,10 @@ mod tests {
         set(dir.path(), "POSTMARK_API_KEY", "pm_test").unwrap();
 
         let loaded = load(dir.path()).unwrap();
-        assert_eq!(loaded.get("POSTMARK_API_KEY").map(String::as_str), Some("pm_test"));
+        assert_eq!(
+            loaded.get("POSTMARK_API_KEY").map(String::as_str),
+            Some("pm_test")
+        );
     }
 
     #[test]
@@ -370,7 +374,10 @@ mod tests {
         set(dir.path(), "ANTHROPIC_API_KEY", "sk-'quoted'").unwrap();
 
         let lines = export_lines(dir.path(), "bash").unwrap();
-        assert_eq!(lines, vec!["export ANTHROPIC_API_KEY='sk-'\\''quoted'\\'''"]);
+        assert_eq!(
+            lines,
+            vec!["export ANTHROPIC_API_KEY='sk-'\\''quoted'\\'''"]
+        );
     }
 
     #[cfg(unix)]

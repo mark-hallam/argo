@@ -148,7 +148,12 @@ fn assemble_response_picks_text_thinking_and_tool_use() {
         "usage": {"input_tokens": 12, "output_tokens": 7}
     }))
     .unwrap();
-    let r = assemble_response(parsed, serde_json::json!({}), "anthropic", "claude-haiku-4-5");
+    let r = assemble_response(
+        parsed,
+        serde_json::json!({}),
+        "anthropic",
+        "claude-haiku-4-5",
+    );
     assert_eq!(r.text.as_deref(), Some("Calling tool."));
     assert_eq!(r.reasoning.as_deref(), Some("let me think"));
     assert_eq!(r.stop_reason, StopReason::ToolUse);
@@ -193,7 +198,8 @@ fn tool_use_and_tool_result_ids_match_in_multi_turn_request() {
         "reasoning": null,
         "created_at": "2025-01-01T00:00:00Z",
         "provider_meta": null
-    })).unwrap();
+    }))
+    .unwrap();
 
     let assistant: Message = serde_json::from_value(serde_json::json!({
         "id": "00000000-0000-7000-8000-000000000011",
@@ -210,7 +216,8 @@ fn tool_use_and_tool_result_ids_match_in_multi_turn_request() {
         "reasoning": null,
         "created_at": "2025-01-01T00:00:00Z",
         "provider_meta": null
-    })).unwrap();
+    }))
+    .unwrap();
 
     let tool: Message = serde_json::from_value(serde_json::json!({
         "id": "00000000-0000-7000-8000-000000000012",
@@ -230,7 +237,8 @@ fn tool_use_and_tool_result_ids_match_in_multi_turn_request() {
         "reasoning": null,
         "created_at": "2025-01-01T00:00:00Z",
         "provider_meta": null
-    })).unwrap();
+    }))
+    .unwrap();
 
     let req = ProviderRequest {
         model: "claude-haiku-4-5".into(),
@@ -241,11 +249,17 @@ fn tool_use_and_tool_result_ids_match_in_multi_turn_request() {
     };
     let body = build_request_body(&m, &req).unwrap();
     let messages = body["messages"].as_array().expect("messages array");
-    assert_eq!(messages.len(), 3, "expected user / assistant / user-tool_result");
+    assert_eq!(
+        messages.len(),
+        3,
+        "expected user / assistant / user-tool_result"
+    );
 
     // Locate the assistant tool_use block's id and the user
     // tool_result block's tool_use_id, then assert they're equal.
-    let asst_content = messages[1]["content"].as_array().expect("assistant content");
+    let asst_content = messages[1]["content"]
+        .as_array()
+        .expect("assistant content");
     let tool_use_id = asst_content
         .iter()
         .find_map(|b| {
@@ -255,7 +269,9 @@ fn tool_use_and_tool_result_ids_match_in_multi_turn_request() {
         })
         .expect("assistant message must carry a tool_use block");
 
-    let tool_content = messages[2]["content"].as_array().expect("tool_result content");
+    let tool_content = messages[2]["content"]
+        .as_array()
+        .expect("tool_result content");
     let tool_result_ref = tool_content
         .iter()
         .find_map(|b| {
@@ -278,6 +294,11 @@ fn assemble_response_handles_missing_stop_reason_as_end_turn() {
         "content":[{"type":"text","text":"hi"}]
     }))
     .unwrap();
-    let r = assemble_response(parsed, serde_json::json!({}), "anthropic", "claude-haiku-4-5");
+    let r = assemble_response(
+        parsed,
+        serde_json::json!({}),
+        "anthropic",
+        "claude-haiku-4-5",
+    );
     assert_eq!(r.stop_reason, StopReason::EndTurn);
 }
