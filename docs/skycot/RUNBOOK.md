@@ -79,119 +79,12 @@ separate files now.
 
 ## Genesis API
 
-Two JSON endpoints back the SPA "hire a worker" flow (Track E2-c
-+ E2-d). v1 is a thin HTTP wrapper around the existing
-`argo-genesis` pipeline; the keyword classifier runs offline so
-cost is reported as `null`.
-
-### `POST /api/v1/genesis/classify`
-
-**Body**
-
-```json
-{ "problem": "Marketing intern to handle our weekly newsletter" }
-```
-
-`problem` is required, must be at least 15 trimmed characters.
-
-**200 response**
-
-```json
-{
-  "classification": "marketing_intern",
-  "questions": [
-    { "id": "role", "text": "...", "answer_type": "free-text", "required": true },
-    { "id": "name", "text": "...", "answer_type": "free-text", "required": true },
-    { "id": "industry", "text": "...", "answer_type": "free-text", "required": false },
-    { "id": "duties", "text": "...", "answer_type": "free-text", "required": true },
-    { "id": "channels", "text": "...", "answer_type": "multi-select",
-      "options": ["slack-dm", "email", "sms", "discord", "whatsapp"], "required": true },
-    { "id": "spend_cap", "text": "...", "answer_type": "free-text", "required": true }
-  ],
-  "cost_usd": null
-}
-```
-
-`classification` is one of the 12 archetype slugs or `"unknown"`
-when no keyword matches. `cost_usd` is `null` in v1 — the
-hardening brief `mission-enterprise-genesis-cost-cap` wires
-per-tenant cost tracking.
-
-**Errors**
-
-- `400 bad_request` — body parse error, missing `problem`, or
-  `problem` shorter than 15 trimmed characters.
-- `408 timeout` — Genesis pipeline exceeded 30s (LLM-classifier
-  rollout safety net; the v1 keyword path completes in
-  microseconds).
-
-**Example**
-
-```bash
-curl -sS -X POST http://localhost:8080/api/v1/genesis/classify \
-  -H "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"problem":"Customer support agent for our SaaS billing tickets"}'
-```
-
-### `POST /api/v1/genesis/draft-worker`
-
-**Body**
-
-```json
-{
-  "problem": "Marketing intern to handle our weekly newsletter",
-  "answers": {
-    "role": "marketing intern",
-    "name": "Maya",
-    "industry": "B2B SaaS",
-    "duties": ["draft newsletter", "post to LinkedIn", "qualify leads"],
-    "channels": ["slack-dm", "email"],
-    "spend_cap": 50
-  },
-  "adjustment": "Avoid emailing leads on weekends."
-}
-```
-
-`answers` is the operator's responses to the question set returned
-by `/classify`. `adjustment` is optional free text appended to the
-charter (used by the Adjust drawer in E2-e). `duties` and
-`channels` accept either a JSON array or a delimited string for
-forward-compat with pre-E2-d clients.
-
-**200 response**
-
-```json
-{
-  "worker_draft": {
-    "suggestedName": "Maya",
-    "persona": "maya",
-    "charter": "...full rendered charter...",
-    "duties": ["draft newsletter", "post to LinkedIn", "qualify leads"],
-    "exampleReplies": ["Sure — I can ...", "..."],
-    "approvalPolicy": "5 of 8 actions require operator approval. ...",
-    "suggestedVertical": "marketing_intern_maya"
-  },
-  "cost_usd": null
-}
-```
-
-**Errors**
-
-- `400 bad_request` — body parse error, missing `problem` /
-  `answers`, missing required answer (`role`, `name`, `duties`,
-  `channels`, `spend_cap`), non-positive `spend_cap`.
-- `408 timeout` — Genesis pipeline exceeded 30s.
-- `500 internal` — Genesis pipeline error (rare; usually means an
-  invalid persona slug or template-loader failure).
-
-**Auth + audit**
-
-Both endpoints require the same bearer token as every other
-`/sessions*` write. Every successful call writes one
-`http.request` audit row with the Genesis-specific payload
-`{endpoint, problem_length, question_count, cost_usd}` so
-operators can replay hire-flow attempts via `argo audit query`.
+See [`runbook/genesis-api.md`](runbook/genesis-api.md) for the full
+Genesis API operator guide — the two JSON endpoints
+(`POST /api/v1/genesis/classify` and
+`POST /api/v1/genesis/draft-worker`) that back the SPA "hire a
+worker" flow, with request/response shapes, error codes, auth, and
+audit-row payloads.
 
 ---
 
@@ -383,256 +276,33 @@ explicit non-goals in v1. Single-tenant deployments only.
 
 ## Context-window compression
 
-Long-running sessions can blow past a model's context-window cap
-(200K tokens for Claude Sonnet 4.x, 128K for `gpt-4o`, etc.). The
-runtime reacts before the provider rejects the call: when the
-running token-count crosses a configurable trigger (default 80% of
-`model.context_window_tokens`), older turns are summarised into a
-single synthetic `assistant` message wrapped in
-`<summary>…</summary>`, and the rest of the history (system prompt
-+ last N user turns, default N=10) is kept verbatim.
-
-The DB representation of `session.messages` is left untouched —
-compression is a *view*, applied to the next turn's model input. A
-later replay or `argo audit query session-replay` recovers the
-original chain.
-
-### Operator knobs (`argo.toml`)
-
-```toml
-[runtime.context_compress]
-enabled = true            # master enable
-trigger_pct = 80          # fire at 80% of model context window
-keep_last_turns = 10      # trailing user turns kept verbatim
-summary_max_tokens = 500  # cap on the generated summary
-```
-
-Aggressive operators set `trigger_pct = 70` to compress earlier
-(useful when the summariser itself is on a small model and you want
-budget headroom for it). Setting `enabled = false` short-circuits
-the path entirely — the runtime falls back to the previous
-truncate-or-fail behaviour and is responsible for that downside.
-
-### Audit trail
-
-Each compression pass writes one `runtime.context_compressed` audit
-row with payload:
-
-```json
-{
-  "pre_token_count": 184320,
-  "post_token_count": 47210,
-  "summary_length_tokens": 463,
-  "turns_compressed": 42
-}
-```
-
-`argo audit query --kind runtime.context_compressed` answers "how
-often is this session paying the summarisation cost?" and feeds the
-operator's decision on whether to drop `trigger_pct` further or
-shorten `keep_last_turns`.
-
-### What this is NOT
-
-- **Not lossless.** The summary is a model-generated paraphrase;
-  exact wording from collapsed turns is gone from the model-input
-  view. The DB still has the originals if you need them.
-- **Not a replacement for shorter sessions.** Compression buys
-  headroom; it does not make the model retain everything.
-- **Not multimodal-aware.** Image / audio content blocks are not
-  compressed in v1 — only text turns participate in the summary.
-
-### Fallback: adaptive truncation
-
-Compression is the preferred path, but it leans on an LLM call and so
-can itself fail (rate-limit, refusal, network). It also cannot help
-when a *single* turn is too big to fit — a 200K-token tool dump
-cannot be summarised below 200K tokens without losing the load-bearing
-output. For both cases, `argo_runtime::context_truncate` provides a
-deterministic fallback:
-
-- Drops older user/assistant turns FIFO; never touches the system
-  prompt, the last user turn, the last assistant turn, or
-  `Tool`-role messages within the last 3 user-turn boundaries.
-- As a last resort, replaces a single oversized turn (default
-  >50% of the window) with `[...truncated XXX tokens of tool
-  output...]` so the provider transport accepts the call.
-- Writes one `runtime.context_truncated` audit row per pass with
-  payload `{ pre_token_count, post_token_count, turns_dropped,
-  intra_turn_truncations }`.
-- Hard-fails with `ArgoError::ContextWindowExhausted` when even the
-  minimum (system prompt + last user turn) cannot fit — the caller
-  must handle, never silently accept.
-
-`argo audit query --kind runtime.context_truncated` answers "how
-often did the deterministic fallback kick in?" — a non-zero rate
-relative to `runtime.context_compressed` is the operator's signal to
-investigate compression failures.
+See [`runbook/context-window-compression.md`](runbook/context-window-compression.md)
+for the full guide — the trigger-based summarisation that keeps
+long-running sessions inside the provider's context-window cap,
+the operator knobs in `[runtime.context_compress]`, the
+`runtime.context_compressed` audit payload, and the deterministic
+`context_truncate` fallback for when summarisation itself fails or
+a single turn is too big to fit.
 
 ---
 
 ## Action throttling
 
-Some action types — `send_email`, `post_listing`, `create_invoice`
-— have natural per-minute rate limits at the downstream API.
-Without a worker-side gate, dispatch fires as fast as the loop
-spins, hits 429s, then burns retry budget on avoidable load.
-
-`mission-per-action-type-throttling` adds a token-bucket gate at
-the dispatch layer. The bucket is keyed by
-`(tenant_id, action_type)` — one slow tenant cannot starve
-another tenant's dispatch.
-
-### How it works
-
-- One [`ThrottleRegistry`] per supervisor / dispatcher.
-- For each dispatch attempt, the runtime calls
-  `try_acquire(tenant_id, action_type, Utc::now())`.
-- `Proceed` → fire the action immediately.
-- `Wait { delay }` → yield to the scheduler for `delay` and retry.
-  No busy-wait — the gate stays at the dispatch layer.
-- When the cumulative wait observed across one dispatch's poll
-  loop crosses `audit_threshold_secs` (default 10s), the dispatcher
-  emits a `runtime.action_throttled` audit row with payload
-  `{ action_type, queued_for_secs, tenant_id }`.
-
-### Operator knobs (`argo.toml`)
-
-```toml
-[runtime.action_throttle]
-enabled = true              # master enable, default false
-audit_threshold_secs = 10   # emit audit row when wait ≥ this
-
-[runtime.action_throttle.policies.send_email]
-tokens_per_sec = 5.0
-burst = 10
-
-[runtime.action_throttle.policies.post_listing]
-tokens_per_sec = 2.0
-burst = 3
-```
-
-Disabled by default — the runtime dispatch path is zero-overhead
-until `enabled = true`. Per-action policies are opt-in; an action
-type absent from the `policies` table dispatches without
-throttling even when the master enable is on.
-
-### Inspection
-
-```text
-$ argo doctor throttles
-argo doctor throttles — per-action-type throttle gate
-  status:            ENABLED
-  audit threshold:   10s (runtime.action_throttled when wait ≥)
-  policies (2):
-    - post_listing: 2 tok/s, burst 3
-    - send_email: 5 tok/s, burst 10
-  buckets:           (no live state — registry inspection is CLI-snapshot only in v1)
-```
-
-`argo doctor throttles --json` is the contract; the text form is
-operator convenience.
-
-### Sustained throttling means under-tuned config
-
-A `runtime.action_throttled` row firing once is normal — bursts
-exceed steady-state by design. A *sustained* stream of audit rows
-at the same `(tenant_id, action_type)` means `tokens_per_sec` is
-too tight for the workload. Either raise the rate, raise `burst`,
-or accept the queueing and watch the dispatch latency rise.
-
-### What this is NOT
-
-- **Not a per-action-instance rate limiter.** v1 throttles by
-  type, not by recipient (per-prospect / per-customer). That
-  would multiply bucket count by N and is a different brief.
-- **Not a priority queue.** FIFO in v1 — every blocked dispatch
-  gets the same `Wait` treatment regardless of caller.
-- **Not multi-host coordinated.** Single-host coverage. Distributed
-  rate-limiting (Redis-token or equivalent) is the zero-trust
-  brief's surface, not this one.
+See [`runbook/action-throttling.md`](runbook/action-throttling.md)
+for the full guide — the per-`(tenant_id, action_type)`
+token-bucket gate at the dispatch layer, its `argo.toml` policies,
+`argo doctor throttles` inspection, and how to read sustained
+`runtime.action_throttled` audit rows as a "tighten or widen"
+signal.
 
 ## Sandbox pre-warming
 
-E2B sandbox creation has a cold-start cost (~10-15s). When a
-vertical fires a burst of sandboxed actions in succession, each
-cold-start chains. The
-`argo-executor-computer-use::sandbox_prewarm` module keeps a
-small reservoir of pre-opened sandboxes during high-activity
-windows so the next acquire returns instantly.
-
-### When to enable
-
-Demo, real-time, and customer-facing workloads — anywhere a
-multi-second wait between actions is visible to the operator or
-end-user. Nightly-batch tenants should leave this off: the
-pre-warm reservoir consumes E2B-minutes even when unused, and
-batch latency hides cold-start cost in queue time anyway.
-
-### Triggers
-
-Two triggers drive admission to the reservoir, both bounded by
-`max_prewarm`:
-
-1. **Sliding-window spawn rate.** Every demand for a sandbox
-   (slot miss + reservoir miss) lands in a sliding window
-   (`window_seconds`, default 300s). When the count *strictly
-   exceeds* `spawn_rate_threshold` (default 3), the prewarmer
-   opens `burst_size` (default 2) extra sandboxes in the
-   background.
-2. **Hourly tick during operator-active hours.** Once per active
-   hour the prewarmer opens one sandbox. Active hours are the
-   inverse of the operator's quiet-hours block; empty
-   `active_hours` means "every hour is active".
-
-### Configuration
-
-```toml
-[runtime.sandbox_prewarm]
-enabled = false                 # opt-in
-spawn_rate_threshold = 3        # spawns/window above which burst fires
-max_prewarm = 5                 # reservoir cap
-window_seconds = 300            # sliding-window width
-burst_size = 2                  # extra sandboxes per burst
-idle_ttl_seconds = 600          # reservoir reaper TTL
-active_hours = []               # empty = every hour active
-```
-
-### Audit trail
-
-The prewarmer emits two structured-log kinds via `tracing`:
-
-- `runtime.sandbox_prewarmed` — one per sandbox admitted to the
-  reservoir. Fields: `template`, `sandbox_id`, `occupancy`.
-- `runtime.sandbox_prewarm_consumed` — one per FIFO take of a
-  pre-warmed sandbox by dispatch. Fields: `template`,
-  `sandbox_id`, `occupancy`.
-
-A `runtime.sandbox_prewarm_open_failed` warn-row surfaces when
-the background open call fails — pre-warming is best-effort,
-never a correctness requirement.
-
-### Pairing with the sandbox-pool reaper
-
-Pre-warming creates; the out-of-band reaper
-(`argo-executor-computer-use::e2b_reap_cron`) destroys idle
-sandboxes E2B-side. The two balance: an over-eager pre-warm
-threshold burns wallet, an over-aggressive reaper drops
-just-warmed sandboxes before they're used. The shipped defaults
-(threshold 3, reservoir 5, idle TTL 600s) leave comfortable
-headroom for demo-cadence workloads. Operators tuning either
-knob should watch both audit streams together.
-
-### What this is NOT
-
-- **Not ML-driven.** The trigger model is a sliding-window
-  heuristic + an hourly tick. No prediction, no anomaly
-  detection. If your traffic doesn't fit "bursty around active
-  hours," disable this and let the in-band pool handle cold opens.
-- **Not multi-tenant-budgeted.** v1 uses a single global
-  reservoir cap. Per-tenant pre-warm budgets are a follow-up.
-- **Not for non-E2B sandbox types.** Wayland and native sandboxes
-  have different lifecycle costs; this brief covers E2B only.
+See [`runbook/sandbox-prewarming.md`](runbook/sandbox-prewarming.md)
+for the full guide — the
+`argo-executor-computer-use::sandbox_prewarm` reservoir that hides
+E2B cold-start cost during operator-active hours, its sliding-window
++ hourly-tick triggers, the `[runtime.sandbox_prewarm]` knobs, and
+how it pairs with the out-of-band E2B reaper.
 
 ## Fuzz testing
 
@@ -815,99 +485,8 @@ non-additive change, disaster recovery): see
 
 ## At-rest encryption
 
-SKYCOT supports opt-in, page-level encryption of the workspace
-SQLite database via [SQLCipher](https://www.zetetic.net/sqlcipher/).
-The wire is feature-gated; stock builds ship pure-Rust `sqlx`,
-which is not linked against SQLCipher and writes plaintext pages.
-Enterprise builds enable the `sqlcipher` Cargo feature and link
-against a SQLCipher-compiled `libsqlite3`; from that point onward
-the `[security.encryption] key_source` config controls whether
-fresh connections issue `PRAGMA key`.
-
-### Configuring the key source
-
-Set the key source in `argo.toml`:
-
-```toml
-[security.encryption]
-# One of:
-#   "none"                                 — plaintext (default)
-#   "env:ARGO_DB_ENCRYPTION_KEY"           — raw hex key from env var
-#   "file:/var/run/secrets/argo/db.key"    — raw hex key from a file
-key_source = "env:ARGO_DB_ENCRYPTION_KEY"
-```
-
-The key value itself must be exactly **64 lowercase hex characters
-(32 bytes / AES-256)**. Trailing whitespace is stripped before
-validation. Non-hex characters or wrong-length values fail loudly
-on startup — fail-closed is intentional.
-
-The key value is **never logged**. `Debug` for `KeySource` only
-ever prints `<redacted>`; tracing spans that capture configuration
-intentionally exclude the resolved key.
-
-### Enabling on a new workspace
-
-1. Generate a fresh 256-bit key:
-   ```bash
-   openssl rand -hex 32 > /var/run/secrets/argo/db.key
-   chmod 0400 /var/run/secrets/argo/db.key
-   ```
-2. Point `[security.encryption] key_source` at the env var or file.
-3. Restart the gateway / re-bootstrap the workspace. On first
-   write the SQLCipher-linked driver encrypts every page.
-
-### Rotating the key (in place)
-
-Use `argo db rekey --new-key-source <spec>`:
-
-```bash
-# Generate the new key in its destination first.
-openssl rand -hex 32 > /var/run/secrets/argo/db.key.next
-chmod 0400 /var/run/secrets/argo/db.key.next
-
-# Rotate. The old key is loaded from the current
-# [security.encryption] key_source; the new key from --new-key-source.
-argo db rekey --new-key-source file:/var/run/secrets/argo/db.key.next
-
-# Atomically swap the secret file once rekey succeeds, then update
-# argo.toml's key_source pointer and restart the gateway so future
-# connections use the new key.
-mv /var/run/secrets/argo/db.key.next /var/run/secrets/argo/db.key
-```
-
-`argo db rekey` issues `PRAGMA rekey` in-place — it does **not**
-itself rewrite `argo.toml`. The operator is responsible for the
-config-flip + restart after a successful rotation.
-
-### Backups and key custody
-
-> **Losing the key means losing the data.** SQLCipher pages are
-> AES-256 encrypted; there is no recovery, no support escalation,
-> no vendor reset that can decrypt a page-encrypted database
-> without the key. This is the same security posture as full-disk
-> encryption — operator-managed key custody is the security model.
-
-Back up the key alongside (but not co-located with) the database
-backup. A safe operator pattern is:
-
-- Key lives in your secrets manager (Vault, KMS, 1Password Business,
-  AWS Secrets Manager, etc.) and is materialised to the host at boot.
-- The on-disk file (`/var/run/secrets/argo/db.key`) is on a `tmpfs`
-  mount so it never persists across reboots.
-- The DB backup goes to S3 / GCS / Backblaze B2; the key never goes
-  to the same destination.
-
-### Operational notes
-
-- `argo db rekey` is the only supported rotation surface. There is
-  no programmatic rekey API — it is intentionally CLI-only to make
-  rotation a deliberate operator action.
-- One DB = one key in v1. Per-tenant keys, HSM integration, and
-  FIPS-140-3 validation are out of scope; SQLCipher Commercial
-  Edition is the procurement seam for FIPS, and per-tenant keys
-  are tracked under `mission-byok-enterprise-tenants`.
-- Stock (no-SQLCipher) builds accept the `sqlcipher` feature toggle
-  and a configured `key_source`, but the underlying driver
-  silently drops `PRAGMA key` — there is no encryption until the
-  binary is rebuilt against a SQLCipher-linked `libsqlite3`.
+See [`runbook/at-rest-encryption.md`](runbook/at-rest-encryption.md)
+for the full operator guide — opt-in SQLCipher page-level
+encryption of the workspace DB, the `[security.encryption]
+key_source` config, enabling on a fresh workspace, in-place
+rotation via `argo db rekey`, and the backup / key-custody model.
