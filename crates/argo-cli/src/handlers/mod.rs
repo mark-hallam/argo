@@ -90,6 +90,7 @@ pub mod doctor;
 pub mod doctor_approvals;
 mod doctor_env;
 pub mod doctor_fix;
+pub mod doctor_install_hooks;
 mod doctor_gateway;
 mod doctor_md;
 mod doctor_storage;
@@ -203,6 +204,9 @@ pub mod sandbox_e2b;
 pub mod security_audit;
 #[cfg(test)]
 mod security_audit_tests;
+pub mod security_scan_secrets;
+#[cfg(test)]
+mod security_scan_secrets_tests;
 pub mod security_rotate_keys;
 pub mod security_rotate_keys_registry;
 pub mod security_rotate_keys_subprocess;

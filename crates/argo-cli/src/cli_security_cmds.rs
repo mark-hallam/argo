@@ -5,6 +5,9 @@
 //! - `argo security audit` — vuln-scan wrapper around
 //!   `cargo audit` + `cargo deny check advisories` (Mission
 //!   `mission-vuln-management-workflow`).
+//! - `argo security scan-secrets` — CI parity for the pre-commit
+//!   secret-scan hook (Mission
+//!   `mission-secret-scanning-pre-commit-hook`).
 //! - `argo security rotate-keys` — key-rotation coordinator
 //!   covering DB encryption, credentials master, gateway bearer,
 //!   channel HMAC, and per-connector OAuth refresh tokens (Mission
@@ -14,6 +17,7 @@
 //! rotation" section of `docs/skycot/RUNBOOK.md` for the workflows
 //! these commands feed.
 use clap::{Args, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Subcommand, Debug)]
 pub enum SecurityCmd {
@@ -36,6 +40,12 @@ pub enum SecurityCmd {
         #[arg(long)]
         compact: bool,
     },
+    /// Scan one or more paths for likely credentials (OpenAI /
+    /// Anthropic / AWS / Stripe / Slack / GitHub / SSH private
+    /// keys / JWTs / Argo bearer tokens). CI parity for the
+    /// pre-commit hook installed by `argo doctor install-hooks`.
+    /// Exits non-zero when any unsuppressed match is found.
+    ScanSecrets(SecretScanArgs),
     /// Coordinated key-rotation operations across the workspace
     /// (Mission `mission-automated-key-rotation`).
     RotateKeys {
@@ -111,6 +121,23 @@ pub struct RotateKeysAuditAgeArgs {
     pub threshold: u32,
     /// Emit a single JSON envelope (`{stale, fresh, threshold_days}`)
     /// instead of human-readable status.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct SecretScanArgs {
+    /// One or more file or directory paths to scan. Directories
+    /// are walked recursively, skipping `.git/` and files whose
+    /// first 1 KiB contains a NUL byte (binary heuristic).
+    pub paths: Vec<PathBuf>,
+    /// Path to the operator allowlist. Defaults to
+    /// `.skycot/secret-scan-allowlist.toml`. Missing file is OK
+    /// (treated as empty allowlist); malformed TOML is fatal.
+    #[arg(long)]
+    pub allowlist: Option<PathBuf>,
+    /// Emit findings as one JSON array on stdout. Default is a
+    /// human-readable `file:line: [id] human -> redacted` per match.
     #[arg(long)]
     pub json: bool,
 }

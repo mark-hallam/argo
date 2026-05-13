@@ -41,6 +41,20 @@ pub enum DoctorCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Copy the canonical pre-commit secret-scan hook into
+    /// `.git/hooks/pre-commit`. Refuses to overwrite an existing
+    /// hook unless `--force` is passed (operator may have local
+    /// customisations). Mission
+    /// `mission-secret-scanning-pre-commit-hook`.
+    InstallHooks {
+        /// Overwrite the existing `.git/hooks/pre-commit` even if
+        /// the operator has a custom hook there.
+        #[arg(long)]
+        force: bool,
+        /// Emit a JSON envelope describing the install outcome.
+        #[arg(long)]
+        json: bool,
+    },
     /// List the in-process per-action-type throttle buckets
     /// (`mission-per-action-type-throttling`). Reports the
     /// configured policies and any live `(tenant_id, action_type)`

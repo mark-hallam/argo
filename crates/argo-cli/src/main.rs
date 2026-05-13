@@ -315,6 +315,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Sandbox { cmd }) => handlers::sandbox_e2b::run(cmd).await,
         Some(Command::Security { cmd }) => match cmd {
             audit @ cli::SecurityCmd::Audit { .. } => handlers::security_audit::run(audit).await,
+            cli::SecurityCmd::ScanSecrets(args) => handlers::security_scan_secrets::run(args),
             cli::SecurityCmd::RotateKeys { cmd } => {
                 handlers::security_rotate_keys::dispatch(cmd).await
             }

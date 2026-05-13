@@ -30,6 +30,9 @@ pub async fn dispatch(cmd: Option<DoctorCmd>, json: bool, format: String) -> Arg
             since,
             json: cmd_json,
         }) => super::doctor_approvals::run(&since, json || cmd_json).await,
+        Some(DoctorCmd::InstallHooks { force, json: ih_json }) => {
+            super::doctor_install_hooks::run(force, json || ih_json)
+        }
         Some(DoctorCmd::Throttles { json: t_json }) => {
             super::doctor_throttles::run(json || t_json).await
         }
