@@ -85,6 +85,7 @@ pub mod connector_revoke;
 pub mod connector_show;
 pub mod connector_test;
 pub mod db;
+pub mod db_rekey;
 pub mod doctor;
 pub mod doctor_approvals;
 mod doctor_env;

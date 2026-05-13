@@ -116,6 +116,9 @@ pub mod team_roster_mutations;
 /// the `POST /api/v1/audit/elevated-view-request` handler and revoked
 /// by `DELETE /api/v1/audit/elevated-view-grants/<id>`.
 pub mod elevated_view_grant;
+/// At-rest encryption key resolution + `PRAGMA key`/`rekey` helpers
+/// (Stream `mission-encryption-at-rest-sqlcipher`).
+pub mod encryption;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Quota kind enums + error type for the tenant_quota gate
@@ -269,6 +272,30 @@ impl SessionStore {
         profile: wal_tuning::WalTuningProfile,
     ) -> StoreResult<Self> {
         store_open::open_with_profile(path, profile).await
+    }
+
+    /// Open with `PRAGMA key` applied from the supplied
+    /// [`encryption::KeySource`] before any other SQL runs. When the
+    /// key source resolves to `None` this behaves exactly like
+    /// [`SessionStore::open_with_profile`].
+    ///
+    /// ```no_run
+    /// # async fn run() -> argo_store::StoreResult<()> {
+    /// use argo_store::{SessionStore, wal_tuning::WalTuningProfile};
+    /// use argo_store::encryption::KeySource;
+    /// let key_source = KeySource::parse("env:ARGO_DB_ENCRYPTION_KEY")?;
+    /// let store = SessionStore::open_with_encryption(
+    ///     ":memory:", WalTuningProfile::Default, &key_source,
+    /// ).await?;
+    /// store.migrate().await?;
+    /// # Ok(()) }
+    /// ```
+    pub async fn open_with_encryption(
+        path: impl AsRef<Path>,
+        profile: wal_tuning::WalTuningProfile,
+        key_source: &encryption::KeySource,
+    ) -> StoreResult<Self> {
+        store_open::open_with_encryption(path, profile, key_source).await
     }
 
     /// Apply all pending migrations.

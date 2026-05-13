@@ -5,6 +5,11 @@ use argo_store::SessionStore;
 use argo_types::ArgoResult;
 
 pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
+    // `Rekey` opens its own pool with `[security.encryption] key_source`
+    // applied; dispatch it before the generic plaintext-store open below.
+    if let DbCmd::Rekey { new_key_source, json } = &cmd {
+        return super::db_rekey::run(new_key_source, *json).await;
+    }
     let cwd = std::env::current_dir()
         .map_err(|e| argo_types::ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
@@ -172,6 +177,7 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
                 }
             }
         }
+        DbCmd::Rekey { .. } => unreachable!("dispatched at top of run()"),
     }
     Ok(())
 }

@@ -16,13 +16,32 @@ use std::sync::Arc;
 use argo_types::ArgoError;
 
 use crate::batched_writer::{self, BatchedWriter};
+use crate::encryption::{self, KeySource};
 use crate::message_query::flush_messages;
 use crate::{pool_config, wal_tuning, SessionStore, StoreResult, EXPECTED_SCHEMA_VERSION};
 
-/// Body of [`SessionStore::open_with_profile`].
+/// Body of [`SessionStore::open_with_profile`] — no encryption pragma.
 pub(crate) async fn open_with_profile(
     path: impl AsRef<Path>,
     profile: wal_tuning::WalTuningProfile,
+) -> StoreResult<SessionStore> {
+    open_inner(path, profile, &KeySource::None).await
+}
+
+/// Body of [`SessionStore::open_with_encryption`] — applies `PRAGMA key`
+/// from `key_source` before any other SQL runs.
+pub(crate) async fn open_with_encryption(
+    path: impl AsRef<Path>,
+    profile: wal_tuning::WalTuningProfile,
+    key_source: &KeySource,
+) -> StoreResult<SessionStore> {
+    open_inner(path, profile, key_source).await
+}
+
+async fn open_inner(
+    path: impl AsRef<Path>,
+    profile: wal_tuning::WalTuningProfile,
+    key_source: &KeySource,
 ) -> StoreResult<SessionStore> {
     let path_str = path.as_ref().to_string_lossy().to_string();
     let opts = SqliteConnectOptions::from_str(&path_str)
@@ -43,6 +62,11 @@ pub(crate) async fn open_with_profile(
         .await
         .map_err(|e| ArgoError::Provider(format!("sqlite pool: {e}")))?;
 
+    // `PRAGMA key` must precede every other statement on a fresh
+    // SQLCipher-linked pool — including the WAL/journal pragmas.
+    if let Some(hex) = key_source.resolve()? {
+        encryption::apply_encryption_pragma(&pool, &hex).await?;
+    }
     wal_tuning::apply_pragmas(&pool, profile).await?;
     let pool_for_writer = pool.clone();
     let messages = Arc::new(BatchedWriter::new(

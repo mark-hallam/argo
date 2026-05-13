@@ -104,6 +104,21 @@ pub enum DbCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Rotate the at-rest encryption key in place via `PRAGMA rekey`
+    /// (Stream `mission-encryption-at-rest-sqlcipher`). The old key
+    /// is loaded from `[security.encryption] key_source` in
+    /// `argo.toml`; the new key is supplied via `--new-key-source`.
+    /// Stock builds (no SQLCipher-linked driver) succeed but do not
+    /// actually encrypt — see `docs/skycot/RUNBOOK.md`.
+    Rekey {
+        /// `env:VAR` or `file:/path` for the *new* key. `none` is
+        /// rejected — disabling encryption is a separate workflow.
+        #[arg(long)]
+        new_key_source: String,
+        /// JSON output for scripting.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

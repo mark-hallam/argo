@@ -19,6 +19,7 @@
 //! - [`crate::sections_gateway`] — `[gateway]`, `[gateway.rate_limit]`
 //! - [`crate::sections_channels`] — `[channels]`, `[channels.teams]`, `[channels.matrix]`
 //! - [`crate::sections_executor`] — `[document_csv]`
+//! - [`crate::sections_security`] — `[security]`, `[security.encryption]`
 
 pub use crate::sections_audit::AuditConfig;
 pub use crate::sections_budget::{BudgetConfig, DelegateConfig, ParallelConfig};
@@ -29,4 +30,5 @@ pub use crate::sections_gateway::{
     GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
 };
 pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, RoutingTieredConfig};
+pub use crate::sections_security::{SecurityConfig, SecurityEncryptionConfig};
 pub use crate::sections_telemetry::TelemetryConfig;

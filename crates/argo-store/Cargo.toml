@@ -22,6 +22,17 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
+# Marker feature for at-rest encryption (Stream
+# `mission-encryption-at-rest-sqlcipher`). Enabling it does NOT by
+# itself swap the linked SQLite driver — the stock sqlx 0.8 driver is
+# pure-Rust and ignores `PRAGMA key`. The feature is the operator-
+# facing toggle that downstream builds (FIPS / SQLCipher Commercial)
+# can wire to a libsqlite3-sys-with-SQLCipher fork. See
+# `docs/skycot/RUNBOOK.md` § "At-rest encryption".
+[features]
+default = []
+sqlcipher = []
+
 [[bench]]
 name = "memory_store"
 harness = false
