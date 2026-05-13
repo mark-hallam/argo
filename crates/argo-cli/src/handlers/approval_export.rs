@@ -241,7 +241,7 @@ pub(crate) fn parse_relative_or_rfc3339(raw: &str, now: DateTime<Utc>) -> ArgoRe
     }
     DateTime::parse_from_rfc3339(trimmed)
         .map(|dt| dt.with_timezone(&Utc).to_rfc3339())
-        .map_err(|e| ArgoError::Provider(format!("invalid timestamp '{raw}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid timestamp '{raw}': {e}")))
 }
 
 fn parse_relative(raw: &str) -> ArgoResult<Option<Duration>> {
@@ -254,7 +254,7 @@ fn parse_relative(raw: &str) -> ArgoResult<Option<Duration>> {
     }
     let value = digits
         .parse::<i64>()
-        .map_err(|e| ArgoError::Provider(format!("invalid duration '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid duration '{raw}': {e}")))?;
     if value <= 0 {
         return Err(ArgoError::Provider(format!(
             "duration must be positive: {raw}"

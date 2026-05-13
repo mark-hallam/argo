@@ -357,7 +357,7 @@ fn print_outcome(body: &PersonaTomlBody, json: bool) {
 fn parse_tenant(raw: &str) -> ArgoResult<TenantId> {
     uuid::Uuid::parse_str(raw)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{raw}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{raw}': {e}")))
 }
 
 async fn open_store() -> ArgoResult<OwnedStore> {

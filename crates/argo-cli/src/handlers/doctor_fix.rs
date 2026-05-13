@@ -63,7 +63,7 @@ async fn run_one(ctx: &FixContext, id: &'static str, auto: bool) -> ArgoResult<F
         "confirmation" if auto => run_confirmation(ctx, id).await,
         "confirmation" => Ok(FixReport::blocked(id, "confirmation", "requires --auto before applying confirmation-level remediation", "rerun with `argo doctor fix --auto --issue <id>` after reviewing the fix")),
         "unsafe" => Ok(run_unsafe(ctx, id)),
-        other => Err(ArgoError::Provider(format!("unknown fix category {other}"))),
+        other => Err(ArgoError::Schema(format!("unknown fix category {other}"))),
     }
 }
 
@@ -73,7 +73,7 @@ fn run_safe(ctx: &FixContext, id: &'static str) -> ArgoResult<FixReport> {
         "manifest_dir" => ensure_dir(id, "safe", &ctx.cwd.join(".argo/manifests"), "created workspace manifest directory"),
         "stale_lock" => remove_stale_lock(ctx),
         "workspace_policy" => ensure_policy(ctx),
-        _ => Err(ArgoError::Provider(format!("unknown safe fix {id}"))),
+        _ => Err(ArgoError::Schema(format!("unknown safe fix {id}"))),
     }
 }
 
@@ -81,7 +81,7 @@ async fn run_confirmation(ctx: &FixContext, id: &'static str) -> ArgoResult<FixR
     match id {
         "migrations" => run_migrations(ctx).await,
         "vertical_required_fields" => patch_verticals(ctx),
-        _ => Err(ArgoError::Provider(format!("unknown confirmation fix {id}"))),
+        _ => Err(ArgoError::Schema(format!("unknown confirmation fix {id}"))),
     }
 }
 
@@ -193,11 +193,11 @@ fn ids_for(issue: Option<&str>) -> ArgoResult<Vec<&'static str>> {
 }
 
 fn canonical_id(raw: &str) -> ArgoResult<&'static str> {
-    SAFE.iter().chain(CONFIRM.iter()).chain(UNSAFE.iter()).copied().find(|id| *id == raw).ok_or_else(|| ArgoError::Provider(format!("unknown doctor fix issue '{raw}'")))
+    SAFE.iter().chain(CONFIRM.iter()).chain(UNSAFE.iter()).copied().find(|id| *id == raw).ok_or_else(|| ArgoError::Schema(format!("unknown doctor fix issue '{raw}'")))
 }
 
 fn kind_for(id: &str) -> ArgoResult<&'static str> {
-    if SAFE.contains(&id) { Ok("safe") } else if CONFIRM.contains(&id) { Ok("confirmation") } else if UNSAFE.contains(&id) { Ok("unsafe") } else { Err(ArgoError::Provider(format!("unknown doctor fix issue '{id}'"))) }
+    if SAFE.contains(&id) { Ok("safe") } else if CONFIRM.contains(&id) { Ok("confirmation") } else if UNSAFE.contains(&id) { Ok("unsafe") } else { Err(ArgoError::Schema(format!("unknown doctor fix issue '{id}'"))) }
 }
 
 fn print_text(envelope: &FixEnvelope) {

@@ -25,7 +25,7 @@ pub(super) async fn print_count(
     let session_bytes = match session.as_deref() {
         Some(s) => Some(
             uuid::Uuid::parse_str(s)
-                .map_err(|e| ArgoError::Provider(format!("invalid session id '{s}': {e}")))?
+                .map_err(|e| ArgoError::Schema(format!("invalid session id '{s}': {e}")))?
                 .as_bytes()
                 .to_vec(),
         ),

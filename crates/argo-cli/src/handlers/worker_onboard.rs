@@ -269,7 +269,7 @@ fn required<'a>(value: Option<&'a str>, label: &str) -> ArgoResult<&'a str> {
     value
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| ArgoError::Provider(format!("missing required {label}")))
+        .ok_or_else(|| ArgoError::Schema(format!("missing required {label}")))
 }
 fn parse_worker_id(value: &str) -> ArgoResult<WorkerId> {
     value.parse()

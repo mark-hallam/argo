@@ -71,7 +71,7 @@ fn parse_interval(raw: &str) -> ArgoResult<Duration> {
     } else if let Some(mins) = raw.strip_suffix('m') {
         let mins = parse_positive(mins, raw)?;
         let secs = mins.checked_mul(60).ok_or_else(|| {
-            ArgoError::Provider(format!("invalid --interval '{raw}': duration too large"))
+            ArgoError::Schema(format!("invalid --interval '{raw}': duration too large"))
         })?;
         Duration::from_secs(secs)
     } else {

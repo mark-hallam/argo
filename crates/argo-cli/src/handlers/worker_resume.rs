@@ -13,9 +13,9 @@ pub(crate) async fn run(
     json: bool,
 ) -> ArgoResult<()> {
     uuid::Uuid::parse_str(tenant)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{tenant}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{tenant}': {e}")))?;
     let worker = WorkerId::from_str(worker_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid worker id '{worker_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid worker id '{worker_id}': {e}")))?;
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;

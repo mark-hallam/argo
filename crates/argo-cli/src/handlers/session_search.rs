@@ -37,7 +37,7 @@ pub(super) async fn run(
         let raw = match session {
             Some(raw) => {
                 let id = uuid::Uuid::parse_str(raw).map_err(|e| {
-                    ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+                    ArgoError::Schema(format!("invalid session id '{raw}': {e}"))
                 })?;
                 store
                     .search_messages_in_session(SessionId(id), query, HARD_CAP)
@@ -71,7 +71,7 @@ pub(super) async fn run(
     let mut hits = match session {
         Some(raw) => {
             let id = uuid::Uuid::parse_str(raw)
-                .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+                .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
             store
                 .search_messages_in_session(SessionId(id), query, limit)
                 .await?

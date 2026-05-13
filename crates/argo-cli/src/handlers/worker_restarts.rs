@@ -104,7 +104,7 @@ fn parse_since(raw: &str) -> ArgoResult<i64> {
     let (digits, unit) = raw.split_at(raw.len() - 1);
     let value: i64 = digits
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("invalid --since '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid --since '{raw}': {e}")))?;
     if value <= 0 {
         return Err(ArgoError::Provider(format!(
             "--since must be positive: {raw}"

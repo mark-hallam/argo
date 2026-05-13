@@ -162,7 +162,7 @@ fn lock_label(lock: Lock) -> &'static str {
 fn parse_skill_id(raw: &str) -> ArgoResult<SkillId> {
     Uuid::parse_str(raw)
         .map(SkillId)
-        .map_err(|e| ArgoError::Provider(format!("invalid skill id '{raw}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid skill id '{raw}': {e}")))
 }
 
 async fn lookup_by_id(skills: &SkillStore, target: SkillId) -> ArgoResult<Skill> {

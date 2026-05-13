@@ -36,7 +36,7 @@ pub async fn run(store: &Arc<SessionStore>, args: ShowArgs) -> ArgoResult<()> {
         .map(|m| (chrono::Utc::now() - chrono::Duration::minutes(m)).timestamp_micros());
     if let Some(raw) = session {
         let id = uuid::Uuid::parse_str(&raw)
-            .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+            .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
         let mut rows = rows_for_session(store, SessionId(id)).await?;
         if let Some(allowed) = &kind_filter {
             rows.retain(|r| allowed.contains(r.kind.as_str()));
@@ -180,7 +180,7 @@ async fn watch_audit(
     let kind_filter = parse_kinds(kinds);
     let session_id = match session {
         Some(raw) => Some(SessionId(uuid::Uuid::parse_str(raw).map_err(|e| {
-            ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+            ArgoError::Schema(format!("invalid session id '{raw}': {e}"))
         })?)),
         None => None,
     };

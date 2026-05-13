@@ -13,7 +13,7 @@ use uuid::Uuid;
 /// Entry point for the `History` clap variant.
 pub async fn run(worker_id: &str, limit: u32, json: bool) -> ArgoResult<()> {
     let worker_uuid = Uuid::parse_str(worker_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid worker id '{worker_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid worker id '{worker_id}': {e}")))?;
     let store = open_store().await?;
     let revisions = list_persona_revisions(store.pool(), worker_uuid, limit).await?;
     if json {

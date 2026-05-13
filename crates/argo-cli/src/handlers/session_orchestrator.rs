@@ -23,13 +23,13 @@ pub async fn run_handoff(cmd: HandoffCmd) -> ArgoResult<()> {
 
 pub(super) async fn start_orchestrator_session(tenant: Option<&str>, title: &str, worker: Option<&str>, json: bool) -> ArgoResult<()> {
     let tenant = tenant_id(tenant)?;
-    let worker = worker.map(WorkerId::from_str).transpose().map_err(|e| ArgoError::Provider(format!("invalid worker id: {e}")))?;
+    let worker = worker.map(WorkerId::from_str).transpose().map_err(|e| ArgoError::Schema(format!("invalid worker id: {e}")))?;
     let (store, repo) = orchestrator_store_and_repo().await?;
     let mut session = Session::new(tenant, title);
     if let Some(w) = worker { session.add_participant(w); }
     repo.insert_session(&session).await?;
     if let Some(w) = worker {
-        let sid = uuid::Uuid::parse_str(session.id.as_str()).map(StoreSessionId).map_err(|e| ArgoError::Provider(format!("invalid session id '{}': {e}", session.id)))?;
+        let sid = uuid::Uuid::parse_str(session.id.as_str()).map(StoreSessionId).map_err(|e| ArgoError::Schema(format!("invalid session id '{}': {e}", session.id)))?;
         store.set_session_worker_id(sid, Some(StoreWorkerId(w.0))).await?;
     }
     print_json_or_text(json, &session, || session.id.to_string())
@@ -95,7 +95,7 @@ async fn list_handoffs(
     let mut out = if let Some(s) = session {
         repo.list_handoffs_for_session(tenant, &argo_orchestrator::SessionId::from_string(s.to_string())).await?
     } else if let Some(w) = worker {
-        repo.list_pending_handoffs_for_worker(tenant, WorkerId::from_str(w).map_err(|e| ArgoError::Provider(format!("invalid worker id '{w}': {e}")))?).await?
+        repo.list_pending_handoffs_for_worker(tenant, WorkerId::from_str(w).map_err(|e| ArgoError::Schema(format!("invalid worker id '{w}': {e}")))?).await?
     } else {
         return Err(ArgoError::Provider("handoff list requires --session or --worker".into()));
     };
@@ -146,7 +146,7 @@ async fn orchestrator_store_and_repo() -> ArgoResult<(Arc<SessionStore>, Orchest
 fn tenant_id(raw: Option<&str>) -> ArgoResult<TenantId> {
     let raw = raw.map(ToOwned::to_owned).or_else(|| std::env::var("ARGO_DEFAULT_TENANT").ok())
         .ok_or_else(|| ArgoError::Provider("missing --tenant (or ARGO_DEFAULT_TENANT)".into()))?;
-    uuid::Uuid::parse_str(&raw).map(TenantId).map_err(|e| ArgoError::Provider(format!("invalid tenant id '{raw}': {e}")))
+    uuid::Uuid::parse_str(&raw).map(TenantId).map_err(|e| ArgoError::Schema(format!("invalid tenant id '{raw}': {e}")))
 }
 
 fn parse_handoff_status(raw: &str) -> ArgoResult<HandoffStatus> {
@@ -156,7 +156,7 @@ fn parse_handoff_status(raw: &str) -> ArgoResult<HandoffStatus> {
         "settled" => Ok(HandoffStatus::Settled),
         "expired" => Ok(HandoffStatus::Expired),
         "cancelled" => Ok(HandoffStatus::Cancelled),
-        other => Err(ArgoError::Provider(format!("invalid handoff status '{other}'"))),
+        other => Err(ArgoError::Schema(format!("invalid handoff status '{other}'"))),
     }
 }
 

@@ -205,7 +205,7 @@ fn parse_bound(raw: &str, until: bool, flag: &str) -> ArgoResult<i64> {
     } else {
         date.and_hms_micro_opt(0, 0, 0, 0)
     }
-    .ok_or_else(|| ArgoError::Provider(format!("invalid {flag} date '{raw}'")))?;
+    .ok_or_else(|| ArgoError::Schema(format!("invalid {flag} date '{raw}'")))?;
     Ok(DateTime::<Utc>::from_naive_utc_and_offset(time, Utc).timestamp_micros())
 }
 

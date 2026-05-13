@@ -207,7 +207,7 @@ fn parse_tenant(raw: Option<&str>) -> ArgoResult<Option<TenantFilter>> {
                 raw: tenant.to_string(),
                 bytes: uuid.as_bytes().to_vec(),
             })
-            .map_err(|e| ArgoError::Provider(format!("invalid --tenant '{tenant}': {e}")))
+            .map_err(|e| ArgoError::Schema(format!("invalid --tenant '{tenant}': {e}")))
     })
     .transpose()
 }

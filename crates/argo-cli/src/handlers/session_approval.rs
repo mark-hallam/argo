@@ -30,7 +30,7 @@ async fn open_store() -> ArgoResult<Arc<SessionStore>> {
 
 fn parse_session_id(s: &str) -> ArgoResult<SessionId> {
     let u = Uuid::parse_str(s)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{s}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{s}': {e}")))?;
     Ok(SessionId(u))
 }
 

@@ -52,7 +52,7 @@ impl NormalizedExport {
         let session_hex = match args.session.as_deref() {
             Some(raw) => {
                 let uuid = uuid::Uuid::parse_str(raw)
-                    .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+                    .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
                 Some(hex::encode(uuid.as_bytes()))
             }
             None => None,
@@ -163,7 +163,7 @@ fn parse_bound(raw: &str, until: bool, flag: &str) -> ArgoResult<i64> {
     } else {
         date.and_hms_micro_opt(0, 0, 0, 0)
     }
-    .ok_or_else(|| ArgoError::Provider(format!("invalid {flag} date '{raw}'")))?;
+    .ok_or_else(|| ArgoError::Schema(format!("invalid {flag} date '{raw}'")))?;
     Ok(DateTime::<Utc>::from_naive_utc_and_offset(time, Utc).timestamp_micros())
 }
 

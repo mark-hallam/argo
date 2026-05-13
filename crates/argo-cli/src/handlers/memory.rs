@@ -298,7 +298,7 @@ async fn set_lock(memory: &MemoryStore, raw: &str, lock: Lock) -> ArgoResult<()>
 
 fn parse_uuid(raw: &str) -> ArgoResult<uuid::Uuid> {
     uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid uuid '{raw}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid uuid '{raw}': {e}")))
 }
 
 pub(super) fn parse_memory_file(raw: &str) -> ArgoResult<MemoryFile> {

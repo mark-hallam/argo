@@ -91,7 +91,7 @@ pub(crate) fn parse_since(s: &str) -> ArgoResult<Duration> {
     };
     let value = number
         .parse::<u64>()
-        .map_err(|e| ArgoError::Provider(format!("invalid --since '{s}' duration number: {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid --since '{s}' duration number: {e}")))?;
     Ok(Duration::from_secs(value.saturating_mul(multiplier)))
 }
 

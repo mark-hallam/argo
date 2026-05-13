@@ -26,7 +26,7 @@ pub async fn export_session(
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
     let messages = store.list_messages(SessionId(id)).await?;
     let mut writer: Box<dyn Write> = match out {
         Some(path) => {

@@ -206,7 +206,7 @@ fn print_ingest(summary: &IngestSummary) {
 fn parse_tenant(s: &str) -> ArgoResult<TenantId> {
     s.parse::<uuid::Uuid>()
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{s}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{s}': {e}")))
 }
 
 async fn open_org_store() -> ArgoResult<OrgStore> {

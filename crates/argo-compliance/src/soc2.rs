@@ -352,7 +352,7 @@ fn csv_escape(raw: &str) -> String {
 fn parse_rfc3339(raw: &str, flag: &str) -> ArgoResult<i64> {
     DateTime::parse_from_rfc3339(raw)
         .map(|dt| dt.timestamp_micros())
-        .map_err(|e| ArgoError::Provider(format!("invalid {flag} '{raw}': {e} (expected RFC3339)")))
+        .map_err(|e| ArgoError::Schema(format!("invalid {flag} '{raw}': {e} (expected RFC3339)")))
 }
 
 fn micros_to_rfc3339(micros: i64) -> String {

@@ -218,7 +218,7 @@ fn parse_tenant_filter(raw: Option<String>) -> ArgoResult<Option<TenantFilter>> 
     raw.map(|tenant| {
         let trimmed = tenant.trim();
         let id = Uuid::parse_str(trimmed)
-            .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{trimmed}': {e}")))?;
+            .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{trimmed}': {e}")))?;
         Ok(TenantFilter {
             raw: trimmed.to_string(),
             bytes: id.as_bytes().to_vec(),

@@ -81,12 +81,12 @@ fn since_micros(raw: Option<&str>) -> ArgoResult<Option<i64>> {
 fn parse_duration(raw: &str) -> ArgoResult<Duration> {
     let raw = raw.trim();
     if raw.len() < 2 {
-        return Err(ArgoError::Provider(format!("invalid duration '{raw}'")));
+        return Err(ArgoError::Schema(format!("invalid duration '{raw}'")));
     }
     let (digits, unit) = raw.split_at(raw.len() - 1);
     let value = digits
         .parse::<i64>()
-        .map_err(|e| ArgoError::Provider(format!("invalid duration '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid duration '{raw}': {e}")))?;
     if value <= 0 {
         return Err(ArgoError::Provider(format!(
             "duration must be positive: {raw}"

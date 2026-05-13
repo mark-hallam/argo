@@ -62,7 +62,7 @@ async fn inspect(raw: &str) -> ArgoResult<()> {
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
     let decisions = store.list_routing_decisions(SessionId(id)).await?;
     if decisions.is_empty() {
         println!("(no routing decisions for session {raw})");

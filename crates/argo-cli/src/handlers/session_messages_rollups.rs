@@ -12,7 +12,7 @@ pub async fn run_by_role(
     json: bool,
 ) -> ArgoResult<()> {
     let id = uuid::Uuid::parse_str(&session)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{session}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{session}': {e}")))?;
     let cwd = std::env::current_dir()
         .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;

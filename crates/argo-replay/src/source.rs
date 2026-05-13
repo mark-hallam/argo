@@ -75,6 +75,6 @@ impl SessionSource for InMemorySource {
         self.by_session
             .get(&session)
             .cloned()
-            .ok_or_else(|| ArgoError::Provider(format!("unknown session {}", session.0)))
+            .ok_or_else(|| ArgoError::Schema(format!("unknown session {}", session.0)))
     }
 }

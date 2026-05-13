@@ -37,7 +37,7 @@ pub fn resolve_latest<S: AsRef<str>>(spec: &DiscoverySpec, model_ids: &[S]) -> A
     let exclude = match &spec.exclude_pattern {
         Some(s) => Some(
             Regex::new(s)
-                .map_err(|e| ArgoError::Provider(format!("invalid exclude_pattern {s:?}: {e}")))?,
+                .map_err(|e| ArgoError::Schema(format!("invalid exclude_pattern {s:?}: {e}")))?,
         ),
         None => None,
     };

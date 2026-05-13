@@ -222,7 +222,7 @@ fn counterpart_from_to(raw: &str) -> String {
 /// `session.worker_id` is a 16-byte BLOB; round-trip through `Uuid`.
 fn parse_worker_blob(worker_id: &str) -> ArgoResult<Vec<u8>> {
     let parsed = Uuid::from_str(worker_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid worker_id '{worker_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid worker_id '{worker_id}': {e}")))?;
     Ok(parsed.as_bytes().to_vec())
 }
 

@@ -116,7 +116,7 @@ pub(super) async fn promote_candidate(
     feedback: Option<PromotionFeedback<'_>>,
 ) -> ArgoResult<Skill> {
     let memory_id = Uuid::parse_str(memory_id_str)
-        .map_err(|e| ArgoError::Provider(format!("invalid memory id '{memory_id_str}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid memory id '{memory_id_str}': {e}")))?;
     let store = skills.store_arc();
     let memory = MemoryStore::new(Arc::clone(&store));
     let entry: MemoryEntry = memory.get(memory_id).await?;

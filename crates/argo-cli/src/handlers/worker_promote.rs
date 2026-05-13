@@ -281,12 +281,12 @@ pub async fn level(worker_id: &str, tenant: &str, json: bool) -> ArgoResult<()> 
 fn parse_tenant(tenant: &str) -> ArgoResult<TenantId> {
     Uuid::parse_str(tenant)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{tenant}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{tenant}': {e}")))
 }
 
 fn parse_worker(worker_id: &str) -> ArgoResult<WorkerId> {
     WorkerId::from_str(worker_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid worker id '{worker_id}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid worker id '{worker_id}': {e}")))
 }
 
 async fn open_store() -> ArgoResult<OwnedIdentityStore> {

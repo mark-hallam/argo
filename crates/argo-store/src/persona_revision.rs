@@ -233,7 +233,7 @@ fn row_to_revision(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<PersonaRevision>
     let revised_at = Utc
         .timestamp_opt(revised_at_secs, 0)
         .single()
-        .ok_or_else(|| ArgoError::Provider(format!("invalid revised_at {revised_at_secs}")))?;
+        .ok_or_else(|| ArgoError::Schema(format!("invalid revised_at {revised_at_secs}")))?;
     Ok(PersonaRevision {
         rev_id,
         worker_id,

@@ -167,7 +167,7 @@ async fn list_tools(
 pub(super) fn compile_filter(pat: Option<&str>) -> ArgoResult<Option<Regex>> {
     match pat {
         Some(p) => Regex::new(p).map(Some).map_err(|e| {
-            ArgoError::Provider(format!("invalid --filter regex '{p}': {e}"))
+            ArgoError::Schema(format!("invalid --filter regex '{p}': {e}"))
         }),
         None => Ok(None),
     }

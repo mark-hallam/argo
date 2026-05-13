@@ -28,7 +28,7 @@ pub(super) async fn run(
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
     let mut messages = store.list_messages(SessionId(id)).await?;
 
     // Apply filters in a single pass — same semantics as the

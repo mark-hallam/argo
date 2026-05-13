@@ -213,7 +213,7 @@ fn parse_run_id(raw: &str) -> ArgoResult<uuid::Uuid> {
             "short prefix '{raw}' — pass the full uuid (see `argo forge runs list`)"
         )));
     }
-    Err(ArgoError::Provider(format!("invalid forge run id '{raw}'")))
+    Err(ArgoError::Schema(format!("invalid forge run id '{raw}'")))
 }
 
 fn ts(micros: i64) -> String {

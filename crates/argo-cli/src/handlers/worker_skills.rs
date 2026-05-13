@@ -138,7 +138,7 @@ fn format_trust(grade: TrustGrade) -> &'static str {
 fn parse_tenant(tenant: &str) -> ArgoResult<TenantId> {
     uuid::Uuid::parse_str(tenant)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{tenant}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{tenant}': {e}")))
 }
 
 fn parse_worker_uuid(worker_id: &str) -> ArgoResult<uuid::Uuid> {
@@ -149,7 +149,7 @@ fn parse_worker_uuid(worker_id: &str) -> ArgoResult<uuid::Uuid> {
     // `argo-skill` free of `argo-identity` deps — see store_available.rs).
     WorkerId::from_str(worker_id)
         .map(|w| w.0)
-        .map_err(|e| ArgoError::Provider(format!("invalid worker id '{worker_id}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid worker id '{worker_id}': {e}")))
 }
 
 #[cfg(test)]

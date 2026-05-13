@@ -348,7 +348,7 @@ pub(super) async fn stop() -> ArgoResult<()> {
     let pid: i32 = raw
         .trim()
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("invalid PID in {}: {e}", pidfile.display())))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid PID in {}: {e}", pidfile.display())))?;
     if !pid_is_alive(pid) {
         let _ = std::fs::remove_file(&pidfile);
         return Err(ArgoError::Provider(format!(

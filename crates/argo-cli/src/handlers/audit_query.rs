@@ -88,7 +88,7 @@ impl NormalizedQuery {
         let decision = normalize_decision(args.decision)?;
         let session_id = match args.session.as_deref() {
             Some(raw) => Some(SessionId(uuid::Uuid::parse_str(raw).map_err(|e| {
-                ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+                ArgoError::Schema(format!("invalid session id '{raw}': {e}"))
             })?)),
             None => None,
         };

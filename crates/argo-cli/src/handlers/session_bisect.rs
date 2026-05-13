@@ -26,7 +26,7 @@ pub(crate) async fn run(raw_id: &str, hypothesis: &str) -> ArgoResult<()> {
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw_id}': {e}")))?;
     let rows = store.list_audit_for_session(SessionId(id)).await?;
     if rows.is_empty() {
         return Err(ArgoError::Provider(format!(

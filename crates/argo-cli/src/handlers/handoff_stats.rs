@@ -283,7 +283,7 @@ fn parse_duration_secs(raw: &str) -> ArgoResult<u64> {
     let (num, unit) = trimmed.split_at(split);
     let n: u64 = num
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("bad --since '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("bad --since '{raw}': {e}")))?;
     let mult = match unit {
         "s" | "" => 1,
         "m" => 60,
@@ -305,7 +305,7 @@ fn parse_tenant(raw: Option<&str>) -> ArgoResult<TenantId> {
         .ok_or_else(|| ArgoError::Provider("missing --tenant (or ARGO_DEFAULT_TENANT)".into()))?;
     Uuid::parse_str(&raw)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{raw}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{raw}': {e}")))
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {

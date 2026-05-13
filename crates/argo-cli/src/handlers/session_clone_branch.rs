@@ -138,7 +138,7 @@ async fn open_store() -> ArgoResult<SessionStore> {
 
 fn parse_id(raw: &str) -> ArgoResult<SessionId> {
     let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
     Ok(SessionId(id))
 }
 

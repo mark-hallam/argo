@@ -194,7 +194,7 @@ pub fn message_from_row(
         "assistant" => MessageRole::Assistant,
         "tool" => MessageRole::Tool,
         other => {
-            return Err(ArgoError::Provider(format!("unknown role '{other}'")));
+            return Err(ArgoError::Schema(format!("unknown role '{other}'")));
         }
     };
     let raw_content: Vec<ContentBlock> = serde_json::from_str(&row.content_json).map_err(|e| {

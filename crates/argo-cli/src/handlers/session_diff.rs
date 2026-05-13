@@ -19,9 +19,9 @@ pub(super) async fn diff_sessions(
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let id1 = uuid::Uuid::parse_str(raw1)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw1}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw1}': {e}")))?;
     let id2 = uuid::Uuid::parse_str(raw2)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw2}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw2}': {e}")))?;
     let s1 = store
         .get_session(SessionId(id1))
         .await?

@@ -45,7 +45,7 @@ pub(crate) async fn replay_core_with_events(
     store.migrate().await?;
 
     let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
     let source = store
         .get_session(SessionId(id))
         .await?

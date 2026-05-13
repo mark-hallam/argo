@@ -335,5 +335,5 @@ async fn legacy_store() -> ArgoResult<SessionStore> {
 }
 
 fn store_id(raw: &str) -> ArgoResult<StoreSessionId> {
-    uuid::Uuid::parse_str(raw).map(StoreSessionId).map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))
+    uuid::Uuid::parse_str(raw).map(StoreSessionId).map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))
 }

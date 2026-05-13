@@ -159,7 +159,7 @@ pub async fn run(
     format: &str,
 ) -> ArgoResult<()> {
     let parsed_worker = WorkerId::from_str(worker_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid worker_id '{worker_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid worker_id '{worker_id}': {e}")))?;
     let bucket = Bucket::parse(bucket)?;
     let format = Format::parse(format)?;
     let since_micros = since.map(parse_since).transpose()?;
@@ -289,7 +289,7 @@ pub(crate) fn parse_since(raw: &str) -> ArgoResult<i64> {
     }
     let (digits, unit) = raw.split_at(raw.len() - 1);
     let value: i64 = digits.parse().map_err(|e| {
-        ArgoError::Provider(format!("invalid --since '{raw}': {e}"))
+        ArgoError::Schema(format!("invalid --since '{raw}': {e}"))
     })?;
     if value <= 0 {
         return Err(ArgoError::Provider(format!(

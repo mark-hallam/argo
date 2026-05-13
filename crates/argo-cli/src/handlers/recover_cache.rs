@@ -221,7 +221,7 @@ fn parse_duration_secs(raw: &str) -> ArgoResult<u64> {
     );
     let n: u64 = num_part
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("bad duration '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("bad duration '{raw}': {e}")))?;
     let multiplier = match unit {
         "s" | "" => 1,
         "m" => 60,

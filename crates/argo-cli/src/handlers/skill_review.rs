@@ -361,7 +361,7 @@ async fn transition(
 
 fn parse_skill_id(skill_id_str: &str) -> ArgoResult<SkillId> {
     let uuid = Uuid::parse_str(skill_id_str)
-        .map_err(|e| ArgoError::Provider(format!("invalid skill id '{skill_id_str}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid skill id '{skill_id_str}': {e}")))?;
     Ok(SkillId(uuid))
 }
 

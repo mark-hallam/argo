@@ -124,5 +124,5 @@ fn print_json<T: Serialize>(value: &T) -> ArgoResult<()> {
 fn parse_tenant(value: &str) -> ArgoResult<TenantId> {
     Uuid::parse_str(value)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("invalid tenant id '{value}': {e}")))
+        .map_err(|e| ArgoError::Schema(format!("invalid tenant id '{value}': {e}")))
 }

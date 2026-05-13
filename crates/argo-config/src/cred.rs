@@ -252,7 +252,7 @@ fn write_credentials(workspace: &Path, credentials: &BTreeMap<String, String>) -
     let path = credentials_path(workspace);
     let parent = path
         .parent()
-        .ok_or_else(|| ArgoError::Provider(format!("invalid credentials path {}", path.display())))?;
+        .ok_or_else(|| ArgoError::Schema(format!("invalid credentials path {}", path.display())))?;
     fs::create_dir_all(parent)
         .map_err(|e| ArgoError::Provider(format!("create {}: {e}", parent.display())))?;
     let document = CredentialDocument {

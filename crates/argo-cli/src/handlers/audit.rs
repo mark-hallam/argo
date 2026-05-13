@@ -26,7 +26,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
             let report = match session {
                 Some(raw) => {
                     let id = uuid::Uuid::parse_str(&raw).map_err(|e| {
-                        ArgoError::Provider(format!("invalid session id '{raw}': {e}"))
+                        ArgoError::Schema(format!("invalid session id '{raw}': {e}"))
                     })?;
                     verify_session(&store, SessionId(id)).await?
                 }

@@ -37,7 +37,7 @@ async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
     store.migrate().await?;
     let record_id = JudgeRecordId(uuid::Uuid::parse_str(raw).map_err(|e| {
-        ArgoError::Provider(format!("invalid judge record id '{raw}': {e}"))
+        ArgoError::Schema(format!("invalid judge record id '{raw}': {e}"))
     })?);
     let trimmed = new_verdict.trim();
     if trimmed.is_empty() {
@@ -82,7 +82,7 @@ async fn verdict(raw: &str) -> ArgoResult<()> {
     let store = SessionStore::open(&db).await?;
     store.migrate().await?;
     let id = uuid::Uuid::parse_str(raw)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{raw}': {e}")))?;
     let rows = store.list_judge_records(SessionId(id)).await?;
     if rows.is_empty() {
         println!("(no judge verdicts for session {raw})");

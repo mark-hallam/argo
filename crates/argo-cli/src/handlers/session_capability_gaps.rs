@@ -29,7 +29,7 @@ pub async fn run(
     let store = Arc::new(store);
 
     let uuid = Uuid::parse_str(session_id_str).map_err(|e| {
-        ArgoError::Provider(format!("invalid session id '{session_id_str}': {e}"))
+        ArgoError::Schema(format!("invalid session id '{session_id_str}': {e}"))
     })?;
     let sid = SessionId(uuid);
 

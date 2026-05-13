@@ -19,7 +19,7 @@ use uuid::Uuid;
 /// Entry point for the `Revert` clap variant.
 pub async fn run(rev_id: &str, yes: bool, json: bool) -> ArgoResult<()> {
     let rev_uuid = Uuid::parse_str(rev_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid rev_id '{rev_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid rev_id '{rev_id}': {e}")))?;
     let store = open_store().await?;
     let target = fetch_target(&store, rev_uuid).await?;
     let current = fetch_current_value(&store, &target).await?;

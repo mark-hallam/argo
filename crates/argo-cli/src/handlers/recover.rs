@@ -28,7 +28,7 @@ pub async fn run(session_id: &str, json: bool) -> ArgoResult<()> {
     ensure_recovery_schema(&store).await?;
 
     let session_uuid = Uuid::parse_str(session_id)
-        .map_err(|e| ArgoError::Provider(format!("invalid session id '{session_id}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid session id '{session_id}': {e}")))?;
     let sid = SessionId(session_uuid);
     let rows = store.list_audit_for_session(sid).await?;
     if rows.is_empty() {
@@ -49,7 +49,7 @@ pub async fn run(session_id: &str, json: bool) -> ArgoResult<()> {
             .map_err(|e| ArgoError::Provider(format!("parse llm response: {e}")))?;
         parsed
             .validate()
-            .map_err(|e| ArgoError::Provider(format!("invalid llm response: {e}")))?;
+            .map_err(|e| ArgoError::Schema(format!("invalid llm response: {e}")))?;
         let failing_kind = find_failing_step(&rows)
             .map(|r| r.kind.clone())
             .unwrap_or_default();
