@@ -1,6 +1,7 @@
 //! `RosterStore` persistence — sibling of `roster.rs`; re-exported there so the public path is unchanged.
 
 use crate::roster::{Roster, RosterId};
+use crate::roster_policy_override::RosterPolicyOverride;
 use crate::types::{AutoApprovalPolicy, NotifyChannelRef, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -10,6 +11,24 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 const ENSURE_ROSTER_SCHEMA_SQL: &str = include_str!("../../argo-store/migrations/22__roster.sql");
+const ENSURE_ROSTER_POLICY_OVERRIDE_SQL: &str =
+    include_str!("../../argo-store/migrations/74__roster_policy_override.sql");
+
+/// Single-row lookup result for [`RosterStore::lookup_for_worker`].
+///
+/// Carries the resolved [`Roster`] plus the optional sparse
+/// [`RosterPolicyOverride`] persisted on its
+/// `policy_override_json` column. `policy_override == None` is
+/// the today-default — no override layered on top of the
+/// roster's own policy.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RosterAssignment {
+    /// The resolved roster (with members hydrated).
+    pub roster: Roster,
+    /// Sparse override layered on top of `roster.policy` by the
+    /// policy resolver. `None` means "no override".
+    pub policy_override: Option<RosterPolicyOverride>,
+}
 
 /// Persistence facade over the `roster` + `roster_member` tables.
 #[derive(Clone)]
@@ -30,7 +49,7 @@ impl RosterStore {
         Self { store }
     }
 
-    /// Apply migration 22 in-place. Idempotent.
+    /// Apply migrations 22 + 74 in-place. Idempotent.
     pub async fn ensure_schema(&self) -> ArgoResult<()> {
         for stmt in ENSURE_ROSTER_SCHEMA_SQL.split_terminator(';') {
             let sql = stmt.trim();
@@ -42,6 +61,7 @@ impl RosterStore {
                 .await
                 .map_err(|e| ArgoError::Provider(format!("ensure roster schema: {e}")))?;
         }
+        ensure_policy_override_column(self.store.pool()).await?;
         Ok(())
     }
 
@@ -191,6 +211,84 @@ impl RosterStore {
         Ok(out)
     }
 
+    /// Set (or clear) the policy override JSON on a roster row.
+    ///
+    /// Pass `Some(override)` to install / replace; `None` to clear.
+    /// Used by the v2 policy resolver mission once it lands; today
+    /// only the round-trip tests exercise this path.
+    pub async fn set_policy_override(
+        &self,
+        tenant: TenantId,
+        id: RosterId,
+        policy_override: Option<&RosterPolicyOverride>,
+    ) -> ArgoResult<()> {
+        let payload: Option<String> = match policy_override {
+            Some(ov) => Some(serde_json::to_string(ov).map_err(|e| {
+                ArgoError::Provider(format!("serialize roster policy_override: {e}"))
+            })?),
+            None => None,
+        };
+        sqlx::query(
+            "UPDATE roster SET policy_override_json = ? \
+             WHERE id = ? AND tenant_id = ?",
+        )
+        .bind(payload)
+        .bind(id.to_string())
+        .bind(tenant.to_string())
+        .execute(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("update roster policy_override: {e}")))?;
+        Ok(())
+    }
+
+    /// Single most-relevant roster assignment for a worker.
+    ///
+    /// Different shape from [`Self::rosters_for_worker`]: this
+    /// helper returns the single roster whose `policy_override`
+    /// applies, while `rosters_for_worker` returns every roster a
+    /// worker belongs to. The downstream
+    /// `resolve_effective_policy` flow needs the one-row answer.
+    ///
+    /// Priority ordering (most specific first):
+    ///   1. Roster whose name is NOT `"default"` (explicit
+    ///      tenant assignment).
+    ///   2. Roster whose name is exactly `"default"` (default
+    ///      tenant roster — the per-tenant catch-all that
+    ///      every worker falls back to).
+    ///   3. `None` if the worker is not a member of any roster.
+    ///
+    /// Within each tier rosters are ordered by name (ascending)
+    /// to give a stable answer when a worker happens to belong
+    /// to several equally-specific rosters.
+    pub async fn lookup_for_worker(
+        &self,
+        worker_id: WorkerId,
+    ) -> ArgoResult<Option<RosterAssignment>> {
+        let row = sqlx::query(
+            "SELECT r.id, r.tenant_id, r.name, r.policy_json, r.channels_json, \
+             r.budget_cap_usd_micros, r.policy_override_json FROM roster r \
+             JOIN roster_member m ON r.id = m.roster_id \
+             WHERE m.worker_id = ? \
+             ORDER BY CASE WHEN r.name = 'default' THEN 1 ELSE 0 END, r.name \
+             LIMIT 1",
+        )
+        .bind(worker_id.to_string())
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(|e| ArgoError::Provider(format!("lookup roster for worker: {e}")))?;
+        let Some(row) = row else { return Ok(None) };
+        let mut roster = hydrate_row(&row)?;
+        roster.member_worker_ids = self.list_members(roster.id).await?;
+        let override_raw: Option<String> = row.get("policy_override_json");
+        let policy_override = match override_raw {
+            Some(raw) => Some(serde_json::from_str::<RosterPolicyOverride>(&raw).map_err(
+                |e| ArgoError::Provider(format!("decode roster policy_override: {e}")),
+            )?),
+            None => None,
+        };
+        Ok(Some(RosterAssignment { roster, policy_override }))
+    }
+
     /// Find every roster a given worker is a member of.
     pub async fn rosters_for_worker(
         &self,
@@ -217,6 +315,34 @@ impl RosterStore {
         }
         Ok(out)
     }
+}
+
+async fn ensure_policy_override_column(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+) -> ArgoResult<()> {
+    let already_present = sqlx::query("PRAGMA table_info(roster)")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("probe roster columns: {e}")))?
+        .iter()
+        .any(|row| {
+            let name: String = row.get("name");
+            name == "policy_override_json"
+        });
+    if already_present {
+        return Ok(());
+    }
+    for stmt in ENSURE_ROSTER_POLICY_OVERRIDE_SQL.split_terminator(';') {
+        let sql = stmt.trim();
+        if sql.is_empty() {
+            continue;
+        }
+        sqlx::query(sql)
+            .execute(pool)
+            .await
+            .map_err(|e| ArgoError::Provider(format!("ensure roster policy_override: {e}")))?;
+    }
+    Ok(())
 }
 
 fn hydrate_row(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<Roster> {

@@ -27,6 +27,7 @@ pub mod org_ingest;
 pub mod policy;
 mod prompt;
 pub mod roster;
+pub mod roster_policy_override;
 mod roster_store;
 mod store;
 mod store_archive_methods;
@@ -49,6 +50,8 @@ pub use org::{IngestSummary, MemberKind, OrgMember, OrgStore, OrgUnit};
 pub use org_ingest::{OrgChartYaml, OrgMemberYaml, OrgUnitYaml};
 pub use prompt::compose_system_prompt;
 pub use roster::{Roster, RosterId, RosterStore};
+pub use roster_policy_override::RosterPolicyOverride;
+pub use roster_store::RosterAssignment;
 pub use store::IdentityStore;
 pub use store_hire::{ApprovalPolicyChoice, HireDraft, HireDutyDraft};
 pub use types::{
