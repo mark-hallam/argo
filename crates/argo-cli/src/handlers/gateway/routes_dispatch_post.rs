@@ -3,6 +3,13 @@
 //! arm forwards to a handler defined in another sibling
 //! module. Returns `Some(resp)` on a match, `None` otherwise so
 //! `routes.rs` can fall through to its 404 default.
+//!
+//! Domain-grouped sub-dispatchers live in sibling files
+//! (`routes_dispatch_post_workers`, `_audit`, `_memory`,
+//! `_retros`, `_duties`, `_approvals`). Hub-local arms cover
+//! cross-domain plumbing (sessions/verticals/skills/cron/forge/
+//! db/metrics/judge/genesis/workspace) where a single sibling
+//! grouping would not help.
 use super::routes_auth::check_bearer_auth;
 use super::routes_auth_principal::{parse_principal_header, principal_id_for_audit};
 use super::routes_cron::{cron_create_response, cron_delete_response};
@@ -14,12 +21,11 @@ use super::routes_post::{
     replay_response, run_turn_response, steer_response,
 };
 use super::routes_post_admin::{
-    judge_override_response, memory_edit_response, memory_forget_response, memory_lock_response,
-    memory_unlock_response, skill_lock_response, skill_unlock_response,
+    judge_override_response, skill_lock_response, skill_unlock_response,
 };
 use super::routes_post_writes::{
-    append_memory_response, db_prune_response, db_vacuum_response, forge_abort_response,
-    forge_bench_response, forge_optimize_response, install_skill_response, skill_promote_response,
+    db_prune_response, db_vacuum_response, forge_abort_response, forge_bench_response,
+    forge_optimize_response, install_skill_response, skill_promote_response,
     workspace_init_response,
 };
 use super::routes_query::parse_query_kv;
@@ -148,58 +154,25 @@ async fn dispatch_post_inner(
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }
-    // J5 — hire-commit endpoint. Bearer auth applied above; body
-    // shape is `{worker_draft, problem, answers}` per the brief.
-    if req.starts_with("POST /api/v1/workers ") {
-        return Some(super::routes_workers_hire::hire_response(req, store).await);
-    }
-    // J16 — elevated-view request (auto-grants in v1). Bearer auth
-    // applied above; the handler validates body shape and inserts a
-    // row into `elevated_view_grant`.
-    if req.starts_with("POST /api/v1/audit/elevated-view-request ") {
-        return Some(super::routes_elevated_view::request_response(req, store).await);
-    }
-    // J10 — worker memory facts CRUD. POST/PUT/DELETE all routed
-    // through this dispatcher (no separate PUT/DELETE dispatchers
-    // in the gateway).
-    if let Some(resp) = dispatch_worker_memory_facts(req, store).await {
+    // Domain-grouped sub-dispatchers (siblings). Each owns a
+    // disjoint URL space; order between them is not significant.
+    if let Some(resp) = super::routes_dispatch_post_workers::dispatch_workers(req, store).await {
         return Some(resp);
     }
-    // mission-retro-review-ui — worker retrospective endpoints.
-    // POST  /api/v1/workers/<id>/retros               → create
-    // PATCH /api/v1/workers/<id>/retros/<retro_id>    → update sections
-    // POST  /api/v1/workers/<id>/retros/<retro_id>/finalize
-    if let Some(resp) = dispatch_retros(req, store).await {
+    if let Some(resp) = super::routes_dispatch_post_audit::dispatch_audit(req, store).await {
         return Some(resp);
     }
-    // J13 — per-worker duty endpoints.
-    // POST   /api/v1/workers/<id>/duties/{classify,commit,preview}
-    // PATCH  /api/v1/workers/<id>/duties/<duty_id>
-    // DELETE /api/v1/workers/<id>/duties/<duty_id>
-    if let Some(resp) = dispatch_duties(req, store).await {
+    if let Some(resp) = super::routes_dispatch_post_memory::dispatch_memory(req, store).await {
         return Some(resp);
     }
-    // J16 — revoke a grant. DELETE shares dispatch_post's bearer +
-    // principal-header gate; the gateway has no separate DELETE
-    // dispatcher in v1.
-    if let Some(rest) = req.strip_prefix("DELETE /api/v1/audit/elevated-view-grants/") {
-        let id = rest.split_whitespace().next().unwrap_or("");
-        if !id.is_empty() {
-            return Some(super::routes_elevated_view::revoke_response(id, req, store).await);
-        }
+    if let Some(resp) = super::routes_dispatch_post_retros::dispatch_retros(req, store).await {
+        return Some(resp);
     }
-    // J1 — JSON approvals API: per-id `decide` and `undo`. The list
-    // GET arm is wired in `routes_dispatch_get`. The HTML `/inbox`
-    // surface in `routes_channels_webinbox` is preserved separately.
-    if let Some(rest) = req.strip_prefix("POST /api/v1/approvals/") {
-        if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("decide ") || tail.starts_with("decide?") {
-                return Some(super::routes_approvals_json::decide_response(id, req).await);
-            }
-            if tail.starts_with("undo ") || tail.starts_with("undo?") {
-                return Some(super::routes_approvals_json::undo_response(id, req).await);
-            }
-        }
+    if let Some(resp) = super::routes_dispatch_post_duties::dispatch_duties(req, store).await {
+        return Some(resp);
+    }
+    if let Some(resp) = super::routes_dispatch_post_approvals::dispatch_approvals(req).await {
+        return Some(resp);
     }
     if req.starts_with("POST /sessions ") {
         if let Some(s) = store {
@@ -237,9 +210,6 @@ async fn dispatch_post_inner(
     }
     if req.starts_with("POST /skills ") {
         return Some(install_skill_response(req, store).await);
-    }
-    if req.starts_with("POST /memory ") {
-        return Some(append_memory_response(req, store).await);
     }
     if req.starts_with("POST /cron ") {
         return Some(cron_create_response(req).await);
@@ -336,23 +306,6 @@ async fn dispatch_post_inner(
             }
         }
     }
-    // POST /memory/<id>/{lock,unlock,forget,edit}
-    if let Some(rest) = req.strip_prefix("POST /memory/") {
-        if let Some((id, tail)) = rest.split_once('/') {
-            if tail.starts_with("lock ") {
-                return Some(memory_lock_response(id, req, store).await);
-            }
-            if tail.starts_with("unlock ") {
-                return Some(memory_unlock_response(id, store).await);
-            }
-            if tail.starts_with("forget ") {
-                return Some(memory_forget_response(id, store).await);
-            }
-            if tail.starts_with("edit ") {
-                return Some(memory_edit_response(id, req, store).await);
-            }
-        }
-    }
     // POST /sessions/<uuid>/{messages,runs,steer,replay,skills/*,delete,title,end,reopen}
     if let Some(rest) = req.strip_prefix("POST /sessions/") {
         if let Some((sid, tail)) = rest.split_once('/') {
@@ -414,122 +367,6 @@ async fn dispatch_post_inner(
             if tail.starts_with("revoke-approval ") {
                 return Some(session_revoke_approval_response(sid, req, store).await);
             }
-        }
-    }
-    None
-}
-
-/// J10 — match `POST /api/v1/workers/<id>/memory/facts`,
-/// `PUT /api/v1/workers/<id>/memory/facts/<fact_id>`, and
-/// `DELETE /api/v1/workers/<id>/memory/facts/<fact_id>`. Returns
-/// `None` when no arm matches so the caller falls through.
-async fn dispatch_worker_memory_facts(
-    req: &str,
-    store: Option<&Arc<SessionStore>>,
-) -> Option<(&'static str, String)> {
-    if let Some(rest) = req.strip_prefix("POST /api/v1/workers/") {
-        let (head, _) = rest.split_once(' ')?;
-        let parts: Vec<&str> = head.split('/').collect();
-        // [worker_id, "memory", "facts"] → create
-        if parts.len() == 3 && parts[1] == "memory" && parts[2] == "facts" {
-            return Some(
-                super::routes_worker_memory::fact_create_response(parts[0], req, store).await,
-            );
-        }
-    }
-    if let Some(rest) = req.strip_prefix("PUT /api/v1/workers/") {
-        let (head, _) = rest.split_once(' ')?;
-        let parts: Vec<&str> = head.split('/').collect();
-        if parts.len() == 4 && parts[1] == "memory" && parts[2] == "facts" {
-            return Some(
-                super::routes_worker_memory::fact_update_response(
-                    parts[0], parts[3], req, store,
-                )
-                .await,
-            );
-        }
-    }
-    if let Some(rest) = req.strip_prefix("DELETE /api/v1/workers/") {
-        let (head, _) = rest.split_once(' ')?;
-        let parts: Vec<&str> = head.split('/').collect();
-        if parts.len() == 4 && parts[1] == "memory" && parts[2] == "facts" {
-            return Some(
-                super::routes_worker_memory::fact_delete_response(
-                    parts[0], parts[3], req, store,
-                )
-                .await,
-            );
-        }
-    }
-    None
-}
-
-/// Match the three retro write paths anchored under
-/// `/api/v1/workers/<id>/retros`. Returns `None` when the request
-/// doesn't match so the caller falls through to the rest of the
-/// dispatch chain.
-async fn dispatch_retros(
-    req: &str,
-    store: Option<&Arc<SessionStore>>,
-) -> Option<(&'static str, String)> {
-    if let Some(rest) = req.strip_prefix("POST /api/v1/workers/") {
-        let (head, _) = rest.split_once(' ')?;
-        let parts: Vec<&str> = head.split('/').collect();
-        // [worker_id, "retros"] → create
-        if parts.len() == 2 && parts[1] == "retros" {
-            return Some(super::routes_retros::create_response(parts[0], req, store).await);
-        }
-        // [worker_id, "retros", retro_id, "finalize"] → finalize
-        if parts.len() == 4 && parts[1] == "retros" && parts[3] == "finalize" {
-            return Some(
-                super::routes_retros::finalize_response(parts[0], parts[2], req, store).await,
-            );
-        }
-    }
-    if let Some(rest) = req.strip_prefix("PATCH /api/v1/workers/") {
-        let (head, _) = rest.split_once(' ')?;
-        let parts: Vec<&str> = head.split('/').collect();
-        if parts.len() == 3 && parts[1] == "retros" {
-            return Some(
-                super::routes_retros::update_response(parts[0], parts[2], req, store).await,
-            );
-        }
-    }
-    None
-}
-
-/// Match the five J13 duty paths under
-/// `/api/v1/workers/<id>/duties/...`. Returns `None` when the request
-/// doesn't match so the caller falls through to the rest of the
-/// dispatch chain.
-async fn dispatch_duties(
-    req: &str,
-    store: Option<&Arc<SessionStore>>,
-) -> Option<(&'static str, String)> {
-    for verb in ["POST", "PATCH", "DELETE"] {
-        let prefix = format!("{verb} /api/v1/workers/");
-        let Some(rest) = req.strip_prefix(&prefix) else { continue };
-        let (head, _) = rest.split_once(' ')?;
-        let parts: Vec<&str> = head.split('/').collect();
-        // [worker_id, "duties", "classify"|"commit"|"preview"] → POST
-        if verb == "POST" && parts.len() == 3 && parts[1] == "duties" {
-            let worker_id = parts[0];
-            return Some(match parts[2].split('?').next().unwrap_or(parts[2]) {
-                "classify" => super::routes_duties::classify_response(worker_id, req, store).await,
-                "commit" => super::routes_duties::commit_response(worker_id, req, store).await,
-                "preview" => super::routes_duties::preview_response(worker_id, req, store).await,
-                _ => return None,
-            });
-        }
-        // [worker_id, "duties", duty_id] → PATCH / DELETE
-        if parts.len() == 3 && parts[1] == "duties" {
-            let worker_id = parts[0];
-            let duty_id = parts[2];
-            return Some(match verb {
-                "PATCH" => super::routes_duties::patch_response(worker_id, duty_id, req, store).await,
-                "DELETE" => super::routes_duties::delete_response(worker_id, duty_id, req, store).await,
-                _ => return None,
-            });
         }
     }
     None
