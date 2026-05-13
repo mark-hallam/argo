@@ -103,26 +103,27 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-## Right-now snapshot (2026-05-13 ~02:04Z)
+## Right-now snapshot (2026-05-13 ~02:30Z) — Claude lane B → C hand-off, codex ACTIVE
 
-Refreshed during a resume-safety pass. The previous
-conductor session (Claude lane A) was hitting weekly quota; this
-snapshot was written from Claude lane B which is now itself
-approaching the weekly cap. **A fresh session resuming
-should read this whole section + the SWARM_PROTOCOL + the 5 files
-named at the top of this doc, then start ticking.**
+Refreshed at 98% weekly cap by the operator
+relaunching Claude (this session ends imminently). The previous
+lane A snapshot lives in git history `3688c48c` if you need
+diff context. **A fresh session resuming should read this whole
+section + SWARM_PROTOCOL.md HARD RULES + the 5 files at the top
+of this doc, then start ticking.**
 
 ### Live state (origin/main)
 
-- **HEAD**: `157edfcc` (status: claim J12-gateway-retrain-endpoints)
+- **HEAD**: `81f9a672` (status: claim J12-gateway-retrain-endpoints)
 - **Queue counts** (run `grep -cE '^\| .* \| claude \| <STATE> '
   docs/build-plan/BUILD_STATUS.md` to verify):
-  - TODO = **17**  (below 25 trigger but workers actively pulling)
-  - CLAIMED = **4**  (briefs in active worker progress, no PR yet)
-  - IN_REVIEW = **17**  (open PRs)
+  - TODO = **17**  (below 25 trigger; workers actively pulling)
+  - CLAIMED = **8**  (6 claude + 2 codex; briefs in active worker
+    progress, no PR yet)
+  - IN_REVIEW = **17**  (16 open PRs + 1 row mismatch ≈ same thing)
   - BLOCKED = **33**  (mostly dep-chain; many unblock-cascade as
     in-flight PRs land)
-  - MERGED = **220**  (live ledger; +463 archived to
+  - MERGED = **233**  (live ledger; +463 archived to
     `BUILD_STATUS_ARCHIVE_2026Q2.md` pre-#1300)
 
 ### What just landed (last ~4 hours conductor work)
@@ -142,14 +143,21 @@ Major push:
 
 ### CLAIMED — workers in flight (no PR yet)
 
-1. **`claude-approval-timeout-default-decision`** — codex worker,
-   active. Used `ARGO_CLAIM_FORCE=1` to bypass boot.rs 498-LOC
-   ceiling. Implementation in `/tmp/claude-approval-timeout-default-
-   decision/` worktree. Cargo fmt mis-fire being reverted.
-2. **`mission-enterprise-audit-full-text-search`** — pre-existing
-   claim, stale (since 2026-05-12T16:45Z).
-3. **`E2-f-hire-flow-structured-adjust`** — claude worker.
-4. **`E2-i-hire-flow-day1-wrap-duty`** — claude worker.
+**Codex** (2 active claims after shipping #1528):
+1. **`claude-error-dashboard-runbook`** — codex (claimed post-#1528)
+2. **`claude-troubleshooting-guide-expand`** — codex (claimed post-#1528)
+
+**Claude** (6 active claims):
+3. **`mission-doc-executor-gsuite`** — re-claimed after quota release
+4. **`mission-encryption-at-rest-sqlcipher`** — re-claimed after quota release
+5. **`J12-gateway-retrain-endpoints`** — fresh claim (cascade-unblocked from J10)
+6. **`mission-enterprise-audit-full-text-search`** — pre-existing claim, stale (since 2026-05-12T16:45Z)
+7. **`E2-f-hire-flow-structured-adjust`** — claude worker
+8. **`E2-i-hire-flow-day1-wrap-duty`** — claude worker
+
+### Recently shipped (since previous RESUME snapshot at 3688c48c)
+
+- **#1528** `claude-approval-timeout-default-decision` MERGED by **codex** — first codex PR since 2026-05-09 outage. 10 files +406/-13. Gateway approval-expiry sweeper + `argo doctor approvals --since`. boot.rs net -3 LOC (stayed under ceiling). Used `ARGO_CLAIM_FORCE=1` for the ceiling override; codex pre-push gate clean. Owner column flipped TODO→codex to reflect actual shipper.
 
 ### IN_REVIEW — 16 open PRs (all DIRTY or UNSTABLE, fix-recipes on file)
 
@@ -175,25 +183,49 @@ STALE-DEMOTED to TODO with salvage note — PR stays open).
 ### Worker / quota situation
 
 - **Claude workers** (across 1+ machine, claude-worker-loop.sh):
-  exhausted weekly cap mid-tick. Will resume on cap reset.
-- **Codex** (operator-driven, single tab as of writing): live; one
-  brief claimed, implementation ~80% done. May continue or pause.
-- **This conductor session (Claude lane B)**: approaching weekly
-  cap; this snapshot is the hand-off artifact.
+  released some claims around the cap then re-claimed when cap reset
+  partially refreshed. Currently holding 6 active claims (mission/J/E
+  briefs). Quota state fluid.
+- **Codex** (operator-driven tab): **fully active**. Shipped #1528
+  cleanly, then immediately claimed 2 more briefs
+  (`claude-error-dashboard-runbook` + `claude-troubleshooting-guide-expand`).
+  Codex pre-push gate confirmed working.
+- **This conductor session (Claude lane B)**: **at 98% weekly
+  cap**; operator relaunching Claude → this session ends imminently.
+  This snapshot is the hand-off artifact for whatever account picks
+  up next.
 
-### What a fresh conductor (Claude C) should do first
+### What a fresh conductor (Claude C/D) should do first
 
 1. `cd "$ARGO_REPO_ROOT" && git fetch origin main && git reset --hard origin/main`
 2. Read this `RESUME.md` first 100 lines, then `BUILD_STATUS.md`
    first 90 lines (header).
 3. Run the 9-step conductor tick (or arm `/loop 5m` with the prompt
    from `PROTOCOL_LOOP_PROMPT.md`).
-4. Expect codex worker to push `claude-approval-timeout-default-
-   decision` PR soon — Tier-1 review + merge per the usual pattern.
+4. **Expect codex PRs to land** for `claude-error-dashboard-runbook`
+   and `claude-troubleshooting-guide-expand` — codex was active when
+   this snapshot was written. Tier-1 review + merge per the usual
+   pattern. PRs will be on `claude-*` prefixed branches (codex used
+   the brief slug as branch name on its last PR — slug, not family).
 5. The 14 DIRTY PRs need their workers to do `git fetch && git merge
    origin/main && git push` (recipe on each PR). Conductor's job is
-   wait, not push — those workers are on quota-pause but their
-   recipes are clear when they resume.
+   to wait, not push — workers will resume from their quota gates.
+6. The 2 UNSTABLE PRs (#1498 vuln-mgmt, #1506 cli-help-reference)
+   are the chicken-egg pattern — fix-recipes posted; worker needs to
+   either seed waivers or use `continue-on-error` for first run.
+
+### Codex worker status / encouragement
+
+The codex pre-push gate (`scripts/codex-pre-push.sh`) is **working
+correctly** — verified via #1528. Workers calling
+`ARGO_CLAIM_FORCE=1` for legitimate ceiling-headroom briefs is the
+documented escape hatch and is fine to allow.
+
+If codex pushes a PR on a `claude-*` branch (codex used the brief
+slug verbatim, which has a `claude-` prefix), that's not a bug —
+the new codex worker prompt at `PROTOCOL_WORKER_PROMPT_CODEX.md`
+says "branch prefix: `codex-` unless the brief specifies otherwise"
+and codex correctly inherited the brief's preferred name.
 
 ### Active directives (header is authoritative; do NOT trust this
 list if it disagrees)
@@ -223,5 +255,6 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-13 (session hand-off; Claude
-lane A → B → potentially C).
+Last refreshed: 2026-05-13 ~02:30Z (Claude lane B at 98% weekly,
+operator relaunching → next session inherits). Codex active and
+producing.
