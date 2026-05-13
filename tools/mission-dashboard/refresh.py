@@ -165,6 +165,12 @@ def parse_ledger(text: str) -> tuple[dict[str, dict], dict[str, str]]:
         brief = brief.strip("*")
         if not brief or brief == "—":
             continue
+        # Phantom sub-divider rows like `**▼ MVP v1.0**` inside a phase: the
+        # outer ▼ PHASE divider is caught above by PHASE_DIVIDER_RE, but these
+        # inline group headers slip through and would otherwise inflate the
+        # phase brief count with status="—" rows.
+        if brief.lstrip().startswith("▼"):
+            continue
         out[brief] = {
             "owner": owner,
             "status": status,
@@ -188,6 +194,7 @@ LEDGER_COMPLETION_WEIGHT = {
     "BLOCKED": 0.0,
     "REVERTED": 0.0,  # merged then backed out — counts against progress
     "DEFERRED-v1.x": None,  # excluded from denominator
+    "DEFERRED-operator": None,  # excluded from denominator (operator-deferred)
 }
 
 
@@ -381,6 +388,28 @@ ROADMAP_STATUS_WEIGHT = {
 }
 
 
+def _parse_closes_claims(closes: str) -> list[int]:
+    """Extract mission-claim numbers (1-6) from a Track's `closes` cell.
+
+    Handles three shapes seen in PRODUCT_ROADMAP.md:
+      "mission claim 4"                        → [4]
+      "mission claim 5 (Windows leg)"          → [5]
+      "mission claims 1, 2, 3, 6"              → [1, 2, 3, 6]
+      "mission claims 1-6 backend completeness"→ [1, 2, 3, 4, 5, 6]
+    Cells that don't mention claims (e.g. "design brief for B/C/D/E")
+    return []."""
+    if not closes or not re.search(r"claim", closes, re.I):
+        return []
+    nums: set[int] = set()
+    for m in re.finditer(r"\b([1-6])\s*[–\-]\s*([1-6])\b", closes):
+        a, b = int(m.group(1)), int(m.group(2))
+        if a <= b:
+            nums.update(range(a, b + 1))
+    for m in re.finditer(r"\b([1-6])\b", closes):
+        nums.add(int(m.group(1)))
+    return sorted(nums)
+
+
 # Letter-prefix brief filename: K1-..., E0-..., E1-a-..., G3-..., J18-..., etc.
 # Captures the leading single-letter track tag.
 TRACK_BRIEF_FILE_RE = re.compile(r"^([A-Z])\d+(?:-|$)")
@@ -426,13 +455,14 @@ def parse_product_roadmap() -> dict:
         # Roadmap missing (old worktrees) — but if streams/ has letter-
         # prefix briefs, surface them as DRAFT so the panel isn't empty.
         if not discovered:
-            return {"tracks": [], "pct": 0.0, "by_status": {}, "available": False}
+            return {"tracks": [], "pct": 0.0, "by_status": {}, "available": False, "tracks_by_claim": {}}
         tracks = _draft_tracks_from_letters(sorted(discovered.keys()), discovered)
         return {
             "tracks": tracks,
             "pct": 0.0,
             "by_status": {"DRAFT": len(tracks)},
             "available": True,
+            "tracks_by_claim": {},
         }
 
     text = ROADMAP.read_text(encoding="utf-8")
@@ -448,13 +478,15 @@ def parse_product_roadmap() -> dict:
         if not m:
             continue
         letter, scope, who, status, status_tail, closes = m.groups()
+        closes_clean = closes.strip()
         tracks.append({
             "letter": letter,
             "scope": scope.strip(),
             "who": who.strip(),
             "status": status.strip(),
             "note": status_tail.strip().lstrip("—").strip(),
-            "closes": closes.strip(),
+            "closes": closes_clean,
+            "closes_claims": _parse_closes_claims(closes_clean),
         })
 
     # Stamp brief_count on each documented track.
@@ -476,11 +508,18 @@ def parse_product_roadmap() -> dict:
         wn += w
         wd += 1
     pct = (wn / wd * 100.0) if wd else 0.0
+    # Inverted map: claim_number → [track_letter, ...] for the Mission-claim
+    # row badge. DRAFT tracks contribute too if they ever pick up a closes value.
+    tracks_by_claim: dict[int, list[str]] = defaultdict(list)
+    for t in tracks:
+        for cid in t.get("closes_claims", []) or []:
+            tracks_by_claim[cid].append(t["letter"])
     return {
         "tracks": tracks,
         "pct": pct,
         "by_status": dict(by_status),
         "available": True,
+        "tracks_by_claim": {str(k): v for k, v in sorted(tracks_by_claim.items())},
     }
 
 
@@ -501,6 +540,7 @@ def _draft_tracks_from_letters(letters: list[str], discovered: dict[str, list[st
             "status": "DRAFT",
             "note": f"{len(brief_ids)} briefs authored under streams/; row not yet in PRODUCT_ROADMAP.md",
             "closes": "—",
+            "closes_claims": [],
             "brief_count": len(brief_ids),
         })
     return out
@@ -536,6 +576,78 @@ def _scope_hint_from_briefs(brief_ids: list[str]) -> str:
         # Fall back to the first brief's first word, if any.
         return stripped[0][0] if stripped[0] else ""
     return " ".join(common)
+
+
+# ─── Conductor advisories (read-only tracker) ───────────────────────────────
+
+# Conductor advisories live under docs/build-plan/conductor-advisory-*.md.
+# Each carries a `> **STATUS: <STATE> <date>**` banner near the top — usually
+# ACTIONED + ISO date. The dashboard surfaces filename + status + date so
+# operators can spot un-actioned advisories at a glance.
+ADVISORY_STATUS_RE = re.compile(
+    r"\*\*STATUS:\s*([A-Z][A-Z _-]*?)\s+(\d{4}-\d{2}-\d{2})\*\*",
+)
+
+
+def parse_conductor_advisories() -> list[dict]:
+    """Return list of {filename, title, status, date} sorted by filename.
+
+    Looks at the first ~40 lines of each conductor-advisory-*.md under
+    docs/build-plan/ for the STATUS banner. Files missing the banner still
+    appear with status="UNKNOWN" so the operator knows the advisory exists
+    but hasn't been parsed."""
+    advisories: list[dict] = []
+    plan_dir = ROOT / "docs/build-plan"
+    if not plan_dir.is_dir():
+        return advisories
+    for p in sorted(plan_dir.glob("conductor-advisory-*.md")):
+        try:
+            with p.open("r", encoding="utf-8", errors="ignore") as f:
+                head = "".join(next(f, "") for _ in range(40))
+        except OSError:
+            continue
+        title = ""
+        for line in head.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+        m = ADVISORY_STATUS_RE.search(head)
+        if m:
+            status, date = m.group(1).strip(), m.group(2)
+        else:
+            status, date = "UNKNOWN", ""
+        advisories.append({
+            "filename": p.name,
+            "title": title or p.stem,
+            "status": status,
+            "date": date,
+        })
+    return advisories
+
+
+# ─── Archive ledger (pre-2026Q2 merged baseline) ────────────────────────────
+
+ARCHIVE_LEDGER = ROOT / "docs/build-plan/BUILD_STATUS_ARCHIVE_2026Q2.md"
+
+
+def archive_merged_baseline() -> int:
+    """Count MERGED rows in the archived ledger snapshot.
+
+    The 2026-05-13 sweep moved 463 MERGED rows out of the live ledger into
+    `BUILD_STATUS_ARCHIVE_2026Q2.md`. The burn-up curve previously summed
+    MERGED counts from the live ledger only, so it cliffs at the sweep
+    point. Reading the archive once and treating its MERGED count as a
+    constant baseline preserves the "total briefs merged ever" semantics
+    of the green line."""
+    if not ARCHIVE_LEDGER.is_file():
+        return 0
+    try:
+        text = ARCHIVE_LEDGER.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    # Match table rows with status MERGED in the third cell, mirroring the
+    # row-context-aware count used in burn_history.
+    return len(re.findall(r"^\|[^|\n]+\|[^|\n]+\|\s*MERGED\s*\|", text, re.M))
 
 
 # ─── Repo freshness (auto-pull staleness) ───────────────────────────────────
@@ -1127,10 +1239,16 @@ def project_etas(stats: dict, velocity: dict) -> dict:
     return out
 
 
-def burn_history(target_points: int = 40) -> list[dict]:
+def burn_history(target_points: int = 40, archive_baseline: int = 0) -> list[dict]:
     """Sample BUILD_STATUS.md commits (newest→oldest), down to ~target_points,
     and count statuses at each. Uses full ISO datetime so multi-commit days
-    still produce a curve."""
+    still produce a curve.
+
+    `archive_baseline` is added to every sample's `merged` count. After the
+    2026-05-13 archive sweep, the live ledger no longer contains 463 MERGED
+    rows that previously sat in it; passing the archive's MERGED count keeps
+    the green burn-up line continuous ("total briefs merged ever") instead
+    of cliffing at the sweep commit."""
     out = subprocess.check_output(
         ["git", "log",
          "--pretty=format:%H|%aI",
@@ -1170,7 +1288,7 @@ def burn_history(target_points: int = 40) -> list[dict]:
         history.append({
             "ts": ts,
             "date": ts[:16].replace("T", " "),  # YYYY-MM-DD HH:MM
-            "merged": merged,
+            "merged": merged + archive_baseline,
             "in_review": in_review,
             "blocked": blocked,
             "claimed": claimed,
@@ -1405,6 +1523,22 @@ HTML_TEMPLATE = r"""<!doctype html>
   /* compact claims list */
   #claims-compact .progress-row .pname { font-size: 11px; }
   #claims-compact .progress-row .pname small { display: block; color: var(--ink-3); margin-left: 0; margin-top: 1px; font-size: 10px; }
+  #claims-compact .progress-row .pname .claim-tracks {
+    display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 9px;
+    background: rgba(99, 102, 241, 0.15); color: var(--briefed); border: 1px solid rgba(99,102,241,0.4);
+    font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+    vertical-align: middle; font-family: ui-monospace, monospace;
+  }
+
+  /* conductor advisory tracker panel */
+  .adv-list { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 11px; }
+  .adv-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 7px 8px; border-bottom: 1px solid var(--hairline); align-items: center; border-radius: 4px; }
+  .adv-list li:hover { background: rgba(255,255,255,0.03); }
+  .adv-list li:last-child { border-bottom: none; }
+  .adv-list .adv-file { color: var(--ink); }
+  .adv-list .adv-file small { display: block; color: var(--ink-3); font-size: 10px; margin-top: 1px; font-family: inherit; }
+  .adv-list .adv-status { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
+  .adv-list .adv-date { color: var(--ink-3); font-size: 10px; min-width: 72px; text-align: right; }
 
   /* run rate */
   .rate-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
@@ -1597,6 +1731,11 @@ HTML_TEMPLATE = r"""<!doctype html>
   <div id="roadmap-legend" style="margin-top:14px;color:var(--ink-3);font-size:11px;"></div>
 </div>
 
+<div class="panel" id="advisory-panel" style="margin-bottom:16px;display:none;">
+  <h2>Conductor advisories <span class="right" id="advisory-note">docs/build-plan/conductor-advisory-*.md · read-only tracker</span></h2>
+  <ul class="adv-list" id="advisory-list"></ul>
+</div>
+
 
 <div class="grid two">
   <div class="panel">
@@ -1619,12 +1758,13 @@ HTML_TEMPLATE = r"""<!doctype html>
 
 <div class="grid two">
   <div class="panel">
-    <h2>Burn-up <span class="right">MERGED count in BUILD_STATUS.md over time</span></h2>
+    <h2>Burn-up <span class="right" id="burn-note">MERGED count in BUILD_STATUS.md over time</span></h2>
     <svg class="burn" id="burn" viewBox="0 0 800 240" preserveAspectRatio="none"></svg>
     <div class="legend">
       <span><span class="sw" style="background:var(--accent)"></span>Merged</span>
       <span><span class="sw" style="background:var(--info)"></span>In review</span>
       <span><span class="sw" style="background:var(--weak)"></span>Blocked</span>
+      <span id="burn-archive-legend" style="color:var(--ink-3);display:none;"></span>
     </div>
   </div>
   <div class="panel">
@@ -1975,6 +2115,18 @@ $("#cards").innerHTML = cardsHTML;
     xLabels.join("") +
     `<line class="axis" x1="${P.l}" x2="${W-P.r}" y1="${H-P.b}" y2="${H-P.b}"/>` +
     `<line class="axis" x1="${P.l}" x2="${P.l}" y1="${P.t}" y2="${H-P.b}"/>`;
+
+  // Archive-aware burn-up: surface the +baseline so operators understand
+  // why the green line starts above zero. Without this, a 463-row offset
+  // looks like a parser bug.
+  const baseline = DATA.burn_archive_baseline || 0;
+  const legend = document.getElementById("burn-archive-legend");
+  const note = document.getElementById("burn-note");
+  if (baseline > 0 && legend) {
+    legend.textContent = `+${baseline} pre-2026Q2 archive baseline`;
+    legend.style.display = "inline";
+    if (note) note.textContent = "total MERGED count = live ledger + archive baseline (continuous across 2026-05-13 sweep)";
+  }
 })();
 
 // ── run rate panel ──
@@ -2303,7 +2455,7 @@ function stackBar(counts, total, palette) {
       <div class="ph-letter" style="font-size:22px;">${t.letter}</div>
       <div class="ph-title" style="min-height:2.6em;">${escapeHtml(scopeShort)}</div>
       <div class="ph-pct" style="color:${c};font-size:14px;text-transform:uppercase;letter-spacing:0.04em;">${t.status}</div>
-      <div class="ph-meta" style="margin-top:8px;font-family:inherit;">${escapeHtml(t.closes || "")}</div>
+      <div class="ph-meta" style="margin-top:8px;font-family:inherit;">${(t.closes && t.closes !== "—") ? "closes: " + escapeHtml(t.closes) : escapeHtml(t.closes || "")}</div>
       ${noteShort ? `<div class="ph-eta" style="text-transform:none;letter-spacing:0;margin-top:6px;">${escapeHtml(noteShort)}…</div>` : ""}
     </div>`;
   }).join("");
@@ -2324,6 +2476,32 @@ function stackBar(counts, total, palette) {
     `<span style="color:${statusColor.QUEUED}">${queued} queued</span> · ` +
     `<span style="color:${statusColor['NOT STARTED']}">${notStarted} not started</span>` +
     draftBit;
+})();
+
+// ── conductor advisories tracker ──
+(() => {
+  const advisories = DATA.conductor_advisories || [];
+  if (!advisories.length) return;
+  const panel = document.getElementById("advisory-panel");
+  const list = document.getElementById("advisory-list");
+  if (!panel || !list) return;
+  // ACTIONED → green; anything else (UNKNOWN, OPEN, DRAFT, ...) → warn.
+  const statusColor = (s) => s === "ACTIONED" ? "var(--accent)" : "var(--warn)";
+  const html = advisories.map(a => {
+    const sc = statusColor(a.status);
+    return `<li>
+      <span class="adv-file">${escapeHtml(a.filename)}<small>${escapeHtml(a.title)}</small></span>
+      <span class="adv-status" style="background:${sc}1a;color:${sc};border:1px solid ${sc}66;">${escapeHtml(a.status)}</span>
+      <span class="adv-date">${escapeHtml(a.date || "—")}</span>
+    </li>`;
+  }).join("");
+  list.innerHTML = html;
+  const note = document.getElementById("advisory-note");
+  if (note) {
+    const actioned = advisories.filter(a => a.status === "ACTIONED").length;
+    note.textContent = `${actioned}/${advisories.length} ACTIONED · docs/build-plan/conductor-advisory-*.md`;
+  }
+  panel.style.display = "block";
 })();
 
 // ── backlog-gap panel ──
@@ -2399,13 +2577,18 @@ function stackBar(counts, total, palette) {
 // ── claims (compact list) ──
 (() => {
   const claims = DATA.stats.by_claim;
-  const html = Object.entries(claims).map(([cid, c]) =>
-    `<div class="progress-row">
-      <div class="pname">Claim ${cid} — ${c.label}<small>${c.n} items · ${c.counts["Done"]||0} done</small></div>
+  const tracksByClaim = (DATA.product_roadmap && DATA.product_roadmap.tracks_by_claim) || {};
+  const html = Object.entries(claims).map(([cid, c]) => {
+    const tracks = tracksByClaim[cid] || [];
+    const tracksBadge = tracks.length
+      ? `<span class="claim-tracks" title="Tracks in PRODUCT_ROADMAP.md that declare they close this claim">tracks: ${tracks.join(", ")}</span>`
+      : "";
+    return `<div class="progress-row">
+      <div class="pname">Claim ${cid} — ${c.label}${tracksBadge}<small>${c.n} items · ${c.counts["Done"]||0} done</small></div>
       <div class="pbar">${stackBar(c.counts, c.n||1, stateColor)}</div>
       <div class="ppct">${c.pct.toFixed(0)}%</div>
-    </div>`
-  ).join("");
+    </div>`;
+  }).join("");
   $("#claims-compact").innerHTML = html;
 })();
 
@@ -2634,8 +2817,10 @@ def build_payload() -> dict:
         ],
     }
     git = recent_commits(50)
-    burn = burn_history()
+    archive_baseline = archive_merged_baseline()
+    burn = burn_history(archive_baseline=archive_baseline)
     velocity = velocity_stats(burn)
+    advisories = parse_conductor_advisories()
     etas = project_etas(stats, velocity)
     owners = owner_velocity(burn, ledger)
     stales = stale_claims(ledger, threshold_hours=24.0)
@@ -2661,9 +2846,11 @@ def build_payload() -> dict:
         "stale_claims": stales,
         "git": git,
         "burn_history": burn,
+        "burn_archive_baseline": archive_baseline,
         "velocity": velocity,
         "etas": etas,
         "claim_labels": CLAIM_LABELS,
+        "conductor_advisories": advisories,
     }
 
 
