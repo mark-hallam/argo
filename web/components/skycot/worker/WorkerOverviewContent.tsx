@@ -146,6 +146,8 @@ export function WorkerOverviewContent({ workerId }: { workerId: string }) {
       <DutiesCard
         duties={overview.duties}
         canEdit={permissions.canEditDuties}
+        workerId={workerId}
+        workerName={workerQuery.data?.name}
         onToggle={onToggleDuty}
         onEditDuty={onEditDuty}
         onAddDuty={onAddDuty}

@@ -1,32 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Card, CardBody, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { WorkerDuty } from "@/lib/api/worker-overview";
+import { AddResponsibilityDialog } from "@/components/skycot/worker/AddResponsibilityDialog";
+import type { CommitDutyResult } from "@/lib/api/duties";
 
 /**
  * Duty list card. Each row has a toggle (enable/disable), a label,
  * a schedule chip, and a click target that opens the inline editor.
  *
- * v1 scope:
- *   - Toggle calls `onToggle(dutyId, enabled)` — parent wires the
- *     existing duty-toggle mutation when available; today's `useState`
- *     fallback keeps the toggle visually responsive without a backend.
- *   - Click-into-edit and "+ Add responsibility" stub to toasts
- *     pointing at E4-h. The dialogs themselves ship there.
+ * "+ Add responsibility" mounts the AddResponsibilityDialog (E4-h)
+ * when `workerId` + `workerName` are supplied; otherwise it still
+ * fires the `onAddDuty` analytics seam so existing consumers
+ * (WorkerOverviewContent E4-b) continue to receive the click signal.
+ * On a successful commit the card surfaces a Step-6 confirmation
+ * toast inline.
  */
 
 export interface DutiesCardProps {
   duties: WorkerDuty[];
   canEdit: boolean;
+  /** Worker id — required to mount the AddResponsibilityDialog. */
+  workerId?: string;
+  /** Worker first name — surfaces in dialog copy. */
+  workerName?: string;
   /** Called when a duty is toggled. */
   onToggle?: (dutyId: string, enabled: boolean) => void;
   /** Click into a duty body — v1 stubs to a toast via this callback. */
   onEditDuty?: (dutyId: string) => void;
-  /** "+ Add responsibility" button — v1 stubs to a toast. */
+  /** Analytics seam — fires alongside the dialog open. */
   onAddDuty?: () => void;
   /** Per-card error state. */
   error?: string | null;
@@ -37,6 +43,8 @@ export interface DutiesCardProps {
 export function DutiesCard({
   duties,
   canEdit,
+  workerId,
+  workerName,
   onToggle,
   onEditDuty,
   onAddDuty,
@@ -44,6 +52,21 @@ export function DutiesCard({
   onRetry,
   className,
 }: DutiesCardProps) {
+  const dialogAvailable = canEdit && Boolean(workerId && workerName);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<CommitDutyResult | null>(null);
+
+  useEffect(() => {
+    if (!confirmation) return;
+    const t = setTimeout(() => setConfirmation(null), 6000);
+    return () => clearTimeout(t);
+  }, [confirmation]);
+
+  const handleAddClick = () => {
+    onAddDuty?.();
+    if (dialogAvailable) setDialogOpen(true);
+  };
+
   return (
     <Card data-testid="card-duties" className={className}>
       <CardHeader>
@@ -74,7 +97,7 @@ export function DutiesCard({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onAddDuty}
+          onClick={handleAddClick}
           disabled={!canEdit}
           data-testid="duties-add"
         >
@@ -82,7 +105,72 @@ export function DutiesCard({
           Add responsibility
         </Button>
       </CardFooter>
+
+      {dialogAvailable ? (
+        <AddResponsibilityDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          workerId={workerId!}
+          workerName={workerName!}
+          onCommitted={(result) => {
+            setConfirmation(result);
+            setDialogOpen(false);
+          }}
+        />
+      ) : null}
+
+      {confirmation ? (
+        <DutyAddedToast
+          workerName={workerName ?? "She"}
+          result={confirmation}
+          onClose={() => setConfirmation(null)}
+        />
+      ) : null}
     </Card>
+  );
+}
+
+function DutyAddedToast({
+  workerName,
+  result,
+  onClose,
+}: {
+  workerName: string;
+  result: CommitDutyResult;
+  onClose: () => void;
+}) {
+  const nextFire = result.nextFireAt
+    ? new Date(result.nextFireAt).toLocaleString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="duty-added-toast"
+      className="fixed bottom-6 right-6 z-40 max-w-sm rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--card-foreground)] shadow-lg"
+    >
+      <p className="font-medium text-[var(--foreground)]">
+        Added the new responsibility.
+      </p>
+      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+        {result.duty.label}.
+        {nextFire ? ` ${workerName}'s next run kicks off ${nextFire}.` : ""}
+      </p>
+      <button
+        type="button"
+        onClick={onClose}
+        data-testid="duty-added-toast-dismiss"
+        className="mt-2 text-xs text-[var(--primary)] underline-offset-4 hover:underline"
+      >
+        Dismiss
+      </button>
+    </div>
   );
 }
 
