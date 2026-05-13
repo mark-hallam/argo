@@ -194,6 +194,34 @@ impl Default for SandboxPrewarmConfig {
     }
 }
 
+/// `[runtime.prompt_cache_affinity]` — sticky-session affinity for
+/// the Anthropic prompt cache (`mission-prompt-cache-session-affinity`).
+///
+/// Defaults to enabled because the warm cache is a free latency +
+/// cost win; operators should not need to opt in. `ttl_secs` of
+/// 270 = Anthropic's 5-minute cache TTL minus 30s headroom for
+/// clock skew + network jitter. Operators on dedicated infra with
+/// tighter clock guarantees can raise the value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PromptCacheAffinityConfig {
+    /// Master enable. When `false`, the runtime mints a fresh
+    /// SessionId every turn (the pre-brief behavior).
+    pub enabled: bool,
+    /// How many seconds an entry survives before
+    /// `acquire_or_mint` mints fresh. 270s default.
+    pub ttl_secs: u64,
+}
+
+impl Default for PromptCacheAffinityConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            ttl_secs: 270,
+        }
+    }
+}
+
 /// `[runtime]` — parent for runtime-side TOML knobs.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -204,6 +232,9 @@ pub struct RuntimeConfig {
     pub action_throttle: ActionThrottleConfig,
     /// `[runtime.sandbox_prewarm]` — E2B pool burst pre-warming.
     pub sandbox_prewarm: SandboxPrewarmConfig,
+    /// `[runtime.prompt_cache_affinity]` — sticky-session affinity
+    /// for the Anthropic prompt cache.
+    pub prompt_cache_affinity: PromptCacheAffinityConfig,
 }
 
 #[cfg(test)]
@@ -307,5 +338,33 @@ burst = 3
         let listing = &cfg.action_throttle.policies["post_listing"];
         assert!((listing.tokens_per_sec - 2.0).abs() < 1e-6);
         assert_eq!(listing.burst, 3);
+    }
+
+    #[test]
+    fn prompt_cache_affinity_defaults_enabled_with_270s_ttl() {
+        let cfg = PromptCacheAffinityConfig::default();
+        assert!(cfg.enabled, "must default enabled — strict cache win");
+        assert_eq!(cfg.ttl_secs, 270);
+    }
+
+    #[test]
+    fn prompt_cache_affinity_parses_from_toml() {
+        let body = r#"
+[prompt_cache_affinity]
+enabled = false
+ttl_secs = 120
+"#;
+        let cfg: RuntimeConfig = toml::from_str(body).expect("parse");
+        assert!(!cfg.prompt_cache_affinity.enabled);
+        assert_eq!(cfg.prompt_cache_affinity.ttl_secs, 120);
+    }
+
+    #[test]
+    fn empty_toml_runtime_yields_affinity_defaults() {
+        let cfg: RuntimeConfig = toml::from_str("").expect("parse");
+        assert_eq!(
+            cfg.prompt_cache_affinity,
+            PromptCacheAffinityConfig::default()
+        );
     }
 }

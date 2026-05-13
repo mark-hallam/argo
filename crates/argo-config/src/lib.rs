@@ -71,8 +71,9 @@ pub use sections::{
     TenantConfig,
 };
 pub use sections_context::{
-    ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, RuntimeConfig,
-    SandboxPrewarmConfig, DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
+    ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig,
+    PromptCacheAffinityConfig, RuntimeConfig, SandboxPrewarmConfig,
+    DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
 };
 pub use store::{StoreConfig, WalTuningSection};
 pub use tui::{TuiConfig, TuiThemeConfig};

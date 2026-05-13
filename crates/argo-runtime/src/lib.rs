@@ -66,11 +66,19 @@ mod planner_templates;
 pub mod pool_elasticity;
 /// Cron-tick wrapper for the elasticity recommender.
 pub mod pool_elasticity_cron;
+/// Sticky-session affinity for the Anthropic prompt cache
+/// (`mission-prompt-cache-session-affinity`). In-memory
+/// `(tenant, worker_id) -> recent SessionId` registry that keeps
+/// the warm prompt cache hit-able across consecutive turns of the
+/// same logical worker.
+pub mod prompt_cache_affinity;
 
 #[cfg(test)]
 mod dispatch_gate_tests;
 #[cfg(test)]
 mod planner_tests;
+#[cfg(test)]
+mod prompt_cache_affinity_tests;
 
 pub use dispatch_gate::{
     DecomposeGate, GateError, HeuristicGate, HEURISTIC_LENGTH_THRESHOLD, HEURISTIC_LIST_MARKERS,
