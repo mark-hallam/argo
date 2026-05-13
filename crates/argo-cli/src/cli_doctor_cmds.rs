@@ -3,6 +3,15 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum DoctorCmd {
+    /// List approval requests expired by the timeout sweeper.
+    Approvals {
+        /// Look-back window. Supports bare seconds plus `s`, `m`, and `h` suffixes.
+        #[arg(long, default_value = "24h")]
+        since: String,
+        /// Emit a JSON array instead of text.
+        #[arg(long)]
+        json: bool,
+    },
     /// Apply safe doctor remediations, or one named fix with --issue.
     Fix {
         /// Allow confirmation-level fixes such as migrations.

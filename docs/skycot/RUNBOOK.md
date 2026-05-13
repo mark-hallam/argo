@@ -757,6 +757,33 @@ recognise.
   patterns; promoting them into learned skills runs through the
   separate skill-review path.
 
+## Approval-Expiry Sweeper
+
+The gateway starts an approval-expiry sweeper whenever the session
+store opens successfully. Every tick calls the store's
+`approval_request` timeout primitive and flips overdue `pending` rows
+to `expired`, using each row's `default_decision` as the recorded
+decision.
+
+The tick interval is controlled by `ARGO_APPROVAL_EXPIRY_TICK_SECS`.
+Default is `30`; positive values below `5` are clamped to `5`, and
+`0`, negative, or non-numeric values are ignored with a warning.
+
+When a sweep expires one or more rows, it writes one
+`approval.expired_by_timeout` audit row with payload:
+
+```json
+{
+  "kind": "approval.expired_by_timeout",
+  "count": 2,
+  "swept_at_iso": "2026-05-13T00:00:00+00:00"
+}
+```
+
+Use `argo doctor approvals --since 24h` to list rows expired by this
+sweeper, including the approval id, action id, decided-at timestamp,
+and applied decision.
+
 ## Migrations
 
 SKYCOT's workspace schema is **forward-only**. Each numbered

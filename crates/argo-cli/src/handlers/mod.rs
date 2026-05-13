@@ -86,6 +86,7 @@ pub mod connector_show;
 pub mod connector_test;
 pub mod db;
 pub mod doctor;
+pub mod doctor_approvals;
 mod doctor_env;
 pub mod doctor_fix;
 mod doctor_gateway;

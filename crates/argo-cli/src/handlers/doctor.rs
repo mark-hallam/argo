@@ -26,6 +26,10 @@ pub async fn dispatch(cmd: Option<DoctorCmd>, json: bool, format: String) -> Arg
         Some(DoctorCmd::WalStats { json: ws_json }) => {
             super::doctor_storage::wal_stats(json || ws_json).await
         }
+        Some(DoctorCmd::Approvals {
+            since,
+            json: cmd_json,
+        }) => super::doctor_approvals::run(&since, json || cmd_json).await,
         Some(DoctorCmd::Throttles { json: t_json }) => {
             super::doctor_throttles::run(json || t_json).await
         }

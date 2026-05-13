@@ -8,6 +8,7 @@
 //!   - `start_banner_config`:  layered config loader for the banner.
 //!   - `print_routes`:         `argo gateway routes` CLI subcommand printer.
 //!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
+mod approval_expiry_sweeper;
 mod boot;
 mod dashboard;
 mod dashboard_fleet;

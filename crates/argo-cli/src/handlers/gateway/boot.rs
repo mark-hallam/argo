@@ -25,8 +25,8 @@ use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
 use super::startup_check::{run_startup_checks, STARTUP_CHECK_EXIT};
 use super::{
-    metrics, routes, routes_channels, routes_orchestrator, routes_skills, routes_voice,
-    runs_streaming, security_headers, streaming, sweepers,
+    approval_expiry_sweeper, metrics, routes, routes_channels, routes_orchestrator, routes_skills,
+    routes_voice, runs_streaming, security_headers, streaming, sweepers,
 };
 use crate::handlers::alerts;
 use crate::handlers::cu_screenshots::CuScreenshotStore;
@@ -112,17 +112,14 @@ pub(super) async fn start(
     };
     phases.mark("store_open_migrate");
 
-    let _sweeper = store
-        .as_ref()
-        .map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
-    let _duty_scheduler = store
-        .as_ref()
-        .map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
-    let _alerts_loop = store.as_ref().map(|s| spawn_alerts_loop(Arc::clone(s)));
-    let _cu_screenshot_sweep = store
-        .as_ref()
-        .map(|s| spawn_cu_screenshot_sweep(Arc::clone(s)));
-    let _audit_watchdog = store.as_ref().map(|s| spawn_audit_watchdog(Arc::clone(s)));
+    let bg_store = store.as_ref();
+    let _sweeper = bg_store.map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
+    let _approval_expiry =
+        bg_store.map(|s| approval_expiry_sweeper::spawn_approval_expiry_sweeper(Arc::clone(s)));
+    let _duty_scheduler = bg_store.map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
+    let _alerts_loop = bg_store.map(|s| spawn_alerts_loop(Arc::clone(s)));
+    let _cu_screenshot_sweep = bg_store.map(|s| spawn_cu_screenshot_sweep(Arc::clone(s)));
+    let _audit_watchdog = bg_store.map(|s| spawn_audit_watchdog(Arc::clone(s)));
     let _mcp_health = crate::handlers::mcp_health::spawn_from_env();
     phases.mark("spawn_bg_tasks");
 
