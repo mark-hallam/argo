@@ -172,6 +172,13 @@ async fn dispatch_post_inner(
     if let Some(resp) = dispatch_retros(req, store).await {
         return Some(resp);
     }
+    // J13 — per-worker duty endpoints.
+    // POST   /api/v1/workers/<id>/duties/{classify,commit,preview}
+    // PATCH  /api/v1/workers/<id>/duties/<duty_id>
+    // DELETE /api/v1/workers/<id>/duties/<duty_id>
+    if let Some(resp) = dispatch_duties(req, store).await {
+        return Some(resp);
+    }
     // J16 — revoke a grant. DELETE shares dispatch_post's bearer +
     // principal-header gate; the gateway has no separate DELETE
     // dispatcher in v1.
@@ -486,6 +493,43 @@ async fn dispatch_retros(
             return Some(
                 super::routes_retros::update_response(parts[0], parts[2], req, store).await,
             );
+        }
+    }
+    None
+}
+
+/// Match the five J13 duty paths under
+/// `/api/v1/workers/<id>/duties/...`. Returns `None` when the request
+/// doesn't match so the caller falls through to the rest of the
+/// dispatch chain.
+async fn dispatch_duties(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    for verb in ["POST", "PATCH", "DELETE"] {
+        let prefix = format!("{verb} /api/v1/workers/");
+        let Some(rest) = req.strip_prefix(&prefix) else { continue };
+        let (head, _) = rest.split_once(' ')?;
+        let parts: Vec<&str> = head.split('/').collect();
+        // [worker_id, "duties", "classify"|"commit"|"preview"] → POST
+        if verb == "POST" && parts.len() == 3 && parts[1] == "duties" {
+            let worker_id = parts[0];
+            return Some(match parts[2].split('?').next().unwrap_or(parts[2]) {
+                "classify" => super::routes_duties::classify_response(worker_id, req, store).await,
+                "commit" => super::routes_duties::commit_response(worker_id, req, store).await,
+                "preview" => super::routes_duties::preview_response(worker_id, req, store).await,
+                _ => return None,
+            });
+        }
+        // [worker_id, "duties", duty_id] → PATCH / DELETE
+        if parts.len() == 3 && parts[1] == "duties" {
+            let worker_id = parts[0];
+            let duty_id = parts[2];
+            return Some(match verb {
+                "PATCH" => super::routes_duties::patch_response(worker_id, duty_id, req, store).await,
+                "DELETE" => super::routes_duties::delete_response(worker_id, duty_id, req, store).await,
+                _ => return None,
+            });
         }
     }
     None

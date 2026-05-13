@@ -71,6 +71,7 @@ futures = { workspace = true }
 sha2 = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+cron = "0.12"
 csv = "1"
 # Concurrent map for the per-IP token-bucket rate limiter
 # (claude-security-rate-limit-by-ip). DashMap is not yet a workspace

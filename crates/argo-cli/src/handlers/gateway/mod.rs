@@ -55,6 +55,7 @@ mod routes_dispatch_forge;
 mod routes_dispatch_get;
 mod routes_dispatch_get_admin;
 mod routes_dispatch_post;
+mod routes_duties;
 mod routes_dispatch_rollups;
 mod routes_forge;
 mod routes_forge_promote;
