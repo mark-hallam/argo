@@ -222,6 +222,56 @@ impl Default for PromptCacheAffinityConfig {
     }
 }
 
+/// Default memory cap (MiB) for the per-worker cgroup-v2 cage.
+/// Mirrors `argo_runtime::worker_resource_cage::DEFAULT_MEMORY_MAX_MIB`.
+pub const DEFAULT_WORKER_RESOURCE_MEMORY_MAX_MIB: u64 = 1024;
+/// Default `cpu.weight` for the per-worker cgroup-v2 cage. Cgroup-v2
+/// neutral weight; mirrors
+/// `argo_runtime::worker_resource_cage::DEFAULT_CPU_WEIGHT`.
+pub const DEFAULT_WORKER_RESOURCE_CPU_WEIGHT: u32 = 100;
+
+/// `[runtime.worker_resource_cage]` — per-worker cgroup-v2 memory +
+/// CPU caps (`mission-cgroup-per-worker-resource-limits`,
+/// MISSION_BACKLOG §8 #236). Mirrors the in-memory shape in
+/// `argo_runtime::worker_resource_cage::WorkerResourceConfig`; the
+/// orchestrator maps this struct to the runtime one at worker-spawn
+/// time. Split here (rather than reusing the runtime type directly)
+/// keeps `argo-config` free of a build-time dependency on
+/// `argo-runtime`.
+///
+/// Defaults to enabled with a 1 GiB memory cap + neutral
+/// `cpu.weight=100`. On non-Linux hosts the runtime returns
+/// `CageStatus::NotSupported` regardless of these values, so
+/// default-enabled is safe for macOS dev workflows; the runbook
+/// (`docs/skycot/runbook/worker-resource-cage.md`) covers
+/// Docker/Lima for operators who need confinement off-Linux.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorkerResourceConfig {
+    /// Master enable. When `false`, the runtime returns
+    /// `NotSupported { reason: "disabled by config" }` on any host
+    /// and the worker runs unconfined.
+    pub enabled: bool,
+    /// Hard memory cap per worker, in MiB. Written into
+    /// `memory.max`; breach triggers a kernel OOM kill that the
+    /// `oom_restart` handler downstream observes.
+    pub memory_max_mib: u64,
+    /// CPU weight per worker. cgroup-v2 range is `1..=10_000`; the
+    /// runtime clamps out-of-range values. `100` is the neutral
+    /// weight.
+    pub cpu_weight: u32,
+}
+
+impl Default for WorkerResourceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            memory_max_mib: DEFAULT_WORKER_RESOURCE_MEMORY_MAX_MIB,
+            cpu_weight: DEFAULT_WORKER_RESOURCE_CPU_WEIGHT,
+        }
+    }
+}
+
 /// `[runtime]` — parent for runtime-side TOML knobs.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -235,6 +285,9 @@ pub struct RuntimeConfig {
     /// `[runtime.prompt_cache_affinity]` — sticky-session affinity
     /// for the Anthropic prompt cache.
     pub prompt_cache_affinity: PromptCacheAffinityConfig,
+    /// `[runtime.worker_resource_cage]` — per-worker cgroup-v2
+    /// memory + CPU caps.
+    pub worker_resource_cage: WorkerResourceConfig,
 }
 
 #[cfg(test)]
@@ -366,5 +419,33 @@ ttl_secs = 120
             cfg.prompt_cache_affinity,
             PromptCacheAffinityConfig::default()
         );
+    }
+
+    #[test]
+    fn worker_resource_cage_defaults_enabled_with_documented_caps() {
+        let cfg = WorkerResourceConfig::default();
+        assert!(cfg.enabled, "cage must default-enabled");
+        assert_eq!(cfg.memory_max_mib, 1024);
+        assert_eq!(cfg.cpu_weight, 100);
+    }
+
+    #[test]
+    fn worker_resource_cage_parses_from_toml() {
+        let body = r#"
+[worker_resource_cage]
+enabled = false
+memory_max_mib = 2048
+cpu_weight = 250
+"#;
+        let cfg: RuntimeConfig = toml::from_str(body).expect("parse");
+        assert!(!cfg.worker_resource_cage.enabled);
+        assert_eq!(cfg.worker_resource_cage.memory_max_mib, 2048);
+        assert_eq!(cfg.worker_resource_cage.cpu_weight, 250);
+    }
+
+    #[test]
+    fn empty_toml_runtime_yields_cage_defaults() {
+        let cfg: RuntimeConfig = toml::from_str("").expect("parse");
+        assert_eq!(cfg.worker_resource_cage, WorkerResourceConfig::default());
     }
 }

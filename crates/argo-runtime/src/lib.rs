@@ -72,6 +72,12 @@ pub mod pool_elasticity_cron;
 /// the warm prompt cache hit-able across consecutive turns of the
 /// same logical worker.
 pub mod prompt_cache_affinity;
+/// Per-worker cgroup-v2 resource cage
+/// (`mission-cgroup-per-worker-resource-limits`). Linux-only
+/// `memory.max` + `cpu.weight` slice under
+/// `/sys/fs/cgroup/argo-worker-<id>/`. Non-Linux hosts return
+/// `NotSupported` and run unconfined.
+pub mod worker_resource_cage;
 
 #[cfg(test)]
 mod dispatch_gate_tests;
@@ -79,6 +85,8 @@ mod dispatch_gate_tests;
 mod planner_tests;
 #[cfg(test)]
 mod prompt_cache_affinity_tests;
+#[cfg(test)]
+mod worker_resource_cage_tests;
 
 pub use dispatch_gate::{
     DecomposeGate, GateError, HeuristicGate, HEURISTIC_LENGTH_THRESHOLD, HEURISTIC_LIST_MARKERS,
@@ -92,3 +100,4 @@ pub use pool_elasticity::{
     ElasticityAuditRow, ElasticityConfig, ElasticityMode, PoolController, PoolMetricsSnapshot,
     ScaleRecommendation, TickState,
 };
+pub use worker_resource_cage::{CageStatus, WorkerResourceCage, WorkerResourceConfig};
