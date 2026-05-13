@@ -490,7 +490,7 @@ unblocks a mission claim.
 236. Per-worker resource limits (cgroup, memory cap, CPU share).
      `[NEW]`
 237. OOM kill detection + graceful restart. `[BRIEF: mission-oom-restart-handler]`
-238. Concurrent worker safety (multi-vertical lock). `[NEW]`
+238. Concurrent worker safety (multi-vertical lock). `[BRIEF: mission-multi-vertical-concurrency-lock]`
 239. SQLite WAL tuning per workload pattern. `[BRIEF: mission-sqlite-wal-tuning]`
 240. Read replica pattern for heavy audit query loads. `[SHIPPED]`  ← #1470 (design-doc only; litestream Tier 0)
 241. Horizontal-scaling story (PostgreSQL or shared DB topology).
@@ -500,17 +500,17 @@ unblocks a mission claim.
 244. Per-tenant LLM budget enforcement at provider call time.
      `[SHIPPED]`  ← #1349 (`SpendGate<T: Transport>` ceiling at enforcement time)
 245. Sticky-session affinity (worker reuses same session warm
-     cache). `[NEW]`
+     cache). `[BRIEF: mission-prompt-cache-session-affinity]`
 246. Prompt cache hit rate observability. `[BRIEF: mission-prompt-cache-hit-rate-observability]`
 247. Context-window-aware compression (Amendment §5.8). `[SHIPPED]`  ← #1465
 248. Adaptive context truncation. `[BRIEF: mission-adaptive-context-truncation]`
 249. Streaming-aware retry (don't lose mid-stream content). `[BRIEF: mission-streaming-aware-retry]`
-250. WebSocket-based live audit stream (currently snapshot). `[NEW]`
+250. WebSocket-based live audit stream (currently snapshot). `[SHIPPED]`  ← #831 (GET /audit/stream snapshot) + mission-inbox-ws-real-websocket bridge
 251. Connector auto-retry with exponential backoff. `[BRIEF: mission-connector-auto-retry-backoff]`
 252. Connection pooling for MCP connectors (currently per-turn).
-     `[NEW]`
+     `[BRIEF: mission-mcp-connection-pooling]`
 253. LLM call deduplication. `[BRIEF: mission-llm-call-dedup-cache]`
-254. Per-action-type throttling. `[NEW]`
+254. Per-action-type throttling. `[SHIPPED]`  ← `crates/argo-runtime/src/action_throttle.rs` (mission-per-action-type-throttling)
 255. Burst pre-warming (predictive sandbox creation). `[SHIPPED]`  ← #1473
 
 ---
@@ -523,7 +523,7 @@ unblocks a mission claim.
 259. Remove hand-rolled base64 encoder; pull in `base64` crate.
      `[BRIEF: mission-base64-crate-migration]`
 260. Split LOC-ceiling violations (auction.rs, duty_scheduler.rs,
-     routes_post.rs, metrics.rs, memory.rs are over 500). `[NEW]`
+     routes_post.rs, metrics.rs, memory.rs are over 500). `[STALE — verified ≤499 LOC on 8fe7aeec; auction=348, duty_scheduler=368, routes_post=17, metrics=318, memory(cli)=314, memory(tool)=499]`
 261. Fix `/inbox/ws` to be real WebSocket. `[BRIEF: mission-inbox-ws-real-websocket]`
 262. Replace Forge trait `StubForge` with reality OR delete trait
      + rename `forge_optimize`. `[BRIEF: mission-forge-stubforge-cleanup]`
