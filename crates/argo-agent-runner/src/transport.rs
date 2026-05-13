@@ -4,8 +4,8 @@
 //! workspace doesn't carry its own copy) to a live
 //! `Box<dyn Transport>`.
 use argo_provider::{
-    AnthropicTransport, BedrockTransport, OpenAiCompatTransport, OpenAiResponsesTransport,
-    ProviderFamily, ProviderManifest, Transport,
+    AnthropicTransport, BedrockTransport, DedupCache, OpenAiCompatTransport,
+    OpenAiResponsesTransport, ProviderFamily, ProviderManifest, Transport,
 };
 use argo_types::{ArgoError, ArgoResult};
 use std::path::{Path, PathBuf};
@@ -13,11 +13,14 @@ use std::path::{Path, PathBuf};
 /// Resolve a `ProviderManifest` to a live `Transport`. Anthropic /
 /// OpenAI families read the API key from `manifest.auth.api_key_env`;
 /// Bedrock loads AWS credentials via `aws_config::load_from_env()`
-/// (honours the standard `AWS_*` env vars + `~/.aws` profile).
+/// (honours the standard `AWS_*` env vars + `~/.aws` profile). When
+/// `ARGO_PROVIDER_DEDUP_TTL_SECS` is a positive integer, the result
+/// is additionally wrapped with [`DedupCache`] so identical
+/// non-streaming requests in the TTL window collapse to one wire call.
 pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn Transport>> {
     if matches!(manifest.provider.family, ProviderFamily::Bedrock) {
         let cfg = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        return Ok(Box::new(BedrockTransport::from_manifest(manifest, &cfg)?));
+        return Ok(maybe_wrap_dedup(Box::new(BedrockTransport::from_manifest(manifest, &cfg)?)));
     }
     let api_key_env = manifest.auth.api_key_env.clone();
     let api_key = argo_config::cred::get(&api_key_env)
@@ -36,7 +39,21 @@ pub async fn build_transport(manifest: ProviderManifest) -> ArgoResult<Box<dyn T
         // added without wiring it through. Fail loud.
         ProviderFamily::Bedrock => unreachable!("bedrock handled above"),
     };
-    Ok(t)
+    Ok(maybe_wrap_dedup(t))
+}
+
+/// Conditionally wrap `inner` with [`DedupCache`] when
+/// `ARGO_PROVIDER_DEDUP_TTL_SECS` parses to a positive integer.
+fn maybe_wrap_dedup(inner: Box<dyn Transport>) -> Box<dyn Transport> {
+    match std::env::var("ARGO_PROVIDER_DEDUP_TTL_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+    {
+        Some(secs) if secs > 0 => {
+            Box::new(DedupCache::new(inner, std::time::Duration::from_secs(secs)))
+        }
+        _ => inner,
+    }
 }
 
 /// Resolve and parse a provider manifest. Search order:
