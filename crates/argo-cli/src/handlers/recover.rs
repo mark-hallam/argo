@@ -116,7 +116,7 @@ async fn read_cache(
         return Ok(None);
     };
     let parsed: RecoverySuggestions = serde_json::from_str(&json)
-        .map_err(|e| ArgoError::Provider(format!("decode cached suggestions: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode cached suggestions: {e}")))?;
     Ok(Some(parsed))
 }
 

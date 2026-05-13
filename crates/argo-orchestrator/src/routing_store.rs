@@ -167,11 +167,11 @@ fn rule_from_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<HandoffRoutingRule>
     let active: i32 = row.get("active");
     let id: RuleId = id_str
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("decode rule id '{id_str}': {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode rule id '{id_str}': {e}")))?;
     let when: WhenClause = serde_json::from_str(&condition_json)
-        .map_err(|e| ArgoError::Provider(format!("decode rule condition: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode rule condition: {e}")))?;
     let target: TargetSelector = serde_json::from_str(&target_json)
-        .map_err(|e| ArgoError::Provider(format!("decode rule target: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode rule target: {e}")))?;
     Ok(HandoffRoutingRule {
         id,
         name,

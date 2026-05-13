@@ -166,7 +166,7 @@ impl OrchestratorStore {
     pub async fn update_handoff_status(&self, tenant_id: TenantId, handoff_id: &HandoffId, status: HandoffStatus) -> ArgoResult<()> {
         let handoff = self.find_handoff(tenant_id, handoff_id).await?.ok_or_else(|| ArgoError::Schema("handoff not found".into()))?;
         let current = handoff.status;
-        if !handoff_transition_allowed(current, status) { return Err(ArgoError::Invariant("invalid handoff status transition")); }
+        if !handoff_transition_allowed(current, status) { return Err(ArgoError::Invariant("invalid handoff status transition".into())); }
         sqlx::query("UPDATE handoff SET status = ? WHERE id = ?").bind(handoff_status_label(status)).bind(handoff_id.as_str()).execute(self.pool()).await.map_err(|e| ArgoError::Provider(format!("update handoff status: {e}")))?;
         if is_terminal_handoff_status(status) { self.update_handoff_resolved_at(handoff_id, Utc::now().timestamp_micros()).await?; }
         if matches!((current, status), (HandoffStatus::Pending, HandoffStatus::Acknowledged)) {

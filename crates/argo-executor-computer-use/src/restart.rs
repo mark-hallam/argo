@@ -254,7 +254,7 @@ pub fn restore_from(
 ) -> ArgoResult<()> {
     if snap.last_screenshot.is_empty() {
         return Err(argo_types::ArgoError::Invariant(
-            "restart::restore_from: snapshot.last_screenshot must not be empty",
+            "restart::restore_from: snapshot.last_screenshot must not be empty".into(),
         ));
     }
     let base = system_prompt.clone();

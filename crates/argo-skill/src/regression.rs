@@ -154,8 +154,8 @@ pub async fn detect_regression(
         .enumerate()
         .max_by_key(|(_, s)| s.computed_at)
         .map(|(i, _)| i)
-        .ok_or(ArgoError::Invariant(
-            "regression: empty scores after length guard",
+        .ok_or_else(|| ArgoError::Invariant(
+            "regression: empty scores after length guard".into(),
         ))?;
     let current = scores[latest_idx].score;
     let baseline = scores
@@ -164,8 +164,8 @@ pub async fn detect_regression(
         .filter(|(i, _)| *i != latest_idx)
         .map(|(_, s)| s.score)
         .max()
-        .ok_or(ArgoError::Invariant(
-            "regression: no prior scores after length guard",
+        .ok_or_else(|| ArgoError::Invariant(
+            "regression: no prior scores after length guard".into(),
         ))?;
     if baseline <= current {
         return Ok(RegressionDecision::Stable { current, baseline });

@@ -204,7 +204,7 @@ impl RosterStore {
         for row in rows {
             let raw: String = row.get("worker_id");
             let id: WorkerId = raw.parse().map_err(|e| {
-                ArgoError::Provider(format!("decode worker id '{raw}': {e}"))
+                ArgoError::Invariant(format!("decode worker id '{raw}': {e}"))
             })?;
             out.push(id);
         }
@@ -354,15 +354,15 @@ fn hydrate_row(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<Roster> {
     let budget_micros: Option<i64> = row.get("budget_cap_usd_micros");
     let id: RosterId = id_str
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("decode roster id '{id_str}': {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode roster id '{id_str}': {e}")))?;
     let tenant_id: TenantId = tenant_str
         .parse::<Uuid>()
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("decode tenant id '{tenant_str}': {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode tenant id '{tenant_str}': {e}")))?;
     let policy: AutoApprovalPolicy = serde_json::from_str(&policy_json)
-        .map_err(|e| ArgoError::Provider(format!("decode roster policy: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode roster policy: {e}")))?;
     let channels: Vec<NotifyChannelRef> = serde_json::from_str(&channels_json)
-        .map_err(|e| ArgoError::Provider(format!("decode roster channels: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode roster channels: {e}")))?;
     Ok(Roster {
         id,
         tenant_id,

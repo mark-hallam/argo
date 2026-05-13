@@ -147,7 +147,7 @@ impl TryFrom<RawSkill> for Skill {
         // Sanity check: stored name must match decoded frontmatter.
         if frontmatter.name != r.name {
             return Err(ArgoError::Invariant(
-                "skill.name diverged from frontmatter.name",
+                "skill.name diverged from frontmatter.name".into(),
             ));
         }
         let learned_in = r

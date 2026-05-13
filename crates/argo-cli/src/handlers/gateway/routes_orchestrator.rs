@@ -221,7 +221,7 @@ fn session_row_json(row: &sqlx::sqlite::SqliteRow) -> ArgoResult<Value> {
 }
 
 pub(super) fn uuid_blob(bytes: &[u8]) -> ArgoResult<String> {
-    uuid::Uuid::from_slice(bytes).map(|u| u.to_string()).map_err(|e| ArgoError::Provider(format!("uuid blob: {e}")))
+    uuid::Uuid::from_slice(bytes).map(|u| u.to_string()).map_err(|e| ArgoError::Invariant(format!("uuid blob: {e}")))
 }
 
 pub(super) fn micros(v: i64) -> ArgoResult<String> {

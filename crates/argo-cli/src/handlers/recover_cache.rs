@@ -87,7 +87,7 @@ async fn show(store: &SessionStore, args: RecoverCacheShowCmd) -> ArgoResult<()>
     match recovery_cache::show(store.pool(), &session_id).await? {
         Some((suggestions_json, chain_hash)) => {
             let parsed: serde_json::Value = serde_json::from_str(&suggestions_json)
-                .map_err(|e| ArgoError::Provider(format!("decode cached suggestions: {e}")))?;
+                .map_err(|e| ArgoError::Invariant(format!("decode cached suggestions: {e}")))?;
             if json {
                 let envelope = json!({
                     "ok": true,

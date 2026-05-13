@@ -199,12 +199,12 @@ const LIST_ALL_SQL: &str =
 fn decode_row(row: RawRow) -> StoreResult<ElevatedViewGrantRow> {
     let (id_b, tid_b, principal_id, cats_json, reason, granted_at, expires_at, revoked_at) = row;
     let id = Uuid::from_slice(&id_b)
-        .map_err(|e| ArgoError::Provider(format!("decode grant id: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode grant id: {e}")))?;
     let tenant_id = Uuid::from_slice(&tid_b)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("decode grant tenant: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode grant tenant: {e}")))?;
     let categories: Vec<String> = serde_json::from_str(&cats_json)
-        .map_err(|e| ArgoError::Provider(format!("decode categories: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode categories: {e}")))?;
     let granted_at = Utc
         .timestamp_opt(granted_at, 0)
         .single()

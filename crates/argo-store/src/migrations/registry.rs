@@ -51,7 +51,7 @@ pub(crate) async fn roll_back_to(pool: &Pool<Sqlite>, target: u32) -> Result<(),
         let m = migs
             .iter()
             .find(|m| m.version == current)
-            .ok_or(ArgoError::Invariant("missing migration"))?;
+            .ok_or_else(|| ArgoError::Invariant("missing migration".into()))?;
         let mut tx = pool
             .begin()
             .await

@@ -346,13 +346,13 @@ fn score_from_row(row: sqlx::sqlite::SqliteRow) -> ArgoResult<QualityScore> {
     let computed_at_micros: i64 = row.get("computed_at");
     let skill_id = Uuid::parse_str(&skill_id_str)
         .map(SkillId)
-        .map_err(|e| ArgoError::Provider(format!("decode skill id '{skill_id_str}': {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode skill id '{skill_id_str}': {e}")))?;
     let inputs: QualityInputs = serde_json::from_str(&inputs_json)
-        .map_err(|e| ArgoError::Provider(format!("decode quality inputs: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode quality inputs: {e}")))?;
     let computed_at = DateTime::<Utc>::from_timestamp_micros(computed_at_micros)
-        .ok_or_else(|| ArgoError::Provider(format!("decode computed_at: {computed_at_micros}")))?;
+        .ok_or_else(|| ArgoError::Invariant(format!("decode computed_at: {computed_at_micros}")))?;
     let score_u8 = u8::try_from(score)
-        .map_err(|e| ArgoError::Provider(format!("decode score '{score}': {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode score '{score}': {e}")))?;
     Ok(QualityScore {
         skill_id,
         score: score_u8,

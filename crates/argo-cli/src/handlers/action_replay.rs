@@ -24,7 +24,7 @@ pub(crate) async fn run(cmd: ActionCmd) -> ArgoResult<()> {
             bundle_dir,
         } => replay(&action_id, executor, dry_run, bundle_dir).await,
         _ => Err(ArgoError::Invariant(
-            "non-replay action command routed to action_replay",
+            "non-replay action command routed to action_replay".into(),
         )),
     }
 }

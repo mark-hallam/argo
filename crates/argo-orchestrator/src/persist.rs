@@ -167,7 +167,7 @@ impl OrchestratorStore {
             .ok_or_else(|| ArgoError::Schema("orchestrator session not found".into()))?
             .status;
         if !session_transition_allowed(current, status) {
-            return Err(ArgoError::Invariant("invalid session status transition"));
+            return Err(ArgoError::Invariant("invalid session status transition".into()));
         }
         sqlx::query(
             "UPDATE session SET status = ? WHERE id = ? AND tenant_id = ? AND provider = ?",

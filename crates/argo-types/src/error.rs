@@ -134,7 +134,7 @@ pub type BudgetWindow = CapScope;
 ///
 /// ```
 /// use argo_types::ArgoError;
-/// let err = ArgoError::Invariant("session status transition not allowed");
+/// let err = ArgoError::Invariant("session status transition not allowed".into());
 /// assert!(format!("{err}").contains("invariant"));
 /// ```
 ///
@@ -252,10 +252,14 @@ pub enum ArgoError {
     ///
     /// Use when an internal assumption breaks (impossible state machine
     /// transition, missing migration, corrupt persisted blob). This signals
-    /// a bug — should be rare. The `&'static str` constraint forces the
-    /// invariant message to be a literal, not interpolated user data.
+    /// a bug — should be rare.
+    ///
+    /// Carries a `String` so call sites can interpolate the offending value
+    /// (decoded blob, mis-typed column, parse error) with `format!()`. Aligns
+    /// with the [`Provider`](Self::Provider) / [`Schema`](Self::Schema) /
+    /// [`Io`](Self::Io) payload shape.
     #[error("invariant violated: {0}")]
-    Invariant(&'static str),
+    Invariant(String),
     /// Operation was interrupted (e.g. SIGINT). Maps to HTTP 499.
     #[error("interrupted")]
     Interrupted,

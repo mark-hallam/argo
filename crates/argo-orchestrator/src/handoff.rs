@@ -166,7 +166,7 @@ impl Handoff {
         match self.status {
             HandoffStatus::Pending | HandoffStatus::Acknowledged => { self.status = HandoffStatus::Cancelled; Ok(()) }
             HandoffStatus::Cancelled => Ok(()),
-            HandoffStatus::Settled | HandoffStatus::Expired => Err(ArgoError::Invariant("invalid handoff status transition")),
+            HandoffStatus::Settled | HandoffStatus::Expired => Err(ArgoError::Invariant("invalid handoff status transition".into())),
         }
     }
 

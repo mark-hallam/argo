@@ -142,7 +142,7 @@ pub(crate) fn write_gif(trajectory: &Trajectory, out: &Path, fps: u32) -> ArgoRe
     for step in &trajectory.steps {
         let bytes = read_screenshot_bytes(&step.screenshot)?;
         let img = image::load_from_memory(&bytes)
-            .map_err(|e| ArgoError::Provider(format!("decode step {}: {e}", step.row.step)))?
+            .map_err(|e| ArgoError::Invariant(format!("decode step {}: {e}", step.row.step)))?
             .to_rgba8();
         let frame =
             Frame::from_parts(img, 0, 0, Delay::from_saturating_duration(frame_delay));
