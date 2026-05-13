@@ -1,0 +1,440 @@
+# scripts/cli-help-baseline.txt
+#
+# Leaf subcommands not yet carrying an `Examples:` after_help
+# block. Regenerate with:
+#   scripts/check-cli-help-examples.sh --update-baseline
+#
+# This list is meant to shrink to zero over time. Adding a new
+# leaf without an Examples block fails CI; either include the
+# block in the same PR or, if intentional, append the leaf path
+# below with a short rationale.
+
+acp serve
+action history
+action recent
+action replay
+action timeline
+activity since
+activity tail
+approval export
+approval history
+approval policy init
+approval policy list
+approval policy show
+audit archive
+audit breaks
+audit by-day
+audit by-day-by-kind
+audit by-kind
+audit by-session
+audit by-tool
+audit by-vertical
+audit count
+audit export
+audit list-archives
+audit query
+audit replay
+audit report
+audit show
+audit tool-errors
+audit verify
+audit verify-archive
+budget alerts list
+budget alerts test
+budget anomalies
+budget anomaly-tick
+budget by-skill
+budget recent
+budget show
+budget watch
+classify list
+classify rules
+classify set
+compliance delete
+compliance export
+compliance soc2
+connector authorize
+connector list
+connector list-status
+connector revoke
+connector show
+connector test
+contract apply
+contract show
+contract validate
+costs alert
+costs anomalies
+costs by-day
+costs by-model
+costs by-provider
+costs by-session
+costs cap
+costs export
+costs forecast
+costs recent
+costs show
+costs total
+cred backend
+cred encrypt-all
+cred migrate-to-keyring
+cron create
+cron daemon
+cron delete
+cron edit
+cron init-system
+cron list
+cron tick
+cron trigger
+cu replay
+db integrity
+db migrate-down
+db migrate-up
+db prune
+db rekey
+db status
+db vacuum
+db version
+doctor approvals
+doctor fix
+doctor throttles
+doctor wal-stats
+doctor watch
+duty fire-now
+duty list
+duty pause
+duty resume
+duty show
+eval compare
+eval list
+eval run
+eval show
+eval skill-honesty
+eval validate
+feedback down
+feedback list
+feedback up
+forge bench
+forge cost-report
+forge daemon
+forge enqueue
+forge optimize
+forge runs abort
+forge runs abort-all
+forge runs audit
+forge runs by-day
+forge runs by-skill
+forge runs by-status
+forge runs count
+forge runs list
+forge runs payload
+forge runs requeue
+forge runs show
+forge runs sweep
+gateway probe
+gateway routes
+gateway start
+gateway status
+gateway stop
+genesis create
+genesis export
+genesis from-job-description
+genesis from-vertical
+genesis import
+genesis interactive
+genesis list-archetypes
+genesis refine
+genesis revise
+genesis show-archetype
+genesis suggest
+handoff cancel
+handoff list
+handoff show
+handoff-auctions cancel
+handoff-auctions list
+handoff-auctions show
+handoff-policy show
+handoff-policy validate
+handoff-rules add
+handoff-rules list
+handoff-rules remove
+handoff-rules show
+handoff-rules test
+handoff-stats
+import hermes
+incident bundle
+incident new
+judge eval-disagreement
+judge override
+judge verdict
+mcp image-gen
+mcp registry add
+mcp registry list
+mcp registry remove
+mcp serve
+mcp tools
+memory append
+memory count
+memory dream-now
+memory edit
+memory forget
+memory list
+memory lock
+memory revert
+memory shared-team grep
+memory shared-team list
+memory shared-team write
+memory unlock
+memory verify
+memory view
+messages by-day
+messages by-day-by-role
+messages by-role
+messages by-session
+messages recent
+model list
+model set
+model test
+operator risk-overrides delete
+operator risk-overrides get
+operator risk-overrides list
+operator risk-overrides set
+org ingest
+org member
+org reports-to
+org tree
+persona edit
+persona history
+persona revert
+plan execute
+plan generate
+plan show
+plan template list
+plan template promote
+plan template show
+plugin disable
+plugin enable
+plugin install
+plugin list
+plugin remove
+plugin run
+policy apply
+policy list
+policy show
+policy validate
+provider breakers
+provider cache-stats
+provider list
+provider show
+provider test
+provider validate
+provider validate-all
+recover-cache clear
+recover-cache list
+recover-cache show
+roster add-member
+roster create
+roster list
+roster remove-member
+roster show
+route bench
+route inspect
+sandbox e2b list
+sandbox e2b reap-idle
+security audit
+security rotate-keys audit-key-age
+security rotate-keys commit
+security rotate-keys list
+security rotate-keys plan
+session approve
+session attach-skill
+session audit-by-kind
+session audit-by-tool
+session bisect
+session branch
+session by-day
+session by-model
+session by-provider
+session capability-gaps
+session clear-skills
+session clone
+session count
+session detach-skill
+session diff
+session end
+session end-all
+session export
+session list-grants
+session messages-by-role
+session reopen
+session replay
+session revoke-approval
+session skills
+session stats
+session title
+session tool-errors
+session transcript
+session turns
+skill ab-promote
+skill ab-snapshot
+skill ab-status
+skill ab-test
+skill catalog
+skill conflicts list
+skill conflicts resolve
+skill conflicts show
+skill count
+skill create
+skill deps
+skill distill-now
+skill export
+skill export-all
+skill import
+skill install
+skill keygen
+skill list
+skill list-migrations
+skill lock
+skill migrate
+skill publish
+skill quality
+skill quality-list
+skill quality-recompute
+skill quality-trend
+skill refine
+skill review approve
+skill review export
+skill review import
+skill review list
+skill review promote
+skill review reject
+skill review show
+skill rollback
+skill runs
+skill search
+skill set-flag
+skill sign
+skill tags
+skill unlock
+skill unpublish
+skill update
+skill upgrade
+skill verify
+skill verify-sig
+skill versions
+skill view
+subtask budget
+subtask list
+subtask show
+subtask tree
+team add
+team create
+team list
+team remove
+team rename
+team show
+tenant archive
+tenant create
+tenant info
+tenant list
+tenant quota clear
+tenant quota list
+tenant quota set
+tenant quota show
+tenant rate-limit delete
+tenant rate-limit get
+tenant rate-limit list
+tenant rate-limit set
+tenant rename
+tenant show
+tenant transfer
+trace explore
+trajectory export
+trust composed
+trust graph
+vertical archive
+vertical delete
+vertical describe
+vertical doctor
+vertical eval
+vertical install
+vertical lint
+vertical list
+vertical pack
+vertical publish
+vertical pull
+vertical run
+vertical show
+vertical unarchive
+vertical uninstall
+vertical validate
+vertical workflow
+wizard onboard
+worker actions approve
+worker actions approve-batch
+worker actions cancel
+worker actions complete
+worker actions execute
+worker actions fail
+worker actions list
+worker actions render
+worker actions retry
+worker actions show
+worker actions status
+worker anomalies
+worker archive add
+worker archive list
+worker budget set
+worker budget show
+worker channels add
+worker channels list
+worker channels remove
+worker charter clear
+worker charter get
+worker charter set
+worker costs
+worker create
+worker delete
+worker deps add
+worker deps graph
+worker deps impact
+worker deps list
+worker deps remove
+worker doctor
+worker elasticity config
+worker elasticity status
+worker fleet
+worker items list
+worker items show
+worker kpi list
+worker kpi record
+worker kpi series
+worker level
+worker list
+worker okr progress
+worker okr set
+worker okr show
+worker onboard
+worker policy show
+worker portrait
+worker promote
+worker rehydrate
+worker restarts
+worker resume
+worker review
+worker show
+worker skills
+worker success
+worker update
+workflow checkpoints
+workflow list-runs
+workflow resume
+workflow rollback
+workflow run
+workflow status
+workflow validate
+workspace artifacts
+workspace diff
+workspace fork
+workspace publish
+workspace pull
+workspace push

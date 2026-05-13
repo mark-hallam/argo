@@ -8,8 +8,13 @@ use clap::{Subcommand, ValueEnum};
 pub enum WorkspaceCmd {
     /// Initialize a fresh workspace at `.` (writes argo.toml + the
     /// canonical bundle directories).
+    #[command(after_help = "Examples:\n  \
+        argo workspace init")]
     Init,
     /// One-line status summary (workspace + db + costs).
+    #[command(after_help = "Examples:\n  \
+        argo workspace status\n  \
+        argo workspace status --json")]
     Status {
         /// Output as a single JSON object for scripting.
         /// Equivalent to `--format json`.
@@ -23,6 +28,8 @@ pub enum WorkspaceCmd {
     /// Verify workspace integrity: argo.toml parses, memory files +
     ///   bundle dirs exist, agent persona files exist, manifests
     ///   referenced from `[provider.profiles.*]` resolve.
+    #[command(after_help = "Examples:\n  \
+        argo workspace verify")]
     Verify,
     /// Pull a workspace bundle from an OCI ref and extract it
     /// into `--into <dir>` (defaults to a sibling directory named

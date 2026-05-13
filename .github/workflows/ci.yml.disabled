@@ -26,6 +26,19 @@ jobs:
         run: scripts/check-span-naming.sh
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
+  cli-help-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build argo CLI
+        run: cargo build -p argo-cli --bin argo
+      - name: Assert every leaf subcommand has an Examples block
+        env:
+          ARGO_BIN: target/debug/argo
+        run: bash scripts/check-cli-help-examples.sh
+
   test:
     strategy:
       fail-fast: false

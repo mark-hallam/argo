@@ -33,6 +33,10 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum ToolsCmd {
     /// List in-core tools.
+    #[command(after_help = "Examples:\n  \
+        argo tools list\n  \
+        argo tools list --format markdown\n  \
+        argo tools list --name-contains search")]
     List {
         /// Equivalent to `--format json`.
         #[arg(long)]
@@ -45,6 +49,9 @@ pub enum ToolsCmd {
         name_contains: Option<String>,
     },
     /// Show one tool's full JSON-schema parameter shape by name.
+    #[command(after_help = "Examples:\n  \
+        argo tools show web_search\n  \
+        argo tools show web_search --json")]
     Show {
         name: String,
         /// Output as a single JSON object for scripting.

@@ -10,6 +10,9 @@ pub enum WorkCmd {
     /// the vertical exists, then appends a `pending_jobs` memory
     /// entry under the vertical's namespace. Returns the job id
     /// (the memory entry's UUID).
+    #[command(after_help = "Examples:\n  \
+        argo work add --vertical gtm-engineer --prompt \"draft cold outreach for ACME\"\n  \
+        argo work add --vertical gtm-engineer --prompt \"summarise inbox\" --json")]
     Add {
         /// Vertical id (e.g. `gtm-engineer`). Must be discoverable
         /// via `argo vertical list`.
@@ -33,6 +36,10 @@ pub enum WorkCmd {
     /// Switch `--provider` / `--model` to drive a real provider
     /// (e.g. `--provider anthropic --model claude-sonnet-4-6`,
     /// requires `ANTHROPIC_API_KEY` in env).
+    #[command(after_help = "Examples:\n  \
+        argo work serve --vertical gtm-engineer\n  \
+        argo work serve --vertical gtm-engineer --provider anthropic --model claude-sonnet-4-6\n  \
+        argo work serve --vertical gtm-engineer --once --json")]
     Serve {
         /// Vertical id this worker serves.
         #[arg(long)]
@@ -81,6 +88,10 @@ pub enum WorkCmd {
     /// job's `output_dir` from its `completed_jobs` memory
     /// row, then prints (or writes to stdout) the requested
     /// file.
+    #[command(after_help = "Examples:\n  \
+        argo work logs 01J9JOB...\n  \
+        argo work logs 01J9JOB... --kind assistant\n  \
+        argo work logs 01J9JOB... --kind all")]
     Logs {
         /// The `job_id` (UUIDv7) of a previously-served job.
         /// Use `argo work jobs --json` to find a recent one.
@@ -100,6 +111,10 @@ pub enum WorkCmd {
     /// `completed_jobs` memory rows the queue runner uses, so
     /// what you see here is exactly what the worker would
     /// process / has processed.
+    #[command(after_help = "Examples:\n  \
+        argo work jobs\n  \
+        argo work jobs --state pending --vertical gtm-engineer\n  \
+        argo work jobs --state completed --limit 20 --json")]
     Jobs {
         /// Filter by job state. One of `pending`, `completed`,
         /// or `all`. Defaults to `all`.

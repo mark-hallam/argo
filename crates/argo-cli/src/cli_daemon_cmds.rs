@@ -12,6 +12,10 @@ pub enum DaemonCmd {
     /// `<launch-agents-dir>/com.skycot.argo.plist` + run
     /// `launchctl load` on it. `--dry-run` prints the rendered
     /// plist without writing.
+    #[command(after_help = "Examples:\n  \
+        argo daemon install\n  \
+        argo daemon install --dry-run\n  \
+        argo daemon install --json")]
     Install {
         /// Emit `{plist_path, bin, loaded}` as JSON instead of the
         /// human-readable summary.
@@ -34,6 +38,9 @@ pub enum DaemonCmd {
     },
     /// `launchctl unload` the agent + remove the plist file.
     /// Idempotent — succeeds even if the agent isn't installed.
+    #[command(after_help = "Examples:\n  \
+        argo daemon uninstall\n  \
+        argo daemon uninstall --dry-run --json")]
     Uninstall {
         #[arg(long)]
         json: bool,

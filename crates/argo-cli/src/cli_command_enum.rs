@@ -403,6 +403,10 @@ pub enum Command {
     /// the platform asset + detached Ed25519 signature, verifies
     /// against the embedded release pubkey, and atomically replaces
     /// the running binary. Best-effort gateway daemon restart.
+    #[command(after_help = "Examples:\n  \
+        argo self-update --check\n  \
+        argo self-update\n  \
+        argo self-update --channel beta --force --json")]
     SelfUpdate {
         /// Report the latest available version without installing.
         #[arg(long)]

@@ -3,6 +3,10 @@ use clap::Subcommand;
 #[derive(Subcommand, Debug)]
 pub enum AgentsCmd {
     /// List `[agents.*]` blocks from `argo.toml`.
+    #[command(after_help = "Examples:\n  \
+        argo agents list\n  \
+        argo agents list --format json\n  \
+        argo agents list --format markdown")]
     List {
         /// Output as a JSON array for scripting.
         /// Equivalent to `--format json`.
@@ -16,6 +20,9 @@ pub enum AgentsCmd {
     /// Add a new `[agents.<name>]` block to `argo.toml`. Use the
     /// flags to populate keys; defaults are sensible enough that
     /// the agent shows up in `argo agents list` immediately.
+    #[command(after_help = "Examples:\n  \
+        argo agents create research-bot\n  \
+        argo agents create scout --model claude-sonnet-4-6 --toolset web")]
     Create {
         name: String,
         /// `default_model` field. Defaults to "claude-3-5-sonnet".
@@ -29,6 +36,8 @@ pub enum AgentsCmd {
         memory_namespace: Option<String>,
     },
     /// Remove an `[agents.<name>]` block from `argo.toml`.
+    #[command(after_help = "Examples:\n  \
+        argo agents delete research-bot")]
     Delete { name: String },
 }
 

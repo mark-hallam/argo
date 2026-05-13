@@ -17,6 +17,10 @@ pub enum RuntimeCmd {
     /// insert — useful for prototyping the read-side surface and
     /// for capturing externally-streamed messages via the gateway
     /// (`POST /sessions/<id>/messages`).
+    #[command(after_help = "Examples:\n  \
+        argo new --provider anthropic --model claude-sonnet-4-6\n  \
+        argo new --provider mock --model mock --title \"smoke test\"\n  \
+        argo new --provider anthropic --model claude-sonnet-4-6 --vertical gtm-engineer")]
     New {
         /// Provider id (matches `manifests/providers/<id>.toml`).
         #[arg(long)]
@@ -37,6 +41,8 @@ pub enum RuntimeCmd {
     /// message in order. Read-only — for the live "continue this
     /// session against an LLM" flow, see the daemon's
     /// /sessions/<id>/runs binding (separate PR).
+    #[command(after_help = "Examples:\n  \
+        argo resume 01J9XYZ...")]
     Resume {
         /// Session id (full UUID).
         id: String,
@@ -45,6 +51,10 @@ pub enum RuntimeCmd {
     /// `curl … | bash && argo setup` Hermes-style two-step
     /// install (#646). Idempotent: re-runnable to verify
     /// configuration or pick a different provider.
+    #[command(after_help = "Examples:\n  \
+        argo setup\n  \
+        argo setup --check\n  \
+        argo setup --check --require ANTHROPIC_API_KEY --require OPENAI_API_KEY")]
     Setup {
         /// Verification mode — skip the interactive walkthrough
         /// and exit non-zero if no provider key is loadable from
@@ -76,6 +86,10 @@ pub enum RuntimeCmd {
     /// action, done. 7 stages; stages 3-7 may Skip cleanly. The
     /// non-developer's entry point — pairs with `argo setup` (the
     /// CI-style provider-key probe).
+    #[command(after_help = "Examples:\n  \
+        argo onboard\n  \
+        argo onboard --non-interactive\n  \
+        argo onboard --non-interactive --json --config .argo/onboarding.toml")]
     Onboard {
         /// Run without prompts. Reads `<workspace>/.argo/onboarding.toml`
         /// (or `--config <path>`) for stage inputs.
@@ -90,6 +104,10 @@ pub enum RuntimeCmd {
         #[arg(long, value_name = "PATH")]
         config: Option<String>,
     },
+    /// Append an out-of-band user message to a live session. Used to
+    /// nudge a running agent without waiting for the next prompt.
+    #[command(after_help = "Examples:\n  \
+        argo steer 01J9XYZ... \"pause and summarise progress\"")]
     Steer {
         session_id: String,
         text: String,
@@ -98,6 +116,10 @@ pub enum RuntimeCmd {
     /// audit-log timeline (`--session`) or one turn's span tree
     /// (`--turn`); with `explore <session>`, walks the local OTLP
     /// NDJSON sink and renders a markdown or JSON tree.
+    #[command(after_help = "Examples:\n  \
+        argo trace --session 01J9XYZ...\n  \
+        argo trace --turn 01J9TURN...\n  \
+        argo trace explore 01J9XYZ... --format json")]
     Trace {
         #[command(subcommand)]
         cmd: Option<TraceCmd>,
@@ -111,6 +133,10 @@ pub enum RuntimeCmd {
     /// (Anthropic / OpenAI / OpenAI Responses), and persists the
     /// assistant's response. Requires the provider's API-key env
     /// var.
+    #[command(after_help = "Examples:\n  \
+        export ANTHROPIC_API_KEY=sk-ant-...\n  \
+        argo chat 01J9XYZ... --user \"summarise progress so far\"\n  \
+        argo chat 01J9XYZ... --interactive --stream")]
     Chat {
         /// Session id (from `argo new` / `argo session list`).
         id: String,
@@ -133,14 +159,23 @@ pub enum RuntimeCmd {
         max_tool_rounds: Option<usize>,
     },
     /// Open the interactive TUI (read-only session viewer for now).
+    #[command(after_help = "Examples:\n  \
+        argo tui")]
     Tui,
     /// List the in-core tools the agent can call. Mirrors
     /// `GET /tools`.
+    #[command(after_help = "Examples:\n  \
+        argo tools\n  \
+        argo tools list --format markdown\n  \
+        argo tools show web_search --json")]
     Tools {
         #[command(subcommand)]
         cmd: Option<ToolsCmd>,
     },
     /// Diagnose configuration / sandbox / port issues.
+    #[command(after_help = "Examples:\n  \
+        argo doctor\n  \
+        argo doctor --json")]
     Doctor {
         #[command(subcommand)]
         cmd: Option<DoctorCmd>,
@@ -158,6 +193,9 @@ pub enum RuntimeCmd {
     /// manifests, skill hashes, memory hashes, audit chain — and
     /// exit non-zero on the first failure. Suitable as a single
     /// CI hook.
+    #[command(after_help = "Examples:\n  \
+        argo health\n  \
+        argo health --json")]
     Health {
         /// Output a single JSON object with per-check status.
         /// Equivalent to `--format json`.
@@ -174,6 +212,9 @@ pub enum RuntimeCmd {
     /// 3 ranked fix suggestions. Cached per
     /// (session_id, audit_chain_hash) so re-runs are free.
     /// Advisory only — no auto-apply.
+    #[command(after_help = "Examples:\n  \
+        argo recover 01J9XYZ...\n  \
+        argo recover 01J9XYZ... --json")]
     Recover {
         /// Session id (UUID) whose chain to analyze.
         session_id: String,
@@ -191,6 +232,9 @@ pub enum RuntimeCmd {
     /// Local voice TUI for approval flow
     /// (`claude-voice-local-tui-whisper`). Mic capture is
     /// opt-in: `--features whisper-native`.
+    #[command(after_help = "Examples:\n  \
+        argo voice\n  \
+        argo voice --mock-script fixtures/voice-mock.json --json")]
     Voice {
         /// Drive the loop from a JSON file (`{"script": [...]}`).
         #[arg(long, value_name = "PATH")]
@@ -204,10 +248,19 @@ pub enum RuntimeCmd {
     /// `latency_buckets` table populated by the dispatch wrapper
     /// and prints `kind | n | p50 | p95 | p99 | max` as a markdown
     /// table (default) or as JSON.
+    #[command(after_help = "Examples:\n  \
+        argo latency\n  \
+        argo latency --format json")]
     Latency {
         /// Output format: `markdown` (default) or `json`.
         #[arg(long, default_value = "markdown")]
         format: String,
     },
+    /// Placeholder for an in-place upgrade command. Not yet wired
+    /// in this build — see `argo self-update` for the working
+    /// signed-release upgrade flow.
+    #[command(after_help = "Examples:\n  \
+        argo update                # stub today, exits non-zero\n  \
+        argo self-update --check   # use this instead")]
     Update,
 }

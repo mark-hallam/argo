@@ -6,6 +6,10 @@ use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub enum SessionCmd {
+    /// Create a session row directly (orchestrator path).
+    #[command(after_help = "Examples:\n  \
+        argo session start --title \"morning standup notes\"\n  \
+        argo session start --title \"design review\" --worker scout --json")]
     Start {
         #[arg(long)]
         tenant: Option<String>,
@@ -16,6 +20,12 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// List sessions with rich filters (status, provider, model,
+    /// title-substring, spend window, etc.).
+    #[command(after_help = "Examples:\n  \
+        argo session list\n  \
+        argo session list --status active --limit 50\n  \
+        argo session list --since-minutes 60 --provider anthropic --json")]
     List {
         #[arg(long)]
         tenant: Option<String>,
@@ -66,9 +76,17 @@ pub enum SessionCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Stream a session's new messages live (poll loop).
+    #[command(after_help = "Examples:\n  \
+        argo session watch 01J9XYZ...")]
     Watch {
         id: String,
     },
+    /// Render the message log for one session.
+    #[command(after_help = "Examples:\n  \
+        argo session messages 01J9XYZ...\n  \
+        argo session messages 01J9XYZ... --role assistant --tail 20\n  \
+        argo session messages 01J9XYZ... --json")]
     Messages {
         id: String,
         #[arg(long)]
@@ -104,6 +122,10 @@ pub enum SessionCmd {
     ClearSkills {
         id: String,
     },
+    /// Print the session header (provider, model, status, spend).
+    #[command(after_help = "Examples:\n  \
+        argo session show 01J9XYZ...\n  \
+        argo session show 01J9XYZ... --json")]
     Show {
         id: String,
         #[arg(long)]
@@ -123,6 +145,11 @@ pub enum SessionCmd {
         #[arg(long, default_value = "jsonl")]
         format: String,
     },
+    /// Full-text search across session messages.
+    #[command(after_help = "Examples:\n  \
+        argo session search \"timeout\"\n  \
+        argo session search \"approval denied\" --role assistant --limit 5 --json\n  \
+        argo session search \"oom\" --count")]
     Search {
         query: String,
         #[arg(long, default_value_t = 20)]
@@ -138,6 +165,10 @@ pub enum SessionCmd {
         #[arg(long, conflicts_with_all = ["limit", "format"])]
         count: bool,
     },
+    /// Delete a session row + its messages (use `--force` to skip the prompt).
+    #[command(after_help = "Examples:\n  \
+        argo session delete 01J9XYZ...\n  \
+        argo session delete 01J9XYZ... --force")]
     Delete {
         id: String,
         #[arg(long)]
