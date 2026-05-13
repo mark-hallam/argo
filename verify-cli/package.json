@@ -1,0 +1,30 @@
+{
+  "name": "@skycot/verify",
+  "version": "0.1.0",
+  "description": "Offline hash-chain + Ed25519 integrity verifier for SKYCOT audit evidence bundles.",
+  "license": "MIT",
+  "bin": {
+    "skycot-verify": "dist/cli.js"
+  },
+  "main": "dist/verify.js",
+  "types": "dist/verify.d.ts",
+  "files": [
+    "dist",
+    "src/keys/public-key.pem",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
