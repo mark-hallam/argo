@@ -16,8 +16,8 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use super::boot_spawns::{
-    finish_shutdown, spawn_alerts_loop, spawn_audit_watchdog, spawn_cu_screenshot_sweep,
-    spawn_gateway_duty_scheduler,
+    finish_shutdown, spawn_alerts_loop, spawn_approval_reminder, spawn_audit_watchdog,
+    spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler,
 };
 use super::lifecycle::{pid_is_alive, signal_term, PidGuard};
 use super::rate_limit_ip::{self, rate_limited_response_bytes, CheckResult, IpRateLimiter};
@@ -121,6 +121,7 @@ pub(super) async fn start(
     let _sweeper = bg_store.map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
     let _approval_expiry =
         bg_store.map(|s| approval_expiry_sweeper::spawn_approval_expiry_sweeper(Arc::clone(s)));
+    let _approval_reminder = bg_store.map(|s| spawn_approval_reminder(Arc::clone(s)));
     let _duty_scheduler = bg_store.map(|s| spawn_gateway_duty_scheduler(Arc::clone(s)));
     let _alerts_loop = bg_store.map(|s| spawn_alerts_loop(Arc::clone(s)));
     let _cu_screenshot_sweep = bg_store.map(|s| spawn_cu_screenshot_sweep(Arc::clone(s)));

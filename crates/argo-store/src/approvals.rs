@@ -49,7 +49,7 @@
 //! let _ = list_pending(pool, tenant, 100).await?;
 //! # Ok(()) }
 //! ```
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
@@ -197,6 +197,9 @@ pub struct ApprovalRequest {
     /// Final decision label (`granted`/`denied` for human decisions;
     /// the `default_decision` label for Expired rows).
     pub decision: Option<String>,
+    /// Reminder/escalation sent-at micros since epoch. `None` means a
+    /// pending row is still eligible for the no-reply reminder loop.
+    pub escalation_sent_at: Option<i64>,
 }
 
 /// Insert payload for [`create_request`]. Lets callers populate every
@@ -219,10 +222,7 @@ pub struct NewApprovalRequest<'a> {
 
 /// Insert one row with `status = Pending`. Returns the assigned id so
 /// the caller can correlate it with the action being gated.
-pub async fn create_request(
-    pool: &SqlitePool,
-    new: &NewApprovalRequest<'_>,
-) -> ArgoResult<String> {
+pub async fn create_request(pool: &SqlitePool, new: &NewApprovalRequest<'_>) -> ArgoResult<String> {
     let id = Uuid::now_v7().to_string();
     let id_bytes = Uuid::parse_str(&id)
         .map_err(|e| ArgoError::Provider(format!("approval id parse: {e}")))?
@@ -330,6 +330,56 @@ pub async fn expire_overdue(
     Ok(rows.rows_affected())
 }
 
+/// Pending rows whose deadline is approaching within `window`.
+///
+/// Rows already past the deadline are intentionally excluded; the
+/// expiry sweeper owns that terminal transition.
+pub async fn list_pending_near_deadline(
+    pool: &SqlitePool,
+    window: std::time::Duration,
+    now: DateTime<Utc>,
+) -> ArgoResult<Vec<ApprovalRequest>> {
+    let now_micros = now.timestamp_micros();
+    let window_micros = i64::try_from(window.as_micros()).unwrap_or(i64::MAX);
+    let upper = now_micros.saturating_add(window_micros);
+    let rows: Vec<RowTuple> = sqlx::query_as(SELECT_PENDING_NEAR_DEADLINE)
+        .bind(now_micros)
+        .bind(upper)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| ArgoError::Provider(format!("approval list_pending_near_deadline: {e}")))?;
+    rows.into_iter().map(into_request).collect()
+}
+
+/// Stamp a Pending approval row after a reminder has been sent.
+///
+/// Idempotent: a second call, an already-decided row, or an unknown id
+/// returns `false` and leaves the database unchanged.
+pub async fn mark_escalation_sent(pool: &SqlitePool, request_id: &str) -> ArgoResult<bool> {
+    mark_escalation_sent_at(pool, request_id, Utc::now().timestamp_micros()).await
+}
+
+/// Testable variant of [`mark_escalation_sent`] with caller-supplied
+/// timestamp.
+pub async fn mark_escalation_sent_at(
+    pool: &SqlitePool,
+    request_id: &str,
+    now_micros: i64,
+) -> ArgoResult<bool> {
+    let id_bytes = parse_id_bytes(request_id)?;
+    let rows = sqlx::query(
+        "UPDATE approval_request \
+         SET escalation_sent_at = ? \
+         WHERE id = ? AND status = 'pending' AND escalation_sent_at IS NULL",
+    )
+    .bind(now_micros)
+    .bind(&id_bytes)
+    .execute(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("approval mark_escalation_sent: {e}")))?;
+    Ok(rows.rows_affected() > 0)
+}
+
 fn parse_id_bytes(id: &str) -> ArgoResult<Vec<u8>> {
     Uuid::parse_str(id)
         .map(|u| u.as_bytes().to_vec())
@@ -338,18 +388,28 @@ fn parse_id_bytes(id: &str) -> ArgoResult<Vec<u8>> {
 
 const COLUMNS: &str = "id, action_id, tenant_id, requested_at, requested_by, \
                        deadline_at, default_decision, status, decided_at, \
-                       decided_by, decision";
+                       decided_by, decision, escalation_sent_at";
 
 const SELECT_BY_ID: &str = "SELECT id, action_id, tenant_id, requested_at, requested_by, \
                             deadline_at, default_decision, status, decided_at, decided_by, \
-                            decision FROM approval_request WHERE id = ?";
+                            decision, escalation_sent_at FROM approval_request WHERE id = ?";
 
 const SELECT_PENDING_BY_TENANT: &str =
     "SELECT id, action_id, tenant_id, requested_at, requested_by, \
-     deadline_at, default_decision, status, decided_at, decided_by, decision \
+     deadline_at, default_decision, status, decided_at, decided_by, decision, escalation_sent_at \
      FROM approval_request \
      WHERE tenant_id = ? AND status = 'pending' \
      ORDER BY requested_at ASC LIMIT ?";
+
+const SELECT_PENDING_NEAR_DEADLINE: &str =
+    "SELECT id, action_id, tenant_id, requested_at, requested_by, \
+     deadline_at, default_decision, status, decided_at, decided_by, decision, escalation_sent_at \
+     FROM approval_request \
+     WHERE status = 'pending' \
+       AND escalation_sent_at IS NULL \
+       AND deadline_at > ? \
+       AND deadline_at <= ? \
+     ORDER BY deadline_at ASC, requested_at ASC";
 
 #[allow(dead_code)]
 const _ALL_COLUMNS_REFERENCE: &str = COLUMNS;
@@ -366,6 +426,7 @@ type RowTuple = (
     Option<i64>,    // decided_at
     Option<String>, // decided_by
     Option<String>, // decision
+    Option<i64>,    // escalation_sent_at
 );
 
 fn into_request(t: RowTuple) -> ArgoResult<ApprovalRequest> {
@@ -387,9 +448,13 @@ fn into_request(t: RowTuple) -> ArgoResult<ApprovalRequest> {
         decided_at: t.8,
         decided_by: t.9,
         decision: t.10,
+        escalation_sent_at: t.11,
     })
 }
 
+#[cfg(test)]
+#[path = "approval_escalation_tests.rs"]
+mod escalation_tests;
 #[cfg(test)]
 #[path = "approvals_tests.rs"]
 mod tests;

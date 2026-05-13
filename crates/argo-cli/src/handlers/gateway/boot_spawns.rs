@@ -17,6 +17,7 @@ use argo_store::attached_blob::{BlobStore, MemoryAttachedBlob};
 use argo_store::SessionStore;
 use tokio::task::JoinHandle;
 
+use super::approval_reminder;
 use super::boot::AbortOnDrop;
 use super::shutdown::{self, ShutdownController};
 use crate::handlers::alerts;
@@ -140,6 +141,16 @@ pub(super) fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnD
         scheduler,
         Duration::from_secs(interval_secs),
     ))
+}
+
+pub(super) fn spawn_approval_reminder(store: Arc<SessionStore>) -> AbortOnDrop {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    eprintln!(
+        "argo gateway: approval reminder enabled (interval={}s, window={}m)",
+        approval_reminder::interval_secs_from_env(),
+        approval_reminder::window_from_env().as_secs() / 60
+    );
+    AbortOnDrop::new(approval_reminder::spawn_approval_reminder_loop(store, cwd))
 }
 
 /// Drain in-flight requests up to `ARGO_SHUTDOWN_DEADLINE_SECS` (env,

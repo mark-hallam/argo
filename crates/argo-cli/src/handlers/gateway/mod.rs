@@ -9,6 +9,7 @@
 //!   - `print_routes`:         `argo gateway routes` CLI subcommand printer.
 //!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
 mod approval_expiry_sweeper;
+mod approval_reminder;
 mod boot;
 mod boot_spawns;
 mod dashboard;
