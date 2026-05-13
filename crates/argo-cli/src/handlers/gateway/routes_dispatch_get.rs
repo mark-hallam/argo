@@ -72,6 +72,14 @@ pub(super) async fn dispatch_get(
                         .await,
                 );
             }
+            // J8 — /api/v1/workers/<id>/overview bundles charter,
+            // duties, kpis, recent_activity for the Overview tab.
+            if tail.starts_with("overview ") || tail.starts_with("overview?") {
+                return Some(
+                    super::routes_worker_overview::show_response(id_with_suffix, req, store)
+                        .await,
+                );
+            }
             // J9 — per-worker audit timeline. Pinned alongside trust-grade
             // so the `/api/v1/workers/<id>/<verb>` family stays grouped.
             if tail.starts_with("activity ") || tail.starts_with("activity?") {

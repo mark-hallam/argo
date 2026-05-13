@@ -72,8 +72,12 @@ aws-config = { workspace = true }
 futures = { workspace = true }
 sha2 = { workspace = true }
 chrono = { workspace = true }
-clap = { workspace = true }
+# cron parsing for next_fire_at on duties in the worker-overview
+# endpoint (Stream J8). Pinned to 0.12 to match argo-orchestrator
+# and argo-team-headline; sensible deviation from J8's may-touch
+# list (one-line additive Cargo.toml dep, no breaking changes).
 cron = "0.12"
+clap = { workspace = true }
 csv = "1"
 # Concurrent map for the per-IP token-bucket rate limiter
 # (claude-security-rate-limit-by-ip). DashMap is not yet a workspace
