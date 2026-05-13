@@ -59,7 +59,15 @@ pub(super) async fn run_turn_with_tools(
             vertical_scope.map(str::to_string),
         )
     });
-    let (registry, engine, principal) = build_dispatch_ctx(cwd, memory_ctx)?;
+    // mission-delegate-task-make-real: hand the in-core `delegate_task`
+    // tool a live OrchestratorStore so it can insert a Pending handoff
+    // when invoked. The store is reused across every dispatched tool
+    // call in this turn.
+    let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
+    let orch_session_id =
+        argo_orchestrator::SessionId::from_string(session_id.to_string());
+    let (registry, engine, principal) =
+        build_dispatch_ctx(cwd, memory_ctx, Some(Arc::clone(&orchestrator_ctx)))?;
     // #721: hide manifest-denied tools from the model's tool list
     // entirely — the per-call deny check below remains the hard
     // authoritative guard; this is the discoverability layer that
@@ -240,7 +248,9 @@ pub(super) async fn run_turn_with_tools(
                 // consume the one-shot after the dispatch.
                 let approved_via_grant =
                     vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
-                let res = dispatch_one(&registry, &engine, &principal, cwd, call).await;
+                let res =
+                    dispatch_one(&registry, &engine, &principal, cwd, &orch_session_id, call)
+                        .await;
                 if approved_via_grant {
                     consume_one_shot_if_present(
                         store,

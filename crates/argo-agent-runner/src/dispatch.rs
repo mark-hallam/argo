@@ -3,8 +3,11 @@
 use argo_capability::CapabilityEngine;
 use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
 use argo_memory::MemoryStore;
+use argo_orchestrator::{OrchestratorStore, SessionId as OrchSessionId};
 use argo_provider::ToolSchema as ProviderToolSchema;
-use argo_tool::{builtin_tools, builtin_tools_with_memory, ToolContext, ToolRegistry, ToolSchema};
+use argo_tool::{
+    builtin_tools, builtin_tools_with_memory, DelegateTask, ToolContext, ToolRegistry, ToolSchema,
+};
 use argo_types::{
     ArgoResult, Capability, ContentBlock, Principal, TenantId, ToolCallRequest, ToolCallResult,
     WorkspaceId,
@@ -74,6 +77,7 @@ impl McpConnectionPool {
 pub(crate) fn build_dispatch_ctx(
     cwd: &Path,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
+    orchestrator: Option<Arc<OrchestratorStore>>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
     let tools = match memory {
@@ -84,6 +88,15 @@ pub(crate) fn build_dispatch_ctx(
     };
     for t in tools {
         reg.register(t);
+    }
+    // `mission-delegate-task-make-real`: when the agent runner has an
+    // OrchestratorStore handle, replace the stub DelegateTask registered
+    // by `builtin_tools` with one wired to that store so dispatch
+    // actually emits a handoff. Keeps `builtin_tools` callers that have
+    // no orchestrator (CLI shell-outs, examples) on the historical
+    // "not wired" stub.
+    if let Some(store) = orchestrator {
+        reg.register(Arc::new(DelegateTask::new(store)));
     }
     reg.set_mcp_pool(Arc::new(McpConnectionPool::default()));
     register_manifest_mcp_servers(&mut reg);
@@ -142,6 +155,7 @@ pub(crate) async fn dispatch_one(
     engine: &CapabilityEngine,
     principal: &Principal,
     cwd: &Path,
+    session_id: &OrchSessionId,
     call: &ToolCallRequest,
 ) -> ToolCallResult {
     let started = std::time::Instant::now();
@@ -152,6 +166,11 @@ pub(crate) async fn dispatch_one(
     }
     let mut ctx = ToolContext::new(principal.clone(), cwd.to_path_buf());
     ctx.call_id = call.id;
+    ctx.session_id = session_id.clone();
+    // `current_handoff_id` stays `None` here; the upstream agent loop
+    // does not yet track which inbound handoff (if any) is being
+    // serviced this turn. `mission-delegate-task-fallback-chain-v2`
+    // is the brief that plumbs it.
     match registry
         .dispatch(&call.name, call.arguments.clone(), &ctx, engine)
         .await

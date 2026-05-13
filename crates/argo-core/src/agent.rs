@@ -256,14 +256,9 @@ impl Agent {
                 None,
             )
             .await?;
-        let ctx = ToolContext {
-            principal: opts.principal.clone(),
-            workspace_root: opts.workspace_root.clone(),
-            call_id: call.id,
-            deadline: None,
-            progress_tx: None,
-            background_processes: None,
-        };
+        let mut ctx =
+            ToolContext::new(opts.principal.clone(), opts.workspace_root.clone());
+        ctx.call_id = call.id;
         let result = self
             .deps
             .registry

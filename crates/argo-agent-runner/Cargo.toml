@@ -14,6 +14,7 @@ argo-capability = { path = "../argo-capability", version = "0.0.1" }
 argo-identity = { path = "../argo-identity", version = "0.0.1" }
 argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
 argo-memory = { path = "../argo-memory", version = "0.0.1" }
+argo-orchestrator = { path = "../argo-orchestrator", version = "0.0.1" }
 argo-provider = { path = "../argo-provider", version = "0.0.1" }
 argo-runtime = { path = "../argo-runtime", version = "0.0.1" }
 argo-skill = { path = "../argo-skill", version = "0.0.1" }

@@ -4,6 +4,7 @@
 //! between the agent loop's tool-dispatch path and the eight in-core tool
 //! implementations.
 use crate::process_registry::ProcessRegistry;
+use argo_orchestrator::{HandoffId, SessionId};
 use argo_types::{ArgoResult, CapabilitySet, ContentBlock, Principal, ToolCallResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -84,6 +85,17 @@ pub struct ToolContext {
     /// tool both fail with a clear "background unsupported in this
     /// context" error. Wired by the agent runner once per session.
     pub background_processes: Option<Arc<ProcessRegistry>>,
+    /// Orchestrator session the call runs under. Tools that emit
+    /// cross-worker state (`delegate_task`) tag their work with this
+    /// id. The default (`SessionId::new()`) is a fresh placeholder
+    /// used by unit-test call sites that don't care; the agent
+    /// runner sets the real session id per dispatch.
+    pub session_id: SessionId,
+    /// Inbound handoff the caller is currently servicing, if any.
+    /// `mission-delegate-task-fallback-chain-v2` reads this to
+    /// inherit escalation-chain semantics. `None` means the call
+    /// is not inside an active handoff (e.g. top-of-session turn).
+    pub current_handoff_id: Option<HandoffId>,
 }
 
 impl ToolContext {
@@ -97,6 +109,8 @@ impl ToolContext {
             deadline: None,
             progress_tx: None,
             background_processes: None,
+            session_id: SessionId::new(),
+            current_handoff_id: None,
         }
     }
 
