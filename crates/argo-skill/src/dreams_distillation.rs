@@ -31,7 +31,10 @@
 //! ```
 
 use crate::learn::SkillCandidate;
-use argo_types::{ArgoError, ArgoResult};
+use crate::skill::Skill;
+use crate::store::SkillStore;
+use argo_judge::Judge;
+use argo_types::{ArgoError, ArgoResult, SessionId};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -186,9 +189,9 @@ pub fn trajectory_similarity(a: &[String], b: &[String]) -> f64 {
 /// Returns the candidate (with `body_source` set to
 /// [`BODY_SOURCE_DREAMS`]) and the raw [`DistillationResult`].
 /// The caller is responsible for daily-cap accounting (charge
-/// `result.cost_micros` after a successful call) and
-/// persistence via
-/// [`crate::SkillStore::propose_for_review`].
+/// `result.cost_micros` after a successful call) and persistence
+/// via [`distill_and_propose_judged`] (judge-gated, default) or
+/// the raw [`crate::SkillStore::propose_for_review`] (no gate).
 ///
 /// # Errors
 /// - [`ArgoError::Provider`] when `cohort.members.len() < MIN_COHORT_SIZE`.
@@ -231,6 +234,68 @@ pub async fn distill_cohort(
         avg = avg_metric
     );
     Ok((candidate, result))
+}
+
+/// Distill a cohort AND route the candidate through the judge-gated
+/// review path (`mission-judge-dreams-output-v3`). The judge gate is
+/// the same one [`SkillStore::propose_for_review_judged`] already
+/// implements for the skill-creation pipeline; this helper just
+/// bridges Dreams distillation output to it.
+///
+/// Outcomes mirror [`SkillStore::propose_for_review_judged`]:
+/// - `Allow` (or `judge = None`) → `PendingReview` (proceeds to queue)
+/// - `Reject` → `Rejected` with stamped `judge_low_confidence:` reason
+/// - `Unavailable` → fail-OPEN to `PendingReview` plus a
+///   `tracing::warn!` at target `argo_skill::judge::unavailable`
+///
+/// The SKILL.md is rendered from the distilled body so the polished
+/// output Dreams just paid for survives into the review queue.
+///
+/// # Errors
+/// - Propagates [`distill_cohort`] errors (cohort too small, caller failure).
+/// - Propagates [`SkillStore::propose_for_review_judged`] errors
+///   (schema, db).
+pub async fn distill_and_propose_judged(
+    cohort: &Cohort,
+    caller: &dyn SkillDistillationCaller,
+    store: &SkillStore,
+    session_id: SessionId,
+    judge: Option<&dyn Judge>,
+) -> ArgoResult<(Skill, DistillationResult)> {
+    let (candidate, result) = distill_cohort(cohort, caller).await?;
+    let raw = render_dreams_skill_md(&candidate, &result);
+    let skill = store
+        .propose_for_review_judged(&raw, session_id, &cohort.vertical_id, judge)
+        .await?;
+    Ok((skill, result))
+}
+
+fn render_dreams_skill_md(candidate: &SkillCandidate, result: &DistillationResult) -> String {
+    format!(
+        "---\nname: {name}\nversion: \"{version}\"\ndescription: {desc}\nprovenance:\n  source: dreams_distilled:{model}\n  hash: sha256-pending\nlock: none\n---\n{body}",
+        name = candidate.name,
+        version = candidate.version,
+        desc = yaml_quote(&candidate.description),
+        model = result.model,
+        body = result.body,
+    )
+}
+
+fn yaml_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            other => out.push(other),
+        }
+    }
+    out.push('"');
+    out
 }
 
 #[cfg(test)]

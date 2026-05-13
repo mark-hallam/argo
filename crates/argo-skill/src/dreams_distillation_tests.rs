@@ -3,7 +3,15 @@
 //! the 500-LOC invariant — mirrors `argo-memory::dreams_backend_tests`.
 
 use super::*;
-use std::sync::Mutex;
+use crate::skill::LifecycleState;
+use crate::store::SkillStore;
+use argo_judge::JudgeEvidence;
+use argo_store::SessionStore;
+use argo_types::{
+    ArgoError, JudgeRecord, JudgeRecordId, JudgeSubject, JudgeVerdict, ProviderModel,
+};
+use chrono::Utc;
+use std::sync::{Arc, Mutex};
 
 fn input(
     session: &str,
@@ -180,4 +188,117 @@ async fn distill_cohort_marks_body_source_dreams_distilled() {
     assert!(candidate.name.ends_with("_dreams"));
     // Average metric is mean of 0.9 / 0.85 / 0.95 = 0.9.
     assert!((candidate.success_metric - 0.9).abs() < 1e-6);
+}
+
+/// Mock judge whose verdict is fixed at construction. Mirrors the
+/// `StubJudge` pattern in `store_vertical_judge_tests.rs`.
+struct StubJudge {
+    verdict: JudgeVerdict,
+}
+
+#[async_trait]
+impl Judge for StubJudge {
+    async fn adjudicate(
+        &self,
+        session_id: SessionId,
+        subject: JudgeSubject,
+        evidence: JudgeEvidence,
+    ) -> ArgoResult<JudgeRecord> {
+        Ok(JudgeRecord {
+            id: JudgeRecordId::new(),
+            session_id,
+            subject,
+            verdict: self.verdict.clone(),
+            judge_model: ProviderModel {
+                provider: "test-judge".into(),
+                model: "test-model".into(),
+            },
+            rubric_id: "stub".to_string(),
+            rubric_version: "0".to_string(),
+            evidence_hashes: evidence.evidence_hashes(),
+            created_at: Utc::now(),
+        })
+    }
+}
+
+/// Mock judge whose `adjudicate` always errors. Models a transport
+/// failure (provider down, JSON parse error, etc.) for the
+/// fail-OPEN check.
+struct BrokenJudge;
+
+#[async_trait]
+impl Judge for BrokenJudge {
+    async fn adjudicate(
+        &self,
+        _session_id: SessionId,
+        _subject: JudgeSubject,
+        _evidence: JudgeEvidence,
+    ) -> ArgoResult<JudgeRecord> {
+        Err(ArgoError::Provider("simulated transport error".into()))
+    }
+}
+
+async fn fresh_store() -> (SkillStore, SessionId) {
+    let store = SessionStore::open(":memory:").await.expect("open store");
+    store.migrate().await.expect("migrate store");
+    (SkillStore::new(Arc::new(store)), SessionId::new())
+}
+
+fn three_member_cohort(action: &str, vertical: &str) -> Cohort {
+    Cohort {
+        action_type: action.into(),
+        vertical_id: vertical.into(),
+        members: vec![
+            input("session1", action, vertical, &["nav", "fill", "submit"], 0.9),
+            input("session2", action, vertical, &["nav", "fill", "submit"], 0.85),
+            input("session3", action, vertical, &["nav", "fill", "submit"], 0.95),
+        ],
+    }
+}
+
+#[tokio::test]
+async fn distill_and_propose_allow_lands_pending_review() {
+    let caller = StubCaller::new("polished body", 750_000);
+    let (store, sid) = fresh_store().await;
+    let judge = StubJudge {
+        verdict: JudgeVerdict::Success,
+    };
+    let cohort = three_member_cohort("post_listing_allow", "marketplace");
+    let (skill, result) =
+        distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+            .await
+            .expect("allow path");
+    assert_eq!(skill.lifecycle_state, LifecycleState::PendingReview);
+    assert_eq!(skill.vertical_id.as_deref(), Some("marketplace"));
+    assert_eq!(result.cost_micros, 750_000);
+}
+
+#[tokio::test]
+async fn distill_and_propose_reject_lands_rejected() {
+    let caller = StubCaller::new("polished body", 750_000);
+    let (store, sid) = fresh_store().await;
+    let judge = StubJudge {
+        verdict: JudgeVerdict::Failure {
+            reason: "looks unsafe".into(),
+        },
+    };
+    let cohort = three_member_cohort("post_listing_reject", "marketplace");
+    let (skill, _result) =
+        distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+            .await
+            .expect("reject still returns Ok with Rejected state");
+    assert_eq!(skill.lifecycle_state, LifecycleState::Rejected);
+}
+
+#[tokio::test]
+async fn distill_and_propose_unavailable_fails_open_to_pending() {
+    let caller = StubCaller::new("polished body", 750_000);
+    let (store, sid) = fresh_store().await;
+    let judge = BrokenJudge;
+    let cohort = three_member_cohort("post_listing_unavailable", "marketplace");
+    let (skill, _result) =
+        distill_and_propose_judged(&cohort, &caller, &store, sid, Some(&judge))
+            .await
+            .expect("transport error fails OPEN");
+    assert_eq!(skill.lifecycle_state, LifecycleState::PendingReview);
 }

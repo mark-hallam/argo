@@ -82,8 +82,8 @@ pub use deps::{
     DEFAULT_MAX_DEPTH,
 };
 pub use dreams_distillation::{
-    distill_cohort, group_into_cohorts, trajectory_similarity, Cohort,
-    DistillationResult, SkillDistillationCaller, TrajectoryInput,
+    distill_and_propose_judged, distill_cohort, group_into_cohorts, trajectory_similarity,
+    Cohort, DistillationResult, SkillDistillationCaller, TrajectoryInput,
     BODY_SOURCE_DREAMS, COHORT_SIMILARITY_THRESHOLD, MIN_COHORT_SIZE,
 };
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
