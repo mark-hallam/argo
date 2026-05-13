@@ -5,8 +5,12 @@
 # Quickstart
 
 - [Install](./quickstart/install.md)
+- [Initialise a workspace](./quickstart/init.md)
+- [Pick a vertical](./quickstart/pick-vertical.md)
+- [Configure credentials](./quickstart/credentials.md)
 - [Your first worker](./quickstart/first-worker.md)
 - [Your first action](./quickstart/first-action.md)
+- [Next steps](./quickstart/next-steps.md)
 
 # How-to
 

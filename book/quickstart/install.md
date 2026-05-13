@@ -1,65 +1,77 @@
-# Install
+# Install Argo
 
-This quickstart takes you from a fresh machine to a working `argo`
-binary in under five minutes.
+This quickstart gets an operator from a fresh machine to a running
+worker in about 10 minutes. It does not require a developer toolchain.
 
-## macOS / Linux
+## macOS
+
+```bash
+brew tap mark-hallam/argo
+brew install argo
+argo --version
+```
+
+Expected output:
+
+```text
+argo 0.0.1
+```
+
+If you see `command not found: brew`, install Homebrew first from
+[brew.sh](https://brew.sh/). If `brew install argo` cannot find the
+formula, use the binary release path below until the tap is published
+for your account.
+
+## Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mark-hallam/Argo-Agent/main/install.sh | bash
-argo setup
+argo --version
 ```
 
-## Windows (PowerShell)
+Expected output:
+
+```text
+argo 0.0.1
+```
+
+If the installer cannot write to `/usr/local/bin`, re-run it from a
+shell that can write there, or move the downloaded `argo` binary to a
+directory already on `PATH`.
+
+## Windows
+
+Run Argo from PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/mark-hallam/Argo-Agent/main/install.ps1 | iex
-argo setup
+argo --version
 ```
 
-## Verifying the install
+Expected output:
+
+```text
+argo 0.0.1
+```
+
+If PowerShell blocks the script, run it from a trusted terminal session
+with script execution enabled for this command.
+
+## Check the command
 
 ```bash
-argo doctor
+argo --help
 ```
 
-This prints a JSON-shaped health report covering workspace state,
-the embedded SQLite store, configured channels, and provider
-credentials.
+Expected output starts with:
 
-If `argo doctor` reports anything in the `WARN` or `ERROR` columns,
-work through the [troubleshooting recipe](../howto/troubleshoot.md)
-before continuing.
-
-## Setting an LLM provider key
-
-Pick one provider to start. The mock provider is fine for the
-deterministic smoke test on the next page, but a real worker run
-needs an actual key.
-
-```bash
-# Anthropic
-argo cred set ANTHROPIC_API_KEY sk-ant-…
-
-# OpenAI
-argo cred set OPENAI_API_KEY sk-…
+```text
+Usage: argo <COMMAND>
 ```
 
-`argo cred` writes to `<workspace>/.skycot/credentials.toml` at mode
-`0600`. For production deployments — systemd unit files, k8s
-Secret, Vault, key rotation, what NOT to do — see
-[`docs/skycot/provider_keys.md`](https://github.com/mark-hallam/Argo-Agent/blob/main/docs/skycot/provider_keys.md).
-
-## What you have now
-
-After running `argo setup`:
-
-- `<workspace>/.skycot/` — artifact bundles, ledger files,
-  credentials.
-- `<workspace>/argo.toml` — workspace config.
-- The embedded SQLite store wired through `argo doctor`.
+If this prints a shell `command not found` error, open a new terminal
+so the installer-updated `PATH` is loaded.
 
 ## Next
 
-Move on to [Your first worker](./first-worker.md) to see Argo
-generate a vertical from a charter and run a single worker turn.
+Create a project folder in [Initialise a workspace](./init.md).
