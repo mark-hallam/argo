@@ -81,7 +81,55 @@ pub use worker_pool::{WorkerPoolConfig, WorkerPoolElasticityConfig};
 
 use argo_types::{ArgoError, ArgoResult};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::path::Path;
+
+/// Sentinel tenant id stamped on every pre-migration `audit_record`
+/// row by migration 63. The default workspace tenant unions this
+/// bucket into its read scope so historical audit visibility is
+/// preserved without an env-flag flip. [`workspace_tenant_id`] never
+/// returns this value — operators running real multi-tenant
+/// deployments migrate legacy rows to real tenant ids via the
+/// follow-up CLI brief (`mission-audit-legacy-tenant-migrate-cli`).
+pub const LEGACY_AUDIT_TENANT_SENTINEL: &str = "__legacy__";
+
+/// Resolve the workspace's stable tenant id (Stream
+/// `mission-enterprise-cross-tenant-audit`).
+///
+/// Precedence:
+/// 1. `[tenant] id = "..."` in `<workspace>/argo.toml` if non-empty
+///    and not the shipped default (`default`).
+/// 2. `ws-<16hex>` derived from a SHA-256 of the workspace root path
+///    so fresh single-tenant deployments self-name without operator
+///    intervention. Stable across runs on the same path.
+///
+/// Never returns the [`LEGACY_AUDIT_TENANT_SENTINEL`] (`__legacy__`)
+/// — that value belongs exclusively to pre-migration rows.
+///
+/// ```
+/// use argo_config::workspace_tenant_id;
+/// use std::path::Path;
+/// let id = workspace_tenant_id(Path::new("/some/path"));
+/// assert!(id.starts_with("ws-"));
+/// assert_ne!(id, "__legacy__");
+/// ```
+#[must_use]
+pub fn workspace_tenant_id(workspace_root: &Path) -> String {
+    let cfg_path = workspace_root.join("argo.toml");
+    if let Ok(cfg) = ArgoConfig::load(&cfg_path) {
+        let explicit = cfg.tenant.default_id.trim();
+        if !explicit.is_empty()
+            && explicit != defaults::DEFAULT_TENANT_ID
+            && explicit != LEGACY_AUDIT_TENANT_SENTINEL
+        {
+            return explicit.to_string();
+        }
+    }
+    let mut h = Sha256::new();
+    h.update(workspace_root.to_string_lossy().as_bytes());
+    let digest = h.finalize();
+    format!("ws-{}", hex::encode(&digest[..8]))
+}
 
 /// Top-level config — every section is optional so partial configs
 /// (e.g., a workspace `argo.toml` overriding only `[budget]`) load
@@ -161,3 +209,6 @@ impl ArgoConfig {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod tenant_id_tests;

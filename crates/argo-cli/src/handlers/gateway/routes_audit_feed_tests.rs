@@ -371,6 +371,104 @@ async fn emits_audit_row_per_query() {
     assert_eq!(after, before + 1, "expected exactly one audit.feed.queried row");
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Stream `mission-enterprise-cross-tenant-audit` — tenant scoping
+// ─────────────────────────────────────────────────────────────────
+
+async fn seed_row_for_tenant(store: &Arc<SessionStore>, tenant_id: &str, worker: &str) {
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
+    sink.write(None, AuditKind::HttpRequest, row(worker, "web", "msg", "succeeded",
+        None, None, "internal", "did x"), None)
+        .await
+        .expect("write tenant-scoped row");
+    // Drop the batched-writer latency-window before the test reads back. The
+    // sink-per-helper-call pattern queues into a per-sink batch that would
+    // otherwise be lost when the sink drops at end-of-scope.
+    sink.flush_pending().await.expect("flush tenant-scoped row");
+}
+
+fn get_with_tenant(path: &str, tenant: &str) -> String {
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n"
+    )
+}
+
+fn get_with_tenant_and_cap(path: &str, tenant: &str) -> String {
+    format!(
+        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\
+         X-Argo-Audit-Cross-Tenant: 1\r\n\r\n"
+    )
+}
+
+#[tokio::test]
+async fn tenant_scope_default_excludes_other_tenants() {
+    let store = mem_store().await;
+    seed_row_for_tenant(&store, "tenant-a", "wa").await;
+    seed_row_for_tenant(&store, "tenant-b", "wb").await;
+    let (status, body) = parse_body(
+        list_response(&get_with_tenant("/api/v1/audit", "tenant-a"), Some(&store)).await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items");
+    // tenant-a rows visible; tenant-b rows hidden. The audit.feed.queried
+    // emit-row stamps tenant_id from the sink default ("ws-default") so it
+    // does not leak into a tenant-a-scoped feed.
+    let workers: Vec<&str> = items
+        .iter()
+        .filter_map(|it| it["worker"]["id"].as_str())
+        .collect();
+    assert!(workers.contains(&"wa"), "expected tenant-a row, got {workers:?}");
+    assert!(!workers.contains(&"wb"), "tenant-b row leaked: {workers:?}");
+}
+
+#[tokio::test]
+async fn as_tenant_without_capability_silently_ignored() {
+    let store = mem_store().await;
+    seed_row_for_tenant(&store, "tenant-a", "wa").await;
+    seed_row_for_tenant(&store, "tenant-b", "wb").await;
+    // No X-Argo-Audit-Cross-Tenant header → as_tenant param is parsed
+    // (for telemetry) but the read scope stays on tenant-a.
+    let (status, body) = parse_body(
+        list_response(
+            &get_with_tenant("/api/v1/audit?as_tenant=tenant-b", "tenant-a"),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items");
+    let workers: Vec<&str> = items
+        .iter()
+        .filter_map(|it| it["worker"]["id"].as_str())
+        .collect();
+    assert!(!workers.contains(&"wb"), "cross-tenant leak: {workers:?}");
+}
+
+#[tokio::test]
+async fn as_tenant_with_capability_returns_other_tenant() {
+    let store = mem_store().await;
+    seed_row_for_tenant(&store, "tenant-a", "wa").await;
+    seed_row_for_tenant(&store, "tenant-b", "wb").await;
+    let (status, body) = parse_body(
+        list_response(
+            &get_with_tenant_and_cap("/api/v1/audit?as_tenant=tenant-b", "tenant-a"),
+            Some(&store),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().expect("items");
+    let workers: Vec<&str> = items
+        .iter()
+        .filter_map(|it| it["worker"]["id"].as_str())
+        .collect();
+    assert!(workers.contains(&"wb"), "expected tenant-b row, got {workers:?}");
+    assert!(!workers.contains(&"wa"), "tenant-a row leaked: {workers:?}");
+}
+
 #[tokio::test]
 async fn audit_row_payload_lists_dims_used() {
     let store = mem_store().await;

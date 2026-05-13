@@ -11,6 +11,33 @@ use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, Principal, Ro
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
+/// Capability name for the cross-tenant audit-feed override probe
+/// (Stream `mission-enterprise-cross-tenant-audit`). When a request
+/// to `GET /api/v1/audit` carries `?as_tenant=<other>`, the gateway
+/// checks this capability against the requesting principal before
+/// honoring the override; without it the param is silently ignored
+/// (no 4xx — refusing with a status code would leak the existence of
+/// the tenant). NOT granted by any role in [`default_roles`] —
+/// operators wire it explicitly via [`CapabilityEngine::add_role`]
+/// (per-role) or [`CapabilityEngine::grant_dynamic`] (per-principal).
+///
+/// Modeled as a [`Capability::ToolDispatch`] glob: the capability
+/// system does not yet have a domain category for read-side audit
+/// scopes, and folding it under tool-dispatch lets operators reuse
+/// the existing role-config plumbing without a schema change.
+pub const AUDIT_VIEW_CROSS_TENANT: &str = "audit.view.cross_tenant";
+
+/// Convenience constructor for the [`AUDIT_VIEW_CROSS_TENANT`]
+/// capability value. Use this in role definitions and
+/// [`CapabilityEngine::check`] / [`CapabilityEngine::grant_dynamic`]
+/// calls instead of stringly typed [`Capability::ToolDispatch`].
+#[must_use]
+pub fn audit_view_cross_tenant_capability() -> Capability {
+    Capability::ToolDispatch {
+        tool_name_glob: AUDIT_VIEW_CROSS_TENANT.to_string(),
+    }
+}
+
 /// The capability + RBAC engine.
 ///
 /// Roles are named capability sets with optional single-inheritance.

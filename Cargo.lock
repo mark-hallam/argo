@@ -416,6 +416,7 @@ version = "0.0.1"
 dependencies = [
  "argo-core",
  "argo-types",
+ "hex",
  "keyring",
  "serde",
  "sha2 0.10.9",

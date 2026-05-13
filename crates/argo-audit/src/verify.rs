@@ -44,7 +44,7 @@ pub async fn verify_session(
     session_id: SessionId,
 ) -> ArgoResult<VerifyReport> {
     let rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
-        "SELECT seq, kind, payload_json, parent_hash, self_hash \
+        "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id \
          FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
     )
     .bind(session_id.0.as_bytes().as_slice())
@@ -74,7 +74,7 @@ pub async fn verify_all(store: &SessionStore) -> ArgoResult<VerifyReport> {
     };
     for sid in session_ids {
         let rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
-            "SELECT seq, kind, payload_json, parent_hash, self_hash \
+            "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id \
              FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
         )
         .bind(&sid)
@@ -85,7 +85,7 @@ pub async fn verify_all(store: &SessionStore) -> ArgoResult<VerifyReport> {
     }
     // Plus the global (session_id IS NULL) chain.
     let null_rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
-        "SELECT seq, kind, payload_json, parent_hash, self_hash \
+        "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id \
          FROM audit_record WHERE session_id IS NULL ORDER BY seq ASC",
     )
     .fetch_all(store.pool())
@@ -111,6 +111,7 @@ struct RawRow {
     payload_json: String,
     parent_hash: Vec<u8>,
     self_hash: Vec<u8>,
+    tenant_id: String,
 }
 
 fn verify_rows(rows: Vec<RawRow>) -> VerifyReport {
@@ -159,6 +160,28 @@ fn verify_rows(rows: Vec<RawRow>) -> VerifyReport {
                 kind: row.kind.clone(),
                 reason: "unknown audit kind label".into(),
             });
+        }
+        // Stream `mission-enterprise-cross-tenant-audit`: denorm
+        // drift check. When `payload_json.tenant_id` is present it
+        // must equal the `tenant_id` column. Historical rows
+        // (pre-migration 63) carry `__legacy__` in the column and no
+        // tenant_id key in the payload — those are intentionally
+        // skipped here so verify_all keeps clean over the legacy
+        // corpus.
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&row.payload_json) {
+            if let Some(payload_tenant) = parsed.get("tenant_id").and_then(|v| v.as_str()) {
+                if payload_tenant != row.tenant_id {
+                    report.ok = false;
+                    report.breaks.push(ChainBreak {
+                        seq: row.seq,
+                        kind: row.kind.clone(),
+                        reason: format!(
+                            "tenant_id denorm drift: column={} payload={payload_tenant}",
+                            row.tenant_id
+                        ),
+                    });
+                }
+            }
         }
         prev_self_hash = Some(self_h);
     }

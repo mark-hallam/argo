@@ -39,6 +39,17 @@ fn chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
     buf
 }
 
+/// Default tenant id used by [`AuditSink::new`] when no explicit id
+/// is supplied (Stream `mission-enterprise-cross-tenant-audit`). New
+/// rows lose the `__legacy__` sentinel and self-name under one
+/// stable workspace bucket; the audit feed's default tenant unions
+/// this constant into its read scope so single-tenant deployments
+/// behave identically to pre-tenant audits. Callers that know their
+/// workspace tenant should use [`AuditSink::new_with_tenant`] (or
+/// [`AuditSink::write_with_tenant`] for ad-hoc writes); `argo-config`
+/// exposes `workspace_tenant_id` for the canonical resolution path.
+pub const DEFAULT_AUDIT_TENANT_ID: &str = "ws-default";
+
 /// Append-only sink that writes to the §7 `audit_record` table.
 ///
 /// As of Stream `claude-realtime-audit-stream`, the sink also
@@ -47,10 +58,18 @@ fn chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
 /// them to live subscribers without polling. The on-disk write
 /// path is unchanged; the broadcast is best-effort (a slow
 /// subscriber gets dropped, never the writer).
+///
+/// Stream `mission-enterprise-cross-tenant-audit` adds a
+/// `tenant_id` field stamped onto every new row's
+/// `audit_record.tenant_id` column and `payload_json.tenant_id`.
+/// [`AuditSink::new`] uses [`DEFAULT_AUDIT_TENANT_ID`];
+/// [`AuditSink::new_with_tenant`] takes an explicit id derived
+/// from the workspace (`argo_config::workspace_tenant_id`).
 pub struct AuditSink {
     store: Arc<SessionStore>,
     broadcast: tokio::sync::broadcast::Sender<AuditEvent>,
     batched: Arc<BatchedWriter<AuditItem>>,
+    tenant_id: String,
 }
 
 /// One row's worth of streaming-friendly metadata. Skips the
@@ -84,6 +103,7 @@ struct AuditItem {
     payload: serde_json::Value,
     canonical: String,
     principal_id: Option<String>,
+    tenant_id: String,
     created_at: DateTime<Utc>,
 }
 
@@ -94,9 +114,23 @@ impl std::fmt::Debug for AuditSink {
 }
 
 impl AuditSink {
-    /// Build over an open session store.
+    /// Build over an open session store using
+    /// [`DEFAULT_AUDIT_TENANT_ID`] as the stamped tenant id. New code
+    /// that knows its workspace tenant should prefer
+    /// [`AuditSink::new_with_tenant`].
     #[must_use]
     pub fn new(store: Arc<SessionStore>) -> Self {
+        Self::new_with_tenant(store, DEFAULT_AUDIT_TENANT_ID.to_string())
+    }
+
+    /// Build over an open session store, stamping every new row with
+    /// the supplied `tenant_id` (Stream
+    /// `mission-enterprise-cross-tenant-audit`). The id is written to
+    /// both `audit_record.tenant_id` and `payload_json.tenant_id`;
+    /// chain hash inputs are unchanged so historical `self_hash`
+    /// values keep verifying.
+    #[must_use]
+    pub fn new_with_tenant(store: Arc<SessionStore>, tenant_id: String) -> Self {
         let (tx, _rx) = tokio::sync::broadcast::channel(AUDIT_BROADCAST_CAPACITY);
         let pool = store.pool().clone();
         let store_for_flush = Arc::clone(&store);
@@ -115,7 +149,14 @@ impl AuditSink {
             store,
             broadcast: tx,
             batched,
+            tenant_id,
         }
+    }
+
+    /// Tenant id baked into this sink at construction time.
+    #[must_use]
+    pub fn tenant_id(&self) -> &str {
+        &self.tenant_id
     }
 
     /// Subscribe to live audit events. Returns a receiver that
@@ -141,7 +182,7 @@ impl AuditSink {
         self.batched.flush_now().await
     }
 
-    /// Write one event.
+    /// Write one event using the sink's bound tenant id.
     ///
     /// `principal_id` carries the resolved gateway caller (per
     /// `mvp-audit-principal-stamp`, the X-Argo-Principal header
@@ -155,8 +196,34 @@ impl AuditSink {
         payload: serde_json::Value,
         principal_id: Option<String>,
     ) -> ArgoResult<()> {
+        self.write_with_tenant(session_id, kind, payload, principal_id, &self.tenant_id)
+            .await
+    }
+
+    /// Write one event under an explicit `tenant_id`, overriding the
+    /// sink's default. Stream `mission-enterprise-cross-tenant-audit`
+    /// — used by the gateway when stamping rows on behalf of a
+    /// resolved-but-non-default tenant (e.g., admin sessions writing
+    /// across tenants). The chain hash inputs are unchanged; only the
+    /// denorm `tenant_id` column and `payload_json.tenant_id` field
+    /// reflect the override.
+    pub async fn write_with_tenant(
+        &self,
+        session_id: Option<SessionId>,
+        kind: AuditKind,
+        payload: serde_json::Value,
+        principal_id: Option<String>,
+        tenant_id: &str,
+    ) -> ArgoResult<()> {
         let id = Uuid::now_v7();
-        let raw = serde_json::to_string(&payload)
+        // Stamp tenant_id into the payload at the publish edge so the
+        // denorm column and the payload-json always agree for new
+        // rows. The hash is computed over the stamped payload — same
+        // structure / same algorithm as before; historical rows
+        // (without a tenant_id key) were hashed without one and still
+        // verify because we don't rewrite their payload_json.
+        let stamped_payload = stamp_tenant_id(payload, tenant_id);
+        let raw = serde_json::to_string(&stamped_payload)
             .map_err(|e| ArgoError::Schema(format!("audit payload serialize: {e}")))?;
         // Soft-flag (or auto-redact) PII before hashing + persisting so
         // the chain stays consistent with what's on disk. Default is
@@ -167,9 +234,10 @@ impl AuditSink {
             id,
             session_id,
             kind: kind.label(),
-            payload,
+            payload: stamped_payload,
             canonical,
             principal_id,
+            tenant_id: tenant_id.to_string(),
             created_at: now,
         };
         if batched_writer::is_batching_enabled() {
@@ -209,6 +277,30 @@ impl AuditSink {
 #[must_use]
 pub fn compute_chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
     chain_hash(parent, kind, payload)
+}
+
+/// Stamp `tenant_id` into a payload at the publish edge (Stream
+/// `mission-enterprise-cross-tenant-audit`). Objects gain a
+/// top-level `"tenant_id"` key; non-object payloads are rewritten to
+/// `{ "_": <original>, "tenant_id": <id> }` so the column-vs-payload
+/// invariant holds for every row. An existing `tenant_id` key in an
+/// object payload is overwritten — the sink is authoritative.
+fn stamp_tenant_id(payload: serde_json::Value, tenant_id: &str) -> serde_json::Value {
+    if let serde_json::Value::Object(mut map) = payload {
+        map.insert(
+            "tenant_id".to_string(),
+            serde_json::Value::String(tenant_id.to_string()),
+        );
+        serde_json::Value::Object(map)
+    } else {
+        let mut map = serde_json::Map::new();
+        map.insert("_".to_string(), payload);
+        map.insert(
+            "tenant_id".to_string(),
+            serde_json::Value::String(tenant_id.to_string()),
+        );
+        serde_json::Value::Object(map)
+    }
 }
 
 /// Pull every UUID-shaped worker id out of a freshly-written audit
@@ -274,8 +366,8 @@ async fn insert_one_with_chain(
     let self_hash = chain_hash(parent_hash, item.kind, &item.canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \
-         parent_hash, self_hash, created_at, principal_id) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+         parent_hash, self_hash, created_at, principal_id, tenant_id) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(item.id.as_bytes().as_slice())
     .bind(item.session_id.map(|s| s.0.as_bytes().to_vec()))
@@ -285,6 +377,7 @@ async fn insert_one_with_chain(
     .bind(self_hash.as_slice())
     .bind(item.created_at.timestamp_micros())
     .bind(item.principal_id.as_deref())
+    .bind(&item.tenant_id)
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
@@ -335,8 +428,8 @@ async fn flush_audit(
     for (idx, item) in batch.iter().enumerate() {
         sqlx::query(
             "INSERT INTO audit_record (id, session_id, kind, payload_json, \
-             parent_hash, self_hash, created_at, principal_id) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+             parent_hash, self_hash, created_at, principal_id, tenant_id) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(item.id.as_bytes().as_slice())
         .bind(item.session_id.map(|s| s.0.as_bytes().to_vec()))
@@ -346,6 +439,7 @@ async fn flush_audit(
         .bind(self_hashes[idx].as_slice())
         .bind(item.created_at.timestamp_micros())
         .bind(item.principal_id.as_deref())
+        .bind(&item.tenant_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;

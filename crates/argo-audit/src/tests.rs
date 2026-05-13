@@ -326,3 +326,102 @@ async fn write_with_principal_stamps_audit_record_column() {
     let report = verify_session(&store, session).await.unwrap();
     assert!(report.ok, "{:?}", report.breaks);
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Stream `mission-enterprise-cross-tenant-audit` — tenant_id denorm
+// ─────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn write_with_tenant_stamps_column_and_payload() {
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new_with_tenant(store.clone(), "tenant-acme".to_string());
+    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({"a": 1}), None)
+        .await
+        .unwrap();
+    let row: (String, String) = sqlx::query_as(
+        "SELECT tenant_id, payload_json FROM audit_record \
+         WHERE session_id = ? ORDER BY seq DESC LIMIT 1",
+    )
+    .bind(session.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(row.0, "tenant-acme");
+    let payload: serde_json::Value = serde_json::from_str(&row.1).unwrap();
+    assert_eq!(payload["tenant_id"].as_str(), Some("tenant-acme"));
+    assert_eq!(payload["a"].as_i64(), Some(1));
+}
+
+#[tokio::test]
+async fn legacy_default_tenant_unchanged_for_existing_call_sites() {
+    // `AuditSink::new(store)` keeps backwards-compat: every existing
+    // call site continues to compile and stamps the documented
+    // default tenant id so the audit feed's legacy-bucket union
+    // surfaces these rows for single-tenant deployments.
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new(store.clone());
+    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
+        .await
+        .unwrap();
+    let tenant: String = sqlx::query_scalar(
+        "SELECT tenant_id FROM audit_record \
+         WHERE session_id = ? ORDER BY seq DESC LIMIT 1",
+    )
+    .bind(session.0.as_bytes().as_slice())
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(tenant, "ws-default");
+    let report = verify_session(&store, session).await.unwrap();
+    assert!(report.ok, "{:?}", report.breaks);
+}
+
+#[tokio::test]
+async fn chain_hash_unchanged_after_tenant_stamp() {
+    // Verifying a new chain end-to-end keeps the structural
+    // invariant: rows stamped with tenant_id still recompute to the
+    // same self_hash from the stored payload_json.
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new_with_tenant(store.clone(), "tenant-alpha".into());
+    for i in 0..4 {
+        sink.write(
+            Some(session),
+            AuditKind::ToolCall,
+            serde_json::json!({"i": i, "tool": "ls"}),
+            None,
+        )
+        .await
+        .unwrap();
+    }
+    let report = verify_session(&store, session).await.unwrap();
+    assert!(report.ok, "{:?}", report.breaks);
+    assert_eq!(report.rows, 4);
+}
+
+#[tokio::test]
+async fn verify_chain_flags_tenant_denorm_drift() {
+    // The denorm-drift check in verify_chain: column and
+    // payload_json.tenant_id must agree for new rows. A tampered
+    // column without a matching payload rewrite must surface as a
+    // ChainBreak.
+    let (store, session) = fresh().await;
+    let sink = AuditSink::new_with_tenant(store.clone(), "tenant-clean".into());
+    sink.write(Some(session), AuditKind::TurnStart, serde_json::json!({}), None)
+        .await
+        .unwrap();
+    // Tamper: rewrite only the column, leave payload_json.tenant_id alone.
+    sqlx::query("UPDATE audit_record SET tenant_id = 'tenant-other' WHERE seq = 1")
+        .execute(store.pool())
+        .await
+        .unwrap();
+    let report = verify_session(&store, session).await.unwrap();
+    assert!(!report.ok, "expected drift to break chain report");
+    assert!(
+        report
+            .breaks
+            .iter()
+            .any(|b| b.reason.contains("tenant_id denorm drift")),
+        "expected denorm drift break, got {:?}",
+        report.breaks
+    );
+}

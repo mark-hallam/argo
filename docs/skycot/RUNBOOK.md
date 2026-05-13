@@ -127,6 +127,82 @@ Error envelopes follow `{ "error": { "code": "...", "message":
 `approval_not_found` (404), `already_decided` (409),
 `undo_window_expired` (410), `internal_error` (500).
 
+## Multi-tenant audit (v1)
+
+Stream `mission-enterprise-cross-tenant-audit` adds per-tenant
+scoping to the `GET /api/v1/audit` feed. v1 keeps the existing
+single-tenant-per-workspace convention; multi-tenant deployments
+opt in by setting `[tenant] default_id` in `argo.toml`.
+
+### Workspace tenant id
+
+`argo_config::workspace_tenant_id(<workspace_root>)` resolves the
+tenant id every audit-write and audit-read goes through:
+
+1. `[tenant] default_id = "..."` in `<workspace>/argo.toml`, if
+   non-empty and not the shipped placeholder (`"default"`).
+2. `ws-<16hex>` derived from a SHA-256 of the workspace root path
+   when no explicit id is set. Stable across runs on the same path
+   so single-tenant deployments self-name without operator config.
+
+The helper never returns the `__legacy__` sentinel — that bucket
+belongs exclusively to pre-migration rows (see below).
+
+### The `__legacy__` bucket
+
+Migration 64 (`audit_record.tenant_id`) backfills every existing
+`audit_record` row with `tenant_id = '__legacy__'`. The default
+workspace tenant's read scope UNIONs the legacy bucket so
+historical audit visibility is preserved with zero operator
+intervention.
+
+A *deployment-time decision* faces operators rolling out real
+multi-tenant: legacy rows must migrate to real tenant ids BEFORE
+the bucket exits the default-tenant scope, otherwise an
+operator-A request will see operator-B's pre-migration audits.
+The follow-up brief `mission-audit-legacy-tenant-migrate-cli` adds
+`argo audit migrate-legacy-tenant <from-tenant> <to-tenant>`.
+
+### Cross-tenant view capability
+
+`audit.view.cross_tenant` (constant
+`argo_capability::AUDIT_VIEW_CROSS_TENANT`) gates the optional
+`?as_tenant=<other>` admin probe on `GET /api/v1/audit`. No built-
+in role grants it — operators grant it explicitly:
+
+```rust,ignore
+use argo_capability::{audit_view_cross_tenant_capability, CapabilityEngine};
+use argo_types::Principal;
+
+let engine = CapabilityEngine::with_defaults();
+// Per-principal one-shot grant (e.g. an admin session):
+engine.grant_dynamic(
+    Principal::Local { os_user: "alice".into() },
+    audit_view_cross_tenant_capability(),
+);
+```
+
+Without the capability, the `?as_tenant=<other>` query param is
+silently ignored — the feed responds with the workspace tenant's
+own rows. This is intentional: a 403 would leak the target
+tenant's existence to an unauthorised caller. With the capability
+the legacy `__legacy__` bucket is NOT unioned into the response,
+so admin probes never pull pre-migration rows into the wrong
+tenant view.
+
+### Inspecting tenant assignment
+
+```bash
+# How many rows live under each tenant?
+sqlite3 ~/.argo/sessions.db \
+  "SELECT tenant_id, COUNT(*) FROM audit_record GROUP BY tenant_id"
+```
+
+`__legacy__` rows accumulate from pre-migration history;
+`ws-default` accumulates from un-tenanted `AuditSink::new(store)`
+call sites that haven't been migrated to `new_with_tenant` yet
+(both are unioned into the default-tenant read scope).
+
 ---
 
 ## Team API

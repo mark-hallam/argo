@@ -14,6 +14,7 @@ argo-core = { path = "../argo-core", version = "0.0.1" }
 # per-platform features so default-off still pulls macOS Keychain /
 # Windows Credential Manager / Linux Secret Service.
 keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native", "linux-native-sync-persistent", "crypto-rust"] }
+hex = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
 toml = { workspace = true }
