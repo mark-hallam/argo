@@ -4,6 +4,7 @@
 
 use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
+use argo_telemetry::span_context::{enter_context, LogContext};
 use argo_types::{ArgoError, ArgoResult};
 #[cfg(test)]
 use std::net::IpAddr;
@@ -72,6 +73,11 @@ pub(super) async fn start(
     skip_startup_check: bool,
     insecure_bind: bool,
 ) -> ArgoResult<()> {
+    // Boot-time context: tenant_id resolves per-request inside the
+    // route handlers — this entry covers everything that emits before
+    // a request is parsed (banner, startup checks, bg spawns) with
+    // the anon tenant marker.
+    let _boot_ctx = enter_context(LogContext::default());
     let mut phases = StartupPhases::new();
     let cwd_for_check =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;

@@ -98,8 +98,19 @@ impl Session {
     /// Create a new active session with no participants yet.
     #[must_use]
     pub fn new(tenant_id: argo_types::TenantId, title: impl Into<String>) -> Self {
+        let id = SessionId::new();
+        // Fires once per logical session creation. Surfaces the
+        // session start at INFO so SREs can grep
+        // `event=session.start tenant_id=… session_id=…` even when
+        // no caller has wrapped work in `enter_log_context()` yet.
+        tracing::info!(
+            event = "session.start",
+            tenant_id = %tenant_id,
+            session_id = %id,
+            "session created",
+        );
         Self {
-            id: SessionId::new(),
+            id,
             tenant_id,
             title: title.into(),
             status: SessionStatus::Active,
@@ -107,6 +118,32 @@ impl Session {
             created_at: Utc::now(),
             deadline: None,
         }
+    }
+
+    /// Enter a `tracing` span carrying the session's `tenant_id` and
+    /// `session_id` as fields. Returns an `EnteredSpan` guard that
+    /// exits the span when dropped — bind it to a local for the scope
+    /// of the session-scoped work. The
+    /// `argo_telemetry::span_context::ContextInjectorLayer` (when
+    /// installed in the global subscriber) walks the span's fields
+    /// and stamps every log line emitted under the guard with
+    /// `tenant_id=… session_id=…` (Stream
+    /// `mission-structured-logging-tenant-worker-session`).
+    ///
+    /// `worker_id` is not part of the session-level context — workers
+    /// joining the session enter their own [`enter_context`] guard
+    /// on top, and the layer composes the two (event-author wins,
+    /// then ancestor).
+    ///
+    /// [`enter_context`]: ../../../argo-telemetry/src/span_context.rs
+    #[must_use = "drop the returned guard at end of session-scoped work"]
+    pub fn enter_log_context(&self) -> tracing::span::EnteredSpan {
+        tracing::info_span!(
+            "session",
+            tenant_id = %self.tenant_id,
+            session_id = %self.id,
+        )
+        .entered()
     }
 
     /// Add a worker as a participant. Idempotent — adding the

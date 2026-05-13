@@ -7,6 +7,7 @@ use crate::cli::cli_worker_cmds::{
 };
 use crate::cli::cli_worker_deps_cmds::WorkerDepsCmd;
 use argo_identity::WorkerId;
+use argo_telemetry::span_context::{enter_context, LogContext};
 use argo_types::ArgoResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -159,6 +160,15 @@ fn default_risk() -> String { "low".to_string() }
 // ───────────────────────── CLI ───────────────────────────
 
 pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
+    // Worker-loop iteration boundary: every CLI invocation of a
+    // `worker <subcommand>` is one logical iteration. Extract the
+    // worker_id from the subcommand args (when present) so log lines
+    // emitted under the handler carry it via the
+    // ContextInjectorLayer.
+    let _worker_ctx = enter_context(LogContext {
+        worker_id: worker_id_from_cmd(&cmd),
+        ..LogContext::default()
+    });
     match cmd {
         WorkerCmd::Create { vertical, persona, charter, builder, voice_preamble, duties, fs_root, json } => super::worker_create::run(&vertical, &persona, &charter, builder.as_deref(), voice_preamble.as_deref(), &duties, fs_root.as_deref(), json).await,
         WorkerCmd::Onboard { persona_spec, id, role_name, json } => {
@@ -436,6 +446,29 @@ pub async fn run(cmd: WorkerCmd) -> ArgoResult<()> {
                 json,
             } => super::worker_actions_dispatch::retry(&action_id, force, json).await,
         },
+    }
+}
+
+/// Pull the `worker_id` (if any) off the dispatched subcommand so the
+/// [`enter_context`] guard at the top of [`run`] carries it. Returns
+/// `None` for subcommands that don't address a specific worker (fleet
+/// listing, elasticity status, etc.) — the
+/// [`ContextInjectorLayer`](argo_telemetry::span_context) then emits
+/// the configured `worker_id=-` marker.
+fn worker_id_from_cmd(cmd: &WorkerCmd) -> Option<String> {
+    match cmd {
+        WorkerCmd::Show { worker_id, .. }
+        | WorkerCmd::Portrait { worker_id, .. }
+        | WorkerCmd::Update { worker_id, .. }
+        | WorkerCmd::Resume { worker_id, .. }
+        | WorkerCmd::Anomalies { worker_id, .. }
+        | WorkerCmd::Rehydrate { worker_id, .. }
+        | WorkerCmd::Delete { worker_id, .. }
+        | WorkerCmd::Promote { worker_id, .. }
+        | WorkerCmd::Level { worker_id, .. }
+        | WorkerCmd::Skills { worker_id, .. } => Some(worker_id.clone()),
+        WorkerCmd::Onboard { id, .. } => id.clone(),
+        _ => None,
     }
 }
 

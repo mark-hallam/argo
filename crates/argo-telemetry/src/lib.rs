@@ -18,6 +18,12 @@ mod tracing_sink;
 
 pub mod http_target;
 pub mod metrics_prompt_cache;
+/// Tenant/worker/session log-context Layer
+/// (Stream `mission-structured-logging-tenant-worker-session`).
+/// Walks `tracing::Span` ancestors on every event and emits a
+/// structured line carrying `tenant_id`, `worker_id`, `session_id`
+/// so SRE log-grep queries can cross-correlate by all three.
+pub mod span_context;
 
 #[cfg(feature = "otlp")]
 pub mod otlp_bridge;

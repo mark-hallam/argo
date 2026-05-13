@@ -18,6 +18,11 @@ pub struct TelemetryConfig {
     /// `[telemetry.log_shipping]` — optional HTTP log-shipping target
     /// (Stream `mission-log-shipping-target-docs`). Off by default.
     pub log_shipping: TelemetryLogShippingConfig,
+    /// `[telemetry.context]` — tenant_id / worker_id / session_id on
+    /// every log line (Stream
+    /// `mission-structured-logging-tenant-worker-session`). Off by
+    /// default; opt-in for operators with a structured log pipeline.
+    pub context: TelemetryContextConfig,
 }
 
 impl Default for TelemetryConfig {
@@ -27,6 +32,7 @@ impl Default for TelemetryConfig {
             exporter: defaults::DEFAULT_TELEMETRY_EXPORTER.into(),
             endpoint: String::new(),
             log_shipping: TelemetryLogShippingConfig::default(),
+            context: TelemetryContextConfig::default(),
         }
     }
 }
@@ -81,6 +87,42 @@ impl Default for TelemetryLogShippingConfig {
             flush_interval_seconds: defaults::DEFAULT_LOG_SHIPPING_FLUSH_INTERVAL_SECS,
             timeout_seconds: defaults::DEFAULT_LOG_SHIPPING_TIMEOUT_SECS,
             queue_max: defaults::DEFAULT_LOG_SHIPPING_QUEUE_MAX,
+        }
+    }
+}
+
+/// `[telemetry.context]` — installs the
+/// `argo_telemetry::span_context::ContextInjectorLayer` so every log
+/// line emitted within a request/work context carries
+/// `tenant_id` / `worker_id` / `session_id`. SREs grepping
+/// Loki / Datadog / CloudWatch can then cross-correlate "what did
+/// tenant X do during session Y on worker Z" in one query.
+///
+/// Default off: the in-tree subscriber still routes the human-
+/// readable line through the secrets scrubber, and installing the
+/// context Layer alongside duplicates output (the scrubber line is
+/// scrubbed-but-context-blind; the context line is context-tagged-
+/// but-not-scrubbed). Operators with a structured log pipeline that
+/// can dedupe by content opt in; everyone else stays on the scrubber-
+/// only path. A follow-up brief unifies the two into one Layer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TelemetryContextConfig {
+    /// Master enable. `false` → the Layer is not installed and adds
+    /// zero overhead (true zero-overhead path per the brief).
+    pub enabled: bool,
+    /// String emitted in place of an absent `tenant_id` — typical
+    /// anon GETs to `/health`. Worker / session absences always
+    /// render as `-` so observability tools can differentiate
+    /// "field absent" (subscriber broken) from "intentional anon".
+    pub emit_anon_tenant_as: String,
+}
+
+impl Default for TelemetryContextConfig {
+    fn default() -> Self {
+        Self {
+            enabled: defaults::DEFAULT_TELEMETRY_CONTEXT_ENABLED,
+            emit_anon_tenant_as: defaults::DEFAULT_TELEMETRY_CONTEXT_ANON.into(),
         }
     }
 }

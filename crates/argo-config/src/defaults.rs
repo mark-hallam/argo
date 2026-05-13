@@ -74,6 +74,18 @@ pub const DEFAULT_LOG_SHIPPING_TIMEOUT_SECS: u64 = 10;
 /// overflow drops OLDEST events.
 pub const DEFAULT_LOG_SHIPPING_QUEUE_MAX: usize = 10_000;
 
+/// `telemetry.context.enabled` default. Off in v1 — the in-tree
+/// chain still routes the human-readable line through the secrets
+/// scrubber; installing the context Layer alongside duplicates
+/// output, so operators opt-in once they have a structured log
+/// pipeline (Loki / Datadog / Splunk) that can dedupe by content.
+/// See `streams/mission-structured-logging-tenant-worker-session.md`.
+pub const DEFAULT_TELEMETRY_CONTEXT_ENABLED: bool = false;
+
+/// `telemetry.context.emit_anon_tenant_as` default — string emitted
+/// when `tenant_id` is `None` (typical anon GETs to `/health`).
+pub const DEFAULT_TELEMETRY_CONTEXT_ANON: &str = "anon";
+
 // --- [audit] ---------------------------------------------------------
 
 /// `audit.chain_algo` default.
