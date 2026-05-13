@@ -17,9 +17,7 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use super::lifecycle::{pid_is_alive, signal_term, PidGuard};
-use super::rate_limit_ip::{
-    self, rate_limited_response_bytes, CheckResult, IpRateLimiter,
-};
+use super::rate_limit_ip::{self, rate_limited_response_bytes, CheckResult, IpRateLimiter};
 use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
@@ -30,6 +28,7 @@ use super::{
 };
 use crate::handlers::alerts;
 use crate::handlers::cu_screenshots::CuScreenshotStore;
+use argo_forge::{spawn_forge_cron, ForgeCronConfig};
 use argo_store::attached_blob::{BlobStore, MemoryAttachedBlob};
 
 const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
@@ -120,6 +119,8 @@ pub(super) async fn start(
     let _alerts_loop = bg_store.map(|s| spawn_alerts_loop(Arc::clone(s)));
     let _cu_screenshot_sweep = bg_store.map(|s| spawn_cu_screenshot_sweep(Arc::clone(s)));
     let _audit_watchdog = bg_store.map(|s| spawn_audit_watchdog(Arc::clone(s)));
+    let _forge_cron = bg_store
+        .map(|s| AbortOnDrop::new(spawn_forge_cron(Arc::clone(s), ForgeCronConfig::from_env())));
     let _mcp_health = crate::handlers::mcp_health::spawn_from_env();
     phases.mark("spawn_bg_tasks");
 
@@ -173,9 +174,6 @@ pub(super) async fn start(
         return Ok(());
     }
 
-    // Per-IP rate limiter (claude-security-rate-limit-by-ip): cheap
-    // pre-route reject for traffic spikes from a single source IP. See
-    // `rate_limit_ip` for the env knobs and trust-model docs.
     let ip_limiter = Arc::new(IpRateLimiter::from_env());
     let mut served = 0_u64;
     let shutdown_ctl = ShutdownController::new();

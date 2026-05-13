@@ -20,6 +20,7 @@
 
 pub mod config;
 pub mod cost;
+pub mod cron;
 pub mod feedback_eval;
 mod forge;
 mod persist;
@@ -32,6 +33,7 @@ pub use config::{FEEDBACK_CASE_WEIGHT, FEEDBACK_WINDOW_DAYS};
 pub use cost::{
     accumulate_e2b_seconds, accumulate_llm_call, pricing_for_model, ForgeCost, PricingTable,
 };
+pub use cron::{spawn_forge_cron, ForgeCronConfig};
 pub use feedback_eval::{
     ingest_operator_feedback, weighted_loss_score, CaseKind, ExpectedOutcome, FeedbackEvalCase,
     ScoredCase,
