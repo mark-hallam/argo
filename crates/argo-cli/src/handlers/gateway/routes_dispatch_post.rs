@@ -154,6 +154,11 @@ async fn dispatch_post_inner(
     if req.starts_with("POST /api/v1/genesis/draft-worker ") {
         return Some(super::routes_genesis::draft_worker_response(req, store).await);
     }
+    // J12 — worker retrain endpoints. Single delegate covers all 4
+    // (classify / commit / undo / reverse-test); see routes_retrain.
+    if let Some(resp) = super::routes_retrain::dispatch(req, store).await {
+        return Some(resp);
+    }
     // Domain-grouped sub-dispatchers (siblings). Each owns a
     // disjoint URL space; order between them is not significant.
     if let Some(resp) = super::routes_dispatch_post_workers::dispatch_workers(req, store).await {
