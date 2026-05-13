@@ -6,14 +6,11 @@ import { HireShell } from "@/components/skycot/HireShell";
 import { Step2Listen } from "@/components/skycot/hire/Step2Listen";
 import { Step3Drafting } from "@/components/skycot/hire/Step3Drafting";
 import { Step4Introduce } from "@/components/skycot/hire/Step4Introduce";
+import { Step5Connect } from "@/components/skycot/hire/Step5Connect";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import type { ExampleRole } from "@/lib/hire/examples";
 import type { QuestionAnswer } from "@/lib/hire/genesis-types";
 import { useHireDraft } from "@/lib/hire/use-hire-draft";
-
-const STEP_PLACEHOLDERS: Record<number, string> = {
-  5: "Step 5 — placeholder for E2-g (Connect)",
-};
 
 const VALID_STEPS = new Set<number>([2, 3, 4, 5]);
 
@@ -96,6 +93,17 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     }
   }, [draft.isLoading, draft.state?.workerDraft, step, router]);
 
+  // Step 5 invariant: requires a server-assigned `workerId` from
+  // Step 4's hire commit. Without it, the connector / channel UI has
+  // nothing to attach to, so bounce back to Step 4.
+  useEffect(() => {
+    if (draft.isLoading) return;
+    if (step !== 5) return;
+    if (!draft.state?.workerDraft?.workerId) {
+      router.replace("/hire/step/4");
+    }
+  }, [draft.isLoading, draft.state?.workerDraft, step, router]);
+
   const handleStep2Change = useCallback(
     (snap: { answers: Record<string, QuestionAnswer>; canContinue: boolean }) => {
       setStep2Snapshot({ answers: snap.answers, canContinue: snap.canContinue });
@@ -170,6 +178,24 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
     [draft, router],
   );
 
+  const handleStep5Continue = useCallback(
+    (workerId: string) => {
+      router.push(`/hire/done/${encodeURIComponent(workerId)}`);
+    },
+    [router],
+  );
+
+  const handleStep5Skip = useCallback(
+    (workerId: string) => {
+      router.push(`/hire/done/${encodeURIComponent(workerId)}?inert=1`);
+    },
+    [router],
+  );
+
+  const handleStep5Back = useCallback(() => {
+    router.push("/hire/step/4");
+  }, [router]);
+
   if (step === null) {
     notFound();
   }
@@ -188,11 +214,7 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
       })();
       return;
     }
-    if (activeStep === 5) {
-      router.push("/hire/done/stub");
-    } else {
-      router.push(`/hire/step/${activeStep + 1}`);
-    }
+    router.push(`/hire/step/${activeStep + 1}`);
   }
 
   function goBack() {
@@ -209,7 +231,8 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
   );
 
   const continueDisabled = activeStep === 2 ? !step2Snapshot.canContinue : true;
-  const hideFooter = activeStep === 3 || activeStep === 4;
+  const hideFooter =
+    activeStep === 3 || activeStep === 4 || activeStep === 5;
 
   let stepContent: React.ReactNode;
   if (activeStep === 2) {
@@ -241,13 +264,22 @@ export default function HireStepPage({ params }: { params: Promise<{ step: strin
         onPickTemplate={handleStep4PickTemplate}
       />
     );
+  } else if (activeStep === 5 && draft.state?.workerDraft?.workerId) {
+    stepContent = (
+      <Step5Connect
+        workerDraft={{
+          ...draft.state.workerDraft,
+          workerId: draft.state.workerDraft.workerId,
+        }}
+        onContinue={handleStep5Continue}
+        onSkip={handleStep5Skip}
+        onBack={handleStep5Back}
+      />
+    );
   } else {
     stepContent = (
       <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-20 px-6 text-center space-y-3">
         <h1 className="text-xl font-semibold text-[var(--foreground)]">Hire a teammate</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          {STEP_PLACEHOLDERS[step] ?? ""}
-        </p>
       </div>
     );
   }
