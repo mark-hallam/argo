@@ -24,7 +24,7 @@ use super::start_banner_config::load_layered;
 use super::startup_check::{run_startup_checks, STARTUP_CHECK_EXIT};
 use super::{
     approval_expiry_sweeper, metrics, routes, routes_channels, routes_orchestrator, routes_skills,
-    routes_voice, runs_streaming, security_headers, streaming, sweepers,
+    runs_streaming, security_headers, streaming, sweepers,
 };
 use crate::handlers::alerts;
 use crate::handlers::cu_screenshots::CuScreenshotStore;
@@ -222,10 +222,6 @@ pub(super) async fn start(
                     let _ = stream.shutdown().await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
-                    let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
-                    let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
-                } else if routes_voice::is_voice_webhook(req) {
-                    let (status_line, body) = routes_voice::voice_webhook_response(req).await;
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
                 } else if let Some((status_line, body)) = routes_orchestrator::dispatch_route(req, store.as_ref()).await {
