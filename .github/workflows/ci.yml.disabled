@@ -54,8 +54,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: cargo-llvm-cov }
-      - name: Generate LCOV coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-run-fail
+      - name: Generate coverage reports
+        shell: bash
+        run: |
+          cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-run-fail
+          mkdir -p target/llvm-cov/json
+          cargo llvm-cov --workspace --json --output-path target/llvm-cov/json/coverage.json --ignore-run-fail
+      - name: Enforce critical crate coverage thresholds
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/check-coverage-threshold.sh | tee coverage-threshold-summary.md
       - name: Print coverage summary
         run: cargo llvm-cov report --summary-only | tee coverage-summary.txt
       - name: Upload coverage artifacts
@@ -65,6 +74,8 @@ jobs:
           path: |
             lcov.info
             coverage-summary.txt
+            coverage-threshold-summary.md
+            target/llvm-cov/json/coverage.json
       - name: Comment coverage summary
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -81,7 +92,7 @@ jobs:
               summary,
               '```',
               '',
-              'No coverage threshold is enforced by this job.',
+              'Critical crate threshold: 70% line coverage for argo-store, argo-skill, and argo-judge.',
             ].join('\n');
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
