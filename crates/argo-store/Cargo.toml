@@ -22,6 +22,14 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
+# BYOK (mission-byok-enterprise-tenants) — cloud-KMS unwrap of the
+# wrapped data-encryption-key (DEK). All three providers speak
+# HTTP/JSON to their respective KMS endpoints (REST for GCP +
+# Azure; AWS KMS uses the JSON-1.1 wire format). reqwest + base64
+# are pulled only when at least one `kms-*` feature is enabled.
+reqwest = { workspace = true, optional = true }
+base64 = { version = "0.22", optional = true }
+
 # Marker feature for at-rest encryption (Stream
 # `mission-encryption-at-rest-sqlcipher`). Enabling it does NOT by
 # itself swap the linked SQLite driver — the stock sqlx 0.8 driver is
@@ -29,9 +37,17 @@ tracing = { workspace = true }
 # facing toggle that downstream builds (FIPS / SQLCipher Commercial)
 # can wire to a libsqlite3-sys-with-SQLCipher fork. See
 # `docs/skycot/RUNBOOK.md` § "At-rest encryption".
+#
+# `kms-aws` / `kms-gcp` / `kms-azure` (mission-byok-enterprise-tenants)
+# each compile in one cloud KMS unwrap path. They are additive — a
+# build can enable any subset without pulling SDKs for the others.
 [features]
 default = []
 sqlcipher = []
+kms = ["dep:reqwest", "dep:base64"]
+kms-aws = ["kms"]
+kms-gcp = ["kms"]
+kms-azure = ["kms"]
 
 [[bench]]
 name = "memory_store"
@@ -45,3 +61,8 @@ harness = false
 tokio = { workspace = true }
 tempfile = "3"
 criterion = { workspace = true }
+# HTTP-level mocking for the KMS provider unit tests
+# (mission-byok-enterprise-tenants). Wiremock intercepts the
+# production reqwest calls via a configurable endpoint override,
+# so no real-cloud calls happen in CI.
+wiremock = "0.6"

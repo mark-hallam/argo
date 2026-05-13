@@ -1,4 +1,6 @@
-//! `[security]` — at-rest encryption, compliance posture, and
+//! `[security]` — at-rest encryption (Stream
+//! `mission-encryption-at-rest-sqlcipher`, extended by
+//! `mission-byok-enterprise-tenants`), compliance posture, and
 //! gateway defence-in-depth knobs.
 //!
 //! Lives in its own sibling module so [`crate::sections`] stays a
@@ -8,7 +10,14 @@
 //!
 //! ```toml
 //! [security.encryption]
+//! # Local operator-managed keys (default for non-enterprise):
 //! key_source = "env:ARGO_DB_ENCRYPTION_KEY"   # or "file:/path", or "none"
+//!
+//! # BYOK (enterprise) — wrap DEK under a cloud KMS key; SKYCOT
+//! # asks KMS to unwrap at startup. KMS sees only the wrapped DEK.
+//! # key_source = "aws-kms:<arn>?region=us-east-1&wrapped=file:/run/secrets/wrapped.dek&bearer=env:AWS_KMS_BEARER"
+//! # key_source = "gcp-cmek:<proj>/<loc>/<ring>/<key>?wrapped=file:/run/secrets/wrapped.dek&bearer=env:GCP_OAUTH"
+//! # key_source = "azure-kv:<vault_url>#<key>?wrapped=file:/run/secrets/wrapped.dek&bearer=env:AZURE_AAD"
 //!
 //! [security.hipaa]
 //! enabled = false
@@ -47,9 +56,21 @@ pub struct SecurityEncryptionConfig {
     /// - `"none"` — plaintext store (default).
     /// - `"env:VAR_NAME"` — raw 64-hex-char key from env var.
     /// - `"file:/path/to/key"` — raw 64-hex-char key from file.
+    /// - `"aws-kms:<arn>?region=<r>&wrapped=<spec>[&bearer=<spec>]"` — BYOK
+    ///   via AWS KMS; SKYCOT unwraps the wrapped DEK on startup.
+    /// - `"gcp-cmek:<proj>/<loc>/<ring>/<key>?wrapped=<spec>[&bearer=<spec>]"` — BYOK
+    ///   via GCP Cloud KMS.
+    /// - `"azure-kv:<vault_url>#<key>?wrapped=<spec>[&bearer=<spec>]"` — BYOK
+    ///   via Azure Key Vault.
+    ///
+    /// `<spec>` follows the local `env:VAR` / `file:/path` vocabulary,
+    /// so secret material stays out of `argo.toml`. The BYOK paths are
+    /// feature-gated (`kms-aws`, `kms-gcp`, `kms-azure`); stock builds
+    /// accept the spec strings but error at resolve time.
     ///
     /// The key value is NEVER logged. Losing the key = losing the
-    /// data; see `docs/skycot/runbook/at-rest-encryption.md`.
+    /// data; see `docs/skycot/runbook/at-rest-encryption.md` and
+    /// `docs/skycot/runbook/byok-cloud-kms.md`.
     pub key_source: String,
 }
 

@@ -574,6 +574,10 @@ encryption of the workspace DB, the `[security.encryption]
 key_source` config, enabling on a fresh workspace, in-place
 rotation via `argo db rekey`, and the backup / key-custody model.
 
+See [`runbook/byok-cloud-kms.md`](runbook/byok-cloud-kms.md) for
+the BYOK extension — wrapping the DEK under an enterprise AWS /
+GCP / Azure KMS key so cloud KMS holds the root of trust.
+
 ## Per-vertical regression
 
 See [`runbook/per-vertical-regression.md`](runbook/per-vertical-regression.md)

@@ -127,6 +127,23 @@ pub mod scim_user;
 /// At-rest encryption key resolution + `PRAGMA key`/`rekey` helpers
 /// (Stream `mission-encryption-at-rest-sqlcipher`).
 pub mod encryption;
+/// Cloud-KMS parser + client-build glue split out from
+/// [`crate::encryption`] under the 500-LOC ceiling (Stream
+/// `mission-byok-enterprise-tenants`). Kept `pub(crate)` — public
+/// surface is [`encryption::KeySource`].
+pub(crate) mod encryption_kms;
+/// Cloud KMS wrap/unwrap of the wrapped data-encryption-key (DEK)
+/// for BYOK enterprise tenants (Stream
+/// `mission-byok-enterprise-tenants`). Empty in default builds —
+/// each provider is gated behind its own `kms-{aws,gcp,azure}`
+/// Cargo feature so default builds don't pull cloud HTTP stacks.
+#[cfg(feature = "kms")]
+pub mod kms;
+/// Wiremock-based tests for the cloud KMS providers (Stream
+/// `mission-byok-enterprise-tenants`).
+#[cfg(all(test, feature = "kms"))]
+#[path = "kms_tests.rs"]
+mod kms_tests;
 /// Per-tenant resource quotas for budget and auto-approval gates.
 pub mod tenant_quota;
 /// Quota kind enums + error type for the tenant_quota gate
