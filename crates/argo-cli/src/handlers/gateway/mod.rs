@@ -12,6 +12,7 @@ mod approval_expiry_sweeper;
 mod boot;
 mod dashboard;
 mod dashboard_fleet;
+mod hipaa_startup_check;
 mod marketplace;
 mod marketplace_render;
 mod routes_dashboard;

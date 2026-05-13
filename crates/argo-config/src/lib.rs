@@ -67,7 +67,8 @@ pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
     ForgeConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig, JudgeConfig,
     LoopConfig, MatrixTomlConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
-    SecurityConfig, SecurityEncryptionConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, TeamsTomlConfig, TelemetryConfig,
+    TenantConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, RuntimeConfig,
@@ -129,8 +130,7 @@ pub struct ArgoConfig {
     /// `[runtime]` — runtime-side knobs (currently
     /// `[runtime.context_compress]`).
     pub runtime: RuntimeConfig,
-    /// `[security]` — at-rest encryption key source (Stream
-    /// `mission-encryption-at-rest-sqlcipher`).
+    /// `[security]` — at-rest encryption and compliance posture.
     pub security: SecurityConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.

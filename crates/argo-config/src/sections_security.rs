@@ -1,5 +1,4 @@
-//! `[security]` — at-rest encryption (Stream
-//! `mission-encryption-at-rest-sqlcipher`).
+//! `[security]` — at-rest encryption and compliance posture.
 //!
 //! Lives in its own sibling module so [`crate::sections`] stays a
 //! lean re-export hub. Public symbols are re-exported through
@@ -9,6 +8,9 @@
 //! ```toml
 //! [security.encryption]
 //! key_source = "env:ARGO_DB_ENCRYPTION_KEY"   # or "file:/path", or "none"
+//!
+//! [security.hipaa]
+//! enabled = false
 //! ```
 //!
 //! Default `key_source` is `"none"` — backward-compatible plaintext.
@@ -21,6 +23,8 @@ use serde::{Deserialize, Serialize};
 pub struct SecurityConfig {
     /// `[security.encryption]`.
     pub encryption: SecurityEncryptionConfig,
+    /// `[security.hipaa]`.
+    pub hipaa: SecurityHipaaConfig,
 }
 
 /// `[security.encryption]`.
@@ -48,6 +52,17 @@ impl Default for SecurityEncryptionConfig {
     }
 }
 
+/// `[security.hipaa]`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SecurityHipaaConfig {
+    /// Whether this deployment claims HIPAA-ready mode.
+    ///
+    /// `false` is the safe default: startup evidence is still emitted,
+    /// but the audit row records `not_claimed`.
+    pub enabled: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,6 +71,7 @@ mod tests {
     fn defaults_are_none_and_backward_compatible() {
         let cfg = SecurityConfig::default();
         assert_eq!(cfg.encryption.key_source, "none");
+        assert!(!cfg.hipaa.enabled);
     }
 
     #[test]
@@ -72,5 +88,16 @@ mod tests {
     fn missing_section_falls_back_to_default() {
         let cfg: SecurityConfig = toml::from_str("").unwrap();
         assert_eq!(cfg.encryption.key_source, "none");
+        assert!(!cfg.hipaa.enabled);
+    }
+
+    #[test]
+    fn hipaa_defaults_false_and_parses_true() {
+        let toml_src = r#"
+            [hipaa]
+            enabled = true
+        "#;
+        let cfg: SecurityConfig = toml::from_str(toml_src).unwrap();
+        assert!(cfg.hipaa.enabled);
     }
 }

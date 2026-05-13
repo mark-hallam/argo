@@ -110,6 +110,9 @@ pub(super) async fn start(
         }
     };
     phases.mark("store_open_migrate");
+    if let Some(s) = store.as_ref() {
+        super::hipaa_startup_check::emit_startup_check_best_effort(&cwd_for_store, s).await;
+    }
 
     let bg_store = store.as_ref();
     let _sweeper = bg_store.map(|s| sweepers::spawn_handoff_sweeper(Arc::clone(s)));
