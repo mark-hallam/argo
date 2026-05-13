@@ -26,6 +26,7 @@ mod rate_limit_ip;
 mod rate_limit_tenant;
 mod metrics_actions;
 mod print_routes;
+mod proxy_guard;
 mod peer;
 mod routes;
 mod routes_peer;

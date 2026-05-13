@@ -189,6 +189,12 @@ pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_RPM: u32 = 600;
 /// them at the configured rpm.
 pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST: f64 = 2.0;
 
+/// `gateway.behind_proxy.expected_proxy` default — strict by default.
+/// Operators must opt in by setting `[gateway.behind_proxy]
+/// expected_proxy = true` (and listing `trusted_proxies`) before the
+/// gateway will boot with a non-loopback bind.
+pub const DEFAULT_GATEWAY_EXPECTED_PROXY: bool = false;
+
 // --- [channels.teams] -----------------------------------------------
 
 /// `channels.teams.client_secret_env` default — env var name the

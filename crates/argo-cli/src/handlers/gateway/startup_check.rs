@@ -102,6 +102,25 @@ pub(super) fn provider_key_present() -> bool {
     any("ANTHROPIC_API_KEY") || any("OPENAI_API_KEY")
 }
 
+/// Load-bearing bind-safety guard
+/// (`mission-gateway-tls-termination-or-proxy-doc`). Runs BEFORE the
+/// async startup checks and BEFORE the TCP `bind()`, and is honored
+/// even when `--skip-startup-check` is set, so the
+/// `argo gateway start --bind 0.0.0.0:7400` failure mode (plaintext
+/// HTTP served to the world) cannot be skipped by accident.
+///
+/// Delegates to [`super::proxy_guard::validate_bind_address`], which
+/// loads the `[gateway.behind_proxy]` contract from `argo.toml`. See
+/// the module docs there for the decision matrix.
+pub(super) fn validate_bind_safety(
+    bind: &str,
+    insecure_bind: bool,
+    cwd: &Path,
+) -> ArgoResult<()> {
+    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    super::proxy_guard::validate_bind_address(bind, &cfg.gateway.behind_proxy, insecure_bind)
+}
+
 fn warn_unprobed_channels(cwd: &Path) {
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     if !cfg.gateway.adapters.is_empty() {

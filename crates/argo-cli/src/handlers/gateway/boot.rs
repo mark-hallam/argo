@@ -5,6 +5,7 @@
 use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
+#[cfg(test)]
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,11 +23,12 @@ use super::rate_limit_ip::{self, rate_limited_response_bytes, CheckResult, IpRat
 use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
-use super::startup_check::{run_startup_checks, STARTUP_CHECK_EXIT};
+use super::startup_check::{run_startup_checks, validate_bind_safety, STARTUP_CHECK_EXIT};
 use super::{
-    approval_expiry_sweeper, metrics, routes, routes_channels, routes_orchestrator, routes_skills,
-    runs_streaming, security_headers, streaming, sweepers,
+    approval_expiry_sweeper, metrics, proxy_guard, routes, routes_channels, routes_orchestrator,
+    routes_skills, runs_streaming, security_headers, streaming, sweepers,
 };
+use argo_config::ArgoConfig;
 use argo_forge::{spawn_forge_cron, ForgeCronConfig};
 
 pub(super) struct AbortOnDrop {
@@ -73,12 +75,19 @@ pub(super) async fn start(
     let mut phases = StartupPhases::new();
     let cwd_for_check =
         std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    // Load-bearing bind-safety guard runs FIRST, so plaintext
+    // non-loopback bind without TLS/proxy config is refused even
+    // under `--skip-startup-check`.
+    validate_bind_safety(bind, insecure_bind, &cwd_for_check)?;
     if let Err(e) = run_startup_checks(skip_startup_check, &cwd_for_check).await {
         eprintln!("argo gateway: STARTUP CHECK FAILED ({e}); refusing to bind");
         std::process::exit(STARTUP_CHECK_EXIT);
     }
     phases.mark("startup_check");
-    check_bind_loopback(bind, insecure_bind)?;
+    let behind_proxy = ArgoConfig::load(&cwd_for_check.join("argo.toml"))
+        .unwrap_or_default()
+        .gateway
+        .behind_proxy;
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await
@@ -184,7 +193,11 @@ pub(super) async fn start(
                 let mut buf = [0_u8; 4096];
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
-                let src_ip = rate_limit_ip::extract_ip(req, peer, ip_limiter.trust_xff());
+                let src_ip = if behind_proxy.expected_proxy {
+                    proxy_guard::extract_real_ip(req, peer, &behind_proxy)
+                } else {
+                    rate_limit_ip::extract_ip(req, peer, ip_limiter.trust_xff())
+                };
                 let https = security_headers::request_is_https(req);
                 let sec = security_headers::header_lines("application/json", https);
                 if let CheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
@@ -292,14 +305,14 @@ impl StartupPhases {
     }
 }
 
-/// Refuse to bind anything outside the loopback range unless the
-/// operator passes `--insecure-bind`. A literal IP that parses to a
-/// loopback address (`127.0.0.0/8`, `::1`) is always accepted. Any
-/// other literal IP — and any non-IP value (e.g. a hostname like
-/// `localhost` or `0`-shorthand) — is treated as non-loopback and
-/// requires the explicit opt-in. The opt-in path prints a single
-/// yellow stderr warning so reverse-proxy operators see the
-/// reminder on every boot.
+/// **Deprecated**: superseded by
+/// [`super::startup_check::validate_bind_safety`] (which honors the
+/// `[gateway.behind_proxy]` contract on top of the
+/// `--insecure-bind` flag — see `proxy_guard.rs`). Retained behind
+/// `#[cfg(test)]` so the historical `boot_tests` suite continues to
+/// exercise the CLI-flag-only path against a default
+/// `GatewayBehindProxyConfig`.
+#[cfg(test)]
 pub(super) fn check_bind_loopback(bind: &str, insecure_bind: bool) -> ArgoResult<()> {
     let is_loopback = bind
         .parse::<IpAddr>()

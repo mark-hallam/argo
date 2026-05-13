@@ -27,7 +27,7 @@ pub use crate::sections_channels::{ChannelsConfig, MatrixTomlConfig, TeamsTomlCo
 pub use crate::sections_core::{CoreConfig, LoopConfig, PluginConfig, TenantConfig};
 pub use crate::sections_executor::DocumentCsvConfig;
 pub use crate::sections_gateway::{
-    GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
+    GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
 };
 pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, RoutingTieredConfig};
 pub use crate::sections_security::{SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig};

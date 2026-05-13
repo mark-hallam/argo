@@ -65,10 +65,10 @@ pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
-    ForgeConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig, JudgeConfig,
-    LoopConfig, MatrixTomlConfig, ParallelConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
-    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, TeamsTomlConfig, TelemetryConfig,
-    TenantConfig,
+    ForgeConfig, GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig,
+    GatewayRateLimitTenantConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
+    PluginConfig, RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
+    SecurityHipaaConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig,
