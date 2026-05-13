@@ -103,28 +103,37 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-## Right-now snapshot (2026-05-13 ~02:30Z) — Claude lane B → C hand-off, codex ACTIVE
+## Right-now snapshot (2026-05-13 ~03:30Z) — second hand-off in 1h, codex 3-for-3
 
-Refreshed at 98% weekly cap by the operator
-relaunching Claude (this session ends imminently). The previous
-lane A snapshot lives in git history `3688c48c` if you need
-diff context. **A fresh session resuming should read this whole
-section + SWARM_PROTOCOL.md HARD RULES + the 5 files at the top
-of this doc, then start ticking.**
+Refreshed at 98.5% weekly cap, operator relaunching Claude again
+(this is the SECOND hand-off in one hour — the prior account
+shipped 8 merges then ran out). Codex worker has been the
+workhorse since: 3-for-3 PRs since 2026-05-09 resumption (#1528
+sweeper, #1533 forge-cron, #1537 HIPAA). **A fresh session
+resuming should read this whole section + SWARM_PROTOCOL.md HARD
+RULES + the 5 files at the top of this doc, then start ticking.**
 
 ### Live state (origin/main)
 
-- **HEAD**: `81f9a672` (status: claim J12-gateway-retrain-endpoints)
-- **Queue counts** (run `grep -cE '^\| .* \| claude \| <STATE> '
-  docs/build-plan/BUILD_STATUS.md` to verify):
-  - TODO = **17**  (below 25 trigger; workers actively pulling)
-  - CLAIMED = **8**  (6 claude + 2 codex; briefs in active worker
-    progress, no PR yet)
-  - IN_REVIEW = **17**  (16 open PRs + 1 row mismatch ≈ same thing)
-  - BLOCKED = **33**  (mostly dep-chain; many unblock-cascade as
-    in-flight PRs land)
-  - MERGED = **233**  (live ledger; +463 archived to
-    `BUILD_STATUS_ARCHIVE_2026Q2.md` pre-#1300)
+- **HEAD**: `7b590df9` (3 MERGED in one tick: #1536 + #1537 + #1538)
+- **Queue counts**:
+  - TODO = **12**  (below 25 trigger; replenish next tick if no merges)
+  - CLAIMED = **6**  (2 codex + 4 claude; active worker progress, no PR yet)
+  - IN_REVIEW = **19**  (open PRs; most are DIRTY chain-rebase)
+  - BLOCKED = **41**  (mostly dep-chain; cascade-unblocks as PRs land)
+  - MERGED = **241 live + 463 archived = 704 total**
+
+### What just landed since the previous RESUME snapshot at `36a5904d`
+
+Eight merges in ~1 hour:
+- **#1529** J12-gateway-retrain-endpoints — 4 retrain endpoints
+- **#1530** mission-dashboard-planning-visibility — your operator-spec dashboard work, 4 features shipped end-to-end
+- **#1461** mission-encryption-at-rest-sqlcipher — final encryption-trio piece; **cascade-unblocked byok + rotation-cli-wiring**
+- **#1533** mission-forge-cron-lowest-quality (**CODEX**) — Forge proactive cron tick
+- **#1534** mission-voice-route-consistency — voice now uses unified channels dispatcher
+- **#1536** mission-document-voice-chat-paper-only — v1.0 voice-status doc
+- **#1537** mission-hipaa-path-baa (**CODEX**) — HIPAA design + startup-check
+- **#1538** mission-rotation-cli-subsystem-wiring — coordinator spawns subsystem CLIs via current_exe()
 
 ### What just landed (last ~4 hours conductor work)
 
@@ -143,21 +152,26 @@ Major push:
 
 ### CLAIMED — workers in flight (no PR yet)
 
-**Codex** (2 active claims after shipping #1528):
-1. **`claude-error-dashboard-runbook`** — codex (claimed post-#1528)
-2. **`claude-troubleshooting-guide-expand`** — codex (claimed post-#1528)
+**Codex** (2 active claims):
+1. **`claude-error-dashboard-runbook`** — codex
+2. **`claude-troubleshooting-guide-expand`** — codex
 
-**Claude** (6 active claims):
-3. **`mission-doc-executor-gsuite`** — re-claimed after quota release
-4. **`mission-encryption-at-rest-sqlcipher`** — re-claimed after quota release
-5. **`J12-gateway-retrain-endpoints`** — fresh claim (cascade-unblocked from J10)
-6. **`mission-enterprise-audit-full-text-search`** — pre-existing claim, stale (since 2026-05-12T16:45Z)
-7. **`E2-f-hire-flow-structured-adjust`** — claude worker
-8. **`E2-i-hire-flow-day1-wrap-duty`** — claude worker
+**Claude** (4 active claims):
+3. **`mission-enterprise-audit-full-text-search`** — pre-existing claim, stale since 2026-05-12T16:45Z (worker may have given up or be holding)
+4. **`mission-byok-enterprise-tenants`** — fresh claim post sqlcipher-MERGE cascade-unblock
+5. **`E2-f-hire-flow-structured-adjust`** — claude worker
+6. **`E2-i-hire-flow-day1-wrap-duty`** — claude worker
 
-### Recently shipped (since previous RESUME snapshot at 3688c48c)
+### Codex performance summary (since 2026-05-09 resumption)
 
-- **#1528** `claude-approval-timeout-default-decision` MERGED by **codex** — first codex PR since 2026-05-09 outage. 10 files +406/-13. Gateway approval-expiry sweeper + `argo doctor approvals --since`. boot.rs net -3 LOC (stayed under ceiling). Used `ARGO_CLAIM_FORCE=1` for the ceiling override; codex pre-push gate clean. Owner column flipped TODO→codex to reflect actual shipper.
+- **3-for-3 production PRs shipped clean.** Codex pre-push gate
+  (`scripts/codex-pre-push.sh`) is working correctly.
+- **Acceptable use of `ARGO_CLAIM_FORCE=1`** for legitimate ceiling-
+  headroom briefs (verified on #1528 where boot.rs was at 498 LOC
+  and codex stayed -3 LOC net).
+- **PR branch naming**: codex uses the brief slug verbatim, so a
+  `claude-*` prefixed brief produces a `claude-*` branch even
+  though the worker is codex. That's per the brief, not a bug.
 
 ### IN_REVIEW — 16 open PRs (all DIRTY or UNSTABLE, fix-recipes on file)
 
@@ -182,50 +196,58 @@ STALE-DEMOTED to TODO with salvage note — PR stays open).
 
 ### Worker / quota situation
 
-- **Claude workers** (across 1+ machine, claude-worker-loop.sh):
-  released some claims around the cap then re-claimed when cap reset
-  partially refreshed. Currently holding 6 active claims (mission/J/E
-  briefs). Quota state fluid.
-- **Codex** (operator-driven tab): **fully active**. Shipped #1528
-  cleanly, then immediately claimed 2 more briefs
-  (`claude-error-dashboard-runbook` + `claude-troubleshooting-guide-expand`).
-  Codex pre-push gate confirmed working.
-- **This conductor session (Claude lane B)**: **at 98% weekly
-  cap**; operator relaunching Claude → this session ends imminently.
-  This snapshot is the hand-off artifact for whatever account picks
-  up next.
+- **Claude workers** (claude-worker-loop.sh on mac-host): holding
+  4 active claims. Quota state fluid; workers may release/re-claim
+  multiple times as caps reset.
+- **Codex** (operator-driven tab): **3-for-3 shipped**. Currently
+  holding 2 claims (`error-dashboard-runbook` + `troubleshooting-
+  guide-expand`). Both are doc-shaped, should ship fast.
+- **This conductor session (second conductor session this hour)**:
+  **at 98.5% weekly cap**; operator relaunching now → this session
+  ends imminently. This is the second resume-safety hand-off in
+  ~1 hour.
 
-### What a fresh conductor (Claude C/D) should do first
+### What a fresh conductor (next session) should do first
 
 1. `cd "$ARGO_REPO_ROOT" && git fetch origin main && git reset --hard origin/main`
 2. Read this `RESUME.md` first 100 lines, then `BUILD_STATUS.md`
    first 90 lines (header).
 3. Run the 9-step conductor tick (or arm `/loop 5m` with the prompt
-   from `PROTOCOL_LOOP_PROMPT.md`).
-4. **Expect codex PRs to land** for `claude-error-dashboard-runbook`
-   and `claude-troubleshooting-guide-expand` — codex was active when
-   this snapshot was written. Tier-1 review + merge per the usual
-   pattern. PRs will be on `claude-*` prefixed branches (codex used
-   the brief slug as branch name on its last PR — slug, not family).
-5. The 14 DIRTY PRs need their workers to do `git fetch && git merge
+   from `PROTOCOL_LOOP_PROMPT.md`). **Note: cron loop currently
+   CANCELLED** (operator cancelled `178d5bd0` mid-session). Re-arm
+   if you want auto-ticks, otherwise drive manually.
+4. **Expect codex PRs to land soon** for
+   `claude-error-dashboard-runbook` + `claude-troubleshooting-guide-
+   expand`. Both are doc-shaped; should ship in ~30 min each. Tier-1
+   review + merge per usual.
+5. **Replenishment trigger may fire** — claude_todo=12 < 25. The
+   straight-forward 3-5 brief replenishment is fine; remaining
+   high-confidence MISSION_BACKLOG [NEW] items getting thin so
+   default to small / doc-shaped briefs and PR-deferrals from
+   recent merges if the operator hasn't paused.
+6. The 14 DIRTY PRs need their workers to do `git fetch && git merge
    origin/main && git push` (recipe on each PR). Conductor's job is
-   to wait, not push — workers will resume from their quota gates.
-6. The 2 UNSTABLE PRs (#1498 vuln-mgmt, #1506 cli-help-reference)
-   are the chicken-egg pattern — fix-recipes posted; worker needs to
-   either seed waivers or use `continue-on-error` for first run.
+   to wait, not push. **Stalest is #1447 / #1450 at 24h+** — those
+   may merit recovery-brief escalation per the af500037 amendment
+   (>24h with multiple fix-request rounds).
+7. The 2 UNSTABLE PRs (#1498 vuln-mgmt, #1506 cli-help-reference)
+   are the chicken-egg pattern; fix-recipes posted — worker needs
+   to either seed waivers or use `continue-on-error` for first run.
 
-### Codex worker status / encouragement
+### Productivity since 2026-05-09 codex outage
 
-The codex pre-push gate (`scripts/codex-pre-push.sh`) is **working
-correctly** — verified via #1528. Workers calling
-`ARGO_CLAIM_FORCE=1` for legitimate ceiling-headroom briefs is the
-documented escape hatch and is fine to allow.
+Codex came back online 2026-05-13 and immediately shipped 3 clean
+PRs (#1528 + #1533 + #1537). Claude workers have shipped 8+ MERGEs
+in the last ~2 hours including the entire encryption-at-rest trio
+(SQLCipher + credentials-toml + key-rotation) plus the rotation-cli
+wiring follow-up. The swarm is in excellent shape going into the
+hand-off.
 
-If codex pushes a PR on a `claude-*` branch (codex used the brief
-slug verbatim, which has a `claude-` prefix), that's not a bug —
-the new codex worker prompt at `PROTOCOL_WORKER_PROMPT_CODEX.md`
-says "branch prefix: `codex-` unless the brief specifies otherwise"
-and codex correctly inherited the brief's preferred name.
+### Pending operator decisions
+
+None blocking. The mission-dashboard-planning-visibility work the
+operator requested earlier MERGED via #1530. No active questions
+on conductor's plate.
 
 ### Active directives (header is authoritative; do NOT trust this
 list if it disagrees)
@@ -255,6 +277,6 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-13 ~02:30Z (Claude lane B at 98% weekly,
-operator relaunching → next session inherits). Codex active and
-producing.
+Last refreshed: 2026-05-13 ~03:30Z (second hand-off in 1h; 98.5%
+weekly cap on this account, operator relaunching). Codex 3-for-3
+since resumption. 8 merges in the prior hour. HEAD `7b590df9`.
