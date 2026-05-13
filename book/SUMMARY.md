@@ -31,6 +31,12 @@
 - [Protocol overview](./architecture/protocol.md)
 - [Memory and skills](./architecture/memory-and-skills.md)
 - [Worker v3 execution](./architecture/worker-v3.md)
+- [Diagrams](./architecture/diagrams/index.md)
+  - [Gateway routes](./architecture/diagrams/gateway-routes.md)
+  - [Executor dispatch](./architecture/diagrams/executor-dispatch.md)
+  - [Memory layers](./architecture/diagrams/memory-layers.md)
+  - [Judge integration](./architecture/diagrams/judge-integration.md)
+  - [Dreams pipeline](./architecture/diagrams/dreams-pipeline.md)
 
 # Operations
 

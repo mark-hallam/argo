@@ -36,6 +36,14 @@ jobs:
         with:
           mdbook-version: latest
 
+      - name: Install mdbook-mermaid
+        # Required by the [preprocessor.mermaid] block in book.toml.
+        # The vendored mermaid.min.js + mermaid-init.js next to book.toml
+        # were produced by `mdbook-mermaid install .` and are committed
+        # alongside this workflow — the binary is still needed at build
+        # time so the preprocessor can run.
+        run: cargo install mdbook-mermaid --locked
+
       - name: Install mdbook-linkcheck
         run: |
           set -e

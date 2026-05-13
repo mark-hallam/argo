@@ -3,12 +3,14 @@ title = "Argo / Skycot"
 description = "Operator and developer guide for the Argo agent platform (Skycot)."
 authors = ["Argo / Skycot maintainers"]
 language = "en"
-multilingual = false
 src = "book"
 
 [build]
 build-dir = "book-output"
 create-missing = false
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
 
 [output.html]
 default-theme = "navy"
@@ -18,6 +20,7 @@ edit-url-template = "https://github.com/mark-hallam/Argo-Agent/edit/main/{path}"
 no-section-label = false
 mathjax-support = false
 fold = { enable = true, level = 1 }
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
 
 [output.html.search]
 enable = true
