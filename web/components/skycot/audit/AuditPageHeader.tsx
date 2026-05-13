@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ChevronDown, Download, Filter, Search } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -15,9 +16,10 @@ import {
 /**
  * Sticky page header for the `/audit` route. Renders:
  *  - title "Audit" + subtitle "Forensic + compliance view"
- *  - action row: Filter trigger (icon-only — E5-b implements the
- *    popover), time-range dropdown (8 options + Custom), Export
- *    trigger (E5-e implements the dialog)
+ *  - action row: Filter trigger (icon-only — E5-b ships the popover
+ *    via the optional `filterTrigger` slot; absent ⇒ legacy button
+ *    wired to `onFilterClick`), time-range dropdown (8 options +
+ *    Custom), Export trigger (E5-e implements the dialog)
  *  - full-width search input below
  *
  * URL state lives on the parent page; this component is presentational
@@ -31,8 +33,12 @@ export interface AuditPageHeaderProps {
   query: string;
   onRangeChange: (range: AuditRangePreset | "custom") => void;
   onQueryChange: (value: string) => void;
-  onFilterClick: () => void;
   onExportClick: () => void;
+  /** Legacy click handler — used only when `filterTrigger` is absent. */
+  onFilterClick?: () => void;
+  /** Slot for the E5-b filter-popover trigger; replaces the inline
+   *  button when provided so the parent owns popover lifecycle. */
+  filterTrigger?: ReactNode;
 }
 
 export function AuditPageHeader({
@@ -42,6 +48,7 @@ export function AuditPageHeader({
   onQueryChange,
   onFilterClick,
   onExportClick,
+  filterTrigger,
 }: AuditPageHeaderProps) {
   const selectValue: AuditRangePreset | "custom" = isCustomRange(range)
     ? "custom"
@@ -64,16 +71,18 @@ export function AuditPageHeader({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Open filter popover"
-              data-testid="audit-filter-trigger"
-              onClick={onFilterClick}
-              className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "px-2")}
-            >
-              <Filter aria-hidden className="size-4" />
-              <span className="sr-only">Filter</span>
-            </button>
+            {filterTrigger ?? (
+              <button
+                type="button"
+                aria-label="Open filter popover"
+                data-testid="audit-filter-trigger"
+                onClick={onFilterClick}
+                className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "px-2")}
+              >
+                <Filter aria-hidden className="size-4" />
+                <span className="sr-only">Filter</span>
+              </button>
+            )}
 
             <RangeSelect
               value={selectValue}
