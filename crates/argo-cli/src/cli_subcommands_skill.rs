@@ -1,8 +1,14 @@
-use clap::{Args, Subcommand};
-use std::path::PathBuf;
+use clap::Subcommand;
 
 use super::cli_skill_conflicts_cmds::SkillConflictsCmd;
 use super::cli_skill_review_cmds::SkillReviewCmd;
+pub use super::cli_subcommands_skill_migration::{
+    SkillListMigrationsCmd, SkillMigrateCmd, SkillUpgradeCmd,
+};
+pub use super::cli_subcommands_skill_publish::{SkillPublishCmd, SkillTagsCmd, SkillUnpublishCmd};
+pub use super::cli_subcommands_skill_quality::{
+    SkillQualityCmd, SkillQualityListCmd, SkillQualityRecomputeCmd, SkillQualityTrendCmd,
+};
 
 #[derive(Subcommand, Debug)]
 pub enum SkillCmd {
@@ -333,21 +339,7 @@ pub enum SkillCmd {
     /// per-section view; `--json` (or `--format json`) wins for
     /// scripting; the legacy text default is preserved when
     /// neither is passed for backward compatibility.
-    Quality {
-        /// Skill name (active version is used).
-        name: String,
-        /// Emit JSON. Equivalent to `--format json`.
-        #[arg(long)]
-        json: bool,
-        /// Output format: `text` (default), `markdown`, or `json`.
-        /// `--json` wins if both are passed.
-        #[arg(long, default_value = "text")]
-        format: String,
-        /// Render history of the last N scores rather than only the
-        /// latest. Default 1 (latest only).
-        #[arg(long, default_value_t = 1)]
-        limit: u32,
-    },
+    Quality(SkillQualityCmd),
     /// Show the dependency DAG of one skill: which skills it
     /// `argo skill run`s, references via `\`skill:NAME\``, etc.
     /// (`claude-skill-dependency-graph`). `--reverse` flips the
@@ -371,30 +363,10 @@ pub enum SkillCmd {
     /// List every scored skill, worst first. `--threshold` keeps
     /// rows with score ≤ threshold; `--worst` keeps only the
     /// lowest-scoring N.
-    QualityList {
-        /// Optional ceiling — only rows with `score <=
-        /// threshold` are emitted.
-        #[arg(long)]
-        threshold: Option<u8>,
-        /// Truncate to the lowest-scoring N rows.
-        #[arg(long)]
-        worst: Option<u32>,
-        /// Emit JSON.
-        #[arg(long)]
-        json: bool,
-    },
+    QualityList(SkillQualityListCmd),
     /// ASCII sparkline of the past `--days` daily quality scores
     /// for one skill (gaps render as `·`).
-    QualityTrend {
-        /// Skill name (active version is used).
-        name: String,
-        /// Days to render (default 30, max 365).
-        #[arg(long)]
-        days: Option<u32>,
-        /// Emit JSON envelope (per-day buckets + sparkline).
-        #[arg(long)]
-        json: bool,
-    },
+    QualityTrend(SkillQualityTrendCmd),
     /// Rate a marketplace-installed skill (operator thumbs ->
     /// publisher's skill_rating table; Stream
     /// `mission-skill-ratings-publisher`). The skill must be installed
@@ -461,136 +433,24 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
-    QualityRecompute {
-        /// Recompute one named skill. Mutually exclusive with `--all`.
-        ///
-        /// (Sensible deviation from the brief, which specified
-        /// `<skill_id>`: CLI commands consistently take a skill
-        /// name, so this flag accepts the active skill's name.
-        /// The output still prints the underlying `SkillId`.)
-        #[arg(long, conflicts_with = "all", required_unless_present = "all")]
-        skill: Option<String>,
-        /// Recompute every active skill in the local store.
-        #[arg(long, conflicts_with = "skill")]
-        all: bool,
-        /// Only consider audit rows newer than this cutoff.
-        /// Accepts an RFC-3339 timestamp (`2026-01-01T00:00:00Z`)
-        /// or a relative duration (`30m`, `24h`, `7d`).
-        #[arg(long)]
-        since: Option<String>,
-        /// Compute + print but do NOT persist the new score.
-        #[arg(long)]
-        dry_run: bool,
-    },
+    QualityRecompute(SkillQualityRecomputeCmd),
     /// Record a publisher-side `skill_version_migration` row
     /// linking `--from` to `--to`. Tenant workspaces with the
     /// `--from` version installed will see this when they run
     /// `argo skill upgrade <name>` or `argo skill list-migrations`.
     /// Idempotent on the composite PK.
     /// (`mission-skill-version-migration-path`).
-    Migrate {
-        /// Skill id (32-char hex from `argo skill versions --json`,
-        /// or dashed UUID).
-        skill_id: String,
-        /// Version the migration applies FROM.
-        #[arg(long)]
-        from: String,
-        /// Version the migration upgrades TO.
-        #[arg(long)]
-        to: String,
-        /// Mark the migration as auto-applicable: tenants running
-        /// `argo skill upgrade <name>` WITHOUT `--yes` will still
-        /// apply this row.
-        #[arg(long)]
-        auto_upgrade: bool,
-        /// Free-text rationale (truncated on insert).
-        #[arg(long)]
-        reason: Option<String>,
-        /// Publisher tenant id (UUID). Defaults to a fresh per-call
-        /// id when omitted; publisher-ownership enforcement is a
-        /// separate brief.
-        #[arg(long)]
-        publisher_tenant: Option<String>,
-        /// Emit a JSON envelope.
-        #[arg(long)]
-        json: bool,
-    },
+    Migrate(SkillMigrateCmd),
     /// Apply a pending `skill_version_migration` to the locally-
     /// installed version of `<name>`. With `--dry-run`, prints what
     /// would happen without superseding. Without `--yes`, only
     /// auto-upgrade migrations are applied (others are surfaced for
     /// operator confirmation).
     /// (`mission-skill-version-migration-path`).
-    Upgrade {
-        /// Skill name (the active version's `from_version` is the
-        /// lookup key).
-        name: String,
-        /// Print what would change without writing.
-        #[arg(long)]
-        dry_run: bool,
-        /// Apply even when the migration row's
-        /// `auto_upgrade=false`.
-        #[arg(long)]
-        yes: bool,
-        /// Emit a JSON envelope.
-        #[arg(long)]
-        json: bool,
-    },
+    Upgrade(SkillUpgradeCmd),
     /// List every pending migration across the tenant's installed
     /// skills (for each active skill, the row whose `from_version`
     /// matches its installed version). Operator dashboard input.
     /// (`mission-skill-version-migration-path`).
-    ListMigrations {
-        /// Emit a JSON envelope.
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-#[derive(Args, Debug)]
-pub struct SkillPublishCmd {
-    /// Local active skill name to publish.
-    pub name: String,
-    /// Registry reference. `mock://path` writes to a filesystem registry.
-    #[arg(long, default_value = "mock://.argo/skill-registry")]
-    pub registry: String,
-    /// Marketplace tag. Defaults to the source skill version.
-    #[arg(long)]
-    pub tag: Option<String>,
-    /// Read a SKILL.md file instead of the active local skill row.
-    #[arg(long)]
-    pub manifest: Option<PathBuf>,
-    /// Print the bundle plan without writing files or calling a registry.
-    #[arg(long)]
-    pub dry_run: bool,
-    /// Emit a JSON envelope.
-    #[arg(long)]
-    pub json: bool,
-}
-
-#[derive(Args, Debug)]
-pub struct SkillUnpublishCmd {
-    /// Marketplace reference in `<name>:<tag>` form.
-    pub reference: String,
-    /// Registry reference. `mock://path` reads a filesystem registry.
-    #[arg(long, default_value = "mock://.argo/skill-registry")]
-    pub registry: String,
-    /// Emit a JSON envelope.
-    #[arg(long)]
-    pub json: bool,
-}
-
-#[derive(Args, Debug)]
-pub struct SkillTagsCmd {
-    /// Skill name whose marketplace tags should be listed.
-    pub name: String,
-    /// Registry reference. `mock://path` reads a filesystem registry.
-    #[arg(long, default_value = "mock://.argo/skill-registry")]
-    pub registry: String,
-    /// Maximum number of tags to list.
-    #[arg(long, default_value_t = 20)]
-    pub limit: usize,
-    /// Emit a JSON envelope.
-    #[arg(long)]
-    pub json: bool,
+    ListMigrations(SkillListMigrationsCmd),
 }

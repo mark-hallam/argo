@@ -183,37 +183,27 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::AbStatus(args) => super::skill_ab::ab_status(args).await,
         SkillCmd::AbPromote(args) => super::skill_ab::ab_promote(args).await,
         SkillCmd::AbSnapshot(args) => super::skill_ab::ab_snapshot(args).await,
-        SkillCmd::Quality {
-            name,
-            json,
-            format,
-            limit,
-        } => super::skill_quality::run(&name, json, &format, limit).await,
+        SkillCmd::Quality(args) => {
+            super::skill_quality::run(&args.name, args.json, &args.format, args.limit).await
+        }
         SkillCmd::Deps {
             name,
             json,
             reverse,
             max_depth,
         } => super::skill_deps::run(&name, json, reverse, max_depth).await,
-        SkillCmd::QualityTrend { name, days, json } => {
-            super::skill_quality_trend::run(&name, days, json).await
+        SkillCmd::QualityTrend(args) => {
+            super::skill_quality_trend::run(&args.name, args.days, args.json).await
         }
-        SkillCmd::QualityList {
-            threshold,
-            worst,
-            json,
-        } => super::skill_quality_list::run(threshold, worst, json).await,
-        SkillCmd::QualityRecompute {
-            skill,
-            all,
-            since,
-            dry_run,
-        } => {
+        SkillCmd::QualityList(args) => {
+            super::skill_quality_list::run(args.threshold, args.worst, args.json).await
+        }
+        SkillCmd::QualityRecompute(args) => {
             super::skill_quality_recompute::run(
-                skill.as_deref(),
-                all,
-                since.as_deref(),
-                dry_run,
+                args.skill.as_deref(),
+                args.all,
+                args.since.as_deref(),
+                args.dry_run,
             )
             .await
         }
@@ -257,33 +247,22 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
         SkillCmd::Sign(args) => super::skill_sign::run(&skills, args).await,
         SkillCmd::VerifySig(args) => super::skill_verify_sig::run(args),
         SkillCmd::Keygen(args) => super::skill_keygen::run(args),
-        SkillCmd::Migrate {
-            skill_id,
-            from,
-            to,
-            auto_upgrade,
-            reason,
-            publisher_tenant,
-            json,
-        } => {
+        SkillCmd::Migrate(args) => {
             super::skill_migrate::run(
-                &skill_id,
-                &from,
-                &to,
-                auto_upgrade,
-                reason.as_deref(),
-                publisher_tenant.as_deref(),
-                json,
+                &args.skill_id,
+                &args.from,
+                &args.to,
+                args.auto_upgrade,
+                args.reason.as_deref(),
+                args.publisher_tenant.as_deref(),
+                args.json,
             )
             .await
         }
-        SkillCmd::Upgrade {
-            name,
-            dry_run,
-            yes,
-            json,
-        } => super::skill_upgrade::run(&name, dry_run, yes, json).await,
-        SkillCmd::ListMigrations { json } => super::skill_list_migrations::run(json).await,
+        SkillCmd::Upgrade(args) => {
+            super::skill_upgrade::run(&args.name, args.dry_run, args.yes, args.json).await
+        }
+        SkillCmd::ListMigrations(args) => super::skill_list_migrations::run(args.json).await,
     }
 }
 

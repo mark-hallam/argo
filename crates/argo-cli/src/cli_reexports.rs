@@ -83,6 +83,12 @@ pub mod cli_subcommands_cron;
 pub mod cli_subcommands_provider;
 #[path = "cli_subcommands_skill.rs"]
 pub mod cli_subcommands_skill;
+#[path = "cli_subcommands_skill_migration.rs"]
+pub mod cli_subcommands_skill_migration;
+#[path = "cli_subcommands_skill_publish.rs"]
+pub mod cli_subcommands_skill_publish;
+#[path = "cli_subcommands_skill_quality.rs"]
+pub mod cli_subcommands_skill_quality;
 #[path = "cli_trajectory_cmds.rs"]
 pub mod cli_trajectory_cmds;
 #[path = "cli_trust_cmds.rs"]
