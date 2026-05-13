@@ -6,9 +6,10 @@
 use crate::models::{
     AuditRow, ForgeRunRow, JudgeRow, RoutingDecisionRow, SessionHeader, SessionHeaderRow,
 };
-use crate::{SessionStore, StoreResult, WorkerId};
+use crate::{PromptCacheAffinity, SessionStore, StoreResult, WorkerId};
 use argo_types::{ArgoError, RoutingDecision, SessionId, TenantId, WorkspaceId};
 use chrono::Utc;
+use std::sync::Arc;
 
 /// Session creation fields, including optional worker ownership.
 pub struct SessionCreate<'a> {
@@ -29,6 +30,40 @@ pub struct SessionCreate<'a> {
 }
 
 impl SessionStore {
+    /// Attach a [`PromptCacheAffinity`] registry to this store. When
+    /// set, [`SessionStore::create_session_with_worker`] consults
+    /// `acquire_or_mint` before minting a fresh `SessionId` so the
+    /// same `(tenant_id, worker_id)` pair reuses its previous session
+    /// id inside the registry's TTL window — exactly the condition
+    /// Anthropic's prompt cache reads against. With no affinity
+    /// attached the call site keeps its pre-brief
+    /// `SessionId::new()`-per-call behavior.
+    ///
+    /// ```
+    /// # async fn run() -> argo_store::StoreResult<()> {
+    /// use argo_store::{SessionStore, PromptCacheAffinity};
+    /// use std::{sync::Arc, time::Duration};
+    /// let store = SessionStore::open(":memory:").await?
+    ///     .with_affinity(Arc::new(PromptCacheAffinity::enabled(Duration::from_secs(270))));
+    /// store.migrate().await?;
+    /// # Ok(()) }
+    /// ```
+    #[must_use]
+    pub fn with_affinity(mut self, affinity: Arc<PromptCacheAffinity>) -> Self {
+        self.prompt_cache_affinity = Some(affinity);
+        self
+    }
+
+    /// Read-only view of the attached [`PromptCacheAffinity`]
+    /// registry, if one was wired via [`SessionStore::with_affinity`].
+    /// Used by `argo-agent-runner::turn` to record observed
+    /// `(tenant, worker, session_id)` triples once the session row
+    /// loads.
+    #[must_use]
+    pub fn prompt_cache_affinity(&self) -> Option<&Arc<PromptCacheAffinity>> {
+        self.prompt_cache_affinity.as_ref()
+    }
+
     /// Create a new session under a tenant + workspace.
     /// `vertical_id` binds the session to a vertical template
     /// (#651); pass `None` for ad-hoc / legacy sessions.
@@ -54,13 +89,31 @@ impl SessionStore {
     }
 
     /// Create a new session and optionally stamp its owning worker.
+    ///
+    /// When the store has an attached
+    /// [`crate::PromptCacheAffinity`] registry (see
+    /// [`crate::SessionStore::with_affinity`]) **and** `input.worker_id`
+    /// is `Some`, the registry's
+    /// `acquire_or_mint(tenant, worker)` is consulted before
+    /// minting. Within the TTL window the call resolves to the
+    /// previously-recorded id — the underlying `INSERT` uses
+    /// `ON CONFLICT(id) DO NOTHING` so the existing session row is
+    /// reused. With no affinity attached (or a `None`
+    /// `worker_id`) each call mints a fresh `SessionId::new()` and
+    /// inserts a new row, matching the pre-brief behavior.
     pub async fn create_session_with_worker(&self, input: SessionCreate<'_>) -> StoreResult<SessionId> {
-        let id = SessionId::new();
+        let id = match (&self.prompt_cache_affinity, input.worker_id) {
+            (Some(affinity), Some(worker)) => {
+                affinity.acquire_or_mint(input.tenant_id, &worker.to_string())
+            }
+            _ => SessionId::new(),
+        };
         let started_at = Utc::now().timestamp_micros();
         let worker_blob = input.worker_id.map(|w| w.0.as_bytes().to_vec());
         sqlx::query(
             "INSERT INTO session (id, tenant_id, workspace_id, model, provider, title, started_at, vertical_id, worker_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO NOTHING",
         )
         .bind(id.0.as_bytes().as_slice())
         .bind(input.tenant_id.0.as_bytes().as_slice())
@@ -253,3 +306,7 @@ impl SessionStore {
 #[cfg(test)]
 #[path = "session_worker_id_tests.rs"]
 mod session_worker_id_tests;
+
+#[cfg(test)]
+#[path = "session_query_affinity_tests.rs"]
+mod session_query_affinity_tests;

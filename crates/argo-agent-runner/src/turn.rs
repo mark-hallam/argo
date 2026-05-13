@@ -180,6 +180,13 @@ async fn run_turn_with_events_inner(
     span.record("tenant_id", tracing::field::display(&session.tenant_id.0));
     if let Some(w) = session.worker_id {
         span.record("worker_id", tracing::field::display(&w.0));
+        // mission-prompt-cache-affinity-wire-mints: keep the
+        // affinity registry warm so the next turn under the same
+        // `(tenant, worker)` pair reuses this session id inside the
+        // prompt-cache TTL window. No-op when no registry is wired.
+        if let Some(affinity) = store.prompt_cache_affinity() {
+            affinity.record(session.tenant_id, &w.to_string(), session_id);
+        }
     }
 
     if let Some(text) = user {

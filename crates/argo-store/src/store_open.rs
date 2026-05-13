@@ -74,7 +74,11 @@ async fn open_inner(
         batched_writer::batch_size_from_env(),
         batched_writer::batch_latency_from_env(),
     ));
-    Ok(SessionStore { pool, messages })
+    Ok(SessionStore {
+        pool,
+        messages,
+        prompt_cache_affinity: None,
+    })
 }
 
 /// Body of [`SessionStore::verify_schema_version`].

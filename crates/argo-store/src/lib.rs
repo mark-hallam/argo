@@ -195,6 +195,7 @@ pub mod workflow_checkpoint;
 mod store_open;
 mod workspace;
 
+pub use argo_runtime::prompt_cache_affinity::PromptCacheAffinity;
 pub use grants::SessionGrant;
 pub use recovery_cache::RecoveryCacheEntry;
 pub use marketplace_meta::MarketplaceArtifactRow;
@@ -239,6 +240,7 @@ pub const EXPECTED_SCHEMA_VERSION: u32 = 60;
 pub struct SessionStore {
     pub(crate) pool: Pool<Sqlite>,
     pub(crate) messages: Arc<BatchedWriter<MessageItem>>,
+    pub(crate) prompt_cache_affinity: Option<Arc<PromptCacheAffinity>>,
 }
 
 impl SessionStore {
