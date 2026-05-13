@@ -43,6 +43,10 @@ separate files now.
 7. [Reference](runbook/reference.md) — where to next (§10), CLI
    command index (Appendix A), customer-demo file checklist
    (Appendix B).
+8. [Troubleshooting](runbook/troubleshooting.md) — five
+   operator-reported failures (schema mismatch, port already
+   bound, missing API key, unknown channel, unknown executor
+   kind) with verbatim error text + fix recipes.
 
 ---
 
@@ -74,6 +78,7 @@ separate files now.
 - **Driving the hire flow over HTTP?** → [Genesis API](#genesis-api)
 - **Approval flow over JSON?** → [Approvals JSON API](#approvals-json-api)
 - **Planning a read-replica deployment?** → [Architecture: read-replica design](architecture/read-replica-design.md)
+- **Schema / port / API-key / channel / executor error?** → [Troubleshooting](runbook/troubleshooting.md)
 
 ---
 
