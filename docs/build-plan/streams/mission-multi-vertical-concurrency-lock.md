@@ -1,7 +1,7 @@
 # Stream mission-multi-vertical-concurrency-lock — single-worker-per-vertical safety lock
 
 **Owner**: claude. **Depends on**: none.
-**Authored against**: origin/main `8fe7aeec` on `2026-05-13`.
+**Authored against**: origin/main `8fe7aeec` on `2026-05-13`. **Drift-fix amendment 2026-05-13** (vs `b2b64554`): brief-audit agent flagged the original cite of `sections_runtime.rs` (does not exist on main) and `ArgoError::ContentionTimeout` (variant does not exist) as STALE_PATH. Updated may-touch + acceptance criteria below to target the real surfaces.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-multi-vertical-concurrency-lock`.
 
 > SOURCE: MISSION_BACKLOG.md Section 8 #238 ("Concurrent worker safety (multi-vertical lock)"). Today nothing prevents two parallel processes (operator's CLI + a forge subprocess + a cron tick) from concurrently bidding on the same `(tenant_id, vertical_id, worker_id)` and stepping on each other's state — duplicate dispatches, race-y memory writes, double-spends against the budget gate. A simple advisory lock per `(tenant, vertical, worker)` triple resolves it.
@@ -48,8 +48,8 @@ Stale-lock recovery: on acquire, if the existing row's `acquired_at + lease_secs
       PRIMARY KEY (tenant_id, vertical_id, worker_id)
   ) STRICT, WITHOUT ROWID;
   ```
-- `crates/argo-store/src/migrations/mod.rs` — narrowly scoped: register the new slot. No reordering of existing entries. **CRITICAL**: read the next-slot value at claim time from origin/main — recent additive PRs (#1447, #1450, #1464) all touch slot 64. Pick whatever's free.
-- `crates/argo-config/src/sections_runtime.rs` — narrowly scoped: add ONE `pub struct VerticalLockConfig { pub enabled: bool, pub lease_secs: u64, pub acquire_timeout_secs: u64 }` with defaults `enabled=true, lease_secs=30, acquire_timeout_secs=5`. Add ONE field on `RuntimeConfig`.
+- `crates/argo-store/src/migrations/mod.rs` (currently 493 LOC — registration target depends on `claude-store-migrations-mod-split` landing first; if not yet merged at claim time, target `crates/argo-store/src/migrations/registry.rs` per that split's pattern). Narrowly scoped: register the new slot. No reordering. **CRITICAL**: read the next-slot value at claim time — slot 64 is contested by #1447/#1450/#1464; pick whatever's free.
+- `crates/argo-config/src/sections_context.rs` (at `:278`, where `RuntimeConfig` actually lives — file `sections_runtime.rs` does NOT exist on current main) — narrowly scoped: add ONE `pub struct VerticalLockConfig { pub enabled: bool, pub lease_secs: u64, pub acquire_timeout_secs: u64 }` with defaults `enabled=true, lease_secs=30, acquire_timeout_secs=5`. Add ONE field on `RuntimeConfig`.
 - `Cargo.toml` — NO new dependencies.
 
 ## Files you must NOT touch
@@ -63,7 +63,7 @@ If your task genuinely requires a file not listed, **stop and mark this brief BL
 ## Acceptance criteria
 
 - [ ] `VerticalConcurrencyLock::acquire(tenant, vertical, worker)` returns a `LockGuard` whose `Drop` deletes the lock row.
-- [ ] Second acquire while held blocks until either (a) the holder drops the guard, or (b) `acquire_timeout_secs` elapses → returns `Err(ArgoError::ContentionTimeout { ... })`.
+- [ ] Second acquire while held blocks until either (a) the holder drops the guard, or (b) `acquire_timeout_secs` elapses → returns `Err(ArgoError::Provider(format!("vertical-lock contention timeout on (tenant={}, vertical={}, worker={}) after {}s", ...)))`. (`ArgoError::ContentionTimeout` does NOT exist on current main — use `Provider(String)` with a descriptive message per the existing ArgoError variant patterns. If a future brief promotes this to a typed variant, that's a separate concern.)
 - [ ] Per-tenant isolation: two tenants holding the same `(vertical, worker)` get distinct locks.
 - [ ] Per-vertical isolation: same tenant + worker, two verticals → distinct locks.
 - [ ] Per-worker isolation: same tenant + vertical, two workers → distinct locks.
