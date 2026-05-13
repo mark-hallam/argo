@@ -1,29 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ExternalLink, ImageIcon, X } from "lucide-react";
+import { ArrowRight, ImageIcon, X } from "lucide-react";
+
 import { RedactedText } from "@/components/skycot/RedactedText";
-import { cn } from "@/lib/utils";
-import {
-  detectCrossSystemLinks,
-  type AuditOutput,
-  type ScreenshotFrame,
-} from "@/lib/types/audit-detail";
+import { CrossSystemLink } from "@/components/skycot/audit/CrossSystemLink";
+import { detect, segmentText } from "@/lib/cross-system/detect";
+import { getGenerator } from "@/lib/cross-system/registry";
+import type { CrossSystemMatch } from "@/lib/cross-system/types";
+import type { AuditOutput, ScreenshotFrame } from "@/lib/types/audit-detail";
 import type { RedactionPolicy } from "@/lib/redaction/redact";
 
 /**
  * Output card — the final artifact the action produced. Rendering
  * varies by `output.kind`:
  *
- *  - `text`: rendered as `<pre>` so formatting / line-breaks survive.
+ *  - `text`: rendered as `<pre>` with inline cross-system references
+ *    wrapped via `<CrossSystemLink>` (E5-h).
  *  - `json`: rendered as collapsed JSON with `<details>` per level.
  *    ≤ 4 levels deep auto-expanded.
- *  - `computer-use`: text body shows the action log; screenshot
- *    sequence rendered as thumbnails below (click → lightbox).
+ *  - `computer-use`: text body shows the action log inline-linked;
+ *    screenshot sequence rendered as thumbnails below.
  *
- * Cross-system jump links (Stripe / Slack / GitHub / Linear) are
- * auto-detected via URL prefix detection.
+ * Cross-system detection covers Stripe / Slack / GitHub / Linear /
+ * Salesforce / HubSpot / Zendesk / Jira in v1 — see
+ * `lib/cross-system/registry.ts`.
  */
 
 const AUTO_EXPAND_DEPTH = 4;
@@ -51,10 +53,6 @@ export function ActionOutputCard({ output, policy }: ActionOutputCardProps) {
       {output.kind === "json" ? <JsonBody body={output.body} /> : null}
       {output.kind === "computer-use" ? (
         <ComputerUseBody output={output} policy={policy} />
-      ) : null}
-
-      {output.kind === "text" || output.kind === "computer-use" ? (
-        <CrossSystemLinks text={String(output.body)} />
       ) : null}
 
       {output.delivery ? (
@@ -108,13 +106,46 @@ const KIND_LABEL: Record<AuditOutput["kind"], string> = {
 };
 
 function TextBody({ body, policy }: { body: string; policy: RedactionPolicy }) {
+  const matches = useMemo(() => detect(body), [body]);
+  const segments = useMemo(() => segmentText(body, matches), [body, matches]);
+  const hasMatches = matches.length > 0;
+
   return (
     <pre
       data-testid="audit-output-body-text"
+      {...(hasMatches ? { "data-cross-links": "true" } : {})}
       className="max-h-96 overflow-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--muted)]/20 p-3 text-sm font-mono whitespace-pre-wrap break-words text-[var(--foreground)]"
     >
-      <RedactedText policy={policy}>{body}</RedactedText>
+      {hasMatches ? (
+        <span data-testid="audit-output-cross-links">
+          {segments.map((seg, idx) =>
+            seg.kind === "text" ? (
+              <Fragment key={idx}>
+                <RedactedText policy={policy}>{seg.value}</RedactedText>
+              </Fragment>
+            ) : (
+              <CrossSystemMatchAnchor key={idx} match={seg.match} />
+            ),
+          )}
+        </span>
+      ) : (
+        <RedactedText policy={policy}>{body}</RedactedText>
+      )}
     </pre>
+  );
+}
+
+function CrossSystemMatchAnchor({ match }: { match: CrossSystemMatch }) {
+  const gen = getGenerator(match.system);
+  const label = gen?.systemLabel ?? match.system;
+  return (
+    <CrossSystemLink
+      system={match.system}
+      systemLabel={label}
+      href={match.deepLink.url}
+    >
+      {match.raw}
+    </CrossSystemLink>
   );
 }
 
@@ -247,36 +278,6 @@ function Lightbox({ frame, onClose }: { frame: ScreenshotFrame; onClose: () => v
         <X aria-hidden className="size-5" />
       </button>
       <img src={frame.url} alt={frame.description ?? "screenshot"} className="max-h-full max-w-full rounded-[var(--radius-md)]" />
-    </div>
-  );
-}
-
-function CrossSystemLinks({ text }: { text: string }) {
-  const links = detectCrossSystemLinks(text);
-  if (links.length === 0) return null;
-  return (
-    <div
-      data-testid="audit-output-cross-links"
-      className={cn(
-        "flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3",
-      )}
-    >
-      <span className="text-[11px] uppercase tracking-wider text-[var(--muted-foreground)]">
-        Jump links
-      </span>
-      {links.map((link) => (
-        <a
-          key={link.href}
-          href={link.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid={`audit-output-cross-link-${link.system}`}
-          className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--muted)]/30 px-2 py-0.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted)]/60"
-        >
-          {link.label}
-          <ExternalLink aria-hidden className="size-3" />
-        </a>
-      ))}
     </div>
   );
 }
