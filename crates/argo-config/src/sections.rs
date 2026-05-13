@@ -32,5 +32,7 @@ pub use crate::sections_gateway::{
 };
 pub use crate::sections_planner::{PlannerBiasConfig, PlannerConfig};
 pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, RoutingTieredConfig};
-pub use crate::sections_security::{SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig};
+pub use crate::sections_security::{
+    IpAllowlistConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig,
+};
 pub use crate::sections_telemetry::TelemetryConfig;

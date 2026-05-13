@@ -38,9 +38,6 @@ pub mod cred;
 pub mod cred_keyring;
 pub mod defaults;
 pub mod loader;
-/// `[worker_pool]` TOML section — worker-pool elasticity recommender
-/// bounds (`mission-worker-pool-elasticity`).
-pub mod worker_pool;
 /// Per-provider TOML knobs parsed off `[provider.<name>]` (currently
 /// the circuit-breaker overrides — `BreakerSection` /
 /// `ProvidersConfig`).
@@ -60,6 +57,9 @@ mod sections_security;
 mod sections_telemetry;
 pub mod store;
 pub mod tui;
+/// `[worker_pool]` TOML section — worker-pool elasticity recommender
+/// bounds (`mission-worker-pool-elasticity`).
+pub mod worker_pool;
 
 pub use loader::{load, load_from};
 pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
@@ -67,10 +67,10 @@ pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
     ForgeConfig, GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig,
-    GatewayRateLimitTenantConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
-    PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
-    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, TeamsTomlConfig,
-    TelemetryConfig, TenantConfig,
+    GatewayRateLimitTenantConfig, IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig,
+    ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
+    RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig,
+    TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
@@ -185,14 +185,14 @@ pub struct ArgoConfig {
     /// `[planner]` — planner bias knobs
     /// (`mission-planner-bias-from-template`).
     pub planner: PlannerConfig,
-    /// `[security]` — at-rest encryption and compliance posture.
+    /// `[security]` — at-rest encryption, compliance posture, and
+    /// gateway defence-in-depth gates.
     pub security: SecurityConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]
     pub(crate) overrides: loader::ArgoConfigOverrides,
 }
-
 
 impl ArgoConfig {
     /// Load `argo.toml` from `path`. Missing file ⇒ shipped defaults.
@@ -214,7 +214,7 @@ impl ArgoConfig {
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tenant_id_tests;
+#[cfg(test)]
+mod tests;

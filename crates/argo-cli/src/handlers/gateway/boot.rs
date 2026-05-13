@@ -19,6 +19,7 @@ use super::boot_spawns::{
     finish_shutdown, spawn_alerts_loop, spawn_approval_reminder, spawn_audit_watchdog,
     spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler,
 };
+use super::ip_allowlist::{self, AllowResult, IpAllowlist};
 use super::lifecycle::{pid_is_alive, signal_term, PidGuard};
 use super::rate_limit_ip::{self, rate_limited_response_bytes, CheckResult, IpRateLimiter};
 use super::shutdown::{self, ShutdownController};
@@ -182,6 +183,30 @@ pub(super) async fn start(
     }
 
     let ip_limiter = Arc::new(IpRateLimiter::from_env());
+    // Source-CIDR allowlist (`mission-ip-allowlist-deployment-mode`).
+    // Layered ahead of the bearer-auth path so a leaked token alone
+    // isn't sufficient for access. Disabled by default (the load path
+    // returns an Arc<IpAllowlist> with `enabled = false` which short-
+    // circuits the check). A malformed CIDR is an operator typo —
+    // refuse to start rather than silently widen the gate.
+    let allowlist_cfg = ArgoConfig::load(&argo_toml)
+        .unwrap_or_default()
+        .security
+        .ip_allowlist;
+    let ip_allowlist = match IpAllowlist::from_config(&allowlist_cfg) {
+        Ok(g) => Arc::new(g),
+        Err(e) => {
+            return Err(ArgoError::Provider(format!(
+                "[security.ip_allowlist] config invalid: {e}"
+            )));
+        }
+    };
+    if ip_allowlist.enabled() {
+        eprintln!(
+            "argo gateway: ip allowlist ENABLED ({} CIDR(s))",
+            ip_allowlist.cidr_count()
+        );
+    }
     let mut served = 0_u64;
     let shutdown_ctl = ShutdownController::new();
     let mut shutdown_rx = shutdown::install_signal_handler(shutdown_ctl.clone());
@@ -207,7 +232,17 @@ pub(super) async fn start(
                 };
                 let https = security_headers::request_is_https(req);
                 let sec = security_headers::header_lines("application/json", https);
-                if let CheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
+                // `mission-ip-allowlist-deployment-mode`: CIDR gate
+                // runs BEFORE the bearer-auth check so a leaked token
+                // alone is insufficient for access. Deny → 403 with
+                // empty body (no info-leak about what was gated).
+                if let AllowResult::Deny = ip_allowlist.check(req, peer) {
+                    let logged_ip = ip_allowlist.source_ip(req, peer);
+                    ip_allowlist::log_deny(logged_ip, req);
+                    let bytes = ip_allowlist::deny_response_bytes();
+                    let _ = stream.write_all(&bytes).await;
+                    let _ = stream.shutdown().await;
+                } else if let CheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
                     tracing::warn!(
                         target: "gateway::rate_limit_ip",
                         ip = %src_ip,
