@@ -47,8 +47,15 @@ pub mod worker_pool;
 pub mod provider;
 mod sandbox;
 mod sections;
+mod sections_audit;
 mod sections_budget;
+mod sections_channels;
 mod sections_context;
+mod sections_core;
+mod sections_executor;
+mod sections_gateway;
+mod sections_routing;
+mod sections_telemetry;
 pub mod store;
 pub mod tui;
 
