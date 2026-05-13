@@ -10,6 +10,7 @@
 //!   - `routes`:               HTTP route dispatch + per-endpoint handlers.
 mod approval_expiry_sweeper;
 mod boot;
+mod boot_spawns;
 mod dashboard;
 mod dashboard_fleet;
 mod hipaa_startup_check;
