@@ -12,6 +12,10 @@ use std::process::Command;
 
 use crate::cli::cli_security_cmds::SecurityCmd;
 
+mod pnpm;
+#[cfg(test)]
+pub use pnpm::parse_pnpm_audit;
+
 const SEVERITIES: [&str; 4] = ["low", "medium", "high", "critical"];
 
 /// One row in the merged envelope's `vulnerabilities[]` field.
@@ -70,6 +74,8 @@ fn run_audit(floor: &str, compact: bool) -> ArgoResult<()> {
 
     let mut all = parse_cargo_audit(&audit_raw)?;
     all.extend(parse_cargo_deny(&deny_raw)?);
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    all.extend(pnpm::collect_pnpm(&cwd));
     let merged = dedup_by_advisory(all);
     let totals = count_by_severity(&merged);
 
