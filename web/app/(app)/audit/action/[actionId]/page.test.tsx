@@ -154,13 +154,15 @@ describe("AuditActionDetailPage", () => {
     );
   });
 
-  it("Export button pops the E5-e placeholder toast", async () => {
+  it("Export button opens the EvidenceBundleExporter in single-action mode", async () => {
     const user = userEvent.setup();
     mockedFetchAuditDetail.mockResolvedValue(sampleDetail());
     render(<PageWrapper />);
     await screen.findByTestId("audit-detail-page");
     await user.click(screen.getByTestId("audit-hero-export"));
-    expect(screen.getByTestId("audit-detail-toast")).toHaveTextContent(/E5-e/);
+    const dialog = await screen.findByTestId("export-dialog");
+    expect(dialog).toHaveAttribute("data-mode", "single-action");
+    expect(screen.getByTestId("export-scope-locked")).toBeInTheDocument();
   });
 
   it("renders <AuditActionNotFound> on AuditDetailNotFoundError", async () => {

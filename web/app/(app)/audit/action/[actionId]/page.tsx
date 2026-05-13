@@ -9,7 +9,9 @@ import { ActionOutputCard } from "@/components/skycot/audit/ActionOutputCard";
 import { ActionSummaryHero } from "@/components/skycot/audit/ActionSummaryHero";
 import { AuditActionNotFound } from "@/components/skycot/audit/AuditActionNotFound";
 import { DecisionChainCard } from "@/components/skycot/audit/DecisionChainCard";
+import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { ProvenanceBlock } from "@/components/skycot/audit/ProvenanceBlock";
+import { singleActionScope } from "@/lib/sample-export";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui/Breadcrumb";
 import { useAuditDetail } from "@/lib/hooks/use-audit-detail";
 import { AuditDetailNotFoundError } from "@/lib/api/audit-detail";
@@ -63,6 +65,7 @@ function AuditActionDetailContent() {
   const policy = useRedactionPolicy();
   const detailQuery = useAuditDetail(actionId);
   const [toast, setToast] = useState<string | null>(null);
+  const [exporterOpen, setExporterOpen] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -75,7 +78,7 @@ function AuditActionDetailContent() {
   }, [router, actionId]);
 
   const onExport = useCallback(() => {
-    setToast("Single-action export dialog ships in E5-e");
+    setExporterOpen(true);
   }, []);
 
   if (detailQuery.isPending) {
@@ -153,6 +156,18 @@ function AuditActionDetailContent() {
       <DecisionChainCard steps={detail.decisionChain} policy={policy} />
 
       <ActionOutputCard output={detail.output} policy={policy} />
+
+      {exporterOpen ? (
+        <EvidenceBundleExporter
+          open={exporterOpen}
+          onOpenChange={setExporterOpen}
+          tenantId="tenant_default"
+          tenantLabel="Default tenant"
+          initialScope={singleActionScope(detail.id, detail.timestamp)}
+          mode="single-action"
+          onToast={setToast}
+        />
+      ) : null}
 
       {toast ? (
         <div

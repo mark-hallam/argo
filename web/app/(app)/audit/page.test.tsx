@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -233,11 +234,18 @@ describe("AuditPage", () => {
     expect(within(feed).getByTestId("audit-row-wrapper-act_yest")).toBeInTheDocument();
   });
 
-  it("clicking the Export trigger pops the E5-e placeholder toast", async () => {
+  it("clicking the Export trigger opens the EvidenceBundleExporter dialog", async () => {
     const user = userEvent.setup();
     useFeedMock.mockReturnValue(feedState());
-    render(<AuditPage />);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <AuditPage />
+      </QueryClientProvider>,
+    );
     await user.click(screen.getByTestId("audit-export-trigger"));
-    expect(screen.getByTestId("audit-toast")).toHaveTextContent(/E5-e/);
+    expect(await screen.findByTestId("export-dialog")).toBeInTheDocument();
   });
 });

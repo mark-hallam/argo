@@ -9,6 +9,7 @@ import { AuditDayGroup } from "@/components/skycot/audit/AuditDayGroup";
 import { AuditFilterChipRail } from "@/components/skycot/audit/AuditFilterChipRail";
 import { AuditFilterPopover } from "@/components/skycot/audit/AuditFilterPopover";
 import { AuditPageHeader } from "@/components/skycot/audit/AuditPageHeader";
+import { EvidenceBundleExporter } from "@/components/skycot/audit/EvidenceBundleExporter";
 import { groupByDay } from "@/lib/api/audit";
 import { useAuditFeed } from "@/lib/hooks/use-audit-feed";
 import {
@@ -76,6 +77,7 @@ function AuditPageContent() {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [pendingFilters, setPendingFilters] = useState<AuditMultiFilters | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [exporterOpen, setExporterOpen] = useState(false);
   const feed = useAuditFeed(feedFilters);
 
   // Sync local search input with URL on back/forward navigation.
@@ -171,7 +173,7 @@ function AuditPageContent() {
         query={searchInput}
         onRangeChange={onRangeChange}
         onQueryChange={setSearchInput}
-        onExportClick={() => setToast("Export dialog ships in E5-e")}
+        onExportClick={() => setExporterOpen(true)}
         filterTrigger={
           <AuditFilterPopover
             rows={remoteRows}
@@ -233,6 +235,16 @@ function AuditPageContent() {
         ) : null}
       </div>
 
+      {exporterOpen ? (
+        <EvidenceBundleExporter
+          open
+          onOpenChange={setExporterOpen}
+          tenantId="tenant_default"
+          tenantLabel="Default tenant"
+          initialScope={{ kind: "filtered" }}
+          onToast={setToast}
+        />
+      ) : null}
       {toast ? (
         <div
           role="status"
