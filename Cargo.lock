@@ -825,19 +825,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-apollo"
-version = "0.0.1"
-dependencies = [
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "wiremock",
-]
-
-[[package]]
 name = "argo-mcp-connector-asana"
 version = "0.0.1"
 dependencies = [
@@ -851,20 +838,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-box"
-version = "0.0.1"
-dependencies = [
- "argo-mcp-connector-shared",
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "argo-mcp-connector-calendly"
 version = "0.0.1"
 dependencies = [
@@ -875,18 +848,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "argo-mcp-connector-clearbit"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
 ]
 
 [[package]]
@@ -913,20 +874,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "argo-mcp-connector-dropbox"
-version = "0.0.1"
-dependencies = [
- "argo-mcp-connector-shared",
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
 ]
 
 [[package]]
@@ -1014,19 +961,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-greenhouse"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "argo-mcp-connector-hubspot"
 version = "0.0.1"
 dependencies = [
@@ -1083,19 +1017,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-lever"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "argo-mcp-connector-linear"
 version = "0.0.1"
 dependencies = [
@@ -1119,33 +1040,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "argo-mcp-connector-mailgun"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "hex",
- "hmac 0.12.1",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tokio",
-]
-
-[[package]]
-name = "argo-mcp-connector-microsoft-teams"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
 ]
 
 [[package]]
@@ -1202,46 +1096,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-quickbooks"
-version = "0.0.1"
-dependencies = [
- "argo-config",
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "argo-mcp-connector-replicate"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "argo-mcp-connector-resend"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "argo-mcp-connector-salesforce"
 version = "0.0.1"
 dependencies = [
@@ -1274,18 +1128,6 @@ version = "0.0.1"
 dependencies = [
  "argo-mcp",
  "tokio",
-]
-
-[[package]]
-name = "argo-mcp-connector-signal"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
 ]
 
 [[package]]
@@ -1329,18 +1171,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-telegram"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "argo-mcp-connector-trello"
 version = "0.0.1"
 dependencies = [
@@ -1367,33 +1197,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-mcp-connector-whatsapp-cloud"
-version = "0.0.1"
-dependencies = [
- "argo-mcp-connector-shared",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "wiremock",
-]
-
-[[package]]
-name = "argo-mcp-connector-xero"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "argo-mcp-connector-zendesk"
 version = "0.0.1"
 dependencies = [
@@ -1404,33 +1207,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "argo-mcp-connector-zoom"
-version = "0.0.1"
-dependencies = [
- "argo-config",
- "argo-types",
- "chrono",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
-name = "argo-mcp-connector-zoominfo"
-version = "0.0.1"
-dependencies = [
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "wiremock",
 ]
 
 [[package]]

@@ -27,16 +27,15 @@ schema = "memory/schema.toml"
 [evaluation]
 suites = ["eval/seed.jsonl"]
 
-# MCP servers. Enrichment connectors (zoominfo / clearbit /
-# similarweb) are OPTIONAL — the vertical loads + lints clean
-# without them; the worker degrades to web_search + web_extract.
-# Dropbox is the document-storage destination for the live-wired
-# `draft_research_brief` action.
+# MCP servers. Enrichment connectors (similarweb) are OPTIONAL —
+# the vertical loads + lints clean without them; the worker degrades
+# to web_search + web_extract. The zoominfo / clearbit / dropbox
+# connectors were removed in 2026-05-14 cleanup (shape-B orphans, no
+# implementations existed); `draft_research_brief`'s executor block
+# still references the dropbox server and is broken-by-config until a
+# follow-up vertical revision lands.
 [mcp_servers]
-zoominfo   = { transport = "stdio", command = "argo-mcp-connector-zoominfo",   args = [] }
-clearbit   = { transport = "stdio", command = "argo-mcp-connector-clearbit",   args = [] }
 similarweb = { transport = "stdio", command = "argo-mcp-connector-similarweb", args = [] }
-dropbox    = { transport = "stdio", command = "argo-mcp-connector-dropbox",    args = [] }
 
 # Outreach sends are NOT in this vertical's vocabulary — they live
 # in `sales-sdr`. The entry below is a forward declaration so any

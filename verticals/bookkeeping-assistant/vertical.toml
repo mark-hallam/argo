@@ -27,8 +27,10 @@ schema = "memory/schema.toml"
 [evaluation]
 suites = ["eval/seed.jsonl"]
 
+# MCP servers: quickbooks connector was removed in 2026-05-14 cleanup
+# (shape-B orphan, no implementation existed). Vertical falls back to
+# mock chart-of-accounts dry-run until a real connector lands.
 [mcp_servers]
-quickbooks = { transport = "stdio", command = "argo-mcp-connector-quickbooks", args = [] }
 
 [escalation]
 human_approval_required = ["post_journal_entry", "categorize_large_txn"]
