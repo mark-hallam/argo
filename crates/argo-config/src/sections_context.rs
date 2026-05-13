@@ -293,6 +293,32 @@ impl Default for WorkerResourceConfig {
     }
 }
 
+const DEFAULT_VERTICAL_LOCK_LEASE_SECS: u64 = 30;
+const DEFAULT_VERTICAL_LOCK_ACQUIRE_TIMEOUT_SECS: u64 = 5;
+
+/// `[runtime.vertical_lock]` — per-worker vertical advisory lock.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VerticalLockConfig {
+    /// Master enable. When `false`, dispatch wiring should skip the
+    /// advisory lock and preserve existing behavior.
+    pub enabled: bool,
+    /// How long a held lock survives after a process crash.
+    pub lease_secs: u64,
+    /// How long a competing acquire waits before surfacing contention.
+    pub acquire_timeout_secs: u64,
+}
+
+impl Default for VerticalLockConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            lease_secs: DEFAULT_VERTICAL_LOCK_LEASE_SECS,
+            acquire_timeout_secs: DEFAULT_VERTICAL_LOCK_ACQUIRE_TIMEOUT_SECS,
+        }
+    }
+}
+
 /// `[runtime]` — parent for runtime-side TOML knobs.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -313,6 +339,8 @@ pub struct RuntimeConfig {
     /// `[runtime.worker_resource_cage]` — per-worker cgroup-v2
     /// memory + CPU caps.
     pub worker_resource_cage: WorkerResourceConfig,
+    /// `[runtime.vertical_lock]` — per-tenant/vertical/worker mutex.
+    pub vertical_lock: VerticalLockConfig,
 }
 
 #[cfg(test)]

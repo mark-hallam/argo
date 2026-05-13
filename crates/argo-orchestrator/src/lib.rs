@@ -52,6 +52,7 @@ pub mod routing;
 mod routing_resolve;
 mod routing_store;
 mod session;
+pub mod vertical_lock;
 mod walker;
 mod walker_helpers;
 
@@ -72,4 +73,8 @@ pub use routing::{
 };
 pub use routing_resolve::{rank_workers, TargetResolver};
 pub use session::{Session, SessionId, SessionStatus};
+pub use vertical_lock::{LockConfig, LockGuard, VerticalConcurrencyLock};
 pub use walker::{HandoffNotifier, HandoffPolicyHook, HandoffWalker, SweepReport};
+
+#[cfg(test)]
+mod vertical_lock_tests;
