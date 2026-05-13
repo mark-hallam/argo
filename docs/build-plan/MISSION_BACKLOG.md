@@ -488,7 +488,7 @@ unblocks a mission claim.
 ## SECTION 8 — Performance + scale + ops
 
 236. Per-worker resource limits (cgroup, memory cap, CPU share).
-     `[NEW]`
+     `[BRIEF: mission-cgroup-per-worker-resource-limits]`
 237. OOM kill detection + graceful restart. `[BRIEF: mission-oom-restart-handler]`
 238. Concurrent worker safety (multi-vertical lock). `[BRIEF: mission-multi-vertical-concurrency-lock]`
 239. SQLite WAL tuning per workload pattern. `[BRIEF: mission-sqlite-wal-tuning]`
