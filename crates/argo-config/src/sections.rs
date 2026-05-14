@@ -23,6 +23,7 @@
 //! - [`crate::sections_security`] — `[security]`, `[security.encryption]`, `[security.hipaa]`
 //! - [`crate::sections_siem`] — `[siem]` (Splunk HEC / Elastic `_bulk` / Datadog Logs dispatcher)
 //! - [`crate::sections_sso`] — `[sso]`, `[sso.oidc.*]`, `[sso.saml.*]`
+//! - [`crate::sections_storage`] — `[storage]`, `[storage.tenants.*]`
 
 pub use crate::sections_audit::AuditConfig;
 pub use crate::sections_budget::{BudgetConfig, DelegateConfig, ParallelConfig};
@@ -42,4 +43,5 @@ pub use crate::sections_security::{
 };
 pub use crate::sections_siem::SiemConfig;
 pub use crate::sections_sso::{SsoConfig, SsoOidcTenant, SsoSamlTenant};
+pub use crate::sections_storage::{StorageConfig, StorageTenantConfig};
 pub use crate::sections_telemetry::TelemetryConfig;

@@ -28,6 +28,11 @@ This is NOT in scope: live cross-region replication (operator's DB infra respons
 - `crates/argo-cli/src/handlers/storage_cmds.rs` (NEW or extend, ≤ 350 LOC) — CLI subcommands
 - `crates/argo-config/src/sections_storage.rs` (NEW) — `[storage.tenants.<id>]` map parsing. `crates/argo-config/src/sections.rs` adds a ≤3-LOC re-export.
 - `docs/skycot/RUNBOOK.md` — "Data residency" subsection with EU/US deployment recipe
+- `crates/argo-audit/src/event.rs` — first-class `security.cross_region_blocked` audit kind
+- `crates/argo-cli/src/{cli.rs,cli_command_enum.rs,main.rs,main_dispatch_setup.rs}` — minimal `argo storage` dispatch wiring
+- `crates/argo-cli/src/handlers/{mod.rs,gateway/mod.rs,gateway/routes.rs}` — register storage handler + region gate module/call site
+- `crates/argo-cli/tests/storage_residency_smoke.rs` (NEW) — 2-tenant CLI smoke
+- `docs/skycot/runbook/data-residency.md` (NEW) — runbook topic file; `RUNBOOK.md` is already split and over 500 LOC, so only link text changes there
 
 ## Files you must NOT touch
 
@@ -35,14 +40,14 @@ This is NOT in scope: live cross-region replication (operator's DB infra respons
 
 ## Acceptance criteria
 
-- [ ] `MultiTenantStore` resolves tenant_id → pool with fallback to default
-- [ ] Cross-region request returns 451 + audit row (kind: `security.cross_region_blocked`)
-- [ ] `argo storage list-tenants` shows region + health per tenant
-- [ ] Migration runner is per-tenant + idempotent
-- [ ] Backward compat: single-tenant deployments without `[storage.tenants]` config see unchanged behavior
-- [ ] 7 unit tests + 1 integration test (2-tenant fixture, distinct regions)
-- [ ] `cargo clippy -p argo-store -p argo-cli --all-targets -- -D warnings` clean
-- [ ] All touched files < 500 LOC; BUILD_STATUS.md updated
+- [x] `MultiTenantStore` resolves tenant_id → pool with fallback to default
+- [x] Cross-region request returns 451 + audit row (kind: `security.cross_region_blocked`)
+- [x] `argo storage list-tenants` shows region + health per tenant
+- [x] Migration runner is per-tenant + idempotent
+- [x] Backward compat: single-tenant deployments without `[storage.tenants]` config see unchanged behavior
+- [x] 7 unit tests + 1 integration test (2-tenant fixture, distinct regions)
+- [x] `cargo clippy -p argo-store -p argo-cli --all-targets -- -D warnings` clean
+- [x] All touched files < 500 LOC; BUILD_STATUS.md updated
 
 ## Branch + PR
 

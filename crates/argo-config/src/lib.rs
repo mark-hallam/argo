@@ -60,6 +60,7 @@ mod sections_sandbox_prewarm;
 mod sections_security;
 mod sections_siem;
 mod sections_sso;
+mod sections_storage;
 mod sections_streaming_retry;
 mod sections_telemetry;
 mod sections_worker_resource;
@@ -78,8 +79,8 @@ pub use sections::{
     GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig,
     LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
-    SecurityHipaaConfig, SiemConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, TeamsTomlConfig,
-    TelemetryConfig, TenantConfig, WebInboxTomlConfig,
+    SecurityHipaaConfig, SiemConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, StorageConfig,
+    StorageTenantConfig, TeamsTomlConfig, TelemetryConfig, TenantConfig, WebInboxTomlConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,
@@ -216,6 +217,8 @@ pub struct ArgoConfig {
     /// `_bulk` / Datadog Logs). Default-off; gateway boot only
     /// spawns the dispatcher when `enabled = true`.
     pub siem: SiemConfig,
+    /// `[storage]` — tenant-specific database residency routing.
+    pub storage: StorageConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

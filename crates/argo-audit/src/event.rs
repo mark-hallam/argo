@@ -146,6 +146,10 @@ pub enum AuditKind {
     /// sweeper's first emit so the brief that wires it can
     /// reference a first-class kind from day one.
     ApprovalExpiredByTimeout,
+    /// Gateway refused a tenant-scoped request because the serving
+    /// deployment region did not match that tenant's configured
+    /// data-residency region.
+    CrossRegionBlocked,
 }
 
 impl AuditKind {
@@ -181,6 +185,7 @@ impl AuditKind {
             Self::RetroFinalized => "retro.finalized",
             Self::SecurityKeyRotated => "security.key_rotated",
             Self::ApprovalExpiredByTimeout => "approval.expired_by_timeout",
+            Self::CrossRegionBlocked => "security.cross_region_blocked",
         }
     }
 
@@ -218,6 +223,7 @@ impl AuditKind {
             "retro.finalized" => Self::RetroFinalized,
             "security.key_rotated" => Self::SecurityKeyRotated,
             "approval.expired_by_timeout" => Self::ApprovalExpiredByTimeout,
+            "security.cross_region_blocked" => Self::CrossRegionBlocked,
             _ => return None,
         })
     }
@@ -255,6 +261,7 @@ impl AuditKind {
             Self::RetroFinalized,
             Self::SecurityKeyRotated,
             Self::ApprovalExpiredByTimeout,
+            Self::CrossRegionBlocked,
         ];
         v.sort_by_key(|k| k.label());
         v

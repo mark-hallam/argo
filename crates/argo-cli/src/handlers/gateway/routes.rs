@@ -59,6 +59,9 @@ async fn dispatch_route_inner(
     if let Some(resp) = rate_limit_check(req) {
         return resp;
     }
+    if let Some(resp) = super::region_gate::reject_cross_region(req, store).await {
+        return resp;
+    }
     // Drop-guard increments the in-flight counter for the lifetime of
     // this future and decrements on any return path (including panic
     // unwind). The drain loop blocks on this counter.

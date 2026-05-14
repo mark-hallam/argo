@@ -31,6 +31,7 @@ mod proxy_guard;
 mod rate_limit;
 mod rate_limit_ip;
 mod rate_limit_tenant;
+mod region_gate;
 mod request_audit;
 mod routes;
 mod routes_approval_bundles;

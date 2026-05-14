@@ -29,6 +29,10 @@ pub(crate) async fn db(cmd: cli::DbCmd) -> ArgoResult<()> {
     handlers::db::run(cmd).await
 }
 
+pub(crate) async fn storage(cmd: cli::StorageCmd) -> ArgoResult<()> {
+    handlers::storage_cmds::run(cmd).await
+}
+
 pub(crate) async fn workspace(cmd: cli::WorkspaceCmd) -> ArgoResult<()> {
     handlers::workspace::run(cmd).await
 }

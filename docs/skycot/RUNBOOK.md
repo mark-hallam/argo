@@ -1,8 +1,7 @@
 # SKYCOT Operator Runbook
 
-**Status**: v1 customer-launch — 28 PRs merged, 4-day swarm
-delivered the full Worker OS stack, e2e gate (claude-e2e-integration-test #810) passes
-offline.
+**Status**: v1 customer-launch — 28 PRs merged, 4-day swarm delivered
+the full Worker OS stack; e2e gate (#810) passes offline.
 
 A walkthrough from `cargo install` to your first auto-approved
 action and a live audit trail. Written for an operator who has
@@ -35,8 +34,8 @@ separate files now.
 4. [Audit and observability](runbook/observability.md) — `argo
    audit query`, `argo doctor`, Prometheus, OTLP exporter, live
    audit stream, coverage, common failure modes (§9).
-5. [Security](runbook/security.md) — gateway bearer-token auth,
-   public read-only allowlist, integration-test bypass (§11).
+5. [Security](runbook/security.md) + [data residency](runbook/data-residency.md) —
+   bearer auth, public read-only allowlist, region-pinned tenant DBs (§11).
 6. [Production deploy](runbook/production-deploy.md) — Nginx,
    Caddy, systemd, and Docker Compose recipes for putting the
    gateway in front of real traffic (§12).
@@ -73,6 +72,7 @@ separate files now.
   [Observability §9.7](runbook/observability.md#97-startup-health-check-exit-78)
 - **Setting a gateway bearer token?** →
   [Security §11.1](runbook/security.md#111-gateway-bearer-token-auth)
+- **Pinning tenants to regional databases?** → [Data residency](runbook/data-residency.md)
 - **Putting the gateway behind a reverse proxy?** →
   [Production deploy §12](runbook/production-deploy.md#12-production-deploy)
 - **Customer-demo readiness check?** →
@@ -132,79 +132,24 @@ Error envelopes follow `{ "error": { "code": "...", "message":
 
 ## Multi-tenant audit (v1)
 
-Stream `mission-enterprise-cross-tenant-audit` adds per-tenant
-scoping to the `GET /api/v1/audit` feed. v1 keeps the existing
-single-tenant-per-workspace convention; multi-tenant deployments
-opt in by setting `[tenant] default_id` in `argo.toml`.
+`mission-enterprise-cross-tenant-audit` adds tenant scoping to
+`GET /api/v1/audit`. Single-tenant workspaces self-name as
+`ws-<16hex>` unless `[tenant] default_id = "..."` is set in
+`argo.toml`; existing rows migrate into the `__legacy__` bucket,
+which remains unioned into the default tenant's read scope for
+backward compatibility.
 
-### Workspace tenant id
-
-`argo_config::workspace_tenant_id(<workspace_root>)` resolves the
-tenant id every audit-write and audit-read goes through:
-
-1. `[tenant] default_id = "..."` in `<workspace>/argo.toml`, if
-   non-empty and not the shipped placeholder (`"default"`).
-2. `ws-<16hex>` derived from a SHA-256 of the workspace root path
-   when no explicit id is set. Stable across runs on the same path
-   so single-tenant deployments self-name without operator config.
-
-The helper never returns the `__legacy__` sentinel — that bucket
-belongs exclusively to pre-migration rows (see below).
-
-### The `__legacy__` bucket
-
-Migration 64 (`audit_record.tenant_id`) backfills every existing
-`audit_record` row with `tenant_id = '__legacy__'`. The default
-workspace tenant's read scope UNIONs the legacy bucket so
-historical audit visibility is preserved with zero operator
-intervention.
-
-A *deployment-time decision* faces operators rolling out real
-multi-tenant: legacy rows must migrate to real tenant ids BEFORE
-the bucket exits the default-tenant scope, otherwise an
-operator-A request will see operator-B's pre-migration audits.
-The follow-up brief `mission-audit-legacy-tenant-migrate-cli` adds
-`argo audit migrate-legacy-tenant <from-tenant> <to-tenant>`.
-
-### Cross-tenant view capability
-
-`audit.view.cross_tenant` (constant
-`argo_capability::AUDIT_VIEW_CROSS_TENANT`) gates the optional
-`?as_tenant=<other>` admin probe on `GET /api/v1/audit`. No built-
-in role grants it — operators grant it explicitly:
-
-```rust,ignore
-use argo_capability::{audit_view_cross_tenant_capability, CapabilityEngine};
-use argo_types::Principal;
-
-let engine = CapabilityEngine::with_defaults();
-// Per-principal one-shot grant (e.g. an admin session):
-engine.grant_dynamic(
-    Principal::Local { os_user: "alice".into() },
-    audit_view_cross_tenant_capability(),
-);
-```
-
-Without the capability, the `?as_tenant=<other>` query param is
-silently ignored — the feed responds with the workspace tenant's
-own rows. This is intentional: a 403 would leak the target
-tenant's existence to an unauthorised caller. With the capability
-the legacy `__legacy__` bucket is NOT unioned into the response,
-so admin probes never pull pre-migration rows into the wrong
-tenant view.
-
-### Inspecting tenant assignment
+Cross-tenant admin probes use `?as_tenant=<other>` and require the
+`audit.view.cross_tenant` capability
+(`argo_capability::AUDIT_VIEW_CROSS_TENANT`). Without that grant,
+the parameter is ignored so unauthorized callers do not learn
+whether a target tenant exists.
 
 ```bash
 # How many rows live under each tenant?
 sqlite3 ~/.argo/sessions.db \
   "SELECT tenant_id, COUNT(*) FROM audit_record GROUP BY tenant_id"
 ```
-
-`__legacy__` rows accumulate from pre-migration history;
-`ws-default` accumulates from un-tenanted `AuditSink::new(store)`
-call sites that haven't been migrated to `new_with_tenant` yet
-(both are unioned into the default-tenant read scope).
 
 ---
 
@@ -461,62 +406,17 @@ can re-run the input locally via the recipe above.
 
 After a worker completes a batch of actions (or a long-running
 duty wraps), the operator can run a structured **retrospective**
-over a time window. A retro pairs auto-aggregated metrics from
-the audit chain with a 5-section operator-fillable template:
+over a time window. A retro pairs auto-aggregated metrics from the
+audit chain with five operator-fillable sections: surface metrics,
+what went well, surprises, what to change, and action items.
 
-1. **Surface metrics** (read-only counts)
-2. **What went well**
-3. **Surprises**
-4. **What to change**
-5. **Action items**
-
-### Endpoints (mission-retro-review-ui, #209)
-
-- `POST   /api/v1/workers/<id>/retros` — create a retro. Body
-  keys (both optional): `window_start_unix`, `window_end_unix`.
-  Defaults to `[now-7d, now]`. Aggregated metrics are frozen at
-  creation and persisted on `retro.metrics_json`.
-- `PATCH  /api/v1/workers/<id>/retros/<retro_id>` — overwrite
-  one or more of the five section slots. Returns 409 once the
-  retro is finalised; unknown section keys are rejected with 400
-  so typos surface immediately.
-- `POST   /api/v1/workers/<id>/retros/<retro_id>/finalize` —
-  lock the retro. Subsequent PATCH/finalize calls return 409.
-- `GET    /api/v1/workers/<id>/retros` — list retros for one
-  worker, newest first.
-- `GET    /api/v1/retros[?q=<theme>]` — tenant-scoped index. The
-  `q` parameter does a case-insensitive substring match against
-  the sections JSON column.
-
-### Aggregated metrics
-
-The `metrics_json` column carries six counts derived from
-`audit_record` joined against `session.worker_id`:
-
-- `actions_total` — `tool_call` rows
-- `actions_approved` — `approval.granted`
-- `actions_refused` — `approval.revoked`
-- `escalations` — `escalation.required`
-- `learned_skills_added` — `skill.approved`
-- `error_count_by_category` — JSON object keyed by the offending
-  audit kind (`halt`, `rbac.deny`, `lock.violate`, …) so future
-  audit-kind additions land additional buckets without a wire
-  migration.
-
-### Audit trail
-
-Every retro mutation emits one `http.request` row with an
-`event_type` discriminator inside the payload:
-
-- `retro.created` — written by the create handler with the
-  retro id, worker id, and the chosen window.
-- `retro.finalized` — written by the finalize handler with the
-  retro id and the locked timestamp.
-
-This mirrors the elevated-view pattern: the retro brief did NOT
-expand `argo_audit::AuditKind`, so the audit chain stays under
-the same enumerable kinds the verifier and dashboards already
-recognise.
+Endpoints: `POST /api/v1/workers/<id>/retros`, `PATCH
+/api/v1/workers/<id>/retros/<retro_id>`, `POST
+/api/v1/workers/<id>/retros/<retro_id>/finalize`, `GET
+/api/v1/workers/<id>/retros`, and `GET /api/v1/retros[?q=<theme>]`.
+Finalized retros are immutable. Metrics include action totals,
+approval/refusal counts, escalations, learned skills, and errors by
+audit kind.
 
 ### What this is NOT
 

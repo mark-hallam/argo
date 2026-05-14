@@ -31,6 +31,29 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum StorageCmd {
+    /// List tenant-specific database pools and their health.
+    ListTenants {
+        /// Output as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run migrations for one tenant-specific database.
+    MigrateTenant {
+        tenant_id: String,
+        /// Output as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Check tenant-specific database health.
+    Health {
+        /// Output as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum ToolsCmd {
     /// List in-core tools.
     #[command(after_help = "Examples:\n  \

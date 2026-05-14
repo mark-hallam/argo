@@ -299,6 +299,10 @@ pub enum Command {
         #[command(subcommand)]
         cmd: DbCmd,
     },
+    Storage {
+        #[command(subcommand)]
+        cmd: StorageCmd,
+    },
     Costs {
         #[command(subcommand)]
         cmd: Option<CostsCmd>,

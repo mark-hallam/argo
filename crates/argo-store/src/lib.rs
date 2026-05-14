@@ -52,6 +52,8 @@ mod marketplace_meta;
 mod message_query;
 mod migrations;
 mod models;
+/// Per-tenant SQLite pool registry for data-residency routing.
+pub mod multi_tenant_pool;
 mod session_meta;
 mod session_query;
 /// Chronological skill invocation history query helpers.
