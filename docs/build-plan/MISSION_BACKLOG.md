@@ -316,14 +316,14 @@ unblocks a mission claim.
 136. Charter seed for marketing-intern. `[PARTIAL — #873 stub charter]`
 137. Add 5+ skills for each charter-stub vertical. `[BRIEF: mission-vertical-<slug>-skills family]`  ← 16+ briefs MERGED across customer-support / sales-sdr / marketing-intern / finance-ar / healthcare-intake / recruiter / tax-prep / product-manager / real-estate-agent / customer-onboarding / data-entry-clerk / event-coordinator / fundraising-coordinator / hr-screener / legal-paralegal / marketplace-seller / medical-coder / ops-on-call / procurement-assistant / qa-engineer
 138. Full action executor/instruction_template/retry policies for
-     stub verticals. `[NEW]`
+     stub verticals. `[BRIEF: mission-vertical-action-executor-completion]`
 139. Per-vertical regression test for each. `[BRIEF: mission-per-vertical-regression-test]`
 140. Expand eval suites to ≥7 fixtures each. `[SHIPPED]`  ← #1485
-141. `gtm_engineer_learning_loop.sh`-shape demo for each. `[NEW]`
+141. `gtm_engineer_learning_loop.sh`-shape demo for each. `[BRIEF: mission-per-vertical-demo-script]`
 142. Live executor wiring (≥1 approval-gated action per vertical).
      `[SHIPPED]`  ← #1491
 143. Demonstrate marketplace-seller end-to-end against E2B + real
-     Marketplace test account. `[NEW]`
+     Marketplace test account. `[BRIEF: mission-marketplace-seller-e2b-demo]`
 
 ### New verticals (mission "any role")
 
@@ -432,7 +432,7 @@ unblocks a mission claim.
 202. Build multi-host orchestrator design.
      `[SHIPPED]`
 203. Sample-trajectory aggregation across tenants (with consent).
-     `[NEW]`
+     `[BRIEF: mission-cross-tenant-trajectory-aggregation]`
 204. Cross-tenant skill propagation. `[BRIEF: mission-cross-tenant-skill-propagation]`
 205. Build benchmark suite (perf regression detection over skill
      versions). `[BRIEF: mission-bench-perf-regression-detection]`
@@ -481,7 +481,7 @@ unblocks a mission claim.
 233. IP allowlist / VPN-only deployment mode. `[BRIEF: mission-ip-allowlist-deployment-mode]`
 234. GDPR data residency (per-tenant DB region pinning). `[BRIEF: mission-gdpr-data-residency]`
 235. Right-to-be-forgotten propagation through Dreams output.
-     `[NEW]`
+     `[BRIEF: mission-rtbf-dreams-propagation]`
 
 ---
 
@@ -534,10 +534,10 @@ unblocks a mission claim.
      `[SHIPPED]`
 267. Document explicitly that v12+ is forward-only (until #266).
      `[BRIEF: mission-document-migrations-forward-only]`
-268. Fix `forge_run.spend_usd_micros` polling race. `[NEW]`
+268. Fix `forge_run.spend_usd_micros` polling race. `[BRIEF: mission-forge-spend-polling-race-fix]`
 269. Add proper streaming retry-on-timeout in `argo-provider`.
      `[BRIEF: mission-streaming-aware-retry]`
-270. Add proper exponential backoff. `[NEW]`
+270. Add proper exponential backoff. `[BRIEF: mission-canonical-exponential-backoff]`
 271. Document `dev-runtime-guardrails.md` as DEV ONLY. `[SHIPPED]`  ← #1474
 272. Update `launch_readiness.md` to reflect actual production
      gaps. (folded into headline-reconciliation)
