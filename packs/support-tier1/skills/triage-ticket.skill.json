@@ -1,0 +1,50 @@
+{
+  "entry": "read-ticket",
+  "metadata": {
+    "name": "triage-ticket",
+    "version": "1.0.0",
+    "description": "Classify a new support ticket by issue type, urgency, customer tier, and escalation risk.",
+    "source": "M19 support-tier1 pack"
+  },
+  "variables": [
+    { "name": "ticket", "varType": "SupportTicket", "scope": "graph" },
+    { "name": "triage", "varType": "TriageResult", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "read-ticket",
+      "label": "Read ticket",
+      "kind": { "type": "fetch", "target": "ticketing.current_ticket", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "ticketing", "toolName": "get_ticket" }
+      }
+    },
+    {
+      "id": "classify",
+      "label": "Classify urgency and type",
+      "kind": {
+        "type": "transform",
+        "template": "Return issue_type, urgency, customer_tier, sentiment, missing_context, and escalation_flags. Escalate security, legal, payment, outage, data-loss, abusive, and enterprise-SLA tickets."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.86 }
+    },
+    {
+      "id": "risk-check",
+      "label": "Escalation needed?",
+      "kind": { "type": "condition", "expression": "triage.escalation_flags.length > 0 || triage.urgency in ['high','critical']" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "handoff",
+      "label": "Route to Tier 2",
+      "kind": { "type": "await-approval", "approverRole": "support-lead", "timeoutSeconds": 1800 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "read-ticket", "to": "classify", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "classify", "to": "risk-check", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "risk-check", "to": "handoff", "cond": { "kind": "on-pattern", "pattern": "true" } }
+  ]
+}

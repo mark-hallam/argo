@@ -1,0 +1,58 @@
+{
+  "entry": "summarize-context",
+  "metadata": {
+    "name": "escalate-to-tier2",
+    "version": "1.0.0",
+    "description": "Prepare a Tier-2 handoff with customer context, evidence, risk flags, and a recommended owner.",
+    "source": "M19 support-tier1 pack"
+  },
+  "variables": [
+    { "name": "ticket", "varType": "SupportTicket", "scope": "graph" },
+    { "name": "handoff", "varType": "EscalationPacket", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "summarize-context",
+      "label": "Summarize ticket context",
+      "kind": {
+        "type": "transform",
+        "template": "Produce customer, plan, urgency, timeline, attempted fixes, logs, screenshots, linked KBs, and requested outcome. Redact secrets and raw payment data."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.84 }
+    },
+    {
+      "id": "pick-route",
+      "label": "Select escalation route",
+      "kind": {
+        "type": "branch",
+        "arms": [
+          { "label": "security", "pattern": "security|breach|token|credential" },
+          { "label": "billing", "pattern": "invoice|refund|charge|payment" },
+          { "label": "technical", "pattern": "bug|integration|api|error" },
+          { "label": "support-lead" }
+        ]
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Approve escalation packet",
+      "kind": { "type": "await-approval", "approverRole": "support-lead", "timeoutSeconds": 900 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "create-handoff",
+      "label": "Create Tier-2 handoff",
+      "kind": { "type": "action", "instruction": "Create a Tier-2 ticket update with the approved handoff packet and internal-only risk flags." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "ticketing", "toolName": "add_internal_note" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "summarize-context", "to": "pick-route", "cond": { "kind": "always" } },
+    { "id": "e2", "from": "pick-route", "to": "approval", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "approval", "to": "create-handoff", "cond": { "kind": "on-success" } }
+  ]
+}

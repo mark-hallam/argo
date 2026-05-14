@@ -1,0 +1,35 @@
+{
+  "schema_version": "1",
+  "namespace": "support-tier1",
+  "collections": {
+    "kb_index": {
+      "description": "Curated support articles safe for Tier-1 replies.",
+      "fields": {
+        "article_id": "string",
+        "title": "string",
+        "product_area": "string",
+        "risk_level": "low|medium|high",
+        "verified": "boolean",
+        "last_reviewed": "date"
+      }
+    },
+    "escalation_rules": {
+      "description": "Rules that force handoff before customer-visible action.",
+      "fields": {
+        "rule_id": "string",
+        "trigger": "string",
+        "route": "string",
+        "required_context": "string[]"
+      }
+    },
+    "ticket_patterns": {
+      "description": "Reusable classification examples for triage.",
+      "fields": {
+        "pattern_id": "string",
+        "signals": "string[]",
+        "issue_type": "string",
+        "default_urgency": "low|medium|high|critical"
+      }
+    }
+  }
+}

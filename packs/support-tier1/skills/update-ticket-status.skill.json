@@ -1,0 +1,51 @@
+{
+  "entry": "choose-status",
+  "metadata": {
+    "name": "update-ticket-status",
+    "version": "1.0.0",
+    "description": "Update ticket status after triage, resolution, escalation, or customer follow-up.",
+    "source": "M19 support-tier1 pack"
+  },
+  "variables": [
+    { "name": "ticket", "varType": "SupportTicket", "scope": "graph" },
+    { "name": "status_update", "varType": "TicketStatusUpdate", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "choose-status",
+      "label": "Choose next status",
+      "kind": {
+        "type": "branch",
+        "arms": [
+          { "label": "waiting-on-customer", "pattern": "clarifying_question" },
+          { "label": "pending-tier2", "pattern": "escalated" },
+          { "label": "resolved", "pattern": "kb_resolution_sent" },
+          { "label": "open" }
+        ]
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "write-note",
+      "label": "Write internal audit note",
+      "kind": {
+        "type": "transform",
+        "template": "Summarize why this status is correct, include evidence links, SLA impact, and next owner. Keep it internal and redact secrets."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.83 }
+    },
+    {
+      "id": "apply-status",
+      "label": "Apply ticket status",
+      "kind": { "type": "action", "instruction": "Update the ticket status and attach the internal audit note." },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "ticketing", "toolName": "update_ticket" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "choose-status", "to": "write-note", "cond": { "kind": "always" } },
+    { "id": "e2", "from": "write-note", "to": "apply-status", "cond": { "kind": "on-success" } }
+  ]
+}

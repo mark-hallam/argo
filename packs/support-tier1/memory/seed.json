@@ -1,0 +1,68 @@
+{
+  "kb_index": [
+    {
+      "article_id": "kb-login-2fa-reset",
+      "title": "Reset two-factor authentication for a verified user",
+      "product_area": "identity",
+      "risk_level": "medium",
+      "verified": true,
+      "last_reviewed": "2026-05-01"
+    },
+    {
+      "article_id": "kb-api-rate-limit",
+      "title": "Troubleshoot API 429 rate-limit responses",
+      "product_area": "api",
+      "risk_level": "low",
+      "verified": true,
+      "last_reviewed": "2026-05-03"
+    },
+    {
+      "article_id": "kb-billing-invoice-copy",
+      "title": "Download or resend an invoice copy",
+      "product_area": "billing",
+      "risk_level": "low",
+      "verified": true,
+      "last_reviewed": "2026-04-29"
+    }
+  ],
+  "escalation_rules": [
+    {
+      "rule_id": "security-incident",
+      "trigger": "breach, exposed secret, suspicious login, token leak, or vulnerability report",
+      "route": "security",
+      "required_context": ["account_id", "timeline", "logs", "customer_impact"]
+    },
+    {
+      "rule_id": "money-or-contract",
+      "trigger": "refund, credit, cancellation penalty, contract term, or legal threat",
+      "route": "support-lead",
+      "required_context": ["ticket_id", "amount", "plan", "customer_request"]
+    },
+    {
+      "rule_id": "enterprise-sla",
+      "trigger": "enterprise customer reports outage, data loss, or SLA breach",
+      "route": "tier2",
+      "required_context": ["customer_tier", "severity", "affected_users", "status_page"]
+    }
+  ],
+  "ticket_patterns": [
+    {
+      "pattern_id": "how-to-api",
+      "signals": ["how do I", "api", "429", "rate limit"],
+      "issue_type": "how_to",
+      "default_urgency": "low"
+    },
+    {
+      "pattern_id": "account-access",
+      "signals": ["locked out", "2fa", "cannot sign in"],
+      "issue_type": "account_access",
+      "default_urgency": "medium"
+    },
+    {
+      "pattern_id": "outage-language",
+      "signals": ["down", "all users", "production", "SLA"],
+      "issue_type": "incident",
+      "default_urgency": "critical"
+    }
+  ]
+}

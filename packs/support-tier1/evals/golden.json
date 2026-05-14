@@ -1,0 +1,22 @@
+[
+  { "id": "support-001", "prompt": "Customer asks how to fix API 429 responses.", "expected_skill": "resolve-from-kb", "expected_outcome": "kb_resolution" },
+  { "id": "support-002", "prompt": "Enterprise admin says production is down for all users.", "expected_skill": "escalate-to-tier2", "expected_outcome": "critical_escalation" },
+  { "id": "support-003", "prompt": "User needs a copy of last month's invoice.", "expected_skill": "resolve-from-kb", "expected_outcome": "kb_resolution" },
+  { "id": "support-004", "prompt": "Customer demands a refund for a missed renewal reminder.", "expected_skill": "escalate-to-tier2", "expected_outcome": "money_escalation" },
+  { "id": "support-005", "prompt": "User reports suspicious login from an unknown country.", "expected_skill": "escalate-to-tier2", "expected_outcome": "security_escalation" },
+  { "id": "support-006", "prompt": "Ticket says the customer cannot reset 2FA after phone loss.", "expected_skill": "triage-ticket", "expected_outcome": "medium_account_access" },
+  { "id": "support-007", "prompt": "Customer asks whether a feature exists in the API.", "expected_skill": "draft-resolution-message", "expected_outcome": "draft_with_source" },
+  { "id": "support-008", "prompt": "Customer says the setup guide step three is unclear.", "expected_skill": "resolve-from-kb", "expected_outcome": "kb_resolution" },
+  { "id": "support-009", "prompt": "Customer threatens legal action over deleted data.", "expected_skill": "escalate-to-tier2", "expected_outcome": "legal_escalation" },
+  { "id": "support-010", "prompt": "The worker sent a KB reply and needs to mark the ticket waiting on customer.", "expected_skill": "update-ticket-status", "expected_outcome": "waiting_on_customer" },
+  { "id": "support-011", "prompt": "The worker created a Tier-2 handoff and needs to update the status.", "expected_skill": "update-ticket-status", "expected_outcome": "pending_tier2" },
+  { "id": "support-012", "prompt": "Customer asks for account deletion under GDPR.", "expected_skill": "escalate-to-tier2", "expected_outcome": "privacy_escalation" },
+  { "id": "support-013", "prompt": "Customer asks for a password reset link.", "expected_skill": "draft-resolution-message", "expected_outcome": "safe_draft" },
+  { "id": "support-014", "prompt": "Customer says webhook retries are failing after 24 hours.", "expected_skill": "triage-ticket", "expected_outcome": "technical_medium" },
+  { "id": "support-015", "prompt": "Customer asks for a billing contact change.", "expected_skill": "triage-ticket", "expected_outcome": "billing_triage" },
+  { "id": "support-016", "prompt": "Customer says an API key was posted in a public channel.", "expected_skill": "escalate-to-tier2", "expected_outcome": "security_escalation" },
+  { "id": "support-017", "prompt": "Customer confirms the KB fix worked.", "expected_skill": "update-ticket-status", "expected_outcome": "resolved" },
+  { "id": "support-018", "prompt": "Customer asks how to invite a teammate.", "expected_skill": "resolve-from-kb", "expected_outcome": "kb_resolution" },
+  { "id": "support-019", "prompt": "Customer asks why an import is slow but provides no file size or logs.", "expected_skill": "draft-resolution-message", "expected_outcome": "clarifying_question" },
+  { "id": "support-020", "prompt": "Customer asks for SLA credit after a public incident.", "expected_skill": "escalate-to-tier2", "expected_outcome": "sla_escalation" }
+]

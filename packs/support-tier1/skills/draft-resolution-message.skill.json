@@ -1,0 +1,52 @@
+{
+  "entry": "compose",
+  "metadata": {
+    "name": "draft-resolution-message",
+    "version": "1.0.0",
+    "description": "Draft a concise customer reply grounded in the selected KB article and ticket facts.",
+    "source": "M19 support-tier1 pack"
+  },
+  "variables": [
+    { "name": "ticket", "varType": "SupportTicket", "scope": "graph" },
+    { "name": "resolution", "varType": "ResolutionDraft", "scope": "graph" },
+    { "name": "message", "varType": "CustomerMessage", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "compose",
+      "label": "Compose customer reply",
+      "kind": {
+        "type": "transform",
+        "template": "Write in a calm support voice. Acknowledge the issue, give steps, cite the KB article title, set expectations, and ask one clarifying question only when required."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.8 }
+    },
+    {
+      "id": "safety-check",
+      "label": "Check for risky promises",
+      "kind": { "type": "condition", "expression": "message.contains_refund || message.contains_legal_claim || message.contains_security_admission" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "lead-review",
+      "label": "Support lead review",
+      "kind": { "type": "await-approval", "approverRole": "support-lead", "timeoutSeconds": 900 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "ready",
+      "label": "Ready to send",
+      "kind": { "type": "action", "instruction": "Attach the reply draft to the ticket as a pending customer response. Do not send without channel approval." },
+      "annotations": {
+        "policy": "ask",
+        "toolBinding": { "mcpServer": "ticketing", "toolName": "draft_reply" }
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "compose", "to": "safety-check", "cond": { "kind": "always" } },
+    { "id": "e2", "from": "safety-check", "to": "lead-review", "cond": { "kind": "on-pattern", "pattern": "true" } },
+    { "id": "e3", "from": "safety-check", "to": "ready", "cond": { "kind": "on-pattern", "pattern": "false" } },
+    { "id": "e4", "from": "lead-review", "to": "ready", "cond": { "kind": "on-success" } }
+  ]
+}

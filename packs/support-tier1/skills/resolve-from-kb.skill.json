@@ -1,0 +1,51 @@
+{
+  "entry": "query-kb",
+  "metadata": {
+    "name": "resolve-from-kb",
+    "version": "1.0.0",
+    "description": "Find a verified KB article and produce a safe resolution plan for a low-risk ticket.",
+    "source": "M19 support-tier1 pack"
+  },
+  "variables": [
+    { "name": "ticket", "varType": "SupportTicket", "scope": "graph" },
+    { "name": "kb_matches", "varType": "KbArticle[]", "scope": "graph" },
+    { "name": "resolution", "varType": "ResolutionDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "query-kb",
+      "label": "Search knowledge base",
+      "kind": { "type": "fetch", "target": "knowledge_base.search", "method": "POST" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "knowledge-base", "toolName": "search_articles" }
+      }
+    },
+    {
+      "id": "article-check",
+      "label": "Verified article found?",
+      "kind": { "type": "condition", "expression": "kb_matches[0].verified == true && kb_matches[0].confidence >= 0.75" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft-resolution",
+      "label": "Draft resolution",
+      "kind": {
+        "type": "transform",
+        "template": "Use the top verified KB article. Include article title, exact steps, expected result, fallback if the step fails, and the source URL. Do not promise refunds, credits, deletion, or outage status."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.82 }
+    },
+    {
+      "id": "needs-escalation",
+      "label": "Escalate missing KB",
+      "kind": { "type": "await-approval", "approverRole": "support-lead", "timeoutSeconds": 1800 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "query-kb", "to": "article-check", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "article-check", "to": "draft-resolution", "cond": { "kind": "on-pattern", "pattern": "true" } },
+    { "id": "e3", "from": "article-check", "to": "needs-escalation", "cond": { "kind": "on-pattern", "pattern": "false" } }
+  ]
+}

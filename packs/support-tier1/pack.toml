@@ -1,0 +1,9 @@
+[pack]
+name = "support-tier1"
+version = "1.0.0"
+display_name = "Support Specialist (Tier 1)"
+description = "Tier-1 support worker pack for ticket triage, KB resolution, escalation, customer replies, and status updates."
+
+[[verticals]]
+id = "support-tier1"
+path = "."
