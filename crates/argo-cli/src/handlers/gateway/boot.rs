@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 
 use super::boot_spawns::{
     finish_shutdown, spawn_alerts_loop, spawn_approval_reminder, spawn_audit_watchdog,
-    spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler,
+    spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler, spawn_worker_supervisor,
 };
 use super::ip_allowlist::{self, AllowResult, IpAllowlist};
 use super::lifecycle::{pid_is_alive, signal_term, PidGuard};
@@ -131,6 +131,7 @@ pub(super) async fn start(
     let _forge_cron = bg_store
         .map(|s| AbortOnDrop::new(spawn_forge_cron(Arc::clone(s), ForgeCronConfig::from_env())));
     let _mcp_health = crate::handlers::mcp_health::spawn_from_env();
+    let _worker_supervisor = spawn_worker_supervisor();
     phases.mark("spawn_bg_tasks");
 
     // PID file. If one already exists with a live PID, refuse to

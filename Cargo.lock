@@ -1245,6 +1245,7 @@ version = "0.0.1"
 dependencies = [
  "argo-audit",
  "argo-identity",
+ "argo-runtime",
  "argo-store",
  "argo-types",
  "async-trait",

@@ -12,6 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use argo_orchestrator::{
     spawn_duty_scheduler, ClosedGate, DutyScheduler, DutyStore, OrchestratorStore,
+    WorkerSupervisor,
 };
 use argo_store::attached_blob::{BlobStore, MemoryAttachedBlob};
 use argo_store::SessionStore;
@@ -141,6 +142,17 @@ pub(super) fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnD
         scheduler,
         Duration::from_secs(interval_secs),
     ))
+}
+
+/// Construct the `WorkerSupervisor` for the gateway process. Held
+/// as an `Arc` so the future worker-dispatch wiring can call
+/// `spawn_worker` on submissions; gateway boot itself does not
+/// spawn workers. The cage + OOM-restart wire is the
+/// `mission-worker-supervisor-cage-and-oom` deliverable.
+pub(super) fn spawn_worker_supervisor() -> Arc<WorkerSupervisor> {
+    let supervisor = Arc::new(WorkerSupervisor::with_defaults());
+    eprintln!("argo gateway: worker supervisor constructed (cage + oom-restart wired)");
+    supervisor
 }
 
 pub(super) fn spawn_approval_reminder(store: Arc<SessionStore>) -> AbortOnDrop {

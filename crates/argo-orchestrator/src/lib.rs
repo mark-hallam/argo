@@ -55,6 +55,11 @@ mod session;
 pub mod vertical_lock;
 mod walker;
 mod walker_helpers;
+/// Worker subprocess supervisor — fork-exec workers, install
+/// `argo_runtime::worker_resource_cage::WorkerResourceCage`, and
+/// drive `argo_runtime::oom_restart::OomRestartCoordinator` on
+/// non-clean exits. See `streams/mission-worker-supervisor-cage-and-oom.md`.
+pub mod worker_supervisor;
 
 pub use auction::{
     fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
@@ -75,6 +80,9 @@ pub use routing_resolve::{rank_workers, TargetResolver};
 pub use session::{Session, SessionId, SessionStatus};
 pub use vertical_lock::{LockConfig, LockGuard, VerticalConcurrencyLock};
 pub use walker::{HandoffNotifier, HandoffPolicyHook, HandoffWalker, SweepReport};
+pub use worker_supervisor::{
+    WorkerSnapshot, WorkerSpec, WorkerSupervisor, MAX_RESPAWN_LOOPS,
+};
 
 #[cfg(test)]
 mod vertical_lock_tests;

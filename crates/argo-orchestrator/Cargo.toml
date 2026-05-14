@@ -10,6 +10,7 @@ description = "Argo — multi-worker session orchestration: handoffs, escalation
 [dependencies]
 argo-audit = { path = "../argo-audit", version = "0.0.1" }
 argo-identity = { path = "../argo-identity", version = "0.0.1" }
+argo-runtime = { path = "../argo-runtime", version = "0.0.1" }
 argo-store = { path = "../argo-store", version = "0.0.1" }
 argo-types = { path = "../argo-types", version = "0.0.1" }
 async-trait = { workspace = true }
