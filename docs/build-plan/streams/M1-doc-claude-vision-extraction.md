@@ -45,3 +45,14 @@ LOC: ~1100. Branch: `claude-M1-doc-claude-vision-extraction`. PR title: `feat(do
 
 - See `streams/M0-enterprise-parity-track-overview.md` for the authoritative spec for this brief.
 - Mission-claim alignment: claim 5 (PC tasks: doc understanding).
+
+
+## Amendment 2026-05-14 (may-touch widening)
+
+Worker self-BLOCKED on initial claim noting that may-touch was too narrow to ship a real (non-scaffold) implementation. Conductor adds these load-bearing edits to the allowed surface:
+
+- The containing crate's `lib.rs` — narrowly: add `pub mod <new_module>;` declaration. **≤10 modified lines.**
+- The containing crate's `Cargo.toml` — narrowly: add any required `[dependencies]` line for sibling argo-* crates that this brief consumes. **≤5 modified lines.**
+- If a gateway endpoint is in scope: register the route in the appropriate `routes_dispatch_*.rs` sibling (post-#1601 split). **≤10 modified lines.**
+
+These edits are mechanical and required for the new code to compile + be reachable. Do NOT widen beyond the brief's original scope (no business logic in lib.rs, no new dependencies beyond what the brief names).
