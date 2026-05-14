@@ -19,6 +19,8 @@ mod messages;
 mod plan_provenance;
 mod routing;
 
+use serde::{Deserialize, Serialize};
+
 pub use anomaly::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 pub use budget::{Budget, BudgetExhausted, BudgetKind, BudgetNode};
 pub use capability::{Capability, CapabilitySet, Principal, Role, RoleBinding, SpawnKind};
@@ -36,6 +38,47 @@ pub use lock::Lock;
 pub use messages::{ContentBlock, Message, MessageRole, ToolCallRequest, ToolCallResult};
 pub use plan_provenance::PlanProvenance;
 pub use routing::{ProviderModel, RoutingDecision, RoutingPolicy, TieredRouting};
+
+/// Operator approval decision shared by channel tokens and approval
+/// persistence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalDecision {
+    /// Approve or grant the pending action.
+    Approve,
+    /// Reject or deny the pending action.
+    Reject,
+}
+
+impl ApprovalDecision {
+    /// String value used in signed channel-token payloads.
+    #[must_use]
+    pub fn as_token_str(self) -> &'static str {
+        match self {
+            Self::Approve => "approve",
+            Self::Reject => "reject",
+        }
+    }
+
+    /// Parse a channel-token decision string.
+    #[must_use]
+    pub fn parse_token_str(s: &str) -> Option<Self> {
+        match s {
+            "approve" => Some(Self::Approve),
+            "reject" => Some(Self::Reject),
+            _ => None,
+        }
+    }
+
+    /// Terminal label used by the approval-request store.
+    #[must_use]
+    pub fn as_store_str(self) -> &'static str {
+        match self {
+            Self::Approve => "granted",
+            Self::Reject => "denied",
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -230,6 +273,23 @@ mod tests {
         };
         let events = enforce_pre_spend(&c, after_first, 50_000, enforce_ctx()).unwrap();
         assert!(events.iter().all(|e| e.threshold_pct != 80));
+    }
+
+    #[test]
+    fn approval_decision_preserves_token_and_store_labels() {
+        assert_eq!(ApprovalDecision::Approve.as_token_str(), "approve");
+        assert_eq!(ApprovalDecision::Reject.as_token_str(), "reject");
+        assert_eq!(ApprovalDecision::Approve.as_store_str(), "granted");
+        assert_eq!(ApprovalDecision::Reject.as_store_str(), "denied");
+        assert_eq!(
+            ApprovalDecision::parse_token_str("approve"),
+            Some(ApprovalDecision::Approve)
+        );
+        assert_eq!(
+            ApprovalDecision::parse_token_str("reject"),
+            Some(ApprovalDecision::Reject)
+        );
+        assert_eq!(ApprovalDecision::parse_token_str("granted"), None);
     }
 
     #[test]

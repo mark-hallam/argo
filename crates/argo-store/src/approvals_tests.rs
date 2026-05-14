@@ -112,7 +112,7 @@ async fn decide_request_grants_pending_row() {
         .await
         .unwrap();
 
-    let updated = decide_request(&pool, &id, "grantor-1", ApprovalDecision::Granted)
+    let updated = decide_request(&pool, &id, "grantor-1", ApprovalDecision::Approve)
         .await
         .expect("decide");
     assert!(updated, "first call should report rows updated");
@@ -132,7 +132,7 @@ async fn decide_request_denies_pending_row() {
         .await
         .unwrap();
 
-    decide_request(&pool, &id, "grantor-2", ApprovalDecision::Denied)
+    decide_request(&pool, &id, "grantor-2", ApprovalDecision::Reject)
         .await
         .unwrap();
 
@@ -149,10 +149,10 @@ async fn decide_request_is_idempotent_against_repeat_calls() {
         .await
         .unwrap();
 
-    let first = decide_request(&pool, &id, "grantor-1", ApprovalDecision::Granted)
+    let first = decide_request(&pool, &id, "grantor-1", ApprovalDecision::Approve)
         .await
         .unwrap();
-    let second = decide_request(&pool, &id, "grantor-2", ApprovalDecision::Denied)
+    let second = decide_request(&pool, &id, "grantor-2", ApprovalDecision::Reject)
         .await
         .unwrap();
     assert!(first, "first call should have updated the row");
@@ -169,7 +169,7 @@ async fn decide_request_is_idempotent_against_repeat_calls() {
 async fn decide_request_unknown_id_returns_false() {
     let pool = fresh_pool().await;
     let unknown = Uuid::now_v7().to_string();
-    let updated = decide_request(&pool, &unknown, "grantor", ApprovalDecision::Granted)
+    let updated = decide_request(&pool, &unknown, "grantor", ApprovalDecision::Approve)
         .await
         .unwrap();
     assert!(!updated);
@@ -192,7 +192,7 @@ async fn list_pending_filters_by_tenant_and_status() {
         .unwrap();
 
     // Decide one of tenant A's rows so it leaves the pending list.
-    decide_request(&pool, &id_a1, "g", ApprovalDecision::Granted)
+    decide_request(&pool, &id_a1, "g", ApprovalDecision::Approve)
         .await
         .unwrap();
 
@@ -350,7 +350,7 @@ async fn expire_overdue_ignores_already_decided_rows() {
     .unwrap();
 
     // Resolve before sweep runs.
-    decide_request(&pool, &id, "grantor", ApprovalDecision::Granted)
+    decide_request(&pool, &id, "grantor", ApprovalDecision::Approve)
         .await
         .unwrap();
 
@@ -414,10 +414,10 @@ async fn state_machine_rejects_grant_after_expire() {
         .await
         .unwrap();
 
-    let updated = decide_request(&pool, &id, "grantor", ApprovalDecision::Granted)
+    let updated = decide_request(&pool, &id, "grantor", ApprovalDecision::Approve)
         .await
         .unwrap();
-    assert!(!updated, "Expired -> Granted is illegal; must be a no-op");
+    assert!(!updated, "Expired -> Approve is illegal; must be a no-op");
 
     let row = get_request(&pool, &id).await.unwrap().unwrap();
     assert_eq!(row.status, ApprovalStatus::Expired);

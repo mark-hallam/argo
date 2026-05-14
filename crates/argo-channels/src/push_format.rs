@@ -201,7 +201,7 @@ fn query_decision(query: &str) -> ChannelResult<Option<ApprovalDecision>> {
                 .flatten()
         })
         .map(|value| {
-            ApprovalDecision::parse(&value)
+            ApprovalDecision::parse_token_str(&value)
                 .ok_or_else(|| ChannelError::Parse("invalid push decision".into()))
         })
         .transpose()

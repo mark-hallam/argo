@@ -45,7 +45,7 @@
 //! )
 //! .await?;
 //!
-//! decide_request(pool, &id, "approver-1", ApprovalDecision::Granted).await?;
+//! decide_request(pool, &id, "approver-1", ApprovalDecision::Approve).await?;
 //! let _ = list_pending(pool, tenant, 100).await?;
 //! # Ok(()) }
 //! ```
@@ -54,6 +54,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
+pub use argo_types::ApprovalDecision;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 
 /// Lifecycle states an [`ApprovalRequest`] can occupy. Stored as a
@@ -133,37 +134,6 @@ impl DefaultDecision {
             "allow" => Self::Allow,
             "ask" => Self::Ask,
             _ => Self::Deny,
-        }
-    }
-}
-
-/// Decision recorded by [`decide_request`] — a human grantor's
-/// resolution of a Pending request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ApprovalDecision {
-    /// Grantor approved the request.
-    Granted,
-    /// Grantor denied the request.
-    Denied,
-}
-
-impl ApprovalDecision {
-    /// The terminal [`ApprovalStatus`] this decision lands the row in.
-    #[must_use]
-    pub fn status(self) -> ApprovalStatus {
-        match self {
-            Self::Granted => ApprovalStatus::Granted,
-            Self::Denied => ApprovalStatus::Denied,
-        }
-    }
-
-    /// Lower-case label used in the `decision` column.
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Granted => "granted",
-            Self::Denied => "denied",
         }
     }
 }
@@ -276,10 +246,10 @@ pub async fn decide_request(
          SET status = ?, decided_at = ?, decided_by = ?, decision = ? \
          WHERE id = ? AND status = 'pending'",
     )
-    .bind(decision.status().as_str())
+    .bind(decision.as_store_str())
     .bind(now)
     .bind(decided_by)
-    .bind(decision.as_str())
+    .bind(decision.as_store_str())
     .bind(&id_bytes)
     .execute(pool)
     .await

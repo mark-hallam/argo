@@ -6,38 +6,9 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
+pub use argo_types::ApprovalDecision;
+
 type HmacSha256 = Hmac<Sha256>;
-
-/// Operator decision embedded in signed approval URLs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ApprovalDecision {
-    /// Approve the pending action.
-    Approve,
-    /// Reject the pending action.
-    Reject,
-}
-
-impl ApprovalDecision {
-    /// String value used in signed token payloads.
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Approve => "approve",
-            Self::Reject => "reject",
-        }
-    }
-
-    /// Parse a decision string.
-    #[must_use]
-    pub fn parse(s: &str) -> Option<Self> {
-        match s {
-            "approve" => Some(Self::Approve),
-            "reject" => Some(Self::Reject),
-            _ => None,
-        }
-    }
-}
 
 /// Verified approval token claims.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,7 +38,7 @@ pub fn sign_approval_token(
     Ok(format!(
         "{}.{}.{}.{}",
         approval_id,
-        decision.as_str(),
+        decision.as_token_str(),
         exp,
         sig
     ))
@@ -81,7 +52,7 @@ pub fn verify_approval_token(token: &str, secret: &str) -> ChannelResult<Approva
             "approval token must have 4 fields".into(),
         ));
     }
-    let decision = ApprovalDecision::parse(parts[1])
+    let decision = ApprovalDecision::parse_token_str(parts[1])
         .ok_or_else(|| ChannelError::Auth("invalid approval decision".into()))?;
     let exp = parts[2]
         .parse::<i64>()
@@ -131,7 +102,7 @@ pub fn verify_webhook_signature(
 }
 
 fn token_payload(approval_id: &str, decision: ApprovalDecision, exp: i64) -> String {
-    format!("{}|{}|{}", approval_id, decision.as_str(), exp)
+    format!("{}|{}|{}", approval_id, decision.as_token_str(), exp)
 }
 
 fn hmac_hex(data: &[u8], secret: &[u8]) -> ChannelResult<String> {
