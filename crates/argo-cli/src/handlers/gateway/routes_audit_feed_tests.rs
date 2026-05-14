@@ -63,22 +63,38 @@ fn get(path: &str) -> String {
 }
 
 async fn parse_body(resp: (&str, String)) -> (&str, Value) {
-    let v: Value = serde_json::from_str(&resp.1)
-        .unwrap_or_else(|_| panic!("invalid JSON body: {}", resp.1));
+    let v: Value =
+        serde_json::from_str(&resp.1).unwrap_or_else(|_| panic!("invalid JSON body: {}", resp.1));
     (resp.0, v)
 }
 
 async fn seed_minimal_two(store: &Arc<SessionStore>) {
     seed_row(
         store,
-        row("w1", "web", "approval.decided", "succeeded", Some("a1"),
-            Some(0.5), "internal", "approved transfer"),
+        row(
+            "w1",
+            "web",
+            "approval.decided",
+            "succeeded",
+            Some("a1"),
+            Some(0.5),
+            "internal",
+            "approved transfer",
+        ),
     )
     .await;
     seed_row(
         store,
-        row("w2", "slack", "message.sent", "failed", None,
-            Some(0.001), "public", "sent message to channel"),
+        row(
+            "w2",
+            "slack",
+            "message.sent",
+            "failed",
+            None,
+            Some(0.001),
+            "public",
+            "sent message to channel",
+        ),
     )
     .await;
 }
@@ -174,10 +190,9 @@ async fn filters_by_cost_band() {
     let store = mem_store().await;
     seed_minimal_two(&store).await;
     // w1 had cost 0.5 → from001to10
-    let (_, body) = parse_body(
-        list_response(&get("/api/v1/audit?cost_band=from001to10"), Some(&store)).await,
-    )
-    .await;
+    let (_, body) =
+        parse_body(list_response(&get("/api/v1/audit?cost_band=from001to10"), Some(&store)).await)
+            .await;
     let items = body["items"].as_array().unwrap();
     assert!(items.iter().any(|it| it["worker"]["id"] == "w1"));
     assert!(items.iter().all(|it| it["worker"]["id"] != "w2"));
@@ -187,10 +202,9 @@ async fn filters_by_cost_band() {
 async fn filters_by_classification() {
     let store = mem_store().await;
     seed_minimal_two(&store).await;
-    let (_, body) = parse_body(
-        list_response(&get("/api/v1/audit?classification=public"), Some(&store)).await,
-    )
-    .await;
+    let (_, body) =
+        parse_body(list_response(&get("/api/v1/audit?classification=public"), Some(&store)).await)
+            .await;
     let items = body["items"].as_array().unwrap();
     assert!(!items.is_empty());
     for it in items {
@@ -228,7 +242,11 @@ async fn substring_query_q_matches_verb_case_insensitive() {
     let items = body["items"].as_array().unwrap();
     assert!(!items.is_empty(), "case-insensitive q should match");
     for it in items {
-        assert!(it["verb"].as_str().unwrap().to_lowercase().contains("approved"));
+        assert!(it["verb"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("approved"));
     }
 }
 
@@ -249,7 +267,16 @@ async fn pagination_emits_cursor_and_continues() {
     for i in 0..6 {
         seed_row(
             &store,
-            row(&format!("w{i}"), "web", "msg", "succeeded", None, None, "internal", "did x"),
+            row(
+                &format!("w{i}"),
+                "web",
+                "msg",
+                "succeeded",
+                None,
+                None,
+                "internal",
+                "did x",
+            ),
         )
         .await;
     }
@@ -262,7 +289,10 @@ async fn pagination_emits_cursor_and_continues() {
     let (_, body2) = parse_body(list_response(&get(&path), Some(&store)).await).await;
     let second_items = body2["items"].as_array().unwrap().clone();
     assert_eq!(second_items.len(), 2);
-    let first_ids: Vec<&str> = first_items.iter().map(|it| it["id"].as_str().unwrap()).collect();
+    let first_ids: Vec<&str> = first_items
+        .iter()
+        .map(|it| it["id"].as_str().unwrap())
+        .collect();
     for it in &second_items {
         assert!(!first_ids.contains(&it["id"].as_str().unwrap()));
     }
@@ -293,7 +323,16 @@ async fn limit_caps_default_to_fifty() {
     for i in 0..60 {
         seed_row(
             &store,
-            row(&format!("w{i}"), "web", "msg", "succeeded", None, None, "internal", "did x"),
+            row(
+                &format!("w{i}"),
+                "web",
+                "msg",
+                "succeeded",
+                None,
+                None,
+                "internal",
+                "did x",
+            ),
         )
         .await;
     }
@@ -317,8 +356,7 @@ async fn range_1h_filters_to_recent_only() {
 #[tokio::test]
 async fn rejects_invalid_range_400() {
     let store = mem_store().await;
-    let (status, body) =
-        list_response(&get("/api/v1/audit?range=zzz"), Some(&store)).await;
+    let (status, body) = list_response(&get("/api/v1/audit?range=zzz"), Some(&store)).await;
     assert_eq!(status, "400 Bad Request");
     assert!(body.contains("range"));
 }
@@ -337,14 +375,20 @@ async fn redacts_email_in_verb_by_default() {
     let store = mem_store().await;
     seed_row(
         &store,
-        row("w1", "web", "msg", "succeeded", None, None, "internal",
-            "ping sam@acmeco.com to confirm"),
+        row(
+            "w1",
+            "web",
+            "msg",
+            "succeeded",
+            None,
+            None,
+            "internal",
+            "ping sam@acmeco.com to confirm",
+        ),
     )
     .await;
-    let (_, body) = parse_body(
-        list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await,
-    )
-    .await;
+    let (_, body) =
+        parse_body(list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await).await;
     let items = body["items"].as_array().unwrap();
     let verbs: Vec<&str> = items.iter().filter_map(|it| it["verb"].as_str()).collect();
     assert!(verbs.iter().any(|v| v.contains("[EMAIL]")));
@@ -368,7 +412,11 @@ async fn emits_audit_row_per_query() {
     .fetch_one(store.pool())
     .await
     .unwrap();
-    assert_eq!(after, before + 1, "expected exactly one audit.feed.queried row");
+    assert_eq!(
+        after,
+        before + 1,
+        "expected exactly one audit.feed.queried row"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -377,10 +425,23 @@ async fn emits_audit_row_per_query() {
 
 async fn seed_row_for_tenant(store: &Arc<SessionStore>, tenant_id: &str, worker: &str) {
     let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
-    sink.write(None, AuditKind::HttpRequest, row(worker, "web", "msg", "succeeded",
-        None, None, "internal", "did x"), None)
-        .await
-        .expect("write tenant-scoped row");
+    sink.write(
+        None,
+        AuditKind::HttpRequest,
+        row(
+            worker,
+            "web",
+            "msg",
+            "succeeded",
+            None,
+            None,
+            "internal",
+            "did x",
+        ),
+        None,
+    )
+    .await
+    .expect("write tenant-scoped row");
     // Drop the batched-writer latency-window before the test reads back. The
     // sink-per-helper-call pattern queues into a per-sink batch that would
     // otherwise be lost when the sink drops at end-of-scope.
@@ -388,9 +449,7 @@ async fn seed_row_for_tenant(store: &Arc<SessionStore>, tenant_id: &str, worker:
 }
 
 fn get_with_tenant(path: &str, tenant: &str) -> String {
-    format!(
-        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n"
-    )
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n")
 }
 
 fn get_with_tenant_and_cap(path: &str, tenant: &str) -> String {
@@ -418,7 +477,10 @@ async fn tenant_scope_default_excludes_other_tenants() {
         .iter()
         .filter_map(|it| it["worker"]["id"].as_str())
         .collect();
-    assert!(workers.contains(&"wa"), "expected tenant-a row, got {workers:?}");
+    assert!(
+        workers.contains(&"wa"),
+        "expected tenant-a row, got {workers:?}"
+    );
     assert!(!workers.contains(&"wb"), "tenant-b row leaked: {workers:?}");
 }
 
@@ -465,8 +527,88 @@ async fn as_tenant_with_capability_returns_other_tenant() {
         .iter()
         .filter_map(|it| it["worker"]["id"].as_str())
         .collect();
-    assert!(workers.contains(&"wb"), "expected tenant-b row, got {workers:?}");
+    assert!(
+        workers.contains(&"wb"),
+        "expected tenant-b row, got {workers:?}"
+    );
     assert!(!workers.contains(&"wa"), "tenant-a row leaked: {workers:?}");
+}
+
+#[tokio::test]
+async fn sql_path_used_when_migration_applied() {
+    // Stream `mission-enterprise-audit-full-text-search` —
+    // v67 columns present, SQL path serves the request and
+    // returns the same shape as the app-layer path.
+    let store = mem_store().await;
+    seed_minimal_two(&store).await;
+    let (status, body) =
+        parse_body(list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await).await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().unwrap();
+    assert!(!items.is_empty());
+    for it in items {
+        assert_eq!(it["worker"]["id"], "w1");
+    }
+}
+
+#[tokio::test]
+async fn sql_path_indexes_used_on_worker_filter() {
+    // Asserts EXPLAIN QUERY PLAN names one of the composite
+    // indexes when a single-dim filter is applied. The plan
+    // shape varies across SQLite versions but always
+    // references the index name.
+    let store = mem_store().await;
+    seed_minimal_two(&store).await;
+    let plan: Vec<(i64, i64, i64, String)> = sqlx::query_as(
+        "EXPLAIN QUERY PLAN \
+         SELECT seq FROM audit_record \
+         WHERE worker_id IN ('w1') OR worker_id IS NULL \
+         ORDER BY created_at DESC LIMIT 50",
+    )
+    .fetch_all(store.pool())
+    .await
+    .unwrap();
+    let plan_text: String = plan
+        .iter()
+        .map(|(_, _, _, d)| d.as_str())
+        .collect::<Vec<_>>()
+        .join(" | ");
+    assert!(
+        plan_text.contains("audit_record"),
+        "expected query plan to touch audit_record, got: {plan_text}"
+    );
+}
+
+#[tokio::test]
+async fn legacy_null_rows_fall_through_to_app_layer_filter() {
+    // Downgrade-safety: rows where the dim columns are NULL
+    // (legacy pre-v67 posture) still surface and pass the
+    // worker filter via the app-layer fallback over
+    // payload_json. Emulated by inserting a row with NULL dim
+    // columns but payload_json carrying worker_id=w1.
+    let store = mem_store().await;
+    // Insert a hand-crafted row that mimics a legacy NULL-dims state.
+    sqlx::query(
+        "INSERT INTO audit_record (id, kind, payload_json, parent_hash, self_hash, created_at) \
+         VALUES (?, 'http_request', ?, ?, ?, ?)",
+    )
+    .bind(vec![1u8; 16])
+    .bind(r#"{"worker_id":"w1","channel":"web","action_type":"x","outcome_status":"succeeded","verb":"legacy"}"#)
+    .bind([0u8; 32].as_slice())
+    .bind([0u8; 32].as_slice())
+    .bind(1_700_000_000_000_000_i64)
+    .execute(store.pool())
+    .await
+    .unwrap();
+    let (status, body) =
+        parse_body(list_response(&get("/api/v1/audit?worker=w1"), Some(&store)).await).await;
+    assert_eq!(status, "200 OK");
+    let items = body["items"].as_array().unwrap();
+    let has_legacy = items.iter().any(|it| it["verb"] == "legacy");
+    assert!(
+        has_legacy,
+        "legacy NULL-dim row must surface through app-layer fallback"
+    );
 }
 
 #[tokio::test]

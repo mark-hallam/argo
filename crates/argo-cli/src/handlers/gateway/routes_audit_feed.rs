@@ -5,11 +5,28 @@
 //! classification), `?q=` substring search, symbolic range presets
 //! (1h / today / yesterday / 7d / 30d / qtd / lq + custom from/to).
 //!
-//! v1 posture: `audit_record` has no first-class columns for the
-//! 7 dimensions, so the filter pass runs over `payload_json` at the
-//! app layer (`mission-enterprise-audit-full-text-search` indexes
-//! these). Tenant scoping is per-workspace via the `tenant_id` denorm
-//! added by migration 63 (Stream
+//! ## Filter path posture (post-v67 migration)
+//!
+//! The 7 dimensions are first-class columns on `audit_record` per
+//! migration v67 (Stream `mission-enterprise-audit-full-text-search`).
+//! The handler picks a path per request:
+//!
+//! - **Indexed SQL path** (preferred). When the migration is applied
+//!   (detected via `PRAGMA table_info`), the handler builds a SQL
+//!   `WHERE` that ANDs the dim filters directly, using
+//!   `(col IN (?,…) OR col IS NULL)` per dim so legacy rows still
+//!   surface. The app-layer pass then runs to enforce filters on
+//!   any legacy NULL rows that snuck through.
+//! - **App-layer fallback** (downgrade safety). When the column is
+//!   absent (un-migrated DB), the existing `tail_rows_filtered`
+//!   `created_at`-bounded fetch + payload_json filter pass runs
+//!   unchanged. This is the source of correctness — if the SQL path
+//!   and the app-layer path ever diverge, the app-layer is right.
+//!
+//! `?q=` substring search stays app-layer for v1 — SQLite `LIKE` is
+//! fine on 10k rows; FTS5 promotion is closed by a follow-up brief.
+//! Tenant scoping is per-workspace via the `tenant_id` denorm added by
+//! Stream
 //! `mission-enterprise-cross-tenant-audit`). The workspace tenant
 //! resolves from `X-Argo-Tenant-Id` (set upstream from
 //! `argo_config::workspace_tenant_id`); absent → `"ws-default"`.
@@ -24,8 +41,10 @@
 //! bucket is never unioned into cross-tenant probes. PII fence: J2's
 //! [`redact_text`] over a fixed set of string fields.
 
+use super::routes_audit_feed_indexed::fetch_raw_rows;
+use super::routes_audit_feed_scope::{resolve_tenant_scope, row_in_tenant_scope};
 use super::routes_auth_principal::principal_id_for_audit;
-use argo_audit::{tail_rows_filtered, AuditKind, AuditSink, ExportedRow, TailFilters};
+use argo_audit::{AuditKind, AuditSink, ExportedRow};
 use argo_redact::{redact_text, RedactionPolicy};
 use argo_store::SessionStore;
 use base64::{engine::general_purpose, Engine as _};
@@ -33,31 +52,12 @@ use chrono::Datelike;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-/// Tenant id stamped on rows written via the legacy
-/// `AuditSink::new(store)` path (no explicit tenant). Kept in sync
-/// with `argo_audit::sink::DEFAULT_AUDIT_TENANT_ID`. Single-tenant
-/// deployments default to reading both this and the migration-63
-/// `__legacy__` bucket so pre-tenant audit visibility is preserved.
-const DEFAULT_WORKSPACE_TENANT_FALLBACK: &str = "ws-default";
-
-/// Request header naming the workspace tenant whose rows the
-/// caller is scoped to. Set by the gateway dispatcher from
-/// `argo_config::workspace_tenant_id`.
-const HEADER_WORKSPACE_TENANT: &str = "x-argo-tenant-id";
-
-/// Request header asserting the principal has been granted the
-/// `audit.view.cross_tenant` capability. v1 seam — the gateway sets
-/// this header after consulting [`argo_capability::CapabilityEngine`];
-/// the handler trusts it. The follow-up brief replaces the header
-/// with an inline engine check.
-const HEADER_CROSS_TENANT_CAP: &str = "x-argo-audit-cross-tenant";
-
 const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = 200;
 /// Raw-row ceiling per request before the in-memory filter pass —
-/// bounds memory until indexed filtering ships
-/// (`mission-enterprise-audit-full-text-search`).
-const RAW_FETCH_CAP: u32 = 5_000;
+/// bounds memory both on the indexed and the legacy app-layer
+/// fetch paths.
+pub(super) const RAW_FETCH_CAP: u32 = 5_000;
 
 /// `GET /api/v1/audit` — see module docs.
 pub(super) async fn list_response(
@@ -73,11 +73,7 @@ pub(super) async fn list_response(
         Err(resp) => return resp,
     };
     let scope = resolve_tenant_scope(req, &params);
-    let filters = TailFilters {
-        since_micros: params.since_micros,
-        ..Default::default()
-    };
-    let raw = match tail_rows_filtered(store, RAW_FETCH_CAP, &filters).await {
+    let raw = match fetch_raw_rows(store, &params).await {
         Ok(rows) => rows,
         Err(e) => return server_error(&format!("audit fetch: {e}")),
     };
@@ -100,9 +96,15 @@ pub(super) async fn list_response(
         .take(params.limit)
         .collect();
     let next_cursor = (page.len() == params.limit)
-        .then(|| page.last().map(|r| encode_cursor(r.created_at_micros, &r.id)))
+        .then(|| {
+            page.last()
+                .map(|r| encode_cursor(r.created_at_micros, &r.id))
+        })
         .flatten();
-    let items: Vec<Value> = page.iter().map(|row| audit_row_json(row, &policy)).collect();
+    let items: Vec<Value> = page
+        .iter()
+        .map(|row| audit_row_json(row, &policy))
+        .collect();
     emit_feed_audit(store, req, &params, items.len()).await;
     let mut body = json!({ "items": items });
     if let Some(c) = next_cursor {
@@ -111,78 +113,27 @@ pub(super) async fn list_response(
     ("200 OK", body.to_string())
 }
 
-/// Tenant-scoping decision for one request.
-#[derive(Debug, Clone)]
-struct TenantScope {
-    /// The tenant id whose rows we surface.
-    effective: String,
-    /// Whether to UNION the migration-63 `__legacy__` bucket (and
-    /// the `ws-default` sentinel from un-tenanted
-    /// `AuditSink::new` writes). True for the default workspace
-    /// path; false for `?as_tenant=<other>` cross-tenant probes so
-    /// admins can't accidentally pull legacy rows into the wrong
-    /// tenant view.
-    include_legacy: bool,
-}
-
-fn resolve_tenant_scope(req: &str, params: &FeedParams) -> TenantScope {
-    let workspace_tenant = header_value(req, HEADER_WORKSPACE_TENANT)
-        .unwrap_or_else(|| DEFAULT_WORKSPACE_TENANT_FALLBACK.to_string());
-    let cap_granted = header_value(req, HEADER_CROSS_TENANT_CAP)
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
-    match params.as_tenant.as_deref() {
-        Some(other) if cap_granted => TenantScope {
-            effective: other.to_string(),
-            include_legacy: false,
-        },
-        _ => TenantScope {
-            effective: workspace_tenant,
-            include_legacy: true,
-        },
-    }
-}
-
-fn row_in_tenant_scope(row: &ExportedRow, scope: &TenantScope) -> bool {
-    // Pre-migration rows have no `tenant_id` key in payload_json;
-    // they live in the `__legacy__` bucket on disk. The handler
-    // sees them as payload-without-tenant-id.
-    let payload_tenant = row.payload.get("tenant_id").and_then(Value::as_str);
-    match payload_tenant {
-        Some(t) if t == scope.effective => true,
-        Some(_) => false,
-        None => {
-            // Untagged row → either legacy (pre-migration) or
-            // written by `AuditSink::new` before any in-flight
-            // tenant resolution. Surface only on the default
-            // workspace path (`include_legacy = true`); never on a
-            // cross-tenant probe.
-            scope.include_legacy
-        }
-    }
-}
-
 #[derive(Debug, Default)]
-struct FeedParams {
-    limit: usize,
-    since_micros: Option<i64>,
-    to_micros: Option<i64>,
-    q: Option<String>,
-    worker: Vec<String>,
-    channel: Vec<String>,
-    action_type: Vec<String>,
-    status: Vec<String>,
-    approver: Vec<String>,
-    cost_band: Vec<String>,
-    classification: Vec<String>,
-    cursor: Option<(i64, String)>,
-    range: Option<String>,
+pub(super) struct FeedParams {
+    pub(super) limit: usize,
+    pub(super) since_micros: Option<i64>,
+    pub(super) to_micros: Option<i64>,
+    pub(super) q: Option<String>,
+    pub(super) worker: Vec<String>,
+    pub(super) channel: Vec<String>,
+    pub(super) action_type: Vec<String>,
+    pub(super) status: Vec<String>,
+    pub(super) approver: Vec<String>,
+    pub(super) cost_band: Vec<String>,
+    pub(super) classification: Vec<String>,
+    pub(super) cursor: Option<(i64, String)>,
+    pub(super) range: Option<String>,
     /// `?as_tenant=<id>` cross-tenant override. Honored only when
     /// the request carries the `X-Argo-Audit-Cross-Tenant` header;
     /// otherwise silently ignored (the param is still parsed so the
     /// telemetry payload can report whether the caller attempted
     /// the override).
-    as_tenant: Option<String>,
+    pub(super) as_tenant: Option<String>,
 }
 
 fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> {
@@ -200,8 +151,9 @@ fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> 
     };
     let range = query_kv(tail, "range");
     let mut since_micros = match range.as_deref() {
-        Some(r) => range_to_since_micros(r)
-            .ok_or_else(|| bad_request(&format!("unknown range '{r}'")))?,
+        Some(r) => {
+            range_to_since_micros(r).ok_or_else(|| bad_request(&format!("unknown range '{r}'")))?
+        }
         None => None,
     };
     if let Some(from) = query_kv(tail, "from") {
@@ -211,7 +163,9 @@ fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> 
         );
     }
     let to_micros = query_kv(tail, "to")
-        .map(|to| parse_iso_or_micros(&to).ok_or_else(|| bad_request(&format!("invalid to '{to}'"))))
+        .map(|to| {
+            parse_iso_or_micros(&to).ok_or_else(|| bad_request(&format!("invalid to '{to}'")))
+        })
         .transpose()?;
     let cursor = query_kv(tail, "cursor")
         .map(|c| decode_cursor(&c).ok_or_else(|| bad_request("invalid cursor")))
@@ -234,18 +188,6 @@ fn parse_query_params(tail: &str) -> Result<FeedParams, (&'static str, String)> 
     })
 }
 
-fn header_value(req: &str, name_lower: &str) -> Option<String> {
-    let headers = req
-        .split_once("\r\n\r\n")
-        .map_or(req, |(headers, _body)| headers);
-    headers.lines().skip(1).find_map(|line| {
-        let (name, value) = line.split_once(':')?;
-        name.trim()
-            .eq_ignore_ascii_case(name_lower)
-            .then(|| value.trim().to_string())
-    })
-}
-
 fn row_passes_filters(row: &ExportedRow, params: &FeedParams) -> bool {
     let p = &row.payload;
     if !any_or(&params.worker, payload_str(p, "worker_id").as_deref())
@@ -253,7 +195,10 @@ fn row_passes_filters(row: &ExportedRow, params: &FeedParams) -> bool {
         || !any_or(&params.action_type, action_type(row).as_deref())
         || !any_or(&params.status, outcome_status(p).as_deref())
         || !any_or(&params.approver, payload_str(p, "approver_id").as_deref())
-        || !any_or(&params.cost_band, Some(cost_band_label(payload_cost_usd(p))))
+        || !any_or(
+            &params.cost_band,
+            Some(cost_band_label(payload_cost_usd(p))),
+        )
         || !any_or(&params.classification, classification(p).as_deref())
     {
         return false;
@@ -275,9 +220,17 @@ fn row_passes_filters(row: &ExportedRow, params: &FeedParams) -> bool {
 fn audit_row_json(row: &ExportedRow, policy: &RedactionPolicy) -> Value {
     let p = &row.payload;
     let worker_id = payload_str(p, "worker_id").unwrap_or_default();
-    let worker_name = payload_str(p, "worker_name")
-        .unwrap_or_else(|| if worker_id.is_empty() { "unknown".into() } else { worker_id.clone() });
-    let (verb, _) = redact_text(&payload_str(p, "verb").unwrap_or_else(|| row.kind.clone()), policy);
+    let worker_name = payload_str(p, "worker_name").unwrap_or_else(|| {
+        if worker_id.is_empty() {
+            "unknown".into()
+        } else {
+            worker_id.clone()
+        }
+    });
+    let (verb, _) = redact_text(
+        &payload_str(p, "verb").unwrap_or_else(|| row.kind.clone()),
+        policy,
+    );
     let timestamp = chrono::DateTime::<chrono::Utc>::from_timestamp_micros(row.created_at_micros)
         .map_or_else(|| row.created_at_micros.to_string(), |dt| dt.to_rfc3339());
     let approver_json = payload_str(p, "approver_id").map_or(Value::Null, |id| {
@@ -359,9 +312,8 @@ fn decode_cursor(c: &str) -> Option<(i64, String)> {
 fn range_to_since_micros(range: &str) -> Option<Option<i64>> {
     let now = chrono::Utc::now();
     let day_start = |d: chrono::NaiveDate| d.and_hms_opt(0, 0, 0).map(|nd| nd.and_utc());
-    let q_start = |y: i32, qi: u32| {
-        chrono::NaiveDate::from_ymd_opt(y, qi * 3 + 1, 1).and_then(day_start)
-    };
+    let q_start =
+        |y: i32, qi: u32| chrono::NaiveDate::from_ymd_opt(y, qi * 3 + 1, 1).and_then(day_start);
     let cutoff = match range {
         "1h" => Some(now - chrono::Duration::hours(1)),
         "today" => day_start(now.date_naive()),
@@ -371,7 +323,11 @@ fn range_to_since_micros(range: &str) -> Option<Option<i64>> {
         "qtd" => q_start(now.year(), now.date_naive().month0() / 3),
         "lq" => {
             let qi = now.date_naive().month0() / 3;
-            let (y, q) = if qi == 0 { (now.year() - 1, 3) } else { (now.year(), qi - 1) };
+            let (y, q) = if qi == 0 {
+                (now.year() - 1, 3)
+            } else {
+                (now.year(), qi - 1)
+            };
             q_start(y, q)
         }
         _ => return None,
@@ -432,7 +388,12 @@ fn url_decode(s: &str) -> String {
     out
 }
 
-async fn emit_feed_audit(store: &Arc<SessionStore>, req: &str, params: &FeedParams, returned: usize) {
+async fn emit_feed_audit(
+    store: &Arc<SessionStore>,
+    req: &str,
+    params: &FeedParams,
+    returned: usize,
+) {
     let dims: Vec<&str> = [
         ("worker", !params.worker.is_empty()),
         ("channel", !params.channel.is_empty()),
@@ -457,7 +418,12 @@ async fn emit_feed_audit(store: &Arc<SessionStore>, req: &str, params: &FeedPara
     });
     let sink = AuditSink::new(Arc::clone(store));
     if let Err(e) = sink
-        .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            principal_id_for_audit(req),
+        )
         .await
     {
         tracing::warn!(target: "gateway::audit_feed", error = %e, "audit feed telemetry write failed");
@@ -473,7 +439,10 @@ fn server_error(message: &str) -> (&'static str, String) {
 }
 
 fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
-    (status, json!({"error": {"code": code, "message": message}}).to_string())
+    (
+        status,
+        json!({"error": {"code": code, "message": message}}).to_string(),
+    )
 }
 
 #[cfg(test)]

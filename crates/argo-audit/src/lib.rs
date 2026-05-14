@@ -30,12 +30,19 @@
 pub mod archive;
 mod event;
 mod export;
+/// Denormalized filter-dimension extraction shared by the write
+/// path (`sink::AuditSink::write`) and the verify-chain denorm
+/// sanity belt (`verify::verify_session`). Also re-used by the
+/// J14 audit-feed read path's SQL-branch filter wiring.
+pub mod filter_dims;
 mod gap;
 mod replay;
 mod sink;
 mod verify;
 mod watchdog;
 
+#[cfg(test)]
+mod filter_dims_tests;
 #[cfg(test)]
 mod tests;
 

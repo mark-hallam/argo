@@ -14,6 +14,7 @@
 //! one-row-per-transaction path (single-row chain semantics
 //! unchanged).
 use crate::event::AuditKind;
+use crate::filter_dims::{extract_filter_dims, FilterDims};
 use argo_security::pii_detect;
 use argo_store::batched_writer::{self, BatchedWriter};
 use argo_store::SessionStore;
@@ -105,6 +106,10 @@ struct AuditItem {
     principal_id: Option<String>,
     tenant_id: String,
     created_at: DateTime<Utc>,
+    /// Filter dimensions denormalized from `canonical` for the
+    /// J14 audit-feed SQL filter path
+    /// (`mission-enterprise-audit-full-text-search`).
+    filter_dims: FilterDims,
 }
 
 impl std::fmt::Debug for AuditSink {
@@ -230,6 +235,12 @@ impl AuditSink {
         // log-only; redaction requires `ARGO_PII_AUTOREDACT=1`.
         let canonical = pii_detect::scan_and_maybe_redact(&raw, "audit_write").into_owned();
         let now = Utc::now();
+        // Source the denorm dims from the canonical JSON we're about
+        // to store — keeps `verify_chain` denorm sanity check
+        // straightforward (column == extract(payload_json_on_disk)).
+        let canonical_value: serde_json::Value =
+            serde_json::from_str(&canonical).unwrap_or(serde_json::Value::Null);
+        let filter_dims = extract_filter_dims(&canonical_value);
         let item = AuditItem {
             id,
             session_id,
@@ -239,6 +250,7 @@ impl AuditSink {
             principal_id,
             tenant_id: tenant_id.to_string(),
             created_at: now,
+            filter_dims,
         };
         if batched_writer::is_batching_enabled() {
             self.batched.submit(item).await
@@ -366,8 +378,10 @@ async fn insert_one_with_chain(
     let self_hash = chain_hash(parent_hash, item.kind, &item.canonical);
     sqlx::query(
         "INSERT INTO audit_record (id, session_id, kind, payload_json, \
-         parent_hash, self_hash, created_at, principal_id, tenant_id) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         parent_hash, self_hash, created_at, principal_id, tenant_id, \
+         worker_id, channel, action_type, outcome_status, \
+         approver_id, cost_band, data_classification) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(item.id.as_bytes().as_slice())
     .bind(item.session_id.map(|s| s.0.as_bytes().to_vec()))
@@ -378,6 +392,13 @@ async fn insert_one_with_chain(
     .bind(item.created_at.timestamp_micros())
     .bind(item.principal_id.as_deref())
     .bind(&item.tenant_id)
+    .bind(item.filter_dims.worker_id.as_deref())
+    .bind(item.filter_dims.channel.as_deref())
+    .bind(item.filter_dims.action_type.as_deref())
+    .bind(item.filter_dims.outcome_status.as_deref())
+    .bind(item.filter_dims.approver_id.as_deref())
+    .bind(item.filter_dims.cost_band.as_deref())
+    .bind(item.filter_dims.data_classification.as_deref())
     .execute(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;
@@ -428,8 +449,10 @@ async fn flush_audit(
     for (idx, item) in batch.iter().enumerate() {
         sqlx::query(
             "INSERT INTO audit_record (id, session_id, kind, payload_json, \
-             parent_hash, self_hash, created_at, principal_id, tenant_id) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             parent_hash, self_hash, created_at, principal_id, tenant_id, \
+             worker_id, channel, action_type, outcome_status, \
+             approver_id, cost_band, data_classification) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(item.id.as_bytes().as_slice())
         .bind(item.session_id.map(|s| s.0.as_bytes().to_vec()))
@@ -440,6 +463,13 @@ async fn flush_audit(
         .bind(item.created_at.timestamp_micros())
         .bind(item.principal_id.as_deref())
         .bind(&item.tenant_id)
+        .bind(item.filter_dims.worker_id.as_deref())
+        .bind(item.filter_dims.channel.as_deref())
+        .bind(item.filter_dims.action_type.as_deref())
+        .bind(item.filter_dims.outcome_status.as_deref())
+        .bind(item.filter_dims.approver_id.as_deref())
+        .bind(item.filter_dims.cost_band.as_deref())
+        .bind(item.filter_dims.data_classification.as_deref())
         .execute(&mut *tx)
         .await
         .map_err(|e| ArgoError::Provider(format!("audit insert: {e}")))?;

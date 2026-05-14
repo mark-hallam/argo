@@ -36,6 +36,8 @@ mod routes_approvals_json;
 mod routes_audit;
 mod routes_audit_detail;
 mod routes_audit_feed;
+mod routes_audit_feed_indexed;
+mod routes_audit_feed_scope;
 mod routes_audit_rollups;
 mod routes_audit_rollups_tools;
 mod routes_audit_screenshot;

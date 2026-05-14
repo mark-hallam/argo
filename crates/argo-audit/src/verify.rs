@@ -3,7 +3,20 @@
 //! Walks the `audit_record` rows for a session in `seq` order,
 //! recomputes `self_hash` from `(parent_hash, kind, payload_json)`,
 //! and asserts every row matches.
+//!
+//! As of Stream `mission-enterprise-audit-full-text-search`
+//! (migration v67), the verifier also asserts the 7 denormalized
+//! filter columns (worker / channel / action_type / outcome_status
+//! / approver / cost_band / data_classification) match what
+//! [`crate::filter_dims::extract_filter_dims`] re-extracts from the
+//! row's `payload_json`. The columns are an indexed view of the
+//! JSON; if they ever drift, `payload_json` wins and the verifier
+//! flags the row. Legacy rows (pre-v67) write the columns as NULL
+//! and are skipped — only non-NULL columns participate in the
+//! drift check, so the verifier never trips on rows the migration
+//! didn't backfill.
 use crate::event::AuditKind;
+use crate::filter_dims::extract_from_payload_json;
 use crate::sink::compute_chain_hash;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, SessionId};
@@ -44,7 +57,9 @@ pub async fn verify_session(
     session_id: SessionId,
 ) -> ArgoResult<VerifyReport> {
     let rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
-        "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id \
+        "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id, \
+                worker_id, channel, action_type, outcome_status, \
+                approver_id, cost_band, data_classification \
          FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
     )
     .bind(session_id.0.as_bytes().as_slice())
@@ -74,7 +89,9 @@ pub async fn verify_all(store: &SessionStore) -> ArgoResult<VerifyReport> {
     };
     for sid in session_ids {
         let rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
-            "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id \
+            "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id, \
+                    worker_id, channel, action_type, outcome_status, \
+                    approver_id, cost_band, data_classification \
              FROM audit_record WHERE session_id = ? ORDER BY seq ASC",
         )
         .bind(&sid)
@@ -85,7 +102,9 @@ pub async fn verify_all(store: &SessionStore) -> ArgoResult<VerifyReport> {
     }
     // Plus the global (session_id IS NULL) chain.
     let null_rows: Vec<RawRow> = sqlx::query_as::<_, RawRow>(
-        "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id \
+        "SELECT seq, kind, payload_json, parent_hash, self_hash, tenant_id, \
+                worker_id, channel, action_type, outcome_status, \
+                approver_id, cost_band, data_classification \
          FROM audit_record WHERE session_id IS NULL ORDER BY seq ASC",
     )
     .fetch_all(store.pool())
@@ -112,6 +131,15 @@ struct RawRow {
     parent_hash: Vec<u8>,
     self_hash: Vec<u8>,
     tenant_id: String,
+    // Denormalized filter columns (migration v67). NULL for legacy
+    // rows; the verifier only checks drift on non-NULL columns.
+    worker_id: Option<String>,
+    channel: Option<String>,
+    action_type: Option<String>,
+    outcome_status: Option<String>,
+    approver_id: Option<String>,
+    cost_band: Option<String>,
+    data_classification: Option<String>,
 }
 
 fn verify_rows(rows: Vec<RawRow>) -> VerifyReport {
@@ -161,6 +189,18 @@ fn verify_rows(rows: Vec<RawRow>) -> VerifyReport {
                 reason: "unknown audit kind label".into(),
             });
         }
+        // Denorm sanity belt (migration v67): if any of the
+        // denormalized filter columns is non-NULL, re-extract
+        // from payload_json and require an exact match. Legacy
+        // rows (all columns NULL) skip the check.
+        if let Some(reason) = denorm_drift_reason(&row) {
+            report.ok = false;
+            report.breaks.push(ChainBreak {
+                seq: row.seq,
+                kind: row.kind.clone(),
+                reason,
+            });
+        }
         // Stream `mission-enterprise-cross-tenant-audit`: denorm
         // drift check. When `payload_json.tenant_id` is present it
         // must equal the `tenant_id` column. Historical rows
@@ -186,4 +226,50 @@ fn verify_rows(rows: Vec<RawRow>) -> VerifyReport {
         prev_self_hash = Some(self_h);
     }
     report
+}
+
+/// Returns `Some(reason)` when a non-NULL denormalized filter
+/// column drifts from what the canonical `payload_json` re-extracts
+/// to; `None` when the row is legacy (all columns NULL) or when
+/// every populated column matches the JSON.
+fn denorm_drift_reason(row: &RawRow) -> Option<String> {
+    let any_non_null = row.worker_id.is_some()
+        || row.channel.is_some()
+        || row.action_type.is_some()
+        || row.outcome_status.is_some()
+        || row.approver_id.is_some()
+        || row.cost_band.is_some()
+        || row.data_classification.is_some();
+    if !any_non_null {
+        return None;
+    }
+    let extracted = extract_from_payload_json(&row.payload_json)?;
+    for (name, on_disk, from_json) in [
+        ("worker_id", &row.worker_id, &extracted.worker_id),
+        ("channel", &row.channel, &extracted.channel),
+        ("action_type", &row.action_type, &extracted.action_type),
+        (
+            "outcome_status",
+            &row.outcome_status,
+            &extracted.outcome_status,
+        ),
+        ("approver_id", &row.approver_id, &extracted.approver_id),
+        ("cost_band", &row.cost_band, &extracted.cost_band),
+        (
+            "data_classification",
+            &row.data_classification,
+            &extracted.data_classification,
+        ),
+    ]
+    .into_iter()
+    .filter(|(_, on_disk, _)| on_disk.is_some())
+    {
+        if on_disk != from_json {
+            return Some(format!(
+                "denorm column `{name}` drifted from payload_json \
+                 (column={on_disk:?}, payload={from_json:?})"
+            ));
+        }
+    }
+    None
 }
