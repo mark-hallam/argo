@@ -34,6 +34,7 @@ pub mod cred_keyring;
 pub mod defaults;
 pub mod loader;
 mod loader_env;
+mod loader_overrides;
 /// Per-provider TOML knobs parsed off `[provider.<name>]` (currently
 /// the circuit-breaker overrides — `BreakerSection` /
 /// `ProvidersConfig`).
