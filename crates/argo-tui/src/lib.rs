@@ -18,6 +18,7 @@ mod app_navigation;
 mod clipboard;
 mod input;
 mod input_dashboard;
+pub mod input_globals;
 mod input_h_stack;
 mod input_helpers;
 mod input_overlay_dispatch;

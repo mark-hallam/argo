@@ -10,7 +10,7 @@ use crate::input_helpers::{
     force_refresh_open_overlays, handle_message_overlay, pick_yank_at_cursor, pick_yank_text,
     scan_dir_basenames,
 };
-use crate::input_overlay_dispatch::{try_close_overlay, try_open_overlay};
+use crate::input_overlay_dispatch::try_close_overlay;
 use crate::render::draw;
 use crate::viewer::{fetch_message_count, fetch_messages};
 use argo_store::SessionStore;
@@ -183,9 +183,11 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Store-backed overlay openers (F, S, $, K, P, T, A,
-            // E, M) — see input_overlay_dispatch::try_open_overlay.
-            if try_open_overlay(state, &store, &cwd, key.code).await? {
+            // Top-level overlay openers (?, F, S, $, K, P, T, A,
+            // E, M, O, H, B, V, D) live in input_globals so
+            // downstream global-key briefs have a narrow extension
+            // point instead of editing this event loop.
+            if crate::input_globals::dispatch_global_key(state, &store, &cwd, key.code).await? {
                 continue;
             }
             match key.code {
@@ -194,7 +196,6 @@ pub(crate) async fn run(
                     return Ok(());
                 }
                 KeyCode::Tab => state.toggle_focus(),
-                KeyCode::Char('?') => state.help_overlay = true,
                 KeyCode::Char('C') => {
                     // Drop the in-memory live-event trail
                     // without spawning a new turn. Useful when
@@ -214,10 +215,6 @@ pub(crate) async fn run(
                     force_refresh_open_overlays(&store, state).await;
                     last_refresh = std::time::Instant::now();
                 }
-                k @ (KeyCode::Char('O') | KeyCode::Char('H') | KeyCode::Char('B'))
-                    if crate::input_h_stack::try_open_h_stack_overlay(state, k).await => {}
-                KeyCode::Char('V') => crate::input_replay::open_replay_overlay(state),
-                KeyCode::Char('D') => crate::input_dashboard::open_dashboard_overlay(state),
                 KeyCode::Char('o')
                     if matches!(state.focus, PaneFocus::Messages)
                         && !state.selected_messages.is_empty() =>
