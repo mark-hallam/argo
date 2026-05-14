@@ -65,3 +65,21 @@ Pre-empted from the same self-BLOCK pattern that hit M1/M5/M9: workers reasonabl
 - If a gateway endpoint is in scope: register the route in the appropriate `routes_dispatch_*.rs` sibling (post-#1601 split). **≤10 modified lines.**
 
 These edits are mechanical and required for the new code to compile + be reachable. Do NOT widen beyond the brief's original scope (no business logic in lib.rs, no new dependencies beyond what the brief names).
+
+
+## Amendment 2026-05-15 (NEW-crate integration allowance — cascade-unblock for M16-M20)
+
+The generic 2026-05-14 amendment above doesn't cover M15's specific scope of **creating a NEW workspace crate** (`crates/argo-vertical-packs/`) plus a top-level `argo packs` CLI subcommand. Codex correctly self-BLOCKED noting the may-touch list omits the integration files.
+
+Conductor adds these load-bearing edits for new-crate-creation work:
+
+- Workspace root `Cargo.toml` — narrowly: add `crates/argo-vertical-packs` to `[workspace.members]`. **≤3 modified lines.**
+- `crates/argo-cli/src/cli_command_enum.rs` — narrowly: add the `Packs` variant + its argument struct ref. **≤15 modified lines.**
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly: `pub mod packs;` declaration. **≤3 modified lines.**
+- NEW `crates/argo-cli/src/handlers/packs.rs` — the CLI dispatch handler for `argo packs <subcommand>`. **≤200 LOC.**
+- `crates/argo-cli/src/main_dispatch_*.rs` (sibling that owns the matching subcommand dispatch) — narrowly: add the dispatch arm. **≤15 modified lines.**
+- `crates/argo-cli/Cargo.toml` — narrowly: add `argo-vertical-packs = { workspace = true }` dep. **≤5 modified lines.**
+
+These are integration-glue edits required to make `argo packs` a real CLI surface, not an unreachable library. Without them M15 ships a library with no caller, and M16-M20 cannot be install-tested.
+
+**Cascade-unblock**: once M15 ships with this amendment, M16-M20 (5 vertical pack briefs currently BLOCKED on M15) flip TODO automatically.
