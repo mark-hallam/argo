@@ -1,7 +1,7 @@
 # claude-rebase-pr-1447 — recovery brief for stalled #1447 (mission-enterprise-audit-full-text-search)
 
 **Owner**: claude. **Depends on**: nothing (recovery refactor).
-**Authored against**: origin/main `abc8c2ff` on `2026-05-13`.
+**Authored against**: origin/main `b46b0fa2` on `2026-05-14` (REFRESHED — main moved further).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh claude-rebase-pr-1447`.
 
 ## Scope

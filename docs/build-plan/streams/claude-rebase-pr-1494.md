@@ -1,7 +1,7 @@
 # claude-rebase-pr-1494 — recovery brief for stalled #1494 (server-defined approval bundle UI)
 
 **Owner**: claude. **Depends on**: nothing (recovery refactor).
-**Authored against**: origin/main `7c2570ec` on `2026-05-14`.
+**Authored against**: origin/main `b46b0fa2` on `2026-05-14` (REFRESHED — main moved further).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh claude-rebase-pr-1494`.
 
 ## Scope

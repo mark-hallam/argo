@@ -1,7 +1,7 @@
 # claude-rebase-pr-1469 — recovery brief for stalled #1469 (mission-sso-saml-oidc-gateway)
 
 **Owner**: claude. **Depends on**: nothing (recovery refactor).
-**Authored against**: origin/main `b77b7474` on `2026-05-13`.
+**Authored against**: origin/main `b46b0fa2` on `2026-05-14` (REFRESHED — main moved further).
 **Validate before claim**: `bash scripts/check-brief-freshness.sh claude-rebase-pr-1469`.
 
 ## Scope
