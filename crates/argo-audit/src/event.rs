@@ -1,8 +1,7 @@
 //! Typed audit-event kinds.
 //!
-//! Phase-1 kinds (turn boundaries + tool dispatch) plus the 11 v0.2
-//! kinds called out in §17.1: routing, judge, RBAC, forge,
-//! marketplace, replay, lock, steer.
+//! Phase-1 kinds (turn boundaries + tool dispatch) plus the v0.2
+//! kinds called out in §17.1: routing, judge, RBAC, forge, steer.
 use serde::{Deserialize, Serialize};
 
 /// Stable `kind` label persisted in the `audit_record.kind` column.
@@ -36,16 +35,6 @@ pub enum AuditKind {
     ForgeRunStart,
     /// Forge optimization run ended.
     ForgeRunEnd,
-    /// Workspace bundle pushed to the OCI marketplace.
-    MarketplacePush,
-    /// Workspace bundle pulled from the OCI marketplace.
-    MarketplacePull,
-    /// Time-travel session replay started.
-    SessionReplay,
-    /// Lock set or cleared on a memory entry / skill.
-    LockSet,
-    /// Lock violated (denied agent edit).
-    LockViolate,
     /// Steer enqueued onto a running session.
     SteerEnqueued,
     /// A tool dispatch was halted because the bound vertical's
@@ -175,11 +164,6 @@ impl AuditKind {
             Self::RbacDeny => "rbac.deny",
             Self::ForgeRunStart => "forge.run.start",
             Self::ForgeRunEnd => "forge.run.end",
-            Self::MarketplacePush => "marketplace.push",
-            Self::MarketplacePull => "marketplace.pull",
-            Self::SessionReplay => "session.replay",
-            Self::LockSet => "lock.set",
-            Self::LockViolate => "lock.violate",
             Self::SteerEnqueued => "steer.enqueued",
             Self::EscalationRequired => "escalation.required",
             Self::ApprovalGranted => "approval.granted",
@@ -217,11 +201,6 @@ impl AuditKind {
             "rbac.deny" => Self::RbacDeny,
             "forge.run.start" => Self::ForgeRunStart,
             "forge.run.end" => Self::ForgeRunEnd,
-            "marketplace.push" => Self::MarketplacePush,
-            "marketplace.pull" => Self::MarketplacePull,
-            "session.replay" => Self::SessionReplay,
-            "lock.set" => Self::LockSet,
-            "lock.violate" => Self::LockViolate,
             "steer.enqueued" => Self::SteerEnqueued,
             "escalation.required" => Self::EscalationRequired,
             "approval.granted" => Self::ApprovalGranted,
@@ -243,50 +222,6 @@ impl AuditKind {
         })
     }
 
-    /// `true` for kinds added in v0.2 (§17.1).
-    #[must_use]
-    pub fn is_v02(self) -> bool {
-        matches!(
-            self,
-            Self::RoutingDecision
-                | Self::JudgeVerdict
-                | Self::RbacDeny
-                | Self::ForgeRunStart
-                | Self::ForgeRunEnd
-                | Self::MarketplacePush
-                | Self::MarketplacePull
-                | Self::SessionReplay
-                | Self::LockSet
-                | Self::LockViolate
-                | Self::SteerEnqueued
-        )
-    }
-
-    /// `true` for kinds added by the vertical-template surface
-    /// (Phase 6+). Today nine: `EscalationRequired` (#660 gate),
-    /// `ApprovalGranted` (#664 grant), `ApprovalRevoked` (#664
-    /// revoke), `ApprovalConsumed` (#667 one-shot dispatch),
-    /// `CapabilityGap` (#682 detection), `SkillApproved` (#684),
-    /// `SkillRejected` (#684), `SkillCandidatePromoted` (#697
-    /// memory→pending_review materialisation), and
-    /// `SkillRolledBack`. The gateway / CLI
-    /// rollups treat these the same as any other audit kind.
-    #[must_use]
-    pub fn is_vertical(self) -> bool {
-        matches!(
-            self,
-            Self::EscalationRequired
-                | Self::ApprovalGranted
-                | Self::ApprovalRevoked
-                | Self::ApprovalConsumed
-                | Self::CapabilityGap
-                | Self::SkillApproved
-                | Self::SkillRejected
-                | Self::SkillCandidatePromoted
-                | Self::SkillRolledBack
-        )
-    }
-
     /// All known kinds, sorted by label. Used by tests + `argo audit
     /// verify` to enumerate expected events.
     #[must_use]
@@ -303,11 +238,6 @@ impl AuditKind {
             Self::RbacDeny,
             Self::ForgeRunStart,
             Self::ForgeRunEnd,
-            Self::MarketplacePush,
-            Self::MarketplacePull,
-            Self::SessionReplay,
-            Self::LockSet,
-            Self::LockViolate,
             Self::SteerEnqueued,
             Self::EscalationRequired,
             Self::ApprovalGranted,
