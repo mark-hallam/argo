@@ -1,8 +1,6 @@
 //! Lock the Sales Follow-up vertical's manifest classification
-//! (#746). Third vertical binding, mirroring the
-//! `vertical_ai_receptionist.rs` shape — proves the OS layer
-//! is genuinely vertical-agnostic across THREE distinct
-//! domains (marketplace seller, receptionist, sales follow-up).
+//! (#746). Proves the OS layer is genuinely vertical-agnostic
+//! across distinct domains (marketplace seller and sales follow-up).
 
 mod common;
 

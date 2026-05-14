@@ -237,8 +237,8 @@ fn check_provider(manifest: &VerticalManifest, errors: &mut Vec<ValidationError>
 fn check_model_id(path: &str, model_id: &str, errors: &mut Vec<ValidationError>) {
     // Strict mode only catches the degenerate empty case here.
     // The richer `provider/model` shape check is a deliberate
-    // follow-up: existing fixtures (e.g. `verticals/ai-receptionist`,
-    // `verticals/sales-follow-up`) ship a bare provider name in
+    // follow-up: existing fixtures (e.g. `verticals/sales-follow-up`)
+    // ship a bare provider name in
     // `default`, and those fixtures are outside this brief's
     // may-touch list. Tightening the format gate before the
     // fixtures land a fix would block the strict-mode pass on
@@ -300,4 +300,3 @@ fn check_kpis(kpis: &[KpiDefinition], errors: &mut Vec<ValidationError>) {
 #[cfg(test)]
 #[path = "manifest_validate_tests.rs"]
 mod tests;
-

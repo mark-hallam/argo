@@ -113,7 +113,6 @@ fn every_brief_vertical_has_a_kpi_row() {
         "marketplace-seller",
         "recruiter",
         "customer-support",
-        "ai-receptionist",
         "sales-sdr",
         "sales-follow-up",
         "product-manager",

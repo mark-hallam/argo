@@ -3,7 +3,7 @@
 **Owner**: claude. **Depends on**: none.
 **Authored against**: origin/main `392baa27` on `2026-05-13`.
 
-> SOURCE: MISSION_BACKLOG #139. The swarm has shipped ≥20 verticals (customer-support / sales-sdr / marketing-intern / finance-ar / healthcare-intake / recruiter / tax-prep / product-manager / real-estate-agent / customer-onboarding / data-entry-clerk / event-coordinator / fundraising-coordinator / hr-screener / legal-paralegal / marketplace-seller / medical-coder / ops-on-call / procurement-assistant / qa-engineer / receptionist / ai-receptionist / executive-assistant / pr-checker / lead-research / bookkeeping-assistant). Each one has eval fixtures (`eval/seed.jsonl`) but no per-vertical regression test that runs the eval suite against the vertical's actual manifest + verifies the expected actions emit. Add it. **Tier-vertical-infra.**
+> SOURCE: MISSION_BACKLOG #139. The swarm has shipped ≥20 verticals (customer-support / sales-sdr / marketing-intern / finance-ar / healthcare-intake / recruiter / tax-prep / product-manager / real-estate-agent / customer-onboarding / data-entry-clerk / event-coordinator / fundraising-coordinator / hr-screener / legal-paralegal / marketplace-seller / medical-coder / ops-on-call / procurement-assistant / qa-engineer / receptionist / executive-assistant / pr-checker / lead-research / bookkeeping-assistant). Each one has eval fixtures (`eval/seed.jsonl`) but no per-vertical regression test that runs the eval suite against the vertical's actual manifest + verifies the expected actions emit. Add it. **Tier-vertical-infra.**
 
 ## Scope
 

@@ -1,7 +1,6 @@
 # Sales Follow-up — example outputs
 
-Companion to `examples/marketplace-seller/` and
-`examples/ai-receptionist/`. Shows what SKYCOT produces when
+Companion to `examples/marketplace-seller/`. Shows what SKYCOT produces when
 running the `sales-follow-up` vertical against typical
 warm-lead follow-up prompts.
 

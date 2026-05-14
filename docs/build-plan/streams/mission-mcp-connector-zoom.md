@@ -4,7 +4,7 @@
 **Authored against**: origin/main `55047304` on `2026-05-11`.
 **Validate before claim**: `bash scripts/check-brief-freshness.sh mission-mcp-connector-zoom`.
 
-> SOURCE: MISSION_BACKLOG.md Section 3 Claim 5 #108 ("Add MCP connector Zoom/Microsoft Teams"). The earlier `codex-connector-zoom` brief (PR #1006) was closed-as-obsolete during pre-Mac-migration cleanup; this is the re-queue under the established connector template, narrowed to Zoom Server-to-Server OAuth (Microsoft Teams is a separate follow-up brief — it uses MS Graph). Several verticals (ai-receptionist, customer-support, sales-sdr) need Zoom to schedule + retrieve meeting recordings without leaving the agent loop.
+> SOURCE: MISSION_BACKLOG.md Section 3 Claim 5 #108 ("Add MCP connector Zoom/Microsoft Teams"). The earlier `codex-connector-zoom` brief (PR #1006) was closed-as-obsolete during pre-Mac-migration cleanup; this is the re-queue under the established connector template, narrowed to Zoom Server-to-Server OAuth (Microsoft Teams is a separate follow-up brief — it uses MS Graph). Several verticals (support-tier1, customer-support, sales-sdr) need Zoom to schedule + retrieve meeting recordings without leaving the agent loop.
 
 ## Scope
 

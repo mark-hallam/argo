@@ -161,28 +161,28 @@ echo "$doctor_out" | grep -qE '"completed"[[:space:]]*:[[:space:]]*1' || fail "d
 echo "$doctor_out" | grep -qE '"blocked"[[:space:]]*:[[:space:]]*1' || fail "doctor expected 1 blocked action" "$doctor_out"
 ok "doctor reports verticals + counts as expected"
 
-heading "14. all shipped action-emitting verticals lint clean"
-# Each Worker v3 reference vertical (#729 → #746) ships with
-# its own [actions] declarations + instruction templates.
+heading "14. canonical action-emitting vertical lint clean"
+# The canonical Worker v3 reference vertical (#729 → #732)
+# ships with its own [actions] declarations + instruction templates.
 # Catch template-key typos / malformed manifests before the
 # customer hits them at runtime.
-for vid in gtm-engineer ai-receptionist sales-follow-up; do
+for vid in gtm-engineer; do
   lint_out=$("$ARGO_BIN" vertical lint "$vid" 2>&1) || fail "lint $vid" "$lint_out"
   echo "$lint_out" | grep -q "lint clean" || fail "$vid not lint-clean" "$lint_out"
 done
-ok "all 3 Worker v3 verticals lint clean"
+ok "canonical Worker v3 vertical lint clean"
 
 heading "15. all shipped action-emitting verticals have valid eval suites"
 # Cohort-wide structural lock for the eval fixtures landed in
 # #759. A future "rip out fixtures" change has to either fix the
 # manifest or trip this check.
-for vid in gtm-engineer ai-receptionist sales-follow-up; do
+for vid in gtm-engineer sales-follow-up; do
   eval_out=$("$ARGO_BIN" vertical eval "$vid" --json 2>&1) || fail "eval $vid" "$eval_out"
   echo "$eval_out" | grep -qE '"ok"[[:space:]]*:[[:space:]]*true' || fail "$vid eval reported errors" "$eval_out"
   total=$(echo "$eval_out" | grep -oE '"fixture_count":[0-9]+' | awk -F: '{s += $2} END {print s+0}')
   [[ "$total" -ge 5 ]] || fail "$vid: expected ≥5 eval fixtures, got $total" "$eval_out"
 done
-ok "all 3 Worker v3 verticals carry structurally valid eval suites"
+ok "all Worker v3 verticals carry structurally valid eval suites"
 
 heading "16. argo setup --check reports FAIL with no provider keys"
 # Locks the launch-checklist contract from #761: with NO

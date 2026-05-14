@@ -57,22 +57,21 @@ OS's approval-gated state machine), see
 | `pr-checker` | Advisory PR review against project invariants | no | v0.1.0 (#652) |
 | `receptionist` | Front-desk visitor triage with intent classification + escalation | no (pre-v3) | v0.1.0 (#657) |
 | `gtm-engineer` | Marketplace seller — research → draft listings → approval-gated post | yes — 10 actions | v0.1.0 (#729 → #732) |
-| `ai-receptionist` | Front-desk worker for inbound call/email triage with calendar booking | yes — 6 actions | v0.0.1 (#743) |
 | `sales-follow-up` | Warm-lead follow-up with research → draft → approval-gated send → CRM logging | yes — 6 actions | v0.0.1 (#746) |
 
 The set covers a deliberate spread: technical/structured
 (pr-checker), conversational soft-skilled (receptionist),
-research-heavy commerce (gtm-engineer), interrupt-driven
-triage (ai-receptionist), high-volume outbound (sales-follow-up).
-Five verticals running through the same runtime, sharing zero
+research-heavy commerce (gtm-engineer), high-volume outbound
+(sales-follow-up). Four verticals running through the same runtime,
+sharing zero
 domain-specific code in the platform crates — that's the
 abstraction working.
 
 When authoring a NEW vertical:
 
 - For action-emitting workers, copy `gtm-engineer`,
-  `ai-receptionist`, or `sales-follow-up` (whichever shape is
-  closest). They show the `[actions]` section, instruction
+  or `sales-follow-up` (whichever shape is closest). They
+  show the `[actions]` section, instruction
   templates, per-platform overrides.
 - For non-action verticals, copy `pr-checker` (technical /
   read-only) or `receptionist` (conversational / pre-v3).

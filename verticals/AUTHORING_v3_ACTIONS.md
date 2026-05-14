@@ -70,12 +70,11 @@ set — copy the closest one to your domain:
 | Vertical             | Autonomous-safe                                          | Approval-gated                                                                                                          |
 |----------------------|----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `gtm-engineer`       | `verify_price`, `request_photos`, `create_listing_draft` | `post_listing`, `boost_listing`, `update_price`, `relist_item`, `mark_item_sold`, `reply_to_buyer`, `follow_up_buyer`   |
-| `ai-receptionist`    | `lookup_contact`, `draft_meeting_request`, `take_message`| `send_calendar_invite`, `forward_call`, `send_followup_email`                                                            |
 | `sales-follow-up`    | `research_lead`, `find_contact`, `draft_followup`        | `send_followup_email`, `schedule_followup_cadence`, `log_to_crm`                                                         |
 
 ## The classification pattern that works
 
-The pattern that holds across all three reference verticals:
+The pattern that holds across the reference verticals:
 
 - **Research / draft / message-capture is autonomous-safe.** The
   worker can do these in parallel without human review.
@@ -209,8 +208,8 @@ fixture's `actual` field if present — otherwise the row reports
 CI runs the structural check + the rule engine over a known-good
 actuals file in the repo.
 
-The Worker v3 cohort (`gtm-engineer`, `ai-receptionist`,
-`sales-follow-up`) each ship suites covering:
+The Worker v3 cohort (`gtm-engineer`, `sales-follow-up`) each
+ship suites covering:
 
 - the autonomous-safe / approval-gated split (worker emits
   `requires_approval` rows correctly for high-risk actions);

@@ -91,12 +91,6 @@ const CUSTOMER_SUPPORT: &[BulletKind] = &[
     b(BulletSource::Pending, "1 pending escalation", "{n} pending escalations"),
 ];
 
-const AI_RECEPTIONIST: &[BulletKind] = &[
-    b(BulletSource::Messages, "1 call handled today", "{n} calls handled today"),
-    b(BulletSource::ToolCalls, "1 meeting scheduled today", "{n} meetings scheduled today"),
-    b(BulletSource::Pending, "1 pending callback", "{n} pending callbacks"),
-];
-
 const SALES_SDR: &[BulletKind] = &[
     b(BulletSource::Messages, "1 outreach email sent today", "{n} outreach emails sent today"),
     b(BulletSource::ToolCalls, "1 meeting booked", "{n} meetings booked"),
@@ -177,7 +171,6 @@ pub fn bullets_for_vertical(vertical_id: &str) -> &'static [BulletKind] {
         "gtm-engineer" | "marketplace-seller" => GTM_ENGINEER,
         "recruiter" => RECRUITER,
         "customer-support" => CUSTOMER_SUPPORT,
-        "ai-receptionist" => AI_RECEPTIONIST,
         "sales-sdr" => SALES_SDR,
         "sales-follow-up" => SALES_FOLLOW_UP,
         "product-manager" => PRODUCT_MANAGER,

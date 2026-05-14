@@ -45,13 +45,12 @@ Short version: **the worker does the legwork; you keep the keys.**
 
 ## What ships in v1
 
-Ten vertical bindings ship in the repo (snapshot 2026-05-07; run
+Nine vertical bindings ship in the repo (snapshot 2026-05-07; run
 `ls verticals/` for the live list — the directory is the
 source-of-truth):
 
 ```
 verticals/gtm-engineer/        # marketplace seller — the v1 reference vertical
-verticals/ai-receptionist/     # front-desk worker
 verticals/customer-support/    # support triage
 verticals/finance-ar/          # accounts-receivable clerk
 verticals/marketing-intern/    # marketing intern
@@ -66,10 +65,10 @@ verticals/sales-sdr/           # outbound SDR
 marketplace-action types (verify_price, post_listing,
 mark_item_sold, reply_to_buyer, …) with per-platform
 instruction templates for ebay / facebook_marketplace /
-gumtree. The other nine verticals are configuration-only (no
+gumtree. The other eight verticals are configuration-only (no
 shared Rust code beyond the OS-level Worker v3 contract).
 
-Authoring an eleventh vertical is a TOML-and-prompt-only
+Authoring a tenth vertical is a TOML-and-prompt-only
 task; see the `verticals/` directory + `argo vertical lint
 <id>` for the path. The 12 archetypes covered by `argo genesis
 list-archetypes` are the standard-template starting points.
@@ -88,15 +87,11 @@ list-archetypes` are the standard-template starting points.
    sample prompts that work, a hand-crafted artifact bundle showing
    what the worker writes to disk, and an operator-flow walkthrough
    of the 6 typical decision points per run.
-5. **[Examples — AI receptionist](../../examples/ai-receptionist/)** —
-   6 inbound triage prompts (sales call, support call, recruiter,
-   spam, ambiguous, urgent calendar coordination) + a hand-crafted
-   sample bundle showing receptionist-domain artifact shape.
-6. **[Examples — Sales Follow-up](../../examples/sales-follow-up/)** —
+5. **[Examples — Sales Follow-up](../../examples/sales-follow-up/)** —
    5 lead scenarios (post-demo nudge, post-trial check-in, role
    change signal, podcast signal, dropped-lead handling) + sample
    research / draft / approval checklist.
-7. **[Launch readiness](launch_readiness.md)** — single-page
+6. **[Launch readiness](launch_readiness.md)** — single-page
    confidence audit: every shipped capability, what's locked in
    tests, what's intentionally out of v1 scope, and the
    pre-launch checklist.

@@ -11,8 +11,8 @@ CI gate, the worker KPI tracker, and dashboards.
 schema_version = "1"
 
 [vertical]
-id      = "ai-receptionist"
-name    = "AI Receptionist"
+id      = "gtm-engineer"
+name    = "GTM Engineer"
 version = "0.3.0"
 
 # Declarative KPIs. Zero or more entries; order is preserved.

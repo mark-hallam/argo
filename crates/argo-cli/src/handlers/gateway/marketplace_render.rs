@@ -25,7 +25,6 @@ const DETAIL_TPL: &str = include_str!("marketplace_templates/marketplace_detail.
 /// entries here when a new vertical lands; the test below pins the
 /// canonical set.
 pub(super) const VERTICAL_LABELS: &[&str] = &[
-    "ai-receptionist",
     "customer-support",
     "event-coordinator",
     "finance-ar",
@@ -341,6 +340,6 @@ mod tests {
         // request time. See module-level docs.
         assert!(VERTICAL_LABELS.contains(&"customer-support"));
         assert!(VERTICAL_LABELS.contains(&"marketplace-seller"));
-        assert_eq!(VERTICAL_LABELS.len(), 17);
+        assert_eq!(VERTICAL_LABELS.len(), 16);
     }
 }

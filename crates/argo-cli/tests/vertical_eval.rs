@@ -132,7 +132,7 @@ fn cli_eval_pr_checker_real_asset_passes() {
     );
 }
 
-/// Lock the three Worker v3 verticals' eval suites (#759).
+/// Lock the Worker v3 verticals' eval suites (#759).
 /// Each vertical must declare at least one suite, every fixture
 /// must be structurally valid, and the suites must carry a
 /// minimum-coverage floor so a future "rip out fixtures" PR
@@ -150,7 +150,6 @@ fn cli_eval_worker_v3_verticals_real_assets_pass() {
     // (vertical id, minimum total fixtures across all declared suites)
     let cohort = [
         ("gtm-engineer", 15_u64),
-        ("ai-receptionist", 5_u64),
         ("sales-follow-up", 5_u64),
     ];
     for (id, min_fixtures) in cohort {

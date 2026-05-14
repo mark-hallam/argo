@@ -68,5 +68,4 @@ channel=message, time_of_day=evening, tone=formal
 # Charter boundary
 
 This skill **never** schedules, dispatches SMS, or writes to a
-CRM. Those scopes belong to the sibling `ai-receptionist`
-vertical. Greeting only.
+CRM. Greeting only.

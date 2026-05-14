@@ -45,7 +45,6 @@ bindings"), every literal requirement has shipped:
 | `argo worker doctor` health-check           | High       | #739, #740  | unit (counts, dedup, recent-failed) + smoke check #13 |
 | `argo work jobs list` — read-side queue     | High       | #742        | unit (pending/completed merge + filter) |
 | Cross-vertical isolation                    | High       | #741        | end-to-end integration: actions emitted under A invisible to B |
-| Second vertical binding (AI Receptionist)   | High       | #743        | manifest classification lock + lint-clean integration |
 | Third vertical binding (Sales Follow-up)    | High       | #746        | manifest classification lock + lint-clean integration |
 | End-to-end smoke verification               | High       | #734, #740, #749 | 20-check shell script: lint + eval + setup --check all 3 v3 verticals + BrowserExecutor + Slack approval roundtrip |
 | Retry policy w/ max_attempts + force        | High       | #755        | unit (count_retry_chain) + integration (force override) |
@@ -71,7 +70,6 @@ bindings"), every literal requirement has shipped:
 - `docs/skycot/provider_keys.md` — local-dev secrets flow + production patterns (env / systemd / k8s Secret / Vault) + key rotation + production launch checklist (#758).
 - `docs/skycot/CHANGELOG.md` — customer-facing release notes per SKYCOT version.
 - `examples/marketplace-seller/` — 8 sample prompts, hand-crafted artifact bundle, 6-decision-point operator flow.
-- `examples/ai-receptionist/` — 6 inbound triage prompts + sample bundle.
 - `examples/sales-follow-up/` — 5 lead scenarios + sample research / draft / approval checklist.
 - `scripts/smoke-skycot.sh` — 20-check end-to-end install verification (mock provider; checks 1–18 are no-API-key; checks 19–20 invoke `cargo test` integration smokes for BrowserExecutor and Slack approval roundtrip).
 
@@ -84,13 +82,6 @@ bindings"), every literal requirement has shipped:
   create_listing_draft). Per-platform instruction templates
   for `ebay` and `facebook_marketplace` on `post_listing`.
 
-- **`verticals/ai-receptionist/` — front-desk worker (#743).**
-  6 declared action types. Autonomous-safe: `lookup_contact`,
-  `draft_meeting_request`, `take_message`. Approval-gated:
-  `send_calendar_invite` (with a Google-Calendar-specific
-  template override), `forward_call`, `send_followup_email`
-  (HIGH RISK).
-
 - **`verticals/sales-follow-up/` — warm-lead follow-up
   worker (#746).** 6 declared action types. Autonomous-safe:
   `research_lead`, `find_contact`, `draft_followup`.
@@ -98,13 +89,13 @@ bindings"), every literal requirement has shipped:
   (per-platform templates ready for hubspot / salesforce /
   close), `send_followup_email` (HIGH RISK).
 
-The original three v3-cohort verticals (gtm-engineer / ai-receptionist /
-sales-follow-up) share zero code beyond the OS-level Worker v3 contract
+The v3-cohort verticals (gtm-engineer / sales-follow-up) share zero
+code beyond the OS-level Worker v3 contract
 — proving vertical authoring is genuinely TOML-and-prompt-only. As of
-2026-05-07 the repo ships **10 vertical bindings total** (`ls
-verticals/` — gtm-engineer / ai-receptionist / customer-support /
+2026-05-07 the repo ships vertical bindings under `verticals/` —
+gtm-engineer / customer-support /
 finance-ar / marketing-intern / marketplace-seller / pr-checker /
-receptionist / sales-follow-up / sales-sdr); the seven additions are
+receptionist / sales-follow-up / sales-sdr); the additional bindings are
 configuration-only, lint-clean against `argo vertical lint`, and
 mirror the same Worker v3 contract.
 
@@ -169,7 +160,7 @@ Before the first paying customer:
 Local verification across the worker stack:
 
 - 80+ unit tests under `crates/argo-cli/src/handlers/{worker_actions*, worker_doctor, work_jobs, gateway/metrics_actions}` and the `worker_actions_*` sibling test files.
-- 14+ integration tests under `crates/argo-cli/tests/{work_action_*, vertical_ai_receptionist, vertical_sales_follow_up, vertical_eval}` including the cohort-wide `cli_eval_worker_v3_verticals_real_assets_pass` lock.
+- Integration tests under `crates/argo-cli/tests/{work_action_*, vertical_sales_follow_up, vertical_eval}` including the cohort-wide `cli_eval_worker_v3_verticals_real_assets_pass` lock.
 - All authored files under the 500-LOC budget.
 - `cargo clippy --workspace --all-targets -- -D warnings` clean.
 - `cargo test --workspace` exit 0 (modulo the pre-existing OCI port-binding flake which is documented in `MEMORY.md`).

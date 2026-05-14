@@ -64,7 +64,6 @@ per-worker as part of building the response.
 | gtm-engineer / marketplace-seller | replies sent, pending counter-offers, revenue this week |
 | recruiter | interviews booked this week, candidates screened today, pending rejection drafts |
 | customer-support | tickets resolved today, avg response time, pending escalations |
-| ai-receptionist | calls handled today, scheduled meetings today, pending callbacks |
 | sales-sdr | outreach emails sent today, meetings booked, pending follow-ups |
 | sales-follow-up | follow-ups sent today, deals advanced, pending approvals |
 | product-manager | feedback items triaged, specs drafted, pending stakeholder updates |

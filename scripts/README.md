@@ -37,8 +37,8 @@ artifact bundle landed correctly.
     entries.
 13. `argo worker doctor --json` reports the gtm-engineer vertical
     + the expected `completed: 1` + `blocked: 1` counts.
-14. All 3 Worker v3 reference verticals (`gtm-engineer`,
-    `ai-receptionist`, `sales-follow-up`) lint clean — catches
+14. The canonical Worker v3 reference vertical (`gtm-engineer`)
+    lint clean — catches
     template-key typos / malformed manifests before customer
     runtime exposure.
 

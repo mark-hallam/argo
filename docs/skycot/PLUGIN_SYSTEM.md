@@ -10,7 +10,7 @@ distribute a Genesis vertical pack out-of-band.
 ## Why this doc
 
 V3.0 is closing in on feature-completeness for the in-tree
-verticals (gtm-engineer, ai-receptionist, sales-sdr, …).
+verticals (gtm-engineer, sales-sdr, sales-follow-up, …).
 The next axis of growth is **third-party extensibility**:
 customers want to ship verticals without forking the
 workspace, partners want executors that hit SaaS APIs we

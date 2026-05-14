@@ -194,7 +194,7 @@ fn provider_default_well_formed_passes() {
 
 #[test]
 fn provider_default_bare_provider_passes_today() {
-    // Some shipping fixtures (ai-receptionist, sales-follow-up) use
+    // Some shipping fixtures (sales-follow-up) use
     // `default = "anthropic"` without a model suffix. Strict mode
     // tolerates this for now; tightening the format gate is a
     // follow-up gated on fixing those fixtures.

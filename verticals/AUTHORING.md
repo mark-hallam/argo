@@ -20,11 +20,10 @@ ship a working agent without touching the core platform crates.
 > | `pr-checker`             | Reviews pull requests against repo-specific style + invariant rules.                          |
 > | `receptionist`           | Original AI-receptionist reference (pre-Worker-v3 actions).                                   |
 > | `gtm-engineer`           | Marketplace seller — researches comps, drafts listings, queues posts for approval.            |
-> | `ai-receptionist`        | Front-desk worker (Worker v3 actions). Triage, schedule, take messages.                      |
 > | `sales-follow-up`        | Warm-lead follow-up — research, draft, send (approval-gated), schedule cadence, log to CRM.   |
 >
-> The last three (`gtm-engineer`, `ai-receptionist`,
-> `sales-follow-up`) are the **Worker v3** reference set —
+> The last two (`gtm-engineer`, `sales-follow-up`) are the
+> **Worker v3** reference set —
 > they declare an `[actions]` section so the worker can
 > propose external-world actions through the OS's approval-
 > gated state machine. Prefer these as templates for any
@@ -298,8 +297,8 @@ boundary the OS enforces in code.
 
 See **[`AUTHORING_v3_ACTIONS.md`](AUTHORING_v3_ACTIONS.md)**
 for the full walkthrough: field reference, three reference
-action vocabularies (gtm-engineer / ai-receptionist /
-sales-follow-up), the classification pattern that works, and
+action vocabularies (gtm-engineer / sales-follow-up), the
+classification pattern that works, and
 the safety-boundary lock test every action-emitting vertical
 should ship.
 
