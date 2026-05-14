@@ -15,12 +15,9 @@
 //!   non-deflated variant as a fallback when the
 //!   `Content-Encoding` hint is absent. A follow-up brief layers
 //!   DEFLATE if interop signal demands it.
-//! * ACS handler parses the response structurally — extracts
-//!   `<saml:NameID>` and the `<saml:Attribute>` rows. XML
-//!   signature verification is deferred to a follow-up brief that
-//!   pairs with an XML-DSig library; the parsed `idp_cert_pem`
-//!   is stored on [`argo_config::SsoSamlTenant`] for that future
-//!   step.
+//! * ACS handler verifies the XML-DSig signature against the
+//!   configured IdP certificate before consuming the assertion, then
+//!   extracts `<saml:NameID>` and `<saml:Attribute>` rows.
 //! * JIT provisioning: a successful ACS sets a signed session
 //!   cookie under the configured `[sso].cookie_name`.
 
@@ -30,7 +27,10 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use super::sso_session::{self, set_cookie_header, SessionPayload};
+use super::sso_session::{self, SessionPayload, set_cookie_header};
+
+#[path = "sso_saml_xmlsig.rs"]
+mod sso_saml_xmlsig;
 
 /// True for the SAML route surface: `/auth/saml/<tenant>/login`
 /// and `/auth/saml/<tenant>/acs`.
@@ -120,7 +120,10 @@ pub(super) fn build_authn_request(
     let mut url = tcfg.idp_sso_url.clone();
     let sep = if url.contains('?') { '&' } else { '?' };
     url.push(sep);
-    url.push_str(&format!("SAMLRequest={}", super::sso_oidc::url_encode(&b64)));
+    url.push_str(&format!(
+        "SAMLRequest={}",
+        super::sso_oidc::url_encode(&b64)
+    ));
     Ok(AuthnRequestRedirect {
         url,
         request_id: id,
@@ -146,7 +149,9 @@ async fn handle_login(
     OsRng.fill_bytes(&mut rid);
     let redirect = match build_authn_request(tenant, cfg, rid, chrono::Utc::now()) {
         Ok(r) => r,
-        Err(e) => return write_simple(out, "400 Bad Request", &format!(r#"{{"error":"{e}"}}"#)).await,
+        Err(e) => {
+            return write_simple(out, "400 Bad Request", &format!(r#"{{"error":"{e}"}}"#)).await;
+        }
     };
     let resp = format!(
         "HTTP/1.1 302 Found\r\nLocation: {}\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n",
@@ -173,9 +178,9 @@ pub(super) fn build_acs_outcome(
     secret: &str,
     now: chrono::DateTime<chrono::Utc>,
 ) -> AcsOutcome {
-    if !cfg.saml.contains_key(tenant) {
+    let Some(tcfg) = cfg.saml.get(tenant) else {
         return err_outcome("400 Bad Request", "tenant not configured");
-    }
+    };
     let form = parse_form(body);
     let raw = match form.iter().find(|(k, _)| k == "SAMLResponse") {
         Some((_, v)) => v.clone(),
@@ -189,6 +194,11 @@ pub(super) fn build_acs_outcome(
         Ok(s) => s,
         Err(_) => return err_outcome("400 Bad Request", "response not utf8"),
     };
+    if sso_saml_xmlsig::verify_saml_response(xml, &tcfg.idp_cert_pem, now, saml_clock_skew())
+        .is_err()
+    {
+        return unauthorized_outcome();
+    }
     let (sub, email) = match extract_name_id(xml) {
         Some(t) => t,
         None => return err_outcome("400 Bad Request", "no NameID"),
@@ -227,7 +237,14 @@ async fn handle_acs(
     let body = super::body_from_request(req);
     let secret = match super::routes_channels::hmac_secret() {
         Ok(s) => s,
-        Err(_) => return write_simple(out, "500 Internal Server Error", r#"{"error":"hmac secret"}"#).await,
+        Err(_) => {
+            return write_simple(
+                out,
+                "500 Internal Server Error",
+                r#"{"error":"hmac secret"}"#,
+            )
+            .await;
+        }
     };
     let outcome = build_acs_outcome(body, tenant, cfg, &secret, chrono::Utc::now());
     let mut head = format!(
@@ -292,7 +309,10 @@ fn extract_attribute_value(xml: &str, key: &str) -> Option<String> {
         let after = &xml[abs..];
         let close = after.find('>')?;
         let header = &after[..close];
-        if header.to_lowercase().contains(&format!("name=\"{key_lc}\"")) {
+        if header
+            .to_lowercase()
+            .contains(&format!("name=\"{key_lc}\""))
+        {
             let body_after = &after[close + 1..];
             let body_lc = body_after.to_lowercase();
             // Match `<attributevalue` or `<NS:attributevalue` —
@@ -375,9 +395,27 @@ pub(super) fn b64_std_decode(s: &str) -> Result<Vec<u8>, base64::DecodeError> {
 
 fn load_cfg() -> Result<argo_config::SsoConfig, String> {
     let cwd = std::env::current_dir().map_err(|e| format!("cwd: {e}"))?;
-    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml"))
-        .map_err(|e| format!("load: {e}"))?;
+    let cfg =
+        argo_config::ArgoConfig::load(&cwd.join("argo.toml")).map_err(|e| format!("load: {e}"))?;
     Ok(cfg.sso)
+}
+
+fn saml_clock_skew() -> chrono::Duration {
+    let seconds = std::env::var("ARGO_SAML_CLOCK_SKEW_SECS")
+        .ok()
+        .and_then(|s| s.parse::<i64>().ok())
+        .filter(|s| *s >= 0)
+        .unwrap_or(60);
+    chrono::Duration::seconds(seconds)
+}
+
+fn unauthorized_outcome() -> AcsOutcome {
+    AcsOutcome {
+        status: "401 Unauthorized",
+        body: String::new(),
+        location: None,
+        set_cookie: None,
+    }
 }
 
 fn err_outcome(status: &'static str, msg: &str) -> AcsOutcome {

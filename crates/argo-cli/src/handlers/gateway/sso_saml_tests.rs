@@ -14,7 +14,7 @@ fn cfg_with_tenant(name: &str) -> SsoConfig {
             idp_sso_url: "https://idp.example.com/sso".into(),
             sp_entity_id: "https://sp.example.com/saml".into(),
             acs_url: format!("https://sp.example.com/auth/saml/{name}/acs"),
-            idp_cert_pem: String::new(),
+            idp_cert_pem: sso_saml_xmlsig::tests::TEST_CERT_PEM.into(),
         },
     );
     SsoConfig {
@@ -50,7 +50,10 @@ fn parse_saml_path_matches_login_and_acs() {
 fn build_authn_request_emits_valid_redirect_url() {
     let cfg = cfg_with_tenant("default");
     let r = build_authn_request("default", &cfg, [9_u8; 16], fixed_instant()).unwrap();
-    assert!(r.url.starts_with("https://idp.example.com/sso?SAMLRequest="));
+    assert!(
+        r.url
+            .starts_with("https://idp.example.com/sso?SAMLRequest=")
+    );
     // Decode the SAMLRequest base64 and confirm key fields appear
     // verbatim in the XML body.
     let qs = r.url.split_once("?SAMLRequest=").unwrap().1;
@@ -102,7 +105,11 @@ fn extract_name_id_falls_back_to_sub_when_no_email_attribute() {
 #[test]
 fn build_acs_outcome_sets_session_cookie_on_success() {
     let cfg = cfg_with_tenant("default");
-    let xml = "<saml:NameID>alice</saml:NameID>";
+    let xml = sso_saml_xmlsig::tests::signed_response(
+        "alice",
+        "2026-05-12T14:59:00Z",
+        "2026-05-12T15:05:00Z",
+    );
     let b64 = b64_std_encode(xml.as_bytes());
     let body = format!(
         "SAMLResponse={}&RelayState=",
@@ -121,4 +128,25 @@ fn build_acs_outcome_sets_session_cookie_on_success() {
     assert!(sc.contains("argo_sso="));
     assert!(sc.contains("HttpOnly"));
     assert!(sc.contains("Secure"));
+}
+
+#[test]
+fn build_acs_outcome_rejects_unsigned_response() {
+    let cfg = cfg_with_tenant("default");
+    let xml = "<saml:NameID>alice</saml:NameID>";
+    let b64 = b64_std_encode(xml.as_bytes());
+    let body = format!(
+        "SAMLResponse={}&RelayState=",
+        super::super::sso_oidc::url_encode(&b64)
+    );
+    let outcome = build_acs_outcome(
+        &body,
+        "default",
+        &cfg,
+        "saml-test-secret-must-be-32-chars-or-more",
+        fixed_instant(),
+    );
+    assert_eq!(outcome.status, "401 Unauthorized");
+    assert!(outcome.body.is_empty());
+    assert!(outcome.set_cookie.is_none());
 }
