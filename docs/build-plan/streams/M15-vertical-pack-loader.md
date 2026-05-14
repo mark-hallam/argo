@@ -54,3 +54,14 @@ LOC: ~900. Branch: `claude-M15-vertical-pack-loader`. PR title: `feat(packs): ve
 The packs repo is `https://github.com/mark-hallam/skycot-packs` (PRIVATE while build phase). Pack URLs in `pack.toml` should use this path for now. Operator has not settled on long-term hosting — the URL may change pre-v1.0 release; treat as configuration, not a hardcoded constant. Add a `[fetcher] base_url = "..."` knob in the pack-loader config so swapping the URL is a TOML edit, not a code change.
 
 The repo is private; the fetcher must auth via GitHub token (use existing `GH_TOKEN` / `GITHUB_TOKEN` env-var precedent the rest of the codebase follows).
+
+
+## Amendment 2026-05-14 (may-touch widening)
+
+Pre-empted from the same self-BLOCK pattern that hit M1/M5/M9: workers reasonably reported the original may-touch was too narrow to ship a real (non-scaffold) implementation. Conductor adds these load-bearing edits to the allowed surface:
+
+- The containing crate's `lib.rs` — narrowly: add `pub mod <new_module>;` declaration. **≤10 modified lines.**
+- The containing crate's `Cargo.toml` — narrowly: add any required `[dependencies]` line for sibling argo-* crates that this brief consumes. **≤5 modified lines.**
+- If a gateway endpoint is in scope: register the route in the appropriate `routes_dispatch_*.rs` sibling (post-#1601 split). **≤10 modified lines.**
+
+These edits are mechanical and required for the new code to compile + be reachable. Do NOT widen beyond the brief's original scope (no business logic in lib.rs, no new dependencies beyond what the brief names).
