@@ -14,6 +14,11 @@ pub mod batched_writer;
 /// who can decide them, and a deadline + `default_decision` the
 /// downstream timeout sweep promotes stale rows by.
 pub mod approvals;
+/// Server-defined approval bundles (Stream
+/// `mission-approval-bundle-ui`). A worker that emits N coherent
+/// low-risk actions can group them under one bundle id so the
+/// operator decides the whole batch atomically.
+pub mod approval_bundle;
 /// Typed scaffold for blob storage — `AttachedBlob`, `BlobRef`,
 /// `BlobStore` trait, and an in-memory test impl. No persistence yet
 /// (Stream `claude-store-attached-blob-layer`); downstream
@@ -260,7 +265,8 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 67;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 68;
+
 
 #[cfg(test)]
 #[path = "lib_tests.rs"]

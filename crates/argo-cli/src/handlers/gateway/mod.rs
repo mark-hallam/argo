@@ -32,6 +32,7 @@ mod rate_limit_ip;
 mod rate_limit_tenant;
 mod request_audit;
 mod routes;
+mod routes_approval_bundles;
 mod routes_approvals_json;
 mod routes_audit;
 mod routes_audit_detail;

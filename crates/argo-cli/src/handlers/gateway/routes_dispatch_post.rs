@@ -176,6 +176,23 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_dispatch_delete::dispatch_delete(req, store).await {
         return Some(resp);
     }
+    // `mission-approval-bundle-ui` — bundle endpoints. Must come
+    // BEFORE the J1 `dispatch_approvals` sub-dispatcher so `/bundles`
+    // doesn't get matched as an `<id>` segment.
+    if req.starts_with("POST /api/v1/approvals/bundles ")
+        || req.starts_with("POST /api/v1/approvals/bundles?")
+    {
+        return Some(super::routes_approval_bundles::create_response(req, store).await);
+    }
+    if let Some(rest) = req.strip_prefix("POST /api/v1/approvals/bundles/") {
+        if let Some((id, tail)) = rest.split_once('/') {
+            if tail.starts_with("decide ") || tail.starts_with("decide?") {
+                return Some(
+                    super::routes_approval_bundles::decide_response(id, req, store).await,
+                );
+            }
+        }
+    }
     // J11 — worker pause / resume / archive lifecycle POSTs.
     if let Some(rest) = req.strip_prefix("POST /api/v1/workers/") {
         if let Some((head, _)) = rest.split_once(' ') {

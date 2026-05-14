@@ -39,6 +39,14 @@ pub(super) async fn dispatch_get(
     if req.starts_with("GET /auth/status ") || req.starts_with("GET /auth/status?") {
         return Some(auth_status_response());
     }
+    // `mission-approval-bundle-ui` — server-defined approval bundles.
+    // MUST come before the J1 `GET /api/v1/approvals` arm so the more
+    // specific `/bundles` path wins prefix-match dispatch.
+    if req.starts_with("GET /api/v1/approvals/bundles ")
+        || req.starts_with("GET /api/v1/approvals/bundles?")
+    {
+        return Some(super::routes_approval_bundles::list_response(req, store).await);
+    }
     // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
     // bearer credential; mounted here so list/read calls reach the
     // dedicated `scim_auth` gate. The operator-facing bearer gate in

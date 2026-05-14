@@ -11,6 +11,7 @@ import {
   IDLE_BATCH_UI,
   type BatchUiState,
 } from "@/components/skycot/BatchGroupBlock";
+import { BundleCard } from "@/components/skycot/BundleCard";
 import { CelebrationBanner } from "@/components/skycot/CelebrationBanner";
 import { DataSourceChip } from "@/components/skycot/DataSourceChip";
 import { FilterChipRail } from "@/components/skycot/FilterChipRail";
@@ -29,6 +30,10 @@ import {
   useSubmitDecision,
   useUndoDecision,
 } from "@/lib/hooks/use-approvals";
+import {
+  useApprovalBundles,
+  useDecideBundle,
+} from "@/lib/hooks/use-approval-bundles";
 import {
   maskedCategories,
   redactPII,
@@ -65,6 +70,8 @@ export default function ApprovalsInboxPage() {
 
 function ApprovalsInboxShell() {
   const approvalsQuery = useApprovals();
+  const bundlesQuery = useApprovalBundles();
+  const decideBundle = useDecideBundle();
   const submitDecision = useSubmitDecision();
   const undoDecision = useUndoDecision();
   const batchSubmit = useBatchSubmitDecisions();
@@ -245,10 +252,30 @@ function ApprovalsInboxShell() {
             message={(approvalsQuery.error as Error)?.message ?? "Couldn't load approvals"}
             onRetry={() => approvalsQuery.refetch()}
           />
-        ) : filteredByAll.length === 0 ? (
+        ) : filteredByAll.length === 0 && (bundlesQuery.data?.length ?? 0) === 0 ? (
           <EmptyState query={query} hasFilters={!isFilterEmpty(filters)} onClearAll={handleClearAll} />
         ) : (
           <>
+            {(bundlesQuery.data?.length ?? 0) > 0 ? (
+              <section
+                aria-label="Pending action bundles"
+                className="space-y-4"
+                data-testid="bundle-rail"
+              >
+                {bundlesQuery.data!.map((bundle) => (
+                  <BundleCard
+                    key={bundle.bundleId}
+                    bundleId={bundle.bundleId}
+                    label={bundle.label}
+                    count={bundle.count}
+                    members={bundle.members}
+                    onDecide={(decision) =>
+                      decideBundle.mutate({ bundleId: bundle.bundleId, decision })
+                    }
+                  />
+                ))}
+              </section>
+            ) : null}
             <ApprovalDaySection
               label="Today"
               items={dayGroups.today}

@@ -337,6 +337,36 @@ Missing required values produce errors like
 dispatch result and logs. Notify is best-effort: a channel
 failure does not change the approval gate decision.
 
+### 5.4 Approval bundles
+
+`/api/v1/approvals/bundles` groups N coherent approvals under one
+operator decision (Stream `mission-approval-bundle-ui`). The worker
+posts a bundle when it emits a batch of similar low-risk actions;
+the operator decides the whole group atomically.
+
+```bash
+# Worker creates a bundle:
+curl -sX POST -H "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  -d '{"label":"8 social-media replies","members":["a1","a2","a3"]}' \
+  http://127.0.0.1:8734/api/v1/approvals/bundles
+
+# List pending bundles for the workspace tenant:
+curl -sH "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  "http://127.0.0.1:8734/api/v1/approvals/bundles?status=pending"
+
+# Operator decides the bundle:
+curl -sX POST -H "Authorization: Bearer $ARGO_GATEWAY_BEARER_TOKEN" \
+  -d '{"decision":"approve"}' \
+  http://127.0.0.1:8734/api/v1/approvals/bundles/<id>/decide
+```
+
+Atomicity: the bundle decision cascades to every still-pending
+member through the existing worker-actions state machine. Members
+that were already decided individually before the bundle was
+resolved stay at their terminal state — the response's
+`members_skipped` count surfaces this. Bundle status is
+`pending → approved | refused` (no undo in v1).
+
 ---
 
 Next: [Drive the first action](actions.md).

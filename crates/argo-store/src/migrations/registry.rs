@@ -14,7 +14,7 @@ use super::{
     v15, v16, v17, v18, v19, v20, v21_skill_ab_tests, v22, v23, v24, v25, v26, v27, v28, v29, v30,
     v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49,
     v50, v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62, v63, v64,
-    v65, v66, v67,
+    v65, v66, v67, v68,
 };
 
 pub(crate) async fn run(pool: &Pool<Sqlite>) -> Result<(), ArgoError> {
@@ -451,6 +451,11 @@ pub(crate) fn all_migrations() -> Vec<Migration> {
             version: 67,
             up: |tx| Box::pin(v67::up(tx)),
             down: |tx| Box::pin(v67::down(tx)),
+        },
+        Migration {
+            version: 68,
+            up: |tx| Box::pin(v68::up(tx)),
+            down: |tx| Box::pin(v68::down(tx)),
         },
     ]
 }
