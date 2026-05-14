@@ -74,6 +74,8 @@ pub mod screenshot_persist;
 pub mod success_metric;
 #[cfg(any(test, feature = "test-harness"))]
 pub mod testing;
+#[cfg(any(test, feature = "test-harness"))]
+pub mod testing_mocks;
 
 pub use config::CuConfig;
 pub use e2b_reap::{E2bReapReport, E2bSandboxInfo};
