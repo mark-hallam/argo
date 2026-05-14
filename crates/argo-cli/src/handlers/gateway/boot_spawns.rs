@@ -10,9 +10,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use argo_config::SiemConfig;
 use argo_orchestrator::{
-    spawn_duty_scheduler, ClosedGate, DutyScheduler, DutyStore, OrchestratorStore,
-    WorkerSupervisor,
+    spawn_duty_scheduler, ClosedGate, DutyScheduler, DutyStore, OrchestratorStore, WorkerSupervisor,
+};
+use argo_siem::{
+    spawn_siem_dispatcher, DatadogLogsSink, ElasticSink, SiemDispatcherConfig, SiemSink,
+    SplunkHecSink,
 };
 use argo_store::attached_blob::{BlobStore, MemoryAttachedBlob};
 use argo_store::SessionStore;
@@ -142,6 +146,96 @@ pub(super) fn spawn_gateway_duty_scheduler(store: Arc<SessionStore>) -> AbortOnD
         scheduler,
         Duration::from_secs(interval_secs),
     ))
+}
+
+/// Build the right [`SiemSink`] for the configured backend and spawn
+/// the dispatcher. Returns `None` when `enabled = false` (default),
+/// when the backend label is unrecognised, or when the sink fails to
+/// construct (logged at boot, not fatal — the gateway still serves
+/// without SIEM shipping).
+pub(super) fn spawn_siem_from_config(
+    store: Arc<SessionStore>,
+    cfg: &SiemConfig,
+) -> Option<AbortOnDrop> {
+    if !cfg.enabled {
+        return None;
+    }
+    let dispatcher_cfg = SiemDispatcherConfig {
+        interval: if cfg.interval_secs == 0 {
+            Duration::from_secs(argo_siem::dispatcher::DEFAULT_INTERVAL_SECS)
+        } else {
+            Duration::from_secs(cfg.interval_secs)
+        },
+    };
+    let sink: Arc<dyn SiemSink> = match cfg.backend.as_str() {
+        "splunk" => match SplunkHecSink::new(
+            cfg.endpoint.clone(),
+            cfg.token.clone(),
+            if cfg.sourcetype.is_empty() {
+                None
+            } else {
+                Some(cfg.sourcetype.clone())
+            },
+        ) {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                eprintln!("argo gateway: siem splunk sink build failed ({e}); dispatcher disabled");
+                return None;
+            }
+        },
+        "elastic" => match ElasticSink::new(
+            cfg.endpoint.clone(),
+            cfg.token.clone(),
+            if cfg.index.is_empty() {
+                None
+            } else {
+                Some(cfg.index.clone())
+            },
+        ) {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                eprintln!(
+                    "argo gateway: siem elastic sink build failed ({e}); dispatcher disabled"
+                );
+                return None;
+            }
+        },
+        "datadog" => match DatadogLogsSink::new(
+            cfg.endpoint.clone(),
+            cfg.token.clone(),
+            None,
+            if cfg.service.is_empty() {
+                None
+            } else {
+                Some(cfg.service.clone())
+            },
+        ) {
+            Ok(s) => Arc::new(s),
+            Err(e) => {
+                eprintln!(
+                    "argo gateway: siem datadog sink build failed ({e}); dispatcher disabled"
+                );
+                return None;
+            }
+        },
+        other => {
+            eprintln!(
+                "argo gateway: siem backend '{other}' not recognised \
+                 (expected splunk|elastic|datadog); dispatcher disabled"
+            );
+            return None;
+        }
+    };
+    eprintln!(
+        "argo gateway: siem dispatcher enabled — backend={} endpoint={}",
+        sink.backend(),
+        sink.endpoint(),
+    );
+    Some(AbortOnDrop::new(spawn_siem_dispatcher(
+        store,
+        sink,
+        dispatcher_cfg,
+    )))
 }
 
 /// Construct the `WorkerSupervisor` for the gateway process. Held

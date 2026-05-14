@@ -377,4 +377,43 @@ Three caveats:
    stage that joins continuation lines until the next leading
    `INFO|WARN|...` token.
 
+### 9.9 SIEM integration
+
+Enterprise tenants can ship every `audit_record` row to a Splunk
+HEC / Elasticsearch `_bulk` / Datadog Logs endpoint in real time.
+Opt in by flipping `[siem] enabled = true` in `argo.toml`; the
+gateway spawns a periodic dispatcher under its existing sweeper
+conditional, tails `audit_record` ordered by `seq`, batches per sink,
+and ships with retry-on-5xx plus exponential backoff. A persistent
+`siem_dispatch_cursor` row, created at first run with `CREATE TABLE
+IF NOT EXISTS`, records the high-water `seq` per `(backend, endpoint)`
+so a crash and restart resumes from `last_seq + 1` without replay and
+without duplicate batches.
+
+Minimal config:
+
+```toml
+[siem]
+enabled  = true
+backend  = "splunk"  # one of: "splunk" | "elastic" | "datadog"
+endpoint = "https://splunk.example.com:8088"
+token    = "${SPLUNK_HEC_TOKEN}"  # set via env in production
+```
+
+Splunk uses the cluster base URL and appends `/services/collector`
+with `Authorization: Splunk <token>`. Elastic uses the cluster base
+URL and appends `/_bulk`, with optional `Authorization` from `token`
+and an NDJSON body. Datadog uses the full v2 logs intake URL and sends
+the token as the `DD-API-KEY` header. Tokens and API keys are wrapped
+in a `SecretString` shim so `Debug` and `tracing` field rendering show
+`<redacted>`.
+
+Defaults keep the dispatcher off: `enabled = false` means no task
+spawn, no schema touch, and no HTTP client. Permanent failures, such
+as 4xx responses after exhausted retries, advance the cursor past the
+poison batch so a single malformed row cannot stall shipping;
+transient failures retry with exponential backoff up to five times
+before being reclassified as permanent. v1 ships one sink per gateway,
+so operators with multiple SIEMs run multiple gateways.
+
 ---

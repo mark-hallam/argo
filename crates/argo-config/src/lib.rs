@@ -54,6 +54,7 @@ mod sections_prompt_cache;
 mod sections_routing;
 mod sections_sandbox_prewarm;
 mod sections_security;
+mod sections_siem;
 mod sections_sso;
 mod sections_streaming_retry;
 mod sections_telemetry;
@@ -73,8 +74,8 @@ pub use sections::{
     GatewayRateLimitConfig, GatewayRateLimitTenantConfig, GatewayRequestAuditConfig,
     IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
     PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
-    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, SsoConfig, SsoOidcTenant,
-    SsoSamlTenant, TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, SiemConfig, SsoConfig,
+    SsoOidcTenant, SsoSamlTenant, TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
@@ -202,6 +203,10 @@ pub struct ArgoConfig {
     /// `[security]` — at-rest encryption, compliance posture, and
     /// gateway defence-in-depth gates.
     pub security: SecurityConfig,
+    /// `[siem]` — opt-in SIEM dispatcher (Splunk HEC / Elastic
+    /// `_bulk` / Datadog Logs). Default-off; gateway boot only
+    /// spawns the dispatcher when `enabled = true`.
+    pub siem: SiemConfig,
     /// Bookkeeping for which fields a particular layer explicitly
     /// set. Skipped at serde so TOML parses round-trip cleanly.
     #[serde(skip)]

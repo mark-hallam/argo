@@ -33,6 +33,7 @@ members = [
   "crates/argo-judge",
   "crates/argo-forge",
   "crates/argo-replay",
+  "crates/argo-siem",
   "crates/argo-marketplace",
   "crates/argo-identity",
   "crates/argo-redact",

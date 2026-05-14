@@ -21,6 +21,7 @@
 //! - [`crate::sections_channels`] — `[channels]`, `[channels.teams]`, `[channels.matrix]`
 //! - [`crate::sections_executor`] — `[document_csv]`, `[document_gsuite]`
 //! - [`crate::sections_security`] — `[security]`, `[security.encryption]`, `[security.hipaa]`
+//! - [`crate::sections_siem`] — `[siem]` (Splunk HEC / Elastic `_bulk` / Datadog Logs dispatcher)
 //! - [`crate::sections_sso`] — `[sso]`, `[sso.oidc.*]`, `[sso.saml.*]`
 
 pub use crate::sections_audit::AuditConfig;
@@ -37,5 +38,6 @@ pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, Routi
 pub use crate::sections_security::{
     IpAllowlistConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig,
 };
+pub use crate::sections_siem::SiemConfig;
 pub use crate::sections_sso::{SsoConfig, SsoOidcTenant, SsoSamlTenant};
 pub use crate::sections_telemetry::TelemetryConfig;
