@@ -236,6 +236,7 @@ mod session_transcript;
 mod session_turns;
 mod session_watch;
 pub mod self_update;
+mod self_update_install;
 pub mod setup;
 pub mod setup_render;
 pub mod operator_risk_overrides;
