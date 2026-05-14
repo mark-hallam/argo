@@ -18,18 +18,21 @@
 //!   `routes_dispatch_post` already carries non-POST routes (DELETE
 //!   for elevated-view, PATCH for retros).
 //! - `namespace_id` is hidden from the `delegator` role.
-use super::routes_auth_principal::principal_id_for_audit;
-use crate::home::cwd_workspace;
-use argo_audit::{AuditKind, AuditSink};
-use argo_identity::{IdentityStore, MemoryScope, Worker, WorkerId};
 use argo_memory::{MemoryEntry, MemoryFile, MemoryStore, PrincipalOverride};
 use argo_redact::{redact_text, RedactionPolicy};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, TenantId};
-use chrono::{DateTime, TimeZone, Utc};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use uuid::Uuid;
+
+#[path = "routes_worker_memory_helpers.rs"]
+mod helpers;
+
+use helpers::{
+    emit_audit, fact_json, fetch_active_facts, fetch_owned_active_fact, format_namespace_id,
+    not_found, parse_fact_id, parse_role_header, parse_text_body, parse_worker_id,
+    resolve_worker_ctx, role_shows_ns, server_error, voice_profile_json, WorkerCtx,
+};
 
 const FACT_MAX_BYTES: usize = 1000;
 const ROLE_HEADER: &str = "X-Argo-Role";
@@ -84,7 +87,7 @@ pub(super) async fn fact_create_response(
         Ok(t) => t,
         Err(r) => return r,
     };
-    let workspace = match cwd_workspace(store).await {
+    let workspace = match crate::home::cwd_workspace(store).await {
         Ok(w) => w,
         Err(e) => return server_error(&format!("cwd_workspace: {e}")),
     };
@@ -246,232 +249,6 @@ async fn prepare_with_existing_fact<'s>(
         Err(e) => return Err(server_error(&format!("fact lookup: {e}"))),
     };
     Ok((store, ctx, text, fact_id, existing))
-}
-
-// ----- lookup + validation -------------------------------------------------
-
-struct WorkerCtx {
-    tenant: TenantId,
-    worker: Worker,
-}
-
-fn parse_worker_id(raw: &str) -> Result<WorkerId, (&'static str, String)> {
-    let t = raw.split('?').next().unwrap_or(raw);
-    t.parse::<WorkerId>()
-        .map_err(|e| bad_request(&format!("invalid worker_id '{t}': {e}")))
-}
-
-fn parse_fact_id(raw: &str) -> Result<Uuid, (&'static str, String)> {
-    let t = raw.split('?').next().unwrap_or(raw);
-    Uuid::parse_str(t).map_err(|e| bad_request(&format!("invalid fact_id '{t}': {e}")))
-}
-
-fn parse_text_body(req: &str) -> Result<String, (&'static str, String)> {
-    let parsed: Value = serde_json::from_str(super::body_from_request(req))
-        .map_err(|e| bad_request(&format!("parse JSON body: {e}")))?;
-    let raw = parsed
-        .get("text")
-        .and_then(Value::as_str)
-        .ok_or_else(|| bad_request("missing `text` field"))?
-        .to_string();
-    if raw.trim().is_empty() {
-        return Err(bad_request("empty text"));
-    }
-    if raw.len() > FACT_MAX_BYTES {
-        return Err(bad_request(&format!("text exceeds {FACT_MAX_BYTES}-byte limit")));
-    }
-    if raw.contains(FACT_TOMBSTONE_MARKER) {
-        return Err(bad_request("text contains reserved tombstone marker"));
-    }
-    Ok(raw)
-}
-
-async fn resolve_worker_ctx(
-    store: &Arc<SessionStore>,
-    worker_id: WorkerId,
-) -> Result<WorkerCtx, (&'static str, String)> {
-    let tenant = resolve_workspace_tenant(store)
-        .await
-        .map_err(|e| server_error(&format!("resolve tenant: {e}")))?;
-    match IdentityStore::new(store).get_worker(tenant, worker_id).await {
-        Ok(Some(worker)) => Ok(WorkerCtx { tenant, worker }),
-        // Cross-tenant / cross-worker / unknown all surface as 404 —
-        // per acceptance criteria, don't leak existence.
-        Ok(None) => Err(not_found(&format!("worker {worker_id} not found"))),
-        Err(e) => Err(server_error(&format!("get worker: {e}"))),
-    }
-}
-
-async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
-    let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
-    let root = cwd.to_string_lossy();
-    let (tenant, _) = store.ensure_workspace(name, &root).await?;
-    Ok(tenant)
-}
-
-fn parse_role_header(req: &str) -> Option<String> {
-    let headers = req.split_once("\r\n\r\n").map_or(req, |(h, _)| h);
-    headers.lines().skip(1).find_map(|line| {
-        let (n, v) = line.split_once(':')?;
-        n.eq_ignore_ascii_case(ROLE_HEADER).then(|| v.trim().to_ascii_lowercase())
-    })
-}
-
-fn role_shows_ns(role: &str) -> bool {
-    matches!(role, "operator" | "auditor" | "compliance-officer" | "compliance_officer")
-}
-
-fn format_namespace_id(worker: &Worker) -> String {
-    let ns = &worker.memory_namespace;
-    format!("{}/{}", ns.tenant_id, ns.worker_id)
-}
-
-fn scope_str(scope: MemoryScope) -> &'static str {
-    match scope {
-        MemoryScope::WorkerSelf => "worker_self",
-        MemoryScope::Role => "role",
-        MemoryScope::SharedTeam => "shared_team",
-    }
-}
-
-// ----- fact storage --------------------------------------------------------
-
-struct FactRow {
-    id: Uuid,
-    body: String,
-    learned_at: DateTime<Utc>,
-}
-
-async fn fetch_active_facts(
-    store: &Arc<SessionStore>,
-    ctx: &WorkerCtx,
-) -> ArgoResult<Vec<FactRow>> {
-    let ns = &ctx.worker.memory_namespace;
-    let rows: Vec<(Vec<u8>, String, i64)> = sqlx::query_as(
-        "SELECT id, body, learned_at FROM memory_entry \
-         WHERE tenant_id = ? AND worker_id = ? AND memory_scope = ? \
-           AND file = ? AND superseded_by IS NULL AND body != ? \
-         ORDER BY learned_at ASC",
-    )
-    .bind(ns.tenant_id.0.as_bytes().as_slice())
-    .bind(ns.worker_id.0.as_bytes().as_slice())
-    .bind(scope_str(ns.scope))
-    .bind(MemoryFile::Memory.filename())
-    .bind(FACT_TOMBSTONE_MARKER)
-    .fetch_all(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("fact list: {e}")))?;
-    rows.into_iter()
-        .map(|(id_bytes, body, learned_at)| {
-            let id = Uuid::from_slice(&id_bytes)
-                .map_err(|e| ArgoError::Provider(format!("memory_entry.id parse: {e}")))?;
-            let learned_at = Utc.timestamp_micros(learned_at).single().ok_or_else(|| {
-                ArgoError::Provider(format!("memory_entry.learned_at oob: {learned_at}"))
-            })?;
-            Ok(FactRow { id, body, learned_at })
-        })
-        .collect()
-}
-
-/// `Ok(None)` for unknown / cross-tenant / cross-worker / tombstoned
-/// ids so the caller surfaces one uniform 404.
-async fn fetch_owned_active_fact(
-    store: &Arc<SessionStore>,
-    ctx: &WorkerCtx,
-    fact_id: Uuid,
-) -> ArgoResult<Option<MemoryEntry>> {
-    let memory = MemoryStore::new(Arc::clone(store));
-    let entry = match memory.get(fact_id).await {
-        Ok(e) => e,
-        Err(ArgoError::Schema(_)) => return Ok(None),
-        Err(e) => return Err(e),
-    };
-    if entry.file != MemoryFile::Memory
-        || entry.superseded_by.is_some()
-        || entry.body == FACT_TOMBSTONE_MARKER
-    {
-        return Ok(None);
-    }
-    let owner: Option<(Vec<u8>, Vec<u8>, String)> = sqlx::query_as(
-        "SELECT tenant_id, worker_id, memory_scope FROM memory_entry WHERE id = ?",
-    )
-    .bind(fact_id.as_bytes().as_slice())
-    .fetch_optional(store.pool())
-    .await
-    .map_err(|e| ArgoError::Provider(format!("fact owner probe: {e}")))?;
-    let Some((tenant_bytes, worker_bytes, scope)) = owner else {
-        return Ok(None);
-    };
-    let ns = &ctx.worker.memory_namespace;
-    let matches = tenant_bytes == ns.tenant_id.0.as_bytes()
-        && worker_bytes == ns.worker_id.0.as_bytes()
-        && scope == scope_str(ns.scope);
-    Ok(matches.then_some(entry))
-}
-
-fn fact_json(row: &FactRow, policy: &RedactionPolicy) -> Value {
-    let (text, _) = redact_text(&row.body, policy);
-    json!({
-        "fact_id": row.id.to_string(),
-        "text": text,
-        "created_at": row.learned_at.to_rfc3339(),
-    })
-}
-
-// ----- voice profile -------------------------------------------------------
-
-fn voice_profile_json(worker: &Worker) -> Value {
-    let v = &worker.persona.voice_profile;
-    json!({
-        "preamble": v.preamble,
-        "tone": format!("{:?}", v.tone).to_ascii_lowercase(),
-        "formality": format!("{:?}", v.formality).to_ascii_lowercase(),
-        "lexicon": v.lexicon,
-        "forbidden_phrases": v.forbidden_phrases,
-    })
-}
-
-async fn emit_audit(
-    store: &Arc<SessionStore>,
-    req: &str,
-    ctx: &WorkerCtx,
-    endpoint: &str,
-    extra: Value,
-) {
-    let mut payload = json!({
-        "endpoint": endpoint,
-        "tenant_id": ctx.tenant.to_string(),
-        "worker_id": ctx.worker.id.to_string(),
-    });
-    if let (Some(map), Some(obj)) = (payload.as_object_mut(), extra.as_object()) {
-        for (k, v) in obj {
-            map.insert(k.clone(), v.clone());
-        }
-    }
-    if let Err(e) = AuditSink::new(Arc::clone(store))
-        .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
-        .await
-    {
-        tracing::warn!(target: "gateway::worker_memory", error = %e, "audit write failed");
-    }
-}
-
-fn bad_request(message: &str) -> (&'static str, String) {
-    envelope("400 Bad Request", "bad_request", message)
-}
-fn not_found(message: &str) -> (&'static str, String) {
-    envelope("404 Not Found", "not_found", message)
-}
-fn server_error(message: &str) -> (&'static str, String) {
-    envelope("500 Internal Server Error", "internal_error", message)
-}
-fn envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
-    (
-        status,
-        json!({ "error": { "code": code, "message": message } }).to_string(),
-    )
 }
 
 #[cfg(test)]
