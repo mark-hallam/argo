@@ -375,7 +375,7 @@ claude-subtask-ledger
     status todo|claimed|completed. CLI "argo workers tasks
     <worker>" + GET /workers/{id}/tasks.
   May touch: argo-orchestrator/src/subtask.rs (new),
-    argo-gateway/src/tasks.rs (new endpoint),
+    argo-cli/src/handlers/gateway/routes_tasks.rs (new endpoint),
     argo-cli/src/workers.rs
   Acceptance: ledger persists across restarts; status
     transitions append-only; gateway returns JSON sub-task

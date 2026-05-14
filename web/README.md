@@ -118,7 +118,7 @@ The home page is currently a static demo; live gateway wiring
 ## Authentication
 
 Auth is bridged from NextAuth v5 to the gateway's bearer-token
-flow (see `crates/argo-gateway` for the server side).
+flow (see `crates/argo-cli/src/handlers/gateway/` for the server side).
 
 1. **Token issuance.** Operator-side; mint via the gateway CLI:
    `argo gateway token issue --tenant <id> --role <role>`. The

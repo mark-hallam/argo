@@ -129,7 +129,6 @@ members = [
   "crates/argo-sandbox",
   "crates/argo-plugin",
   "crates/argo-mcp",
-  "crates/argo-gateway",
   "crates/argo-cli",
   "crates/argo-tui",
   "crates/argo-audit",
@@ -216,7 +215,7 @@ EOF
 mkdir -p crates
 for crate in argo-types argo-config argo-store argo-capability argo-provider \
              argo-tool argo-memory argo-skill argo-cron argo-delegate \
-             argo-sandbox argo-plugin argo-mcp argo-gateway argo-cli \
+             argo-sandbox argo-plugin argo-mcp argo-cli \
              argo-tui argo-audit argo-telemetry argo-eval argo-core \
              argo-acp argo-routing argo-judge argo-forge argo-replay \
              argo-marketplace; do

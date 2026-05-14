@@ -58,7 +58,7 @@ bearer secret. Concrete instances:
 | Approval-token signing | Single HMAC secret, environment-wide | `crates/argo-channels/src/token.rs:54-74` (sign), `:120-131` (verify) |
 | Peer mesh auth | Single shared bearer (`ARGO_PEER_SECRET`); plaintext HTTP; bypass via `ARGO_GATEWAY_AUTH_BYPASS=1` | `crates/argo-cli/src/handlers/gateway/peer.rs:86-89,190,272`; `routes_peer.rs:66-87` |
 | Store connection | Local SQLite file path; no network DB driver | `crates/argo-store/src/lib.rs:236-277`; `crates/argo-cli/src/home.rs:23-25` |
-| Inter-process TLS | None. No `rustls` / `native-tls` / `x509` deps in store, gateway, or CLI | `crates/argo-gateway/Cargo.toml`, `crates/argo-store/Cargo.toml`, `crates/argo-cli/Cargo.toml` |
+| Inter-process TLS | None. No `rustls` / `native-tls` / `x509` deps in store, gateway, or CLI | `crates/argo-store/Cargo.toml`, `crates/argo-cli/Cargo.toml` (gateway lives under `argo-cli/src/handlers/gateway/`) |
 | Config schema | No `[security]` / `[tls]` / `[trust]` blocks exist to extend | `crates/argo-config/src/sections.rs:1-68` |
 
 The pattern: every inter-service hop either trusts the network

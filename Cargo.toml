@@ -20,7 +20,6 @@ members = [
   "crates/argo-mcp",
   "crates/argo-mcp-connector-shared",
   "crates/argo-mcp-connector-slack",
-  "crates/argo-gateway",
   "crates/argo-cli",
   "crates/argo-tui",
   "crates/argo-voice-tui",

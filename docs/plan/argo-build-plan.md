@@ -215,8 +215,10 @@ argo/
 │   ├── argo-sandbox/                  # exec backends (local + docker)
 │   ├── argo-plugin/                   # plugin host (subprocess + JSON-RPC)
 │   ├── argo-mcp/                      # MCP client + server
-│   ├── argo-gateway/                  # messaging gateway runtime
-│   │   └── adapters/                  # slack, discord, telegram (NEW v0.2)
+│   │                                  # (argo-gateway crate deleted 2026-05-14 —
+│   │                                  # chat-platform adapters now live in
+│   │                                  # argo-channels + connector crates;
+│   │                                  # HTTP gateway lives in argo-cli/handlers/gateway/)
 │   ├── argo-acp/                      # NEW v0.2 — Agent Client Protocol server
 │   ├── argo-cli/                      # `argo` binary
 │   ├── argo-tui/                      # ratatui TUI
@@ -1473,6 +1475,14 @@ NEW v0.2: subagent-spawn observability overlay (Hermes parity feature). Forge ru
 ---
 
 ## 21. Gateway — `argo-gateway` (v0.2 — adds Telegram in-tree + RBAC routing + multi-agent routing)
+
+> **Superseded 2026-05-14.** The `argo-gateway` crate was deleted —
+> the codebase routed around the `Adapter` trait. Inbound chat
+> webhooks consume `argo-channels` directly through per-connector
+> webhook handlers (`argo-cli/src/handlers/gateway/routes_channels_*`);
+> the `argo gateway` HTTP server lives in
+> `argo-cli/src/handlers/gateway/`. Section 21 below is preserved as
+> the original design intent only.
 
 ### 21.1 Adapter trait — unchanged
 
