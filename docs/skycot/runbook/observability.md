@@ -61,24 +61,59 @@ argo doctor --json | jq '.summary'
 
 ### 9.3 Prometheus
 
-When the gateway is running:
+The gateway serves **two** Prometheus-text endpoints, with different
+contracts. Operators normally scrape both.
+
+**`/metrics`** — the legacy store-derived handler. 18 gauges and
+counters computed directly from the local DB (session / message /
+audit-row counts, audit-chain integrity, marketplace artifacts, …)
+plus scrape self-instrumentation. Stable contract — series here are
+`argo_*` namespaced and have been in production from the gateway's
+first ship. Scrape this for high-level health of stored state.
+
+**`/openmetrics`** — the parallel handler backed by
+`argo_telemetry::prometheus_registry::default_registry()`
+(`mission-prometheus-exporter-openmetrics-route`). Carries the
+operationally-critical HTTP-flow / provider / runtime metrics that
+operators need for SLO dashboards and alerting:
+
+- `gateway_request_total{method,path,status}` — counter
+- `gateway_request_duration_seconds{method,path}` — histogram
+- `gateway_rate_limit_throttle_total{scope,tenant_id}` — counter,
+  `scope` is one of `ip|tenant|route`
+- `provider_call_total{provider,model,status}` — counter
+- `provider_breaker_state{provider}` — gauge (0=closed, 1=half-open,
+  2=open)
+- `provider_cost_micros_total{provider,model,tenant_id}` — counter
+- `audit_chain_tail_seq` — gauge
+- `store_migration_chain_version` — gauge, set once at boot
+
+Any crate that wants to add a new metric just calls
+`register_counter` / `register_histogram` / `register_gauge` once;
+the metric appears in `/openmetrics` automatically on the next
+scrape. No new handler boilerplate.
 
 ```bash
-argo gateway serve --port 7676 &
-curl http://localhost:7676/metrics | grep argo_
+argo gateway start --port 7676 &
+curl http://localhost:7676/metrics       # legacy 18 store-derived series
+curl http://localhost:7676/openmetrics   # auto-wired metric families
 ```
 
-Metrics shipped:
+Both endpoints are on the public-GET allowlist (no bearer token
+needed) so a Prometheus scraper from a probe IP works out of the
+box.
 
-- `argo_actions_emitted_total{vertical,kind}`
-- `argo_auto_approval_decisions_total{decision}`
-- `argo_handoffs_total{from,to,outcome}`
-- `argo_evaluation_latency_seconds` (histogram)
-- `argo_workers_active`
-- `argo_memory_layer_rows{layer}`
+When to scrape which:
 
-Wire to whatever Prometheus + Grafana you already use. The
-metrics names are stable — `argo_*` is the namespace.
+- **SLO / latency / error-rate alerting** → `/openmetrics`
+  (`gateway_request_*`, `provider_call_total{status="error"}`,
+  `provider_breaker_state`).
+- **Stored-state visibility** → `/metrics` (`argo_audit_rows_total`,
+  `argo_skills_active_total`, `argo_audit_chain_ok`).
+
+Operators should scrape both routes from the same Prometheus job
+(two scrape configs, one job per route) so the same target labels
+apply to every series.
 
 ### 9.3.1 OpenTelemetry / OTLP exporter
 

@@ -502,5 +502,19 @@ async fn after_commit_fanout(
             created_at: item.created_at.to_rfc3339(),
         });
     }
+    // Best-effort `audit_chain_tail_seq` gauge for `/openmetrics`. A
+    // failure here logs at debug and moves on rather than blocking the
+    // audit-write path.
+    if let Ok(Some(seq)) =
+        sqlx::query_scalar::<_, Option<i64>>("SELECT MAX(seq) FROM audit_record")
+            .fetch_one(store.pool())
+            .await
+    {
+        argo_telemetry::prometheus_registry::register_scalar_gauge(
+            "audit_chain_tail_seq",
+            "Latest sequence number observed by the audit sink after a successful append",
+        )
+        .set(seq);
+    }
     Ok(())
 }

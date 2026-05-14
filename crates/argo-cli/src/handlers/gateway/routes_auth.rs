@@ -88,6 +88,7 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/readyz"
             | "/version"
             | "/routes"
+            | "/openmetrics"
     );
     // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
     // bearer credential (`ARGO_SCIM_BEARER_TOKEN`); the dedicated

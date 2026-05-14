@@ -18,6 +18,15 @@ mod tracing_sink;
 
 pub mod http_target;
 pub mod metrics_prompt_cache;
+/// Process-global Prometheus registry + `register_counter` /
+/// `register_histogram` / `register_gauge` helpers. Backs the gateway's
+/// `/openmetrics` parallel route
+/// (`mission-prometheus-exporter-openmetrics-route`). Existing
+/// `/metrics` handler (`crates/argo-cli/.../gateway/metrics.rs`) is
+/// untouched — it serves the legacy 18 store-derived metrics; this
+/// sibling registry serves the 8 brief-specified metrics + any future
+/// metric a crate registers.
+pub mod prometheus_registry;
 /// Tenant/worker/session log-context Layer
 /// (Stream `mission-structured-logging-tenant-worker-session`).
 /// Walks `tracing::Span` ancestors on every event and emits a
@@ -41,6 +50,13 @@ pub use sink::{
     TelemetrySink,
 };
 pub use tracing_sink::TracingTelemetry;
+
+/// Re-export of the upstream `prometheus` crate so downstream crates
+/// (argo-cli, argo-audit, …) can name `CounterVec` / `HistogramVec` /
+/// `IntGaugeVec` types returned by [`prometheus_registry`] without
+/// taking a direct dep on `prometheus 0.13`. Pinning the version
+/// here is the single point of truth for the workspace.
+pub use prometheus;
 
 /// Span names from §18.1.
 pub mod spans {

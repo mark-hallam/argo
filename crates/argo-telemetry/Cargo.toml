@@ -19,6 +19,14 @@ tracing = { workspace = true }
 reqwest = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
+# Process-global Prometheus registry (`prometheus_registry::default_registry()`)
+# plus the `register_counter` / `register_histogram` / `register_gauge`
+# helpers consumed by the gateway's `/openmetrics` parallel route and by
+# future crates that want to auto-wire a metric without retrofitting a
+# new exposition handler. Pinned to the 0.13 series (mature, small dep
+# tree, stable API). Always-on — small and the prometheus exposition is
+# now a load-bearing operator interface, not an optional feature.
+prometheus = "0.13"
 
 # OTLP exporter — optional, gated on the `otlp` feature. Default off
 # so the single-binary distribution stays zero-deps. Pinned to the

@@ -245,7 +245,9 @@ impl<T: Transport> Transport for BreakerTransport<T> {
 
     async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
         let permit = self.breaker.try_acquire(self.inner.id())?;
-        match self.inner.complete(req).await {
+        let result = self.inner.complete(req).await;
+        record_provider_call(self.inner.id(), &req.model, result.is_ok());
+        match result {
             Ok(resp) => {
                 permit.record_success();
                 Ok(resp)
@@ -270,7 +272,9 @@ impl<T: Transport> Transport for BreakerTransport<T> {
         // existing long-lived connection and are not metered here; a
         // mid-stream Err surfaces to the caller unchanged.
         let permit = self.breaker.try_acquire(self.inner.id())?;
-        match self.inner.complete_stream(req).await {
+        let result = self.inner.complete_stream(req).await;
+        record_provider_call(self.inner.id(), &req.model, result.is_ok());
+        match result {
             Ok(stream) => {
                 permit.record_success();
                 Ok(stream)
@@ -285,4 +289,19 @@ impl<T: Transport> Transport for BreakerTransport<T> {
             }
         }
     }
+}
+
+/// Bump `provider_call_total{provider,model,status}` for the brief's
+/// `/openmetrics` route (`mission-prometheus-exporter-openmetrics-route`).
+/// Counter is auto-wired from the process-global registry; first call
+/// per (provider, model) is a cheap `with_label_values` lookup.
+fn record_provider_call(provider: &str, model: &str, ok: bool) {
+    let status = if ok { "ok" } else { "error" };
+    argo_telemetry::prometheus_registry::register_counter(
+        "provider_call_total",
+        "Provider transport calls, labelled by provider id, model, and outcome (ok|error)",
+        &["provider", "model", "status"],
+    )
+    .with_label_values(&[provider, model, status])
+    .inc();
 }

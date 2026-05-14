@@ -87,6 +87,10 @@ impl StateObserver {
     pub fn observe(&self, current: CircuitState) -> Option<(CircuitState, CircuitState)> {
         let cur_u8 = state_to_u8(current);
         let prev_u8 = self.last.swap(cur_u8, Ordering::SeqCst);
+        // Keep the prometheus gauge synced even when no transition fires
+        // — operators scraping mid-flight should see the live value, not
+        // a stale Closed default.
+        self.set_breaker_state_gauge(current);
         if prev_u8 == cur_u8 {
             return None;
         }
@@ -98,6 +102,24 @@ impl StateObserver {
             "circuit_breaker_state_transition"
         );
         Some((prev, current))
+    }
+
+    /// Set the `provider_breaker_state{provider}` gauge to the current
+    /// state's u8 encoding (0=closed, 1=half-open, 2=open) for the
+    /// brief's `/openmetrics` route.
+    fn set_breaker_state_gauge(&self, current: CircuitState) {
+        let value = match current {
+            CircuitState::Closed => 0,
+            CircuitState::HalfOpen => 1,
+            CircuitState::Open => 2,
+        };
+        argo_telemetry::prometheus_registry::register_gauge(
+            "provider_breaker_state",
+            "Circuit-breaker state per provider (0=closed, 1=half-open, 2=open)",
+            &["provider"],
+        )
+        .with_label_values(&[&self.provider_id])
+        .set(value);
     }
 
     /// Snapshot of the cached state without mutating it.

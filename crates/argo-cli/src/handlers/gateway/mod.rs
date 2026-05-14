@@ -45,6 +45,7 @@ mod routes_audit_session;
 mod routes_audit_stream;
 mod routes_auth;
 mod routes_auth_principal;
+mod routes_openmetrics;
 pub(crate) mod routes_catalog;
 mod routes_channels;
 mod routes_channels_discord;

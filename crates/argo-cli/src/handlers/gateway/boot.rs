@@ -29,7 +29,8 @@ use super::start_banner_config::load_layered;
 use super::startup_check::{run_startup_checks, validate_bind_safety, STARTUP_CHECK_EXIT};
 use super::{
     approval_expiry_sweeper, metrics, proxy_guard, request_audit, routes, routes_channels,
-    routes_orchestrator, routes_skills, runs_streaming, security_headers, streaming, sweepers,
+    routes_openmetrics, routes_orchestrator, routes_skills, runs_streaming, security_headers,
+    streaming, sweepers,
 };
 use argo_config::ArgoConfig;
 use argo_forge::{spawn_forge_cron, ForgeCronConfig};
@@ -164,6 +165,12 @@ pub(super) async fn start(
     phases.mark("pidfile");
 
     metrics::init_boot_time();
+    // Auto-wire the brief-specified prometheus metrics + stamp the
+    // boot-time `store_migration_chain_version` gauge before the first
+    // `/openmetrics` scrape can hit. Idempotent.
+    routes_openmetrics::ensure_metrics_registered();
+    routes_openmetrics::brief_store_migration_chain_version()
+        .set(i64::from(argo_store::EXPECTED_SCHEMA_VERSION));
     eprintln!("argo gateway: listening on {addr} (pid {pid})");
     if let Some(s) = store.as_ref() {
         // #718: print the cwd-bound workspace's name (matches the path
@@ -231,6 +238,14 @@ pub(super) async fn start(
                 let mut buf = [0_u8; 4096];
                 let n = stream.read(&mut buf).await.unwrap_or(0);
                 let req = std::str::from_utf8(&buf[..n]).unwrap_or("");
+                let req_t0 = Instant::now();
+                let req_method = req
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string();
+                let req_route = super::rate_limit::classify_request(req).into_owned();
+                let mut req_status: u16 = 200;
                 let src_ip = if behind_proxy.expected_proxy {
                     proxy_guard::extract_real_ip(req, peer, &behind_proxy)
                 } else {
@@ -256,13 +271,21 @@ pub(super) async fn start(
                         retry_after_secs,
                         "per-IP rate limit triggered"
                     );
+                    routes_openmetrics::brief_rate_limit_throttle_total()
+                        .with_label_values(&["ip", ""])
+                        .inc();
                     let bytes = rate_limited_response_bytes(retry_after_secs);
                     let _ = stream.write_all(&bytes).await;
                     let body_len = request_audit::response_body_len_from_bytes(&bytes);
                     request_audit::spawn_record(audit.take(), store.as_ref(), "429 Too Many Requests", body_len);
                     let _ = stream.shutdown().await;
+                    req_status = 429;
                 } else if super::rate_limit_tenant::write_if_throttled(req, &mut stream, &sec).await {
+                    routes_openmetrics::brief_rate_limit_throttle_total()
+                        .with_label_values(&["tenant", &super::rate_limit::extract_tenant(req)])
+                        .inc();
                     request_audit::spawn_record(audit.take(), store.as_ref(), "429 Too Many Requests", 0);
+                    req_status = 429;
                 } else if runs_streaming::is_streaming_runs_request(req) {
                     let _ = runs_streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
                     request_audit::spawn_record(audit.take(), store.as_ref(), "200 OK", 0);
@@ -277,6 +300,10 @@ pub(super) async fn start(
                     let body_len = request_audit::response_body_len_from_bytes(&bytes);
                     request_audit::spawn_record(audit.take(), store.as_ref(), "200 OK", body_len);
                     let _ = stream.shutdown().await;
+                } else if routes_openmetrics::is_openmetrics_request(req) {
+                    let bytes = routes_openmetrics::http_response();
+                    let _ = stream.write_all(&bytes).await;
+                    let _ = stream.shutdown().await;
                 } else if super::ws_upgrade::is_ws_request(req) {
                     let _ = super::ws_upgrade::serve(req, store.as_ref(), &mut stream).await;
                     request_audit::spawn_record(audit.take(), store.as_ref(), "101 Switching Protocols", 0);
@@ -285,15 +312,18 @@ pub(super) async fn start(
                     super::sso_dispatch::serve(req, store.as_ref(), &mut stream).await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
+                    req_status = parse_status_line(status_line);
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
                     request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                 } else if let Some((status_line, body)) = routes_orchestrator::dispatch_route(req, store.as_ref()).await {
+                    req_status = parse_status_line(status_line);
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await;
                     request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                     let _ = stream.shutdown().await;
                 } else if let Some((status_line, body)) = routes_skills::dispatch_route(req, store.as_ref()).await {
+                    req_status = parse_status_line(status_line);
                     let resp = format!(
                         "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}",
                         body.len(),
@@ -304,6 +334,7 @@ pub(super) async fn start(
                     let _ = stream.shutdown().await;
                 } else {
                     let (status_line, body) = routes::dispatch_route(req, store.as_ref(), &shutdown_ctl).await;
+                    req_status = parse_status_line(status_line);
                     let resp = format!(
                         "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}",
                         body.len(),
@@ -313,6 +344,13 @@ pub(super) async fn start(
                     request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                     let _ = stream.shutdown().await;
                 }
+                let req_status_str = http_status_label(req_status);
+                routes_openmetrics::brief_request_total()
+                    .with_label_values(&[&req_method, &req_route, req_status_str])
+                    .inc();
+                routes_openmetrics::brief_request_duration()
+                    .with_label_values(&[&req_method, &req_route])
+                    .observe(req_t0.elapsed().as_secs_f64());
                 served += 1;
                 if max_requests.is_some_and(|cap| served >= cap) {
                     eprintln!(
@@ -325,6 +363,44 @@ pub(super) async fn start(
     }
     finish_shutdown(&shutdown_ctl, store.as_ref(), watchdog).await;
     Ok(())
+}
+
+/// Parse the leading numeric status code out of a status-line like
+/// `"200 OK"` / `"404 Not Found"`. Returns 0 if the line is malformed
+/// so the metric label stays well-typed without panicking on bad input.
+fn parse_status_line(status_line: &str) -> u16 {
+    status_line
+        .split_whitespace()
+        .next()
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(0)
+}
+
+/// Map a numeric status code to a stable string label suitable for
+/// `gateway_request_total{status=...}`. The frequently-observed 4xx /
+/// 5xx codes get their own labels; everything else collapses to a
+/// `Nxx` family bucket so cardinality stays bounded.
+fn http_status_label(code: u16) -> &'static str {
+    match code {
+        100..=199 => "1xx",
+        200..=299 => "2xx",
+        300..=399 => "3xx",
+        400 => "400",
+        401 => "401",
+        402 => "4xx",
+        403 => "403",
+        404 => "404",
+        405..=428 => "4xx",
+        429 => "429",
+        430..=499 => "4xx",
+        500 => "500",
+        501 => "5xx",
+        502 => "502",
+        503 => "503",
+        504 => "504",
+        505..=599 => "5xx",
+        _ => "unknown",
+    }
 }
 
 /// Per-phase wall-clock recorder used by `--profile-startup`. Each
