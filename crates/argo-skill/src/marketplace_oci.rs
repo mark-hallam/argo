@@ -6,15 +6,20 @@
 //! only; auth + cosign signature verification land via
 //! `mission-skill-publish-verified-ingest`.
 //!
-//! Pagination beyond the first `_catalog` page is a TODO — `?n=100`
-//! is the only hint v1 sends. Multi-tag handling is also v1-minimal:
+//! Catalog pagination follows OCI `Link: ...; rel="next"` headers up
+//! to [`DEFAULT_MAX_CATALOG_ITEMS`]. Multi-tag handling is v1-minimal:
 //! the most-recent tag in `tags/list` wins.
 
 use crate::marketplace::{MarketplaceError, MarketplaceSkill, MarketplaceSource};
 use crate::TrustGrade;
+use reqwest::header;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::Path;
+
+/// Default maximum number of catalog repositories read from one
+/// registry scan.
+pub const DEFAULT_MAX_CATALOG_ITEMS: usize = 1000;
 
 /// OCI annotation key carrying a Skycot trust grade label.
 pub const TRUST_GRADE_ANNOTATION: &str = "org.skycot.trust_grade";
@@ -36,6 +41,9 @@ pub struct MarketplaceConfig {
     /// One entry per `[[registry]]` block.
     #[serde(default, rename = "registry")]
     pub registries: Vec<RegistryConfig>,
+    /// Maximum `_catalog` repositories to read per registry.
+    #[serde(default = "default_max_catalog_items")]
+    pub max_catalog_items: usize,
 }
 
 /// A single registry config entry.
@@ -45,6 +53,10 @@ pub struct RegistryConfig {
     pub url: String,
     /// Namespace prefix to filter `_catalog` results by, e.g. `skills`.
     pub namespace: String,
+}
+
+const fn default_max_catalog_items() -> usize {
+    DEFAULT_MAX_CATALOG_ITEMS
 }
 
 impl MarketplaceConfig {
@@ -84,6 +96,7 @@ impl MarketplaceConfig {
 pub struct OciRegistryScan {
     registry_url: String,
     namespace: String,
+    max_catalog_items: usize,
     client: reqwest::Client,
 }
 
@@ -95,8 +108,25 @@ impl OciRegistryScan {
         Self {
             registry_url: registry_url.trim_end_matches('/').to_string(),
             namespace,
+            max_catalog_items: DEFAULT_MAX_CATALOG_ITEMS,
             client: reqwest::Client::new(),
         }
+    }
+
+    /// Create a scanner with an explicit catalog item cap. A zero cap
+    /// is normalized to the default so accidental config omissions do
+    /// not hide all registry entries.
+    #[must_use]
+    pub fn with_max_catalog_items(
+        registry_url: String,
+        namespace: String,
+        max_catalog_items: usize,
+    ) -> Self {
+        let mut scan = Self::new(registry_url, namespace);
+        if max_catalog_items > 0 {
+            scan.max_catalog_items = max_catalog_items;
+        }
+        scan
     }
 
     async fn fetch_repo(&self, repo: &str) -> Result<Option<MarketplaceSkill>, MarketplaceError> {
@@ -126,10 +156,11 @@ impl OciRegistryScan {
 impl MarketplaceSource for OciRegistryScan {
     async fn list_all(&self) -> Result<Vec<MarketplaceSkill>, MarketplaceError> {
         let catalog_url = format!("{}/v2/_catalog?n=100", self.registry_url);
-        let catalog: CatalogResponse = http_json(&self.client, &catalog_url, None).await?;
+        let repositories =
+            fetch_all_pages(&self.client, &catalog_url, self.max_catalog_items).await?;
         let prefix = format!("{}/", self.namespace);
         let mut out = Vec::new();
-        for repo in catalog.repositories {
+        for repo in repositories {
             if !repo.starts_with(&prefix) {
                 continue;
             }
@@ -139,6 +170,99 @@ impl MarketplaceSource for OciRegistryScan {
         }
         Ok(out)
     }
+}
+
+async fn fetch_all_pages(
+    client: &reqwest::Client,
+    first_url: &str,
+    max_items: usize,
+) -> Result<Vec<String>, MarketplaceError> {
+    let cap = max_items.max(1);
+    let mut next = Some(first_url.to_string());
+    let mut repositories = Vec::new();
+    while let Some(url) = next {
+        if repositories.len() >= cap {
+            tracing::warn!(
+                target: "argo_skill::marketplace::oci",
+                max_catalog_items = cap,
+                "OCI catalog pagination cap reached; truncating registry results"
+            );
+            break;
+        }
+        let (catalog, link_next) = http_catalog(client, &url).await?;
+        for repo in catalog.repositories {
+            if repositories.len() >= cap {
+                tracing::warn!(
+                    target: "argo_skill::marketplace::oci",
+                    max_catalog_items = cap,
+                    "OCI catalog pagination cap reached; truncating registry results"
+                );
+                break;
+            }
+            repositories.push(repo);
+        }
+        next = link_next.and_then(|link| resolve_next_url(&url, &link));
+    }
+    Ok(repositories)
+}
+
+async fn http_catalog(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(CatalogResponse, Option<String>), MarketplaceError> {
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| MarketplaceError::Network {
+            url: url.to_string(),
+            reason: e.to_string(),
+        })?
+        .error_for_status()
+        .map_err(|e| MarketplaceError::Network {
+            url: url.to_string(),
+            reason: e.to_string(),
+        })?;
+    let next = resp
+        .headers()
+        .get(header::LINK)
+        .and_then(|value| value.to_str().ok())
+        .and_then(parse_next_link);
+    let catalog = resp
+        .json::<CatalogResponse>()
+        .await
+        .map_err(|e| MarketplaceError::Network {
+            url: url.to_string(),
+            reason: format!("parse: {e}"),
+        })?;
+    Ok((catalog, next))
+}
+
+fn parse_next_link(header: &str) -> Option<String> {
+    for link in header.split(',') {
+        let mut parts = link.split(';').map(str::trim);
+        let Some(target) = parts.next() else {
+            continue;
+        };
+        let is_next = parts.any(|part| part.eq_ignore_ascii_case(r#"rel="next""#));
+        if is_next {
+            return target
+                .strip_prefix('<')
+                .and_then(|s| s.strip_suffix('>'))
+                .map(str::to_string);
+        }
+    }
+    None
+}
+
+fn resolve_next_url(current_url: &str, link: &str) -> Option<String> {
+    if link.starts_with("http://") || link.starts_with("https://") {
+        return Some(link.to_string());
+    }
+    reqwest::Url::parse(current_url)
+        .ok()
+        .and_then(|base| base.join(link).ok())
+        .map(|url| url.to_string())
 }
 
 async fn http_json<T: for<'de> Deserialize<'de>>(
@@ -167,6 +291,10 @@ async fn http_json<T: for<'de> Deserialize<'de>>(
             reason: format!("parse: {e}"),
         })
 }
+
+#[cfg(test)]
+#[path = "marketplace_oci_tests.rs"]
+mod marketplace_oci_tests;
 
 #[derive(Deserialize)]
 struct CatalogResponse {
@@ -211,12 +339,15 @@ fn skill_from_annotations(
         .get(TRUST_GRADE_ANNOTATION)
         .and_then(|s| crate::marketplace::parse_trust_grade(s).ok())
         .unwrap_or(TrustGrade::PublishedCommunity);
-    let tenant = annotations.get(TENANT_ANNOTATION).cloned().unwrap_or_else(|| {
-        repo.split('/')
-            .next()
-            .map(str::to_string)
-            .unwrap_or_default()
-    });
+    let tenant = annotations
+        .get(TENANT_ANNOTATION)
+        .cloned()
+        .unwrap_or_else(|| {
+            repo.split('/')
+                .next()
+                .map(str::to_string)
+                .unwrap_or_default()
+        });
     MarketplaceSkill {
         name,
         tenant,
