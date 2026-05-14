@@ -8,6 +8,7 @@
 pub mod claude_vision;
 pub mod provider;
 pub mod schema;
+pub mod tables;
 
 use crate::extract::provider::{
     DocumentInput, ExtractionError, ExtractionProvider, FieldCandidate, ProviderRequest,
@@ -18,6 +19,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+#[cfg(test)]
+mod tables_tests;
 #[cfg(test)]
 mod tests;
 
