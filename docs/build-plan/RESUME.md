@@ -9,8 +9,7 @@ product surface on top of the Argo core). Workers claim briefs from
 `docs/build-plan/streams/`, ship PRs, and a single conductor process
 reviews + merges + replenishes the queue.
 
-**Codex is offline** since 2026-05-09 (out of credit). Workers run
-on the `claude` side only.
+**Codex workers active again** since 2026-05-14 (the earlier "Codex offline" note from 2026-05-09 is stale). Both `claude` and `codex` workers are running.
 
 **v1.0 ship gate**: `docs/skycot/demos/v1-mission-mvp.mp4` exists
 AND `./scripts/smoke-skycot.sh` passes including BrowserExecutor +
@@ -103,7 +102,87 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-## Right-now snapshot (2026-05-13 ~03:30Z) — second hand-off in 1h, codex 3-for-3
+## Right-now snapshot (2026-05-14) — operator out of quota until 2026-05-19 (Australia/Melbourne, ~Tuesday 4am)
+
+**fresh session picking up SKYCOT v1.0 work: read this WHOLE section, then the audit reports in `docs/skycot/audit/`, then start work.** The operator is handing over to a new session on 2026-05-19. **Continuity matters.** This snapshot is the hand-off.
+
+### The mission, in one line
+
+Ship SKYCOT v1.0: AI workers humans bring into their team as real teammates. v1.0 scope locked 2026-05-14 = **all 5 MISSION.md success scenarios + ALL Tracks L (Skill Canvas, 17 briefs) + ALL Track M (Enterprise Parity, 20 briefs minus M2 PaddleOCR DEFERRED) + demo recording**. Ship gate: `docs/skycot/demos/v1-mission-mvp.mp4` exists AND `scripts/smoke-skycot.sh` passes.
+
+### What MUST be the next agent's first ~3 steps
+
+1. **Pull origin/main** and read `docs/skycot/V1_DEFINITION.md` — the consolidated v1 scope doc (operator-authored decisions live here).
+2. **Read both audit reports** — `docs/skycot/audit/2026-05-14-phase-A-crate-inventory.md` and `docs/skycot/audit/2026-05-14-phase-A.5-skills-loop.md`. The A.5 report contains a **v1 SHIP-BLOCKER** finding.
+3. **Re-arm the cron** if you want auto-ticks. Operator stopped the loop 2026-05-14 to conserve quota. To resume: `/loop 15m Conductor tick for the SKYCOT 14-day v1 swarm. Follow docs/build-plan/PROTOCOL_LOOP_PROMPT.md verbatim ...` (full prompt in `PROTOCOL_LOOP_PROMPT.md`).
+
+### 🔴 v1 SHIP-BLOCKER
+
+**`claude-skill-library-worker-load-wire`** (~150 LOC). Phase A.5 audit discovered that `argo-agent-runner/src/turn.rs` ~line 180 never calls `LayeredLookup::with_library` — workers do NOT load marketplace skills at runtime. MISSION.md success scenario #2 ("learned skill propagates across workers") silently fails. **This is the highest-priority brief to ship.** Brief: `docs/build-plan/streams/claude-skill-library-worker-load-wire.md`.
+
+### Strategic operator decisions locked 2026-05-14
+
+- **macOS-first computer-use**: `argo-executor-computer-use-macos` is the v1 demo path. E2B, Linux, Windows executors are DEFERRED-v1.x (still shipped, just not v1-polished). Brief: `claude-defer-non-macos-computer-use`.
+- **Enterprise focus, not consumer**: 4 consumer/redundant MCP connector stubs to be deleted (signal, telegram, mailgun, resend). 3 enterprise stubs kept (apollo, zoominfo, zoom). Brief: `claude-delete-consumer-mcp-stubs`.
+- **Type canonicalization in progress**: 11+ duplicate `pub struct/enum` definitions across crates. Fixes via briefs `claude-canonicalize-audit-row-type` (HIGH), `claude-canonicalize-decision-type`, `claude-canonicalize-approval-decision-type`, `claude-canonicalize-medium-duplicates`, + CI lint via `claude-ci-lint-parallel-pub-types`.
+- **ai-receptionist vertical being deleted**: brief `claude-delete-ai-receptionist-vertical` removes the stale vertical + 34 references.
+
+### Phase A audit findings (one-paragraph summary)
+
+88 crates, ~520K LOC. **argo-cli is 199K LOC (38% of codebase) — leave it alone for v1** (compile time managed via shared `CARGO_TARGET_DIR`; not on demo critical path). **2 SPOFs by claim**: Claim 1 (only argo-identity directly serves "Teammate" — actually false alarm, multiple layers serve), Claim 3 (only argo-genesis builds workers — real SPOF). **Claim 4 drift = real**: skills loop fragmented across 5 crates (Phase A.5 traced edges; SHIP-BLOCKER above is the load-bearing fix). **Claim 5 over-coverage**: 40+ crates including 4 OS-specific computer-use implementations.
+
+### 11 new briefs authored 2026-05-14 (all TODO)
+
+Order to ship them (priority ↓):
+
+1. 🔴 `claude-skill-library-worker-load-wire` — SHIP-BLOCKER, ~150 LOC
+2. `claude-skill-marketplace-end-to-end-test` — depends on #1; regression-prevent
+3. `mission-per-worker-skill-learning-cron` — depends on #1; ~200 LOC
+4. `claude-canonicalize-audit-row-type` — HIGH data integrity, 4-way dup, ~500 LOC
+5. `claude-defer-non-macos-computer-use` — scope cut, ~150 LOC
+6. `claude-delete-consumer-mcp-stubs` — cleanup, ~150 LOC
+7. `claude-canonicalize-decision-type` — ~300 LOC
+8. `claude-canonicalize-approval-decision-type` — ~300 LOC
+9. `claude-canonicalize-medium-duplicates` — 4-type bundle, ~600 LOC
+10. `claude-ci-lint-parallel-pub-types` — regression-prevent, ~400 LOC
+11. `claude-forge-dspy-stub-warning-upgrade` — clarify v1-stub, ~80 LOC
+12. `claude-delete-ai-receptionist-vertical` — cleanup, ~300 LOC (authored 2026-05-14)
+
+Plus 7 from earlier 2026-05-14 — `mission-vertical-action-executor-completion`, `mission-per-vertical-demo-script`, `mission-marketplace-seller-e2b-demo`, `mission-cross-tenant-trajectory-aggregation`, `mission-rtbf-dreams-propagation`, `mission-forge-spend-polling-race-fix`, `mission-canonical-exponential-backoff`.
+
+### Cron loop status
+
+**STOPPED 2026-05-14.** Two cron jobs cancelled (`65e8b50a` recurring 15-min; `a11ecbcd` one-shot resume). Operator stopped to conserve quota. **Next account: re-arm with `/loop 15m <prompt>` if you want auto-ticking, or drive ticks manually.**
+
+### Queue depth at hand-off
+
+`grep -c '^| .* | claude | TODO' docs/build-plan/BUILD_STATUS.md` was 30 before the 12 new briefs above landed; should be ~42+ now. **Above the 25 replenishment threshold; no replenishment needed.**
+
+### Audit Phases pending (B, C, D, E)
+
+Phase A + A.5 done. Pending:
+- **Phase B**: per-crate deep dive on top 20 by LOC.
+- **Phase C**: mission-claim coverage proof (with E2E test evidence per claim).
+- **Phase D**: cross-cutting drift checks (parallel-name surfaces, dead code, migration slot inventory).
+- **Phase E**: punch-list + brief authoring for anything B/C/D surface.
+
+The 11 briefs above are the Phase A+A.5 punch-list already authored. Phase B/C/D/E can wait until those are merging.
+
+### What changed in CLAUDE.md / V1_DEFINITION.md / memory
+
+- `CLAUDE.md` — added §"v1.0 strategic decisions (operator-locked 2026-05-14)" with macOS-first + enterprise focus + canonicalization-in-progress directives.
+- `V1_DEFINITION.md` — refreshed §4 Claim 4/5 rows + §5 ship checklist with the new briefs.
+- Memory at `~/.claude/projects/-Users-operator-code-argo/memory/` — added entries for: v1-ship-blocker, macOS-first decision, enterprise focus, type-canonicalization-in-progress, Phase A/A.5 audit findings location.
+
+### Open PRs at hand-off
+
+`gh pr list --state open` (~4 open):
+- #1632 L6-ghostwriter-prompt-to-ir (DIRTY)
+- #1606 claude-claude-gateway-boot-split-v2 (DIRTY)
+- #1506 claude-mission-cli-help-public-api-reference (RED, known doc-drift CI flake)
+- One or two possibly newer from active workers
+
+Conductor should let workers rebase DIRTY ones (recipe: `gh pr checkout <N> && git merge origin/main && git push`).
 
 Refreshed at 98.5% weekly cap, operator relaunching Claude again
 (this is the SECOND hand-off in one hour — the prior account
@@ -277,6 +356,4 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-13 ~03:30Z (second hand-off in 1h; 98.5%
-weekly cap on this account, operator relaunching). Codex 3-for-3
-since resumption. 8 merges in the prior hour. HEAD `7b590df9`.
+Last refreshed: 2026-05-14 (session hand-off). Cron loop STOPPED. Phase A + A.5 audits complete. 11 new remediation briefs authored including one v1 SHIP-BLOCKER (`claude-skill-library-worker-load-wire`). HEAD `37570754` at refresh time.

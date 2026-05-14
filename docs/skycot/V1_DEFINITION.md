@@ -4,6 +4,16 @@
 
 **Operator scope decision (2026-05-14)**: v1.0 = **all 5 MISSION.md success scenarios + ALL of Tracks L + M shipped + demo recording**. Comprehensive ship gate; no Phase-1-only shortcuts.
 
+**Additional operator-locked scope decisions (2026-05-14 evening):**
+- **macOS-first for computer-use.** `argo-executor-computer-use-macos` is the v1 primary execution path. E2B (cloud sandbox), Linux, Windows executors are DEFERRED-v1.x (still shipped, just not v1-polished).
+- **Enterprise focus over consumer.** 4 consumer/redundant MCP connector stubs deleted (signal, telegram, mailgun, resend). 3 enterprise stubs kept as DEFERRED-v1.x placeholders (apollo, zoominfo, zoom).
+- **🔴 v1 SHIP-BLOCKER discovered**: Phase A.5 audit (2026-05-14) found that workers do NOT load marketplace skills at runtime. `argo-agent-runner/src/turn.rs` never calls `LayeredLookup::with_library`. MISSION.md success scenario #2 silently fails. Fix: brief `claude-skill-library-worker-load-wire`, ~150 LOC. **This must ship before v1.**
+- **Type canonicalization in progress.** 11+ duplicate `pub struct/enum` definitions across crates. 4 canonicalization briefs + 1 CI-lint brief authored.
+
+Audit reports backing these decisions:
+- `docs/skycot/audit/2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims
+- `docs/skycot/audit/2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace
+
 > If this document disagrees with `docs/skycot/MISSION.md`, MISSION.md's mission statement + 6 claims + 5 success scenarios win (they are operator-authored ground truth). This document consolidates everything else.
 
 ---
@@ -143,6 +153,7 @@ Plus 5 mission-X-UI briefs MERGED: trust-grade-ui, skill-cohort-ui, retro-review
 
 **Swarm-deliverable gates**:
 
+- [ ] **🔴 SHIP-BLOCKER: `claude-skill-library-worker-load-wire` MERGED** (workers load marketplace skills at runtime; success scenario #2 works)
 - [ ] All 5 MISSION.md success scenarios pass smoke test
 - [ ] `scripts/smoke-skycot.sh` passes
 - [ ] All Track L briefs MERGED (L1-L17 + L4-gw) — 18 briefs total; **3 done, 15 to go**

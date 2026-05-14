@@ -100,6 +100,19 @@ authoritative; the live ledger is.
 
 PR title format: `<phase> — <section> — <one-line summary>`
 
+## v1.0 strategic decisions (operator-locked 2026-05-14)
+
+These are not architectural preferences; they are operator decisions that scope v1.0. Read before authoring briefs or designing implementations.
+
+- **macOS is the v1 demo path for computer-use.** `argo-executor-computer-use-macos` is the only OS-native executor v1 hardens. E2B, Linux, and Windows executors are DEFERRED-v1.x — they stay shipped, just not v1-polished. See `streams/claude-defer-non-macos-computer-use.md`. Demo recording `docs/skycot/demos/v1-mission-mvp.mp4` is macOS.
+- **Enterprise focus, not consumer.** SKYCOT serves enterprise customers. MCP connector priority and authoring decisions reflect this. The 4 consumer/redundant connector stubs (signal, telegram, mailgun, resend) are being deleted; the 3 enterprise stubs (apollo, zoominfo, zoom) stay as DEFERRED-v1.x placeholders. When in doubt about a connector, ask "is this enterprise?"
+- **Type canonicalization is in progress.** Phase A audit found 11+ duplicate `pub struct/enum` definitions across crates (worst: `AuditRow` in 4 crates, real data-integrity risk). 4 canonicalization briefs + 1 CI-lint brief are authored; do not introduce new parallel `pub` types until the canonical home is established. Re-export from `argo-types` is the preferred pattern when in doubt.
+- **Skill-library worker load is the v1 SHIP-BLOCKER.** Phase A.5 audit found that `argo-agent-runner/src/turn.rs` never calls `LayeredLookup::with_library` — workers do NOT load marketplace skills at runtime. MISSION.md success scenario #2 silently fails. Brief: `streams/claude-skill-library-worker-load-wire.md` (~150 LOC). Ship this first.
+
+The full audit reports live in `docs/skycot/audit/`:
+- `2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims mapping
+- `2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace
+
 ## Project rename — Argo → Skycot
 
 The project will rename from Argo to **Skycot** (domain: skycot.com).
