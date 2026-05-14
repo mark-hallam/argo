@@ -11,6 +11,7 @@
 mod approval_expiry_sweeper;
 mod approval_reminder;
 mod boot;
+mod boot_helpers;
 mod boot_spawns;
 mod dashboard;
 mod dashboard_fleet;
