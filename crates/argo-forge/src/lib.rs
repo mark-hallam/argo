@@ -38,7 +38,10 @@ pub use feedback_eval::{
     ingest_operator_feedback, weighted_loss_score, CaseKind, ExpectedOutcome, FeedbackEvalCase,
     ScoredCase,
 };
-pub use forge::{finalize_run, Forge, ForgeEvent, StubForge};
+pub use forge::{
+    finalize_run, Forge, ForgeError, ForgeEvent, StubForge, FORGE_OPTIMIZER_STATUS_DOCS,
+    FORGE_STUB_INVOCATION_EVENT,
+};
 pub use persist::{
     count_forge_runs, load_forge_cost, load_forge_status, persist_forge_run, query_forge_costs,
     CostQueryFilter, SkillCostRow,

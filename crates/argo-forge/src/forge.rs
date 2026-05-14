@@ -3,12 +3,59 @@
 //! The real DSPy/GEPA implementation runs in a Python subprocess
 //! (per §26.4); this crate exposes the orchestration surface so the
 //! CLI + agent loop can talk to it through a stable Rust trait. The
-//! stub returns a clear "Python worker not yet wired" error so the
+//! stub returns a structured "optimizer not configured" error so the
 //! CLI surfaces a useful message until the worker plugin lands.
 use crate::run::{ForgeOptions, ForgeRun, ForgeStatus};
-use argo_types::{ArgoError, ArgoResult};
+use argo_types::ArgoError;
 use async_trait::async_trait;
 use chrono::Utc;
+
+/// Operator runbook for the intentionally deferred Forge optimizer.
+pub const FORGE_OPTIMIZER_STATUS_DOCS: &str = "docs/skycot/operator/forge-optimizer-status.md";
+
+/// Structured audit event emitted whenever the v1 Forge stub is invoked.
+pub const FORGE_STUB_INVOCATION_EVENT: &str = "FORGE_STUB_INVOCATION";
+
+/// Errors returned by Forge optimizer implementations.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ForgeError {
+    /// The real DSPy/GEPA optimizer worker is not configured for v1.
+    #[error(
+        "forge optimizer not configured for skill {skill_name} base {base_version}; see {docs_url}"
+    )]
+    OptimizerNotConfigured {
+        /// Skill requested for optimization.
+        skill_name: String,
+        /// Base skill version requested for optimization.
+        base_version: String,
+        /// Operator-facing runbook with the post-v1 implementation path.
+        docs_url: &'static str,
+    },
+}
+
+impl ForgeError {
+    fn optimizer_not_configured(opts: &ForgeOptions) -> Self {
+        Self::OptimizerNotConfigured {
+            skill_name: opts.skill_name.clone(),
+            base_version: opts.base_version.clone(),
+            docs_url: FORGE_OPTIMIZER_STATUS_DOCS,
+        }
+    }
+
+    /// Operator-facing runbook link.
+    #[must_use]
+    pub fn docs_url(&self) -> &'static str {
+        match self {
+            Self::OptimizerNotConfigured { docs_url, .. } => docs_url,
+        }
+    }
+}
+
+impl From<ForgeError> for ArgoError {
+    fn from(value: ForgeError) -> Self {
+        Self::Provider(value.to_string())
+    }
+}
 
 /// The Forge orchestration seam.
 ///
@@ -23,7 +70,7 @@ pub trait Forge: Send + Sync + std::fmt::Debug {
     /// Run one optimization. The implementation persists progress
     /// to `forge_run` (via the caller-supplied store helpers); this
     /// trait method just returns the final state.
-    async fn optimize(&self, opts: ForgeOptions) -> ArgoResult<ForgeRun>;
+    async fn optimize(&self, opts: ForgeOptions) -> Result<ForgeRun, ForgeError>;
 }
 
 /// Phase-7.5 stub. Returns a `ForgeRun` in `Failed` state with a
@@ -45,15 +92,17 @@ impl Forge for StubForge {
     fn id(&self) -> &str {
         "stub"
     }
-    async fn optimize(&self, opts: ForgeOptions) -> ArgoResult<ForgeRun> {
-        // Surface as a clean ArgoError so the loop can decide what to
-        // do — usually "log + try a different backend".
-        Err(ArgoError::Provider(format!(
-            "argo-forge: DSPy/GEPA worker plugin not yet wired (skill={}, base={}). \
-             Configure `forge.worker = \"argo-plugin-py:dspy-gepa\"` in argo.toml \
-             and install the Python worker (§26.4).",
-            opts.skill_name, opts.base_version
-        )))
+    async fn optimize(&self, opts: ForgeOptions) -> Result<ForgeRun, ForgeError> {
+        let err = ForgeError::optimizer_not_configured(&opts);
+        tracing::warn!(
+            target: "argo_forge::audit",
+            event = FORGE_STUB_INVOCATION_EVENT,
+            skill = %opts.skill_name,
+            base_version = %opts.base_version,
+            docs_url = err.docs_url(),
+            "forge optimizer stub invoked"
+        );
+        Err(err)
     }
 }
 
@@ -138,12 +187,19 @@ mod tests {
         let opts = ForgeOptions::new("alpha", "0.1");
         let err = f.optimize(opts).await.unwrap_err();
         match err {
-            ArgoError::Provider(msg) => {
-                assert!(msg.contains("DSPy"));
-                assert!(msg.contains("argo-plugin-py"));
+            ForgeError::OptimizerNotConfigured {
+                skill_name,
+                base_version,
+                docs_url,
+            } => {
+                assert_eq!(skill_name, "alpha");
+                assert_eq!(base_version, "0.1");
+                assert_eq!(docs_url, FORGE_OPTIMIZER_STATUS_DOCS);
             }
-            other => panic!("expected Provider, got {other:?}"),
         }
+        let argo_error: ArgoError =
+            ForgeError::optimizer_not_configured(&ForgeOptions::new("alpha", "0.1")).into();
+        assert!(format!("{argo_error}").contains(FORGE_OPTIMIZER_STATUS_DOCS));
     }
 
     #[test]
