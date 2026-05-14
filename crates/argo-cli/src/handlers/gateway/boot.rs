@@ -27,8 +27,8 @@ use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
 use super::startup_check::{run_startup_checks, validate_bind_safety, STARTUP_CHECK_EXIT};
 use super::{
-    approval_expiry_sweeper, metrics, proxy_guard, routes, routes_channels, routes_orchestrator,
-    routes_skills, runs_streaming, security_headers, streaming, sweepers,
+    approval_expiry_sweeper, metrics, proxy_guard, request_audit, routes, routes_channels,
+    routes_orchestrator, routes_skills, runs_streaming, security_headers, streaming, sweepers,
 };
 use argo_config::ArgoConfig;
 use argo_forge::{spawn_forge_cron, ForgeCronConfig};
@@ -91,10 +91,11 @@ pub(super) async fn start(
         std::process::exit(STARTUP_CHECK_EXIT);
     }
     phases.mark("startup_check");
-    let behind_proxy = ArgoConfig::load(&cwd_for_check.join("argo.toml"))
+    let gateway_cfg = ArgoConfig::load(&cwd_for_check.join("argo.toml"))
         .unwrap_or_default()
-        .gateway
-        .behind_proxy;
+        .gateway;
+    let behind_proxy = gateway_cfg.behind_proxy.clone();
+    let request_audit_cfg = gateway_cfg.request_audit.clone();
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await
@@ -230,6 +231,7 @@ pub(super) async fn start(
                 } else {
                     rate_limit_ip::extract_ip(req, peer, ip_limiter.trust_xff())
                 };
+                let mut audit = request_audit::capture(req, peer.ip(), src_ip, &request_audit_cfg);
                 let https = security_headers::request_is_https(req);
                 let sec = security_headers::header_lines("application/json", https);
                 // `mission-ip-allowlist-deployment-mode`: CIDR gate
@@ -251,28 +253,38 @@ pub(super) async fn start(
                     );
                     let bytes = rate_limited_response_bytes(retry_after_secs);
                     let _ = stream.write_all(&bytes).await;
+                    let body_len = request_audit::response_body_len_from_bytes(&bytes);
+                    request_audit::spawn_record(audit.take(), store.as_ref(), "429 Too Many Requests", body_len);
                     let _ = stream.shutdown().await;
                 } else if super::rate_limit_tenant::write_if_throttled(req, &mut stream, &sec).await {
+                    request_audit::spawn_record(audit.take(), store.as_ref(), "429 Too Many Requests", 0);
                 } else if runs_streaming::is_streaming_runs_request(req) {
                     let _ = runs_streaming::serve_streamed_run(req, store.as_ref(), &mut stream).await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), "200 OK", 0);
                     let _ = stream.shutdown().await;
                 } else if streaming::is_streaming_list_request(req) {
                     let _ = streaming::serve_streamed_list(req, store.as_ref(), &mut stream).await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), "200 OK", 0);
                     let _ = stream.shutdown().await;
                 } else if metrics::is_metrics_request(req) {
                     let bytes = metrics::http_response(store.as_ref()).await;
                     let _ = stream.write_all(&bytes).await;
+                    let body_len = request_audit::response_body_len_from_bytes(&bytes);
+                    request_audit::spawn_record(audit.take(), store.as_ref(), "200 OK", body_len);
                     let _ = stream.shutdown().await;
                 } else if super::ws_upgrade::is_ws_request(req) {
                     let _ = super::ws_upgrade::serve(req, store.as_ref(), &mut stream).await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), "101 Switching Protocols", 0);
                     let _ = stream.shutdown().await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await; let _ = stream.shutdown().await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                 } else if let Some((status_line, body)) = routes_orchestrator::dispatch_route(req, store.as_ref()).await {
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);
                     let _ = stream.write_all(resp.as_bytes()).await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                     let _ = stream.shutdown().await;
                 } else if let Some((status_line, body)) = routes_skills::dispatch_route(req, store.as_ref()).await {
                     let resp = format!(
@@ -281,6 +293,7 @@ pub(super) async fn start(
                         body
                     );
                     let _ = stream.write_all(resp.as_bytes()).await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                     let _ = stream.shutdown().await;
                 } else {
                     let (status_line, body) = routes::dispatch_route(req, store.as_ref(), &shutdown_ctl).await;
@@ -290,6 +303,7 @@ pub(super) async fn start(
                         body
                     );
                     let _ = stream.write_all(resp.as_bytes()).await;
+                    request_audit::spawn_record(audit.take(), store.as_ref(), status_line, body.len());
                     let _ = stream.shutdown().await;
                 }
                 served += 1;

@@ -68,9 +68,9 @@ pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
     DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
-    GatewayRateLimitConfig,
-    GatewayRateLimitTenantConfig, IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig,
-    ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
+    GatewayRateLimitConfig, GatewayRateLimitTenantConfig, GatewayRequestAuditConfig,
+    IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
+    PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
     RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig,
     TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };

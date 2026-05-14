@@ -29,6 +29,7 @@ pub use crate::sections_core::{CoreConfig, LoopConfig, PluginConfig, TenantConfi
 pub use crate::sections_executor::{DocumentCsvConfig, DocumentGsuiteConfig};
 pub use crate::sections_gateway::{
     GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
+    GatewayRequestAuditConfig,
 };
 pub use crate::sections_planner::{PlannerBiasConfig, PlannerConfig};
 pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, RoutingTieredConfig};

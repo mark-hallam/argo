@@ -30,6 +30,7 @@ mod proxy_guard;
 mod rate_limit;
 mod rate_limit_ip;
 mod rate_limit_tenant;
+mod request_audit;
 mod routes;
 mod routes_approvals_json;
 mod routes_audit;
@@ -209,6 +210,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             grep,
             limit,
         } => print_routes::print_routes(json, &format, method.as_deref(), grep.as_deref(), limit),
+        GatewayCmd::Audit { cmd } => super::gateway_audit::run(cmd).await,
         GatewayCmd::Probe {
             kind,
             host,

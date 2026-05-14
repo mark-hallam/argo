@@ -207,6 +207,15 @@ pub const DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST: f64 = 2.0;
 /// gateway will boot with a non-loopback bind.
 pub const DEFAULT_GATEWAY_EXPECTED_PROXY: bool = false;
 
+/// `gateway.request_audit.enabled` default.
+pub const DEFAULT_GATEWAY_REQUEST_AUDIT_ENABLED: bool = true;
+
+/// `gateway.request_audit.behind_proxy` default.
+pub const DEFAULT_GATEWAY_REQUEST_AUDIT_BEHIND_PROXY: bool = false;
+
+/// `gateway.request_audit.user_agent_max_len` default.
+pub const DEFAULT_GATEWAY_REQUEST_AUDIT_UA_MAX: u32 = 200;
+
 // --- [channels.teams] -----------------------------------------------
 
 /// `channels.teams.client_secret_env` default — env var name the

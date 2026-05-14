@@ -121,6 +121,7 @@ pub(crate) mod forge_optimize_judge;
 mod forge_runs_list;
 mod forge_subject;
 pub mod gateway;
+pub mod gateway_audit;
 pub mod gateway_probe;
 pub mod genesis;
 pub mod genesis_export;

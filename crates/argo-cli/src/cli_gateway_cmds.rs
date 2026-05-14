@@ -86,6 +86,11 @@ pub enum GatewayCmd {
         #[arg(long)]
         limit: Option<usize>,
     },
+    /// Inspect per-HTTP-request gateway audit rows.
+    Audit {
+        #[command(subcommand)]
+        cmd: GatewayAuditCmd,
+    },
     /// Hit one of the K8s-style gateway probe endpoints (#630)
     /// and return exit 0 on success, 1 on failure. Useful for
     /// shell scripts / CI gates / boot-up health checks that
@@ -104,6 +109,37 @@ pub enum GatewayCmd {
         #[arg(long, default_value_t = 7400)]
         port: u16,
         /// Output as a JSON object instead of human text.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// `argo gateway audit ...` subcommands.
+#[derive(Subcommand, Debug)]
+pub enum GatewayAuditCmd {
+    /// List request audit rows newest-first.
+    List {
+        /// Include rows at or after this time (`1h ago`, `30m`, or RFC3339).
+        #[arg(long)]
+        since: Option<String>,
+        /// Filter by exact principal id.
+        #[arg(long)]
+        principal: Option<String>,
+        /// Filter by exact HTTP status code.
+        #[arg(long)]
+        status: Option<u16>,
+        /// Output a JSON envelope.
+        #[arg(long)]
+        json: bool,
+        /// Maximum rows to return (1..1000).
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+    },
+    /// Show one request audit row by request id.
+    Show {
+        /// UUID request id.
+        request_id: String,
+        /// Output as JSON.
         #[arg(long)]
         json: bool,
     },

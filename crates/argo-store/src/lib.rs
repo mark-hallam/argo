@@ -34,6 +34,8 @@ pub mod feedback;
 mod forge_meta;
 /// GDPR erasure helpers.
 pub mod gdpr;
+/// Gateway request audit log query helpers.
+pub mod gateway_request_audit;
 /// Aggregate query helpers over the `handoff` table for the
 /// `argo handoff-stats` CLI surface (Stream `codex-handoff-stats-cli`).
 pub mod handoff_stats_query;
@@ -254,7 +256,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 65;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 66;
 
 /// A SQLite-backed session store.
 ///

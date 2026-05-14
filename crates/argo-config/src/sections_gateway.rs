@@ -38,6 +38,8 @@ pub struct GatewayConfig {
     /// only honored from those peers. See
     /// `docs/skycot/runbook/gateway-tls-deployment.md`.
     pub behind_proxy: GatewayBehindProxyConfig,
+    /// `[gateway.request_audit]` per-request audit capture.
+    pub request_audit: GatewayRequestAuditConfig,
 }
 
 impl Default for GatewayConfig {
@@ -52,6 +54,34 @@ impl Default for GatewayConfig {
             handoff_sweep_secs: defaults::DEFAULT_HANDOFF_SWEEP_SECS,
             rate_limit: GatewayRateLimitConfig::default(),
             behind_proxy: GatewayBehindProxyConfig::default(),
+            request_audit: GatewayRequestAuditConfig::default(),
+        }
+    }
+}
+
+/// `[gateway.request_audit]` — per-request audit table capture.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GatewayRequestAuditConfig {
+    /// `true` records one `gateway_request_audit` row per request.
+    pub enabled: bool,
+    /// `true` honors the leftmost `X-Forwarded-For` IP for the audit
+    /// row. Defaults to false so direct deployments do not trust
+    /// caller-supplied headers.
+    pub behind_proxy: bool,
+    /// HTTP methods whose non-empty request body should be hashed.
+    pub body_hash_for_methods: Vec<String>,
+    /// Maximum stored User-Agent length.
+    pub user_agent_max_len: u32,
+}
+
+impl Default for GatewayRequestAuditConfig {
+    fn default() -> Self {
+        Self {
+            enabled: defaults::DEFAULT_GATEWAY_REQUEST_AUDIT_ENABLED,
+            behind_proxy: defaults::DEFAULT_GATEWAY_REQUEST_AUDIT_BEHIND_PROXY,
+            body_hash_for_methods: vec!["POST".into(), "PUT".into(), "PATCH".into()],
+            user_agent_max_len: defaults::DEFAULT_GATEWAY_REQUEST_AUDIT_UA_MAX,
         }
     }
 }
