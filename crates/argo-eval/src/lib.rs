@@ -48,6 +48,7 @@ mod compare;
 pub mod honesty;
 pub mod regression;
 mod runner;
+pub mod self_healing;
 mod streaming;
 mod task;
 
@@ -66,5 +67,9 @@ pub use regression::{
     EvalRegressionDecision, EvalRegressionReport,
 };
 pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
+pub use self_healing::{
+    apply_fixture_update, propose_fixture_update, FixtureFailureJudgment, FixtureFailureKind,
+    FixtureUpdateProposal, FixtureUpdateReceipt, OperatorFixtureApproval, SelfHealingConfig,
+};
 pub use streaming::{format_simple_line, format_summary_line, format_verbose_line, StreamMode};
 pub use task::{load_jsonl, EvalMetric, EvalTask};
