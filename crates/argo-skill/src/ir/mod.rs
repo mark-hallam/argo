@@ -6,6 +6,8 @@
 #![warn(missing_docs)]
 
 pub mod backfill;
+pub mod ghostwriter;
+pub mod ghostwriter_prompts;
 mod serde;
 pub mod store;
 pub mod types;
@@ -17,6 +19,11 @@ pub use self::backfill::{
     BACKFILL_ENTRY_NODE_ID, BACKFILL_SOURCE, BackfillEntry, BackfillReport, BackfillStatus,
     synthesize_graph,
 };
+pub use self::ghostwriter::{
+    generate_from_prompt, offline_template, validate_graph, GhostwriterClient, GhostwriterError,
+    OfflineGhostwriterClient, GHOSTWRITER_SOURCE,
+};
+pub use self::ghostwriter_prompts::{build_initial_prompt, build_self_correction_prompt};
 pub use self::serde::{canonical_hash, canonical_hash_hex, canonical_json};
 pub use self::store::{ChainRow, SkillIrStore, SqliteSkillIrStore, ensure_schema, verify_chain};
 pub use self::types::{
