@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AlertCircle, Eye, Loader2, Pencil, Sparkles, Tv } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui/Breadcrumb";
 import { EditMode } from "@/components/skycot/canvas/EditMode";
+import { ExportImport } from "@/components/skycot/canvas/ExportImport";
 import { SkillCanvas } from "@/components/skycot/canvas/SkillCanvas";
 import { SkillIrNotFoundError } from "@/lib/api/skill-ir";
 import { useSkillIr } from "@/lib/hooks/use-skill-ir";
@@ -62,6 +63,12 @@ export default function SkillCanvasPage() {
           ) : (
             <SkillCanvas graph={irQuery.data.graph} />
           )}
+          <ExportImport
+            skillId={skillId}
+            graph={irQuery.data.graph}
+            version={irQuery.data.version}
+            irHash={irQuery.data.irHash}
+          />
           <p
             data-testid="canvas-source-line"
             className="text-xs text-[var(--muted-foreground)]"

@@ -25,7 +25,8 @@ use super::routes_auth_principal::principal_id_for_audit;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::ir::{
-    canonical_hash_hex, save_edited_graph, SkillGraph, SkillIrStore, SqliteSkillIrStore,
+    canonical_hash_hex, export_skill_ir_bundle, graph_from_skill_ir_bundle, save_edited_graph,
+    SkillGraph, SkillIrBundle, SkillIrStore, SqliteSkillIrStore,
 };
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
@@ -51,9 +52,8 @@ pub(super) async fn dispatch(
     let segments: Vec<&str> = path.split('/').collect();
     match segments.as_slice() {
         [skill_id, "ir"] => Some(ir_response(req, skill_id, query, store).await),
-        [skill_id, "ir", "versions"] => {
-            Some(versions_response(req, skill_id, query, store).await)
-        }
+        [skill_id, "ir", "export"] => Some(export_response(req, skill_id, query, store).await),
+        [skill_id, "ir", "versions"] => Some(versions_response(req, skill_id, query, store).await),
         _ => None,
     }
 }
@@ -69,8 +69,65 @@ pub(super) async fn dispatch_post(
     let segments: Vec<&str> = path.split('/').collect();
     match segments.as_slice() {
         [skill_id, "ir"] => Some(save_response(req, skill_id, query, store).await),
+        [skill_id, "ir", "import"] => Some(import_response(req, skill_id, query, store).await),
         _ => None,
     }
+}
+
+async fn import_response(
+    req: &str,
+    skill_id_raw: &str,
+    query: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let tenant = match resolve_tenant(req, query) {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let skill_id = match parse_skill_id(skill_id_raw) {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    let bundle = match parse_import_bundle(req) {
+        Ok(b) => b,
+        Err(resp) => return resp,
+    };
+    let imported_hash = bundle.ir_hash.clone();
+    let graph = match graph_from_skill_ir_bundle(&bundle) {
+        Ok(g) => g,
+        Err(e) => return bad_request(&format!("skill_ir import: {e}")),
+    };
+    let outcome = match save_edited_graph(store, tenant, skill_id, &graph).await {
+        Ok(out) => out,
+        Err(e) => return bad_request(&format!("skill_ir import save: {e}")),
+    };
+    emit_audit(
+        store,
+        req,
+        "skill.ir.imported",
+        tenant,
+        skill_id,
+        Some(&outcome.version),
+    )
+    .await;
+    let graph_value = match serde_json::to_value(&graph) {
+        Ok(v) => v,
+        Err(e) => return server_error(&format!("graph encode: {e}")),
+    };
+    let body = json!({
+        "skillId": skill_id.to_string(),
+        "tenantId": tenant.to_string(),
+        "version": outcome.version,
+        "irHash": outcome.ir_hash_hex,
+        "importedHash": imported_hash,
+        "graph": graph_value,
+        "abTestScheduled": outcome.ab_test_run_id.is_some(),
+        "abTestRunId": outcome.ab_test_run_id,
+    });
+    ("200 OK", body.to_string())
 }
 
 async fn save_response(
@@ -179,6 +236,53 @@ async fn ir_response(
         "graph": graph_value,
     });
     ("200 OK", body.to_string())
+}
+
+async fn export_response(
+    req: &str,
+    skill_id_raw: &str,
+    query: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let tenant = match resolve_tenant(req, query) {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let skill_id = match parse_skill_id(skill_id_raw) {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    let version = query_value(query, "version");
+    let ir_store = SqliteSkillIrStore::new(store);
+    let (version_str, graph) = match version.as_deref() {
+        Some(v) => match ir_store.get(tenant, skill_id, v).await {
+            Ok(Some(g)) => (v.to_string(), g),
+            Ok(None) => return not_found("skill IR version not found"),
+            Err(e) => return server_error(&format!("skill_ir get: {e}")),
+        },
+        None => match ir_store.latest(tenant, skill_id).await {
+            Ok(Some((v, g))) => (v, g),
+            Ok(None) => return not_found("skill has no IR"),
+            Err(e) => return server_error(&format!("skill_ir latest: {e}")),
+        },
+    };
+    let bundle = match export_skill_ir_bundle(skill_id, &version_str, &graph) {
+        Ok(b) => b,
+        Err(e) => return server_error(&format!("skill_ir export: {e}")),
+    };
+    emit_audit(
+        store,
+        req,
+        "skill.ir.exported",
+        tenant,
+        skill_id,
+        Some(&version_str),
+    )
+    .await;
+    ("200 OK", json!(bundle).to_string())
 }
 
 async fn versions_response(
@@ -304,6 +408,14 @@ fn parse_save_graph(req: &str) -> Result<SkillGraph, (&'static str, String)> {
     serde_json::from_value(graph_value).map_err(|e| bad_request(&format!("decode graph: {e}")))
 }
 
+fn parse_import_bundle(req: &str) -> Result<SkillIrBundle, (&'static str, String)> {
+    let body = body_from_request(req);
+    let parsed: Value =
+        serde_json::from_str(body).map_err(|e| bad_request(&format!("parse body: {e}")))?;
+    let bundle_value = parsed.get("bundle").cloned().unwrap_or(parsed);
+    serde_json::from_value(bundle_value).map_err(|e| bad_request(&format!("decode bundle: {e}")))
+}
+
 async fn emit_audit(
     store: &Arc<SessionStore>,
     req: &str,
@@ -353,11 +465,7 @@ fn server_error(message: &str) -> (&'static str, String) {
     error_envelope("500 Internal Server Error", "internal_error", message)
 }
 
-fn error_envelope(
-    status: &'static str,
-    code: &str,
-    message: &str,
-) -> (&'static str, String) {
+fn error_envelope(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
     (
         status,
         json!({"error": {"code": code, "message": message}}).to_string(),

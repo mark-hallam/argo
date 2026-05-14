@@ -11,8 +11,8 @@
 use super::{dispatch, dispatch_post};
 use argo_skill::ir::SkillIrStore as _;
 use argo_skill::ir::{
-    canonical_hash_hex, ensure_schema, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph,
-    SqliteSkillIrStore,
+    canonical_hash_hex, ensure_schema, export_skill_ir_bundle, Node, NodeAnnotations, NodeId,
+    NodeKind, SkillGraph, SqliteSkillIrStore,
 };
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
@@ -261,4 +261,81 @@ async fn post_ir_second_save_reports_ab_schedule() {
     let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
     assert!(parsed["abTestScheduled"].as_bool().unwrap());
     assert!(parsed["abTestRunId"].as_str().unwrap().len() > 20);
+}
+
+#[tokio::test]
+async fn export_endpoint_returns_portable_bundle_without_tenant() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let skill = SkillId::new();
+    seed(&store, tenant, skill, "v1", "portable").await;
+
+    let req = get_with_tenant(
+        &format!("/api/v1/skills/{skill}/ir/export?version=v1"),
+        tenant,
+    );
+    let (status, body) = dispatch(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(status, "200 OK");
+    let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
+    assert_eq!(
+        parsed["schemaVersion"].as_str().unwrap(),
+        "skycot.skill_ir.bundle.v1"
+    );
+    assert_eq!(parsed["sourceSkillId"].as_str().unwrap(), skill.to_string());
+    assert_eq!(parsed["version"].as_str().unwrap(), "v1");
+    assert_eq!(
+        parsed["irHash"].as_str().unwrap(),
+        canonical_hash_hex(&graph_with_label("portable")).unwrap()
+    );
+    assert!(!body.contains(&tenant.to_string()));
+}
+
+#[tokio::test]
+async fn import_endpoint_adopts_bundle_under_target_skill() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let source = SkillId::new();
+    let target = SkillId::new();
+    let graph = graph_with_label("imported");
+    let bundle = export_skill_ir_bundle(source, "v1", &graph).expect("bundle");
+    let req = post_with_tenant(
+        &format!("/api/v1/skills/{target}/ir/import"),
+        tenant,
+        &serde_json::json!({ "bundle": bundle }),
+    );
+
+    let (status, body) = dispatch_post(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(status, "200 OK");
+    let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
+    assert_eq!(parsed["skillId"].as_str().unwrap(), target.to_string());
+    assert_eq!(
+        parsed["importedHash"].as_str().unwrap(),
+        canonical_hash_hex(&graph).unwrap()
+    );
+    let saved = SqliteSkillIrStore::new(&store)
+        .latest(tenant, target)
+        .await
+        .expect("latest")
+        .expect("saved")
+        .1;
+    assert_eq!(saved, graph);
+}
+
+#[tokio::test]
+async fn import_endpoint_rejects_bad_bundle_hash() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let target = SkillId::new();
+    let mut bundle =
+        export_skill_ir_bundle(SkillId::new(), "v1", &graph_with_label("old")).unwrap();
+    bundle.graph = graph_with_label("new");
+    let req = post_with_tenant(
+        &format!("/api/v1/skills/{target}/ir/import"),
+        tenant,
+        &serde_json::json!({ "bundle": bundle }),
+    );
+
+    let (status, body) = dispatch_post(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(status, "400 Bad Request");
+    assert!(body.contains("hash mismatch"));
 }
