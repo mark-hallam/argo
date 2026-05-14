@@ -239,6 +239,16 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_dispatch_post_duties::dispatch_duties(req, store).await {
         return Some(resp);
     }
+    if let Some(rest) = req.strip_prefix("POST /api/v1/orchestration/runs/") {
+        if let Some((head, _)) = rest.split_once(' ') {
+            let parts: Vec<&str> = head.split('/').collect();
+            if parts.len() == 2 {
+                return Some(
+                    super::routes_orchestration::action_response(parts[0], parts[1], store).await,
+                );
+            }
+        }
+    }
     if let Some(resp) = super::routes_dispatch_post_approvals::dispatch_approvals(req).await {
         return Some(resp);
     }

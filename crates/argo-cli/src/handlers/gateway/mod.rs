@@ -98,6 +98,7 @@ mod routes_msgs_pick;
 mod routes_orchestrator;
 mod routes_orchestrator_handoffs;
 mod routes_orchestrator_slas;
+mod routes_orchestration;
 mod routes_peer;
 mod routes_post;
 mod routes_post_admin;

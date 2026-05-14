@@ -65,6 +65,11 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /api/v1/cohorts ") || req.starts_with("GET /api/v1/cohorts?") {
         return Some(super::routes_cohorts::list_response(req, store).await);
     }
+    if req.starts_with("GET /api/v1/orchestration/runs ")
+        || req.starts_with("GET /api/v1/orchestration/runs?")
+    {
+        return Some(super::routes_orchestration::list_response(req, store).await);
+    }
     if req.starts_with("GET /api/v1/dashboards/error-rate ")
         || req.starts_with("GET /api/v1/dashboards/error-rate?")
     {
