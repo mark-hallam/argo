@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "session_id": "marketplace-seller-e2b-demo-001",
+  "recorded_from": "E2B browser sandbox",
+  "vertical": "marketplace-seller",
+  "item": {
+    "item_id": "usd-sway-60-xxi-flat",
+    "name": "USD Sway 60 XXI Flat",
+    "platform": "facebook_marketplace",
+    "target_price_aud": 260,
+    "condition": "used"
+  },
+  "draft_listing": {
+    "title": "USD Sway 60 XXI Flat aggressive inline skates",
+    "price": "AUD 260",
+    "location": "Bulleen, Victoria",
+    "body": "Used aggressive inline skates in flat setup. Includes complete pair. Buyer should confirm shell size from photos before pickup. Local pickup only after operator approval."
+  },
+  "expected_stop_reason": "approval_required",
+  "steps": [
+    {
+      "step": 1,
+      "screenshot_relpath": "screenshots/001-open-sandbox.png",
+      "url": "https://sandbox.facebook-marketplace.invalid/create/item",
+      "action": "open_create_listing",
+      "observation": "Sandbox marketplace create-listing page is open."
+    },
+    {
+      "step": 2,
+      "screenshot_relpath": "screenshots/002-title-price.png",
+      "url": "https://sandbox.facebook-marketplace.invalid/create/item",
+      "action": "fill_title_price",
+      "observation": "Title and AUD price are filled from the approved draft."
+    },
+    {
+      "step": 3,
+      "screenshot_relpath": "screenshots/003-category-condition.png",
+      "url": "https://sandbox.facebook-marketplace.invalid/create/item",
+      "action": "select_category_condition",
+      "observation": "Category is inline skates and condition is used."
+    },
+    {
+      "step": 4,
+      "screenshot_relpath": "screenshots/004-description-location.png",
+      "url": "https://sandbox.facebook-marketplace.invalid/create/item",
+      "action": "fill_description_location",
+      "observation": "Description and Bulleen pickup location are staged."
+    },
+    {
+      "step": 5,
+      "screenshot_relpath": "screenshots/005-photo-review.png",
+      "url": "https://sandbox.facebook-marketplace.invalid/create/item/review",
+      "action": "review_photos",
+      "observation": "Photo placeholders are ordered for operator review."
+    },
+    {
+      "step": 6,
+      "screenshot_relpath": "screenshots/006-approval-required.png",
+      "url": "https://sandbox.facebook-marketplace.invalid/create/item/review",
+      "action": "stop_before_publish",
+      "observation": "Worker stops before publish with approval_required."
+    }
+  ]
+}
