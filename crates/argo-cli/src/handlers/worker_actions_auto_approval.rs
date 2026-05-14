@@ -10,7 +10,7 @@
 //! - Builds a [`PendingAction`] from an [`ActionRecord`] + the
 //!   manifest's [`ActionDeclaration`] so the evaluator sees the
 //!   action's risk class + estimated spend.
-//! - Returns the [`Decision`] verbatim — the dispatch shim
+//! - Returns the [`AutoApprovalDecision`] verbatim — the dispatch shim
 //!   reads it and either auto-approves, blocks, or falls
 //!   through to the existing approval-required path.
 //!
@@ -24,7 +24,7 @@ use super::worker_actions::ActionRecord;
 use super::worker_actions_transitions;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_identity::auto_approval::{
-    dollars_to_micros, evaluate, Decision, PendingAction, SpendSnapshot,
+    dollars_to_micros, evaluate, AutoApprovalDecision, PendingAction, SpendSnapshot,
 };
 use argo_identity::{circuit, worker_budget, AutoApprovalPolicy, CircuitState};
 use argo_memory::MemoryStore;
@@ -86,7 +86,7 @@ pub(crate) fn decide(
     action: &ActionRecord,
     decl: Option<&ActionDeclaration>,
     spend: SpendSnapshot,
-) -> Decision {
+) -> AutoApprovalDecision {
     decide_at(policy, action, decl, spend, Utc::now())
 }
 
@@ -96,7 +96,7 @@ fn decide_at(
     decl: Option<&ActionDeclaration>,
     spend: SpendSnapshot,
     now: DateTime<Utc>,
-) -> Decision {
+) -> AutoApprovalDecision {
     let estimated_usd_micros = decl
         .and_then(|d| d.executor.budget_usd())
         .map(dollars_to_micros);
@@ -117,7 +117,7 @@ pub(crate) fn auto_approver_token(reason: &str) -> String {
     format!("auto:{reason}")
 }
 
-/// Convert a [`Decision::Block`] verdict into an `ArgoError` the
+/// Convert a [`AutoApprovalDecision::Block`] verdict into an `ArgoError` the
 /// dispatch shim can return. Centralised so the message format
 /// stays consistent across call sites.
 pub(crate) fn block_to_error(action_id: &str, reason: &str) -> ArgoError {
@@ -231,7 +231,7 @@ async fn maybe_auto_approve_with_pool(
     policy: &AutoApprovalPolicy,
     pool: &Pool<Sqlite>,
     now: DateTime<Utc>,
-) -> ArgoResult<Decision> {
+) -> ArgoResult<AutoApprovalDecision> {
     if !action.requires_approval {
         return Ok(decide_at(policy, action, decl, SpendSnapshot::zero(), now));
     }
@@ -243,7 +243,7 @@ async fn maybe_auto_approve_with_pool(
     };
     let decision = decide_at(policy, action, decl, spend, now);
     match &decision {
-        Decision::AutoApprove { reason } => {
+        AutoApprovalDecision::AutoApprove { reason } => {
             ensure_tenant_quota_allows(pool, &worker_id, estimated_cost_micros(decl), now).await?;
             let approver = auto_approver_token(reason);
             let note = format!("auto-approved: {reason}");
@@ -265,20 +265,20 @@ async fn maybe_auto_approve_with_pool(
             .await?;
             Ok(decision)
         }
-        Decision::Ask { .. } => {
+        AutoApprovalDecision::Ask { .. } => {
             // Stream `mission-wire-outbound-notify-on-ask` — fan out
             // to the workspace's NotifyChannel slots so operators see
             // the request in Slack/email/push instead of the action
             // sitting Pending forever. Best-effort: errors log via
             // `tracing::warn!` inside `try_dispatch_on_ask` and never
-            // propagate; the Decision is the source of truth.
+            // propagate; the AutoApprovalDecision is the source of truth.
             let cwd_for_notify =
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             let _ = super::worker_actions_notify::try_dispatch_on_ask(action, &cwd_for_notify)
                 .await;
             Ok(decision)
         }
-        Decision::Block { reason } => Err(block_to_error(action_id, reason)),
+        AutoApprovalDecision::Block { reason } => Err(block_to_error(action_id, reason)),
     }
 }
 

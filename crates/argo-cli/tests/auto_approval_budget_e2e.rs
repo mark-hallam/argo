@@ -46,7 +46,7 @@
 //!   on-disk JSON would only add round-trip noise.
 
 use argo_identity::auto_approval::{
-    dollars_to_micros, evaluate, Decision, PendingAction, SpendSnapshot,
+    dollars_to_micros, evaluate, AutoApprovalDecision, PendingAction, SpendSnapshot,
 };
 use argo_identity::worker_budget::{record_charge, spend_today_for_worker};
 use argo_identity::AutoApprovalPolicy;
@@ -139,7 +139,7 @@ fn budget_and_window_envelope_reconciles_end_to_end() {
             };
             let decision = evaluate(&policy, &pending_for(&c), snap, c.fired_at);
             match decision {
-                Decision::AutoApprove { .. } => {
+                AutoApprovalDecision::AutoApprove { .. } => {
                     record_charge(
                         pool,
                         c.id,
@@ -151,10 +151,10 @@ fn budget_and_window_envelope_reconciles_end_to_end() {
                     .expect("record_charge");
                     auto_approved.push(c.id);
                 }
-                Decision::Ask { reason, .. } => {
+                AutoApprovalDecision::Ask { reason, .. } => {
                     asked.push((c.id, reason));
                 }
-                Decision::Block { reason } => {
+                AutoApprovalDecision::Block { reason } => {
                     panic!("{} unexpectedly Blocked: {reason}", c.id);
                 }
             }

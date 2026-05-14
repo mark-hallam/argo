@@ -143,7 +143,7 @@ fn decide_with_disabled_policy_asks_for_approval_gated_action() {
     let policy = AutoApprovalPolicy::default();
     let r = rec("act-2", "low", true);
     let d = decide(&policy, &r, None, SpendSnapshot::zero());
-    assert!(matches!(d, Decision::Ask { .. }));
+    assert!(matches!(d, AutoApprovalDecision::Ask { .. }));
 }
 
 #[test]

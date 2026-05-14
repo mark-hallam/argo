@@ -1,8 +1,8 @@
 //! Stream `mission-wire-outbound-notify-on-ask` — the load-bearing
-//! wire from `Decision::Ask` to outbound `NotifyChannel.send()`.
+//! wire from `AutoApprovalDecision::Ask` to outbound `NotifyChannel.send()`.
 //!
 //! Today the auto-approval gate (`worker_actions_auto_approval.rs`)
-//! returns `Decision::Ask` and the action stays `Pending` in the
+//! returns `AutoApprovalDecision::Ask` and the action stays `Pending` in the
 //! queue forever — operators get nothing in Slack/email/SMS. This
 //! module wires the missing fan-out.
 //!
@@ -27,7 +27,7 @@
 //!      implements via `EnvChannelSender` for the env-config
 //!      channels that are already wired (push, webinbox).
 //!   3. Errors surface as `tracing::warn!` and never propagate —
-//!      the auto-approval gate's `Decision` is the source of
+//!      the auto-approval gate's `AutoApprovalDecision` is the source of
 //!      truth; notify is best-effort.
 //!
 //! Tests under `worker_actions_notify_tests.rs` exercise the
@@ -57,7 +57,7 @@ mod notify_sms;
 mod notify_sse;
 
 /// `.skycot/notify.toml` — workspace-level approval-notification
-/// config. Loaded once per `Decision::Ask` dispatch.
+/// config. Loaded once per `AutoApprovalDecision::Ask` dispatch.
 const NOTIFY_RELPATH: &str = ".skycot/notify.toml";
 
 /// `[notify_channels]` umbrella block in `.skycot/notify.toml`.
@@ -214,7 +214,7 @@ fn parse_risk(s: &str) -> RiskLevel {
 /// risk filter (filtered-out channels do not appear in the
 /// output). Errors are logged via `tracing::warn!` and recorded
 /// in the result row's `error` field but never propagated — the
-/// auto-approval gate's Decision is the source of truth.
+/// auto-approval gate's AutoApprovalDecision is the source of truth.
 pub async fn dispatch(
     config: &NotifyConfig,
     action: &ActionRecord,
@@ -258,7 +258,7 @@ pub async fn dispatch(
 }
 
 /// Best-effort entry point called from the auto-approval gate's
-/// `Decision::Ask` arm. Loads `<cwd>/.skycot/notify.toml`, builds
+/// `AutoApprovalDecision::Ask` arm. Loads `<cwd>/.skycot/notify.toml`, builds
 /// the envelope, then either:
 ///
 /// 1. Routes through [`worker_actions_notify_fallback::dispatch_with_fallback`]

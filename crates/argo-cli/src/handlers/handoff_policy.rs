@@ -10,7 +10,7 @@
 //! Surface: `argo handoff-policy {show [--explain <action>], validate
 //! [<file>]}`. Wired into `argo-orchestrator::HandoffWalker` as a
 //! [`HandoffPolicyHook`] impl that re-routes only when a rule fires
-//! with [`Decision::EscalateTo`]; everything else falls through to
+//! with [`HandoffDecision::EscalateTo`]; everything else falls through to
 //! the existing routing weights, preserving pre-policy behaviour.
 
 use crate::cli::cli_handoff_cmds::HandoffPolicyCmd;
@@ -81,14 +81,14 @@ pub enum PolicyKind {
     /// Alias for `Escalate` that signals "to a more senior peer".
     /// Walker re-routing requires a concrete worker id, which the
     /// rules DSL does not yet encode, so this resolves to
-    /// `Decision::Escalate` (chain-driven) today.
+    /// `HandoffDecision::Escalate` (chain-driven) today.
     EscalateToSenior,
 }
 
 /// Resolved decision the orchestrator hook acts on. Mirrors the
-/// brief's `Decision::{ Inline, Escalate, EscalateTo }` shape.
+/// brief's `HandoffDecision::{ Inline, Escalate, EscalateTo }` shape.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Decision {
+pub enum HandoffDecision {
     /// Do not escalate; let inline retry/latency budget run.
     Inline,
     /// Escalate via the existing routing weights / chain.
@@ -137,9 +137,9 @@ impl HandoffPolicy {
     }
 
     /// First-match-wins evaluation. Returns the matched rule's
-    /// index plus resolved [`Decision`]; `None` falls through to
+    /// index plus resolved [`HandoffDecision`]; `None` falls through to
     /// existing routing weights.
-    pub fn evaluate(&self, ctx: &ActionContext) -> Option<(usize, Decision)> {
+    pub fn evaluate(&self, ctx: &ActionContext) -> Option<(usize, HandoffDecision)> {
         for (idx, rule) in self.rules.iter().enumerate() {
             if rule.match_spec.matches(ctx) {
                 return Some((idx, rule.policy.resolve()));
@@ -172,16 +172,16 @@ impl MatchSpec {
 }
 
 impl PolicyKind {
-    fn resolve(&self) -> Decision {
+    fn resolve(&self) -> HandoffDecision {
         match self {
-            Self::Inline => Decision::Inline,
-            Self::Escalate | Self::AlwaysEscalate | Self::EscalateToSenior => Decision::Escalate,
+            Self::Inline => HandoffDecision::Inline,
+            Self::Escalate | Self::AlwaysEscalate | Self::EscalateToSenior => HandoffDecision::Escalate,
         }
     }
 }
 
 /// [`HandoffPolicyHook`] impl: re-routes only when a rule fires
-/// with [`Decision::EscalateTo`]; everything else returns `None`
+/// with [`HandoffDecision::EscalateTo`]; everything else returns `None`
 /// so the walker falls back to its existing routing engine.
 ///
 /// Public for direct construction by the gateway sweeper wire-up
@@ -208,8 +208,8 @@ impl HandoffPolicyHook for PolicyHook {
             ..Default::default()
         };
         match self.policy.evaluate(&ctx)? {
-            (_, Decision::EscalateTo(w)) => Some(w),
-            (_, Decision::Inline | Decision::Escalate) => None,
+            (_, HandoffDecision::EscalateTo(w)) => Some(w),
+            (_, HandoffDecision::Inline | HandoffDecision::Escalate) => None,
         }
     }
 }

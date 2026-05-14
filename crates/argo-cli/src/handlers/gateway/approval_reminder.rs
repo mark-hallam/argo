@@ -4,7 +4,7 @@
 //! expiry sweeper applies their timeout decision after `deadline_at`.
 //! This task runs before that deadline and sends one reminder through
 //! the same workspace-level NotifyChannel config used by the original
-//! `Decision::Ask` notification path.
+//! `AutoApprovalDecision::Ask` notification path.
 use crate::handlers::worker_actions_notify::{
     matches_risk, EnvChannelSender, NotifyConfig, NotifySender,
 };

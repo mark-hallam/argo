@@ -54,7 +54,7 @@ fn disabled_policy_routes_every_approval_gated_action_to_human() {
     let policy = AutoApprovalPolicy::default();
     let p = pending("low", true);
     let d = evaluate(&policy, &p, SpendSnapshot::zero(), now());
-    assert!(matches!(d, Decision::Ask { .. }));
+    assert!(matches!(d, AutoApprovalDecision::Ask { .. }));
     assert!(d.reason().contains("policy:disabled"));
 }
 
@@ -71,7 +71,7 @@ fn high_risk_actions_never_auto_approve_even_when_enabled() {
     let policy = enabled_default();
     let p = pending("high", true);
     let d = evaluate(&policy, &p, SpendSnapshot::zero(), now());
-    assert!(matches!(d, Decision::Ask { .. }));
+    assert!(matches!(d, AutoApprovalDecision::Ask { .. }));
     assert!(d.reason().contains("high_risk"));
 }
 
@@ -85,7 +85,7 @@ fn per_action_cap_routes_overage_to_human() {
     // $1 estimate > $0.50 cap → Ask
     let p = pending_at("low", true, dollars_to_micros(1.0));
     let d = evaluate(&policy, &p, SpendSnapshot::zero(), now());
-    assert!(matches!(d, Decision::Ask { .. }));
+    assert!(matches!(d, AutoApprovalDecision::Ask { .. }));
     assert!(d.reason().contains("per_action_cap"));
 }
 
@@ -104,7 +104,7 @@ fn daily_cap_blocks_when_projected_total_exceeds() {
     let p = pending_at("low", true, dollars_to_micros(1.0));
     let d = evaluate(&policy, &p, spent, now());
     match d {
-        Decision::Block { reason } => assert!(reason.contains("daily_cap")),
+        AutoApprovalDecision::Block { reason } => assert!(reason.contains("daily_cap")),
         other => panic!("expected Block, got {other:?}"),
     }
 }
@@ -124,7 +124,7 @@ fn time_window_outside_business_hours_routes_to_human() {
     let sat = Utc.with_ymd_and_hms(2026, 5, 9, 10, 0, 0).unwrap();
     let p = pending("low", true);
     let d = evaluate(&policy, &p, SpendSnapshot::zero(), sat);
-    assert!(matches!(d, Decision::Ask { .. }));
+    assert!(matches!(d, AutoApprovalDecision::Ask { .. }));
     assert!(d.reason().contains("outside_time_window"));
 }
 
@@ -176,7 +176,7 @@ fn cross_midnight_window_matches_late_night_and_early_morning() {
     let mid = now();
     assert!(matches!(
         evaluate(&policy, &p, SpendSnapshot::zero(), mid),
-        Decision::Ask { .. }
+        AutoApprovalDecision::Ask { .. }
     ));
 }
 
@@ -216,20 +216,20 @@ fn dollars_micros_round_trip() {
 
 #[test]
 fn decision_reason_round_trips() {
-    let d = Decision::AutoApprove {
+    let d = AutoApprovalDecision::AutoApprove {
         reason: "test".into(),
     };
     assert_eq!(d.reason(), "test");
     assert!(d.is_auto_approved());
 
-    let d = Decision::Ask {
+    let d = AutoApprovalDecision::Ask {
         channel: Some("email".into()),
         reason: "needed".into(),
     };
     assert_eq!(d.reason(), "needed");
     assert!(!d.is_auto_approved());
 
-    let d = Decision::Block {
+    let d = AutoApprovalDecision::Block {
         reason: "too costly".into(),
     };
     assert_eq!(d.reason(), "too costly");

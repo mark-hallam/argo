@@ -1,7 +1,7 @@
 //! Stream H-1 — Auto-approval policy evaluator.
 //!
 //! Pure decision engine: takes an action + worker policy +
-//! recent spend → [`Decision`]. The downstream gate (Stream H-2,
+//! recent spend → [`AutoApprovalDecision`]. The downstream gate (Stream H-2,
 //! `worker_actions_dispatch::execute`) consults the evaluator
 //! before notifying any channel. When the verdict is
 //! `AutoApprove`, the action is approved with `approved_by =
@@ -66,7 +66,7 @@ impl SpendSnapshot {
 /// the dispatch shim should use — `None` means "default channel
 /// list from the worker's `channels` field".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Decision {
+pub enum AutoApprovalDecision {
     /// Action clears auto-approval. Dispatch writes
     /// `approved_by = "auto:<reason>"` and proceeds.
     AutoApprove {
@@ -91,7 +91,7 @@ pub enum Decision {
     },
 }
 
-impl Decision {
+impl AutoApprovalDecision {
     /// Reason text — handy for tests and audit-log rendering.
     #[must_use]
     pub fn reason(&self) -> &str {
@@ -118,7 +118,7 @@ impl Decision {
 /// # Example
 /// ```
 /// use argo_identity::auto_approval::{
-///     evaluate, Decision, PendingAction, SpendSnapshot,
+///     evaluate, AutoApprovalDecision, PendingAction, SpendSnapshot,
 /// };
 /// use argo_identity::AutoApprovalPolicy;
 /// use chrono::Utc;
@@ -134,7 +134,7 @@ impl Decision {
 ///     SpendSnapshot::zero(),
 ///     Utc::now(),
 /// );
-/// assert!(matches!(decision, Decision::AutoApprove { .. }));
+/// assert!(matches!(decision, AutoApprovalDecision::AutoApprove { .. }));
 /// ```
 #[must_use]
 pub fn evaluate(
@@ -142,11 +142,11 @@ pub fn evaluate(
     action: &PendingAction<'_>,
     spend: SpendSnapshot,
     now: DateTime<Utc>,
-) -> Decision {
+) -> AutoApprovalDecision {
     // Autonomous-safe actions never need approval — the manifest
     // already says so. Skip the policy entirely.
     if !action.requires_approval {
-        return Decision::AutoApprove {
+        return AutoApprovalDecision::AutoApprove {
             reason: "manifest:requires_approval=false".into(),
         };
     }
@@ -154,7 +154,7 @@ pub fn evaluate(
     // Policy disabled: every approval-gated action goes to a
     // human. Risk-class routing chooses the channel.
     if !policy.enabled {
-        return Decision::Ask {
+        return AutoApprovalDecision::Ask {
             channel: None,
             reason: "policy:disabled".into(),
         };
@@ -164,7 +164,7 @@ pub fn evaluate(
     // safety hard rule: human-in-the-loop for every irreversible
     // / external-touching action.
     if action.risk_level == "high" {
-        return Decision::Ask {
+        return AutoApprovalDecision::Ask {
             channel: None,
             reason: "policy:high_risk_always_asks".into(),
         };
@@ -177,7 +177,7 @@ pub fn evaluate(
         policy.max_usd_micros_per_action,
     ) {
         if estimate > cap {
-            return Decision::Ask {
+            return AutoApprovalDecision::Ask {
                 channel: None,
                 reason: format!(
                     "policy:per_action_cap=${:.2} exceeded by ${:.2}",
@@ -196,7 +196,7 @@ pub fn evaluate(
             .today_usd_micros
             .saturating_add(action.estimated_usd_micros.unwrap_or(0));
         if projected > daily_cap {
-            return Decision::Block {
+            return AutoApprovalDecision::Block {
                 reason: format!(
                     "policy:daily_cap=${:.2} would be exceeded \
                      (today=${:.2} + this=${:.2})",
@@ -220,14 +220,14 @@ pub fn evaluate(
         && !policy.time_windows.is_empty()
         && !window_matches(&policy.time_windows, now)
     {
-        return Decision::Ask {
+        return AutoApprovalDecision::Ask {
             channel: None,
             reason: "policy:outside_time_window".into(),
         };
     }
 
     // All gates passed. Auto-approve.
-    Decision::AutoApprove {
+    AutoApprovalDecision::AutoApprove {
         reason: format!("policy:risk={}_within_caps", action.risk_level),
     }
 }

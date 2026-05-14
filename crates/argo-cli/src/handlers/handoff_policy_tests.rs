@@ -74,12 +74,12 @@ policy = "inline"
     let policy = HandoffPolicy::from_toml(body).unwrap();
     let (idx, decision) = policy.evaluate(&ctx("approval_request")).unwrap();
     assert_eq!(idx, 0);
-    assert_eq!(decision, Decision::Escalate);
+    assert_eq!(decision, HandoffDecision::Escalate);
 
     // Same rules, different action — second rule wins.
     let (idx, decision) = policy.evaluate(&ctx("send_email")).unwrap();
     assert_eq!(idx, 1);
-    assert_eq!(decision, Decision::Inline);
+    assert_eq!(decision, HandoffDecision::Inline);
 }
 
 #[test]
@@ -92,7 +92,7 @@ policy = "escalate"
     let policy = HandoffPolicy::from_toml(body).unwrap();
     assert_eq!(
         policy.evaluate(&ctx("anything-at-all")).unwrap().1,
-        Decision::Escalate
+        HandoffDecision::Escalate
     );
 }
 
@@ -189,7 +189,7 @@ policy = "always_escalate"
     assert_eq!(policy.rules.len(), 1);
     assert_eq!(
         policy.evaluate(&ctx("approval_request")).unwrap().1,
-        Decision::Escalate
+        HandoffDecision::Escalate
     );
 }
 

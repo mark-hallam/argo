@@ -159,7 +159,7 @@ pub struct AutoApprovalPolicy {
     pub daily_budget_usd_micros: Option<u64>,
     /// Allowed time windows. Empty = no time-based restriction.
     /// Outside the windows the evaluator returns
-    /// [`crate::auto_approval::Decision::Ask`].
+    /// [`crate::auto_approval::AutoApprovalDecision::Ask`].
     #[serde(default)]
     pub time_windows: Vec<crate::auto_approval::TimeWindow>,
     /// Wake-rules: action types that bypass the time-window

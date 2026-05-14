@@ -2,7 +2,7 @@
 //!
 //! Drives the released `argo` binary with a workspace that has
 //! `.skycot/notify.toml` configured + an action queued + an
-//! auto-approval policy that returns `Decision::Ask`. The smoke
+//! auto-approval policy that returns `AutoApprovalDecision::Ask`. The smoke
 //! verifies the binary compiles + boots + reads the file without
 //! crashing — full end-to-end fan-out to a real channel transport
 //! is exercised by the per-channel argo-channels integration
