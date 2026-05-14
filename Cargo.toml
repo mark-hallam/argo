@@ -38,6 +38,7 @@ members = [
   "crates/argo-identity",
   "crates/argo-redact",
   "crates/argo-vertical",
+  "crates/argo-vertical-packs",
   "crates/argo-vertical-regression",
   "crates/argo-team-headline",
   "crates/argo-executor-computer-use",
@@ -134,6 +135,7 @@ serde_yaml = "0.9"
 aws-config = "1"
 aws-sdk-bedrockruntime = "1"
 aws-smithy-types = "1"
+argo-vertical-packs = { path = "crates/argo-vertical-packs" }
 
 [profile.release]
 lto = "fat"

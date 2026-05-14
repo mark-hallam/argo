@@ -402,6 +402,7 @@ dependencies = [
  "argo-tui",
  "argo-types",
  "argo-vertical",
+ "argo-vertical-packs",
  "argo-voice-tui",
  "argo-workflow",
  "async-trait",
@@ -1605,6 +1606,21 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "toml 0.8.23",
+]
+
+[[package]]
+name = "argo-vertical-packs"
+version = "0.0.1"
+dependencies = [
+ "argo-types",
+ "flate2",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "tokio",
  "toml 0.8.23",
 ]
 

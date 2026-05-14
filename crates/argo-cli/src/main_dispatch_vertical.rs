@@ -13,6 +13,10 @@ pub(crate) async fn vertical(cmd: cli::VerticalCmd) -> ArgoResult<()> {
     handlers::vertical::run(cmd).await
 }
 
+pub(crate) async fn packs(cmd: handlers::packs::PacksCmd) -> ArgoResult<()> {
+    handlers::packs::run(cmd).await
+}
+
 pub(crate) fn genesis(cmd: cli::GenesisCmd) -> ArgoResult<()> {
     handlers::genesis::run(cmd)
 }

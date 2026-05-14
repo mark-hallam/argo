@@ -55,6 +55,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: PluginCmd,
     },
+    /// Install and manage vertical template packs.
+    Packs {
+        #[command(subcommand)]
+        cmd: crate::handlers::packs::PacksCmd,
+    },
     Provider {
         #[command(subcommand)]
         cmd: ProviderCmd,

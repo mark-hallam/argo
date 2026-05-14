@@ -63,6 +63,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Trust { cmd } => main_dispatch_skill::trust(cmd).await,
         Command::Judge { cmd } => main_dispatch_skill::judge(cmd).await,
         Command::Plugin { cmd } => main_dispatch_skill::plugin(cmd),
+        Command::Packs { cmd } => main_dispatch_vertical::packs(cmd).await,
         Command::Model { cmd } => main_dispatch_skill::model(cmd),
         Command::Mcp { cmd } => main_dispatch_skill::mcp(cmd).await,
         Command::Forge { cmd } => main_dispatch_skill::forge(cmd).await,

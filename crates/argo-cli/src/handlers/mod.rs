@@ -188,6 +188,7 @@ pub mod plan_template_list;
 pub mod plan_template_promote;
 pub mod plan_template_show;
 pub mod plugin;
+pub mod packs;
 pub mod policy_handlers;
 pub mod provider;
 pub mod provider_breakers;
