@@ -65,11 +65,11 @@
 
 ### Claim 5 — Real-world execution
 **Serving**: 40+ crates.
-- Executors: computer-use (E2B 6,793; Linux 1,636; macOS 1,945; Windows 2,428), document (1,648), filesystem (1,076), sandbox (581).
+- Executors: computer-use (macOS 1,945, v1 primary; E2B 6,793, DEFERRED-v1.x cloud sandbox path; Linux 1,636, DEFERRED-v1.x server deploy path; Windows 2,428, DEFERRED-v1.x enterprise endpoint path), document (1,648), filesystem (1,076), sandbox (581).
 - MCP core: argo-mcp (2,059), argo-tool (10,007).
 - 30 live connectors + 7 stubs.
 
-**Status**: ✓ Over-covered. 4 competing computer-use OS-native implementations create maintenance debt.
+**Status**: ✓ Over-covered. Operator decision 2026-05-14 resolves v1 ownership: macOS is primary, while E2B/Linux/Windows remain shipped but deferred to v1.x.
 
 ### Claim 6 — Multi-channel approval gates
 **Serving**: argo-channels (9,317, hosts 8 transports), argo-voice-tui (1,493), argo-bluebubbles-client (383).
@@ -115,7 +115,7 @@
 ## Section 6 — Top 5 surprises
 
 1. **argo-cli is 199K LOC** (38% of codebase). TOOLING by mission ("v0 placeholder") but 3.4× larger than next crate. Recommend decompose: argo-gateway + argo-cli-repl.
-2. **4 competing computer-use OS-native implementations** (Linux/macOS/Windows) alongside E2B. Need ownership clarity for v1.
+2. **4 computer-use execution paths** (macOS primary for v1; E2B/Linux/Windows DEFERRED-v1.x). Ownership clarity is now explicit for launch.
 3. **MCP connector explosion** (37 connectors, 22% of all crates). Maintenance scales O(n). Consider macro-driven template.
 4. **Skill optimization loop fragmented** across skill + forge + marketplace + eval (~20K LOC) with no clear orchestrator.
 5. **Type fragmentation** — argo-types exists but is under-enforced; 11+ duplicate definitions surfaced.

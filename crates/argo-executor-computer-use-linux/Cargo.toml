@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo native Linux computer-use executor (X11 + Wayland)"
+description = "Argo native Linux computer-use executor (X11 + Wayland) (DEFERRED-v1.x; server deploy path, not v1 demo)"
 
 [dependencies]
 argo-types = { path = "../argo-types" }

@@ -113,7 +113,7 @@ Plus 5 mission-X-UI briefs MERGED: trust-grade-ui, skill-cohort-ui, retro-review
 
 | Phase | State | v1.0-required |
 |---|---|---|
-| G1/G2/G3 MERGED 2026-05-12 | DONE | ✅ |
+| G1/G2/G3 MERGED 2026-05-12 | DONE; macOS executor is v1 primary, E2B/Linux/Windows are DEFERRED-v1.x | ✅ |
 
 ### Track K — deployment
 
@@ -230,7 +230,7 @@ For each of the 6 claims: what code/tracks deliver it + gaps.
 
 **Delivering**:
 - MCP executor (`argo-mcp` + connectors)
-- Computer-use executor (`argo-executor-computer-use` + e2b sandbox)
+- Computer-use executor (`argo-executor-computer-use-macos` is the v1 primary path; E2B/Linux/Windows executors remain shipped but are DEFERRED-v1.x)
 - M1 Claude vision extraction (TODO)
 - M3 ExtractDocument canvas node (TODO)
 - M4 table extraction (TODO)

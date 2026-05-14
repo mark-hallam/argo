@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Argo Stream B — ComputerUseExecutor + E2B sandbox driver for the Anthropic computer-use loop"
+description = "Argo Stream B — ComputerUseExecutor + E2B sandbox driver for the Anthropic computer-use loop (DEFERRED-v1.x; cloud sandbox path, not v1 demo)"
 
 [dependencies]
 argo-config = { path = "../argo-config", version = "0.0.1" }

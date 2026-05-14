@@ -240,8 +240,8 @@ heading "19. BrowserExecutor smoke"
 # `crates/argo-cli/tests/browser_action_executor_smoke.rs`, which
 # spawns `python3 tests/fixtures/browser_mock_mcp.py` as a stub
 # MCP server. Skip-with-warn when python3 is absent so operators on
-# minimal images still get a green smoke run for the other 19
-# checks; the BrowserExecutor wiring is locked elsewhere in CI.
+# minimal images still get a green smoke run for the remaining checks;
+# the BrowserExecutor wiring is locked elsewhere in CI.
 if ! command -v python3 >/dev/null 2>&1; then
   echo "  SKIP #19 BrowserExecutor — python3 not in PATH"
 else
@@ -252,7 +252,17 @@ else
   ok "browser_action_executor_smoke passed"
 fi
 
-heading "20. Slack approval roundtrip"
+heading "20. macOS computer-use smoke"
+# Runs the v1-primary native computer-use smoke. On non-macOS runners
+# or when ARGO_NATIVE_MACOS_INTEGRATION is unset, the integration test
+# prints a skip reason and still exercises config validation.
+cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+macos_cu_out=$(cargo test -p argo-executor-computer-use-macos --test notes_smoke --quiet 2>&1) \
+  || fail "macOS computer-use notes_smoke" "$macos_cu_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "macOS computer-use notes_smoke passed"
+
+heading "21. Slack approval roundtrip"
 # Drives the existing integration smoke
 # `crates/argo-cli/tests/slack_approval_roundtrip_e2e.rs`. Pure-Rust
 # HMAC verification — no external dependencies, no skip path.

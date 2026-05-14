@@ -83,7 +83,9 @@ Two briefs authored 2026-05-11, queued for swarm pickup:
 - [streams/mission-cu-native-windows-poc.md](streams/mission-cu-native-windows-poc.md)
   — NEW crate `argo-executor-computer-use-windows`, PowerShell-
   built-in subprocess primitives, mirrors macOS #941 + Linux POC.
-  Closes the third leg of mission claim 5.
+  Closes the third leg of mission claim 5. Operator update
+  2026-05-14: Windows stays shipped but is DEFERRED-v1.x; macOS is
+  the v1 primary demo path.
 - [streams/mission-real-llm-operator-journey-test.md](streams/mission-real-llm-operator-journey-test.md)
   — NEW `scripts/smoke-skycot-real-llm.sh`, mock-mode-equivalent
   but against real provider. Coherence + cost + 90s budget
@@ -208,6 +210,11 @@ runnable in parallel.
 
 ## Track G — mission claim 5 finish (DONE 2026-05-12 — G1/G2/G3 MERGED)
 
+Operator update 2026-05-14: v1 hardening targets
+`argo-executor-computer-use-macos` as the primary computer-use path.
+E2B, Linux, and Windows executors stay in the workspace and continue
+to ship, but they are DEFERRED-v1.x and do not block the v1 demo.
+
 Follow-ups after Track B lands:
 
 - Windows dispatch wiring (`mission-cu-native-windows-executor-
@@ -269,7 +276,7 @@ Total: ~20 briefs, ~9000 LOC. Runs PARALLEL to Track L Phases 3-5.
 | 2. Delegation is the unit | A (design) → C → D → E (hire flow + delegate-ongoing) | A+B+D done; E partial (E2 in flight) |
 | 3. Platform builds workers | Backend MERGED; A → D → E (hire-flow UI) | A+D done; E partial (E2 in flight) |
 | 4. Skills shared and learned | F (backend) + E (skill library UI, deferred slice) | F substantively MERGED; E partial (E4-e Skills tab MERGED) |
-| 5. MCP + computer-use | B (Windows POC) → G (dispatch + Wayland) | B+G fully MERGED |
+| 5. MCP + computer-use | B (Windows POC) -> G (dispatch + Wayland) | B+G fully MERGED; macOS is v1 primary, non-macOS paths DEFERRED-v1.x |
 | 6. Multi-channel approval gates | All channels wired; A → D → E (approvals inbox) | A+D done; E1 closed (6/6 MERGED) |
 
 ## Sequencing rules
