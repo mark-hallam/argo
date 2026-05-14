@@ -58,8 +58,7 @@ pub fn run(path_override: Option<PathBuf>, json: bool) -> ArgoResult<()> {
 }
 
 fn default_credentials_path() -> ArgoResult<PathBuf> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     Ok(credentials_path(&cwd))
 }
 
@@ -96,6 +95,8 @@ mod tests {
 
         let body = fs::read_to_string(&path).unwrap();
         assert!(!body.contains("plain"), "plaintext leaked: {body}");
+        let loaded = argo_config::cred::load(dir.path()).unwrap();
+        assert_eq!(loaded.get("TOKEN").map(String::as_str), Some("plain"));
 
         match prior {
             Some(v) => std::env::set_var(argo_credentials::MASTER_KEY_ENV, v),

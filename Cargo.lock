@@ -438,6 +438,7 @@ name = "argo-config"
 version = "0.0.1"
 dependencies = [
  "argo-core",
+ "argo-credentials",
  "argo-types",
  "hex",
  "keyring",

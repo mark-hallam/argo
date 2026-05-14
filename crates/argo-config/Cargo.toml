@@ -10,6 +10,7 @@ description = "Argo — argo.toml config loader (§3 + the v0.2 [budget] / [loop
 [dependencies]
 argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-core = { path = "../argo-core", version = "0.0.1" }
+argo-credentials = { path = "../argo-credentials", version = "0.0.1" }
 # OS-keyring backend (mission-system-keyring-integration) — explicit
 # per-platform features so default-off still pulls macOS Keychain /
 # Windows Credential Manager / Linux Secret Service.

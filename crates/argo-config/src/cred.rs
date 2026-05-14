@@ -62,7 +62,32 @@ impl FromStr for CredentialBackend {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct CredentialDocument {
     #[serde(default)]
-    credentials: BTreeMap<String, String>,
+    credentials: BTreeMap<String, CredentialEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum CredentialEntry {
+    Plain(String),
+    Encrypted { value: String },
+}
+
+impl CredentialEntry {
+    fn is_encrypted(&self) -> bool {
+        matches!(self, Self::Encrypted { .. })
+    }
+
+    fn into_plain(self, key: Option<&argo_credentials::MasterKey>) -> ArgoResult<String> {
+        match self {
+            Self::Plain(value) => Ok(value),
+            Self::Encrypted { value } => {
+                let key = key.ok_or_else(|| {
+                    ArgoError::Provider("decrypt credential: master key not configured".to_string())
+                })?;
+                argo_credentials::decrypt_value(&value, key)
+            }
+        }
+    }
 }
 
 /// Return the credentials file path for a workspace root.
@@ -172,7 +197,31 @@ pub fn load(workspace: &Path) -> ArgoResult<BTreeMap<String, String>> {
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let document: CredentialDocument = toml::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
-    Ok(document.credentials)
+    flatten_document(document)
+}
+
+fn flatten_document(document: CredentialDocument) -> ArgoResult<BTreeMap<String, String>> {
+    let master_key = if document
+        .credentials
+        .values()
+        .any(CredentialEntry::is_encrypted)
+    {
+        Some(argo_credentials::MasterKey::resolve(None).map_err(|e| {
+            ArgoError::Provider(format!(
+                "decrypt credential: master key not configured: {e}"
+            ))
+        })?)
+    } else {
+        None
+    };
+    let mut credentials = BTreeMap::new();
+    for (key, entry) in document.credentials {
+        let value = entry
+            .into_plain(master_key.as_ref())
+            .map_err(|e| ArgoError::Provider(format!("decrypt {key}: {e}")))?;
+        credentials.insert(key, value);
+    }
+    Ok(credentials)
 }
 
 /// Set one credential value in the workspace credentials file.
@@ -257,7 +306,10 @@ fn write_credentials(workspace: &Path, credentials: &BTreeMap<String, String>) -
     fs::create_dir_all(parent)
         .map_err(|e| ArgoError::Io(format!("create {}: {e}", parent.display())))?;
     let document = CredentialDocument {
-        credentials: credentials.clone(),
+        credentials: credentials
+            .iter()
+            .map(|(key, value)| (key.clone(), CredentialEntry::Plain(value.clone())))
+            .collect(),
     };
     let body = toml::to_string_pretty(&document)
         .map_err(|e| ArgoError::Provider(format!("serialize {}: {e}", path.display())))?;
@@ -308,6 +360,10 @@ fn looks_like_credential_key(key: &str) -> bool {
 fn quote_posix(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
+
+#[cfg(test)]
+#[path = "cred_encryption_tests.rs"]
+mod cred_encryption_tests;
 
 #[cfg(test)]
 mod tests {
