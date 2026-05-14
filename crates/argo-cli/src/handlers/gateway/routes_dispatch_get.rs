@@ -30,6 +30,15 @@ pub(super) async fn dispatch_get(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    // mission-sso-saml-oidc-gateway — `GET /auth/status` returns
+    // the in-memory `[sso]` config (without secrets) so operators
+    // can `curl` to confirm the wire-up. The OIDC + SAML
+    // login/callback/ACS routes are dispatched upstream in
+    // `boot.rs` (they need stream ownership for `Location:` +
+    // `Set-Cookie:` headers).
+    if req.starts_with("GET /auth/status ") || req.starts_with("GET /auth/status?") {
+        return Some(auth_status_response());
+    }
     // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
     // bearer credential; mounted here so list/read calls reach the
     // dedicated `scim_auth` gate. The operator-facing bearer gate in
@@ -485,4 +494,28 @@ pub(super) async fn dispatch_get(
         return Some(resp);
     }
     None
+}
+
+/// `GET /auth/status` — read-only summary of which IdPs are
+/// registered under `[sso]`. Returns the master enable flag plus the
+/// tenant-id keys for each mechanism; never echoes the
+/// `client_secret_env` value or any other potentially sensitive
+/// string. Used by operators (and the runbook
+/// `argo doctor` follow-up) to confirm SSO is wired correctly.
+fn auth_status_response() -> (&'static str, String) {
+    let cwd = match std::env::current_dir() {
+        Ok(c) => c,
+        Err(_) => return ("500 Internal Server Error", r#"{"error":"cwd"}"#.into()),
+    };
+    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let oidc_tenants: Vec<&String> = cfg.sso.oidc.keys().collect();
+    let saml_tenants: Vec<&String> = cfg.sso.saml.keys().collect();
+    let body = serde_json::json!({
+        "enabled": cfg.sso.enabled,
+        "session_ttl_seconds": cfg.sso.session_ttl_seconds,
+        "cookie_name": cfg.sso.cookie_name,
+        "oidc_tenants": oidc_tenants,
+        "saml_tenants": saml_tenants,
+    });
+    ("200 OK", body.to_string())
 }

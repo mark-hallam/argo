@@ -54,6 +54,7 @@ mod sections_prompt_cache;
 mod sections_routing;
 mod sections_sandbox_prewarm;
 mod sections_security;
+mod sections_sso;
 mod sections_streaming_retry;
 mod sections_telemetry;
 mod sections_worker_resource;
@@ -71,9 +72,9 @@ pub use sections::{
     DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
     GatewayRateLimitConfig, GatewayRateLimitTenantConfig, GatewayRequestAuditConfig,
     IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
-    PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig,
-    RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig,
-    TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
+    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, SsoConfig, SsoOidcTenant,
+    SsoSamlTenant, TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
@@ -193,6 +194,8 @@ pub struct ArgoConfig {
     /// `[runtime.context_compress]` and
     /// `[runtime.streaming_retry]`).
     pub runtime: RuntimeConfig,
+    /// `[sso]` — Single Sign-On at the gateway edge.
+    pub sso: SsoConfig,
     /// `[planner]` — planner bias knobs
     /// (`mission-planner-bias-from-template`).
     pub planner: PlannerConfig,

@@ -277,6 +277,8 @@ pub(super) async fn start(
                     let _ = super::ws_upgrade::serve(req, store.as_ref(), &mut stream).await;
                     request_audit::spawn_record(audit.take(), store.as_ref(), "101 Switching Protocols", 0);
                     let _ = stream.shutdown().await;
+                } else if super::sso_dispatch::is_sso_request(req) {
+                    super::sso_dispatch::serve(req, store.as_ref(), &mut stream).await;
                 } else if routes_channels::is_email_webhook(req) {
                     let (status_line, body) = routes_channels::email_webhook_response(req).await;
                     let resp = format!("HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{sec}\r\n{}", body.len(), body);

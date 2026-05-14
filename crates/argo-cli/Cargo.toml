@@ -116,6 +116,10 @@ sha1 = "0.10"
 tempfile = "3"
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
+# OS-RNG access for the SSO middleware's PKCE verifier + CSRF state
+# (mission-sso-saml-oidc-gateway). rand_core was previously dev-only;
+# the SSO handlers run in production and need cryptographic randomness.
+rand_core = { version = "0.6", features = ["getrandom"] }
 
 # Unix-only — `kill -0 <pid>` for liveness check + `kill -TERM`
 # for graceful shutdown. Targets without `unix` cfg use the
