@@ -50,6 +50,7 @@ mod sections_executor;
 mod sections_gateway;
 mod sections_mcp_pool;
 mod sections_planner;
+mod sections_plugin_registry;
 mod sections_prompt_cache;
 mod sections_routing;
 mod sections_sandbox_prewarm;
@@ -79,9 +80,9 @@ pub use sections::{
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
-    PromptCacheAffinityConfig, RuntimeConfig, SandboxPrewarmConfig,
-    DEFAULT_ACTION_THROTTLE_AUDIT_SECS, DEFAULT_MCP_POOL_IDLE_TTL_SECS,
-    DEFAULT_MCP_POOL_MAX_CLIENTS,
+    PluginManifestEntry, PluginRegistryConfig, PromptCacheAffinityConfig, RuntimeConfig,
+    SandboxPrewarmConfig, DEFAULT_ACTION_THROTTLE_AUDIT_SECS, DEFAULT_MCP_POOL_IDLE_TTL_SECS,
+    DEFAULT_MCP_POOL_MAX_CLIENTS, DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS,
 };
 pub use sections_streaming_retry::{
     StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,

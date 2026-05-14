@@ -32,6 +32,7 @@
 mod error;
 mod host;
 mod protocol;
+pub mod registry;
 
 pub use error::{PluginError, PluginResult};
 pub use host::{PluginHost, DEFAULT_CALL_TIMEOUT};
@@ -39,3 +40,7 @@ pub use protocol::{
     HandshakeRequest, HandshakeResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
     PreToolCallVerdict, PROTOCOL_VERSION,
 };
+pub use registry::{PluginManifestEntry, PluginRegistry, PluginRegistryConfig};
+
+#[cfg(test)]
+mod registry_tests;

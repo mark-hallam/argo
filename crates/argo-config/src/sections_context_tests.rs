@@ -182,3 +182,38 @@ fn empty_toml_runtime_yields_cage_defaults() {
     let cfg: RuntimeConfig = toml::from_str("").expect("parse");
     assert_eq!(cfg.worker_resource_cage, WorkerResourceConfig::default());
 }
+
+#[test]
+fn plugin_registry_defaults_empty() {
+    let cfg = PluginRegistryConfig::default();
+    assert!(cfg.plugins.is_empty());
+    let runtime: RuntimeConfig = toml::from_str("").expect("parse");
+    assert_eq!(runtime.plugin_registry, cfg);
+}
+
+#[test]
+fn plugin_registry_parses_from_toml() {
+    let body = r#"
+[[plugin_registry.plugins]]
+id = "forge"
+binary_path = "/opt/skycot/plugins/forge-worker"
+timeout_secs = 45
+
+[[plugin_registry.plugins]]
+id = "executor"
+binary_path = "/opt/skycot/plugins/executor-worker"
+"#;
+    let cfg: RuntimeConfig = toml::from_str(body).expect("parse");
+    assert_eq!(cfg.plugin_registry.plugins.len(), 2);
+    assert_eq!(cfg.plugin_registry.plugins[0].id, "forge");
+    assert_eq!(
+        cfg.plugin_registry.plugins[0].binary_path,
+        std::path::PathBuf::from("/opt/skycot/plugins/forge-worker")
+    );
+    assert_eq!(cfg.plugin_registry.plugins[0].timeout_secs, 45);
+    assert_eq!(cfg.plugin_registry.plugins[1].id, "executor");
+    assert_eq!(
+        cfg.plugin_registry.plugins[1].timeout_secs,
+        DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS
+    );
+}

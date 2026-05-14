@@ -1268,6 +1268,7 @@ dependencies = [
 name = "argo-plugin"
 version = "0.0.1"
 dependencies = [
+ "argo-config",
  "argo-types",
  "async-trait",
  "parking_lot",

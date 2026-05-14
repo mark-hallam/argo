@@ -4,6 +4,9 @@ use crate::protocol::JsonRpcError;
 /// Lifecycle / transport error from the plugin subprocess.
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {
+    /// Requested plugin id is not present in registry config.
+    #[error("unknown plugin id: {0}")]
+    UnknownPlugin(String),
     /// Failed to spawn the plugin subprocess.
     #[error("plugin spawn failed: {0}")]
     Spawn(String),

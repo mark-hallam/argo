@@ -17,6 +17,9 @@ pub use crate::sections_context_compress::ContextCompressConfig;
 pub use crate::sections_mcp_pool::{
     McpPoolConfig, DEFAULT_MCP_POOL_IDLE_TTL_SECS, DEFAULT_MCP_POOL_MAX_CLIENTS,
 };
+pub use crate::sections_plugin_registry::{
+    PluginManifestEntry, PluginRegistryConfig, DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS,
+};
 pub use crate::sections_prompt_cache::PromptCacheAffinityConfig;
 pub use crate::sections_sandbox_prewarm::SandboxPrewarmConfig;
 pub use crate::sections_worker_resource::WorkerResourceConfig;
@@ -67,6 +70,8 @@ pub struct RuntimeConfig {
     /// `[runtime.worker_resource_cage]` — per-worker cgroup-v2
     /// memory + CPU caps.
     pub worker_resource_cage: WorkerResourceConfig,
+    /// `[runtime.plugin_registry]` — configured plugin subprocesses.
+    pub plugin_registry: PluginRegistryConfig,
     /// `[runtime.vertical_lock]` — per-tenant/vertical/worker mutex.
     pub vertical_lock: VerticalLockConfig,
 }
