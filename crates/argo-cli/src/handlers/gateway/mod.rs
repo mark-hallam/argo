@@ -129,6 +129,7 @@ mod routes_verticals;
 mod routes_verticals_doctor;
 mod routes_verticals_lint;
 mod routes_verticals_run;
+mod routes_cohorts;
 mod routes_voice;
 mod routes_voice_auth;
 mod routes_worker_activity;

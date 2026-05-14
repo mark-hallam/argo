@@ -23,6 +23,12 @@ pub mod attached_blob;
 pub mod budget;
 /// Data classification tags (Stream `claude-data-classification`).
 pub mod classification;
+/// Fleet-wide skill-cohort aggregation (Stream
+/// `mission-skill-cohort-ui`, MISSION_BACKLOG #198). Read-only
+/// helpers powering the `/cohorts` route — groups workers by
+/// `(vertical, trust_grade_band)` and surfaces member + skill
+/// coverage rolls-up over the `worker`/`worker_skill` tables.
+pub mod cohort;
 /// Operator feedback (Stream `claude-operator-feedback-channel`).
 pub mod feedback;
 mod forge_meta;

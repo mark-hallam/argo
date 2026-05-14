@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Inbox, Settings, Sparkles, Users, Workflow } from "lucide-react";
+import { Activity, Inbox, Layers, Settings, Sparkles, Users, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -25,6 +25,7 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
   { href: "/workers", label: "Workers", icon: <Workflow /> },
   { href: "/audit", label: "Audit", icon: <Activity /> },
   { href: "/skills", label: "Skills", icon: <Sparkles /> },
+  { href: "/cohorts", label: "Cohorts", icon: <Layers /> },
 ];
 
 export const FOOTER_NAV_ITEMS: NavItemDescriptor[] = [

@@ -55,6 +55,16 @@ pub(super) async fn dispatch_get(
     if req.starts_with("GET /api/v1/team ") || req.starts_with("GET /api/v1/team?") {
         return Some(super::routes_team_list::list_response(req, store).await);
     }
+    // mission-skill-cohort-ui — fleet-wide cohort fan-out. Detail
+    // path (`/api/v1/cohorts/<id>`) must come BEFORE the bare list
+    // prefix so the longer route wins.
+    if let Some(rest) = req.strip_prefix("GET /api/v1/cohorts/") {
+        let segment = rest.split_whitespace().next().unwrap_or(rest);
+        return Some(super::routes_cohorts::detail_response(req, segment, store).await);
+    }
+    if req.starts_with("GET /api/v1/cohorts ") || req.starts_with("GET /api/v1/cohorts?") {
+        return Some(super::routes_cohorts::list_response(req, store).await);
+    }
     // mission-retro-review-ui — tenant-scoped retro index.
     if req.starts_with("GET /api/v1/retros ") || req.starts_with("GET /api/v1/retros?") {
         return Some(super::routes_retros::index_response(req, store).await);

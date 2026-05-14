@@ -77,6 +77,9 @@ separate files now.
   [Production deploy §12](runbook/production-deploy.md#12-production-deploy)
 - **Customer-demo readiness check?** →
   [Reference Appendix B](runbook/reference.md#appendix-b--file-checklist-for-a-customer-demo)
+- **Seeing which skills cover the fleet?** → `/cohorts` UI +
+  `GET /api/v1/cohorts` (groups workers by `(vertical, trust_band)`
+  and surfaces skill-coverage holes; mission-skill-cohort-ui).
 - **Driving the hire flow over HTTP?** → [Genesis API](#genesis-api)
 - **Approval flow over JSON?** → [Approvals JSON API](#approvals-json-api)
 - **Planning a read-replica deployment?** → [Architecture: read-replica design](architecture/read-replica-design.md)
