@@ -17,11 +17,13 @@ A conductor tab must not write feature code; if it previously claimed
 worker work, release or finish that worker state before making
 conductor mutations.
 
-> **Note (2026-05-09):** Codex agent family is currently offline (out
-> of credit). All `codex` TODO rows have been re-assigned to `claude`
-> per the BUILD_STATUS.md header amendment. Codex-specific rules below
-> (pre-push gate, codex-prefixed branches, etc.) apply when/if codex
-> resumes; until then, only the claude-side rules are active.
+> **Note (2026-05-13 — historical 2026-05-09 banner superseded):**
+> Codex agent family is ACTIVE again (resumed 2026-05-13, fully back
+> online 2026-05-14). Codex-specific rules (pre-push gate, codex-
+> prefixed branches, owner-match on TODO selection) are LIVE. The
+> 4 CLAUDE-PREFERRED briefs in BUILD_STATUS.md stay owner=claude and
+> are reserved for the post-2026-05-19 session; everything
+> else is codex-eligible.
 
 Companion docs:
 - `PROTOCOL.md` — architecture and anti-patterns (the "why").

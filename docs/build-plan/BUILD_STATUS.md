@@ -1,14 +1,21 @@
 # Build status — live ledger
 
-> **CODEX OFFLINE 2026-05-09**: codex is out of credit and no longer
-> running. All 10 prior `codex` TODO rows were re-assigned to `claude`
-> (owner column flip; brief ids and stream files unchanged — `codex-`
-> prefixed ids remain a sizing hint per CLAUDE.md). Until codex comes
-> back, ignore the codex side of the queue-depth check below: only
-> fire replenishment when `claude` TODO ≤ 25 (raised from 8 by
-> operator 2026-05-10 to keep MVP-day swarm well-fed). Do not
-> brainstorm new codex briefs; do not target `~50/50 codex/claude` —
-> target ~30-40 total claude briefs.
+> **CODEX BACK ONLINE 2026-05-13** (~2026-05-14 fully active again):
+> the earlier "CODEX OFFLINE 2026-05-09" banner is HISTORICAL. Codex
+> workers are running and shipping clean (40+ PRs since resumption).
+> Codex worker adapter at `argo-codex` worktree strictly matches
+> `owner=codex` on TODO row selection (per AGENTS.md owner-match
+> rule). Conductor flips owner column for codex-eligible work; the
+> 4 CLAUDE-PREFERRED briefs (claude-skill-library-worker-load-wire,
+> claude-migration-slot-dedup-and-validator,
+> claude-canonicalize-audit-row-type,
+> claude-canonicalize-parallel-names-round2-high) stay owner=claude
+> and are reserved for the post-2026-05-19 session.
+>
+> Queue-depth check: `claude` TODO ≤ 25 → fire replenishment (raised
+> from 8 by operator 2026-05-10 to keep swarm well-fed). Target
+> depth after replenishment: 30-40 total briefs. Brainstorm both
+> codex- and claude-eligible briefs.
 >
 > **CONDUCTOR HARD RULE (load-bearing, do not drift):** check queue
 > depth at the START of every tick. If `claude` TODO count ≤ 25,

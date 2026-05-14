@@ -290,7 +290,7 @@ claude_todo = grep -c "| claude |.*| TODO |" <PLAN_DIR>/BUILD_STATUS.md
 
 and fires the replenishment branch when the claude count is ≤25
 (target depth 30-40, per BUILD_STATUS.md operator amendment
-2026-05-10). Codex side is offline as of 2026-05-09 — skip it.
+2026-05-10). Codex side is BACK ONLINE 2026-05-13 — include in queue check.
 **The live ledger header is authoritative**; this threshold has
 drifted twice (≤3 → ≤8 → ≤25) and may drift again.
 
