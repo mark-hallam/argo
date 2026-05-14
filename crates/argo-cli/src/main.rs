@@ -1,6 +1,13 @@
 //! `argo` — the user-facing CLI binary.
 //!
 //! See `docs/plan/argo-build-plan.md` §19 for the full command tree.
+//!
+//! The dispatch arms used to live inline in this file (525 LOC,
+//! over the 500-LOC ceiling). Per-domain bodies are now extracted
+//! into `main_dispatch_*` siblings (one per cohesive Command-variant
+//! group) per `claude-argo-cli-main-rs-split`. Top-level routing
+//! (one match arm per `Command` variant + a Runtime sub-router) is
+//! all that remains here.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 #[path = "handlers/action_replay.rs"]
@@ -8,6 +15,14 @@ mod action_replay;
 mod cli;
 mod handlers;
 mod home;
+mod main_dispatch_audit;
+mod main_dispatch_dev;
+mod main_dispatch_gateway;
+mod main_dispatch_session;
+mod main_dispatch_setup;
+mod main_dispatch_skill;
+mod main_dispatch_vertical;
+mod main_dispatch_worker;
 mod secrets_scrubber;
 #[cfg(test)]
 mod secrets_scrubber_tests;
@@ -34,493 +49,164 @@ async fn main() {
 }
 
 async fn dispatch(cli: Cli) -> ArgoResult<()> {
-    match cli.command {
-        None => {
-            println!(
-                "argo {} — interactive chat (run `argo --help` for the command tree)",
-                env!("CARGO_PKG_VERSION")
-            );
-            Ok(())
+    let Some(command) = cli.command else {
+        println!(
+            "argo {} — interactive chat (run `argo --help` for the command tree)",
+            env!("CARGO_PKG_VERSION")
+        );
+        return Ok(());
+    };
+    match command {
+        // Skill / knowledge / model surfaces.
+        Command::Skill { cmd } => main_dispatch_skill::skill(cmd).await,
+        Command::Memory { cmd } => main_dispatch_skill::memory(cmd).await,
+        Command::Trust { cmd } => main_dispatch_skill::trust(cmd).await,
+        Command::Judge { cmd } => main_dispatch_skill::judge(cmd).await,
+        Command::Plugin { cmd } => main_dispatch_skill::plugin(cmd),
+        Command::Model { cmd } => main_dispatch_skill::model(cmd),
+        Command::Mcp { cmd } => main_dispatch_skill::mcp(cmd).await,
+        Command::Forge { cmd } => main_dispatch_skill::forge(cmd).await,
+        // Session / handoff / subtask / action surfaces.
+        Command::Session { cmd } => main_dispatch_session::session(cmd).await,
+        Command::Handoff { cmd } => main_dispatch_session::handoff(cmd).await,
+        Command::Subtask { cmd } => main_dispatch_session::subtask(cmd).await,
+        Command::Action { cmd } => main_dispatch_session::action(cmd).await,
+        // Workforce / org / handoff-routing surfaces.
+        Command::Worker { cmd } => main_dispatch_worker::worker(cmd).await,
+        Command::Persona { cmd } => main_dispatch_worker::persona(cmd).await,
+        Command::Contract { cmd } => main_dispatch_worker::contract(cmd).await,
+        Command::Roster { cmd } => main_dispatch_worker::roster(cmd).await,
+        Command::Team { cmd } => main_dispatch_worker::team(cmd).await,
+        Command::Org { cmd } => main_dispatch_worker::org(cmd).await,
+        Command::Operator { cmd } => main_dispatch_worker::operator(cmd).await,
+        Command::Tenant { cmd } => main_dispatch_worker::tenant(cmd).await,
+        Command::Duty { cmd } => main_dispatch_worker::duty(cmd).await,
+        Command::Policy { cmd } => main_dispatch_worker::policy(cmd).await,
+        Command::HandoffRules { cmd } => main_dispatch_worker::handoff_rules(cmd).await,
+        Command::HandoffAuctions { cmd } => main_dispatch_worker::handoff_auctions(cmd).await,
+        Command::HandoffPolicy { cmd } => main_dispatch_worker::handoff_policy(cmd).await,
+        Command::HandoffStats { args } => main_dispatch_worker::handoff_stats(args).await,
+        Command::Workflow { cmd } => main_dispatch_worker::workflow(cmd).await,
+        Command::Work { cmd } => main_dispatch_worker::work(cmd).await,
+        Command::Agents { cmd } => main_dispatch_worker::agents(cmd),
+        // Audit / observability / compliance surfaces.
+        Command::Audit { cmd } => main_dispatch_audit::audit(cmd).await,
+        Command::Compliance { cmd } => main_dispatch_audit::compliance(cmd).await,
+        Command::Approval { cmd } => main_dispatch_audit::approval(cmd).await,
+        Command::Activity { cmd } => main_dispatch_audit::activity(cmd).await,
+        Command::Trajectory { cmd } => main_dispatch_audit::trajectory(cmd).await,
+        Command::Incident { cmd } => main_dispatch_audit::incident(cmd),
+        Command::Eval { cmd } => main_dispatch_audit::eval(cmd).await,
+        Command::Feedback { cmd } => main_dispatch_audit::feedback(cmd).await,
+        Command::Classify { cmd } => main_dispatch_audit::classify(cmd).await,
+        Command::Cu { cmd } => main_dispatch_audit::cu(cmd).await,
+        // Runtime-edge surfaces (gateway, daemon, connectors,
+        // sandbox, security).
+        Command::Gateway { cmd } => main_dispatch_gateway::gateway(cmd).await,
+        Command::Daemon { cmd } => main_dispatch_gateway::daemon(cmd).await,
+        Command::Connector { cmd } => main_dispatch_gateway::connector(cmd).await,
+        Command::Sandbox { cmd } => main_dispatch_gateway::sandbox(cmd).await,
+        Command::Security { cmd } => main_dispatch_gateway::security(cmd).await,
+        // Bootstrap / installer / packaging surfaces.
+        Command::Wizard { cmd } => main_dispatch_setup::wizard(cmd).await,
+        Command::Provider { cmd } => main_dispatch_setup::provider(cmd).await,
+        Command::Db { cmd } => main_dispatch_setup::db(cmd).await,
+        Command::Workspace { cmd } => main_dispatch_setup::workspace(cmd).await,
+        Command::Route { cmd } => main_dispatch_setup::route(cmd).await,
+        Command::Cred { cmd } => main_dispatch_setup::cred(cmd),
+        Command::Backup { cmd } => main_dispatch_setup::backup(cmd).await,
+        Command::Restore { args } => main_dispatch_setup::restore(args).await,
+        Command::SelfUpdate {
+            check,
+            channel,
+            force,
+            json,
+        } => main_dispatch_setup::self_update(check, channel, force, json).await,
+        // Vertical-template / cost-control surfaces.
+        Command::Vertical { cmd } => main_dispatch_vertical::vertical(cmd).await,
+        Command::Genesis { cmd } => main_dispatch_vertical::genesis(cmd),
+        Command::Cron { cmd } => main_dispatch_vertical::cron(cmd).await,
+        Command::Messages { cmd } => main_dispatch_vertical::messages(cmd).await,
+        Command::Plan { cmd } => main_dispatch_vertical::plan(cmd).await,
+        Command::Costs { cmd } => main_dispatch_vertical::costs(cmd).await,
+        Command::Budget { cmd } => main_dispatch_vertical::budget(cmd).await,
+        // Direct-action operator commands (session lifecycle, runtime
+        // diagnostics, system ops). Routed through `dispatch_runtime`
+        // so each variant lands in the right per-domain sibling.
+        Command::Runtime(rt) => dispatch_runtime(rt).await,
+        // Anything still unwired (e.g. `Command::Import`) falls
+        // through to the same "not yet wired" message the pre-split
+        // dispatch printed.
+        other => {
+            eprintln!("argo: '{other:?}' is not yet wired in this build.");
+            eprintln!("See ROADMAP.md for the integration-tier plan.");
+            std::process::exit(2);
         }
-        Some(Command::Agents { cmd }) => handlers::agents::run(cmd),
-        Some(Command::Gateway { cmd }) => handlers::gateway::run(cmd).await,
-        Some(Command::Feedback { cmd }) => match cmd {
-            cli::FeedbackCmd::Up {
-                action_id,
-                comment,
-                worker,
-                skill,
-                json,
-            } => handlers::feedback_up::run(
-                &action_id,
-                comment.as_deref(),
-                worker.as_deref(),
-                skill.as_deref(),
-                json,
-            )
-            .await,
-            cli::FeedbackCmd::Down {
-                action_id,
-                comment,
-                worker,
-                skill,
-                json,
-            } => handlers::feedback_down::run(
-                &action_id,
-                comment.as_deref(),
-                worker.as_deref(),
-                skill.as_deref(),
-                json,
-            )
-            .await,
-            cli::FeedbackCmd::List {
-                worker,
-                vote,
-                limit,
-                json,
-            } => handlers::feedback_list::run(worker.as_deref(), vote.as_deref(), limit, json)
-                .await,
-        },
-        Some(Command::Classify { cmd }) => match cmd {
-            cli::ClassifyCmd::Set {
-                target,
-                class,
-                by,
-                json,
-            } => handlers::classify_set::run(&target, &class, by.as_deref(), json).await,
-            cli::ClassifyCmd::List {
-                class,
-                kind,
-                worker,
-                expired,
-                limit,
-                json,
-            } => handlers::classify_list::run(
-                class.as_deref(),
-                kind.as_deref(),
-                worker.as_deref(),
-                expired,
-                limit,
-                json,
-            )
-            .await,
-            cli::ClassifyCmd::Rules { json } => handlers::classify_rules::run(json).await,
-        },
-        Some(Command::Plan { cmd }) => match cmd {
-            cli::PlanCmd::Generate {
-                goal,
-                worker,
-                llm,
-                vertical,
-                output,
-                json,
-            } => handlers::plan_generate::run(
-                &goal,
-                &worker,
-                llm,
-                vertical.as_deref(),
-                output.as_deref(),
-                json,
-            )
-            .await,
-            cli::PlanCmd::Show { target, json } => handlers::plan_show::run(&target, json).await,
-            cli::PlanCmd::Execute {
-                yaml_path,
-                dry_run,
-                json,
-            } => handlers::plan_execute::run(&yaml_path, dry_run, json).await,
-            cli::PlanCmd::Template { cmd } => match cmd {
-                cli::cli_plan_cmds::PlanTemplateCmd::List {
-                    grade,
-                    limit,
-                    json,
-                } => handlers::plan_template_list::run(grade.as_deref(), limit, json).await,
-                cli::cli_plan_cmds::PlanTemplateCmd::Show { id, json } => {
-                    handlers::plan_template_show::run(&id, json).await
-                }
-                cli::cli_plan_cmds::PlanTemplateCmd::Promote { id, json } => {
-                    handlers::plan_template_promote::run(&id, json).await
-                }
-            },
-        },
-        Some(Command::Runtime(RuntimeCmd::Doctor { cmd, json, format })) => {
-            handlers::doctor::dispatch(cmd, json, format).await
-        }
-        Some(Command::Runtime(RuntimeCmd::Health { json, format })) => {
-            handlers::health::run(json, &format).await
-        }
-        Some(Command::Runtime(RuntimeCmd::New {
+    }
+}
+
+async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
+    match cmd {
+        // Session lifecycle.
+        RuntimeCmd::New {
             provider,
             model,
             title,
             vertical,
-        })) => handlers::new::run(&provider, &model, title.as_deref(), vertical.as_deref()).await,
-        Some(Command::Runtime(RuntimeCmd::Resume { id })) => handlers::resume::run(&id).await,
-        Some(Command::Runtime(RuntimeCmd::Chat {
+        } => main_dispatch_session::runtime_new(provider, model, title, vertical).await,
+        RuntimeCmd::Resume { id } => main_dispatch_session::runtime_resume(id).await,
+        RuntimeCmd::Chat {
             id,
             user,
             stream,
             interactive,
             max_tool_rounds,
-        })) => handlers::chat::run(&id, user.as_deref(), stream, interactive, max_tool_rounds).await,
-        Some(Command::Runtime(RuntimeCmd::Steer { session_id, text })) => {
-            handlers::steer::run(&session_id, &text).await
+        } => {
+            main_dispatch_session::runtime_chat(id, user, stream, interactive, max_tool_rounds)
+                .await
         }
-        Some(Command::Db { cmd }) => handlers::db::run(cmd).await,
-        Some(Command::Workspace { cmd }) => handlers::workspace::run(cmd).await,
-        Some(Command::Audit { cmd }) => handlers::audit::run(cmd).await,
-        Some(Command::Runtime(RuntimeCmd::Setup {
+        RuntimeCmd::Steer { session_id, text } => {
+            main_dispatch_session::runtime_steer(session_id, text).await
+        }
+        RuntimeCmd::Trace {
+            cmd: Some(cli::TraceCmd::Explore { session, format, path }),
+            ..
+        } => main_dispatch_session::runtime_trace_explore(session, format, path),
+        RuntimeCmd::Trace {
+            cmd: None,
+            turn,
+            session,
+        } => main_dispatch_session::runtime_trace(turn, session).await,
+        RuntimeCmd::Recover { session_id, json } => {
+            main_dispatch_session::runtime_recover(session_id, json).await
+        }
+        RuntimeCmd::RecoverCache { cmd } => {
+            main_dispatch_session::runtime_recover_cache(cmd).await
+        }
+        // Runtime-edge surfaces.
+        RuntimeCmd::Health { json, format } => {
+            main_dispatch_gateway::runtime_health(json, format).await
+        }
+        RuntimeCmd::Doctor { cmd, json, format } => {
+            main_dispatch_gateway::runtime_doctor(cmd, json, format).await
+        }
+        RuntimeCmd::Latency { format } => main_dispatch_gateway::runtime_latency(format).await,
+        // Bootstrap surfaces.
+        RuntimeCmd::Setup {
             check,
             require,
             non_interactive,
             json,
-        })) => handlers::setup::run(check, require, non_interactive, json).await,
-        Some(Command::Runtime(RuntimeCmd::Onboard {
+        } => main_dispatch_setup::runtime_setup(check, require, non_interactive, json).await,
+        RuntimeCmd::Onboard {
             non_interactive,
             json,
             config,
-        })) => handlers::onboard::run(non_interactive, json, config).await,
-        Some(Command::Wizard { cmd }) => match cmd {
-            cli::cli_wizard_cmds::WizardCmd::Onboard {
-                non_interactive,
-                config,
-                answers,
-            } => handlers::wizard_onboard::run(non_interactive, config, answers).await,
-        },
-        Some(Command::Vertical { cmd }) => handlers::vertical::run(cmd).await,
-        Some(Command::Genesis { cmd }) => handlers::genesis::run(cmd),
-        Some(Command::Messages { cmd }) => handlers::messages::run(cmd).await,
-        Some(Command::Cron { cmd }) => handlers::cron::run(cmd).await,
-        Some(Command::Cred { cmd }) => match cmd {
-            cli::CredCmd::Set { key, value } => handlers::cred_set::run(&key, value.as_deref()),
-            cli::CredCmd::List { reveal } => handlers::cred_list::run(reveal),
-            cli::CredCmd::Clear { key } => handlers::cred_clear::clear(&key),
-            cli::CredCmd::ClearAll => handlers::cred_clear::clear_all(),
-            cli::CredCmd::Export { shell } => handlers::cred_export::run(&shell),
-            cli::CredCmd::Import { shell } => handlers::cred_import::run(&shell),
-            cli::CredCmd::Backend { backend } => {
-                handlers::cred_migrate_to_keyring::run_backend(&backend)
-            }
-            cli::CredCmd::MigrateToKeyring { dry_run, from_file } => {
-                handlers::cred_migrate_to_keyring::run_migrate(dry_run, from_file)
-            }
-            cli::CredCmd::EncryptAll { path, json } => {
-                handlers::credentials_encrypt_all::run(path, json)
-            }
-        },
-        Some(Command::Backup { cmd }) => match cmd {
-            cli::BackupCmd::Create {
-                output,
-                include_credentials,
-                json,
-            } => {
-                handlers::backup_create::run(output.as_deref(), include_credentials, json).await
-            }
-            cli::BackupCmd::List { json } => handlers::backup_list::run(json).await,
-            cli::BackupCmd::Verify { path, json } => handlers::backup_verify::run(&path, json).await,
-        },
-        Some(Command::Restore { args }) => {
-            handlers::backup_restore::run(&args.path, args.into.as_deref(), args.dry_run, args.json)
-                .await
-        }
-        Some(Command::Daemon { cmd }) => match cmd {
-            cli::DaemonCmd::Install {
-                json,
-                dry_run,
-                bin,
-                launch_agents_dir,
-            } => {
-                handlers::daemon_install::run(
-                    json,
-                    dry_run,
-                    bin.as_deref(),
-                    launch_agents_dir.as_deref(),
-                )
-                .await
-            }
-            cli::DaemonCmd::Uninstall {
-                json,
-                dry_run,
-                launch_agents_dir,
-            } => {
-                handlers::daemon_uninstall::run(json, dry_run, launch_agents_dir.as_deref())
-                    .await
-            }
-        },
-        Some(Command::Connector { cmd }) => handlers::connector_authorize::run(cmd).await,
-        Some(Command::Work { cmd }) => handlers::work::run(cmd).await,
-        Some(Command::Worker { cmd }) => handlers::worker_actions::run(cmd).await,
-        Some(Command::Contract { cmd }) => match cmd {
-            cli::cli_contract_cmds::ContractCmd::Apply {
-                file,
-                tenant,
-                worker,
-                dry_run,
-                json,
-            } => {
-                handlers::contract::apply(
-                    &file,
-                    tenant.as_deref(),
-                    worker.as_deref(),
-                    dry_run,
-                    json,
-                )
-                .await
-            }
-            cli::cli_contract_cmds::ContractCmd::Validate { file, json } => {
-                handlers::contract::validate(&file, json).await
-            }
-            cli::cli_contract_cmds::ContractCmd::Show {
-                worker_id,
-                tenant,
-                json,
-            } => handlers::contract::show(&worker_id, &tenant, json).await,
-        },
-        Some(Command::Approval { cmd }) => match cmd {
-            cli::ApprovalCmd::Export(args) => handlers::approval_export::run(args).await,
-            cli::ApprovalCmd::History(args) => handlers::approval_history::run(args).await,
-            cli::ApprovalCmd::Policy { cmd } => handlers::approval_policy::run(cmd).await,
-        },
-        Some(Command::Compliance { cmd }) => match cmd {
-            cli::ComplianceCmd::Soc2(args) => {
-                let cwd = std::env::current_dir()
-                    .map_err(|e| argo_types::ArgoError::Io(format!("current_dir: {e}")))?;
-                let home = home::resolve_home(&cwd)?;
-                home::ensure_dir(&home)?;
-                let store = argo_store::SessionStore::open(&home::db_path(&home)).await?;
-                store.migrate().await?;
-                let soc2_args = handlers::compliance_soc2::ComplianceSoc2Args {
-                    from: args.from,
-                    to: args.to,
-                    actor: args.actor,
-                    action: args.action,
-                    tenant: args.tenant,
-                    format: args.format,
-                };
-                let _ = handlers::compliance_soc2::run(soc2_args, &store).await?;
-                Ok(())
-            }
-            cli::ComplianceCmd::Export(args) => handlers::compliance_export::run(args).await,
-            cli::ComplianceCmd::Delete(args) => {
-                let rc = handlers::compliance_delete::run(args).await?;
-                if rc != 0 {
-                    std::process::exit(rc);
-                }
-                Ok(())
-            }
-        },
-        Some(Command::Tenant { cmd }) => handlers::tenant::run(cmd).await,
-        Some(Command::Operator { cmd }) => handlers::operator_risk_overrides::dispatch(cmd).await,
-        Some(Command::Persona { cmd }) => handlers::persona_edit::run(cmd).await,
-        Some(Command::Sandbox { cmd }) => handlers::sandbox_e2b::run(cmd).await,
-        Some(Command::Security { cmd }) => match cmd {
-            audit @ cli::SecurityCmd::Audit { .. } => handlers::security_audit::run(audit).await,
-            cli::SecurityCmd::ScanSecrets(args) => handlers::security_scan_secrets::run(args),
-            cli::SecurityCmd::RotateKeys { cmd } => {
-                handlers::security_rotate_keys::dispatch(cmd).await
-            }
-        },
-        Some(Command::Org { cmd }) => handlers::org::run(cmd).await,
-        Some(Command::Roster { cmd }) => handlers::roster_list::run(cmd).await,
-        Some(Command::Team { cmd }) => handlers::team::run(cmd).await,
-        Some(Command::Policy { cmd }) => handlers::policy_handlers::run(cmd).await,
-        Some(Command::HandoffRules { cmd }) => handlers::handoff_rules_list::run(cmd).await,
-        Some(Command::Duty { cmd }) => handlers::duty_list::run(cmd).await,
-        Some(Command::HandoffAuctions { cmd }) => match cmd {
-            cli::cli_handoff_cmds::HandoffAuctionsCmd::List {
-                status,
-                limit,
-                json,
-            } => handlers::handoff_auctions_list::run(status.as_deref(), limit, json).await,
-            cli::cli_handoff_cmds::HandoffAuctionsCmd::Show { id, json } => {
-                handlers::handoff_auctions_show::run(&id, json).await
-            }
-            cli::cli_handoff_cmds::HandoffAuctionsCmd::Cancel { id, json } => {
-                handlers::handoff_auctions_cancel::run(&id, json).await
-            }
-        },
-        Some(Command::HandoffPolicy { cmd }) => handlers::handoff_policy::run(cmd).await,
-        Some(Command::HandoffStats { args }) => handlers::handoff_stats::run(args).await,
-        Some(Command::Workflow { cmd }) => handlers::workflow::run(cmd).await,
-        Some(Command::Trajectory { cmd }) => match cmd {
-            cli::TrajectoryCmd::Export {
-                since,
-                until,
-                format,
-                filter,
-                include_screenshots,
-                gdpr_redact_emails,
-                output,
-                json,
-            } => handlers::trajectory_export::run(handlers::trajectory_export::ExportArgs {
-                since,
-                until,
-                format,
-                filter,
-                include_screenshots,
-                gdpr_redact_emails,
-                output,
-                json,
-            })
-            .await,
-        },
-        Some(Command::Action { cmd }) => match cmd {
-            cli::ActionCmd::Replay {
-                action_id,
-                executor,
-                dry_run,
-                bundle_dir,
-            } => {
-                action_replay::run(cli::ActionCmd::Replay {
-                    action_id,
-                    executor,
-                    dry_run,
-                    bundle_dir,
-                })
-                .await
-            }
-            cli::ActionCmd::History {
-                worker_id,
-                since,
-                limit,
-                include_skill,
-                json,
-            } => {
-                handlers::action_history::run(
-                    &worker_id,
-                    since.as_deref(),
-                    limit,
-                    include_skill,
-                    json,
-                )
-                .await
-            }
-            cli::ActionCmd::Timeline {
-                worker_id,
-                since,
-                bucket_mins,
-                json,
-            } => handlers::action_timeline::run(&worker_id, &since, bucket_mins, json).await,
-            cli::ActionCmd::Recent {
-                tenant,
-                worker,
-                limit,
-                json,
-            } => handlers::action_recent::run(tenant.as_deref(), worker.as_deref(), limit, json)
-                .await,
-        },
-        Some(Command::Activity { cmd }) => handlers::activity_tail::run(cmd).await,
-        Some(Command::Costs {
-            cmd: Some(cli::CostsCmd::Forecast { horizon, lookback, format }),
-        }) => handlers::costs_forecast::run(horizon, &lookback, format).await,
-        Some(Command::Costs { cmd }) => handlers::costs::run(cmd).await,
-        Some(Command::Budget { cmd }) => handlers::budget::run(cmd).await,
-        Some(Command::Eval { cmd }) => handlers::eval_run::run(cmd).await,
-        Some(Command::Forge { cmd }) => handlers::forge::run(cmd).await,
-        Some(Command::Trust { cmd }) => handlers::trust_graph::run(cmd).await,
-        Some(Command::Judge { cmd }) => handlers::judge::run(cmd).await,
-        Some(Command::Mcp { cmd }) => handlers::mcp::run(cmd).await,
-        Some(Command::Memory { cmd }) => handlers::memory::run(cmd).await,
-        Some(Command::Model { cmd }) => handlers::model::run(cmd),
-        Some(Command::Plugin { cmd }) => handlers::plugin::run(cmd),
-        Some(Command::Provider { cmd }) => handlers::provider::run(cmd).await,
-        Some(Command::Route { cmd }) => handlers::route::run(cmd).await,
-        Some(Command::Session { cmd }) => handlers::session::run(cmd).await,
-        Some(Command::Handoff { cmd }) => handlers::session::run_handoff(cmd).await,
-        Some(Command::Skill { cmd }) => handlers::skill::run(cmd).await,
-        Some(Command::Runtime(RuntimeCmd::Trace {
-            cmd: Some(cli::TraceCmd::Explore { session, format, path }),
-            ..
-        })) => {
-            let fmt = handlers::trace_explore::TraceFormat::parse(&format)?;
-            let path_buf = path.map(std::path::PathBuf::from);
-            handlers::trace_explore::run(&session, fmt, path_buf.as_deref())
-        }
-        Some(Command::Runtime(RuntimeCmd::Trace { cmd: None, turn, session })) => {
-            handlers::trace::run(turn, session).await
-        }
-        Some(Command::Incident { cmd }) => match cmd {
-            cli::IncidentCmd::New {
-                from,
-                out_dir,
-                force,
-            } => handlers::incident::run(from, out_dir, force),
-            cli::IncidentCmd::Bundle { since, output, log_tail } => {
-                let path = handlers::incident_bundle::run(handlers::incident_bundle::BundleArgs {
-                    since,
-                    output,
-                    log_tail,
-                })?;
-                println!("wrote incident bundle: {}", path.display());
-                Ok(())
-            }
-        },
-        Some(Command::Runtime(RuntimeCmd::Tui)) => handlers::tui::run().await,
-        Some(Command::Runtime(RuntimeCmd::Tools { cmd })) => handlers::tools::run(cmd).await,
-        Some(Command::Runtime(RuntimeCmd::Recover { session_id, json })) => {
-            handlers::recover::run(&session_id, json).await
-        }
-        Some(Command::Runtime(RuntimeCmd::RecoverCache { cmd })) => {
-            handlers::recover_cache::run(cmd).await
-        }
-        Some(Command::Subtask { cmd }) => match cmd {
-            cli::SubtaskCmd::List {
-                session,
-                worker,
-                parent_goal,
-                state,
-                limit,
-                json,
-            } => {
-                handlers::subtask_list::run(
-                    session.as_deref(),
-                    worker.as_deref(),
-                    parent_goal.as_deref(),
-                    state.as_deref(),
-                    limit,
-                    json,
-                )
-                .await
-            }
-            cli::SubtaskCmd::Show { id, json } => handlers::subtask_show::run(&id, json).await,
-            cli::SubtaskCmd::Tree { session, json } => {
-                handlers::subtask_tree::run(&session, json).await
-            }
-            cli::SubtaskCmd::Budget { root_id, json } => {
-                handlers::subtask_budget::run(&root_id, json).await
-            }
-        },
-        Some(Command::Runtime(RuntimeCmd::Voice { mock_script, json })) => {
-            let code = handlers::voice::run(mock_script, json);
-            std::process::exit(code);
-        }
-        Some(Command::Runtime(RuntimeCmd::Latency { format })) => {
-            handlers::latency::run(&format).await
-        }
-        Some(Command::Runtime(RuntimeCmd::Update)) => {
-            eprintln!("argo: 'Update' is not yet wired in this build.");
-            eprintln!("See ROADMAP.md for the integration-tier plan.");
-            std::process::exit(2);
-        }
-        Some(Command::Cu { cmd }) => handlers::cu_replay::run(cmd).await,
-        Some(Command::SelfUpdate {
-            check,
-            channel,
-            force,
-            json,
-        }) => {
-            handlers::self_update::run(handlers::self_update::Args {
-                check,
-                channel,
-                force,
-                json,
-            })
-            .await
-        }
-        Some(other) => {
-            eprintln!("argo: '{other:?}' is not yet wired in this build.");
-            eprintln!("See ROADMAP.md for the integration-tier plan.");
-            std::process::exit(2);
-        }
+        } => main_dispatch_setup::runtime_onboard(non_interactive, json, config).await,
+        RuntimeCmd::Update => main_dispatch_setup::runtime_update(),
+        // Developer-experience surfaces.
+        RuntimeCmd::Tui => main_dispatch_dev::runtime_tui().await,
+        RuntimeCmd::Tools { cmd } => main_dispatch_dev::runtime_tools(cmd).await,
+        RuntimeCmd::Voice { mock_script, json } => main_dispatch_dev::runtime_voice(mock_script, json),
     }
 }
