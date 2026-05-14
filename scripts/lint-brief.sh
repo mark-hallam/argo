@@ -203,6 +203,13 @@ if [[ ${#self_tokens[@]} -ge 2 ]]; then
   fi
 fi
 
+# --- Check 5: staged public type duplicates ---
+parallel_args=(--check-changed-files)
+if [[ "$ENFORCE" -eq 1 ]]; then parallel_args+=(--enforce); fi
+if ! python3 "${REPO_ROOT}/scripts/lint-parallel-pub-types.py" "${parallel_args[@]}" >&2; then
+  warn "parallel pub types lint found duplicate public type names in staged Rust files"
+fi
+
 # --- Summary ---
 if [[ "$findings" -gt 0 ]]; then
   if [[ "$ENFORCE" -eq 1 ]]; then

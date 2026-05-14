@@ -1,0 +1,9 @@
+# Pairwise allowlist for scripts/lint-parallel-pub-types.py.
+#
+# Format:
+#   <TypeName> <crate-a> <crate-b>  # why this duplicate is intentional
+#
+# Keep entries specific. A type duplicated across three crates needs three
+# pair lines only if all three pairs are intentional.
+
+RetryPolicy argo-mcp-connector-shared argo-vertical  # runtime connector retry vs declarative vertical manifest retry

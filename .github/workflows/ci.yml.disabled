@@ -24,6 +24,8 @@ jobs:
         run: scripts/check-version-pinning.sh
       - name: Check tracing span naming
         run: scripts/check-span-naming.sh
+      - name: Warn on duplicate public type names across crates
+        run: python3 scripts/lint-parallel-pub-types.py || true
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   cli-help-examples:

@@ -88,6 +88,22 @@ new surface area, the **Scope** section must include a grep line proving
 the surface is not already present. Reviewer (CEO or peer conductor)
 checks this before squash-merge.
 
+### 3.5. CI-side parallel-pub-types lint
+Brief-time checks only catch new public surfaces that are named in the
+brief text. Workers can still add `pub struct`, `pub enum`, or `pub type`
+definitions in code and accidentally create a duplicate canonical surface.
+
+**Detection:** `python3 scripts/lint-parallel-pub-types.py` scans
+`crates/*/src/**/*.rs`, groups public type names by crate, and reports any
+name declared in more than one crate unless the pair is explicitly listed in
+`scripts/lint-parallel-pub-types.allowlist`.
+
+**Modes:** default is WARN mode and exits 0 so active canonicalization PRs do
+not go red. `--enforce` exits 1 and should become the CI default after the
+canonicalization wave stabilizes. `--check-changed-files` narrows findings to
+duplicate groups touched by staged Rust files and is called from
+`scripts/lint-brief.sh` / pre-commit flow.
+
 ### 4. State-vs-annotation ledger drift
 A row's State column says `CLAIMED` or `IN_REVIEW` but its Note column
 carries a directive like "Returning to TODO" or "STALE-CLAIM-DEMOTE". The
