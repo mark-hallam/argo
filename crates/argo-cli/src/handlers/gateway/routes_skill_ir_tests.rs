@@ -8,12 +8,12 @@
 //! `routes::dispatch_route`; these tests target the handler-and-
 //! dispatcher pair directly.
 
-use super::dispatch;
-use argo_skill::ir::{
-    Node, NodeAnnotations, NodeId, NodeKind, SkillGraph, SqliteSkillIrStore, canonical_hash_hex,
-    ensure_schema,
-};
+use super::{dispatch, dispatch_post};
 use argo_skill::ir::SkillIrStore as _;
+use argo_skill::ir::{
+    canonical_hash_hex, ensure_schema, Node, NodeAnnotations, NodeId, NodeKind, SkillGraph,
+    SqliteSkillIrStore,
+};
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
 use serde_json::Value;
@@ -44,12 +44,24 @@ fn graph_with_label(label: &str) -> SkillGraph {
 }
 
 fn get_with_tenant(path: &str, tenant: TenantId) -> String {
+    format!("GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n",)
+}
+
+fn post_with_tenant(path: &str, tenant: TenantId, body: &Value) -> String {
+    let body = body.to_string();
     format!(
-        "GET {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\n\r\n",
+        "POST {path} HTTP/1.1\r\nHost: x\r\nX-Argo-Tenant-Id: {tenant}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len(),
     )
 }
 
-async fn seed(store: &Arc<SessionStore>, tenant: TenantId, skill: SkillId, version: &str, label: &str) {
+async fn seed(
+    store: &Arc<SessionStore>,
+    tenant: TenantId,
+    skill: SkillId,
+    version: &str,
+    label: &str,
+) {
     let ir = SqliteSkillIrStore::new(store);
     ir.put(tenant, skill, version, &graph_with_label(label))
         .await
@@ -184,4 +196,69 @@ async fn versions_endpoint_returns_versions_with_hashes_newest_first() {
     let req = get_with_tenant(&format!("/api/v1/skills/{unknown}/ir/versions"), tenant);
     let (status, _) = dispatch(&req, Some(&store)).await.expect("dispatched");
     assert_eq!(status, "404 Not Found");
+}
+
+#[tokio::test]
+async fn post_ir_saves_new_version() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let skill = SkillId::new();
+    let graph = graph_with_label("edited");
+    let req = post_with_tenant(
+        &format!("/api/v1/skills/{skill}/ir"),
+        tenant,
+        &serde_json::json!({ "graph": graph }),
+    );
+
+    let (status, body) = dispatch_post(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(status, "200 OK");
+    let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
+    assert_eq!(parsed["skillId"].as_str().unwrap(), skill.to_string());
+    assert_eq!(parsed["tenantId"].as_str().unwrap(), tenant.to_string());
+    assert!(!parsed["abTestScheduled"].as_bool().unwrap());
+    assert!(parsed["version"].as_str().unwrap().starts_with("canvas-"));
+}
+
+#[tokio::test]
+async fn post_ir_rejects_invalid_topology() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let skill = SkillId::new();
+    let mut graph = graph_with_label("broken");
+    graph.nodes.push(Node {
+        id: NodeId::from("orphan"),
+        label: "Orphan".into(),
+        kind: NodeKind::Action {
+            instruction: "unreachable".into(),
+        },
+        annotations: NodeAnnotations::default(),
+    });
+    let req = post_with_tenant(
+        &format!("/api/v1/skills/{skill}/ir"),
+        tenant,
+        &serde_json::json!({ "graph": graph }),
+    );
+
+    let (status, body) = dispatch_post(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(status, "400 Bad Request");
+    assert!(body.contains("orphaned"));
+}
+
+#[tokio::test]
+async fn post_ir_second_save_reports_ab_schedule() {
+    let store = mem_store().await;
+    let tenant = TenantId::new();
+    let skill = SkillId::new();
+    seed(&store, tenant, skill, "v1", "old").await;
+    let req = post_with_tenant(
+        &format!("/api/v1/skills/{skill}/ir"),
+        tenant,
+        &serde_json::json!({ "graph": graph_with_label("new") }),
+    );
+
+    let (status, body) = dispatch_post(&req, Some(&store)).await.expect("dispatched");
+    assert_eq!(status, "200 OK");
+    let parsed: Value = serde_json::from_str(&body).expect("valid JSON");
+    assert!(parsed["abTestScheduled"].as_bool().unwrap());
+    assert!(parsed["abTestRunId"].as_str().unwrap().len() > 20);
 }

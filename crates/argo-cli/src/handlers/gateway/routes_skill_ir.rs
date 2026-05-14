@@ -10,6 +10,9 @@
 //! - `GET /api/v1/skills/<skillId>/ir/versions` — every recorded
 //!   `(version, ir_hash)` pair for the skill under the caller's
 //!   tenant, newest first. Used by the version-history dropdown.
+//! - `POST /api/v1/skills/<skillId>/ir` — save an edited graph as a
+//!   new immutable version and schedule a promotion A/B run when a
+//!   previous version exists.
 //!
 //! Bearer auth runs upstream in `routes::dispatch_route`; tenant is
 //! resolved per `X-Argo-Tenant-Id` (with workspace-default fallback,
@@ -17,13 +20,16 @@
 //! the existing [`AuditSink`] under `AuditKind::HttpRequest` with an
 //! `event_type` of `skill.ir.viewed` / `skill.ir.versions.viewed`.
 
+use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
-use argo_skill::ir::{SkillIrStore, SqliteSkillIrStore, canonical_hash_hex};
+use argo_skill::ir::{
+    canonical_hash_hex, save_edited_graph, SkillGraph, SkillIrStore, SqliteSkillIrStore,
+};
 use argo_store::SessionStore;
 use argo_types::{SkillId, TenantId};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -50,6 +56,71 @@ pub(super) async fn dispatch(
         }
         _ => None,
     }
+}
+
+/// Dispatcher hook for `POST /api/v1/skills/<id>/ir`.
+pub(super) async fn dispatch_post(
+    req: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> Option<(&'static str, String)> {
+    let rest = req.strip_prefix("POST /api/v1/skills/")?;
+    let (head, _) = rest.split_once(' ')?;
+    let (path, query) = head.split_once('?').unwrap_or((head, ""));
+    let segments: Vec<&str> = path.split('/').collect();
+    match segments.as_slice() {
+        [skill_id, "ir"] => Some(save_response(req, skill_id, query, store).await),
+        _ => None,
+    }
+}
+
+async fn save_response(
+    req: &str,
+    skill_id_raw: &str,
+    query: &str,
+    store: Option<&Arc<SessionStore>>,
+) -> (&'static str, String) {
+    let Some(store) = store else {
+        return store_unavailable();
+    };
+    let tenant = match resolve_tenant(req, query) {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let skill_id = match parse_skill_id(skill_id_raw) {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    let graph = match parse_save_graph(req) {
+        Ok(g) => g,
+        Err(resp) => return resp,
+    };
+    let outcome = match save_edited_graph(store, tenant, skill_id, &graph).await {
+        Ok(out) => out,
+        Err(e) => return bad_request(&format!("skill_ir save: {e}")),
+    };
+    emit_audit(
+        store,
+        req,
+        "skill.ir.saved",
+        tenant,
+        skill_id,
+        Some(&outcome.version),
+    )
+    .await;
+    let graph_value = match serde_json::to_value(&graph) {
+        Ok(v) => v,
+        Err(e) => return server_error(&format!("graph encode: {e}")),
+    };
+    let body = json!({
+        "skillId": skill_id.to_string(),
+        "tenantId": tenant.to_string(),
+        "version": outcome.version,
+        "irHash": outcome.ir_hash_hex,
+        "graph": graph_value,
+        "abTestScheduled": outcome.ab_test_run_id.is_some(),
+        "abTestRunId": outcome.ab_test_run_id,
+    });
+    ("200 OK", body.to_string())
 }
 
 async fn ir_response(
@@ -220,6 +291,17 @@ fn header_value(req: &str, name_lower: &str) -> Option<String> {
             .eq_ignore_ascii_case(name_lower)
             .then(|| value.trim().to_string())
     })
+}
+
+fn parse_save_graph(req: &str) -> Result<SkillGraph, (&'static str, String)> {
+    let body = body_from_request(req);
+    let parsed: Value =
+        serde_json::from_str(body).map_err(|e| bad_request(&format!("parse body: {e}")))?;
+    let graph_value = parsed
+        .get("graph")
+        .cloned()
+        .ok_or_else(|| bad_request("`graph` is required"))?;
+    serde_json::from_value(graph_value).map_err(|e| bad_request(&format!("decode graph: {e}")))
 }
 
 async fn emit_audit(

@@ -169,6 +169,9 @@ async fn dispatch_post_inner(
     {
         return Some(super::routes_ghostwriter::draft_from_prompt_response(req, store).await);
     }
+    if let Some(resp) = super::routes_skill_ir::dispatch_post(req, store).await {
+        return Some(resp);
+    }
     // J12 — worker retrain endpoints. Single delegate covers all 4
     // (classify / commit / undo / reverse-test); see routes_retrain.
     if let Some(resp) = super::routes_retrain::dispatch(req, store).await {

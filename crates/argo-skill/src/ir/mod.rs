@@ -8,6 +8,7 @@
 pub mod backfill;
 pub mod ghostwriter;
 pub mod ghostwriter_prompts;
+pub mod save_pipeline;
 mod serde;
 pub mod store;
 pub mod types;
@@ -24,6 +25,7 @@ pub use self::ghostwriter::{
     OfflineGhostwriterClient, GHOSTWRITER_SOURCE,
 };
 pub use self::ghostwriter_prompts::{build_initial_prompt, build_self_correction_prompt};
+pub use self::save_pipeline::{save_edited_graph, validate_editable_topology, SavePipelineOutcome};
 pub use self::serde::{canonical_hash, canonical_hash_hex, canonical_json};
 pub use self::store::{ChainRow, SkillIrStore, SqliteSkillIrStore, ensure_schema, verify_chain};
 pub use self::types::{

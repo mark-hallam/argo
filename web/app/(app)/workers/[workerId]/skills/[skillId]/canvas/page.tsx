@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { AlertCircle, Loader2, Sparkles, Tv } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, Eye, Loader2, Pencil, Sparkles, Tv } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "@/components/ui/Breadcrumb";
+import { EditMode } from "@/components/skycot/canvas/EditMode";
 import { SkillCanvas } from "@/components/skycot/canvas/SkillCanvas";
 import { SkillIrNotFoundError } from "@/lib/api/skill-ir";
 import { useSkillIr } from "@/lib/hooks/use-skill-ir";
@@ -31,6 +33,7 @@ export default function SkillCanvasPage() {
   const workerId = routeParams?.workerId ?? "";
   const skillId = routeParams?.skillId ?? "";
   const version = search?.get("version") ?? undefined;
+  const [mode, setMode] = useState<"read" | "edit">("read");
 
   const irQuery = useSkillIr(skillId, version);
 
@@ -49,7 +52,16 @@ export default function SkillCanvasPage() {
         />
       ) : irQuery.data ? (
         <>
-          <SkillCanvas graph={irQuery.data.graph} />
+          <ModeToggle mode={mode} onMode={setMode} />
+          {mode === "edit" ? (
+            <EditMode
+              skillId={skillId}
+              graph={irQuery.data.graph}
+              initialVersion={irQuery.data.version}
+            />
+          ) : (
+            <SkillCanvas graph={irQuery.data.graph} />
+          )}
           <p
             data-testid="canvas-source-line"
             className="text-xs text-[var(--muted-foreground)]"
@@ -58,6 +70,42 @@ export default function SkillCanvasPage() {
           </p>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function ModeToggle({
+  mode,
+  onMode,
+}: {
+  mode: "read" | "edit";
+  onMode: (mode: "read" | "edit") => void;
+}) {
+  return (
+    <div
+      data-testid="canvas-mode-toggle"
+      className="inline-flex rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] p-1"
+    >
+      <button
+        type="button"
+        data-testid="mode-read"
+        aria-pressed={mode === "read"}
+        onClick={() => onMode("read")}
+        className={modeButtonClass(mode === "read")}
+      >
+        <Eye className="size-4" aria-hidden="true" />
+        Read
+      </button>
+      <button
+        type="button"
+        data-testid="mode-edit"
+        aria-pressed={mode === "edit"}
+        onClick={() => onMode("edit")}
+        className={modeButtonClass(mode === "edit")}
+      >
+        <Pencil className="size-4" aria-hidden="true" />
+        Edit
+      </button>
     </div>
   );
 }
@@ -180,3 +228,12 @@ const secondaryActionClass = cn(
   "inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent)]/40",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
 );
+
+function modeButtonClass(active: boolean): string {
+  return cn(
+    "inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3 py-1.5 text-sm font-medium",
+    active
+      ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/40",
+  );
+}
