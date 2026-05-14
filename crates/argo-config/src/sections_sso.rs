@@ -51,7 +51,7 @@ impl Default for SsoConfig {
 /// plaintext secret; operators rotate the secret without
 /// restart-and-edit-config (same pattern as
 /// `[channels.teams].client_secret_env`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SsoOidcTenant {
     /// IdP-issued client id for this deployment.
@@ -63,12 +63,34 @@ pub struct SsoOidcTenant {
     pub authorization_endpoint: String,
     /// IdP token endpoint (URL).
     pub token_endpoint: String,
+    /// IdP issuer claim expected in verified ID tokens.
+    pub issuer: String,
+    /// IdP JWKS endpoint used to verify ID-token signatures.
+    pub jwks_uri: String,
+    /// In-memory JWKS cache TTL. Defaults to one hour.
+    pub jwks_cache_ttl_secs: u64,
     /// Our SP callback URL — the value we redirect the IdP to after
     /// auth, e.g. `https://gw.example.com/auth/callback`. Must be
     /// pre-registered with the IdP.
     pub redirect_uri: String,
     /// OAuth scopes joined by spaces. Default `openid email profile`.
     pub scopes: String,
+}
+
+impl Default for SsoOidcTenant {
+    fn default() -> Self {
+        Self {
+            client_id: String::new(),
+            client_secret_env: String::new(),
+            authorization_endpoint: String::new(),
+            token_endpoint: String::new(),
+            issuer: String::new(),
+            jwks_uri: String::new(),
+            jwks_cache_ttl_secs: 3600,
+            redirect_uri: String::new(),
+            scopes: String::new(),
+        }
+    }
 }
 
 /// `[sso.saml.<tenant>]` — one SAML IdP registration.

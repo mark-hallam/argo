@@ -6,13 +6,9 @@
 //! * Code-flow + PKCE (RFC 7636 S256) — the modern non-implicit
 //!   profile recommended for new deployments.
 //! * Token exchange happens server-side over TLS direct to the IdP
-//!   `token_endpoint` carrying the client secret. Because the ID
-//!   token reaches us straight from that endpoint (never through
-//!   the user-agent), we trust its claims without independently
-//!   verifying the JWT signature in v1. Operators wanting deep
-//!   verification can layer a follow-up brief that consults the
-//!   IdP JWKS — the same flow can be hardened without changing the
-//!   request shape exposed to the IdP.
+//!   `token_endpoint` carrying the client secret. The returned ID
+//!   token is verified against the IdP JWKS before its claims are
+//!   trusted.
 //! * Per-tenant IdP registration via `[sso.oidc.<tenant>]` —
 //!   `tenant` is read off the `?tenant=` query parameter on
 //!   `/auth/login` and persisted into the PKCE cookie so the
@@ -29,6 +25,8 @@ use tokio::net::TcpStream;
 use super::sso_session::{
     self, clear_cookie_header, read_cookie, set_cookie_header, SessionPayload,
 };
+#[path = "sso_oidc_jwt.rs"]
+mod sso_oidc_jwt;
 
 /// Default scopes when the operator did not configure any.
 pub(super) const DEFAULT_SCOPES: &str = "openid email profile";
@@ -71,7 +69,10 @@ pub(super) async fn serve(
     let method = parts.next().unwrap_or("");
     let path_with_query = parts.next().unwrap_or("");
     let path = path_with_query.split('?').next().unwrap_or("");
-    let query = path_with_query.split_once('?').map(|(_, q)| q).unwrap_or("");
+    let query = path_with_query
+        .split_once('?')
+        .map(|(_, q)| q)
+        .unwrap_or("");
     if method != "GET" {
         return write_simple(out, "405 Method Not Allowed", r#"{"error":"GET only"}"#).await;
     }
@@ -106,9 +107,9 @@ type TokenResolver = std::sync::Arc<
     dyn Fn(
             String,
             std::collections::BTreeMap<String, String>,
-        ) -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<String, String>> + Send>,
-        > + Send
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, String>> + Send>>
+        + Send
         + Sync,
 >;
 
@@ -145,7 +146,7 @@ pub(super) fn build_login_redirect(
     let sep = if url.contains('?') { '&' } else { '?' };
     url.push(sep);
     url.push_str(&format!(
-        "response_type=code&client_id={cid}&redirect_uri={ru}&scope={sc}&state={st}&code_challenge={ch}&code_challenge_method=S256",
+        "response_type=code&client_id={cid}&redirect_uri={ru}&scope={sc}&state={st}&nonce={st}&code_challenge={ch}&code_challenge_method=S256",
         cid = url_encode(&tcfg.client_id),
         ru = url_encode(&tcfg.redirect_uri),
         sc = url_encode(&scopes),
@@ -187,7 +188,14 @@ async fn handle_login(
     };
     let secret = match super::routes_channels::hmac_secret() {
         Ok(s) => s,
-        Err(_) => return write_simple(out, "500 Internal Server Error", r#"{"error":"hmac secret unconfigured"}"#).await,
+        Err(_) => {
+            return write_simple(
+                out,
+                "500 Internal Server Error",
+                r#"{"error":"hmac secret unconfigured"}"#,
+            )
+            .await
+        }
     };
     let now = chrono::Utc::now().timestamp();
     let pkce_payload = SessionPayload {
@@ -200,7 +208,9 @@ async fn handle_login(
     };
     let cookie = match sso_session::sign(&pkce_payload, &secret) {
         Ok(c) => c,
-        Err(_) => return write_simple(out, "500 Internal Server Error", r#"{"error":"sign pkce"}"#).await,
+        Err(_) => {
+            return write_simple(out, "500 Internal Server Error", r#"{"error":"sign pkce"}"#).await
+        }
     };
     let set = set_cookie_header(PKCE_COOKIE, &cookie, PKCE_TTL_SECONDS, "/auth/");
     let resp = format!(
@@ -246,7 +256,7 @@ pub(super) async fn handle_callback(
     req: &str,
     query: &str,
     cfg: &argo_config::SsoConfig,
-    _store: Option<&Arc<SessionStore>>,
+    store: Option<&Arc<SessionStore>>,
     resolver: &TokenResolver,
     secret: &str,
 ) -> CallbackOutcome {
@@ -297,13 +307,27 @@ pub(super) async fn handle_callback(
         Some(s) => s.to_string(),
         None => return err_outcome("502 Bad Gateway", "no id_token in response"),
     };
-    let (sub, email) = match extract_id_token_claims(&id_token) {
-        Ok(p) => p,
-        Err(e) => return err_outcome("401 Unauthorized", &e),
-    };
+    let claims =
+        match sso_oidc_jwt::verify_id_token_with_cache(&id_token, tcfg, now, &pkce.email).await {
+            Ok(c) => c,
+            Err(e) => {
+                audit_callback(store, &tenant, None, None, e.reason()).await;
+                return err_outcome("401 Unauthorized", e.reason());
+            }
+        };
+    audit_callback(
+        store,
+        &tenant,
+        Some(claims.sub.as_str()),
+        jsonwebtoken::decode_header(&id_token)
+            .ok()
+            .and_then(|h| h.kid),
+        "verified",
+    )
+    .await;
     let payload = SessionPayload {
-        sub,
-        email,
+        sub: claims.sub,
+        email: claims.email,
         tenant,
         mechanism: "oidc".into(),
         iat: now,
@@ -324,6 +348,27 @@ pub(super) async fn handle_callback(
     }
 }
 
+async fn audit_callback(
+    store: Option<&Arc<SessionStore>>,
+    tenant: &str,
+    sub: Option<&str>,
+    kid: Option<String>,
+    outcome: &str,
+) {
+    let Some(store) = store else { return };
+    let sink = argo_audit::AuditSink::new(std::sync::Arc::clone(store));
+    let payload = serde_json::json!({
+        "event_type": "sso.oidc.id_token",
+        "outcome": outcome,
+        "tenant": tenant,
+        "sub": sub,
+        "kid": kid,
+    });
+    let _ = sink
+        .write(None, argo_audit::AuditKind::HttpRequest, payload, None)
+        .await;
+}
+
 async fn handle_logout(cfg: &argo_config::SsoConfig, out: &mut TcpStream) -> tokio::io::Result<()> {
     let clear = clear_cookie_header(&cfg.cookie_name, "/");
     let resp = format!(
@@ -331,33 +376,6 @@ async fn handle_logout(cfg: &argo_config::SsoConfig, out: &mut TcpStream) -> tok
     );
     out.write_all(resp.as_bytes()).await?;
     out.shutdown().await
-}
-
-/// Parse an OIDC ID token's payload claims without verifying its
-/// signature. v1 posture: we received the token directly from the
-/// IdP `token_endpoint` over TLS while presenting our client
-/// secret, so the JWT signature would be a belt-and-braces check
-/// rather than the load-bearing trust anchor. Returns
-/// `(sub, email)`; `email` falls back to the empty string when
-/// the IdP omits it.
-pub(super) fn extract_id_token_claims(token: &str) -> Result<(String, String), String> {
-    let mut parts = token.split('.');
-    let _ = parts.next().ok_or("malformed jwt".to_string())?;
-    let payload = parts.next().ok_or("malformed jwt".to_string())?;
-    let bytes = sso_session::b64url_decode(payload).map_err(|_| "b64 decode")?;
-    let v: serde_json::Value =
-        serde_json::from_slice(&bytes).map_err(|_| "id_token payload not json")?;
-    let sub = v
-        .get("sub")
-        .and_then(|s| s.as_str())
-        .ok_or("no sub claim")?
-        .to_string();
-    let email = v
-        .get("email")
-        .and_then(|s| s.as_str())
-        .unwrap_or("")
-        .to_string();
-    Ok((sub, email))
 }
 
 async fn real_token_exchange(
@@ -388,8 +406,8 @@ async fn real_token_exchange(
 
 fn load_cfg() -> Result<argo_config::SsoConfig, String> {
     let cwd = std::env::current_dir().map_err(|e| format!("cwd: {e}"))?;
-    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml"))
-        .map_err(|e| format!("load: {e}"))?;
+    let cfg =
+        argo_config::ArgoConfig::load(&cwd.join("argo.toml")).map_err(|e| format!("load: {e}"))?;
     Ok(cfg.sso)
 }
 
