@@ -30,6 +30,8 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod auction;
+/// Multi-channel approval routing plans and runtime fallback walker.
+pub mod approval_routing;
 /// Real-time fan-out wrapper around [`auction::Auction`] for
 /// in-process worker subscribers (Stream
 /// `mission-auction-tokio-broadcast-bidder`).
@@ -69,6 +71,11 @@ pub use auction::{
     fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
 };
 pub use auction_dispatcher::{AuctionDispatcher, AuctionEvent, DEFAULT_CHANNEL_CAPACITY};
+pub use approval_routing::{
+    ApprovalAttemptStatus, ApprovalChannel, ApprovalChannelKind, ApprovalRouteAttempt,
+    ApprovalRouteNode, ApprovalRoutingAction, ApprovalRoutingError, ApprovalRoutingPlan,
+    ApprovalRoutingRuntime, APPROVAL_ROUTING_ANNOTATION,
+};
 pub use duty_scheduler::{
     spawn_duty_scheduler, ClosedGate, DutyGate, DutyRecord, DutyScheduler, DutyStore,
     FireDecision, OpenGate, TickReport,
@@ -96,6 +103,8 @@ pub use worker_supervisor::{
     WorkerSnapshot, WorkerSpec, WorkerSupervisor, MAX_RESPAWN_LOOPS,
 };
 
+#[cfg(test)]
+mod approval_routing_tests;
 #[cfg(test)]
 mod vertical_lock_tests;
 #[cfg(test)]
