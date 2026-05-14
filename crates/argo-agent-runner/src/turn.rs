@@ -21,7 +21,7 @@ use crate::turn_vertical::{
     build_vertical_deny_set, resolve_vertical_for_session,
 };
 use argo_audit::{AuditKind, AuditSink};
-use argo_provider::Transport;
+use argo_provider::{ProviderManifest, Transport};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, MessageRole, SessionId, TenantId};
 use std::path::Path;
@@ -118,15 +118,9 @@ pub async fn run_turn_with_planner_hook(
 ) -> ArgoResult<TurnResult> {
     if let (Some(text), Some(h)) = (user, hook) {
         let parent = session_id.0.to_string();
-        let _ = turn_planner::maybe_decompose(
-            h.planner,
-            h.gate,
-            h.sink,
-            Some(&parent),
-            text,
-            &h.ctx,
-        )
-        .await;
+        let _ =
+            turn_planner::maybe_decompose(h.planner, h.gate, h.sink, Some(&parent), text, &h.ctx)
+                .await;
     }
     run_turn_with_events(store, cwd, session_id, user, stream, max_rounds, events).await
 }
@@ -230,7 +224,12 @@ async fn run_turn_with_events_inner(
         session.vertical_id.as_deref(),
     );
     audit
-        .write(Some(session_id), AuditKind::TurnStart, turn_start.clone(), None)
+        .write(
+            Some(session_id),
+            AuditKind::TurnStart,
+            turn_start.clone(),
+            None,
+        )
         .await?;
     emit_event(events, "TurnStart", turn_start);
     let spend_ctx = SpendCtx {
@@ -283,6 +282,52 @@ async fn run_turn_with_events_inner(
     result
 }
 
+fn model_context_window(manifest: &ProviderManifest, model: &str) -> usize {
+    let resolved = manifest.resolve_model_id(model);
+    manifest
+        .models
+        .iter()
+        .find(|m| m.id == resolved)
+        .and_then(|m| m.context_window)
+        .map_or(0, |n| n as usize)
+}
+
+fn load_context_compress_config(cwd: &Path) -> ArgoResult<argo_config::ContextCompressConfig> {
+    let mut config = argo_config::load_from(cwd)?.runtime.context_compress;
+    let local = [cwd.join(".skycot/argo.toml"), cwd.join("argo.toml")]
+        .into_iter()
+        .find(|path| path.exists());
+    if let Some(path) = local {
+        config = argo_config::ArgoConfig::load(&path)?
+            .runtime
+            .context_compress;
+    }
+    Ok(config)
+}
+
+struct ContextWindowPolicy {
+    window_tokens: usize,
+    compression: argo_runtime::context_compress::CompressionConfig,
+}
+
+impl ContextWindowPolicy {
+    fn disabled() -> Self {
+        Self::from_config(argo_config::ContextCompressConfig::default(), 0)
+    }
+
+    fn from_config(config: argo_config::ContextCompressConfig, window_tokens: usize) -> Self {
+        Self {
+            window_tokens,
+            compression: argo_runtime::context_compress::CompressionConfig {
+                enabled: config.enabled,
+                trigger_pct: config.trigger_pct,
+                keep_last_turns: config.keep_last_turns as usize,
+                summary_max_tokens: config.summary_max_tokens as usize,
+            },
+        }
+    }
+}
+
 /// Concatenate skill bodies into a single system-prompt string
 /// that's passed on every round of the turn. Returns `None` when
 /// nothing is in scope (the provider transport then sends no
@@ -306,7 +351,8 @@ async fn build_system_prompt(
     worker_id: Option<argo_store::WorkerId>,
 ) -> ArgoResult<Option<String>> {
     let (prompt, _pending) =
-        build_system_prompt_with_ab(store, session_id, vertical_id, tenant_id, worker_id, "").await?;
+        build_system_prompt_with_ab(store, session_id, vertical_id, tenant_id, worker_id, "")
+            .await?;
     Ok(prompt)
 }
 

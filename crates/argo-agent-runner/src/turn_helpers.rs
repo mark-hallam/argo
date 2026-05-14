@@ -10,20 +10,30 @@
 //! No public API changes — `run_turn_with_tools` is `pub(super)`
 //! and only `turn::run_turn_with_events` calls it.
 use super::turn_skills_runtime::PendingAbOutcome;
-use super::{build_system_prompt_with_ab, TurnResult};
+use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
 use crate::dispatch::{build_dispatch_ctx, dispatch_one, provider_schemas_filtered};
 use crate::helpers::{
     build_assistant_content, emit_event, message_from_row, record_turn_spend, stream_one_round,
     RoundResp, RunEventSink, SpendCtx,
 };
+use crate::transport::load_manifest;
 use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
+use argo_runtime::{
+    context_compress::{self, TokenCounter},
+    context_truncate,
+};
 use argo_store::SessionStore;
-use argo_types::{ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
+use argo_types::{
+    ArgoError, ArgoResult, ContentBlock, Message, MessageRole, SessionId, ToolCallResult,
+};
+use async_trait::async_trait;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
+
+const TRUNCATE_THRESHOLD_PCT: usize = 95;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_turn_with_tools(
@@ -47,6 +57,17 @@ pub(super) async fn run_turn_with_tools(
     pending_ab_outcomes: &mut Vec<PendingAbOutcome>,
 ) -> ArgoResult<TurnResult> {
     let mut session_grants = session_grants;
+    let session = store
+        .get_session(session_id)
+        .await?
+        .ok_or_else(|| ArgoError::Provider(format!("no session {}", session_id.0)))?;
+    let context_policy = match load_manifest(cwd, &session.provider) {
+        Ok(manifest) => ContextWindowPolicy::from_config(
+            super::load_context_compress_config(cwd)?,
+            super::model_context_window(&manifest, model),
+        ),
+        Err(_) => ContextWindowPolicy::disabled(),
+    };
     // claude-memory-tool-wire: thread the live MemoryStore + workspace
     // through dispatch so the in-core `memory` tool can actually
     // persist. Vertical-bound writes go through `append_for_vertical`
@@ -64,8 +85,7 @@ pub(super) async fn run_turn_with_tools(
     // when invoked. The store is reused across every dispatched tool
     // call in this turn.
     let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
-    let orch_session_id =
-        argo_orchestrator::SessionId::from_string(session_id.to_string());
+    let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
     let (registry, engine, principal) =
         build_dispatch_ctx(cwd, memory_ctx, Some(Arc::clone(&orchestrator_ctx)))?;
     // #721: hide manifest-denied tools from the model's tool list
@@ -113,6 +133,8 @@ pub(super) async fn run_turn_with_tools(
             .iter()
             .map(|r| message_from_row(r, session_id))
             .collect::<ArgoResult<Vec<_>>>()?;
+        let messages =
+            prepare_context_messages(messages, &context_policy, audit, session_id).await?;
 
         let req = ProviderRequest {
             model: model.to_string(),
@@ -187,7 +209,12 @@ pub(super) async fn run_turn_with_tools(
         for call in &resp.tool_calls {
             let call_payload = serde_json::json!({"tool": call.name, "call_id": call.id});
             audit
-                .write(Some(session_id), AuditKind::ToolCall, call_payload.clone(), None)
+                .write(
+                    Some(session_id),
+                    AuditKind::ToolCall,
+                    call_payload.clone(),
+                    None,
+                )
                 .await?;
             emit_event(events, "ToolCall", call_payload);
 
@@ -203,7 +230,12 @@ pub(super) async fn run_turn_with_tools(
                     "denied_by": "vertical_manifest",
                 });
                 audit
-                    .write(Some(session_id), AuditKind::RbacDeny, deny_payload.clone(), None)
+                    .write(
+                        Some(session_id),
+                        AuditKind::RbacDeny,
+                        deny_payload.clone(),
+                        None,
+                    )
                     .await?;
                 emit_event(events, "RbacDeny", deny_payload);
                 argo_tool::error_text(
@@ -249,8 +281,7 @@ pub(super) async fn run_turn_with_tools(
                 let approved_via_grant =
                     vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
                 let res =
-                    dispatch_one(&registry, &engine, &principal, cwd, &orch_session_id, call)
-                        .await;
+                    dispatch_one(&registry, &engine, &principal, cwd, &orch_session_id, call).await;
                 if approved_via_grant {
                     consume_one_shot_if_present(
                         store,
@@ -300,7 +331,12 @@ pub(super) async fn run_turn_with_tools(
         "max_rounds": max_rounds,
     });
     audit
-        .write(Some(session_id), AuditKind::Halt, halt_payload.clone(), None)
+        .write(
+            Some(session_id),
+            AuditKind::Halt,
+            halt_payload.clone(),
+            None,
+        )
         .await?;
     emit_event(events, "Halt", halt_payload);
     Ok(TurnResult {
@@ -310,4 +346,150 @@ pub(super) async fn run_turn_with_tools(
         tokens_out: last_tokens_out,
         stopped_on_tool_budget: true,
     })
+}
+
+async fn prepare_context_messages(
+    messages: Vec<Message>,
+    policy: &ContextWindowPolicy,
+    audit: &AuditSink,
+    session_id: SessionId,
+) -> ArgoResult<Vec<Message>> {
+    if !policy.compression.enabled || policy.window_tokens == 0 {
+        return Ok(messages);
+    }
+    let counter = ApproxTokenCounter;
+    let summarizer = ExtractiveSummarizer;
+    let mut view = messages;
+    let token_count: usize = view.iter().map(|m| counter.count_message(m)).sum();
+
+    if context_compress::should_compress(token_count, policy.window_tokens, &policy.compression) {
+        let compressed =
+            context_compress::compress(&view, &policy.compression, &counter, &summarizer)
+                .await
+                .map_err(|e| ArgoError::Provider(format!("context compression: {e}")))?;
+        if compressed.compressed() {
+            audit
+                .write(
+                    Some(session_id),
+                    AuditKind::RuntimeContextCompressed,
+                    context_compress::build_audit_payload(&compressed),
+                    None,
+                )
+                .await?;
+        }
+        view = compressed.view;
+    }
+
+    let truncate_tokens = policy
+        .window_tokens
+        .saturating_mul(TRUNCATE_THRESHOLD_PCT)
+        .checked_div(100)
+        .unwrap_or(policy.window_tokens)
+        .max(1);
+    let token_count: usize = view.iter().map(|m| counter.count_message(m)).sum();
+    if token_count >= truncate_tokens {
+        let truncated = context_truncate::truncate_to_fit(&view, truncate_tokens, &counter)?;
+        if truncated.truncated() {
+            let payload = serde_json::json!({
+                "event_type": context_truncate::AUDIT_KIND_LABEL,
+                "details": context_truncate::build_audit_payload(&truncated),
+            });
+            audit
+                .write(Some(session_id), AuditKind::HttpRequest, payload, None)
+                .await?;
+        }
+        view = truncated.view;
+    }
+
+    Ok(view)
+}
+
+struct ApproxTokenCounter;
+
+impl context_compress::TokenCounter for ApproxTokenCounter {
+    fn count_message(&self, msg: &Message) -> usize {
+        let role_overhead = 4usize;
+        role_overhead
+            + msg.content.iter().map(count_content_block).sum::<usize>()
+            + msg.reasoning.as_deref().map_or(0, approximate_text_tokens)
+    }
+
+    fn count_text(&self, text: &str) -> usize {
+        approximate_text_tokens(text)
+    }
+}
+
+fn count_content_block(block: &ContentBlock) -> usize {
+    match block {
+        ContentBlock::Text { text } => approximate_text_tokens(text),
+        ContentBlock::Image { url, alt } => {
+            approximate_text_tokens(url) + alt.as_deref().map_or(0, approximate_text_tokens)
+        }
+        ContentBlock::Audio { url, mime } | ContentBlock::Document { url, mime } => {
+            approximate_text_tokens(url) + approximate_text_tokens(mime)
+        }
+        ContentBlock::ToolUse(call) => {
+            approximate_text_tokens(&call.name)
+                + approximate_text_tokens(&call.arguments.to_string())
+        }
+        ContentBlock::ToolResult(result) => {
+            approximate_text_tokens(&serde_json::to_string(result).unwrap_or_default())
+        }
+    }
+}
+
+fn approximate_text_tokens(text: &str) -> usize {
+    text.len()
+        .saturating_add(3)
+        .checked_div(4)
+        .unwrap_or(0)
+        .max(1)
+}
+
+struct ExtractiveSummarizer;
+
+#[async_trait]
+impl context_compress::Summarizer for ExtractiveSummarizer {
+    async fn summarize(
+        &self,
+        older_turns: &[Message],
+        max_tokens: usize,
+    ) -> Result<context_compress::Summary, context_compress::CompressionError> {
+        let mut text = String::new();
+        for msg in older_turns {
+            let role = match msg.role {
+                MessageRole::System => "system",
+                MessageRole::User => "user",
+                MessageRole::Assistant => "assistant",
+                MessageRole::Tool => "tool",
+            };
+            let line = format!("{role}: {}\n", render_message_text(msg));
+            if approximate_text_tokens(&(text.clone() + &line)) > max_tokens {
+                break;
+            }
+            text.push_str(&line);
+        }
+        if text.trim().is_empty() {
+            text = "Earlier conversation omitted during context compression.".to_string();
+        }
+        let token_count = approximate_text_tokens(&text);
+        Ok(context_compress::Summary { text, token_count })
+    }
+}
+
+fn render_message_text(msg: &Message) -> String {
+    msg.content
+        .iter()
+        .map(|block| match block {
+            ContentBlock::Text { text } => text.clone(),
+            ContentBlock::Image { url, alt } => {
+                format!("[image: {}{}]", url, alt.as_deref().map_or("", |a| a))
+            }
+            ContentBlock::Audio { url, mime } => format!("[audio: {mime} {url}]"),
+            ContentBlock::Document { url, mime } => format!("[document: {mime} {url}]"),
+            ContentBlock::ToolUse(call) => format!("[tool_use: {}]", call.name),
+            ContentBlock::ToolResult(result) => format!("[tool_result: {}]", result.is_error),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
