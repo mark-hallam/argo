@@ -45,7 +45,7 @@ LOW severity (10 more): TickReport, SuggestedAction, SendMessageRequest, Sandbox
 
 | Crate | LOC | Status |
 |---|---|---|
-| argo-acp | 873 | Active source; zero workspace consumers; may be deprecated/WIP |
+| argo-acp | 873 | Triaged 2026-05-15: kept as standalone ACP library; CLI serve stub was deleted separately, future server wire-up deferred |
 | argo-delegate | 582 | Active source; zero workspace consumers despite Phase A claim mapping |
 
 (MCP connectors are intentionally standalone via dynamic loading; not dead.)
