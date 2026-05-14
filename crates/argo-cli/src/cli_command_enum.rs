@@ -261,6 +261,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ErrorsCmd,
     },
+    /// Availability/SLA dashboards backed by canonical audit rows.
+    Sla {
+        #[command(subcommand)]
+        cmd: SlaCmd,
+    },
     Audit {
         #[command(subcommand)]
         cmd: AuditQueryCmd,

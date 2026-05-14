@@ -103,6 +103,86 @@ async fn route_filter_accepts_exact_and_trailing_star_prefix() {
 }
 
 #[tokio::test]
+async fn availability_counts_success_and_failure_codes() {
+    let store = store_with_rows(&[
+        (10, serde_json::json!({"status": 200, "duration_ms": 5})),
+        (20, serde_json::json!({"status": 404, "duration_ms": 6})),
+        (30, serde_json::json!({"status": 500, "duration_ms": 7})),
+        (40, serde_json::json!({"status": 502, "duration_ms": 8})),
+    ])
+    .await;
+    let snap = availability_in_window(&store, 0, 50).await.unwrap();
+    assert_eq!(snap.total, 4);
+    assert_eq!(snap.success_count, 2);
+    assert!((snap.success_pct() - 50.0).abs() < f64::EPSILON);
+}
+
+#[tokio::test]
+async fn availability_tenant_filter_scopes_window() {
+    let store = store_with_rows(&[
+        (10, serde_json::json!({"status": 200, "tenant_id": "acme"})),
+        (20, serde_json::json!({"status": 500, "tenant_id": "acme"})),
+        (30, serde_json::json!({"status": 500, "tenant_id": "globex"})),
+    ])
+    .await;
+    let filter = ErrorRateFilter {
+        tenant_id: Some("acme".into()),
+        route: None,
+    };
+    let snap = availability_in_window_filtered(&store, 0, 40, &filter)
+        .await
+        .unwrap();
+    assert_eq!((snap.total, snap.success_count), (2, 1));
+}
+
+#[tokio::test]
+async fn latency_percentiles_match_seeded_distribution() {
+    // 100 samples: 1..=100ms. p50≈50ms, p95≈95ms, p99≈99ms.
+    let mut rows = Vec::with_capacity(100);
+    for i in 1u64..=100 {
+        rows.push((
+            i as i64,
+            serde_json::json!({"status": 200, "duration_ms": i}),
+        ));
+    }
+    let store = store_with_rows(&rows).await;
+    let pcts = latency_percentiles_in_window(&store, 0, 200).await.unwrap();
+    assert_eq!(pcts.total, 100);
+    assert_eq!(pcts.p50_us, 50_000);
+    assert_eq!(pcts.p95_us, 95_000);
+    assert_eq!(pcts.p99_us, 99_000);
+    assert!(pcts.p50_us <= pcts.p95_us);
+    assert!(pcts.p95_us <= pcts.p99_us);
+}
+
+#[tokio::test]
+async fn latency_percentiles_handle_empty_and_single_sample() {
+    let empty = SessionStore::open(":memory:").await.unwrap();
+    empty.migrate().await.unwrap();
+    let pcts = latency_percentiles_in_window(&empty, 0, 100).await.unwrap();
+    assert_eq!((pcts.total, pcts.p50_us, pcts.p95_us, pcts.p99_us), (0, 0, 0, 0));
+
+    let one = store_with_rows(&[(10, serde_json::json!({"status": 200, "duration_ms": 42}))]).await;
+    let pcts = latency_percentiles_in_window(&one, 0, 100).await.unwrap();
+    assert_eq!((pcts.total, pcts.p50_us, pcts.p99_us), (1, 42_000, 42_000));
+}
+
+#[tokio::test]
+async fn latency_percentiles_skip_rows_without_duration() {
+    let store = store_with_rows(&[
+        // "Timeout" rows lacking a duration — treated as outside the sample set.
+        (10, serde_json::json!({"status": 504})),
+        (20, serde_json::json!({"status": 200, "duration_ms": 1})),
+        (30, serde_json::json!({"status": 500, "duration_ms": 9})),
+    ])
+    .await;
+    let pcts = latency_percentiles_in_window(&store, 0, 40).await.unwrap();
+    assert_eq!(pcts.total, 2);
+    assert_eq!(pcts.p50_us, 1_000);
+    assert_eq!(pcts.p99_us, 9_000);
+}
+
+#[tokio::test]
 async fn status_code_fallback_accepts_legacy_key() {
     let store = store_with_rows(&[
         (10, serde_json::json!({"status_code": 502})),

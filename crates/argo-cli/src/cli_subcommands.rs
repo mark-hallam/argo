@@ -200,6 +200,22 @@ pub enum ErrorsCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum SlaCmd {
+    /// Availability % + latency p50/p95/p99 from `audit_record` request rows.
+    Report {
+        /// Time window to inspect, e.g. `30m`, `1h`, or `24h` (default).
+        #[arg(long, default_value = "24h")]
+        window: String,
+        /// Optional tenant id filter.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Emit a JSON envelope instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum AuditCmd {
     /// Show the kind histogram + (optionally) the last `--tail N`
     /// rows. Pass `--session <id>` to print every audit row for one

@@ -95,6 +95,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Approval { cmd } => main_dispatch_audit::approval(cmd).await,
         Command::Activity { cmd } => main_dispatch_audit::activity(cmd).await,
         Command::Errors { cmd } => main_dispatch_audit::errors(cmd).await,
+        Command::Sla { cmd } => main_dispatch_audit::sla(cmd).await,
         Command::Trajectory { cmd } => main_dispatch_audit::trajectory(cmd).await,
         Command::Incident { cmd } => main_dispatch_audit::incident(cmd),
         Command::Eval { cmd } => main_dispatch_audit::eval(cmd).await,

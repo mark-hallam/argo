@@ -70,6 +70,16 @@ pub(crate) async fn errors(cmd: cli::ErrorsCmd) -> ArgoResult<()> {
     }
 }
 
+pub(crate) async fn sla(cmd: cli::SlaCmd) -> ArgoResult<()> {
+    match cmd {
+        cli::SlaCmd::Report {
+            window,
+            tenant,
+            json,
+        } => handlers::sla_report::run(&window, tenant.as_deref(), json).await,
+    }
+}
+
 pub(crate) async fn trajectory(cmd: cli::TrajectoryCmd) -> ArgoResult<()> {
     match cmd {
         cli::TrajectoryCmd::Export {
