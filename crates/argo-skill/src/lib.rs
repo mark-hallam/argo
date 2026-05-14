@@ -32,6 +32,7 @@ pub mod eval_runner;
 pub mod ingest_learned;
 mod eval_runner_gate;
 pub mod feedback;
+pub mod ir;
 pub mod learn;
 pub mod library;
 pub mod marketplace;
