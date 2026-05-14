@@ -48,6 +48,8 @@ pub mod persist;
 /// (Stream `claude-worker-handoff-record`).
 pub mod persist_audit;
 mod persist_handoffs;
+/// Per-skill retry policies and backoff runner for orchestrated skill runs.
+pub mod retry;
 pub mod routing;
 mod routing_resolve;
 mod routing_store;
@@ -74,6 +76,10 @@ pub use duty_scheduler::{
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
 pub use persist::OrchestratorStore;
+pub use retry::{
+    run_skill_with_retry, RetryBackoff, RetryFailure, RetryFailureClass, RetryPolicyStore,
+    SkillRetryPolicy,
+};
 pub use routing::{
     HandoffRoutingRule, RoutingContext, RoutingEngine, RoutingRuleStore, RuleId, TargetSelector,
     WhenClause,
@@ -94,3 +100,5 @@ pub use worker_supervisor::{
 mod vertical_lock_tests;
 #[cfg(test)]
 mod sla_tests;
+#[cfg(test)]
+mod retry_tests;
