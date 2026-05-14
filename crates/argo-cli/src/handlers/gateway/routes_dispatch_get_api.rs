@@ -37,6 +37,12 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /api/v1/approvals ") || req.starts_with("GET /api/v1/approvals?") {
         return Some(super::routes_approvals_json::list_response(req).await);
     }
+    // L4-gw — Skill IR JSON for the canvas viewer. Mounted ahead of
+    // less-specific `/api/v1/...` arms so the routes_skill_ir
+    // sub-dispatcher claims its two paths before fall-through.
+    if let Some(resp) = super::routes_skill_ir::dispatch(req, store).await {
+        return Some(resp);
+    }
     // J16 — caller's elevated-view grants (active-only by default).
     // Must come BEFORE the J14 `/api/v1/audit` arm — more-specific
     // path wins so J14's prefix-match doesn't swallow this traffic.
