@@ -69,6 +69,10 @@ mod v8;
 mod v9;
 
 mod registry;
+mod registry_compliance;
+mod registry_skills;
+mod registry_workers;
+mod registry_workflow;
 
 use argo_types::ArgoError;
 use sqlx::{Pool, Sqlite};
