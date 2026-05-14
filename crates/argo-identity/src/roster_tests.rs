@@ -311,8 +311,7 @@ fn worker_resolved_policy_with_rosters_prefers_worker_when_enabled() {
     worker.auto_approval = enabled_policy(80_000);
     let roster_policy = enabled_policy(10_000);
     let workspace = AutoApprovalPolicy::default();
-    let resolved =
-        worker.resolved_policy_with_rosters(&[roster_policy], &workspace);
+    let resolved = worker.resolved_policy_with_rosters(&[roster_policy], &workspace);
     assert_eq!(resolved.daily_budget_usd_micros, Some(80_000));
 }
 
@@ -327,8 +326,7 @@ fn worker_resolved_policy_falls_through_to_roster_when_worker_disabled() {
     );
     let roster_policy = enabled_policy(10_000);
     let workspace = enabled_policy(99_999);
-    let resolved =
-        worker.resolved_policy_with_rosters(&[roster_policy], &workspace);
+    let resolved = worker.resolved_policy_with_rosters(&[roster_policy], &workspace);
     assert_eq!(resolved.daily_budget_usd_micros, Some(10_000));
 }
 
@@ -343,152 +341,9 @@ fn worker_resolved_policy_falls_through_to_workspace_when_no_enabled_roster() {
     );
     let disabled = AutoApprovalPolicy::default();
     let workspace = enabled_policy(99_999);
-    let resolved =
-        worker.resolved_policy_with_rosters(&[disabled], &workspace);
+    let resolved = worker.resolved_policy_with_rosters(&[disabled], &workspace);
     assert_eq!(resolved.daily_budget_usd_micros, Some(99_999));
 }
 
-// ---------------------------------------------------------------------------
-// `policy_override_json` column + `lookup_for_worker` helper (precursor for
-// `mission-roster-resolve-policy` v2).
-// ---------------------------------------------------------------------------
-
-#[test]
-fn roster_policy_override_default_is_no_op() {
-    use crate::RosterPolicyOverride;
-    let ov = RosterPolicyOverride::default();
-    assert!(ov.auto_approve_max_amount.is_none());
-    assert!(ov.additional_quiet_hours.is_none());
-    let explicit = RosterPolicyOverride {
-        auto_approve_max_amount: Some(250),
-        ..Default::default()
-    };
-    assert_ne!(ov, explicit);
-}
-
-#[tokio::test]
-async fn lookup_for_worker_returns_none_when_no_roster() {
-    let store = open_roster_store().await;
-    let worker = WorkerId::new();
-    assert!(store.lookup_for_worker(worker).await.unwrap().is_none());
-}
-
-#[tokio::test]
-async fn lookup_for_worker_returns_assignment_without_override() {
-    let store = open_roster_store().await;
-    let tenant = TenantId::new();
-    let roster = Roster::new(
-        tenant,
-        "sales-ops",
-        AutoApprovalPolicy::default(),
-        Vec::new(),
-        None,
-    );
-    store.create(&roster).await.unwrap();
-    let worker = WorkerId::new();
-    store.add_member(roster.id, worker).await.unwrap();
-    let assignment = store
-        .lookup_for_worker(worker)
-        .await
-        .unwrap()
-        .expect("worker has a roster");
-    assert_eq!(assignment.roster.id, roster.id);
-    assert!(assignment.policy_override.is_none());
-}
-
-#[tokio::test]
-async fn lookup_for_worker_round_trips_override() {
-    use crate::RosterPolicyOverride;
-    let store = open_roster_store().await;
-    let tenant = TenantId::new();
-    let roster = Roster::new(
-        tenant,
-        "finance",
-        AutoApprovalPolicy::default(),
-        Vec::new(),
-        None,
-    );
-    store.create(&roster).await.unwrap();
-    let worker = WorkerId::new();
-    store.add_member(roster.id, worker).await.unwrap();
-    let original = RosterPolicyOverride {
-        auto_approve_max_amount: Some(500),
-        ..Default::default()
-    };
-    store
-        .set_policy_override(tenant, roster.id, Some(&original))
-        .await
-        .unwrap();
-    let assignment = store
-        .lookup_for_worker(worker)
-        .await
-        .unwrap()
-        .expect("worker has a roster");
-    assert_eq!(assignment.policy_override.as_ref(), Some(&original));
-}
-
-#[tokio::test]
-async fn lookup_for_worker_prefers_explicit_over_default_named() {
-    let store = open_roster_store().await;
-    let tenant = TenantId::new();
-    let explicit = Roster::new(
-        tenant,
-        "tier-1-ops",
-        AutoApprovalPolicy::default(),
-        Vec::new(),
-        None,
-    );
-    let fallback = Roster::new(
-        tenant,
-        "default",
-        AutoApprovalPolicy::default(),
-        Vec::new(),
-        None,
-    );
-    store.create(&explicit).await.unwrap();
-    store.create(&fallback).await.unwrap();
-    let worker = WorkerId::new();
-    store.add_member(explicit.id, worker).await.unwrap();
-    store.add_member(fallback.id, worker).await.unwrap();
-    let assignment = store
-        .lookup_for_worker(worker)
-        .await
-        .unwrap()
-        .expect("worker has a roster");
-    assert_eq!(assignment.roster.id, explicit.id);
-}
-
-#[tokio::test]
-async fn set_policy_override_can_clear() {
-    use crate::RosterPolicyOverride;
-    let store = open_roster_store().await;
-    let tenant = TenantId::new();
-    let roster = Roster::new(
-        tenant,
-        "ops",
-        AutoApprovalPolicy::default(),
-        Vec::new(),
-        None,
-    );
-    store.create(&roster).await.unwrap();
-    let worker = WorkerId::new();
-    store.add_member(roster.id, worker).await.unwrap();
-    let override_val = RosterPolicyOverride {
-        auto_approve_max_amount: Some(999),
-        ..Default::default()
-    };
-    store
-        .set_policy_override(tenant, roster.id, Some(&override_val))
-        .await
-        .unwrap();
-    store
-        .set_policy_override(tenant, roster.id, None)
-        .await
-        .unwrap();
-    let assignment = store
-        .lookup_for_worker(worker)
-        .await
-        .unwrap()
-        .expect("worker has a roster");
-    assert!(assignment.policy_override.is_none());
-}
+#[path = "roster_policy_override_tests.rs"]
+mod roster_policy_override_tests;
