@@ -30,6 +30,8 @@ use std::sync::Arc;
 
 pub use crate::executor_types::{CuOutcome, RunRequest, RunResult};
 
+const CONSERVATIVE_TOKENS_PER_DOLLAR: u32 = 100_000;
+
 /// Top-level executor. Cloneable — internals are `Arc`-shared so
 /// the same instance can drive concurrent dispatches across
 /// workers.
@@ -183,11 +185,10 @@ impl ComputerUseExecutor {
 
         let mut tracker = BudgetTracker::new(&profile);
         if let Some(usd) = req.budget_usd {
-            // Profile-pinned tokens-per-dollar: a future TODO is
-            // to read this from the model price registry; for
-            // now we use a fixed conservative ratio so the cap
-            // is meaningful even before that lands.
-            tracker = tracker.with_usd_cap(usd, 100_000);
+            let tokens_per_dollar = tokens_per_dollar_from_registry(&profile.model, |model| {
+                Ok::<Option<u32>, ()>(argo_forge::tokens_per_dollar_for_model(model))
+            });
+            tracker = tracker.with_usd_cap(usd, tokens_per_dollar);
         }
 
         let outcome = run_loop(
@@ -235,6 +236,17 @@ impl ComputerUseExecutor {
     }
 }
 
+fn tokens_per_dollar_from_registry<F, E>(model_id: &str, lookup: F) -> u32
+where
+    F: FnOnce(&str) -> Result<Option<u32>, E>,
+{
+    lookup(model_id)
+        .ok()
+        .flatten()
+        .filter(|tokens| *tokens > 0)
+        .unwrap_or(CONSERVATIVE_TOKENS_PER_DOLLAR)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,5 +268,29 @@ mod tests {
             .unwrap_or_else(|| panic!("unknown profile must error"));
         assert!(err.to_string().contains("no_such_profile"));
         assert!(err.to_string().contains("marketplace_browser"));
+    }
+
+    #[test]
+    fn registry_hit_uses_model_specific_budget_ratio() {
+        let ratio = tokens_per_dollar_from_registry("claude-opus-4-7", |model| {
+            assert_eq!(model, "claude-opus-4-7");
+            Ok::<Option<u32>, ()>(Some(13_333))
+        });
+        assert_eq!(ratio, 13_333);
+    }
+
+    #[test]
+    fn registry_miss_uses_conservative_fallback_ratio() {
+        let ratio =
+            tokens_per_dollar_from_registry("unknown-model", |_| Ok::<Option<u32>, ()>(None));
+        assert_eq!(ratio, CONSERVATIVE_TOKENS_PER_DOLLAR);
+    }
+
+    #[test]
+    fn registry_error_uses_conservative_fallback_ratio() {
+        let ratio = tokens_per_dollar_from_registry("claude-sonnet-4-6", |_| {
+            Err::<Option<u32>, &str>("boom")
+        });
+        assert_eq!(ratio, CONSERVATIVE_TOKENS_PER_DOLLAR);
     }
 }

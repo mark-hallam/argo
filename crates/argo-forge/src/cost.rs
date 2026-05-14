@@ -122,6 +122,51 @@ impl PricingTable {
             (total + 0.5) as u64
         }
     }
+
+    /// Conservative token budget purchasable for one USD on this
+    /// model. Uses the most expensive token class so a mixed
+    /// input/output action cannot exceed the declared USD cap.
+    #[must_use]
+    pub fn tokens_per_dollar_for_budget(&self) -> u32 {
+        let most_expensive = self
+            .input_usd_per_mtok
+            .max(self.output_usd_per_mtok)
+            .max(self.cache_read_usd_per_mtok);
+        if most_expensive <= 0.0 {
+            return 0;
+        }
+        let tokens = 1_000_000.0 / most_expensive;
+        if tokens >= f64::from(u32::MAX) {
+            u32::MAX
+        } else {
+            tokens.floor().max(1.0) as u32
+        }
+    }
+}
+
+fn known_pricing_for_model(model_id: &str) -> Option<PricingTable> {
+    match model_id {
+        "claude-3-5-haiku-20241022" | "claude-haiku-4-5" | "claude-haiku-4-5-20251001" => {
+            Some(PricingTable {
+                input_usd_per_mtok: 0.8,
+                output_usd_per_mtok: 4.0,
+                cache_read_usd_per_mtok: 0.08,
+            })
+        }
+        "claude-opus-4-20250514" | "claude-opus-4-7" | "claude-opus-4-7[1m]" => {
+            Some(PricingTable {
+                input_usd_per_mtok: 15.0,
+                output_usd_per_mtok: 75.0,
+                cache_read_usd_per_mtok: 1.5,
+            })
+        }
+        "claude-3-5-sonnet-20241022" | "claude-sonnet-4-6" => Some(PricingTable {
+            input_usd_per_mtok: 3.0,
+            output_usd_per_mtok: 15.0,
+            cache_read_usd_per_mtok: 0.30,
+        }),
+        _ => None,
+    }
 }
 
 /// Look up the pricing snapshot for a given model id. Unknown ids
@@ -129,26 +174,19 @@ impl PricingTable {
 /// mis-spelled model id is loud, not silent.
 #[must_use]
 pub fn pricing_for_model(model_id: &str) -> PricingTable {
-    match model_id {
-        "claude-3-5-haiku-20241022" | "claude-haiku-4-5" | "claude-haiku-4-5-20251001" => {
-            PricingTable {
-                input_usd_per_mtok: 0.8,
-                output_usd_per_mtok: 4.0,
-                cache_read_usd_per_mtok: 0.08,
-            }
-        }
-        "claude-opus-4-20250514" | "claude-opus-4-7" | "claude-opus-4-7[1m]" => PricingTable {
-            input_usd_per_mtok: 15.0,
-            output_usd_per_mtok: 75.0,
-            cache_read_usd_per_mtok: 1.5,
-        },
-        // Sonnet-tier (3.5-sonnet, 4.6-sonnet) and unknown fallback.
-        _ => PricingTable {
-            input_usd_per_mtok: 3.0,
-            output_usd_per_mtok: 15.0,
-            cache_read_usd_per_mtok: 0.30,
-        },
-    }
+    known_pricing_for_model(model_id).unwrap_or(PricingTable {
+        input_usd_per_mtok: 3.0,
+        output_usd_per_mtok: 15.0,
+        cache_read_usd_per_mtok: 0.30,
+    })
+}
+
+/// Look up the conservative budget ratio for a known model. Returns
+/// `None` for a registry miss so callers can apply their own
+/// fallback policy.
+#[must_use]
+pub fn tokens_per_dollar_for_model(model_id: &str) -> Option<u32> {
+    known_pricing_for_model(model_id).map(|pricing| pricing.tokens_per_dollar_for_budget())
 }
 
 /// USD-micros per E2B sandbox second (2026-05-11 public rate: $0.00029/s).
@@ -165,7 +203,8 @@ pub fn accumulate_llm_call(
     cache_read_tokens: u64,
 ) {
     let pricing = pricing_for_model(model_id);
-    let call_cost = pricing.cost_usd_micros_for_call(input_tokens, output_tokens, cache_read_tokens);
+    let call_cost =
+        pricing.cost_usd_micros_for_call(input_tokens, output_tokens, cache_read_tokens);
     cost.llm_input_tokens = cost.llm_input_tokens.saturating_add(input_tokens);
     cost.llm_output_tokens = cost.llm_output_tokens.saturating_add(output_tokens);
     cost.llm_cache_read_tokens = cost.llm_cache_read_tokens.saturating_add(cache_read_tokens);
@@ -269,7 +308,8 @@ mod tests {
         // Opus call: 15/75 $/MTok.
         accumulate_llm_call(&mut c, "claude-opus-4-7", 1_000, 100, 0);
         let after_opus = c.llm_cost_usd_micros;
-        assert_eq!(after_opus, 15_000 + 7_500); // 15 × 1000 + 75 × 100
+        // 15 × 1000 + 75 × 100
+        assert_eq!(after_opus, 15_000 + 7_500);
         // Sonnet call: 3/15 $/MTok.
         accumulate_llm_call(&mut c, "claude-sonnet-4-6", 1_000, 100, 0);
         assert_eq!(c.llm_cost_usd_micros, after_opus + 3_000 + 1_500);
@@ -292,8 +332,24 @@ mod tests {
         let sonnet = pricing_for_model("claude-sonnet-4-6");
         assert!((unknown.input_usd_per_mtok - sonnet.input_usd_per_mtok).abs() < 1e-9);
         assert!((unknown.output_usd_per_mtok - sonnet.output_usd_per_mtok).abs() < 1e-9);
-        assert!(
-            (unknown.cache_read_usd_per_mtok - sonnet.cache_read_usd_per_mtok).abs() < 1e-9
+        assert!((unknown.cache_read_usd_per_mtok - sonnet.cache_read_usd_per_mtok).abs() < 1e-9);
+    }
+
+    #[test]
+    fn tokens_per_dollar_uses_most_expensive_token_class() {
+        assert_eq!(tokens_per_dollar_for_model("claude-opus-4-7"), Some(13_333));
+        assert_eq!(
+            tokens_per_dollar_for_model("claude-sonnet-4-6"),
+            Some(66_666)
         );
+        assert_eq!(
+            tokens_per_dollar_for_model("claude-haiku-4-5"),
+            Some(250_000)
+        );
+    }
+
+    #[test]
+    fn tokens_per_dollar_returns_none_for_registry_miss() {
+        assert_eq!(tokens_per_dollar_for_model("not-a-real-model-2099"), None);
     }
 }

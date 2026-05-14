@@ -31,7 +31,8 @@ mod tests;
 
 pub use config::{FEEDBACK_CASE_WEIGHT, FEEDBACK_WINDOW_DAYS};
 pub use cost::{
-    accumulate_e2b_seconds, accumulate_llm_call, pricing_for_model, ForgeCost, PricingTable,
+    accumulate_e2b_seconds, accumulate_llm_call, pricing_for_model, tokens_per_dollar_for_model,
+    ForgeCost, PricingTable,
 };
 pub use cron::{spawn_forge_cron, ForgeCronConfig};
 pub use feedback_eval::{
