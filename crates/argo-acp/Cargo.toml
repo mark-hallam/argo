@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo — Agent Client Protocol server (§28.Y) (standalone ACP library; not wired to a compile-time workspace consumer in v1)"
 
 [dependencies]
-argo-capability = { path = "../argo-capability", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-capability = { path = "../argo-capability" }
+argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

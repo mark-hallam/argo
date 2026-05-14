@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo shared utilities for MCP connectors (retry-with-backoff, classifiers)"
 
 [dependencies]
-argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
+argo-mcp = { path = "../argo-mcp" }
 tokio = { workspace = true }
 
 [dev-dependencies]

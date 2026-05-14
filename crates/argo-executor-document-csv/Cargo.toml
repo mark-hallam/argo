@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo V1.2 — RFC 4180 CSV document-creation executor"
 
 [dependencies]
-argo-executor-filesystem = { path = "../argo-executor-filesystem", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-executor-filesystem = { path = "../argo-executor-filesystem" }
+argo-types = { path = "../argo-types" }
 chrono = { workspace = true }
 csv = "1"
 serde = { workspace = true }

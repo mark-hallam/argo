@@ -8,13 +8,13 @@ repository.workspace = true
 description = "Argo — tool registry + in-core tools (§9, Phase 3 baseline + Hermes-parity additions)"
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
-argo-capability = { path = "../argo-capability", version = "0.0.1" }
-argo-identity = { path = "../argo-identity", version = "0.0.1" }
-argo-memory = { path = "../argo-memory", version = "0.0.1" }
-argo-orchestrator = { path = "../argo-orchestrator", version = "0.0.1" }
-argo-sandbox = { path = "../argo-sandbox", version = "0.0.1" }
-argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
+argo-capability = { path = "../argo-capability" }
+argo-identity = { path = "../argo-identity" }
+argo-memory = { path = "../argo-memory" }
+argo-orchestrator = { path = "../argo-orchestrator" }
+argo-sandbox = { path = "../argo-sandbox" }
+argo-store = { path = "../argo-store" }
 base64 = "0.22"
 serde = { workspace = true }
 serde_json = { workspace = true }

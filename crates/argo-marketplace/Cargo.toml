@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo — workspace OCI bundle push/pull (§23)"
 
 [dependencies]
-argo-config = { path = "../argo-config", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-config = { path = "../argo-config" }
+argo-types = { path = "../argo-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

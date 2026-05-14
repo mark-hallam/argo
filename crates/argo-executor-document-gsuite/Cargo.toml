@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo — Google Workspace (Docs / Sheets / Slides) document-creation executor"
 
 [dependencies]
-argo-executor-document-csv = { path = "../argo-executor-document-csv", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-executor-document-csv = { path = "../argo-executor-document-csv" }
+argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 base64 = "0.22"
 chrono = { workspace = true }

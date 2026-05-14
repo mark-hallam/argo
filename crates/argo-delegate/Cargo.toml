@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo — subagent delegation: budget tree + COW workspace fork (§16)"
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

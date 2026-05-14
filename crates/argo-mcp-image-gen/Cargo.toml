@@ -12,7 +12,7 @@ name = "argo-mcp-image-gen"
 path = "src/main.rs"
 
 [dependencies]
-argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
+argo-mcp = { path = "../argo-mcp" }
 async-trait = { workspace = true }
 base64 = "0.22"
 chrono = { workspace = true }

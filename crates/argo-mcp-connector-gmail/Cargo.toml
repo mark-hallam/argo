@@ -12,9 +12,9 @@ name = "argo-mcp-connector-gmail"
 path = "src/main.rs"
 
 [dependencies]
-argo-config = { path = "../argo-config", version = "0.0.1" }
-argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-config = { path = "../argo-config" }
+argo-mcp = { path = "../argo-mcp" }
+argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 base64 = "0.22"
 oauth2 = { version = "4.4", default-features = false, features = ["reqwest"] }

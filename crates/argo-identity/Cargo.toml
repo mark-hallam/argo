@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Worker, persona, and role identity primitives"
 
 [dependencies]
-argo-store = { path = "../argo-store", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-store = { path = "../argo-store" }
+argo-types = { path = "../argo-types" }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -12,9 +12,9 @@ name = "argo-mcp-connector-gcal"
 path = "src/main.rs"
 
 [dependencies]
-argo-config = { path = "../argo-config", version = "0.0.1" }
-argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
-argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared", version = "0.0.1" }
+argo-config = { path = "../argo-config" }
+argo-mcp = { path = "../argo-mcp" }
+argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 oauth2 = "5"

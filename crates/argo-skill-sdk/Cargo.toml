@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Fluent Rust SDK for authoring Skycot Skill IR graphs"
 
 [dependencies]
-argo-skill = { path = "../argo-skill", version = "0.0.1" }
+argo-skill = { path = "../argo-skill" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

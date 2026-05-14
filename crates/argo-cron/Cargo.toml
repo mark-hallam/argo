@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo — cron expressions + tenant-aware scheduler (§22)"
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 fs2 = { workspace = true }

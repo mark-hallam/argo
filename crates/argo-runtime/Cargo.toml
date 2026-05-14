@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo — runtime worker pieces: planner trait + decomposers (Stream claude-runtime-planner-trait)."
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
-argo-workflow = { path = "../argo-workflow", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
+argo-workflow = { path = "../argo-workflow" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }

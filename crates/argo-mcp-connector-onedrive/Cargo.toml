@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo MCP connector for Microsoft OneDrive (list / upload / download / share / search) via Microsoft Graph"
 
 [dependencies]
-argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared" }
+argo-types = { path = "../argo-types" }
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

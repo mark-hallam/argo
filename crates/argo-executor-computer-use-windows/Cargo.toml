@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo V1.5 — native Windows computer-use executor (UIAutomation + SendInput + BitBlt, sibling of the macOS native CU executor) (DEFERRED-v1.x; enterprise endpoint path, not v1 demo)"
 
 [dependencies]
-argo-executor-computer-use = { path = "../argo-executor-computer-use", version = "0.0.1" }
+argo-executor-computer-use = { path = "../argo-executor-computer-use" }
 argo-types = { path = "../argo-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }

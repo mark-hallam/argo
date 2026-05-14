@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo — plugin protocol + subprocess host (§11)"
 
 [dependencies]
-argo-config = { path = "../argo-config", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-config = { path = "../argo-config" }
+argo-types = { path = "../argo-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }

@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Argo — Forge skill-optimization orchestration (§26)"
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
-argo-store = { path = "../argo-store", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
+argo-store = { path = "../argo-store" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }

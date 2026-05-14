@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Argo — sandboxed command execution (Sandbox trait + local + Docker stub) (§15)"
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }

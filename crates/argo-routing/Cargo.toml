@@ -8,9 +8,9 @@ repository.workspace = true
 description = "Argo — cost-tier routing (§24, Amendment 1)"
 
 [dependencies]
-argo-types = { path = "../argo-types", version = "0.0.1" }
-argo-store = { path = "../argo-store", version = "0.0.1" }
-argo-provider = { path = "../argo-provider", version = "0.0.1" }
+argo-types = { path = "../argo-types" }
+argo-store = { path = "../argo-store" }
+argo-provider = { path = "../argo-provider" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }

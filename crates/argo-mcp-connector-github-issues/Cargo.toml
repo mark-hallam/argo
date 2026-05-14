@@ -12,9 +12,9 @@ name = "argo-mcp-connector-github-issues"
 path = "src/main.rs"
 
 [dependencies]
-argo-config = { path = "../argo-config", version = "0.0.1" }
-argo-mcp = { path = "../argo-mcp", version = "0.0.1" }
-argo-types = { path = "../argo-types", version = "0.0.1" }
+argo-config = { path = "../argo-config" }
+argo-mcp = { path = "../argo-mcp" }
+argo-types = { path = "../argo-types" }
 async-trait = { workspace = true }
 reqwest = { workspace = true }
 serde_json = { workspace = true }
