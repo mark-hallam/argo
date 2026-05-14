@@ -81,7 +81,7 @@ pub(crate) async fn cmd_replay(session_id: &str, opts: ReplayOpts) -> ArgoResult
         )));
     }
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let (memory, workspace) = open_workspace_memory(&cwd).await?;
     let verticals_dir = crate::handlers::vertical::resolve_verticals_dir();
     let action = find_action(&memory, workspace, session_id, &verticals_dir)
@@ -192,7 +192,7 @@ pub(crate) fn bundle_dir(cwd: &Path, action: &ActionRecord) -> PathBuf {
 pub(crate) fn load_trajectory(bundle: &Path) -> ArgoResult<Vec<AuditRow>> {
     let path = bundle.join("browser.jsonl");
     let body = std::fs::read_to_string(&path).map_err(|e| {
-        ArgoError::Provider(format!("read {}: {e}", path.display()))
+        ArgoError::Io(format!("read {}: {e}", path.display()))
     })?;
     let mut rows = Vec::new();
     for (idx, line) in body.lines().enumerate() {

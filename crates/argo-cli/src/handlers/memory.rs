@@ -10,7 +10,7 @@ pub(crate) use super::memory_query::{count, list};
 
 pub async fn run(cmd: MemoryCmd) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -252,7 +252,7 @@ async fn edit(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
     let mut tmp = std::env::temp_dir();
     tmp.push(format!("argo-memory-{id}.md"));
     std::fs::write(&tmp, &prev.body)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", tmp.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", tmp.display())))?;
     let status = std::process::Command::new(&editor)
         .arg(&tmp)
         .status()
@@ -263,7 +263,7 @@ async fn edit(memory: &MemoryStore, raw: &str) -> ArgoResult<()> {
         )));
     }
     let new_body = std::fs::read_to_string(&tmp)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", tmp.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", tmp.display())))?;
     let _ = std::fs::remove_file(&tmp);
     if new_body == prev.body {
         println!("memory entry {id}: body unchanged — nothing written");

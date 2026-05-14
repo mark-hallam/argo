@@ -61,11 +61,11 @@ fn restore_target(into: Option<&Path>) -> ArgoResult<PathBuf> {
         Some(path) if path.is_absolute() => Ok(path.to_path_buf()),
         Some(path) => {
             let cwd = std::env::current_dir()
-                .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+                .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
             Ok(cwd.join(path))
         }
         None => std::env::current_dir()
-            .map_err(|e| ArgoError::Provider(format!("current_dir: {e}"))),
+            .map_err(|e| ArgoError::Io(format!("current_dir: {e}"))),
     }
 }
 

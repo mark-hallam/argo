@@ -101,14 +101,14 @@ pub(crate) struct Trajectory {
 /// emits.
 pub(crate) async fn run(args: ExportArgs) -> ArgoResult<()> {
     let resolved = Resolved::from_args(args)?;
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let bundles_root = cwd.join(".skycot").join("outputs");
     let trajectories = collect_trajectories(&bundles_root, &resolved)?;
     let bytes = render(&trajectories, &resolved)?;
     let sha = sha256_hex(&bytes);
     if let Some(ref path) = resolved.output {
         fs::write(path, &bytes)
-            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     } else if !resolved.json {
         std::io::Write::write_all(&mut std::io::stdout(), &bytes)
             .map_err(|e| ArgoError::Provider(format!("stdout write: {e}")))?;
@@ -216,7 +216,7 @@ pub(crate) fn collect_trajectories(
 pub(crate) fn load_trajectory(bundle: &Path, include_screenshots: bool) -> ArgoResult<Trajectory> {
     let action_json_path = bundle.join("action.json");
     let raw = fs::read_to_string(&action_json_path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", action_json_path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", action_json_path.display())))?;
     let record: serde_json::Value = serde_json::from_str(&raw)
         .map_err(|e| ArgoError::Provider(format!("parse action.json: {e}")))?;
     let action_id = record

@@ -26,7 +26,7 @@ async fn delete(args: GdprDeleteCmd) -> ArgoResult<()> {
     if args.bundle_out.is_some() && !args.confirm {
         return Err(ArgoError::Provider("--bundle-out requires --confirm".into()));
     }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;
@@ -68,7 +68,7 @@ fn require_confirmation(subject: &str) -> ArgoResult<()> {
     let mut typed = String::new();
     io::stdin()
         .read_line(&mut typed)
-        .map_err(|e| ArgoError::Provider(format!("read confirmation: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read confirmation: {e}")))?;
     if confirmation_matches(&typed, subject) {
         Ok(())
     } else {
@@ -146,7 +146,7 @@ fn write_bundle(path: &str, plan: &GdprPlan, subject_hash: &str) -> ArgoResult<(
         tar.finish()
             .map_err(|e| ArgoError::Provider(format!("finish GDPR bundle: {e}")))?;
     }
-    std::fs::write(path, out).map_err(|e| ArgoError::Provider(format!("write {path}: {e}")))
+    std::fs::write(path, out).map_err(|e| ArgoError::Io(format!("write {path}: {e}")))
 }
 
 fn append_tar<W: Write>(tar: &mut tar::Builder<W>, path: &str, bytes: &[u8]) -> ArgoResult<()> {

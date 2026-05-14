@@ -40,7 +40,7 @@ pub fn ensure_dir(dir: &Path) -> ArgoResult<()> {
 /// caller wants (#717, #718).
 pub async fn cwd_workspace(store: &SessionStore) -> ArgoResult<WorkspaceId> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (_tenant, workspace) = store.ensure_workspace(name, &root).await?;

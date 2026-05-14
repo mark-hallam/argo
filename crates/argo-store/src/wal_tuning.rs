@@ -166,7 +166,7 @@ pub async fn read_pragma(pool: &Pool<Sqlite>, name: &str) -> Result<String, Argo
     let row = sqlx::query(&sql)
         .fetch_optional(pool)
         .await
-        .map_err(|e| ArgoError::Provider(format!("read pragma {name}: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read pragma {name}: {e}")))?;
     let Some(row) = row else {
         return Ok(String::new());
     };

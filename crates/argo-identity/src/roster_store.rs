@@ -186,7 +186,7 @@ impl RosterStore {
             .bind(worker_id.to_string())
             .execute(self.store.pool())
             .await
-            .map_err(|e| ArgoError::Provider(format!("remove roster member: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("remove roster member: {e}")))?;
         Ok(())
     }
 

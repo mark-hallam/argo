@@ -78,7 +78,7 @@ struct DoctorReport {
 }
 
 pub(crate) async fn run(vertical: Option<&str>, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
     let report = build_report(&memory, ws, &cwd, vertical).await?;
     if json {

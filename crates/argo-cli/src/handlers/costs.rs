@@ -9,7 +9,7 @@ use chrono::Utc;
 
 pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml"))?;
     match cmd {
         None => super::costs_show::show(&cwd, &cfg, "text").await,
@@ -92,7 +92,7 @@ pub async fn run(cmd: Option<CostsCmd>) -> ArgoResult<()> {
 fn reset_cap(cwd: &std::path::Path, scope: &str) -> ArgoResult<()> {
     let path = cwd.join("argo.toml");
     let body = std::fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let mut value: toml::Value = toml::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     let key = format!("default_spend_per_{scope}_usd_micros");
@@ -109,7 +109,7 @@ fn reset_cap(cwd: &std::path::Path, scope: &str) -> ArgoResult<()> {
     let serialized = toml::to_string_pretty(&value)
         .map_err(|e| ArgoError::Provider(format!("serialize argo.toml: {e}")))?;
     std::fs::write(&path, serialized)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     println!(
         "argo costs cap: per-{scope} cap reset to default in {}",
         path.display()
@@ -124,7 +124,7 @@ fn reset_cap(cwd: &std::path::Path, scope: &str) -> ArgoResult<()> {
 fn apply_cap(cwd: &std::path::Path, scope: &str, micros: u64, usd: f64) -> ArgoResult<()> {
     let path = cwd.join("argo.toml");
     let body = std::fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let mut value: toml::Value = toml::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     let key = format!("default_spend_per_{scope}_usd_micros");
@@ -139,7 +139,7 @@ fn apply_cap(cwd: &std::path::Path, scope: &str, micros: u64, usd: f64) -> ArgoR
     let serialized = toml::to_string_pretty(&value)
         .map_err(|e| ArgoError::Provider(format!("serialize argo.toml: {e}")))?;
     std::fs::write(&path, serialized)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     println!(
         "argo costs cap: per-{scope} cap set to ${usd} ({micros} usd-micros) in {}",
         path.display()
@@ -238,7 +238,7 @@ async fn export_ledger(
     let mut writer: Box<dyn Write> = match out {
         Some(p) => {
             let f = std::fs::File::create(p)
-                .map_err(|e| ArgoError::Provider(format!("create {p}: {e}")))?;
+                .map_err(|e| ArgoError::Io(format!("create {p}: {e}")))?;
             Box::new(std::io::BufWriter::new(f))
         }
         None => Box::new(std::io::BufWriter::new(std::io::stdout())),

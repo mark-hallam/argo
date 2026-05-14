@@ -20,5 +20,5 @@ pub fn clear_all() -> ArgoResult<()> {
 }
 
 fn workspace_dir() -> ArgoResult<PathBuf> {
-    std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))
+    std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))
 }

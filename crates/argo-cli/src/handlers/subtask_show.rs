@@ -6,7 +6,7 @@ use argo_types::{ArgoError, ArgoResult};
 use crate::home::{db_path, ensure_dir, resolve_home};
 
 pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

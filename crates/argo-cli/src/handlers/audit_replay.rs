@@ -32,7 +32,7 @@ pub async fn run(
     let session_uuid = uuid::Uuid::parse_str(session_id)
         .map_err(|e| ArgoError::Schema(format!("session_id '{session_id}': {e}")))?;
     let session = SessionId(session_uuid);
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

@@ -124,6 +124,6 @@ pub(crate) async fn ensure_session_worker_id_column(pool: &Pool<Sqlite>) -> Stor
     )
     .execute(pool)
     .await
-    .map_err(|e| ArgoError::Provider(format!("create idx_session_worker: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("create idx_session_worker: {e}")))?;
     Ok(())
 }

@@ -20,7 +20,7 @@ pub trait AnthropicCaller: Send + Sync {
 }
 
 pub async fn run(session_id: &str, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -111,7 +111,7 @@ async fn read_cache(
     .bind(chain_hash)
     .fetch_optional(store.pool())
     .await
-    .map_err(|e| ArgoError::Provider(format!("read cache: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("read cache: {e}")))?;
     let Some((json,)) = row else {
         return Ok(None);
     };
@@ -142,7 +142,7 @@ async fn write_cache(
     .bind(now)
     .execute(store.pool())
     .await
-    .map_err(|e| ArgoError::Provider(format!("write cache: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("write cache: {e}")))?;
     Ok(())
 }
 

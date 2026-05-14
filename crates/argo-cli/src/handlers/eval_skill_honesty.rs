@@ -129,7 +129,7 @@ fn extract_sample(payload: &str, skill_id: &str, session: Uuid) -> Option<SkillS
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;
@@ -151,13 +151,13 @@ async fn build_judge(provider_id: &str, model_id: &str) -> ArgoResult<LlmJudge> 
 }
 
 fn load_manifest(provider_id: &str) -> ArgoResult<ProviderManifest> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let path: PathBuf = cwd
         .join("manifests")
         .join("providers")
         .join(format!("{provider_id}.toml"));
     let body = std::fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     ProviderManifest::from_toml_str(&body)
 }
 

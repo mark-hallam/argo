@@ -147,7 +147,7 @@ fn print_markdown(payload: &serde_json::Value) {
 /// and the gateway's `GET /health/full` endpoint.
 pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);

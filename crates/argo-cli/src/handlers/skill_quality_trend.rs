@@ -17,7 +17,7 @@ const MAX_DAYS: u32 = 365;
 
 pub async fn run(name: &str, days: Option<u32>, json_output: bool) -> ArgoResult<()> {
     let days = days.unwrap_or(DEFAULT_DAYS).clamp(1, MAX_DAYS);
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(db_path(&home)).await?);

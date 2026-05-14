@@ -19,7 +19,7 @@ pub async fn export_session(
     format: &str,
 ) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -31,7 +31,7 @@ pub async fn export_session(
     let mut writer: Box<dyn Write> = match out {
         Some(path) => {
             let f = std::fs::File::create(path)
-                .map_err(|e| ArgoError::Provider(format!("create {path}: {e}")))?;
+                .map_err(|e| ArgoError::Io(format!("create {path}: {e}")))?;
             Box::new(BufWriter::new(f))
         }
         None => Box::new(BufWriter::new(std::io::stdout())),

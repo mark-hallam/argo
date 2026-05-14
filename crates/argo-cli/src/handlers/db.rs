@@ -11,7 +11,7 @@ pub async fn run(cmd: DbCmd) -> ArgoResult<()> {
         return super::db_rekey::run(new_key_source, *json).await;
     }
     let cwd = std::env::current_dir()
-        .map_err(|e| argo_types::ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| argo_types::ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);

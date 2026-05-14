@@ -43,7 +43,7 @@ pub fn run_backend(backend: &str) -> ArgoResult<()> {
     let serialized = toml::to_string_pretty(&doc)
         .map_err(|e| ArgoError::Provider(format!("serialize {}: {e}", toml_path.display())))?;
     fs::write(&toml_path, serialized)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", toml_path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", toml_path.display())))?;
     println!("backend set to {}", parsed.as_str());
     Ok(())
 }
@@ -86,7 +86,7 @@ pub fn run_migrate(dry_run: bool, from_file: Option<PathBuf>) -> ArgoResult<()> 
         }
     }
     fs::remove_file(&source)
-        .map_err(|e| ArgoError::Provider(format!("remove {}: {e}", source.display())))?;
+        .map_err(|e| ArgoError::Io(format!("remove {}: {e}", source.display())))?;
     println!(
         "migration complete: {} key(s); removed {}",
         written.len(),
@@ -110,7 +110,7 @@ fn read_credentials(path: &Path) -> ArgoResult<std::collections::BTreeMap<String
         return Ok(std::collections::BTreeMap::new());
     }
     let body = fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     // Reuse cred::load if reading from the default location to keep
     // parse semantics identical; otherwise parse the file inline so
     // operators can point at backups (--from-file).
@@ -130,5 +130,5 @@ fn read_credentials(path: &Path) -> ArgoResult<std::collections::BTreeMap<String
 }
 
 fn workspace_dir() -> ArgoResult<PathBuf> {
-    std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))
+    std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))
 }

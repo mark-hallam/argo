@@ -92,7 +92,7 @@ fn write_envelope(envelope: &Value, out: Option<&str>) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Provider(format!("compliance export serialize: {e}")))?;
     match out {
         Some(path) => std::fs::write(path, &body)
-            .map_err(|e| ArgoError::Provider(format!("write {path}: {e}"))),
+            .map_err(|e| ArgoError::Io(format!("write {path}: {e}"))),
         None => {
             let mut sink = std::io::stdout().lock();
             sink.write_all(body.as_bytes())

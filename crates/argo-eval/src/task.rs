@@ -84,7 +84,7 @@ fn jaccard(a: &str, b: &str) -> f64 {
 pub async fn load_jsonl(path: &Path) -> ArgoResult<Vec<EvalTask>> {
     let body = tokio::fs::read_to_string(path)
         .await
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let mut tasks = Vec::new();
     for (lineno, line) in body.lines().enumerate() {
         let trimmed = line.trim();

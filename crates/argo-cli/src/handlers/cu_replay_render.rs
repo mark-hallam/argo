@@ -21,7 +21,7 @@ pub(crate) fn emit_markdown(
     let body = render_markdown(trajectory, inline)?;
     match out {
         Some(path) => std::fs::write(path, body)
-            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display()))),
+            .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display()))),
         None => {
             print!("{body}");
             Ok(())
@@ -80,7 +80,7 @@ pub(crate) fn screenshot_link(src: &ScreenshotSource, inline: bool) -> ArgoResul
         ScreenshotSource::Disk(path) => {
             if inline {
                 let bytes = std::fs::read(path).map_err(|e| {
-                    ArgoError::Provider(format!("read {}: {e}", path.display()))
+                    ArgoError::Io(format!("read {}: {e}", path.display()))
                 })?;
                 Ok(format!("data:image/png;base64,{}", STANDARD.encode(bytes)))
             } else {
@@ -118,7 +118,7 @@ pub(crate) fn emit_ndjson(trajectory: &Trajectory, out: Option<&Path>) -> ArgoRe
     }
     match out {
         Some(path) => std::fs::write(path, buf)
-            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display()))),
+            .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display()))),
         None => {
             print!("{buf}");
             Ok(())
@@ -135,7 +135,7 @@ pub(crate) fn write_gif(trajectory: &Trajectory, out: &Path, fps: u32) -> ArgoRe
 
     let frame_delay = Duration::from_millis(1000 / u64::from(fps));
     let file = File::create(out)
-        .map_err(|e| ArgoError::Provider(format!("create {}: {e}", out.display())))?;
+        .map_err(|e| ArgoError::Io(format!("create {}: {e}", out.display())))?;
     let mut enc = GifEncoder::new(BufWriter::new(file));
     enc.set_repeat(Repeat::Infinite)
         .map_err(|e| ArgoError::Provider(format!("gif repeat: {e}")))?;
@@ -155,7 +155,7 @@ pub(crate) fn write_gif(trajectory: &Trajectory, out: &Path, fps: u32) -> ArgoRe
 fn read_screenshot_bytes(src: &ScreenshotSource) -> ArgoResult<Vec<u8>> {
     match src {
         ScreenshotSource::Disk(path) => std::fs::read(path).map_err(|e| {
-            ArgoError::Provider(format!("read {}: {e}", path.display()))
+            ArgoError::Io(format!("read {}: {e}", path.display()))
         }),
         ScreenshotSource::Blob(_) => Err(ArgoError::Provider(
             "BlobStore screenshot source not yet wired (depends on \

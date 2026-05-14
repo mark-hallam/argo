@@ -92,7 +92,7 @@ pub(crate) fn load_run_arg(value: &str) -> ArgoResult<EvalRunReport> {
 
 fn load_run_path(path: &Path) -> ArgoResult<EvalRunReport> {
     let body = fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read eval run {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read eval run {}: {e}", path.display())))?;
     let value: Value = serde_json::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse eval run {}: {e}", path.display())))?;
     parse_run_value(path, value)
@@ -197,7 +197,7 @@ fn runs_dir() -> ArgoResult<PathBuf> {
         return Ok(PathBuf::from(path).join("eval-runs"));
     }
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     Ok(cwd.join(".argo").join("eval-runs"))
 }
 
@@ -272,7 +272,7 @@ fn collect_legacy_fixtures(
     for rel in suites {
         let path = loaded.root.join(&rel);
         let body = fs::read_to_string(&path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         for (idx, raw) in body.lines().enumerate() {
             let line = idx + 1;
             let trimmed = raw.trim();

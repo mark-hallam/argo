@@ -216,7 +216,7 @@ impl ArgoConfig {
             return Ok(Self::default());
         }
         let body = std::fs::read_to_string(path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         let cfg: Self = toml::from_str(&body)
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
         Ok(cfg)

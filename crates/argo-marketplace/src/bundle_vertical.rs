@@ -43,7 +43,7 @@ pub async fn build_vertical_bundle(
     let tar_bytes = build_tar_bytes(vertical_root, &entries).await?;
     tokio::fs::write(out_tar, &tar_bytes)
         .await
-        .map_err(|e| ArgoError::Provider(format!("write tar {}: {e}", out_tar.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write tar {}: {e}", out_tar.display())))?;
     let digest = sha256_hex(&tar_bytes);
     Ok(BundleManifest {
         digest,
@@ -83,7 +83,7 @@ pub async fn unpack_vertical_bundle(
     })?;
     let mut archive = tar::Archive::new(std::io::Cursor::new(tar_bytes));
     for entry in archive.entries().map_err(|e| {
-        ArgoError::Provider(format!("read tar entries: {e}"))
+        ArgoError::Io(format!("read tar entries: {e}"))
     })? {
         let mut entry =
             entry.map_err(|e| ArgoError::Provider(format!("tar entry: {e}")))?;
@@ -102,10 +102,10 @@ pub async fn unpack_vertical_bundle(
         }
         let mut body = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut body)
-            .map_err(|e| ArgoError::Provider(format!("read tar body: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("read tar body: {e}")))?;
         tokio::fs::write(&abs, &body)
             .await
-            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", abs.display())))?;
+            .map_err(|e| ArgoError::Io(format!("write {}: {e}", abs.display())))?;
     }
     Ok(())
 }

@@ -118,7 +118,7 @@ pub(super) fn print_audit(v: &serde_json::Value) {
 /// readout reflects what the runtime would actually apply.
 pub(super) async fn wal_stats(json: bool) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     let home = resolve_home(&cwd).unwrap_or_else(|_| cfg.core.resolved_home());
     let db = db_path(&home);

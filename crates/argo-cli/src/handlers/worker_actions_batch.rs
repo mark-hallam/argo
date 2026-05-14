@@ -94,7 +94,7 @@ pub(crate) fn prompt_confirms(count: usize, decision: BatchDecision) -> ArgoResu
     std::io::stdin()
         .lock()
         .read_line(&mut buf)
-        .map_err(|e| ArgoError::Provider(format!("read stdin: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read stdin: {e}")))?;
     Ok(matches!(buf.trim().to_ascii_lowercase().as_str(), "y" | "yes"))
 }
 

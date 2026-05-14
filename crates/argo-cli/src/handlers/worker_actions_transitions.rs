@@ -63,7 +63,7 @@ pub(crate) async fn open_workspace_memory() -> ArgoResult<(MemoryStore, Workspac
 /// event inserts.
 pub(crate) async fn open_workspace_memory_with_store(
 ) -> ArgoResult<(MemoryStore, WorkspaceId, Arc<SessionStore>)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -81,7 +81,7 @@ pub(crate) async fn open_workspace_memory_with_store(
 
 #[cfg(not(test))]
 async fn open_circuit_store() -> ArgoResult<SessionStore> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

@@ -149,7 +149,7 @@ pub async fn create_run(
     .bind(now)
     .execute(store.pool())
     .await
-    .map_err(|e| ArgoError::Provider(format!("create ab run: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("create ab run: {e}")))?;
     Ok(id)
 }
 

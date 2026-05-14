@@ -138,7 +138,7 @@ pub(super) async fn process_job(
     // Failure here is non-fatal — we still record the completed_jobs
     // memory entry so the dedup set converges; we just lose the
     // disk-side mirror. The session's message rows remain canonical.
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let inputs = super::work_artifacts::ArtifactInputs {
         job_id: job.id,
         session_id,

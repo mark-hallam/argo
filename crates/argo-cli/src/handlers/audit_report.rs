@@ -64,7 +64,7 @@ pub async fn run(store: &SessionStore, args: ReportArgs) -> ArgoResult<()> {
     };
     if let Some(path) = query.output.as_deref() {
         std::fs::write(path, artifact.as_bytes())
-            .map_err(|e| ArgoError::Provider(format!("write {path}: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("write {path}: {e}")))?;
     } else if !query.json {
         println!("{artifact}");
     }

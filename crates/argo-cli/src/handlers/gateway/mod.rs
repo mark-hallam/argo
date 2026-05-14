@@ -160,7 +160,7 @@ use lifecycle::pid_is_alive;
 
 pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     match cmd {
         GatewayCmd::Status { json } => status(&cfg, json),
@@ -264,7 +264,7 @@ fn status(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
 /// mission brief's may-touch list.
 async fn load_tenant_rate_limit_overrides() -> ArgoResult<Vec<(String, u32)>> {
     use crate::home::{db_path, ensure_dir, resolve_home};
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = argo_store::SessionStore::open(db_path(&home)).await?;

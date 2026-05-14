@@ -137,7 +137,7 @@ fn register_cron_duties(
             .map_err(|e| ArgoError::Provider(format!("serialize cron job: {e}")))?;
         let path = dir.join(format!("{name}.json"));
         std::fs::write(&path, body)
-            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     }
     Ok(())
 }

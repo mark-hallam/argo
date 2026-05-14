@@ -62,7 +62,7 @@ fn load_json<T: serde::de::DeserializeOwned>(
     label: &str,
 ) -> ArgoResult<T> {
     let body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {label} '{}': {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {label} '{}': {e}", path.display())))?;
     serde_json::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {label} '{}': {e}", path.display())))
 }

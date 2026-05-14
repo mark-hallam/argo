@@ -374,7 +374,7 @@ pub(crate) fn format_rate(rate: Option<f64>) -> String {
 }
 
 async fn open_pool() -> ArgoResult<Pool<Sqlite>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

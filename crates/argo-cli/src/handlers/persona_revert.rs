@@ -89,7 +89,7 @@ async fn fetch_current_value(store: &SessionStore, target: &PersonaRevision) -> 
             .bind(target.worker_id.to_string())
             .fetch_optional(store.pool())
             .await
-            .map_err(|e| ArgoError::Provider(format!("read current persona value: {e}")))?
+            .map_err(|e| ArgoError::Io(format!("read current persona value: {e}")))?
             .ok_or_else(|| {
                 ArgoError::Provider(format!(
                     "persona row missing for worker_id {} — cannot revert",

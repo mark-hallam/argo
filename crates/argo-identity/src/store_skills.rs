@@ -50,7 +50,7 @@ impl IdentityStore<'_> {
             .bind(skill_id)
             .execute(self.store.pool())
             .await
-            .map_err(|e| ArgoError::Provider(format!("remove worker_skill: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("remove worker_skill: {e}")))?;
         Ok(())
     }
 

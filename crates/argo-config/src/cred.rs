@@ -169,7 +169,7 @@ pub fn load(workspace: &Path) -> ArgoResult<BTreeMap<String, String>> {
         return Ok(BTreeMap::new());
     }
     let body = fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let document: CredentialDocument = toml::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     Ok(document.credentials)
@@ -255,7 +255,7 @@ fn write_credentials(workspace: &Path, credentials: &BTreeMap<String, String>) -
         .parent()
         .ok_or_else(|| ArgoError::Schema(format!("invalid credentials path {}", path.display())))?;
     fs::create_dir_all(parent)
-        .map_err(|e| ArgoError::Provider(format!("create {}: {e}", parent.display())))?;
+        .map_err(|e| ArgoError::Io(format!("create {}: {e}", parent.display())))?;
     let document = CredentialDocument {
         credentials: credentials.clone(),
     };
@@ -269,7 +269,7 @@ fn write_credentials(workspace: &Path, credentials: &BTreeMap<String, String>) -
         .open(&path)
         .map_err(|e| ArgoError::Provider(format!("open {}: {e}", path.display())))?;
     file.write_all(body.as_bytes())
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     #[cfg(unix)]
     fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
         .map_err(|e| ArgoError::Provider(format!("chmod 0600 {}: {e}", path.display())))?;

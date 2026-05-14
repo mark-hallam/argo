@@ -334,7 +334,7 @@ async fn capture_screenshot(
         .unwrap_or_default();
     let path = dir.join(format!("{label}.b64"));
     std::fs::write(&path, body.as_bytes()).map_err(|e| {
-        ArgoError::Provider(format!("write screenshot {}: {e}", path.display()))
+        ArgoError::Io(format!("write screenshot {}: {e}", path.display()))
     })?;
     Ok(path.to_string_lossy().into_owned())
 }

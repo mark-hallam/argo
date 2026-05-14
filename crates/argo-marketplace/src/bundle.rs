@@ -89,7 +89,7 @@ pub async fn build_bundle(
     let tar_bytes = build_tar_bytes(workspace_root, &entries).await?;
     tokio::fs::write(out_tar, &tar_bytes)
         .await
-        .map_err(|e| ArgoError::Provider(format!("write tar {}: {e}", out_tar.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write tar {}: {e}", out_tar.display())))?;
     let digest = sha256_hex(&tar_bytes);
     Ok(BundleManifest {
         digest,
@@ -138,7 +138,7 @@ async fn collect_entries(workspace_root: &Path) -> ArgoResult<Vec<BundleEntry>> 
 async fn read_entry(workspace_root: &Path, p: &Path) -> ArgoResult<BundleEntry> {
     let bytes = tokio::fs::read(p)
         .await
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
     let rel = p
         .strip_prefix(workspace_root)
         .map_err(|e| ArgoError::Provider(format!("strip_prefix: {e}")))?
@@ -159,7 +159,7 @@ pub(crate) fn walk_dir<'a>(
     Box::pin(async move {
         let mut entries = tokio::fs::read_dir(dir)
             .await
-            .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?;
         let mut child_dirs: Vec<PathBuf> = Vec::new();
         while let Some(e) = entries
             .next_entry()
@@ -197,7 +197,7 @@ pub(crate) async fn build_tar_bytes(
             let abs = workspace_root.join(&e.path);
             let body = tokio::fs::read(&abs)
                 .await
-                .map_err(|err| ArgoError::Provider(format!("read {}: {err}", abs.display())))?;
+                .map_err(|err| ArgoError::Io(format!("read {}: {err}", abs.display())))?;
             let mut header = tar::Header::new_gnu();
             header
                 .set_path(&e.path)

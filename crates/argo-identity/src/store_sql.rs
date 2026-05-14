@@ -98,7 +98,7 @@ pub(crate) async fn ensure_worker_level_columns(
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_worker_level ON worker(level)")
         .execute(pool)
         .await
-        .map_err(|e| ArgoError::Provider(format!("create idx_worker_level: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("create idx_worker_level: {e}")))?;
     Ok(())
 }
 
@@ -133,14 +133,14 @@ pub(crate) async fn ensure_worker_trust_grade_columns(
     )
     .execute(pool)
     .await
-    .map_err(|e| ArgoError::Provider(format!("create idx_worker_trust_grade: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("create idx_worker_trust_grade: {e}")))?;
     sqlx::query(
         "CREATE INDEX IF NOT EXISTS idx_worker_last_used_at \
          ON worker(last_used_at DESC)",
     )
     .execute(pool)
     .await
-    .map_err(|e| ArgoError::Provider(format!("create idx_worker_last_used_at: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("create idx_worker_last_used_at: {e}")))?;
     Ok(())
 }
 
@@ -166,7 +166,7 @@ pub(crate) async fn ensure_worker_role_name_columns(
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_worker_role_name ON worker(role_name)")
         .execute(pool)
         .await
-        .map_err(|e| ArgoError::Provider(format!("create idx_worker_role_name: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("create idx_worker_role_name: {e}")))?;
     Ok(())
 }
 

@@ -137,7 +137,7 @@ pub(crate) async fn ensure_circuit_allows_dispatch(
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("no action with action_id '{action_id}'")))?;
     let worker_id = worker_id_for_action(&located.record);
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let store = open_budget_store(&cwd).await?;
     match circuit::state_for(store.pool(), &worker_id).await? {
         CircuitState::Open { reason, .. } => Err(ArgoError::Provider(format!(
@@ -174,7 +174,7 @@ pub(crate) async fn maybe_auto_approve(
     if !located.record.requires_approval {
         return Ok(());
     }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let workspace_policy = load_workspace_policy(&cwd)?;
     // Stream `claude-policy-as-code` — layer workspace policy
     // files over the explicit AutoApprovalPolicy. Soft-fails on

@@ -15,7 +15,7 @@ use std::path::PathBuf;
 
 pub async fn run(non_interactive: bool, json: bool, config: Option<String>) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let interactive = !non_interactive && std::io::stdin().is_terminal();

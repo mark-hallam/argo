@@ -5,7 +5,7 @@ use argo_identity::{ClassificationRules, DataClass};
 use argo_types::{ArgoError, ArgoResult};
 
 pub async fn run(json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let rules = ClassificationRules::from_workspace(&cwd);
     if json {
         let mut obj = serde_json::Map::new();

@@ -296,7 +296,7 @@ pub(super) fn collect_fixtures(loaded: &LoadedVertical) -> ArgoResult<Vec<Fixtur
     for rel in suites {
         let path = loaded.root.join(&rel);
         let body = std::fs::read_to_string(&path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         for (idx, raw) in body.lines().enumerate() {
             let line = idx + 1;
             let trimmed = raw.trim();

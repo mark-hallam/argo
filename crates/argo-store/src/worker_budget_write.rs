@@ -112,7 +112,7 @@ async fn load_policy_value(pool: &Pool<Sqlite>, worker_id: &str) -> ArgoResult<V
             .bind(worker_id)
             .fetch_optional(pool)
             .await
-            .map_err(|e| ArgoError::Provider(format!("read worker policy: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("read worker policy: {e}")))?;
     let raw = row
         .map(|(s,)| s)
         .ok_or_else(|| ArgoError::Provider(format!("worker {worker_id} not found")))?;

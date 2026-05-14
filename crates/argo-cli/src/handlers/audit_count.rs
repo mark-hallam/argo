@@ -14,7 +14,7 @@ pub(super) async fn print_count(
     json: bool,
 ) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = std::sync::Arc::new(argo_store::SessionStore::open(&db_path(&home)).await?);
@@ -56,7 +56,7 @@ pub(super) async fn print_count(
 /// `[]` with `--json`) when the chain is clean.
 pub(super) async fn print_breaks(json: bool) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = std::sync::Arc::new(argo_store::SessionStore::open(&db_path(&home)).await?);

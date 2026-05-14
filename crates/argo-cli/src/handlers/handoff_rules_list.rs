@@ -119,7 +119,7 @@ pub(crate) fn target_kind_label(target: &argo_orchestrator::TargetSelector) -> S
 /// Open a [`RoutingRuleStore`] backed by the cwd workspace's argo
 /// home.
 pub(crate) async fn open_routing_store() -> ArgoResult<RoutingRuleStore> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

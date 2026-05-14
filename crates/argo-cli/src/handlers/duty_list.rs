@@ -107,7 +107,7 @@ pub(crate) async fn open_duty_store() -> ArgoResult<DutyStore> {
 
 /// Open the underlying [`SessionStore`].
 pub(crate) async fn open_session_store() -> ArgoResult<Arc<SessionStore>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

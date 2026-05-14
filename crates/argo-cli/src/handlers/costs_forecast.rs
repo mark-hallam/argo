@@ -79,7 +79,7 @@ pub async fn run(
 ) -> ArgoResult<()> {
     let lookback = parse_lookback(lookback_raw)?;
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

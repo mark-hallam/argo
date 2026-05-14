@@ -41,7 +41,7 @@ pub async fn run(tenant: &str, path: &Path, json: bool) -> ArgoResult<()> {
     store.ensure_schema().await?;
     let tenant_id = parse_tenant(tenant)?;
     let body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let spec: RuleSpec = serde_json::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     let id = match spec.id {

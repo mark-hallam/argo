@@ -41,7 +41,7 @@ pub async fn run(cmd: GatewayAuditCmd) -> ArgoResult<()> {
 }
 
 async fn open_store() -> ArgoResult<SessionStore> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;
@@ -65,7 +65,7 @@ fn parse_duration(raw: &str) -> ArgoResult<Duration> {
     let (digits, unit) = raw.split_at(raw.len().saturating_sub(1));
     let value: i64 = digits
         .parse()
-        .map_err(|e| ArgoError::Provider(format!("invalid --since '{raw}': {e}")))?;
+        .map_err(|e| ArgoError::Schema(format!("invalid --since '{raw}': {e}")))?;
     if value <= 0 {
         return Err(ArgoError::Provider(format!(
             "invalid --since '{raw}': must be positive"

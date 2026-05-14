@@ -77,7 +77,7 @@ pub async fn run(cmd: WorkCmd) -> ArgoResult<()> {
 // ────────────────────────────────────────────────────────── add
 async fn add(vertical_id: &str, prompt: &str, json_out: bool) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
 
@@ -142,7 +142,7 @@ async fn serve(
     json_out: bool,
 ) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
 

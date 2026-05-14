@@ -16,7 +16,7 @@ pub async fn run_by_kind(
     let id = uuid::Uuid::parse_str(&session)
         .map_err(|e| ArgoError::Schema(format!("invalid session id '{session}': {e}")))?;
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -87,7 +87,7 @@ pub async fn run_by_tool(
     let id = uuid::Uuid::parse_str(&session)
         .map_err(|e| ArgoError::Schema(format!("invalid session id '{session}': {e}")))?;
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -158,7 +158,7 @@ pub async fn run_tool_errors(
     let id = uuid::Uuid::parse_str(&session)
         .map_err(|e| ArgoError::Schema(format!("invalid session id '{session}': {e}")))?;
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

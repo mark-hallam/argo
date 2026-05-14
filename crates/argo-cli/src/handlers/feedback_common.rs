@@ -13,7 +13,7 @@ const SCHEMA_SQL: &str =
     include_str!("../../../argo-store/migrations/24__operator_feedback.sql");
 
 pub(super) async fn open_store() -> ArgoResult<Arc<SessionStore>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -44,7 +44,7 @@ pub(super) async fn maybe_record_skill_rating(
     let Some(publisher) = publisher_from_source(&skill.frontmatter.provenance.source) else {
         return Ok(false);
     };
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let workspace_name = cwd
         .file_name()
         .and_then(|s| s.to_str())

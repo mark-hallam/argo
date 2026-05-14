@@ -13,7 +13,7 @@ struct BackupListItem {
 
 pub async fn run(json: bool) -> ArgoResult<()> {
     let workspace = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let backups = list_backups(&workspace)?;
     if json {
         println!(

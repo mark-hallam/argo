@@ -34,7 +34,7 @@ pub async fn run(id: &str, json_out: bool) -> ArgoResult<()> {
 }
 
 pub(crate) async fn open_store() -> ArgoResult<(SessionStore, PathBuf)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;
@@ -45,7 +45,7 @@ pub(crate) async fn open_store() -> ArgoResult<(SessionStore, PathBuf)> {
 }
 
 pub(crate) async fn archived_map_for_default_store() -> ArgoResult<BTreeMap<String, i64>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     let path = db_path(&home);
     if !path.is_file() {

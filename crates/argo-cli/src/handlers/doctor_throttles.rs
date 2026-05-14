@@ -34,7 +34,7 @@ use std::time::Duration;
 /// monitoring pipeline can ingest.
 pub async fn run(json_out: bool) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     let cfg = ArgoConfig::load(&toml_path).unwrap_or_default();
     let _home = resolve_home(&cwd).ok();

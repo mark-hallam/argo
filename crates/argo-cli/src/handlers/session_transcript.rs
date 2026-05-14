@@ -18,7 +18,7 @@ use serde_json::Value;
 
 pub async fn run(raw: &str, json_out: bool) -> ArgoResult<()> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);

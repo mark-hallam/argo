@@ -33,7 +33,7 @@ use std::path::{Path, PathBuf};
 /// println!("gateway port = {}", cfg.gateway.port);
 /// ```
 pub fn load() -> ArgoResult<ArgoConfig> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     load_from(&cwd)
 }
 
@@ -106,7 +106,7 @@ impl ArgoConfig {
             return Ok(Self::default());
         }
         let body = std::fs::read_to_string(path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         Self::from_toml_with_overrides(&body)
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))
     }

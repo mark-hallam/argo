@@ -445,7 +445,7 @@ async fn resolve_worker_ctx(store: &Arc<SessionStore>, worker_id: WorkerId) -> R
 
 async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd.file_name().and_then(|s| s.to_str()).unwrap_or("workspace");
     let root = cwd.to_string_lossy();
     let (tenant, _) = store.ensure_workspace(name, &root).await?;

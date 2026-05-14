@@ -111,7 +111,7 @@ pub(crate) async fn run_live_loop(
     max_steps: u32,
     max_tool_rounds: usize,
 ) -> ArgoResult<StepRunOutput> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     // Tracked outside the closure because async closures can't
     // easily mutate captured state; we hold the latest assistant
     // id in a Cell so the loop helper stays parametric.
@@ -235,7 +235,7 @@ pub(crate) async fn record_research_unavailable(
          {detail}\n"
     );
     let preview: String = assistant_text.chars().take(2000).collect();
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
 
     let session_id = store
         .create_session(

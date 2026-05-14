@@ -109,10 +109,10 @@ fn read_skill_artifact(path: &Path) -> ArgoResult<SkillArtifact> {
     let mut metadata = None;
     for entry in archive
         .entries()
-        .map_err(|e| ArgoError::Provider(format!("read skill artifact entries: {e}")))?
+        .map_err(|e| ArgoError::Io(format!("read skill artifact entries: {e}")))?
     {
         let mut entry =
-            entry.map_err(|e| ArgoError::Provider(format!("read skill artifact entry: {e}")))?;
+            entry.map_err(|e| ArgoError::Io(format!("read skill artifact entry: {e}")))?;
         if entry.header().entry_type().is_dir() {
             continue;
         }
@@ -124,7 +124,7 @@ fn read_skill_artifact(path: &Path) -> ArgoResult<SkillArtifact> {
         let mut bytes = Vec::new();
         entry
             .read_to_end(&mut bytes)
-            .map_err(|e| ArgoError::Provider(format!("read {path}: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("read {path}: {e}")))?;
         match path.as_str() {
             argo_skill::SKILL_ARTIFACT_MANIFEST => manifest = Some(bytes),
             argo_skill::SKILL_ARTIFACT_BODY | argo_skill::SKILL_ARTIFACT_BODY_LEGACY => {
@@ -175,7 +175,7 @@ fn skill_json(id: Option<&str>, frontmatter: &SkillFrontmatter) -> serde_json::V
 
 pub async fn run(skills: &SkillStore, path: &str, lock: Option<&str>) -> ArgoResult<()> {
     let raw = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {path}: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read {path}: {e}")))?;
     let imported_source = format!("imported:{}", sha256_hex(raw.as_bytes()));
     reject_import_collision(skills, &imported_source).await?;
 

@@ -28,7 +28,7 @@ use std::time::Duration;
 /// table; JSON output is a versioned envelope.
 pub fn run(json: bool) -> ArgoResult<()> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let providers_dir = cwd.join("manifests").join("providers");
     let providers_config = read_providers_config(&cwd);
     let manifest_ids = read_manifest_ids(&providers_dir)?;
@@ -99,7 +99,7 @@ fn read_manifest_ids(dir: &Path) -> ArgoResult<Vec<String>> {
     }
     let mut ids = Vec::new();
     for entry in std::fs::read_dir(dir)
-        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?
     {
         let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
         let p = e.path();
@@ -107,7 +107,7 @@ fn read_manifest_ids(dir: &Path) -> ArgoResult<Vec<String>> {
             continue;
         }
         let body = std::fs::read_to_string(&p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
         if let Ok(m) = ProviderManifest::from_toml_str(&body) {
             ids.push(m.provider.id);
         }

@@ -97,7 +97,7 @@ fn run_unsafe(ctx: &FixContext, id: &'static str) -> FixReport {
 fn ensure_dir(id: &'static str, category: &'static str, path: &Path, detail: &str) -> ArgoResult<FixReport> {
     if path.is_dir() { return Ok(FixReport::noop(id, category, format!("{} already exists", path.display()), path)); }
     if path.exists() { return Ok(FixReport::blocked(id, category, format!("{} exists but is not a directory", path.display()), "move the file aside and rerun doctor fix").with_path(path)); }
-    std::fs::create_dir_all(path).map_err(|e| ArgoError::Provider(format!("create {}: {e}", path.display())))?;
+    std::fs::create_dir_all(path).map_err(|e| ArgoError::Io(format!("create {}: {e}", path.display())))?;
     Ok(FixReport::applied(id, category, detail, path))
 }
 
@@ -106,20 +106,20 @@ fn remove_stale_lock(ctx: &FixContext) -> ArgoResult<FixReport> {
     if !path.exists() { return Ok(FixReport::noop("stale_lock", "safe", "cron lock file is absent", &path)); }
     let stale = std::fs::metadata(&path).ok().and_then(|m| m.modified().ok()).and_then(|t| t.elapsed().ok()).is_some_and(|age| age > STALE_AFTER);
     if !stale { return Ok(FixReport::noop("stale_lock", "safe", "cron lock file is not stale", &path)); }
-    std::fs::remove_file(&path).map_err(|e| ArgoError::Provider(format!("remove {}: {e}", path.display())))?;
+    std::fs::remove_file(&path).map_err(|e| ArgoError::Io(format!("remove {}: {e}", path.display())))?;
     Ok(FixReport::applied("stale_lock", "safe", "removed stale cron lock file", &path))
 }
 
 fn ensure_policy(ctx: &FixContext) -> ArgoResult<FixReport> {
     let path = ctx.cwd.join(POLICY_RELPATH);
     if path.exists() { return Ok(FixReport::noop("workspace_policy", "safe", "workspace policy already exists", &path)); }
-    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent).map_err(|e| ArgoError::Provider(format!("create {}: {e}", parent.display())))?; }
-    std::fs::write(&path, POLICY_TEMPLATE).map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent).map_err(|e| ArgoError::Io(format!("create {}: {e}", parent.display())))?; }
+    std::fs::write(&path, POLICY_TEMPLATE).map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     Ok(FixReport::applied("workspace_policy", "safe", "wrote default disabled workspace policy", &path))
 }
 
 async fn run_migrations(ctx: &FixContext) -> ArgoResult<FixReport> {
-    std::fs::create_dir_all(&ctx.home).map_err(|e| ArgoError::Provider(format!("create {}: {e}", ctx.home.display())))?;
+    std::fs::create_dir_all(&ctx.home).map_err(|e| ArgoError::Io(format!("create {}: {e}", ctx.home.display())))?;
     let db = db_path(&ctx.home);
     let existed = db.exists();
     let store = SessionStore::open(&db).await?;
@@ -133,8 +133,8 @@ fn patch_verticals(ctx: &FixContext) -> ArgoResult<FixReport> {
     let dir = ctx.cwd.join("verticals");
     if !dir.exists() { return Ok(FixReport::noop("vertical_required_fields", "confirmation", "verticals directory is absent", &dir)); }
     let mut patched = 0_u64;
-    for entry in std::fs::read_dir(&dir).map_err(|e| ArgoError::Provider(format!("read {}: {e}", dir.display())))? {
-        let entry = entry.map_err(|e| ArgoError::Provider(format!("read vertical entry: {e}")))?;
+    for entry in std::fs::read_dir(&dir).map_err(|e| ArgoError::Io(format!("read {}: {e}", dir.display())))? {
+        let entry = entry.map_err(|e| ArgoError::Io(format!("read vertical entry: {e}")))?;
         let manifest = entry.path().join("vertical.toml");
         if entry.path().is_dir() && manifest.exists() && patch_one_vertical(&manifest, &entry.file_name().to_string_lossy())? { patched += 1; }
     }
@@ -144,7 +144,7 @@ fn patch_verticals(ctx: &FixContext) -> ArgoResult<FixReport> {
 }
 
 fn patch_one_vertical(path: &Path, fallback_id: &str) -> ArgoResult<bool> {
-    let body = std::fs::read_to_string(path).map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+    let body = std::fs::read_to_string(path).map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let mut value: toml::Value = toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     let root = value.as_table_mut().ok_or_else(|| ArgoError::Provider(format!("{} is not a TOML table", path.display())))?;
     let mut changed = insert_string(root, "schema_version", "1");
@@ -155,7 +155,7 @@ fn patch_one_vertical(path: &Path, fallback_id: &str) -> ArgoResult<bool> {
     changed |= insert_string(vertical, "version", "0.1.0");
     if changed {
         let out = toml::to_string_pretty(&value).map_err(|e| ArgoError::Provider(format!("serialize {}: {e}", path.display())))?;
-        std::fs::write(path, out).map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+        std::fs::write(path, out).map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     }
     Ok(changed)
 }
@@ -167,7 +167,7 @@ fn insert_string(table: &mut toml::value::Table, key: &str, value: &str) -> bool
 }
 
 async fn append_audit(ctx: &FixContext, report: &FixReport, auto: bool) -> ArgoResult<()> {
-    std::fs::create_dir_all(&ctx.home).map_err(|e| ArgoError::Provider(format!("create {}: {e}", ctx.home.display())))?;
+    std::fs::create_dir_all(&ctx.home).map_err(|e| ArgoError::Io(format!("create {}: {e}", ctx.home.display())))?;
     let store = SessionStore::open(db_path(&ctx.home)).await?;
     store.migrate().await?;
     let parent = last_global_hash(&store).await?;
@@ -210,7 +210,7 @@ fn print_text(envelope: &FixEnvelope) {
 
 impl FixContext {
     fn discover() -> ArgoResult<Self> {
-        let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
         let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
         let home = resolve_home(&cwd).unwrap_or_else(|_| cfg.core.resolved_home());
         Ok(Self { cwd, home })

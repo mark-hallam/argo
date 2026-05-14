@@ -165,7 +165,7 @@ async fn remove_with_active_count(
 }
 
 async fn open_store_and_tenant(tenant: Option<&str>) -> ArgoResult<(SessionStore, String)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

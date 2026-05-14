@@ -98,7 +98,7 @@ pub(crate) async fn write_artifacts(
         .join("outputs")
         .join(inputs.job_id.to_string());
     std::fs::create_dir_all(&output_dir)
-        .map_err(|e| ArgoError::Provider(format!("create output dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("create output dir: {e}")))?;
 
     let session = store
         .get_session(inputs.session_id)
@@ -227,7 +227,7 @@ pub(crate) async fn write_artifacts(
 
 fn write_file(path: &Path, body: &str) -> ArgoResult<()> {
     std::fs::write(path, body)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 /// Pull just the `text` blocks out of a stored `content_json`

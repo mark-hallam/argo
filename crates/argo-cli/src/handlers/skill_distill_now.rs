@@ -271,7 +271,7 @@ fn parse_response(parsed: &serde_json::Value) -> ArgoResult<DistillationResult> 
 /// invocation does not require `ANTHROPIC_API_KEY`).
 pub async fn run_cli(worker: &str, json: bool) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = crate::home::resolve_home(&cwd)?;
     crate::home::ensure_dir(&home)?;
     // Read stdin, parse, group. If no cohorts qualify there's

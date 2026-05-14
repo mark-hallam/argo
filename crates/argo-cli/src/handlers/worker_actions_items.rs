@@ -174,7 +174,7 @@ async fn collect_all_rows_for_item(
     vertical: Option<&str>,
 ) -> ArgoResult<Vec<(String, ActionRecord)>> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -255,7 +255,7 @@ fn print_show_timeline(item_id: &str, rows: &[(String, ActionRecord)]) {
 /// step is enough to lock the rollup contract.
 pub(crate) async fn aggregate(vertical: Option<&str>) -> ArgoResult<Vec<ItemSummary>> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

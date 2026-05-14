@@ -166,7 +166,7 @@ async fn copy_dir_recursive_with_hashes(
         if let Some(parent) = dst_path.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
-                .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", parent.display())))?;
+                .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", parent.display())))?;
         }
         copy_file(&src_path, &dst_path).await?;
         hashes.insert(rel, hash_file(&src_path).await?);
@@ -178,10 +178,10 @@ async fn copy_file(src: &Path, dst: &Path) -> ArgoResult<()> {
     if let Some(parent) = dst.parent() {
         tokio::fs::create_dir_all(parent)
             .await
-            .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", parent.display())))?;
+            .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", parent.display())))?;
     }
     tokio::fs::copy(src, dst).await.map_err(|e| {
-        ArgoError::Provider(format!("copy {} → {}: {e}", src.display(), dst.display()))
+        ArgoError::Io(format!("copy {} → {}: {e}", src.display(), dst.display()))
     })?;
     Ok(())
 }
@@ -189,7 +189,7 @@ async fn copy_file(src: &Path, dst: &Path) -> ArgoResult<()> {
 async fn hash_file(p: &Path) -> ArgoResult<[u8; 32]> {
     let bytes = tokio::fs::read(p)
         .await
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
     let mut h = Sha256::new();
     h.update(&bytes);
     let out = h.finalize();
@@ -204,7 +204,7 @@ async fn list_files(root: &Path) -> ArgoResult<Vec<PathBuf>> {
     while let Some(dir) = stack.pop() {
         let mut entries = tokio::fs::read_dir(&dir)
             .await
-            .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?;
         while let Some(entry) = entries
             .next_entry()
             .await

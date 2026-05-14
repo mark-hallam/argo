@@ -57,7 +57,7 @@ fn resolve_fixtures_dir(arg: Option<&Path>) -> ArgoResult<PathBuf> {
     if let Some(p) = arg {
         return Ok(p.to_path_buf());
     }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     Ok(cwd.join(DEFAULT_FIXTURES_DIR))
 }
 
@@ -121,13 +121,13 @@ async fn build_judge(provider_id: &str, model_id: &str) -> ArgoResult<LlmJudge> 
 }
 
 fn load_manifest(provider_id: &str) -> ArgoResult<ProviderManifest> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let path: PathBuf = cwd
         .join("manifests")
         .join("providers")
         .join(format!("{provider_id}.toml"));
     let body = std::fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     ProviderManifest::from_toml_str(&body)
 }
 

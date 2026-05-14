@@ -66,7 +66,7 @@ async fn show(worker_id: &str, json: bool) -> ArgoResult<()> {
 
 async fn open_store() -> ArgoResult<SessionStore> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

@@ -380,7 +380,7 @@ impl Executor for HumanExecutor {
 
 fn write(path: &Path, body: &str) -> ArgoResult<()> {
     std::fs::write(path, body)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 #[cfg(test)]

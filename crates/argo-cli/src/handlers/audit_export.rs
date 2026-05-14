@@ -31,12 +31,12 @@ pub async fn run(store: &SessionStore, args: ExportArgs) -> ArgoResult<()> {
     let sha = sha256_hex(&artifact);
     if let Some(path) = query.bundle_out.as_deref() {
         std::fs::write(path, &artifact)
-            .map_err(|e| ArgoError::Provider(format!("write {path}: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("write {path}: {e}")))?;
     } else if !query.json {
         let mut out = io::stdout().lock();
         out.write_all(&artifact)
             .and_then(|()| out.flush())
-            .map_err(|e| ArgoError::Provider(format!("write stdout: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("write stdout: {e}")))?;
     }
     if query.json {
         let line = serde_json::to_string(&serde_json::json!({

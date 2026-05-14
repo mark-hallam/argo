@@ -50,7 +50,7 @@ struct BackupEntry {
 
 pub async fn run(output: Option<&Path>, include_credentials: bool, json: bool) -> ArgoResult<()> {
     let workspace = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let out = create_backup(&workspace, output, include_credentials, Utc::now())?;
     if json {
         println!(

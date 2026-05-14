@@ -132,7 +132,7 @@ impl HandoffPolicy {
             return Ok(Self::default());
         }
         let body = std::fs::read_to_string(&path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         Self::from_toml(&body)
     }
 
@@ -225,7 +225,7 @@ pub async fn run(cmd: HandoffPolicyCmd) -> ArgoResult<()> {
 }
 
 fn cwd() -> ArgoResult<PathBuf> {
-    std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))
+    std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))
 }
 
 fn show(explain: Option<&str>, json: bool) -> ArgoResult<()> {

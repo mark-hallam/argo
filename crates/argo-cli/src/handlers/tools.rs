@@ -22,7 +22,7 @@ pub async fn run(cmd: Option<ToolsCmd>) -> ArgoResult<()> {
 
 async fn list(json: bool, format: &str, name_contains: Option<&str>) -> ArgoResult<()> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let mut reg = ToolRegistry::new();
     for t in builtin_tools(cwd) {
         reg.register(t);
@@ -96,7 +96,7 @@ async fn list(json: bool, format: &str, name_contains: Option<&str>) -> ArgoResu
 
 fn show(name: &str, json: bool) -> ArgoResult<()> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let mut reg = ToolRegistry::new();
     for t in builtin_tools(cwd) {
         reg.register(t);

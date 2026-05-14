@@ -26,7 +26,7 @@ pub(crate) async fn push(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()>
 
     let tar_bytes = tokio::fs::read(&out_tar)
         .await
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", out_tar.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", out_tar.display())))?;
     let registry = build_registry(&reference.host);
     registry.push(&reference, &tar_bytes, &manifest).await?;
     println!(
@@ -53,7 +53,7 @@ pub(crate) async fn pull(cwd: &std::path::Path, oci_ref: &str) -> ArgoResult<()>
     ));
     tokio::fs::write(&out_tar, &tar_bytes)
         .await
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", out_tar.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", out_tar.display())))?;
     println!(
         "pulled {} → {} ({} bytes)",
         reference.to_canonical(),
@@ -97,7 +97,7 @@ pub(crate) async fn fork(
     let registry = build_registry(&reference.host);
     let (tar_bytes, manifest) = registry.pull(&reference).await?;
     std::fs::create_dir_all(&dest)
-        .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", dest.display())))?;
+        .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", dest.display())))?;
     let mut archive = tar::Archive::new(&tar_bytes[..]);
     archive
         .unpack(&dest)

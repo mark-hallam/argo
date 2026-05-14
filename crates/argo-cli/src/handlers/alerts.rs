@@ -178,7 +178,7 @@ pub fn load_alerts_config(path: &Path) -> ArgoResult<AlertsConfig> {
         return Ok(AlertsConfig::default());
     }
     let body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let cfg: AlertsConfig = toml::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     Ok(cfg)

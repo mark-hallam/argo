@@ -84,7 +84,7 @@ impl OnboardConfig {
             return Ok(Self::default());
         }
         let body = std::fs::read_to_string(path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         toml::from_str(&body)
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))
     }
@@ -133,11 +133,11 @@ fn bootstrap_workspace(cwd: &Path) -> ArgoResult<()> {
     let toml_path = cwd.join("argo.toml");
     let body = "[core]\nprofile = \"default\"\n\n[tenant]\ndefault_id = \"default\"\nmode = \"single\"\n\n[forge]\nenabled = false\n";
     std::fs::write(&toml_path, body)
-        .map_err(|e| ArgoError::Provider(format!("write argo.toml: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("write argo.toml: {e}")))?;
     for dir in ["skills", "personas", "cron", "rubrics", ".argo/manifests"] {
         let p = cwd.join(dir);
         std::fs::create_dir_all(&p)
-            .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", p.display())))?;
     }
     Ok(())
 }

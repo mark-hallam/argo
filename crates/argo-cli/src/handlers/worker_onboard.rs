@@ -77,7 +77,7 @@ pub async fn run(
     json: bool,
 ) -> ArgoResult<()> {
     let raw = std::fs::read_to_string(persona_spec)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", persona_spec.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", persona_spec.display())))?;
     let spec = parse_spec_str(&raw)?;
     let worker_id = id.map(parse_worker_id).transpose()?;
     let (store, tenant_id) = open_workspace_store().await?;
@@ -239,7 +239,7 @@ fn parse_duties(specs: &[DutySpec]) -> ArgoResult<Vec<Duty>> {
         .collect()
 }
 async fn open_workspace_store() -> ArgoResult<(SessionStore, TenantId)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

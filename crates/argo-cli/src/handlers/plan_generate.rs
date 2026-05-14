@@ -152,10 +152,10 @@ fn write_outputs(path: &str, yaml: &str, result: &DecomposeResult) -> ArgoResult
     if let Some(parent) = p.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", parent.display())))?;
+                .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", parent.display())))?;
         }
     }
-    std::fs::write(&p, yaml).map_err(|e| ArgoError::Provider(format!("write {path}: {e}")))?;
+    std::fs::write(&p, yaml).map_err(|e| ArgoError::Io(format!("write {path}: {e}")))?;
     let mut sidecar = p.clone();
     let new_ext = match p.extension().and_then(|e| e.to_str()) {
         Some(ext) => format!("{ext}.reasoning"),
@@ -169,7 +169,7 @@ fn write_outputs(path: &str, yaml: &str, result: &DecomposeResult) -> ArgoResult
         result.reasoning
     );
     std::fs::write(&sidecar, body)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", sidecar.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", sidecar.display())))?;
     Ok(())
 }
 

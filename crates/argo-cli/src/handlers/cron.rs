@@ -54,7 +54,7 @@ pub fn default_system_registry() -> SystemJobRegistry {
 
 pub async fn run(cmd: CronCmd) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let dir = cwd.join("cron").join("jobs");
     std::fs::create_dir_all(&dir)
         .map_err(|e| ArgoError::Provider(format!("create_dir_all {}: {e}", dir.display())))?;
@@ -126,7 +126,7 @@ fn init_system(
             continue;
         }
         let body = std::fs::read_to_string(&src)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", src.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", src.display())))?;
         // Validate that the template parses as a CronJob before we
         // commit it to cron/jobs/ — catches drift between the
         // shipped templates and the on-disk schema.
@@ -134,7 +134,7 @@ fn init_system(
             ArgoError::Provider(format!("template {} is not a valid CronJob: {e}", src.display()))
         })?;
         std::fs::write(&dst, body)
-            .map_err(|e| ArgoError::Provider(format!("write {}: {e}", dst.display())))?;
+            .map_err(|e| ArgoError::Io(format!("write {}: {e}", dst.display())))?;
         println!("  wrote  {}", dst.display());
         wrote += 1;
     }
@@ -282,7 +282,7 @@ async fn trigger_job(
         return Err(ArgoError::Provider(format!("{} not found", path.display())));
     }
     let body = std::fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let job: CronJob = serde_json::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     let runner = system_aware_runner(default_system_registry(), workspace_root.to_path_buf());
@@ -304,7 +304,7 @@ async fn tick(
     // is the daemon's job.
     let store = InMemoryJobStore::new();
     for entry in std::fs::read_dir(dir)
-        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?
     {
         let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
         let p = e.path();
@@ -312,7 +312,7 @@ async fn tick(
             continue;
         }
         let body = std::fs::read_to_string(&p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
         let job: CronJob = serde_json::from_str(&body)
             .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", p.display())))?;
         store.save(&job).await?;
@@ -365,7 +365,7 @@ impl JobRunner for LoggingRunner {
 fn list_jobs(dir: &std::path::Path, json: bool, format: &str) -> ArgoResult<()> {
     let mut entries: Vec<PathBuf> = Vec::new();
     for entry in std::fs::read_dir(dir)
-        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?
     {
         let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
         let p = e.path();
@@ -462,7 +462,7 @@ fn create_job(
     let body = serde_json::to_string_pretty(&job)
         .map_err(|e| ArgoError::Provider(format!("serialize job: {e}")))?;
     std::fs::write(&path, body)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))?;
     println!("created {} (schedule = '{}')", path.display(), schedule);
     Ok(())
 }
@@ -473,7 +473,7 @@ fn delete_job(dir: &std::path::Path, name: &str) -> ArgoResult<()> {
         return Err(ArgoError::Provider(format!("{} not found", path.display())));
     }
     std::fs::remove_file(&path)
-        .map_err(|e| ArgoError::Provider(format!("remove {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("remove {}: {e}", path.display())))?;
     println!("deleted {}", path.display());
     Ok(())
 }

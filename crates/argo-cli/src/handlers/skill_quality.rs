@@ -24,7 +24,7 @@ pub async fn run(name: &str, json: bool, format: &str, limit: u32) -> ArgoResult
         )));
     }
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(db_path(&home)).await?);

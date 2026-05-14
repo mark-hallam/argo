@@ -43,7 +43,7 @@ enabled = false
 
 pub async fn run(cmd: WorkspaceCmd) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     match cmd {
         WorkspaceCmd::Init => init(&cwd).await,
         WorkspaceCmd::Status { json, format } => status(&cwd, json, &format).await,
@@ -260,17 +260,17 @@ async fn init(cwd: &std::path::Path) -> ArgoResult<()> {
         )));
     }
     std::fs::write(&toml_path, DEFAULT_ARGO_TOML)
-        .map_err(|e| ArgoError::Provider(format!("write argo.toml: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("write argo.toml: {e}")))?;
     for dir in ["skills", "personas", "cron", "rubrics"] {
         let p = cwd.join(dir);
         std::fs::create_dir_all(&p)
-            .map_err(|e| ArgoError::Provider(format!("mkdir {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("mkdir {}: {e}", p.display())))?;
     }
     for memfile in ["MEMORY.md", "USER.md", "SOUL.md", "AGENTS.md"] {
         let p = cwd.join(memfile);
         if !p.exists() {
             std::fs::write(&p, format!("# {memfile}\n"))
-                .map_err(|e| ArgoError::Provider(format!("write {}: {e}", p.display())))?;
+                .map_err(|e| ArgoError::Io(format!("write {}: {e}", p.display())))?;
         }
     }
     let home = resolve_home(cwd)?;

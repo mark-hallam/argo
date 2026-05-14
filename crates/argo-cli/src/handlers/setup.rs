@@ -17,7 +17,7 @@ pub async fn run(
             "--require has no effect without --check (it's a CI / launch-checklist flag)".into(),
         ));
     }
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let interactive = !non_interactive && std::io::stdin().is_terminal();

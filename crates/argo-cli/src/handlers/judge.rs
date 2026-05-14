@@ -31,7 +31,7 @@ pub async fn run(cmd: JudgeCmd) -> ArgoResult<()> {
 
 async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);
@@ -75,7 +75,7 @@ async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
 
 async fn verdict(raw: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);

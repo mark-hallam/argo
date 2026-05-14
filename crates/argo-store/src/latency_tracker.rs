@@ -167,7 +167,7 @@ pub async fn ensure_schema(pool: &SqlitePool) -> ArgoResult<()> {
     sqlx::query(CREATE_LATENCY_BUCKETS_SQL)
         .execute(pool)
         .await
-        .map_err(|e| ArgoError::Provider(format!("create latency_buckets: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("create latency_buckets: {e}")))?;
     Ok(())
 }
 

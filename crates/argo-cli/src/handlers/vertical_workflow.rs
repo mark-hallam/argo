@@ -111,7 +111,7 @@ pub async fn run_collect(
     let workflow = find_workflow(loaded, workflow_name)?;
 
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
 
     let (registry_t, engine, principal) = build_local_dispatch_ctx(&cwd)?;
 

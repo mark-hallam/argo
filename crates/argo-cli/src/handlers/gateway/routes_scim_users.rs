@@ -220,7 +220,7 @@ async fn delete_user(scim: &ScimUserStore<'_>, id: &str) -> (&'static str, Strin
 
 async fn resolve_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())

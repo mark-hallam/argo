@@ -120,7 +120,7 @@ async fn bench(
     model: &str,
 ) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let store = Arc::new(open_store().await?);
     let skills = SkillStore::new(Arc::clone(&store));
 

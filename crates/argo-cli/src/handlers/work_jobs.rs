@@ -43,7 +43,7 @@ pub(crate) async fn list(
     limit: usize,
     json_out: bool,
 ) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -245,7 +245,7 @@ fn truncate(s: &str, n: usize) -> String {
 /// file. Operators don't need to remember the
 /// `.skycot/outputs/<job_id>/...` layout.
 pub(crate) async fn logs(job_id: &str, kind: &str) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -299,7 +299,7 @@ pub(crate) async fn logs(job_id: &str, kind: &str) -> ArgoResult<()> {
         };
         let path = dir.join(filename);
         let body = std::fs::read_to_string(&path)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
         if print_all {
             println!("===== {filename} ({}) =====\n", path.display());
         }

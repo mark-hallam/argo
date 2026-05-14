@@ -24,14 +24,14 @@ pub fn run(cmd: ModelCmd) -> ArgoResult<()> {
 
 fn list(json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let mut paths: Vec<PathBuf> = Vec::new();
     for dir in [cwd.join("manifests").join("providers")] {
         if !dir.exists() {
             continue;
         }
         for entry in std::fs::read_dir(&dir)
-            .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+            .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?
         {
             let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
             let p = e.path();
@@ -113,7 +113,7 @@ fn list(json: bool, format: &str) -> ArgoResult<()> {
     }
     for p in paths {
         let body = std::fs::read_to_string(&p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
         match ProviderManifest::from_toml_str(&body) {
             Ok(m) => render_provider(&m),
             Err(e) => println!("# {} (INVALID — {e})", p.display()),

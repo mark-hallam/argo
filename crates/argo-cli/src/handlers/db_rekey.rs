@@ -22,7 +22,7 @@ use argo_types::{ArgoError, ArgoResult};
 /// - SQLite rejects the rekey statement
 pub async fn run(new_key_source_spec: &str, json: bool) -> ArgoResult<()> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);

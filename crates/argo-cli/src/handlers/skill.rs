@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);
@@ -295,7 +295,7 @@ async fn count(skills: &SkillStore, include_superseded: bool, json: bool) -> Arg
 
 async fn install(skills: &SkillStore, source: &str) -> ArgoResult<()> {
     let body = std::fs::read_to_string(source)
-        .map_err(|e| ArgoError::Provider(format!("read {source}: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read {source}: {e}")))?;
     let installed = skills.install(&body, None).await?;
     println!(
         "installed {} v{} (id={})",

@@ -13,7 +13,7 @@ pub async fn run(
 ) -> ArgoResult<()> {
     let dir = Path::new(output_dir);
     std::fs::create_dir_all(dir)
-        .map_err(|e| ArgoError::Provider(format!("create {}: {e}", dir.display())))?;
+        .map_err(|e| ArgoError::Io(format!("create {}: {e}", dir.display())))?;
     let rows = skills_for_export(skills, vertical).await?;
     let mut artifacts = Vec::new();
     for skill in rows {

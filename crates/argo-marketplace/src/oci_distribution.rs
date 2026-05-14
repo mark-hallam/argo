@@ -208,7 +208,7 @@ fn tar_entries(tar_bytes: &[u8]) -> ArgoResult<BTreeMap<String, Vec<u8>>> {
     let mut files = BTreeMap::new();
     let entries = archive
         .entries()
-        .map_err(|e| ArgoError::Provider(format!("read tar entries: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read tar entries: {e}")))?;
     for entry in entries {
         let mut entry = entry.map_err(|e| ArgoError::Provider(format!("tar entry: {e}")))?;
         if !entry.header().entry_type().is_file() {
@@ -222,7 +222,7 @@ fn tar_entries(tar_bytes: &[u8]) -> ArgoResult<BTreeMap<String, Vec<u8>>> {
         let mut body = Vec::new();
         entry
             .read_to_end(&mut body)
-            .map_err(|e| ArgoError::Provider(format!("read tar body: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("read tar body: {e}")))?;
         files.insert(path, body);
     }
     Ok(files)

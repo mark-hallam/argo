@@ -24,13 +24,13 @@ pub async fn run(cmd: ProviderCmd) -> ArgoResult<()> {
 
 async fn test(provider_id: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let path = cwd
         .join("manifests")
         .join("providers")
         .join(format!("{provider_id}.toml"));
     let body = std::fs::read_to_string(&path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let manifest = ProviderManifest::from_toml_str(&body)?;
     let model = manifest
         .models
@@ -109,7 +109,7 @@ async fn test(provider_id: &str) -> ArgoResult<()> {
 
 fn validate_all() -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let dir = cwd.join("manifests").join("providers");
     if !dir.exists() {
         return Err(ArgoError::Provider(format!(
@@ -119,7 +119,7 @@ fn validate_all() -> ArgoResult<()> {
     }
     let mut paths: Vec<PathBuf> = Vec::new();
     for entry in std::fs::read_dir(&dir)
-        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?
     {
         let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
         let p = e.path();
@@ -135,7 +135,7 @@ fn validate_all() -> ArgoResult<()> {
     let mut failures: Vec<(PathBuf, String)> = Vec::new();
     for p in &paths {
         let body = std::fs::read_to_string(p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
         match ProviderManifest::from_toml_str(&body) {
             Ok(m) => println!(
                 "  {:<24} ok ({:?})",
@@ -166,7 +166,7 @@ fn validate_all() -> ArgoResult<()> {
 
 fn show(provider_id: &str, json: bool) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let manifests_dir = cwd.join("manifests").join("providers");
     if !manifests_dir.exists() {
         return Err(ArgoError::Provider(format!(
@@ -175,7 +175,7 @@ fn show(provider_id: &str, json: bool) -> ArgoResult<()> {
         )));
     }
     for entry in std::fs::read_dir(&manifests_dir)
-        .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", manifests_dir.display())))?
+        .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", manifests_dir.display())))?
     {
         let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
         let p = e.path();
@@ -183,7 +183,7 @@ fn show(provider_id: &str, json: bool) -> ArgoResult<()> {
             continue;
         }
         let body = std::fs::read_to_string(&p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
         let m = match ProviderManifest::from_toml_str(&body) {
             Ok(m) => m,
             Err(_) => continue, // skip invalid manifests in show-by-id flow
@@ -247,7 +247,7 @@ fn render(m: &ProviderManifest) -> ArgoResult<()> {
 
 fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     // Spec layout: workspace `manifests/providers/*.toml` for tenant
     // overrides; the bundled v1 set lives in the source repo at
     // `manifests/providers/`. Look in both, the workspace dir taking
@@ -258,7 +258,7 @@ fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
             continue;
         }
         for entry in std::fs::read_dir(&dir)
-            .map_err(|e| ArgoError::Provider(format!("read_dir {}: {e}", dir.display())))?
+            .map_err(|e| ArgoError::Io(format!("read_dir {}: {e}", dir.display())))?
         {
             let e = entry.map_err(|e| ArgoError::Provider(format!("dir entry: {e}")))?;
             let p = e.path();
@@ -328,7 +328,7 @@ fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
     }
     for p in paths {
         let body = std::fs::read_to_string(&p)
-            .map_err(|e| ArgoError::Provider(format!("read {}: {e}", p.display())))?;
+            .map_err(|e| ArgoError::Io(format!("read {}: {e}", p.display())))?;
         match ProviderManifest::from_toml_str(&body) {
             Ok(m) => println!(
                 "  {:<24} {:?}  base={}",
@@ -342,7 +342,7 @@ fn list_manifests(json: bool, format: &str) -> ArgoResult<()> {
 
 fn validate(path: &std::path::Path) -> ArgoResult<()> {
     let body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let m = ProviderManifest::from_toml_str(&body)?;
     println!("manifest ok: {} ({:?})", m.provider.id, m.provider.family);
     println!("  base_url:  {}", m.provider.base_url);

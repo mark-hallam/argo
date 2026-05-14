@@ -35,7 +35,7 @@ async fn replay(
     dry_run: bool,
     bundle_dir: Option<PathBuf>,
 ) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let (memory, workspace) = open_workspace_memory(&cwd).await?;
     let verticals_dir = crate::handlers::vertical::resolve_verticals_dir();
     replay_in_workspace(

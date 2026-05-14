@@ -103,7 +103,7 @@ async fn reports_to(
 
 async fn ingest(org: &OrgStore, path: &std::path::Path, as_json: bool) -> ArgoResult<()> {
     let body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let chart: OrgChartYaml = serde_yaml::from_str(&body)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", path.display())))?;
     let tenant_id = parse_tenant(&chart.tenant)?;
@@ -211,7 +211,7 @@ fn parse_tenant(s: &str) -> ArgoResult<TenantId> {
 
 async fn open_org_store() -> ArgoResult<OrgStore> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

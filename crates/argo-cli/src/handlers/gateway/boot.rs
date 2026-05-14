@@ -51,7 +51,7 @@ impl Drop for AbortOnDrop {
 
 pub(super) fn pid_path() -> ArgoResult<PathBuf> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     Ok(home.join("gateway.pid"))
@@ -81,7 +81,7 @@ pub(super) async fn start(
     let _boot_ctx = enter_context(LogContext::default());
     let mut phases = StartupPhases::new();
     let cwd_for_check =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     // Load-bearing bind-safety guard runs FIRST, so plaintext
     // non-loopback bind without TLS/proxy config is refused even
     // under `--skip-startup-check`.
@@ -106,7 +106,7 @@ pub(super) async fn start(
     // Failure to open is logged but doesn't kill the gateway —
     // /health and /version still answer.
     let cwd_for_store =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let store = match open_store(&cwd_for_store).await {
         Ok(s) => Some(Arc::new(s)),
         Err(e) => {
@@ -154,7 +154,7 @@ pub(super) async fn start(
     }
     let pid = std::process::id();
     std::fs::write(&pidfile, format!("{pid}\n"))
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", pidfile.display())))?;
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", pidfile.display())))?;
     let _guard = PidGuard(pidfile.clone());
     phases.mark("pidfile");
 

@@ -96,7 +96,7 @@ async fn run_with_events_and_run_id(
     judge: Option<&dyn Judge>,
 ) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let _home = resolve_home(&cwd)?;
     let store = Arc::new(open_store().await?);
     let skills = SkillStore::new(Arc::clone(&store));

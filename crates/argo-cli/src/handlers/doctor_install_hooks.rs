@@ -57,10 +57,10 @@ pub fn run(force: bool, json: bool) -> ArgoResult<()> {
 fn copy_hook(source: &Path, target: &Path) -> ArgoResult<()> {
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| ArgoError::Provider(format!("create hooks dir: {e}")))?;
+            .map_err(|e| ArgoError::Io(format!("create hooks dir: {e}")))?;
     }
     std::fs::copy(source, target)
-        .map_err(|e| ArgoError::Provider(format!("copy hook: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("copy hook: {e}")))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

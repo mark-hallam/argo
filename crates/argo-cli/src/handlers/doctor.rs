@@ -133,7 +133,7 @@ fn print_channels(v: &serde_json::Value) {
 /// endpoint.
 pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml = cwd.join("argo.toml");
     let toml_ok = toml.exists();
     let cfg = ArgoConfig::load(&toml).unwrap_or_default();

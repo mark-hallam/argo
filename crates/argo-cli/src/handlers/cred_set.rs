@@ -16,7 +16,7 @@ pub fn run(key: &str, value: Option<&str>) -> ArgoResult<()> {
 }
 
 fn workspace_dir() -> ArgoResult<PathBuf> {
-    std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))
+    std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))
 }
 
 fn read_hidden_value(key: &str) -> ArgoResult<String> {
@@ -28,7 +28,7 @@ fn read_hidden_value(key: &str) -> ArgoResult<String> {
     let mut value = String::new();
     let read_result = io::stdin()
         .read_line(&mut value)
-        .map_err(|e| ArgoError::Provider(format!("read credential from stdin: {e}")));
+        .map_err(|e| ArgoError::Io(format!("read credential from stdin: {e}")));
     if echo_disabled {
         let _ = enable_echo();
         eprintln!();

@@ -149,7 +149,7 @@ async fn roster_lineage_for_worker(
     tenant: TenantId,
     worker_id: WorkerId,
 ) -> ArgoResult<Vec<Roster>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let pool_store = Arc::new(SessionStore::open(db_path(&home)).await?);
@@ -160,7 +160,7 @@ async fn roster_lineage_for_worker(
 }
 
 async fn open_store() -> ArgoResult<(SessionStore, PathBuf)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

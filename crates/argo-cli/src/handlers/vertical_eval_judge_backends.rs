@@ -61,7 +61,7 @@ pub(super) fn is_openai_o_series_model(model: &str) -> bool {
 /// Shared by every family builder so error messages stay consistent.
 pub(super) fn load_manifest(provider_id: &str) -> ArgoResult<ProviderManifest> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let path: PathBuf = cwd
         .join("manifests")
         .join("providers")

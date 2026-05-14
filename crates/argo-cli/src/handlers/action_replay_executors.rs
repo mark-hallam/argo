@@ -149,11 +149,11 @@ fn computer_use_prompt(action: &ActionRecord, decl: &ActionDeclaration) -> Strin
 fn write_text(path: &Path, body: &str) -> ArgoResult<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
-            ArgoError::Provider(format!("create replay dir {}: {e}", parent.display()))
+            ArgoError::Io(format!("create replay dir {}: {e}", parent.display()))
         })?;
     }
     std::fs::write(path, body)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", path.display())))
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 pub(super) fn write_json(path: &Path, value: &serde_json::Value) -> ArgoResult<()> {

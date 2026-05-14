@@ -133,7 +133,7 @@ async fn cancel_handoff(tenant: Option<&str>, id: &str, note: Option<&str>, json
 async fn orchestrator_repo() -> ArgoResult<OrchestratorStore> { orchestrator_store_and_repo().await.map(|(_store, repo)| repo) }
 
 async fn orchestrator_store_and_repo() -> ArgoResult<(Arc<SessionStore>, OrchestratorStore)> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = Arc::new(SessionStore::open(&db_path(&home)).await?);

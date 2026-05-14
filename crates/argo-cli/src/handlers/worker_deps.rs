@@ -275,7 +275,7 @@ fn impacted_json(entry: &ImpactedWorker) -> serde_json::Value {
 }
 
 async fn open_pool() -> ArgoResult<sqlx::SqlitePool> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home)).await?;

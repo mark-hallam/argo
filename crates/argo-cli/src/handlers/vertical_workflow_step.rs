@@ -208,7 +208,7 @@ async fn emit_audit(
 pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowAuditCtx> {
     use crate::home::{db_path, ensure_dir, resolve_home};
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(db_path(&home).to_string_lossy().as_ref()).await?;

@@ -128,7 +128,7 @@ pub async fn stats_session(raw: &str, json: bool) -> ArgoResult<()> {
 
 async fn open_store() -> ArgoResult<SessionStore> {
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
@@ -154,7 +154,7 @@ async fn clone_or_branch(
         .map_err(|e| ArgoError::Provider(format!("get_session: {e}")))?
         .ok_or_else(|| ArgoError::Provider(format!("no session {}", src.0)))?;
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())

@@ -189,7 +189,7 @@ async fn invoke_executor_for(
             ))
         })?;
     let executor = worker_actions_executor::resolve_executor(manifest, &rec.action_type)?;
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     executor.dispatch(rec, &cwd)
 }
 

@@ -129,7 +129,7 @@ async fn confirm_feedback<'a>(
     super::feedback_common::ensure_feedback_schema(&store).await?;
     let vote = latest_vote_for_action(store.pool(), action_id)
         .await
-        .map_err(|e| ArgoError::Provider(format!("read operator feedback: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("read operator feedback: {e}")))?;
     match vote {
         Some(Vote::Up) => Ok(Some(
             super::skill_review_candidates::PromotionFeedback {

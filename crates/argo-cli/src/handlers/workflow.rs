@@ -98,7 +98,7 @@ async fn run_workflow(path: &std::path::Path, dry_run: bool, json: bool) -> Argo
         return Ok(());
     }
     let yaml_body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let store = open_store().await?;
     ensure_workflow_schema(&store).await?;
     super::workflow_checkpoint::ensure_schema(&store)
@@ -220,7 +220,7 @@ async fn list_runs(limit: u32, json: bool) -> ArgoResult<()> {
 }
 
 pub(super) async fn open_store() -> ArgoResult<Arc<SessionStore>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;

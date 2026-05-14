@@ -265,7 +265,7 @@ async fn resolve_tenant_principal(
     req: &str,
 ) -> ArgoResult<(TenantId, String)> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let name = cwd
         .file_name()
         .and_then(|s| s.to_str())

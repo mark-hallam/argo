@@ -105,7 +105,7 @@ pub fn load_manifest(cwd: &Path, provider_id: &str) -> ArgoResult<ProviderManife
 
 fn parse_at(path: &Path) -> ArgoResult<ProviderManifest> {
     let body = std::fs::read_to_string(path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     ProviderManifest::from_toml_str(&body)
 }
 

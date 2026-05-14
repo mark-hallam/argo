@@ -26,7 +26,7 @@ pub(crate) async fn run(cmd: PolicyCmd) -> ArgoResult<()> {
 }
 
 async fn list(dir: Option<PathBuf>, json: bool) -> ArgoResult<()> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     if let Some(dir) = dir {
         return list_dir(&dir, json);
     }
@@ -171,7 +171,7 @@ async fn apply(path: &Path, json: bool) -> ArgoResult<()> {
         ))
     })?;
     let body_sha256 = sha256_hex(&body);
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let policy_dir = cwd.join(POLICY_DIR);
     std::fs::create_dir_all(&policy_dir).map_err(|e| {
         ArgoError::Provider(format!(

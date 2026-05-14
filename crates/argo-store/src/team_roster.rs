@@ -119,7 +119,7 @@ pub async fn ensure_team_roster_columns(pool: &SqlitePool) -> StoreResult<()> {
     )
     .execute(pool)
     .await
-    .map_err(|e| ArgoError::Provider(format!("create idx_roster_member_active: {e}")))?;
+    .map_err(|e| ArgoError::Io(format!("create idx_roster_member_active: {e}")))?;
     Ok(())
 }
 

@@ -141,10 +141,10 @@ fn init(name: &str, force: bool, json: bool) -> ArgoResult<()> {
             "no bundled approval policy template named '{name}' (try `argo approval policy list`)"
         ))
     })?;
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let dir = cwd.join(LOCAL_TEMPLATE_DIR);
     std::fs::create_dir_all(&dir).map_err(|e| {
-        ArgoError::Provider(format!("create {}: {e}", dir.display()))
+        ArgoError::Io(format!("create {}: {e}", dir.display()))
     })?;
     let dest = dir.join(format!("{name}.toml"));
     if dest.exists() && !force {
@@ -154,7 +154,7 @@ fn init(name: &str, force: bool, json: bool) -> ArgoResult<()> {
         )));
     }
     std::fs::write(&dest, body).map_err(|e| {
-        ArgoError::Provider(format!("write {}: {e}", dest.display()))
+        ArgoError::Io(format!("write {}: {e}", dest.display()))
     })?;
     if json {
         let payload = serde_json::json!({
@@ -176,7 +176,7 @@ fn init(name: &str, force: bool, json: bool) -> ArgoResult<()> {
 /// [`AutoApprovalPolicy`]. Walks `extends` left-to-right, then
 /// strips `template`/`extends` from the final body.
 pub(crate) fn resolve(name: &str) -> ArgoResult<AutoApprovalPolicy> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     resolve_at(name, &cwd)
 }
 
@@ -204,7 +204,7 @@ fn template_body(name: &str, cwd: &Path) -> ArgoResult<String> {
         .join(format!("{name}.toml"));
     if local.exists() {
         return std::fs::read_to_string(&local).map_err(|e| {
-            ArgoError::Provider(format!("read {}: {e}", local.display()))
+            ArgoError::Io(format!("read {}: {e}", local.display()))
         });
     }
     bundled_body(name)
@@ -267,18 +267,18 @@ fn serialize_policy(policy: &AutoApprovalPolicy) -> ArgoResult<String> {
 }
 
 fn list_local() -> ArgoResult<Vec<PathBuf>> {
-    let cwd = std::env::current_dir().map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let dir = cwd.join(LOCAL_TEMPLATE_DIR);
     if !dir.exists() {
         return Ok(Vec::new());
     }
     let mut paths = Vec::new();
     let entries = std::fs::read_dir(&dir).map_err(|e| {
-        ArgoError::Provider(format!("read_dir {}: {e}", dir.display()))
+        ArgoError::Io(format!("read_dir {}: {e}", dir.display()))
     })?;
     for entry in entries {
         let entry = entry.map_err(|e| {
-            ArgoError::Provider(format!("read entry under {}: {e}", dir.display()))
+            ArgoError::Io(format!("read entry under {}: {e}", dir.display()))
         })?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("toml") {

@@ -13,7 +13,7 @@ pub async fn run(target: &str, json: bool) -> ArgoResult<()> {
         )));
     }
     let yaml = std::fs::read_to_string(&yaml_path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", yaml_path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", yaml_path.display())))?;
     let workflow = argo_workflow::parse_yaml_str(&yaml)
         .map_err(|e| ArgoError::Provider(format!("parse {}: {e}", yaml_path.display())))?;
     let reasoning = read_sidecar(&yaml_path);
@@ -45,7 +45,7 @@ fn resolve_target(target: &str) -> ArgoResult<PathBuf> {
         return Ok(direct);
     }
     let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Provider(format!("cwd: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let candidate = cwd
         .join(".argo")
         .join("plan_runs")

@@ -284,7 +284,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Some(Command::Compliance { cmd }) => match cmd {
             cli::ComplianceCmd::Soc2(args) => {
                 let cwd = std::env::current_dir()
-                    .map_err(|e| argo_types::ArgoError::Provider(format!("current_dir: {e}")))?;
+                    .map_err(|e| argo_types::ArgoError::Io(format!("current_dir: {e}")))?;
                 let home = home::resolve_home(&cwd)?;
                 home::ensure_dir(&home)?;
                 let store = argo_store::SessionStore::open(&home::db_path(&home)).await?;

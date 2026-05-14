@@ -12,7 +12,7 @@ use super::session_aggregates::{count_tool_use_blocks, session_spend_micros};
 
 pub(super) async fn show_session(raw: &str, json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
     let db = db_path(&home);

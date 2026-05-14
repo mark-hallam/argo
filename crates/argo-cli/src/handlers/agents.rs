@@ -28,7 +28,7 @@ pub fn run(cmd: Option<AgentsCmd>) -> ArgoResult<()> {
 
 fn list_agents(json: bool, format: &str) -> ArgoResult<()> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     let pick = if json { "json" } else { format };
     if !toml_path.exists() {
@@ -40,7 +40,7 @@ fn list_agents(json: bool, format: &str) -> ArgoResult<()> {
         return Ok(());
     }
     let body = std::fs::read_to_string(&toml_path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", toml_path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", toml_path.display())))?;
     let value: toml::Value =
         toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse argo.toml: {e}")))?;
     let Some(agents_table) = value.get("agents").and_then(|v| v.as_table()) else {
@@ -196,7 +196,7 @@ fn delete_agent(name: &str) -> ArgoResult<()> {
 
 fn workspace_toml() -> ArgoResult<(std::path::PathBuf, std::path::PathBuf)> {
     let cwd =
-        std::env::current_dir().map_err(|e| ArgoError::Provider(format!("current_dir: {e}")))?;
+        std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml_path = cwd.join("argo.toml");
     if !toml_path.exists() {
         return Err(ArgoError::Provider(format!(
@@ -209,7 +209,7 @@ fn workspace_toml() -> ArgoResult<(std::path::PathBuf, std::path::PathBuf)> {
 
 fn parse_argo_toml(toml_path: &std::path::Path) -> ArgoResult<toml::Value> {
     let body = std::fs::read_to_string(toml_path)
-        .map_err(|e| ArgoError::Provider(format!("read {}: {e}", toml_path.display())))?;
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", toml_path.display())))?;
     toml::from_str(&body).map_err(|e| ArgoError::Provider(format!("parse argo.toml: {e}")))
 }
 
@@ -236,5 +236,5 @@ fn write_argo_toml(toml_path: &std::path::Path, doc: &toml::Value) -> ArgoResult
     let serialized = toml::to_string_pretty(doc)
         .map_err(|e| ArgoError::Provider(format!("serialize argo.toml: {e}")))?;
     std::fs::write(toml_path, serialized)
-        .map_err(|e| ArgoError::Provider(format!("write {}: {e}", toml_path.display())))
+        .map_err(|e| ArgoError::Io(format!("write {}: {e}", toml_path.display())))
 }
