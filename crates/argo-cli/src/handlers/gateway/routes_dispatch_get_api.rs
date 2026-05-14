@@ -59,6 +59,11 @@ pub(super) async fn dispatch_api_get(
     if req.starts_with("GET /api/v1/cohorts ") || req.starts_with("GET /api/v1/cohorts?") {
         return Some(super::routes_cohorts::list_response(req, store).await);
     }
+    if req.starts_with("GET /api/v1/dashboards/error-rate ")
+        || req.starts_with("GET /api/v1/dashboards/error-rate?")
+    {
+        return Some(crate::handlers::errors_dashboard::gateway_response(req, store).await);
+    }
     // mission-retro-review-ui — tenant-scoped retro index.
     if req.starts_with("GET /api/v1/retros ") || req.starts_with("GET /api/v1/retros?") {
         return Some(super::routes_retros::index_response(req, store).await);

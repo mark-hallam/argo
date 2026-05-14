@@ -102,6 +102,7 @@ pub mod eval_run;
 pub mod eval_show;
 pub mod eval_skill_honesty;
 mod eval_validate_vertical;
+pub mod errors_dashboard;
 pub mod forge;
 mod forge_admin;
 pub mod forge_by_day;

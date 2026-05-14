@@ -256,6 +256,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ActivityCmd,
     },
+    /// Error-rate dashboards backed by canonical audit rows.
+    Errors {
+        #[command(subcommand)]
+        cmd: ErrorsCmd,
+    },
     Audit {
         #[command(subcommand)]
         cmd: AuditQueryCmd,

@@ -14,6 +14,8 @@ pub mod batched_writer;
 /// who can decide them, and a deadline + `default_decision` the
 /// downstream timeout sweep promotes stale rows by.
 pub mod approvals;
+/// Read-side aggregates over canonical `audit_record` rows.
+pub mod audit_record_query;
 /// Server-defined approval bundles (Stream
 /// `mission-approval-bundle-ui`). A worker that emits N coherent
 /// low-risk actions can group them under one bundle id so the

@@ -181,6 +181,25 @@ pub use cli_connector_cmds::ConnectorCmd;
 pub use super::cli_subcommands_cron::CronCmd;
 
 #[derive(Subcommand, Debug)]
+pub enum ErrorsCmd {
+    /// Show HTTP 5xx rate from `audit_record` request rows.
+    Dashboard {
+        /// Time window to inspect, e.g. `30m`, `1h`, or `7d`.
+        #[arg(long, default_value = "1h")]
+        window: String,
+        /// Optional tenant id filter.
+        #[arg(long)]
+        tenant: Option<String>,
+        /// Optional route/path filter. A trailing `*` is treated as a prefix.
+        #[arg(long)]
+        route: Option<String>,
+        /// Emit a JSON envelope instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum AuditCmd {
     /// Show the kind histogram + (optionally) the last `--tail N`
     /// rows. Pass `--session <id>` to print every audit row for one

@@ -58,6 +58,18 @@ pub(crate) async fn activity(cmd: cli::ActivityCmd) -> ArgoResult<()> {
     handlers::activity_tail::run(cmd).await
 }
 
+pub(crate) async fn errors(cmd: cli::ErrorsCmd) -> ArgoResult<()> {
+    match cmd {
+        cli::ErrorsCmd::Dashboard {
+            window,
+            tenant,
+            route,
+            json,
+        } => handlers::errors_dashboard::run(&window, tenant.as_deref(), route.as_deref(), json)
+            .await,
+    }
+}
+
 pub(crate) async fn trajectory(cmd: cli::TrajectoryCmd) -> ArgoResult<()> {
     match cmd {
         cli::TrajectoryCmd::Export {
