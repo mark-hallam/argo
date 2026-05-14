@@ -24,10 +24,13 @@
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool};
+use sqlx::SqlitePool;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use argo_types::{ArgoError, ArgoResult};
+
+#[path = "worker_deps_graph.rs"]
+mod graph;
 
 const WORKER_DEPENDENCY_SCHEMA: &str = include_str!("../migrations/45__worker_dependency.sql");
 
@@ -173,8 +176,8 @@ pub async fn add_dependency(
         )));
     }
     ensure_schema(pool).await?;
-    if would_create_cycle(pool, a, b, kind).await? {
-        let path = cycle_path(pool, a, b, kind).await?;
+    if graph::would_create_cycle(pool, a, b, kind).await? {
+        let path = graph::cycle_path(pool, a, b, kind).await?;
         let rendered = path.join("→");
         return Err(ArgoError::Provider(format!(
             "cycle detected: {rendered}"
@@ -229,11 +232,11 @@ pub async fn list_for_worker(
 ) -> ArgoResult<Vec<DepRow>> {
     ensure_schema(pool).await?;
     let mut rows = match direction {
-        Direction::Out => fetch_rows(pool, "a_worker_id", worker).await?,
-        Direction::In => fetch_rows(pool, "b_worker_id", worker).await?,
+        Direction::Out => graph::fetch_rows(pool, "a_worker_id", worker).await?,
+        Direction::In => graph::fetch_rows(pool, "b_worker_id", worker).await?,
         Direction::Both => {
-            let mut out = fetch_rows(pool, "a_worker_id", worker).await?;
-            out.extend(fetch_rows(pool, "b_worker_id", worker).await?);
+            let mut out = graph::fetch_rows(pool, "a_worker_id", worker).await?;
+            out.extend(graph::fetch_rows(pool, "b_worker_id", worker).await?);
             out
         }
     };
@@ -263,7 +266,7 @@ pub async fn list_all(pool: &SqlitePool) -> ArgoResult<Vec<DepRow>> {
     .fetch_all(pool)
     .await
     .map_err(|e| ArgoError::Provider(format!("worker_dependency list_all: {e}")))?;
-    rs.into_iter().map(row_into_dep).collect()
+    rs.into_iter().map(graph::row_into_dep).collect()
 }
 
 /// Transitive closure of workers that depend on `seed`, walking
@@ -271,7 +274,7 @@ pub async fn list_all(pool: &SqlitePool) -> ArgoResult<Vec<DepRow>> {
 /// Capped at [`IMPACT_MAX_DEPTH`] hops. The seed itself is excluded.
 pub async fn impact(pool: &SqlitePool, seed: &str) -> ArgoResult<Vec<ImpactedWorker>> {
     ensure_schema(pool).await?;
-    let inbound = inbound_adjacency(pool).await?;
+    let inbound = graph::inbound_adjacency(pool).await?;
     let mut visited: BTreeMap<String, u32> = BTreeMap::new();
     let mut queue: VecDeque<(String, u32)> = VecDeque::new();
     queue.push_back((seed.to_string(), 0));
@@ -299,181 +302,6 @@ pub async fn impact(pool: &SqlitePool, seed: &str) -> ArgoResult<Vec<ImpactedWor
         .collect();
     out.sort();
     Ok(out)
-}
-
-// ───────────────────────── internals ─────────────────────────
-
-async fn fetch_rows(pool: &SqlitePool, column: &str, value: &str) -> ArgoResult<Vec<DepRow>> {
-    let sql = format!(
-        "SELECT a_worker_id, b_worker_id, kind, declared_at, note
-         FROM worker_dependency
-         WHERE {column} = ?
-         ORDER BY kind ASC, a_worker_id ASC, b_worker_id ASC, declared_at ASC"
-    );
-    let rs = sqlx::query(&sql)
-        .bind(value)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| ArgoError::Provider(format!("worker_dependency fetch: {e}")))?;
-    rs.into_iter().map(row_into_dep).collect()
-}
-
-fn row_into_dep(row: sqlx::sqlite::SqliteRow) -> ArgoResult<DepRow> {
-    let kind: String = row.get("kind");
-    Ok(DepRow {
-        a_worker_id: row.get("a_worker_id"),
-        b_worker_id: row.get("b_worker_id"),
-        kind: DepKind::parse(&kind)?,
-        declared_at: row.get("declared_at"),
-        note: row.get("note"),
-    })
-}
-
-/// Forward (out-edge) adjacency for one `kind`, used by cycle detection.
-async fn forward_adjacency(
-    pool: &SqlitePool,
-    kind: DepKind,
-) -> ArgoResult<BTreeMap<String, Vec<String>>> {
-    let rs = sqlx::query(
-        "SELECT a_worker_id, b_worker_id FROM worker_dependency
-         WHERE kind = ?
-         ORDER BY a_worker_id ASC, b_worker_id ASC
-         LIMIT ?",
-    )
-    .bind(kind.as_str())
-    .bind(CYCLE_DETECTION_EDGE_CAP as i64)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("worker_dependency adjacency: {e}")))?;
-    let mut adj: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for r in rs {
-        let a: String = r.get("a_worker_id");
-        let b: String = r.get("b_worker_id");
-        adj.entry(a).or_default().push(b);
-    }
-    Ok(adj)
-}
-
-/// Inbound (in-edge) adjacency across all kinds. Keyed on `b_worker_id`,
-/// values are the set of `a` ids that declared a dependency on `b`.
-/// Used by `impact`.
-async fn inbound_adjacency(pool: &SqlitePool) -> ArgoResult<BTreeMap<String, BTreeSet<String>>> {
-    let rs = sqlx::query(
-        "SELECT a_worker_id, b_worker_id FROM worker_dependency
-         ORDER BY b_worker_id ASC, a_worker_id ASC",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| ArgoError::Provider(format!("worker_dependency inbound: {e}")))?;
-    let mut adj: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for r in rs {
-        let a: String = r.get("a_worker_id");
-        let b: String = r.get("b_worker_id");
-        adj.entry(b).or_default().insert(a);
-    }
-    Ok(adj)
-}
-
-/// `true` if inserting `a → b` of kind `kind` would close a cycle in
-/// the same-kind subgraph. Equivalent to: is there already a path
-/// `b → … → a` along same-kind edges?
-async fn would_create_cycle(
-    pool: &SqlitePool,
-    a: &str,
-    b: &str,
-    kind: DepKind,
-) -> ArgoResult<bool> {
-    if a == b {
-        return Ok(true);
-    }
-    let adj = forward_adjacency(pool, kind).await?;
-    Ok(reachable(&adj, b, a))
-}
-
-/// Render the cycle path the operator's edge would close, in the form
-/// `a→b→…→a`. Used for the human-readable error message. Falls back to
-/// `a→b→a` when the same-kind subgraph is empty (e.g. self-edge guard).
-async fn cycle_path(
-    pool: &SqlitePool,
-    a: &str,
-    b: &str,
-    kind: DepKind,
-) -> ArgoResult<Vec<String>> {
-    let adj = forward_adjacency(pool, kind).await?;
-    let inner = path_between(&adj, b, a).unwrap_or_else(|| vec![b.to_string(), a.to_string()]);
-    let mut full = Vec::with_capacity(inner.len() + 1);
-    full.push(a.to_string());
-    full.extend(inner);
-    Ok(full)
-}
-
-/// Standard reachability over a forward adjacency map (DFS).
-fn reachable(adj: &BTreeMap<String, Vec<String>>, from: &str, to: &str) -> bool {
-    if from == to {
-        return true;
-    }
-    let mut stack: Vec<&str> = vec![from];
-    let mut seen: BTreeSet<&str> = BTreeSet::new();
-    seen.insert(from);
-    while let Some(node) = stack.pop() {
-        let Some(nexts) = adj.get(node) else {
-            continue;
-        };
-        for next in nexts {
-            if next == to {
-                return true;
-            }
-            if seen.insert(next.as_str()) {
-                stack.push(next.as_str());
-            }
-        }
-    }
-    false
-}
-
-/// Recover the path `from → … → to` over the forward adjacency, if any.
-/// Returns `None` when no path exists. Used for the cycle-error message.
-fn path_between(
-    adj: &BTreeMap<String, Vec<String>>,
-    from: &str,
-    to: &str,
-) -> Option<Vec<String>> {
-    let mut parents: BTreeMap<String, String> = BTreeMap::new();
-    let mut queue: VecDeque<String> = VecDeque::new();
-    queue.push_back(from.to_string());
-    let mut found = from == to;
-    while let Some(node) = queue.pop_front() {
-        if node == to {
-            found = true;
-            break;
-        }
-        let Some(nexts) = adj.get(&node) else {
-            continue;
-        };
-        for next in nexts {
-            if !parents.contains_key(next) && next != from {
-                parents.insert(next.clone(), node.clone());
-                if next == to {
-                    found = true;
-                    queue.clear();
-                    break;
-                }
-                queue.push_back(next.clone());
-            }
-        }
-    }
-    if !found {
-        return None;
-    }
-    let mut path = vec![to.to_string()];
-    let mut cursor = to.to_string();
-    while cursor != from {
-        let parent = parents.get(&cursor)?.clone();
-        path.push(parent.clone());
-        cursor = parent;
-    }
-    path.reverse();
-    Some(path)
 }
 
 #[cfg(test)]
