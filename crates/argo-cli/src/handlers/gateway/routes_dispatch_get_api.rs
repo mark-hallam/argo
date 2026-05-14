@@ -106,6 +106,9 @@ pub(super) async fn dispatch_api_get(
                         .await,
                 );
             }
+            if tail.starts_with("evals ") || tail.starts_with("evals?") {
+                return Some(super::routes_evals::list_response(id_with_suffix, req).await);
+            }
             // J8 — /api/v1/workers/<id>/overview bundles charter,
             // duties, kpis, recent_activity for the Overview tab.
             if tail.starts_with("overview ") || tail.starts_with("overview?") {

@@ -80,6 +80,7 @@ mod routes_dispatch_post_workers;
 mod routes_dispatch_rollups;
 mod routes_duties;
 mod routes_elevated_view;
+mod routes_evals;
 mod routes_forge;
 mod routes_forge_promote;
 mod routes_forge_rollups;
