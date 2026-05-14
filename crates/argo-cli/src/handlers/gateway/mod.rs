@@ -164,6 +164,7 @@ mod startup_check;
 mod streaming;
 mod sweepers;
 mod ws_inbox_events;
+mod ws_skill_trace;
 mod ws_upgrade;
 
 use crate::cli::GatewayCmd;

@@ -41,6 +41,8 @@ mod dispatch;
 #[cfg(test)]
 mod dispatch_tests;
 mod helpers;
+/// Runtime instrumentation hooks (Skill IR live-trace, etc.).
+pub mod instrumentation;
 mod transport;
 mod turn;
 /// Per-turn hook into the subtask budget tree (Stream

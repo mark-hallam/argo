@@ -38,9 +38,14 @@ pub(super) const CLOSE_LAGGED: u16 = 1011;
 /// True when the request is a WS upgrade for one of the routes this
 /// module owns. Plain GETs (no `Upgrade` header) fall through to the
 /// snapshot `(status, body)` paths in `routes_channels_webinbox` /
-/// `routes_audit_stream`.
+/// `routes_audit_stream`. Skill-trace (`/skill-trace/<skill>/<run>`)
+/// is recognized here so the accept loop in `boot.rs` keeps its
+/// single WS dispatch arm.
 pub(super) fn is_ws_request(req: &str) -> bool {
-    has_upgrade(req) && (matches_inbox(req) || matches_audit(req))
+    has_upgrade(req)
+        && (matches_inbox(req)
+            || matches_audit(req)
+            || super::ws_skill_trace::matches_request(req))
 }
 
 fn inbox_broadcast() -> &'static broadcast::Sender<String> {
@@ -53,10 +58,17 @@ pub(super) fn publish_inbox_event(payload: serde_json::Value) {
     let _ = inbox_broadcast().send(payload.to_string());
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Route {
     Inbox,
     Audit,
+    /// Track L L5 — `/skill-trace/<skill_id>/<run_id>` live overlay
+    /// stream. Carries the parsed `(skill_id, run_id)` so the serve
+    /// path doesn't reparse.
+    SkillTrace {
+        skill_id: String,
+        run_id: String,
+    },
 }
 
 /// Top-level entry from the accept loop. Owns the stream for the
@@ -74,18 +86,32 @@ pub(super) async fn serve(
     stream: &mut TcpStream,
 ) -> tokio::io::Result<()> {
     let route = pick_route(req);
-    let tenant_for_inbox = if route == Route::Inbox {
-        match super::ws_inbox_events::authorize(req, chrono::Utc::now().timestamp()) {
+    let tenant_for_inbox = match &route {
+        Route::Inbox => match super::ws_inbox_events::authorize(req, chrono::Utc::now().timestamp())
+        {
             Ok(auth) => match auth {
                 super::ws_inbox_events::WsAuth::Jwt(_) => Some(auth.tenant_key().to_string()),
                 super::ws_inbox_events::WsAuth::Legacy => None,
             },
             Err((status, body)) => return write_http_response(stream, status, &body).await,
+        },
+        Route::Audit => {
+            if let Err((status, body)) = check_auth(req, Route::Audit) {
+                return write_http_response(stream, status, &body).await;
+            }
+            None
+        }
+        Route::SkillTrace { .. } => None,
+    };
+    // Skill-trace authorization runs before the handshake so a 401
+    // surfaces as a plain HTTP response, not a half-completed
+    // WebSocket upgrade.
+    let skill_trace_tenant = if let Route::SkillTrace { .. } = &route {
+        match super::ws_skill_trace::authorize(req, chrono::Utc::now().timestamp()) {
+            Ok(claims) => Some(claims.tnt),
+            Err((status, body)) => return write_http_response(stream, status, &body).await,
         }
     } else {
-        if let Err((status, body)) = check_auth(req, route) {
-            return write_http_response(stream, status, &body).await;
-        }
         None
     };
     let Some(client_key) = parse_client_key(req) else {
@@ -115,7 +141,15 @@ pub(super) async fn serve(
         )
         .await?;
     }
-    let mut rx = match (route, tenant_for_inbox.as_deref()) {
+    if let Route::SkillTrace { skill_id, run_id } = &route {
+        write_frame(
+            stream,
+            OPCODE_TEXT,
+            super::ws_skill_trace::hello_frame(skill_id, run_id).as_bytes(),
+        )
+        .await?;
+    }
+    let mut rx = match (&route, tenant_for_inbox.as_deref()) {
         (Route::Inbox, Some(tenant)) => super::ws_inbox_events::subscribe_tenant(tenant),
         (Route::Inbox, None) => inbox_broadcast().subscribe(),
         (Route::Audit, _) => {
@@ -124,6 +158,10 @@ pub(super) async fn serve(
             // Hold a never-fed receiver so keepalive runs unchanged.
             let (_tx, rx) = broadcast::channel::<String>(1);
             rx
+        }
+        (Route::SkillTrace { skill_id, run_id }, _) => {
+            let tenant = skill_trace_tenant.as_deref().unwrap_or("");
+            super::ws_skill_trace::subscribe_topic(tenant, skill_id, run_id)
         }
     };
     run_loop(stream, &mut rx, KEEPALIVE_INTERVAL).await
@@ -156,6 +194,8 @@ fn matches_audit(req: &str) -> bool {
 fn pick_route(req: &str) -> Route {
     if matches_inbox(req) {
         Route::Inbox
+    } else if let Some((skill_id, run_id)) = super::ws_skill_trace::parse_topic_path(req) {
+        Route::SkillTrace { skill_id, run_id }
     } else {
         Route::Audit
     }
@@ -183,6 +223,10 @@ pub(super) fn check_auth(req: &str, route: Route) -> Result<(), (&'static str, S
     let env_var = match route {
         Route::Inbox => "ARGO_WEBINBOX_BEARER_TOKEN",
         Route::Audit => "ARGO_AUDIT_STREAM_BEARER_TOKEN",
+        // Skill-trace uses JWT-only auth (see `ws_skill_trace::authorize`)
+        // so this fallback path is unreachable in practice; treat any
+        // accidental call as audit-style for defense in depth.
+        Route::SkillTrace { .. } => "ARGO_AUDIT_STREAM_BEARER_TOKEN",
     };
     if let Ok(expected) = argo_config::cred::get(env_var) {
         if !expected.is_empty() && token != expected {
