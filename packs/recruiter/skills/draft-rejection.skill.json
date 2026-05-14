@@ -1,0 +1,52 @@
+{
+  "entry": "load-screen",
+  "metadata": {
+    "name": "draft-rejection",
+    "version": "1.0.0",
+    "description": "Drafts a respectful rejection message grounded in non-sensitive screening rationale.",
+    "source": "vertical-pack/recruiter"
+  },
+  "variables": [
+    { "name": "candidateName", "varType": "string", "scope": "graph" },
+    { "name": "rejectionReason", "varType": "json", "scope": "graph" },
+    { "name": "messageDraft", "varType": "string", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-screen",
+      "label": "Load screening outcome",
+      "kind": { "type": "fetch", "target": "mcp://greenhouse/application-screen", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "greenhouse", "toolName": "application.get_screen" } }
+    },
+    {
+      "id": "sanitize-reason",
+      "label": "Sanitize rationale",
+      "kind": { "type": "transform", "template": "Remove protected-class references, subjective tone, and internal-only notes. Keep neutral role-fit rationale." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "compose-draft",
+      "label": "Compose rejection draft",
+      "kind": { "type": "action", "instruction": "Write a concise rejection that thanks the candidate, avoids detailed scoring, and invites future applications when appropriate." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Approve rejection",
+      "kind": { "type": "await-approval", "approverRole": "recruiting-lead", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "submit-draft",
+      "label": "Submit approved draft",
+      "kind": { "type": "action", "instruction": "Store the approved rejection draft in the ATS. Do not send unless the approval explicitly requests send." },
+      "annotations": { "policy": "ask", "toolBinding": { "mcpServer": "greenhouse", "toolName": "candidate.add_note" } }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-screen", "to": "sanitize-reason", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "sanitize-reason", "to": "compose-draft", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "compose-draft", "to": "approval", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "approval", "to": "submit-draft", "cond": { "kind": "on-success" } }
+  ]
+}

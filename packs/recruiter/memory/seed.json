@@ -1,0 +1,32 @@
+{
+  "screeningRubrics": [
+    {
+      "roleId": "software-engineer-generalist",
+      "mustHave": ["ships production software", "debugs ambiguous systems", "communicates tradeoffs clearly"],
+      "preferred": ["Rust or TypeScript", "distributed systems", "developer tooling"],
+      "knockouts": ["no professional software delivery evidence", "requires sponsorship when role is not eligible"],
+      "scoringScale": "0 missing, 1 weak, 2 partial, 3 strong, 4 exceptional"
+    },
+    {
+      "roleId": "recruiting-ops-manager",
+      "mustHave": ["ATS administration", "pipeline reporting", "stakeholder communication"],
+      "preferred": ["Greenhouse", "Lever", "structured interviewing", "DEI reporting"],
+      "knockouts": ["no recruiting operations experience"],
+      "scoringScale": "0 missing, 1 weak, 2 partial, 3 strong, 4 exceptional"
+    }
+  ],
+  "sourcingSignals": [
+    {
+      "roleFamily": "engineering",
+      "query": "production Rust TypeScript distributed systems developer tools",
+      "positiveSignals": ["maintainer", "incident response", "compiler", "platform"],
+      "negativeSignals": ["bootcamp-only", "no shipped product evidence"]
+    },
+    {
+      "roleFamily": "recruiting-ops",
+      "query": "Greenhouse Lever recruiting operations analytics process improvement",
+      "positiveSignals": ["ATS migration", "pipeline dashboard", "structured interview program"],
+      "negativeSignals": ["agency-only sourcing with no ops ownership"]
+    }
+  ]
+}

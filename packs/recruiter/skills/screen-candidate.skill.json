@@ -1,0 +1,59 @@
+{
+  "entry": "fetch-inputs",
+  "metadata": {
+    "name": "screen-candidate",
+    "version": "1.0.0",
+    "description": "Scores a candidate against the role rubric and emits evidence-backed routing.",
+    "source": "vertical-pack/recruiter"
+  },
+  "variables": [
+    { "name": "jobDescription", "varType": "json", "scope": "graph" },
+    { "name": "resume", "varType": "json", "scope": "graph" },
+    { "name": "screeningDecision", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "fetch-inputs",
+      "label": "Fetch JD and resume",
+      "kind": { "type": "fetch", "target": "mcp://greenhouse/candidate-packet", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "greenhouse", "toolName": "candidate.get_packet" } }
+    },
+    {
+      "id": "extract-evidence",
+      "label": "Extract matching evidence",
+      "kind": { "type": "transform", "template": "Map resume evidence to required, preferred, and disqualifying rubric items. Keep verbatim snippets." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "score-rubric",
+      "label": "Score rubric",
+      "kind": { "type": "action", "instruction": "Score each rubric dimension from 0-4 and explain the evidence. Never infer protected attributes." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "route-decision",
+      "label": "Route decision",
+      "kind": {
+        "type": "branch",
+        "arms": [
+          { "label": "advance", "pattern": "overall_score >= 3.2 && must_haves_met == true" },
+          { "label": "reject", "pattern": "overall_score < 2.4 || knockout == true" },
+          { "label": "review", "pattern": "default" }
+        ]
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "write-summary",
+      "label": "Write screening summary",
+      "kind": { "type": "action", "instruction": "Return JSON with decision, score, evidence, risks, missing data, and next recommended skill." },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "fetch-inputs", "to": "extract-evidence", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "extract-evidence", "to": "score-rubric", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "score-rubric", "to": "route-decision", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "route-decision", "to": "write-summary", "cond": { "kind": "always" } }
+  ]
+}

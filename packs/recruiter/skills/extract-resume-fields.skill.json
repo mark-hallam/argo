@@ -1,0 +1,51 @@
+{
+  "entry": "load-resume",
+  "metadata": {
+    "name": "extract-resume-fields",
+    "version": "1.0.0",
+    "description": "Extracts normalized resume fields for screening and ATS updates.",
+    "source": "vertical-pack/recruiter"
+  },
+  "variables": [
+    { "name": "resumeDocument", "varType": "json", "scope": "graph" },
+    { "name": "candidateProfile", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-resume",
+      "label": "Load resume document",
+      "kind": { "type": "fetch", "target": "mcp://greenhouse/resume", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "greenhouse", "toolName": "candidate.get_resume" } }
+    },
+    {
+      "id": "extract-fields",
+      "label": "Extract resume fields",
+      "kind": { "type": "action", "instruction": "Extract name, email, phone, locations, work history, education, skills, certifications, and links. Preserve source snippets." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "normalize",
+      "label": "Normalize profile",
+      "kind": { "type": "transform", "template": "Normalize dates to YYYY-MM, dedupe employers, infer total years only from explicit dates, and mark unknown fields null." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "quality-gate",
+      "label": "Quality gate",
+      "kind": { "type": "condition", "expression": "candidateProfile.email != null && candidateProfile.workHistory.length > 0" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "write-profile",
+      "label": "Write ATS profile draft",
+      "kind": { "type": "action", "instruction": "Store normalized fields as an ATS draft update with source snippets for reviewer audit." },
+      "annotations": { "policy": "ask", "toolBinding": { "mcpServer": "greenhouse", "toolName": "candidate.update_draft" } }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-resume", "to": "extract-fields", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "extract-fields", "to": "normalize", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "normalize", "to": "quality-gate", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "quality-gate", "to": "write-profile", "cond": { "kind": "on-success" } }
+  ]
+}

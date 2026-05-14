@@ -1,0 +1,59 @@
+schema_version = "1"
+
+[worker]
+id = "recruiter"
+default_display_name = "Recruiter"
+role = "Recruiting teammate"
+charter = "Screen candidate pipelines, coordinate interview scheduling, source role-matched prospects, draft respectful rejections, and keep hiring teams informed without sending external communications before approval."
+tone = "warm, concise, evidence-led, and bias-aware"
+
+[escalation]
+owner_role = "recruiting-lead"
+approval_channels = ["slack", "email"]
+quiet_hours = "18:00-08:00 local"
+escalate_after_failures = 2
+
+[policy]
+human_approval_required = [
+  "send_candidate_message",
+  "send_rejection",
+  "schedule_external_interview",
+  "submit_ats_update"
+]
+auto_approve = [
+  "screen_candidate",
+  "extract_resume_fields",
+  "source_from_linkedin",
+  "draft_rejection"
+]
+
+[memory]
+seed = "memory/seed.json"
+schema = "memory/schema.json"
+
+[tools]
+mcp = ["greenhouse", "lever", "linkedin", "calendar", "slack"]
+computer_use = ["linkedin-recruiter", "ats-browser"]
+
+[[skills]]
+id = "screen-candidate"
+path = "skills/screen-candidate.skill.json"
+
+[[skills]]
+id = "schedule-screen"
+path = "skills/schedule-screen.skill.json"
+
+[[skills]]
+id = "draft-rejection"
+path = "skills/draft-rejection.skill.json"
+
+[[skills]]
+id = "source-from-linkedin"
+path = "skills/source-from-linkedin.skill.json"
+
+[[skills]]
+id = "extract-resume-fields"
+path = "skills/extract-resume-fields.skill.json"
+
+[evaluation]
+suites = ["evals/*.json"]

@@ -1,0 +1,15 @@
+[pack]
+name = "recruiter"
+version = "1.0.0"
+display_name = "Recruiter"
+description = "Enterprise recruiting worker pack for candidate screening, interview scheduling, rejection drafting, sourcing, and resume-field extraction."
+
+[fetcher]
+base_url = "https://github.com/mark-hallam/skycot-packs/releases/download"
+asset_template = "{name}-{version}.tar.gz"
+tag_template = "{name}-v{version}"
+token_env = ["GH_TOKEN", "GITHUB_TOKEN"]
+
+[[verticals]]
+id = "recruiter"
+path = "."

@@ -1,0 +1,52 @@
+{
+  "entry": "fetch-availability",
+  "metadata": {
+    "name": "schedule-screen",
+    "version": "1.0.0",
+    "description": "Coordinates an approved phone screen with candidate and interviewer calendars.",
+    "source": "vertical-pack/recruiter"
+  },
+  "variables": [
+    { "name": "candidateEmail", "varType": "string", "scope": "graph" },
+    { "name": "interviewerCalendar", "varType": "json", "scope": "graph" },
+    { "name": "proposedSlots", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "fetch-availability",
+      "label": "Fetch calendars",
+      "kind": { "type": "fetch", "target": "mcp://calendar/free-busy", "method": "POST" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "calendar", "toolName": "calendar.free_busy" } }
+    },
+    {
+      "id": "rank-slots",
+      "label": "Rank interview slots",
+      "kind": { "type": "transform", "template": "Prefer 3 business-hour slots across at least 2 days; avoid quiet hours and interviewers with conflicts." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft-invite",
+      "label": "Draft scheduling message",
+      "kind": { "type": "action", "instruction": "Draft a concise candidate scheduling note with timezone, role title, interviewer name, and preparation notes." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Approve external scheduling",
+      "kind": { "type": "await-approval", "approverRole": "recruiting-lead", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    },
+    {
+      "id": "send-invite",
+      "label": "Send approved invite",
+      "kind": { "type": "action", "instruction": "After approval, send the candidate scheduling email and create tentative calendar holds." },
+      "annotations": { "policy": "ask", "toolBinding": { "mcpServer": "calendar", "toolName": "calendar.create_event" } }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "fetch-availability", "to": "rank-slots", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "rank-slots", "to": "draft-invite", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "draft-invite", "to": "approval", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "approval", "to": "send-invite", "cond": { "kind": "on-success" } }
+  ]
+}

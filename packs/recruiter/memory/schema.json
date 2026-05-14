@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1",
+  "namespace": "recruiter",
+  "collections": {
+    "screeningRubrics": {
+      "description": "Role-specific must-have, preferred, and disqualifying criteria.",
+      "requiredFields": ["roleId", "mustHave", "preferred", "knockouts", "scoringScale"]
+    },
+    "candidateInteractions": {
+      "description": "Candidate-safe history of prior outreach, scheduling, approvals, and outcomes.",
+      "requiredFields": ["candidateId", "roleId", "eventType", "timestamp", "summary"]
+    },
+    "sourcingSignals": {
+      "description": "Reusable search patterns and evidence snippets that worked for previous sourcing runs.",
+      "requiredFields": ["roleFamily", "query", "positiveSignals", "negativeSignals"]
+    }
+  },
+  "retention": {
+    "candidateInteractionsDays": 365,
+    "sourceSnippetsDays": 180
+  },
+  "privacy": {
+    "forbiddenAttributes": ["age", "gender", "race", "religion", "disability", "familyStatus", "nationalOrigin"],
+    "redactBeforeSharing": ["phone", "personalEmail", "homeAddress"]
+  }
+}

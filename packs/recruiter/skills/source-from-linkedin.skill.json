@@ -1,0 +1,51 @@
+{
+  "entry": "load-role",
+  "metadata": {
+    "name": "source-from-linkedin",
+    "version": "1.0.0",
+    "description": "Builds a sourced prospect shortlist from role criteria and LinkedIn profile evidence.",
+    "source": "vertical-pack/recruiter"
+  },
+  "variables": [
+    { "name": "searchCriteria", "varType": "json", "scope": "graph" },
+    { "name": "prospects", "varType": "json", "scope": "graph" },
+    { "name": "shortlist", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-role",
+      "label": "Load role criteria",
+      "kind": { "type": "fetch", "target": "mcp://lever/requisition", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "lever", "toolName": "requisition.get" } }
+    },
+    {
+      "id": "search-profiles",
+      "label": "Search LinkedIn profiles",
+      "kind": { "type": "fetch", "target": "mcp://linkedin/search", "method": "POST" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "linkedin", "toolName": "people.search" } }
+    },
+    {
+      "id": "loop-prospects",
+      "label": "Score each prospect",
+      "kind": { "type": "loop", "iterVar": "prospect", "body": ["score-prospect"] },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "score-prospect",
+      "label": "Score prospect",
+      "kind": { "type": "action", "instruction": "Score profile fit against must-have and preferred criteria using only profile evidence and public work history." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "rank-shortlist",
+      "label": "Rank shortlist",
+      "kind": { "type": "transform", "template": "Return top 20 prospects with evidence, outreach risk, location/timezone, and missing data." },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-role", "to": "search-profiles", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "search-profiles", "to": "loop-prospects", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "loop-prospects", "to": "rank-shortlist", "cond": { "kind": "always" } }
+  ]
+}
