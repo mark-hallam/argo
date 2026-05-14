@@ -37,6 +37,7 @@
 
 pub mod action_suggest;
 pub mod archetype;
+pub mod archetype_meta;
 pub mod broad_role;
 pub mod charter_dialogue;
 pub mod conflict;
