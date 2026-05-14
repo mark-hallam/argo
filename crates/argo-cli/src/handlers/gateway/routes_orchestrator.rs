@@ -56,6 +56,9 @@ async fn route(
         ("PATCH", p) if p.starts_with("/sessions/") && p.ends_with("/status") => {
             patch_session(&repo, tenant, p, body_json.as_ref()).await
         }
+        _ if super::routes_orchestrator_slas::is_sla_path(method, path) => {
+            super::routes_orchestrator_slas::dispatch(method, path, store, tenant, body_json.as_ref()).await
+        }
         ("GET", "/handoffs") => list_handoffs(store, target, tenant).await,
         ("GET", p) if p.starts_with("/handoffs/") => show_handoff(&repo, tenant, p).await,
         ("PATCH", p) if p.starts_with("/handoffs/") && p.ends_with("/status") => {
@@ -150,6 +153,7 @@ async fn list_sessions(
 fn is_orchestrator_path(method: &str, path: &str, req: &str) -> bool {
     path.starts_with("/handoffs/")
         || path == "/handoffs"
+        || super::routes_orchestrator_slas::is_sla_path(method, path)
         || method == "PATCH" && path.starts_with("/sessions/")
         || path.starts_with("/sessions/") && (target_has_tenant(req) || default_tenant().is_some())
         || path == "/sessions" && (target_has_tenant(req) || body_has_tenant(req) || default_tenant().is_some())
