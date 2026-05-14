@@ -5,6 +5,7 @@
 
 #![warn(missing_docs)]
 
+pub mod backfill;
 mod serde;
 pub mod store;
 pub mod types;
@@ -12,6 +13,10 @@ pub mod types;
 #[cfg(test)]
 mod types_tests;
 
+pub use self::backfill::{
+    BACKFILL_ENTRY_NODE_ID, BACKFILL_SOURCE, BackfillEntry, BackfillReport, BackfillStatus,
+    synthesize_graph,
+};
 pub use self::serde::{canonical_hash, canonical_hash_hex, canonical_json};
 pub use self::store::{ChainRow, SkillIrStore, SqliteSkillIrStore, ensure_schema, verify_chain};
 pub use self::types::{

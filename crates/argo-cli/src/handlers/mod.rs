@@ -251,6 +251,7 @@ pub mod skill_catalog;
 pub mod skill_create;
 pub mod skill_deps;
 pub mod skill_distill_now;
+pub mod skill_ir_backfill;
 pub mod skill_keygen;
 pub mod skill_list;
 pub mod skill_publish;

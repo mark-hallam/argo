@@ -8,7 +8,7 @@
 //! dispatcher and the small leaf ops (count / install /
 //! lock+unlock) along with a shared `body_hash` helper used
 //! by `skill_create` and `skill_refine`.
-use crate::cli::SkillCmd;
+use crate::cli::{SkillCmd, SkillIrCmd};
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_skill::{PrincipalOverride, SkillStore};
 use argo_store::SessionStore;
@@ -23,7 +23,7 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
     let db = db_path(&home);
     let store = Arc::new(SessionStore::open(&db).await?);
     store.migrate().await?;
-    let skills = SkillStore::new(store);
+    let skills = SkillStore::new(Arc::clone(&store));
     match cmd {
         SkillCmd::List {
             json,
@@ -263,6 +263,11 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             super::skill_upgrade::run(&args.name, args.dry_run, args.yes, args.json).await
         }
         SkillCmd::ListMigrations(args) => super::skill_list_migrations::run(args.json).await,
+        SkillCmd::Ir { cmd } => match cmd {
+            SkillIrCmd::Backfill { dry_run, json } => {
+                super::skill_ir_backfill::run(&skills, Arc::clone(&store), dry_run, json).await
+            }
+        },
     }
 }
 

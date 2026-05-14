@@ -453,4 +453,33 @@ pub enum SkillCmd {
     /// matches its installed version). Operator dashboard input.
     /// (`mission-skill-version-migration-path`).
     ListMigrations(SkillListMigrationsCmd),
+    /// Canonical-IR maintenance ops (Track L). One-shot tools the
+    /// operator runs against the local skill store — currently just
+    /// `backfill`, which synthesises a minimal `SkillGraph` for every
+    /// installed skill that lacks one (brief `L3-skill-ir-backfill`).
+    Ir {
+        #[command(subcommand)]
+        cmd: SkillIrCmd,
+    },
+}
+
+/// `argo skill ir` subtree — operator-facing maintenance ops over the
+/// canonical Skill IR (Track L). Sized as a leaf enum so future IR
+/// utilities (verify-chain, export, diff) land here without bloating
+/// [`SkillCmd`].
+#[derive(Subcommand, Debug)]
+pub enum SkillIrCmd {
+    /// One-shot: synthesise a minimal IR (single `action` node with
+    /// the skill body as instruction) for every installed skill
+    /// missing an `skill_ir` row. Idempotent — re-running produces
+    /// zero writes. `--dry-run` reports counts without persisting.
+    Backfill {
+        /// Walk the store, classify each skill, but write nothing.
+        #[arg(long)]
+        dry_run: bool,
+        /// Emit a JSON envelope `{backfilled, skipped, entries: [...]}`
+        /// instead of the human-readable summary.
+        #[arg(long)]
+        json: bool,
+    },
 }
