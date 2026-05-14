@@ -1,0 +1,8 @@
+[worker]
+id = "worker-b"
+name = "Nora"
+role = "enterprise renewal follow-up"
+
+[[duties]]
+id = "continue-renewal"
+reads_shared_memory = true

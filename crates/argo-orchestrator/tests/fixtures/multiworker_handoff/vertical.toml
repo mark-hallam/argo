@@ -1,0 +1,7 @@
+[vertical]
+id = "enterprise-renewal-smoke"
+name = "Enterprise renewal smoke"
+version = "0.1.0"
+
+[memory]
+scope = "shared_team"

@@ -272,6 +272,13 @@ slack_out=$(cargo test -p argo-cli --test slack_approval_roundtrip_e2e --quiet 2
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "slack_approval_roundtrip_e2e passed"
 
+heading "22. Multi-worker handoff memory smoke"
+cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+handoff_out=$(cargo test -p argo-orchestrator --test multiworker_handoff_e2e_smoke --quiet 2>&1) \
+  || fail "multiworker_handoff_e2e_smoke" "$handoff_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "multiworker_handoff_e2e_smoke passed"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"

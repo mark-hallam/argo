@@ -1,0 +1,8 @@
+[worker]
+id = "worker-a"
+name = "Maya"
+role = "enterprise renewal owner"
+
+[[duties]]
+id = "collect-evidence"
+handoff_to = "worker-b"
