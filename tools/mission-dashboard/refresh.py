@@ -1713,7 +1713,7 @@ HTML_TEMPLATE = r"""<!doctype html>
   <div id="phase-detail-drawer" class="phase-drawer"></div>
   <div style="color:var(--ink-3);font-size:11px;margin-top:8px;">
     <span id="ledger-phase-summary"></span>
-    <span style="margin-left:8px;color:var(--mute);">Phase F is a historical catchall (pre-Tick-198 v0.x foundation work + architectural splits) — high % there reflects archive, not forward progress.</span>
+    <span style="margin-left:8px;color:var(--mute);">Phases A–E are sparse / closed-out; the conductor now writes nearly all new rows into Phase F (the catchall). Phase F's %-complete and open/blocked counts are the only ones worth reading day-to-day — A/B/C/D/E remain for historical traceability. For real organising structure, see the Tier M ship-gate panel and Product Roadmap Tracks below.</span>
   </div>
 </div>
 
@@ -2031,21 +2031,13 @@ const stats = DATA.stats;                  // MISSION_BACKLOG-derived (kept for 
 const lps = DATA.ledger_phase_stats || {}; // live BUILD_STATUS phases — primary
 const lc = (DATA.stats && DATA.stats.ledger_counts) || {};
 const v = DATA.velocity;
-// "Focus now" = first phase (alphabetical) that still has open work (TODO/CLAIMED/IN_REVIEW > 0).
-// Phase A is 100% MERGED today, so the headline auto-advances to Phase B.
-const focusPhase = (() => {
-  const order = ["A","B","C","D","E","F"];
-  for (const p of order) {
-    const info = (lps.by_phase || {})[p];
-    if (!info || !info.n) continue;
-    const c = info.counts || {};
-    const open = (c.TODO||0) + (c.CLAIMED||0) + (c.IN_REVIEW||0);
-    if (open > 0) return { p, info };
-  }
-  return { p: "A", info: (lps.by_phase || {}).A };
-})();
-const focusInfo = focusPhase.info || { pct: 0, n: 0, title: "" };
-const focusBlocked = (focusInfo.counts && focusInfo.counts.BLOCKED) || 0;
+// Phases stopped being a useful organising dimension once the conductor
+// collapsed almost everything into Phase F (435 of 480 rows = 91%). The
+// old "Phase X — focus now" hero card mechanically picked F and gave
+// non-actionable guidance. Replaced with a ledger-drift card: per
+// CLAUDE.md drift-prevention rules, zero drift rows is the steady state,
+// so any non-zero count is a protocol alarm worth surfacing.
+const ledgerDrift = DATA.stale_ledger_count || 0;
 const ledgerActive = (lc.IN_REVIEW || 0) + (lc.CLAIMED || 0);
 const ledgerBlockedTotal = lps.total_blocked || (lc.BLOCKED || 0);
 const cardsHTML = [
@@ -2057,12 +2049,12 @@ const cardsHTML = [
     value: v.v_24h.toFixed(1),
     delta: "items/hr · 1h: " + v.v_1h.toFixed(1) + " · 6h: " + v.v_6h.toFixed(1),
     cls: v.v_24h > 0 ? "accent" : "" },
-  { label: "Phase " + focusPhase.p + " — focus now",
-    value: focusInfo.pct.toFixed(0) + "%",
-    delta: (focusInfo.title || "") + " · " +
-           ((focusInfo.counts && focusInfo.counts.TODO || 0) + (focusInfo.counts && focusInfo.counts.CLAIMED || 0) + (focusInfo.counts && focusInfo.counts.IN_REVIEW || 0)) + " open" +
-           (focusBlocked > 0 ? " · " + focusBlocked + " blocked" : ""),
-    cls: "warn" },
+  { label: "Ledger drift",
+    value: fmt(ledgerDrift),
+    delta: ledgerDrift > 0
+      ? "items shipped via PR but ledger says TODO/CLAIMED · protocol target: 0"
+      : "ledger is in sync with git ✓",
+    cls: ledgerDrift > 0 ? "weak" : "accent" },
   { label: "In flight or review",
     value: fmt(ledgerActive),
     delta: (lc.CLAIMED || 0) + " claimed · " + (lc.IN_REVIEW || 0) + " in review" },
