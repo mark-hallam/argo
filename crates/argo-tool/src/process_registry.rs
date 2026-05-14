@@ -33,8 +33,12 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, RwLock};
+
+#[path = "process_registry_tail.rs"]
+mod tail;
+pub use tail::TailBuffer;
+use tail::{send_sigterm, spawn_pump};
 
 /// Cap per stream — generous enough for normal tail output, hard
 /// enough to stop a `yes` loop from ballooning the registry.
@@ -103,74 +107,6 @@ struct ProcessHandle {
     child: Mutex<Option<tokio::process::Child>>,
     stdout: Arc<Mutex<TailBuffer>>,
     stderr: Arc<Mutex<TailBuffer>>,
-}
-
-/// Bounded ring buffer that keeps the most recent `cap` bytes plus
-/// a counter of dropped bytes for "[truncated …]" messages.
-#[derive(Debug)]
-pub struct TailBuffer {
-    buf: Vec<u8>,
-    cap: usize,
-    dropped: u64,
-}
-
-impl TailBuffer {
-    /// Create a new buffer with capacity `cap` bytes.
-    #[must_use]
-    pub fn new(cap: usize) -> Self {
-        Self {
-            buf: Vec::with_capacity(cap.min(8 * 1024)),
-            cap,
-            dropped: 0,
-        }
-    }
-
-    /// Append `chunk`; oldest bytes are evicted to keep the buffer
-    /// at most `cap` bytes.
-    pub fn push(&mut self, chunk: &[u8]) {
-        if chunk.is_empty() {
-            return;
-        }
-        if chunk.len() >= self.cap {
-            let extra = self.buf.len() as u64 + (chunk.len() - self.cap) as u64;
-            self.dropped = self.dropped.saturating_add(extra);
-            self.buf.clear();
-            self.buf.extend_from_slice(&chunk[chunk.len() - self.cap..]);
-            return;
-        }
-        let total = self.buf.len() + chunk.len();
-        if total > self.cap {
-            let drop = total - self.cap;
-            self.buf.drain(..drop);
-            self.dropped = self.dropped.saturating_add(drop as u64);
-        }
-        self.buf.extend_from_slice(chunk);
-    }
-
-    /// Return the last `up_to` bytes as UTF-8 (lossy) plus a
-    /// truncation marker if any bytes were dropped.
-    #[must_use]
-    pub fn render(&self, up_to: usize) -> String {
-        let slice = if self.buf.len() > up_to {
-            &self.buf[self.buf.len() - up_to..]
-        } else {
-            &self.buf[..]
-        };
-        let mut out = String::from_utf8_lossy(slice).into_owned();
-        let dropped_total = self.dropped + (self.buf.len() - slice.len()) as u64;
-        if dropped_total > 0 {
-            out.push_str(&format!(
-                "\n... [truncated {dropped_total} bytes from this stream]"
-            ));
-        }
-        out
-    }
-
-    /// Total bytes dropped due to capacity pressure.
-    #[must_use]
-    pub fn dropped(&self) -> u64 {
-        self.dropped
-    }
 }
 
 /// Concurrent registry of background processes.
@@ -361,36 +297,6 @@ pub struct TailOutput {
     pub stderr: String,
 }
 
-fn spawn_pump<R: tokio::io::AsyncRead + Unpin + Send + 'static>(
-    mut reader: R,
-    sink: Arc<Mutex<TailBuffer>>,
-) {
-    tokio::spawn(async move {
-        let mut buf = [0u8; 4096];
-        loop {
-            match reader.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => sink.lock().await.push(&buf[..n]),
-            }
-        }
-    });
-}
-
-#[cfg(unix)]
-fn send_sigterm(pid: u32) {
-    // SAFETY: libc::kill is safe to call from any thread; pid 0 /
-    // negative are intentionally not delivered here (tokio gives
-    // the child's positive pid).
-    unsafe {
-        libc::kill(pid as i32, libc::SIGTERM);
-    }
-}
-
-#[cfg(not(unix))]
-fn send_sigterm(_pid: u32) {
-    // Non-Unix: fall through to tokio's `kill()` (SIGKILL-equivalent).
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -462,26 +368,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, ArgoError::Tool { .. }));
-    }
-
-    #[test]
-    fn tail_buffer_evicts_oldest_bytes() {
-        let mut tb = TailBuffer::new(8);
-        tb.push(b"abcdefghij"); // 10 bytes, cap 8
-        let s = tb.render(64);
-        assert!(s.starts_with("cdefghij"), "got: {s:?}");
-        assert!(s.contains("[truncated"));
-        assert_eq!(tb.dropped(), 2);
-    }
-
-    #[test]
-    fn tail_buffer_handles_appends_under_cap() {
-        let mut tb = TailBuffer::new(16);
-        tb.push(b"abc");
-        tb.push(b"def");
-        let s = tb.render(64);
-        assert_eq!(s, "abcdef");
-        assert_eq!(tb.dropped(), 0);
     }
 
     #[test]
