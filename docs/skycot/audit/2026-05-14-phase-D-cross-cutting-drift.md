@@ -46,7 +46,7 @@ LOW severity (10 more): TickReport, SuggestedAction, SendMessageRequest, Sandbox
 | Crate | LOC | Status |
 |---|---|---|
 | argo-acp | 873 | Triaged 2026-05-15: kept as standalone ACP library; CLI serve stub was deleted separately, future server wire-up deferred |
-| argo-delegate | 582 | Active source; zero workspace consumers despite Phase A claim mapping |
+| argo-delegate | 582 | REMOVED by `claude-argo-delegate-triage`; duplicate/unwired subagent workspace-fork design superseded by `argo-tool` + `argo-orchestrator` handoff flow |
 
 (MCP connectors are intentionally standalone via dynamic loading; not dead.)
 
@@ -70,7 +70,7 @@ No `#[serde(rename = "v1")]` or `schema_version` fields found on serialized type
 | `claude-canonicalize-parallel-names-round2-high` | P1 | 800 | HIGH-sev: WorkerId, Session, RunResult/Request, SkillCandidate, MemoryEntry, JsonRpc*, StepRecord |
 | `claude-toml-inherit-workspace-versions` | P1 | 50 | Regex replace 236 version literals |
 | `claude-argo-acp-triage` | P1 | 100 | Investigate; archive/delete/wire up |
-| `claude-argo-delegate-triage` | P1 | 100 | Investigate; archive/delete/wire up |
+| `claude-argo-delegate-triage` | P1 | 100 | ACTIONED: deleted orphan crate and corrected Phase A Claim 2 mapping |
 | `mission-canonicalize-parallel-names-round2-low` | P2 | 800 | Low-sev bundle (10 types); post-v1 |
 | `mission-schema-validation-macro` | P2 | 1000 | Compile-time argo-store schema check; post-v1 |
 | `mission-serialization-versioning` | P2 | 1500 | Add `#[serde(rename = "v1")]` everywhere; post-v1 |

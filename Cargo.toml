@@ -15,7 +15,6 @@ members = [
   "crates/argo-cron",
   "crates/argo-channels",
   "crates/argo-bluebubbles-client",
-  "crates/argo-delegate",
   "crates/argo-sandbox",
   "crates/argo-plugin",
   "crates/argo-mcp",

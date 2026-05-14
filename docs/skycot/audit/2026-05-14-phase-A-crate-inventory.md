@@ -8,7 +8,7 @@
 
 - **88 crates total**, ~520,814 LOC of Rust. 81 active, 7 stubs (0 LOC).
 - **Critical risks**: 2 single-points-of-failure (Claim 1, Claim 3), 1 drift cluster (Claim 4), 11+ duplicate type definitions.
-- **Strong coverage**: Claim 2 (6 crates), Claim 6 (3 crates + 8 transports), Claim 5 (40+ crates — possibly over-covered).
+- **Strong coverage**: Claim 2 (5 crates), Claim 6 (3 crates + 8 transports), Claim 5 (40+ crates — possibly over-covered).
 - **Immediate actions**: delete 7 stub connectors (apollo, mailgun, resend, signal, telegram, zoom, zoominfo), resolve top-2 duplicate types (Decision, AuditRow).
 
 ## Section 1 — Crate census + LOC distribution
@@ -52,8 +52,8 @@
 **Status**: ⚠️ SPOF — only argo-identity directly serves. Hardening: dual-code-review + 95% coverage.
 
 ### Claim 2 — Delegation is the unit
-**Serving**: argo-identity, argo-orchestrator (7,685), argo-delegate (582), argo-workflow (1,937), argo-runtime (6,147), argo-cron (1,197).
-**Status**: ✓ Well-covered (6 crates).
+**Serving**: argo-identity, argo-orchestrator (7,685), argo-workflow (1,937), argo-runtime (6,147), argo-cron (1,197).
+**Status**: ✓ Well-covered (5 crates). `argo-delegate` was removed by `claude-argo-delegate-triage` because the live delegation path is `argo-tool` → `argo-orchestrator`, and the crate had zero workspace consumers.
 
 ### Claim 3 — Platform builds workers
 **Serving**: argo-genesis (7,939), argo-vertical (5,736), argo-judge (1,543).

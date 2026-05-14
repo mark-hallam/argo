@@ -507,23 +507,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "argo-delegate"
-version = "0.0.1"
-dependencies = [
- "argo-types",
- "chrono",
- "hex",
- "proptest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "argo-eval"
 version = "0.0.1"
 dependencies = [
