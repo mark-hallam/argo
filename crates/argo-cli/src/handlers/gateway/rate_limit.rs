@@ -22,12 +22,10 @@
 //! - `forge.run` (POST /sessions/<id>/runs): 10 rpm/tenant.
 //! - `skill.execute` (POST /skills/<name>/refine): 30 rpm/tenant.
 //!
-//! # Env knobs
-//!
-//! - `ARGO_RATE_LIMIT_DEFAULT_RPM=<n>` overrides the default rpm.
-//! - `ARGO_RATE_LIMIT_<ROUTE>_RPM=<n>` overrides a specific route.
-//!   Route key is uppercased and non-alphanumerics become `_`. So
-//!   `forge.run` → `ARGO_RATE_LIMIT_FORGE_RUN_RPM`.
+//! Config is read from `[gateway.rate_limit.route]` through
+//! [`argo_config::GatewayRateLimitRouteConfig`]. Legacy
+//! `ARGO_RATE_LIMIT_*_RPM` env overrides are bound by `argo-config`,
+//! not read here.
 //!
 //! # Sensible deviation from brief
 //!
@@ -38,6 +36,7 @@
 //! surfaced inside the JSON body (`retry_after_ms`) only. Adding a
 //! true header requires a separate brief that touches `boot.rs`.
 
+use argo_config::GatewayRateLimitRouteConfig;
 use dashmap::DashMap;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -49,9 +48,8 @@ use tokio::time::Instant;
 #[path = "rate_limit_tests.rs"]
 mod tests;
 
-pub(super) const DEFAULT_RPM: u32 = 100;
+#[cfg(test)]
 pub(super) const FORGE_RUN_RPM: u32 = 10;
-pub(super) const SKILL_EXECUTE_RPM: u32 = 30;
 pub(super) const EVICT_AGE: Duration = Duration::from_secs(10 * 60);
 pub(super) const SWEEP_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -119,20 +117,9 @@ impl RateLimiter {
         }
     }
 
-    /// Construct from `ARGO_RATE_LIMIT_*` env vars. Invalid values fall
-    /// back to documented defaults rather than failing gateway start.
-    pub fn from_env() -> Self {
-        let default_rpm = read_env_rpm("ARGO_RATE_LIMIT_DEFAULT_RPM", DEFAULT_RPM);
-        let mut overrides = HashMap::new();
-        overrides.insert(
-            ROUTE_FORGE_RUN.to_string(),
-            read_env_rpm(&env_var_for_route(ROUTE_FORGE_RUN), FORGE_RUN_RPM),
-        );
-        overrides.insert(
-            ROUTE_SKILL_EXECUTE.to_string(),
-            read_env_rpm(&env_var_for_route(ROUTE_SKILL_EXECUTE), SKILL_EXECUTE_RPM),
-        );
-        Self::new(default_rpm, overrides)
+    /// Construct from `[gateway.rate_limit.route]` config.
+    pub fn from_config(cfg: &GatewayRateLimitRouteConfig) -> Self {
+        Self::new(cfg.default_rpm, cfg.overrides.clone())
     }
 
     /// Resolve the configured rpm for a route — override or default.
@@ -198,12 +185,12 @@ static LIMITER: OnceLock<Arc<RateLimiter>> = OnceLock::new();
 /// Initialise the process-wide limiter and spawn the sweep task.
 /// Idempotent — only the first caller wins. Safe to call from any
 /// async context with a tokio runtime in scope.
-pub fn init() -> Arc<RateLimiter> {
+pub fn init_with_config(cfg: &GatewayRateLimitRouteConfig) -> Arc<RateLimiter> {
     let mut spawned = false;
     let limiter = LIMITER
         .get_or_init(|| {
             spawned = true;
-            Arc::new(RateLimiter::from_env())
+            Arc::new(RateLimiter::from_config(cfg))
         })
         .clone();
     if spawned {
@@ -239,17 +226,11 @@ pub(super) fn classify_route(method: &str, target: &str) -> Cow<'static, str> {
         .split('/')
         .filter(|s| !s.is_empty())
         .collect();
-    if method == "POST"
-        && segments.len() == 3
-        && segments[0] == "sessions"
-        && segments[2] == "runs"
+    if method == "POST" && segments.len() == 3 && segments[0] == "sessions" && segments[2] == "runs"
     {
         return Cow::Borrowed(ROUTE_FORGE_RUN);
     }
-    if method == "POST"
-        && segments.len() == 3
-        && segments[0] == "skills"
-        && segments[2] == "refine"
+    if method == "POST" && segments.len() == 3 && segments[0] == "skills" && segments[2] == "refine"
     {
         return Cow::Borrowed(ROUTE_SKILL_EXECUTE);
     }
@@ -268,8 +249,8 @@ pub(super) fn classify_route(method: &str, target: &str) -> Cow<'static, str> {
 }
 
 /// Extract the bucket-key tenant from the request. Order: `?tenant=`
-/// query param, `X-Tenant-Id` header, `ARGO_DEFAULT_TENANT` /
-/// `ARGO_WEBINBOX_TENANT_ID` env var, then `"anonymous"`.
+/// query param, `X-Tenant-Id` header, config default tenant /
+/// web-inbox tenant, then `"anonymous"`.
 pub fn extract_tenant(req: &str) -> String {
     if let Some(target) = request_target(req) {
         if let Some((_, qs)) = target.split_once('?') {
@@ -287,25 +268,13 @@ pub fn extract_tenant(req: &str) -> String {
             return value.to_string();
         }
     }
-    std::env::var("ARGO_DEFAULT_TENANT")
-        .ok()
-        .filter(|s| !s.is_empty())
-        .or_else(|| {
-            std::env::var("ARGO_WEBINBOX_TENANT_ID")
-                .ok()
-                .filter(|s| !s.is_empty())
-        })
+    let cfg = argo_config::load().unwrap_or_default();
+    non_empty(cfg.tenant.default_id)
+        .or_else(|| cfg.channels.webinbox.tenant_id.and_then(non_empty))
         .unwrap_or_else(|| "anonymous".to_string())
 }
 
-fn read_env_rpm(name: &str, default: u32) -> u32 {
-    std::env::var(name)
-        .ok()
-        .and_then(|s| s.parse::<u32>().ok())
-        .filter(|n| *n > 0)
-        .unwrap_or(default)
-}
-
+#[cfg(test)]
 pub(super) fn env_var_for_route(route: &str) -> String {
     let mut buf = String::with_capacity(20 + route.len());
     buf.push_str("ARGO_RATE_LIMIT_");
@@ -324,6 +293,10 @@ pub(super) fn env_var_for_route(route: &str) -> String {
     }
     buf.push_str("RPM");
     buf
+}
+
+fn non_empty(s: String) -> Option<String> {
+    (!s.is_empty() && s != argo_config::defaults::DEFAULT_TENANT_ID).then_some(s)
 }
 
 fn request_target(req: &str) -> Option<&str> {

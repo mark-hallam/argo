@@ -12,9 +12,13 @@
 //! terminated with `\r\n`) that callers paste between `Content-Length`
 //! and the blank-line separator.
 //!
-//! `ARGO_CSP_REPORT_ONLY=1` swaps the `Content-Security-Policy` header
-//! name for `Content-Security-Policy-Report-Only` for staging rollout
-//! (browsers report violations without blocking).
+//! `[gateway.security_headers] csp_report_only = true` swaps the
+//! `Content-Security-Policy` header name for
+//! `Content-Security-Policy-Report-Only` for staging rollout
+//! (browsers report violations without blocking). Legacy
+//! `ARGO_CSP_REPORT_ONLY=1` is bound by `argo-config`.
+
+use argo_config::GatewaySecurityHeadersConfig;
 
 const CSP_VALUE: &str = "default-src 'self'; \
 script-src 'self'; \
@@ -25,8 +29,7 @@ frame-ancestors 'none'; \
 base-uri 'self'; \
 form-action 'self'";
 
-const PERMISSIONS_POLICY: &str =
-    "geolocation=(), camera=(), microphone=(), payment=()";
+const PERMISSIONS_POLICY: &str = "geolocation=(), camera=(), microphone=(), payment=()";
 const HSTS_VALUE: &str = "max-age=31536000; includeSubDomains";
 
 /// Build the security-header block for a response.
@@ -44,12 +47,17 @@ const HSTS_VALUE: &str = "max-age=31536000; includeSubDomains";
 /// # Examples
 ///
 /// ```ignore
-/// let block = header_lines("application/json", false);
+/// let cfg = argo_config::GatewaySecurityHeadersConfig::default();
+/// let block = header_lines("application/json", false, &cfg);
 /// assert!(block.contains("X-Content-Type-Options: nosniff"));
 /// assert!(!block.contains("Content-Security-Policy"));
 /// assert!(!block.contains("Strict-Transport-Security"));
 /// ```
-pub(super) fn header_lines(content_type: &str, request_https: bool) -> String {
+pub(super) fn header_lines(
+    content_type: &str,
+    request_https: bool,
+    cfg: &GatewaySecurityHeadersConfig,
+) -> String {
     let mut out = String::with_capacity(512);
     out.push_str("X-Content-Type-Options: nosniff\r\n");
     out.push_str("X-Frame-Options: DENY\r\n");
@@ -63,7 +71,7 @@ pub(super) fn header_lines(content_type: &str, request_https: bool) -> String {
         out.push_str("\r\n");
     }
     if content_type.starts_with("text/html") {
-        out.push_str(csp_header_name());
+        out.push_str(csp_header_name(cfg));
         out.push_str(": ");
         out.push_str(CSP_VALUE);
         out.push_str("\r\n");
@@ -71,8 +79,8 @@ pub(super) fn header_lines(content_type: &str, request_https: bool) -> String {
     out
 }
 
-fn csp_header_name() -> &'static str {
-    if std::env::var("ARGO_CSP_REPORT_ONLY").ok().as_deref() == Some("1") {
+fn csp_header_name(cfg: &GatewaySecurityHeadersConfig) -> &'static str {
+    if cfg.csp_report_only {
         "Content-Security-Policy-Report-Only"
     } else {
         "Content-Security-Policy"

@@ -17,7 +17,7 @@
 //!   opt-in; an operator must provision a token before the
 //!   provisioning endpoints become reachable. This avoids a silent
 //!   "anyone with network access provisions users" foot-gun.
-//! - `ARGO_GATEWAY_AUTH_BYPASS=1` → bypass, for integration tests.
+//! - `gateway.auth_bypass = true` → bypass, for integration tests.
 //!   Same escape hatch the operator-facing bearer honors.
 //! - Otherwise: require an exact `Authorization: Bearer <token>`
 //!   match. Mismatch → 401.
@@ -36,11 +36,7 @@
 /// assert!(check_scim_bearer("GET /scim/v2/Users HTTP/1.1\r\n\r\n").is_some());
 /// ```
 pub(super) fn check_scim_bearer(req: &str) -> Option<(&'static str, String)> {
-    if std::env::var("ARGO_GATEWAY_AUTH_BYPASS")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
+    if argo_config::load().unwrap_or_default().gateway.auth_bypass {
         return None;
     }
     let expected = match argo_config::cred::get("ARGO_SCIM_BEARER_TOKEN") {
@@ -79,9 +75,8 @@ pub(super) fn is_scim_path(req: &str) -> bool {
 fn presented_bearer(req: &str) -> Option<String> {
     req.lines()
         .find_map(|l| {
-            l.split_once(':').and_then(|(k, v)| {
-                k.eq_ignore_ascii_case("Authorization").then(|| v.trim())
-            })
+            l.split_once(':')
+                .and_then(|(k, v)| k.eq_ignore_ascii_case("Authorization").then(|| v.trim()))
         })
         .and_then(|h| h.strip_prefix("Bearer "))
         .map(str::to_string)
@@ -98,7 +93,9 @@ mod tests {
 
     #[test]
     fn matches_user_with_id() {
-        assert!(is_scim_path("PATCH /scim/v2/Users/abc-123 HTTP/1.1\r\n\r\n"));
+        assert!(is_scim_path(
+            "PATCH /scim/v2/Users/abc-123 HTTP/1.1\r\n\r\n"
+        ));
     }
 
     #[test]
@@ -115,4 +112,3 @@ mod tests {
         assert!(!is_scim_path("GET /scim/v1/Users HTTP/1.1\r\n\r\n"));
     }
 }
-

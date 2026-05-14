@@ -4,6 +4,7 @@
 //! ceiling. Re-exported through `sections` so the public API is
 //! unchanged.
 use crate::defaults;
+use crate::sections_rate_limit::GatewayRateLimitConfig;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 
@@ -23,6 +24,9 @@ pub struct GatewayConfig {
     /// Public-facing URL clients use to reach this gateway.
     /// Default [`crate::defaults::DEFAULT_GATEWAY_URL`].
     pub url: String,
+    /// Integration-test escape hatch for routes that normally require
+    /// bearer-auth. Default `false`.
+    pub auth_bypass: bool,
     /// Orchestrator duty scheduler tick interval (seconds).
     /// Default [`crate::defaults::DEFAULT_DUTY_SCHEDULER_SECS`].
     pub duty_scheduler_secs: u64,
@@ -40,6 +44,8 @@ pub struct GatewayConfig {
     pub behind_proxy: GatewayBehindProxyConfig,
     /// `[gateway.request_audit]` per-request audit capture.
     pub request_audit: GatewayRequestAuditConfig,
+    /// `[gateway.security_headers]` browser hardening knobs.
+    pub security_headers: GatewaySecurityHeadersConfig,
 }
 
 impl Default for GatewayConfig {
@@ -50,13 +56,24 @@ impl Default for GatewayConfig {
             host: defaults::DEFAULT_GATEWAY_HOST.into(),
             port: defaults::DEFAULT_GATEWAY_PORT,
             url: defaults::DEFAULT_GATEWAY_URL.into(),
+            auth_bypass: false,
             duty_scheduler_secs: defaults::DEFAULT_DUTY_SCHEDULER_SECS,
             handoff_sweep_secs: defaults::DEFAULT_HANDOFF_SWEEP_SECS,
             rate_limit: GatewayRateLimitConfig::default(),
             behind_proxy: GatewayBehindProxyConfig::default(),
             request_audit: GatewayRequestAuditConfig::default(),
+            security_headers: GatewaySecurityHeadersConfig::default(),
         }
     }
+}
+
+/// `[gateway.security_headers]` — browser header rollout knobs.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GatewaySecurityHeadersConfig {
+    /// When true, emit `Content-Security-Policy-Report-Only` instead
+    /// of enforcing CSP. Default `false`.
+    pub csp_report_only: bool,
 }
 
 /// `[gateway.request_audit]` — per-request audit table capture.
@@ -119,47 +136,6 @@ impl Default for GatewayBehindProxyConfig {
         Self {
             expected_proxy: defaults::DEFAULT_GATEWAY_EXPECTED_PROXY,
             trusted_proxies: Vec::new(),
-        }
-    }
-}
-
-/// `[gateway.rate_limit]` parent — currently only the `tenant`
-/// sub-block is consumed by the gateway, but the parent is its own
-/// struct so the existing per-route limiter (which the
-/// `claude-rate-limit-per-route` brief left env-driven) can grow a
-/// `[gateway.rate_limit.route]` block without another schema flip.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct GatewayRateLimitConfig {
-    /// `[gateway.rate_limit.tenant]` — per-tenant defaults.
-    pub tenant: GatewayRateLimitTenantConfig,
-}
-
-/// `[gateway.rate_limit.tenant]` — per-tenant rate-limit defaults
-/// for the gateway's `RateLimitTenant` middleware (Stream
-/// `mission-per-tenant-rate-limiting`, MISSION_BACKLOG Section 1
-/// #21). Per-tenant overrides live in the `tenant_rate_limit` table
-/// and take precedence over this config block.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct GatewayRateLimitTenantConfig {
-    /// Default per-minute budget per tenant. `0` disables the
-    /// limiter entirely. Default
-    /// [`crate::defaults::DEFAULT_GATEWAY_RATE_LIMIT_TENANT_RPM`].
-    pub requests_per_minute: u32,
-    /// Burst multiplier — the in-memory token bucket holds
-    /// `requests_per_minute * burst_multiplier` tokens, so a tenant
-    /// can spike up to that many requests in one second before the
-    /// refill rate (rpm/60 per second) bounds them. Default
-    /// [`crate::defaults::DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST`].
-    pub burst_multiplier: f64,
-}
-
-impl Default for GatewayRateLimitTenantConfig {
-    fn default() -> Self {
-        Self {
-            requests_per_minute: defaults::DEFAULT_GATEWAY_RATE_LIMIT_TENANT_RPM,
-            burst_multiplier: defaults::DEFAULT_GATEWAY_RATE_LIMIT_TENANT_BURST,
         }
     }
 }

@@ -14,6 +14,10 @@
 //! the resulting [`ArgoConfig`] (or a `&` slice of it) downward.
 //! Direct `std::env::var("ARGO_*")` reads outside this crate are
 //! flagged by `scripts/check-no-direct-env-reads.sh`.
+use crate::loader_env::{
+    env_bool, env_bool_not_zero, env_bool_one, env_f64_positive_lossy, env_string, env_u16,
+    env_u32_lossy, env_u32_positive_lossy, env_u64,
+};
 use crate::{defaults, ArgoConfig};
 use argo_types::{ArgoError, ArgoResult};
 use std::path::{Path, PathBuf};
@@ -137,51 +141,119 @@ impl ArgoConfig {
     pub fn from_env() -> ArgoResult<Self> {
         let mut cfg = Self::default();
         let mut overrides = ArgoConfigOverrides::default();
+        macro_rules! set {
+            ($flag:ident, $target:expr, $value:expr) => {
+                if let Some(v) = $value {
+                    $target = v;
+                    overrides.$flag = true;
+                }
+            };
+        }
 
-        if let Some(v) = env_string("ARGO_HOME") {
-            cfg.core.home = v;
-            overrides.core_home = true;
+        set!(core_home, cfg.core.home, env_string("ARGO_HOME"));
+        set!(core_profile, cfg.core.profile, env_string("ARGO_PROFILE"));
+        set!(
+            tenant_default_id,
+            cfg.tenant.default_id,
+            env_string("ARGO_DEFAULT_TENANT")
+        );
+        set!(
+            telemetry_exporter,
+            cfg.telemetry.exporter,
+            env_string("ARGO_TELEMETRY_EXPORTER")
+        );
+        set!(
+            telemetry_endpoint,
+            cfg.telemetry.endpoint,
+            env_string("ARGO_TELEMETRY_ENDPOINT")
+        );
+        set!(
+            telemetry_enabled,
+            cfg.telemetry.enabled,
+            env_bool("ARGO_TELEMETRY_ENABLED")?
+        );
+        set!(
+            gateway_port,
+            cfg.gateway.port,
+            env_u16("ARGO_GATEWAY_PORT")?
+        );
+        set!(gateway_url, cfg.gateway.url, env_string("ARGO_GATEWAY_URL"));
+        set!(
+            gateway_host,
+            cfg.gateway.host,
+            env_string("ARGO_GATEWAY_HOST")
+        );
+        set!(
+            gateway_duty_scheduler_secs,
+            cfg.gateway.duty_scheduler_secs,
+            env_u64("ARGO_DUTY_SCHEDULER_SECS")?
+        );
+        set!(
+            gateway_handoff_sweep_secs,
+            cfg.gateway.handoff_sweep_secs,
+            env_u64("ARGO_HANDOFF_SWEEP_SECS")?
+        );
+        set!(
+            gateway_auth_bypass,
+            cfg.gateway.auth_bypass,
+            env_bool_one("ARGO_GATEWAY_AUTH_BYPASS")
+        );
+        set!(
+            gateway_rate_limit_ip_enabled,
+            cfg.gateway.rate_limit.ip.enabled,
+            env_bool_not_zero("ARGO_IP_RATE_LIMIT")
+        );
+        set!(
+            gateway_rate_limit_ip_capacity,
+            cfg.gateway.rate_limit.ip.capacity,
+            env_u32_positive_lossy("ARGO_IP_RATE_CAPACITY")
+        );
+        set!(
+            gateway_rate_limit_ip_refill_per_sec,
+            cfg.gateway.rate_limit.ip.refill_per_sec,
+            env_f64_positive_lossy("ARGO_IP_RATE_REFILL")
+        );
+        set!(
+            gateway_rate_limit_ip_trust_xff,
+            cfg.gateway.rate_limit.ip.trust_xff,
+            env_bool_one("ARGO_TRUST_XFF")
+        );
+        set!(
+            gateway_rate_limit_route_default_rpm,
+            cfg.gateway.rate_limit.route.default_rpm,
+            env_u32_positive_lossy("ARGO_RATE_LIMIT_DEFAULT_RPM")
+        );
+        if let Some(v) = env_u32_positive_lossy("ARGO_RATE_LIMIT_FORGE_RUN_RPM") {
+            cfg.gateway
+                .rate_limit
+                .route
+                .overrides
+                .insert("forge.run".into(), v);
+            overrides.gateway_rate_limit_route_forge_run_rpm = true;
         }
-        if let Some(v) = env_string("ARGO_PROFILE") {
-            cfg.core.profile = v;
-            overrides.core_profile = true;
+        if let Some(v) = env_u32_positive_lossy("ARGO_RATE_LIMIT_SKILL_EXECUTE_RPM") {
+            cfg.gateway
+                .rate_limit
+                .route
+                .overrides
+                .insert("skill.execute".into(), v);
+            overrides.gateway_rate_limit_route_skill_execute_rpm = true;
         }
-        if let Some(v) = env_string("ARGO_DEFAULT_TENANT") {
-            cfg.tenant.default_id = v;
-            overrides.tenant_default_id = true;
-        }
-        if let Some(v) = env_string("ARGO_TELEMETRY_EXPORTER") {
-            cfg.telemetry.exporter = v;
-            overrides.telemetry_exporter = true;
-        }
-        if let Some(v) = env_string("ARGO_TELEMETRY_ENDPOINT") {
-            cfg.telemetry.endpoint = v;
-            overrides.telemetry_endpoint = true;
-        }
-        if let Some(v) = env_bool("ARGO_TELEMETRY_ENABLED")? {
-            cfg.telemetry.enabled = v;
-            overrides.telemetry_enabled = true;
-        }
-        if let Some(v) = env_u16("ARGO_GATEWAY_PORT")? {
-            cfg.gateway.port = v;
-            overrides.gateway_port = true;
-        }
-        if let Some(v) = env_string("ARGO_GATEWAY_URL") {
-            cfg.gateway.url = v;
-            overrides.gateway_url = true;
-        }
-        if let Some(v) = env_string("ARGO_GATEWAY_HOST") {
-            cfg.gateway.host = v;
-            overrides.gateway_host = true;
-        }
-        if let Some(v) = env_u64("ARGO_DUTY_SCHEDULER_SECS")? {
-            cfg.gateway.duty_scheduler_secs = v;
-            overrides.gateway_duty_scheduler_secs = true;
-        }
-        if let Some(v) = env_u64("ARGO_HANDOFF_SWEEP_SECS")? {
-            cfg.gateway.handoff_sweep_secs = v;
-            overrides.gateway_handoff_sweep_secs = true;
-        }
+        set!(
+            gateway_rate_limit_tenant_rpm,
+            cfg.gateway.rate_limit.tenant.requests_per_minute,
+            env_u32_lossy("ARGO_RATE_LIMIT_TENANT_PER_MIN")
+        );
+        set!(
+            channels_webinbox_tenant_id,
+            cfg.channels.webinbox.tenant_id,
+            env_string("ARGO_WEBINBOX_TENANT_ID").map(Some)
+        );
+        set!(
+            gateway_security_headers_csp_report_only,
+            cfg.gateway.security_headers.csp_report_only,
+            env_bool_one("ARGO_CSP_REPORT_ONLY")
+        );
 
         cfg.overrides = overrides;
         Ok(cfg)
@@ -201,6 +273,20 @@ impl ArgoConfig {
     /// ```
     pub fn merge(&mut self, other: Self) {
         let o = &other.overrides;
+        let forge_run_rpm = other
+            .gateway
+            .rate_limit
+            .route
+            .overrides
+            .get("forge.run")
+            .copied();
+        let skill_execute_rpm = other
+            .gateway
+            .rate_limit
+            .route
+            .overrides
+            .get("skill.execute")
+            .copied();
         if o.core_home {
             self.core.home = other.core.home;
         }
@@ -234,45 +320,55 @@ impl ArgoConfig {
         if o.gateway_handoff_sweep_secs {
             self.gateway.handoff_sweep_secs = other.gateway.handoff_sweep_secs;
         }
+        if o.gateway_auth_bypass {
+            self.gateway.auth_bypass = other.gateway.auth_bypass;
+        }
+        if o.gateway_rate_limit_ip_enabled {
+            self.gateway.rate_limit.ip.enabled = other.gateway.rate_limit.ip.enabled;
+        }
+        if o.gateway_rate_limit_ip_capacity {
+            self.gateway.rate_limit.ip.capacity = other.gateway.rate_limit.ip.capacity;
+        }
+        if o.gateway_rate_limit_ip_refill_per_sec {
+            self.gateway.rate_limit.ip.refill_per_sec = other.gateway.rate_limit.ip.refill_per_sec;
+        }
+        if o.gateway_rate_limit_ip_trust_xff {
+            self.gateway.rate_limit.ip.trust_xff = other.gateway.rate_limit.ip.trust_xff;
+        }
+        if o.gateway_rate_limit_route_default_rpm {
+            self.gateway.rate_limit.route.default_rpm = other.gateway.rate_limit.route.default_rpm;
+        }
+        if o.gateway_rate_limit_route_forge_run_rpm {
+            copy_route_override(self, "forge.run", forge_run_rpm);
+        }
+        if o.gateway_rate_limit_route_skill_execute_rpm {
+            copy_route_override(self, "skill.execute", skill_execute_rpm);
+        }
+        if o.gateway_rate_limit_tenant_rpm {
+            self.gateway.rate_limit.tenant.requests_per_minute =
+                other.gateway.rate_limit.tenant.requests_per_minute;
+        }
+        if o.channels_webinbox_tenant_id {
+            self.channels.webinbox.tenant_id = other.channels.webinbox.tenant_id;
+        }
+        if o.gateway_security_headers_csp_report_only {
+            self.gateway.security_headers.csp_report_only =
+                other.gateway.security_headers.csp_report_only;
+        }
         // Mark merged fields in self too, so a subsequent merge
         // upstream of *self* knows these were overridden.
         self.overrides.combine(o);
     }
 }
 
-fn env_string(key: &str) -> Option<String> {
-    std::env::var(key).ok().filter(|s| !s.is_empty())
-}
-
-fn env_bool(key: &str) -> ArgoResult<Option<bool>> {
-    let Some(raw) = env_string(key) else {
-        return Ok(None);
-    };
-    match raw.to_ascii_lowercase().as_str() {
-        "1" | "true" | "yes" | "on" => Ok(Some(true)),
-        "0" | "false" | "no" | "off" => Ok(Some(false)),
-        _ => Err(ArgoError::Provider(format!(
-            "{key}: expected bool (1/0/true/false), got '{raw}'"
-        ))),
+fn copy_route_override(base: &mut ArgoConfig, route: &str, value: Option<u32>) {
+    if let Some(v) = value {
+        base.gateway
+            .rate_limit
+            .route
+            .overrides
+            .insert(route.to_string(), v);
     }
-}
-
-fn env_u16(key: &str) -> ArgoResult<Option<u16>> {
-    let Some(raw) = env_string(key) else {
-        return Ok(None);
-    };
-    raw.parse::<u16>()
-        .map(Some)
-        .map_err(|e| ArgoError::Provider(format!("{key}: {e}")))
-}
-
-fn env_u64(key: &str) -> ArgoResult<Option<u64>> {
-    let Some(raw) = env_string(key) else {
-        return Ok(None);
-    };
-    raw.parse::<u64>()
-        .map(Some)
-        .map_err(|e| ArgoError::Provider(format!("{key}: {e}")))
 }
 
 /// Bookkeeping for which fields a particular [`ArgoConfig`] layer
@@ -297,6 +393,17 @@ pub(crate) struct ArgoConfigOverrides {
     pub gateway_url: bool,
     pub gateway_duty_scheduler_secs: bool,
     pub gateway_handoff_sweep_secs: bool,
+    pub gateway_auth_bypass: bool,
+    pub gateway_rate_limit_ip_enabled: bool,
+    pub gateway_rate_limit_ip_capacity: bool,
+    pub gateway_rate_limit_ip_refill_per_sec: bool,
+    pub gateway_rate_limit_ip_trust_xff: bool,
+    pub gateway_rate_limit_route_default_rpm: bool,
+    pub gateway_rate_limit_route_forge_run_rpm: bool,
+    pub gateway_rate_limit_route_skill_execute_rpm: bool,
+    pub gateway_rate_limit_tenant_rpm: bool,
+    pub channels_webinbox_tenant_id: bool,
+    pub gateway_security_headers_csp_report_only: bool,
 }
 
 impl ArgoConfigOverrides {
@@ -312,6 +419,19 @@ impl ArgoConfigOverrides {
         self.gateway_url |= other.gateway_url;
         self.gateway_duty_scheduler_secs |= other.gateway_duty_scheduler_secs;
         self.gateway_handoff_sweep_secs |= other.gateway_handoff_sweep_secs;
+        self.gateway_auth_bypass |= other.gateway_auth_bypass;
+        self.gateway_rate_limit_ip_enabled |= other.gateway_rate_limit_ip_enabled;
+        self.gateway_rate_limit_ip_capacity |= other.gateway_rate_limit_ip_capacity;
+        self.gateway_rate_limit_ip_refill_per_sec |= other.gateway_rate_limit_ip_refill_per_sec;
+        self.gateway_rate_limit_ip_trust_xff |= other.gateway_rate_limit_ip_trust_xff;
+        self.gateway_rate_limit_route_default_rpm |= other.gateway_rate_limit_route_default_rpm;
+        self.gateway_rate_limit_route_forge_run_rpm |= other.gateway_rate_limit_route_forge_run_rpm;
+        self.gateway_rate_limit_route_skill_execute_rpm |=
+            other.gateway_rate_limit_route_skill_execute_rpm;
+        self.gateway_rate_limit_tenant_rpm |= other.gateway_rate_limit_tenant_rpm;
+        self.channels_webinbox_tenant_id |= other.channels_webinbox_tenant_id;
+        self.gateway_security_headers_csp_report_only |=
+            other.gateway_security_headers_csp_report_only;
     }
 
     /// Mark every field as overridden — used when a TOML layer is
@@ -333,6 +453,27 @@ impl ArgoConfigOverrides {
             raw.contains("[gateway]") && raw.contains("duty_scheduler_secs");
         self.gateway_handoff_sweep_secs |=
             raw.contains("[gateway]") && raw.contains("handoff_sweep_secs");
+        self.gateway_auth_bypass |= raw.contains("[gateway]") && raw.contains("auth_bypass");
+        self.gateway_rate_limit_ip_enabled |=
+            raw.contains("[gateway.rate_limit.ip]") && raw.contains("enabled");
+        self.gateway_rate_limit_ip_capacity |=
+            raw.contains("[gateway.rate_limit.ip]") && raw.contains("capacity");
+        self.gateway_rate_limit_ip_refill_per_sec |=
+            raw.contains("[gateway.rate_limit.ip]") && raw.contains("refill_per_sec");
+        self.gateway_rate_limit_ip_trust_xff |=
+            raw.contains("[gateway.rate_limit.ip]") && raw.contains("trust_xff");
+        self.gateway_rate_limit_route_default_rpm |=
+            raw.contains("[gateway.rate_limit.route]") && raw.contains("default_rpm");
+        self.gateway_rate_limit_route_forge_run_rpm |=
+            raw.contains("[gateway.rate_limit.route.overrides]") && raw.contains("forge.run");
+        self.gateway_rate_limit_route_skill_execute_rpm |=
+            raw.contains("[gateway.rate_limit.route.overrides]") && raw.contains("skill.execute");
+        self.gateway_rate_limit_tenant_rpm |=
+            raw.contains("[gateway.rate_limit.tenant]") && raw.contains("requests_per_minute");
+        self.channels_webinbox_tenant_id |=
+            raw.contains("[channels.webinbox]") && raw.contains("tenant_id");
+        self.gateway_security_headers_csp_report_only |=
+            raw.contains("[gateway.security_headers]") && raw.contains("csp_report_only");
     }
 }
 

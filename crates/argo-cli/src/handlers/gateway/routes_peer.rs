@@ -64,14 +64,13 @@ pub(super) async fn dispatch(
 /// own secret (`ARGO_PEER_SECRET`) — the operator-facing
 /// `ARGO_GATEWAY_BEARER_TOKEN` is for human/CLI traffic.
 fn check_peer_auth(req: &str) -> Option<(&'static str, String)> {
-    if std::env::var("ARGO_GATEWAY_AUTH_BYPASS").ok().as_deref() == Some("1") {
+    if argo_config::load().unwrap_or_default().gateway.auth_bypass {
         return None;
     }
     let Some(expected) = peer::configured_secret() else {
         return Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"ARGO_PEER_SECRET not configured"}"#
-                .to_string(),
+            r#"{"error":"unauthorized","reason":"ARGO_PEER_SECRET not configured"}"#.to_string(),
         ));
     };
     let presented = presented_bearer(req);
@@ -80,8 +79,7 @@ fn check_peer_auth(req: &str) -> Option<(&'static str, String)> {
     } else {
         Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"invalid peer bearer token"}"#
-                .to_string(),
+            r#"{"error":"unauthorized","reason":"invalid peer bearer token"}"#.to_string(),
         ))
     }
 }
@@ -89,9 +87,8 @@ fn check_peer_auth(req: &str) -> Option<(&'static str, String)> {
 fn presented_bearer(req: &str) -> Option<String> {
     req.lines()
         .find_map(|l| {
-            l.split_once(':').and_then(|(k, v)| {
-                k.eq_ignore_ascii_case("Authorization").then(|| v.trim())
-            })
+            l.split_once(':')
+                .and_then(|(k, v)| k.eq_ignore_ascii_case("Authorization").then(|| v.trim()))
         })
         .and_then(|h| h.strip_prefix("Bearer "))
         .map(str::to_string)
@@ -147,10 +144,7 @@ struct AuditWire {
     created_at: i64,
 }
 
-async fn recent_audit(
-    store: &Arc<SessionStore>,
-    limit: i64,
-) -> Result<Vec<AuditWire>, String> {
+async fn recent_audit(store: &Arc<SessionStore>, limit: i64) -> Result<Vec<AuditWire>, String> {
     let rows: Vec<(i64, String, String, i64)> = sqlx::query_as(
         "SELECT seq, kind, payload_json, created_at FROM audit_record \
          ORDER BY seq DESC LIMIT ?",

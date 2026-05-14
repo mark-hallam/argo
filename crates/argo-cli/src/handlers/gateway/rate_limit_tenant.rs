@@ -31,16 +31,13 @@
 //! - 600 requests / minute / tenant (config-tunable).
 //! - 2.0× burst multiplier ⇒ 1200-token bucket per tenant.
 //!
-//! # Env knobs (legacy override path)
-//!
-//! - `ARGO_RATE_LIMIT_TENANT_PER_MIN=<n>` — overrides the per-minute
-//!   budget loaded from config. `0` disables the limiter. Invalid
-//!   values fall back to the config default rather than failing
-//!   gateway start. Retained so existing deployments don't break.
+//! Legacy `ARGO_RATE_LIMIT_TENANT_PER_MIN` is bound by `argo-config`
+//! and layered into `[gateway.rate_limit.tenant]` before this module
+//! is initialised.
 //!
 //! # Bypass
 //!
-//! - `ARGO_GATEWAY_AUTH_BYPASS=1` short-circuits the limiter. Tests
+//! - `gateway.auth_bypass = true` short-circuits the limiter. Tests
 //!   carry no resolved principal, and per-tenant limiting collapses
 //!   onto a single shared `"anonymous"` bucket without bypass.
 //! - `GET` on the unauth allowlist (`/`, `/health*`, `/version`,
@@ -82,12 +79,6 @@ use std::time::{Duration, Instant};
 #[path = "rate_limit_tenant_tests.rs"]
 mod tests;
 
-/// Default per-tenant request budget per minute (legacy mvp default).
-/// Kept for backward-compat with the
-/// `ARGO_RATE_LIMIT_TENANT_PER_MIN` env path; new code should prefer
-/// the config-driven
-/// [`argo_config::defaults::DEFAULT_GATEWAY_RATE_LIMIT_TENANT_RPM`].
-pub(super) const DEFAULT_PER_MIN: u32 = 60;
 /// Soft cap on the bucket map; eviction kicks in past this size.
 pub(super) const MAX_ENTRIES: usize = 100_000;
 /// Buckets idle this long are eligible for eviction.
@@ -113,7 +104,9 @@ impl Bucket {
     /// Refill lazily based on elapsed wall-time, then try to consume
     /// one token. Returns `true` when consumed.
     fn take(&mut self, now: Instant, capacity: u32, refill_per_sec: f64) -> bool {
-        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
+        let elapsed = now
+            .saturating_duration_since(self.last_refill)
+            .as_secs_f64();
         self.tokens = (self.tokens + elapsed * refill_per_sec).min(f64::from(capacity));
         self.last_refill = now;
         if self.tokens >= 1.0 {
@@ -146,8 +139,9 @@ pub struct TenantRateLimiter {
 impl TenantRateLimiter {
     /// Construct with a single per-tenant budget. Burst multiplier
     /// defaults to 1.0 (no headroom — bucket capacity = per_min).
-    /// Used by tests and legacy callers; new code should prefer
+    /// Used by tests; production callers should prefer
     /// [`Self::with_config`].
+    #[cfg(test)]
     pub fn new(per_min: u32, enabled: bool) -> Self {
         Self {
             buckets: Arc::new(DashMap::new()),
@@ -175,21 +169,6 @@ impl TenantRateLimiter {
             burst_multiplier: mult,
             overrides: Arc::new(DashMap::new()),
             enabled,
-        }
-    }
-
-    /// Construct from `ARGO_RATE_LIMIT_TENANT_PER_MIN`. `0` disables;
-    /// invalid → default. Kept for backward compat with the
-    /// pre-mission shape; mission-brief callers should layer
-    /// [`Self::with_config`] then optionally read the env override.
-    pub fn from_env() -> Self {
-        match std::env::var("ARGO_RATE_LIMIT_TENANT_PER_MIN")
-            .ok()
-            .and_then(|v| v.parse::<u32>().ok())
-        {
-            Some(0) => Self::new(DEFAULT_PER_MIN, false),
-            Some(n) => Self::new(n, true),
-            None => Self::new(DEFAULT_PER_MIN, true),
         }
     }
 
@@ -301,38 +280,21 @@ static LIMITER: OnceLock<Arc<TenantRateLimiter>> = OnceLock::new();
 /// [`init_with_config`] before any [`global`] caller.
 pub fn global() -> Arc<TenantRateLimiter> {
     LIMITER
-        .get_or_init(|| Arc::new(TenantRateLimiter::from_env()))
+        .get_or_init(|| {
+            Arc::new(TenantRateLimiter::with_config(
+                &GatewayRateLimitTenantConfig::default(),
+            ))
+        })
         .clone()
 }
 
 /// One-shot initialisation from a `[gateway.rate_limit.tenant]`
-/// block. Idempotent — only the first caller wins. Wires the
-/// `ARGO_RATE_LIMIT_TENANT_PER_MIN` env override on top of the
-/// config so existing deployments keep their knob.
+/// block. Idempotent — only the first caller wins. Env overrides are
+/// already layered into `cfg` by `argo-config`.
 pub fn init_with_config(cfg: &GatewayRateLimitTenantConfig) -> Arc<TenantRateLimiter> {
     LIMITER
-        .get_or_init(|| Arc::new(merge_env_over_config(cfg)))
+        .get_or_init(|| Arc::new(TenantRateLimiter::with_config(cfg)))
         .clone()
-}
-
-fn merge_env_over_config(cfg: &GatewayRateLimitTenantConfig) -> TenantRateLimiter {
-    let env_override = std::env::var("ARGO_RATE_LIMIT_TENANT_PER_MIN")
-        .ok()
-        .and_then(|v| v.parse::<u32>().ok());
-    match env_override {
-        Some(0) => {
-            // Explicit env-driven disable wins over config.
-            let mut disabled = cfg.clone();
-            disabled.requests_per_minute = 0;
-            TenantRateLimiter::with_config(&disabled)
-        }
-        Some(n) => {
-            let mut layered = cfg.clone();
-            layered.requests_per_minute = n;
-            TenantRateLimiter::with_config(&layered)
-        }
-        None => TenantRateLimiter::with_config(cfg),
-    }
 }
 
 /// Boot-loop entry: check the limiter and, on a throttle, frame +
@@ -368,13 +330,13 @@ pub(super) async fn write_if_throttled(
 /// body))` when the bucket is empty and the caller should
 /// short-circuit, `None` when the request may proceed.
 ///
-/// Honours `ARGO_GATEWAY_AUTH_BYPASS=1` (skip the limiter — used by
+/// Honours `gateway.auth_bypass = true` (skip the limiter — used by
 /// integration-test mode where there is no resolved principal). The
 /// 429 body keeps the `error: rate_limited` shape distinguishable
 /// from `error: quota_exceeded` (the `claude-tenant-quota-enforcement-stricter`
 /// brief).
 pub(super) fn check_request(req: &str) -> Option<(&'static str, String)> {
-    if std::env::var("ARGO_GATEWAY_AUTH_BYPASS").ok().as_deref() == Some("1") {
+    if argo_config::load().unwrap_or_default().gateway.auth_bypass {
         return None;
     }
     if super::routes_auth::is_public_get(req) {

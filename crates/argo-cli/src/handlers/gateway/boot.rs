@@ -92,9 +92,11 @@ pub(super) async fn start(
         std::process::exit(STARTUP_CHECK_EXIT);
     }
     phases.mark("startup_check");
-    let gateway_cfg = ArgoConfig::load(&cwd_for_check.join("argo.toml"))
-        .unwrap_or_default()
-        .gateway;
+    let mut cfg = ArgoConfig::load(&cwd_for_check.join("argo.toml")).unwrap_or_default();
+    if let Ok(env_cfg) = ArgoConfig::from_env() {
+        cfg.merge(env_cfg);
+    }
+    let gateway_cfg = cfg.gateway.clone();
     let behind_proxy = gateway_cfg.behind_proxy.clone();
     let request_audit_cfg = gateway_cfg.request_audit.clone();
     let addr = format!("{bind}:{port}");
@@ -195,17 +197,14 @@ pub(super) async fn start(
         return Ok(());
     }
 
-    let ip_limiter = Arc::new(IpRateLimiter::from_env());
+    let ip_limiter = Arc::new(IpRateLimiter::from_config(&gateway_cfg.rate_limit.ip));
     // Source-CIDR allowlist (`mission-ip-allowlist-deployment-mode`).
     // Layered ahead of the bearer-auth path so a leaked token alone
     // isn't sufficient for access. Disabled by default (the load path
     // returns an Arc<IpAllowlist> with `enabled = false` which short-
     // circuits the check). A malformed CIDR is an operator typo —
     // refuse to start rather than silently widen the gate.
-    let allowlist_cfg = ArgoConfig::load(&argo_toml)
-        .unwrap_or_default()
-        .security
-        .ip_allowlist;
+    let allowlist_cfg = cfg.security.ip_allowlist;
     let ip_allowlist = match IpAllowlist::from_config(&allowlist_cfg) {
         Ok(g) => Arc::new(g),
         Err(e) => {
@@ -253,7 +252,11 @@ pub(super) async fn start(
                 };
                 let mut audit = request_audit::capture(req, peer.ip(), src_ip, &request_audit_cfg);
                 let https = security_headers::request_is_https(req);
-                let sec = security_headers::header_lines("application/json", https);
+                let sec = security_headers::header_lines(
+                    "application/json",
+                    https,
+                    &gateway_cfg.security_headers,
+                );
                 // `mission-ip-allowlist-deployment-mode`: CIDR gate
                 // runs BEFORE the bearer-auth check so a leaked token
                 // alone is insufficient for access. Deny → 403 with
@@ -403,12 +406,6 @@ fn http_status_label(code: u16) -> &'static str {
     }
 }
 
-/// Per-phase wall-clock recorder used by `--profile-startup`. Each
-/// `mark()` call records the elapsed time since the previous boundary
-/// under a stable `&'static str` label. `emit()` writes a stable,
-/// machine-grep-able summary to stderr (one line per phase + a `total`
-/// line). The struct itself stays well under 30 LOC so boot.rs keeps
-/// headroom under the 500-LOC ceiling.
 struct StartupPhases {
     t0: Instant,
     last: Instant,

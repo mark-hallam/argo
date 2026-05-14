@@ -33,6 +33,7 @@ pub mod cred;
 pub mod cred_keyring;
 pub mod defaults;
 pub mod loader;
+mod loader_env;
 /// Per-provider TOML knobs parsed off `[provider.<name>]` (currently
 /// the circuit-breaker overrides — `BreakerSection` /
 /// `ProvidersConfig`).
@@ -52,6 +53,7 @@ mod sections_mcp_pool;
 mod sections_planner;
 mod sections_plugin_registry;
 mod sections_prompt_cache;
+mod sections_rate_limit;
 mod sections_routing;
 mod sections_sandbox_prewarm;
 mod sections_security;
@@ -72,11 +74,11 @@ pub use sandbox::SandboxConfig;
 pub use sections::{
     AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
     DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
-    GatewayRateLimitConfig, GatewayRateLimitTenantConfig, GatewayRequestAuditConfig,
-    IpAllowlistConfig, JudgeConfig, LoopConfig, MatrixTomlConfig, ParallelConfig,
-    PlannerBiasConfig, PlannerConfig, PluginConfig, RoutingConfig, RoutingTieredConfig,
-    SecurityConfig, SecurityEncryptionConfig, SecurityHipaaConfig, SiemConfig, SsoConfig,
-    SsoOidcTenant, SsoSamlTenant, TeamsTomlConfig, TelemetryConfig, TenantConfig,
+    GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig,
+    LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
+    RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
+    SecurityHipaaConfig, SiemConfig, SsoConfig, SsoOidcTenant, SsoSamlTenant, TeamsTomlConfig,
+    TelemetryConfig, TenantConfig, WebInboxTomlConfig,
 };
 pub use sections_context::{
     ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,
@@ -84,6 +86,10 @@ pub use sections_context::{
     RuntimeConfig, SandboxPrewarmConfig, DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
     DEFAULT_MCP_POOL_IDLE_TTL_SECS, DEFAULT_MCP_POOL_MAX_CLIENTS,
     DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS,
+};
+pub use sections_rate_limit::{
+    GatewayRateLimitConfig, GatewayRateLimitIpConfig, GatewayRateLimitRouteConfig,
+    GatewayRateLimitTenantConfig,
 };
 pub use sections_streaming_retry::{
     StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,

@@ -93,6 +93,48 @@ fn from_env_parses_typed_fields() {
 }
 
 #[test]
+fn from_env_parses_gateway_rate_limit_and_security_fields() {
+    scoped_env(
+        &[
+            ("ARGO_GATEWAY_AUTH_BYPASS", Some("1")),
+            ("ARGO_IP_RATE_LIMIT", Some("0")),
+            ("ARGO_IP_RATE_CAPACITY", Some("9")),
+            ("ARGO_IP_RATE_REFILL", Some("1.5")),
+            ("ARGO_TRUST_XFF", Some("1")),
+            ("ARGO_RATE_LIMIT_DEFAULT_RPM", Some("77")),
+            ("ARGO_RATE_LIMIT_FORGE_RUN_RPM", Some("8")),
+            ("ARGO_RATE_LIMIT_SKILL_EXECUTE_RPM", Some("12")),
+            ("ARGO_RATE_LIMIT_TENANT_PER_MIN", Some("0")),
+            ("ARGO_WEBINBOX_TENANT_ID", Some("web-tenant")),
+            ("ARGO_CSP_REPORT_ONLY", Some("1")),
+        ],
+        || {
+            let cfg = ArgoConfig::from_env().unwrap();
+            assert!(cfg.gateway.auth_bypass);
+            assert!(!cfg.gateway.rate_limit.ip.enabled);
+            assert_eq!(cfg.gateway.rate_limit.ip.capacity, 9);
+            assert_eq!(cfg.gateway.rate_limit.ip.refill_per_sec, 1.5);
+            assert!(cfg.gateway.rate_limit.ip.trust_xff);
+            assert_eq!(cfg.gateway.rate_limit.route.default_rpm, 77);
+            assert_eq!(
+                cfg.gateway.rate_limit.route.overrides.get("forge.run"),
+                Some(&8)
+            );
+            assert_eq!(
+                cfg.gateway.rate_limit.route.overrides.get("skill.execute"),
+                Some(&12)
+            );
+            assert_eq!(cfg.gateway.rate_limit.tenant.requests_per_minute, 0);
+            assert_eq!(
+                cfg.channels.webinbox.tenant_id.as_deref(),
+                Some("web-tenant")
+            );
+            assert!(cfg.gateway.security_headers.csp_report_only);
+        },
+    );
+}
+
+#[test]
 fn from_env_surfaces_parse_errors() {
     scoped_env(&[("ARGO_GATEWAY_PORT", Some("not-a-number"))], || {
         assert!(ArgoConfig::from_env().is_err());

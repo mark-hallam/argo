@@ -244,7 +244,8 @@ fn cookie(req: &str, key: &str) -> Option<String> {
 }
 
 fn default_tenant() -> Option<String> {
-    std::env::var("ARGO_WEBINBOX_TENANT_ID").ok().filter(|s| !s.is_empty()).or_else(|| std::env::var("ARGO_DEFAULT_TENANT").ok().filter(|s| !s.is_empty()))
+    let cfg = argo_config::load().unwrap_or_default();
+    cfg.channels.webinbox.tenant_id.filter(|s| !s.is_empty()).or_else(|| (!cfg.tenant.default_id.is_empty() && cfg.tenant.default_id != argo_config::defaults::DEFAULT_TENANT_ID).then_some(cfg.tenant.default_id))
 }
 
 fn target_has_tenant(req: &str) -> bool {

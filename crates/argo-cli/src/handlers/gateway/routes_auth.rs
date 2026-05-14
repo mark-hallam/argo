@@ -11,7 +11,7 @@
 /// Bearer-token gate applied before dispatch.
 ///
 /// Returns `None` (auth passes) when any of:
-/// - `ARGO_GATEWAY_AUTH_BYPASS=1` is set (integration-test escape hatch),
+/// - `gateway.auth_bypass = true` is set (integration-test escape hatch),
 /// - `ARGO_GATEWAY_BEARER_TOKEN` is unset/empty (dev default), or
 /// - the request carries a matching `Authorization: Bearer <token>` header.
 ///
@@ -27,11 +27,7 @@
 /// assert!(check_bearer_auth("GET /sessions HTTP/1.1\r\n\r\n").is_none());
 /// ```
 pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
-    if std::env::var("ARGO_GATEWAY_AUTH_BYPASS")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
+    if argo_config::load().unwrap_or_default().gateway.auth_bypass {
         return None;
     }
     let expected = match argo_config::cred::get("ARGO_GATEWAY_BEARER_TOKEN") {
@@ -43,8 +39,7 @@ pub(super) fn check_bearer_auth(req: &str) -> Option<(&'static str, String)> {
     } else {
         Some((
             "401 Unauthorized",
-            r#"{"error":"unauthorized","reason":"missing or invalid bearer token"}"#
-                .to_string(),
+            r#"{"error":"unauthorized","reason":"missing or invalid bearer token"}"#.to_string(),
         ))
     }
 }
@@ -100,9 +95,8 @@ pub(super) fn is_public_get(req: &str) -> bool {
 fn presented_bearer(req: &str) -> Option<String> {
     req.lines()
         .find_map(|l| {
-            l.split_once(':').and_then(|(k, v)| {
-                k.eq_ignore_ascii_case("Authorization").then(|| v.trim())
-            })
+            l.split_once(':')
+                .and_then(|(k, v)| k.eq_ignore_ascii_case("Authorization").then(|| v.trim()))
         })
         .and_then(|h| h.strip_prefix("Bearer "))
         .map(str::to_string)

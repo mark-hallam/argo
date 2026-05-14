@@ -20,7 +20,7 @@
 //! All endpoints are unauthenticated — k8s/systemd need them
 //! callable without credentials. Bypass is enforced upstream by
 //! `routes_auth::is_public_get`.
-use argo_store::{EXPECTED_SCHEMA_VERSION, SessionStore};
+use argo_store::{SessionStore, EXPECTED_SCHEMA_VERSION};
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
@@ -52,9 +52,7 @@ fn uptime_seconds() -> u64 {
 /// when every check passes, `503 Service Unavailable` +
 /// `{"status":"degraded","reason":"<machine_tag>"}` on the first
 /// failing check (short-circuit).
-pub(super) async fn health_response(
-    store: Option<&Arc<SessionStore>>,
-) -> (&'static str, String) {
+pub(super) async fn health_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
     let cwd = std::env::current_dir().ok();
     health_response_with_cwd(store, cwd.as_deref()).await
 }
@@ -106,16 +104,17 @@ pub(super) fn live_response() -> (&'static str, String) {
 /// `GET /health/ready` — legacy SQLite-ping-only readiness. Kept
 /// for callers that already adopted it pre-`mission-health-check-endpoint`;
 /// new orchestrators should prefer `/readyz`.
-pub(super) async fn ready_response(
-    store: Option<&Arc<SessionStore>>,
-) -> (&'static str, String) {
+pub(super) async fn ready_response(store: Option<&Arc<SessionStore>>) -> (&'static str, String) {
     let Some(store) = store else {
         return (
             "503 Service Unavailable",
             "{\"status\":\"not_ready\",\"reason\":\"store_unavailable\"}".to_string(),
         );
     };
-    match sqlx::query_scalar::<_, i64>("SELECT 1").fetch_one(store.pool()).await {
+    match sqlx::query_scalar::<_, i64>("SELECT 1")
+        .fetch_one(store.pool())
+        .await
+    {
         Ok(_) => {
             let now = chrono::Utc::now();
             (
@@ -140,9 +139,7 @@ fn degraded(reason: &str) -> (&'static str, String) {
     )
 }
 
-async fn check_store_and_schema(
-    store: Option<&Arc<SessionStore>>,
-) -> Result<u32, &'static str> {
+async fn check_store_and_schema(store: Option<&Arc<SessionStore>>) -> Result<u32, &'static str> {
     let store = store.ok_or("store_unavailable")?;
     let started = Instant::now();
     sqlx::query_scalar::<_, i64>("SELECT 1")
@@ -184,7 +181,7 @@ fn check_providers(cwd: &Path) -> Result<(), &'static str> {
 }
 
 fn check_auth_keystore(cwd: &Path) -> Result<(), &'static str> {
-    if std::env::var("ARGO_GATEWAY_AUTH_BYPASS").as_deref() == Ok("1") {
+    if argo_config::load().unwrap_or_default().gateway.auth_bypass {
         return Ok(());
     }
     let path = argo_config::cred::credentials_path(cwd);

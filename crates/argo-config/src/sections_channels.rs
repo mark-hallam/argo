@@ -16,6 +16,17 @@ pub struct ChannelsConfig {
     pub teams: TeamsTomlConfig,
     /// `[channels.matrix]`.
     pub matrix: MatrixTomlConfig,
+    /// `[channels.webinbox]`.
+    pub webinbox: WebInboxTomlConfig,
+}
+
+/// `[channels.webinbox]` — browser inbox defaults.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WebInboxTomlConfig {
+    /// Tenant id used by gateway web-inbox routes when the request
+    /// does not carry an explicit tenant.
+    pub tenant_id: Option<String>,
 }
 
 /// `[channels.teams]` — Microsoft Teams (Graph API app-only auth).

@@ -173,7 +173,10 @@ use lifecycle::pid_is_alive;
 pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
     let cwd =
         std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    let mut cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    if let Ok(env_cfg) = ArgoConfig::from_env() {
+        cfg.merge(env_cfg);
+    }
     match cmd {
         GatewayCmd::Status { json } => status(&cfg, json),
         GatewayCmd::Start {
@@ -192,7 +195,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             // Initialise the per-route, per-tenant token-bucket limiter
             // and spawn its eviction sweep before the listener accepts.
             // Idempotent — only the first caller actually wires state.
-            let _ = rate_limit::init();
+            let _ = rate_limit::init_with_config(&cfg.gateway.rate_limit.route);
             // mission-per-tenant-rate-limiting: layer the per-tenant
             // limiter on top of the `[gateway.rate_limit.tenant]`
             // config block and hydrate per-tenant overrides from the

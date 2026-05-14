@@ -26,12 +26,14 @@
 
 pub use crate::sections_audit::AuditConfig;
 pub use crate::sections_budget::{BudgetConfig, DelegateConfig, ParallelConfig};
-pub use crate::sections_channels::{ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig};
+pub use crate::sections_channels::{
+    ChannelsConfig, MatrixTomlConfig, TeamsTomlConfig, WebInboxTomlConfig,
+};
 pub use crate::sections_core::{CoreConfig, LoopConfig, PluginConfig, TenantConfig};
 pub use crate::sections_executor::{DocumentCsvConfig, DocumentGsuiteConfig};
 pub use crate::sections_gateway::{
-    GatewayBehindProxyConfig, GatewayConfig, GatewayRateLimitConfig, GatewayRateLimitTenantConfig,
-    GatewayRequestAuditConfig,
+    GatewayBehindProxyConfig, GatewayConfig, GatewayRequestAuditConfig,
+    GatewaySecurityHeadersConfig,
 };
 pub use crate::sections_planner::{PlannerBiasConfig, PlannerConfig};
 pub use crate::sections_routing::{ForgeConfig, JudgeConfig, RoutingConfig, RoutingTieredConfig};

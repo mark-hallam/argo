@@ -14,6 +14,7 @@ use super::{
     classify_request, classify_route, env_var_for_route, extract_tenant, RateLimiter, RetryAfter,
     EVICT_AGE, FORGE_RUN_RPM, ROUTE_FORGE_RUN, ROUTE_SKILL_EXECUTE,
 };
+use argo_config::GatewayRateLimitRouteConfig;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -83,22 +84,25 @@ fn evict_idle_drops_stale_buckets() {
 }
 
 #[test]
-fn env_override_for_known_route_is_honoured() {
-    // `from_env` reads `ARGO_RATE_LIMIT_FORGE_RUN_RPM` for the
-    // `forge.run` alias. Use `set_var` for the duration of this test;
-    // tests share a process so a unique sentinel value is safe.
-    std::env::set_var("ARGO_RATE_LIMIT_FORGE_RUN_RPM", "7");
-    let l = RateLimiter::from_env();
-    assert_eq!(l.rpm_for(ROUTE_FORGE_RUN), 7, "env override for forge.run");
+fn config_override_for_known_route_is_honoured() {
+    let mut cfg = GatewayRateLimitRouteConfig::default();
+    cfg.overrides.insert(ROUTE_FORGE_RUN.to_string(), 7);
+    let l = RateLimiter::from_config(&cfg);
+    assert_eq!(
+        l.rpm_for(ROUTE_FORGE_RUN),
+        7,
+        "config override for forge.run"
+    );
     assert_eq!(
         l.rpm_for(ROUTE_SKILL_EXECUTE),
         30,
         "skill.execute keeps documented default"
     );
-    std::env::remove_var("ARGO_RATE_LIMIT_FORGE_RUN_RPM");
-
     // env_var_for_route maps as documented.
-    assert_eq!(env_var_for_route("forge.run"), "ARGO_RATE_LIMIT_FORGE_RUN_RPM");
+    assert_eq!(
+        env_var_for_route("forge.run"),
+        "ARGO_RATE_LIMIT_FORGE_RUN_RPM"
+    );
     assert_eq!(
         env_var_for_route("skill.execute"),
         "ARGO_RATE_LIMIT_SKILL_EXECUTE_RPM"

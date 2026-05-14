@@ -20,14 +20,9 @@
 //! invoked directly from the accept loop instead. Same outcome — a
 //! cheap reject before route work — minus a framework migration.
 //!
-//! # Env knobs
-//!
-//! - `ARGO_IP_RATE_LIMIT=0` disables the limiter (default: enabled).
-//! - `ARGO_IP_RATE_CAPACITY=<n>` overrides bucket capacity.
-//! - `ARGO_IP_RATE_REFILL=<f>` overrides refill rate (tokens/sec).
-//! - `ARGO_TRUST_XFF=1` honours the first hop of `X-Forwarded-For`
-//!   (load-balancer mode). Defaults to off — `X-Forwarded-For` from
-//!   untrusted clients is ignored.
+//! Config is read from `[gateway.rate_limit.ip]` through
+//! [`argo_config::GatewayRateLimitIpConfig`]. Legacy `ARGO_IP_RATE_*`
+//! env overrides are bound by `argo-config`, not read here.
 //!
 //! # Examples
 //!
@@ -38,6 +33,7 @@
 //! assert!(matches!(limiter.check(ip), CheckResult::Allow));
 //! ```
 
+use argo_config::GatewayRateLimitIpConfig;
 use dashmap::DashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -47,8 +43,6 @@ use std::time::{Duration, Instant};
 #[path = "rate_limit_ip_tests.rs"]
 mod tests;
 
-/// Default token-bucket capacity (max burst per IP).
-pub(super) const DEFAULT_CAPACITY: u32 = 120;
 /// Default refill rate, tokens per second.
 pub(super) const DEFAULT_REFILL_PER_SEC: f64 = 2.0;
 /// Soft cap on the bucket map; eviction kicks in past this size.
@@ -75,7 +69,9 @@ impl Bucket {
     /// Refill lazily based on elapsed wall-time, then try to consume
     /// one token. Returns `true` when consumed.
     fn take(&mut self, now: Instant, capacity: u32, refill_per_sec: f64) -> bool {
-        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
+        let elapsed = now
+            .saturating_duration_since(self.last_refill)
+            .as_secs_f64();
         self.tokens = (self.tokens + elapsed * refill_per_sec).min(f64::from(capacity));
         self.last_refill = now;
         if self.tokens >= 1.0 {
@@ -117,27 +113,15 @@ impl IpRateLimiter {
         }
     }
 
-    /// Construct from `ARGO_IP_RATE_*` and `ARGO_TRUST_XFF` env vars.
-    /// Invalid values fall back to the defaults rather than failing
-    /// gateway startup.
-    pub fn from_env() -> Self {
-        let enabled = std::env::var("ARGO_IP_RATE_LIMIT")
-            .map(|v| v != "0")
-            .unwrap_or(true);
-        let cap = std::env::var("ARGO_IP_RATE_CAPACITY")
-            .ok()
-            .and_then(|v| v.parse::<u32>().ok())
-            .filter(|n| *n > 0)
-            .unwrap_or(DEFAULT_CAPACITY);
-        let refill = std::env::var("ARGO_IP_RATE_REFILL")
-            .ok()
-            .and_then(|v| v.parse::<f64>().ok())
-            .filter(|f| f.is_finite() && *f > 0.0)
-            .unwrap_or(DEFAULT_REFILL_PER_SEC);
-        let trust_xff = std::env::var("ARGO_TRUST_XFF")
-            .map(|v| v == "1")
-            .unwrap_or(false);
-        Self::new(cap, refill, enabled, trust_xff)
+    /// Construct from `[gateway.rate_limit.ip]` config.
+    pub fn from_config(cfg: &GatewayRateLimitIpConfig) -> Self {
+        let cap = cfg.capacity.max(1);
+        let refill = if cfg.refill_per_sec.is_finite() && cfg.refill_per_sec > 0.0 {
+            cfg.refill_per_sec
+        } else {
+            DEFAULT_REFILL_PER_SEC
+        };
+        Self::new(cap, refill, cfg.enabled, cfg.trust_xff)
     }
 
     /// `true` when this limiter trusts `X-Forwarded-For` first hop.
