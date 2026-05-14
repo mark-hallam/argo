@@ -117,7 +117,7 @@ The full audit reports live in `docs/skycot/audit/` (5 phases, all complete 2026
 - `2026-05-14-phase-C-mission-claim-coverage.md` — E2E coverage per claim
 - `2026-05-14-phase-D-cross-cutting-drift.md` — 11 migration collisions + 19 new parallel names + 236 TOML violations
 
-**Status 2026-05-15:** 12 of the 22 remediation briefs already MERGED by codex/claude workers (Track M Phase 1 mostly done; type canonicalization round 1 at 2/4). 🔴 SHIP-BLOCKER + P0 migration-slot still TODO — both CLAUDE-PREFERRED, held for the fresh session 2026-05-19. See `docs/build-plan/RESUME.md` "Right-now snapshot" for the per-PR breakdown + remaining priority order.
+**Status 2026-05-15 evening:** **26 PRs MERGED 2026-05-14 → 2026-05-15.** Track L Phase 1 essentially complete (L1-L5, L4-gw, L9 MERGED; only L6 awaiting rebase via `claude-rebase-pr-1632`). Track M Phase 1 essentially complete (M1, M4-M7, M9-M13 MERGED; M-Eval sub-track COMPLETE). Type canonicalization round 1 complete except AuditRow. 🔴 SHIP-BLOCKER + P0 migration-slot + AuditRow + parallel-names-round2-high still TODO — all 4 CLAUDE-PREFERRED, held for the fresh session 2026-05-19. 3 rebase recovery briefs in TODO for codex pickup. PR #1506 blocked on operator-side GitHub Actions billing failure (not a code issue). See `docs/build-plan/RESUME.md` "Right-now snapshot" for the per-PR breakdown + remaining priority order.
 
 ## Project rename — Argo → Skycot
 

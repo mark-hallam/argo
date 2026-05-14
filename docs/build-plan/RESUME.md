@@ -108,7 +108,7 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ### What's MERGED since the original 2026-05-14 hand-off
 
-12 PRs landed in conductor ticks 2026-05-14 → 2026-05-15 (codex + claude workers, conductor squash-merged):
+**26 PRs MERGED** in conductor ticks 2026-05-14 → 2026-05-15 (codex + claude workers, conductor squash-merged). Workers are absolutely shipping.
 
 | PR | Brief | Notes |
 |---|---|---|
@@ -124,17 +124,40 @@ the header and (if you are conductor) flag the drift for cleanup.
 | #1644 | claude-canonicalize-decision-type | renamed both as different concepts |
 | #1645 | M11 eval self-healing fixtures | M-Eval Phase 1 |
 | #1646 | M6 per-skill retry policy | M-Orch Phase 1 |
+| #1647 | M10 eval results dashboard | M-Eval Phase 1 |
+| #1648 | claude-delete-ai-receptionist-vertical | smoke step 14 unblocked |
+| #1649 | M4 doc table extraction | M-Doc Phase 1 |
+| #1650 | claude-ci-lint-parallel-pub-types | drift regression-prevention live |
+| #1651 | claude-canonicalize-medium-duplicates | JudgeVerdict + Role + Outcome + RestartDecision |
+| #1652 | claude-channels-fallback-orphan-cleanup | Phase B's 1 orphan resolved |
+| #1653 | claude-argo-acp-triage | Path C (standalone documented) |
+| #1654 | claude-multiworker-duty-handoff-e2e-smoke | scenario #3 demoable |
+| #1655 | claude-vertical-eval-seed-generation-test | claim 3 coverage |
+| #1656 | claude-toml-inherit-workspace-versions | 236 TOML lines cleaned |
+| #1658 | claude-store-migrations-registry-split | 461 LOC → split |
+| #1659 | claude-forge-dspy-stub-warning-upgrade | stub clarity |
+| #1660 | M7 orch queue management UI | M-Orch Phase 1 COMPLETE |
 
-**Track M Phase 1 nearly complete**: M1, M5, M6, M9, M11, M12, M13 MERGED. Remaining M-Phase-1: M3 (TODO), M4 (CLAIMED), M7 (TODO), M8 (TODO), M10 (CLAIMED → in PR #1647).
+**Track L Phase 1 essentially COMPLETE**: L1 ✅, L2 ✅, L3 ✅, L4 ✅, L4-gw ✅, L5 ✅, L9 ✅. Only L6 (PR #1632) remaining — currently DIRTY; rebase brief `claude-rebase-pr-1632` authored.
 
-**Type canonicalization round 1**: 2/4 done (ApprovalDecision + Decision). Remaining: `claude-canonicalize-medium-duplicates` CLAIMED; `claude-canonicalize-audit-row-type` ⚠️ CLAUDE-PREFERRED (held for Tuesday).
+**Track M Phase 1 essentially COMPLETE**: M1 ✅, M4 ✅, M5 ✅, M6 ✅, M7 ✅, M9 ✅, M10 ✅, M11 ✅, M12 ✅, M13 ✅. Remaining: M3 (TODO), M8 (TODO), M14 (TODO), M2 (PaddleOCR DEFERRED).
+
+**Type canonicalization round 1 COMPLETE except AuditRow**: ApprovalDecision (#1643) + Decision (#1644) + medium-duplicates bundle (#1651) all MERGED. Only `claude-canonicalize-audit-row-type` (4-way, CLAUDE-PREFERRED) remains.
 
 **Still unshipped (priority order for next account)**:
 1. 🔴 `claude-skill-library-worker-load-wire` (SHIP-BLOCKER, CLAUDE-PREFERRED)
 2. 🔴 `claude-migration-slot-dedup-and-validator` (P0 operational risk, CLAUDE-PREFERRED)
 3. `claude-canonicalize-audit-row-type` (CLAUDE-PREFERRED, 4-way data integrity)
 4. `claude-canonicalize-parallel-names-round2-high` (CLAUDE-PREFERRED, 7 HIGH-sev round-2 types)
-5. Everything else in the priority list below
+
+**3 rebase recovery briefs authored 2026-05-15** (codex-eligible, just need a worker to grab them):
+- `claude-rebase-pr-1632` — 🔴 HIGH PRIORITY (unblocks L7/L8/L10/L13/L14/L15/L16/L17 cascade)
+- `claude-rebase-pr-1657` — argo-delegate workspace conflict
+- `claude-rebase-pr-1606` — gateway-boot-split-v2
+
+**#1506 cli-help-reference**: BLOCKED on operator-side GitHub Actions billing failure (`payment failed / spending limit needs to be increased`). Code fix already shipped via force-push on 2026-05-14; the PR cannot land until GHA billing is restored. **Operator action required, not worker action.**
+
+**BLOCKED triage v2 (2026-05-15)** dropped queue from 49 → 39: 6 stale-blocks freed to TODO (L11, L12, mission-cross-tenant-skill-propagation, mission-forge-stubforge-cleanup, mission-gdpr-data-residency, mission-saml-xml-signature-verify) + 4 dead rows dropped. Report: `docs/skycot/audit/2026-05-15-phase-D-blocked-triage.md`.
 
 ### The mission, in one line
 
@@ -410,4 +433,4 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-15 (session hand-off). Cron loop STOPPED. ALL 5 AUDIT PHASES (A/A.5/B/C/D) COMPLETE. 22 remediation briefs authored 2026-05-14; **12 already MERGED** by codex/claude workers in 2026-05-14 → 2026-05-15. v1 SHIP-BLOCKER `claude-skill-library-worker-load-wire` and P0 `claude-migration-slot-dedup-and-validator` STILL TODO (CLAUDE-PREFERRED; held for Tuesday). BLOCKED-cleanup pass dropped 17 dead rows (65 → 49). Queue at hand-off: TODO 27, CLAIMED 5, IN_REVIEW 10, BLOCKED 49.
+Last refreshed: 2026-05-15 evening (session hand-off). Cron loop STOPPED. ALL 5 AUDIT PHASES (A/A.5/B/C/D) COMPLETE. 22 remediation briefs authored 2026-05-14; **26 PRs MERGED 2026-05-14 → 2026-05-15** (codex shipping clean). Track L Phase 1 + Track M Phase 1 essentially complete; type canonicalization round 1 done except AuditRow. v1 SHIP-BLOCKER + P0 migration-slot STILL TODO (CLAUDE-PREFERRED; held for Tuesday). 3 rebase recovery briefs authored + 1 GHA billing issue (operator-side). BLOCKED-cleanup v2 dropped queue 49 → 39. Queue at hand-off: TODO 25, CLAIMED 3, IN_REVIEW 11, BLOCKED 39.
