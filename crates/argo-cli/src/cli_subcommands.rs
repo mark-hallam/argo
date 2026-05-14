@@ -149,11 +149,6 @@ pub enum McpRegistryCmd {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum AcpCmd {
-    Serve,
-}
-
-#[derive(Subcommand, Debug)]
 pub enum PluginCmd {
     /// List plugins configured under `[plugin].auto_load`.
     List {

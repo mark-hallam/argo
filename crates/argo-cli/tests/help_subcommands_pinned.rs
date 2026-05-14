@@ -14,7 +14,6 @@ const EXPECTED_TOP_LEVEL_SUBCOMMANDS: &[&str] = &[
     "agents",
     "gateway",
     "mcp",
-    "acp",
     "plugin",
     "provider",
     "model",

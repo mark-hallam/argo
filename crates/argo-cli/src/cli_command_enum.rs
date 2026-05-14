@@ -51,10 +51,6 @@ pub enum Command {
         #[command(subcommand)]
         cmd: McpCmd,
     },
-    Acp {
-        #[command(subcommand)]
-        cmd: AcpCmd,
-    },
     Plugin {
         #[command(subcommand)]
         cmd: PluginCmd,
