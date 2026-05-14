@@ -272,7 +272,14 @@ slack_out=$(cargo test -p argo-cli --test slack_approval_roundtrip_e2e --quiet 2
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "slack_approval_roundtrip_e2e passed"
 
-heading "22. Multi-worker handoff memory smoke"
+heading "22. Auto-approval multi-window fallback smoke"
+cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+multiwindow_out=$(cargo test -p argo-cli --test auto_approval_multiwindow_e2e --quiet 2>&1) \
+  || fail "auto_approval_multiwindow_e2e" "$multiwindow_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "auto_approval_multiwindow_e2e passed"
+
+heading "23. Multi-worker handoff memory smoke"
 cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
 handoff_out=$(cargo test -p argo-orchestrator --test multiworker_handoff_e2e_smoke --quiet 2>&1) \
   || fail "multiworker_handoff_e2e_smoke" "$handoff_out"
