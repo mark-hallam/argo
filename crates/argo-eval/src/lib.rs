@@ -44,9 +44,10 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
-mod runner;
 mod compare;
 pub mod honesty;
+pub mod regression;
+mod runner;
 mod streaming;
 mod task;
 
@@ -54,14 +55,16 @@ mod task;
 mod tests;
 
 pub use compare::{
-    compare_runs, ComparisonGroup, ComparisonItem, ComparisonReport, EvalRunFixture,
-    EvalRunReport, GroupComparison,
+    compare_runs, ComparisonGroup, ComparisonItem, ComparisonReport, EvalRunFixture, EvalRunReport,
+    GroupComparison,
 };
 pub use honesty::{
     run_honesty_test, AuditSampler, HonestyConfig, HonestyResult, SampleVerdict, SkillSample,
 };
-pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
-pub use streaming::{
-    format_simple_line, format_summary_line, format_verbose_line, StreamMode,
+pub use regression::{
+    detect_eval_regression, ensure_promotion_allowed, EvalFixtureRegression, EvalRegressionConfig,
+    EvalRegressionDecision, EvalRegressionReport,
 };
+pub use runner::{run_eval, EvalRecord, EvalSubject, EvalSummary};
+pub use streaming::{format_simple_line, format_summary_line, format_verbose_line, StreamMode};
 pub use task::{load_jsonl, EvalMetric, EvalTask};

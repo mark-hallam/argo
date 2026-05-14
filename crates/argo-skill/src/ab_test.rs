@@ -26,6 +26,7 @@
 //! is unchanged.
 
 use crate::version::find_version;
+use argo_eval::{ensure_promotion_allowed, EvalRegressionReport};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 use chrono::Utc;
@@ -269,6 +270,24 @@ pub async fn promote(
     run_id: &str,
     explicit_winner: Option<&str>,
 ) -> ArgoResult<String> {
+    promote_with_regression_gate(store, run_id, explicit_winner, None, false).await
+}
+
+/// Promote an AB-test winner after enforcing an optional eval-regression gate.
+///
+/// # Errors
+/// Returns an error when the run cannot be promoted or when `regression`
+/// blocks promotion and `override_regression` is false.
+pub async fn promote_with_regression_gate(
+    store: &SessionStore,
+    run_id: &str,
+    explicit_winner: Option<&str>,
+    regression: Option<&EvalRegressionReport>,
+    override_regression: bool,
+) -> ArgoResult<String> {
+    if let Some(report) = regression {
+        ensure_promotion_allowed(report, override_regression).map_err(ArgoError::Provider)?;
+    }
     let run = get_run(store, run_id)
         .await?
         .ok_or_else(|| ArgoError::Provider(format!("promote: no ab run with id '{run_id}'")))?;
