@@ -219,6 +219,41 @@ Follow-ups after Track B lands:
 
 Sizing: ~1 week of swarm work.
 
+
+## Track L — Skill Canvas (fine-tuner) (IN PROGRESS — phase 1 briefs landing 2026-05-14)
+
+**Status update 2026-05-14:** Operator pulled Track L into v1.0 scope. L0 overview (`streams/L0-skill-canvas-track-overview.md`) is the authoritative spec. Phase 1 briefs (L1-L6 + L4-gw) authored this tick.
+
+**What this delivers**: a **canvas as a fine-tuner, not a builder**. Workers learn through natural interaction; the canvas gives operators a structured view of what was learned — a graph to inspect, refine, version, and AB-promote.
+
+**Phasing (per L0)**:
+- Phase 1 (L1-L6, L4-gw): foundation + viewer + Ghostwriter. Read-only canvas demo + gen-from-prompt. ~3500 LOC.
+- Phase 2 (L7-L10): editor + diff. Operator can refine + AB-promote. ~3000 LOC.
+- Phase 3 (L11-L13): observation extraction. CU recording → skill graph. ~2800 LOC.
+- Phase 4 (L14-L17): composition + library + e2e. ~2000 LOC.
+
+Total: ~17 briefs, ~11,300 LOC.
+
+**Design decisions locked in L0** (2026-05-12):
+- Canvas renderer: React Flow (`@xyflow/react`).
+- Sub-skill versioning: pinned by default; "follow latest" toggle per call site.
+- Ghostwriter LLM: strongest available regardless of worker runtime provider.
+- Canonical sub-skills (L15): `auth-flow`, `document-extraction`, `escalation-pattern`, `approval-with-timeout`, `csv-to-records`, `retry-with-backoff` — all wrap existing primitives.
+
+## Track M — Enterprise Parity (closing UiPath gaps) (PLANNED — briefs being authored, gated on Track L Phase 1)
+
+**Status update 2026-05-14:** Operator pulled Track M into v1.0 scope. M0 overview (`streams/M0-enterprise-parity-track-overview.md`) is the authoritative spec. Phase 1 briefs (M1-M8) to be authored next, after Track L Phase 1 lands.
+
+**Sub-tracks (per M0)**:
+- **M-Doc** — Document Understanding (Claude vision extractor + operator UI)
+- **M-Orch** — Orchestration maturity (queue/SLA/retry surface UI)
+- **M-Eval** — Regression eval (operator UI + self-healing)
+- **M-Code** — Pro-code skill mode (TS skill editor)
+- **M-Tmpl** — Vertical template packs
+
+Total: ~20 briefs, ~9000 LOC. Runs PARALLEL to Track L Phases 3-5.
+
+
 ## Mission-claim coverage map
 
 > **Refreshed 2026-05-12** — reflects the live ledger
