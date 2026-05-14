@@ -1,0 +1,18 @@
+{
+  "name": "@skycot/skill-sdk",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Fluent TypeScript builder for Skycot Skill IR graphs.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
