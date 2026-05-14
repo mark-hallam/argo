@@ -82,6 +82,12 @@ pub(super) async fn dispatch_get(
                     super::routes_retros::list_for_worker_response(parts[0], req, store).await,
                 );
             }
+            // mission-approval-policy-ui — per-worker policy index.
+            if parts.len() == 2 && parts[1] == "policies" {
+                return Some(
+                    super::routes_worker_policies::list_response(parts[0], req, store).await,
+                );
+            }
         }
         if let Some((id_with_suffix, tail)) = rest.split_once('/') {
             if tail.starts_with("trust-grade ") || tail.starts_with("trust-grade?") {

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { AdvancedSection } from "@/components/skycot/worker/settings/AdvancedSection";
+import { ApprovalPolicySection } from "@/components/skycot/worker/settings/ApprovalPolicySection";
 import { AutonomySection } from "@/components/skycot/worker/settings/AutonomySection";
 import { BudgetSection } from "@/components/skycot/worker/settings/BudgetSection";
 import { ChannelsSection } from "@/components/skycot/worker/settings/ChannelsSection";
@@ -13,6 +14,10 @@ import {
   useSettingsActions,
   useWorkerSettings,
 } from "@/lib/hooks/use-worker-settings";
+import {
+  usePolicyActions,
+  useWorkerPolicies,
+} from "@/lib/hooks/use-worker-policies";
 import { DEFAULT_DELEGATOR_PERMISSIONS } from "@/lib/types/worker";
 
 /**
@@ -33,6 +38,8 @@ export default function WorkerSettingsPage() {
   const workerQuery = useWorker(workerId);
   const settingsQuery = useWorkerSettings(workerId);
   const actions = useSettingsActions(workerId);
+  const policiesQuery = useWorkerPolicies(workerId);
+  const policyActions = usePolicyActions(workerId);
 
   if (settingsQuery.isPending || workerQuery.isPending) {
     return <LoadingState />;
@@ -75,6 +82,12 @@ export default function WorkerSettingsPage() {
         value={settings.autonomy}
         workerName={workerName}
         onSave={actions.onUpdateAutonomy}
+      />
+      <ApprovalPolicySection
+        workerName={workerName}
+        rows={policiesQuery.data?.rows ?? []}
+        readOnly={isPaused || policiesQuery.data?.readOnly === true}
+        onSubmit={policyActions.onUpdatePolicy}
       />
       {permissions.canViewSettings ? (
         <AdvancedSection workerId={workerId} advanced={settings.advanced} />

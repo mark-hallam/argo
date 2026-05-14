@@ -9,6 +9,7 @@ import {
   budgetPercent,
   budgetTone,
 } from "@/lib/api/worker-settings";
+import type { WorkerPoliciesResult } from "@/lib/api/worker-policies";
 import {
   DEFAULT_DELEGATOR_PERMISSIONS,
   type Worker,
@@ -57,6 +58,40 @@ vi.mock("@/lib/hooks/use-worker-settings", () => ({
   }),
   workerSettingsQueryKey: () => ["worker-settings"],
 }));
+
+type PoliciesQueryShape = {
+  data: WorkerPoliciesResult | undefined;
+  isPending: boolean;
+  isError: boolean;
+  error: Error | null;
+};
+const usePoliciesMock = vi.fn<() => PoliciesQueryShape>();
+const onUpdatePolicyMock = vi.fn();
+vi.mock("@/lib/hooks/use-worker-policies", () => ({
+  useWorkerPolicies: () => usePoliciesMock(),
+  usePolicyActions: () => ({
+    onUpdatePolicy: onUpdatePolicyMock,
+    isUpdating: false,
+  }),
+  workerPoliciesQueryKey: () => ["worker-policies"],
+}));
+
+function policiesState(): PoliciesQueryShape {
+  return {
+    data: {
+      workerId: "wkr_01J0MARIAH",
+      readOnly: false,
+      source: "mock-offline",
+      rows: [
+        { actionType: "draft_listing", currentPolicy: "auto-approve", inferredTrustGrade: "low", isDefault: false },
+        { actionType: "post_listing", currentPolicy: "risk-gated", inferredTrustGrade: "medium", isDefault: true },
+      ],
+    },
+    isPending: false,
+    isError: false,
+    error: null,
+  };
+}
 
 import WorkerSettingsPage from "@/app/(app)/workers/[workerId]/settings/page";
 
@@ -116,10 +151,13 @@ beforeEach(() => {
   useWorkerMock.mockReset();
   useWorkerMock.mockReturnValue({ data: makeWorker(), isPending: false, error: null });
   useSettingsMock.mockReset();
+  usePoliciesMock.mockReset();
+  usePoliciesMock.mockReturnValue(policiesState());
   onUpdateChannelsMock.mockReset();
   onUpdateQuietHoursMock.mockReset();
   onUpdateBudgetMock.mockReset();
   onUpdateAutonomyMock.mockReset();
+  onUpdatePolicyMock.mockReset();
   onPauseMock.mockReset();
   onArchiveMock.mockReset();
   onDeleteMock.mockReset();
@@ -130,7 +168,7 @@ afterEach(() => {
 });
 
 describe("WorkerSettingsPage", () => {
-  it("renders the six sections in canonical order (operator view)", () => {
+  it("renders the seven sections in canonical order (operator view)", () => {
     useSettingsMock.mockReturnValue(settingsState());
     render(<WorkerSettingsPage />);
     const panel = screen.getByTestId("worker-tab-panel-settings");
@@ -142,6 +180,7 @@ describe("WorkerSettingsPage", () => {
       "Quiet hours",
       "Budget",
       "Autonomy level",
+      "Approval policy",
       "Advanced",
       "Danger zone",
     ]);
@@ -324,6 +363,66 @@ describe("WorkerSettingsPage", () => {
     expect(screen.getByTestId("alert-dialog")).toHaveTextContent(/recover her within 30 days/);
     await user.click(screen.getByTestId("alert-dialog-confirm"));
     expect(onArchiveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Approval policy: renders one row per action type with policy + trust grade", () => {
+    useSettingsMock.mockReturnValue(settingsState());
+    render(<WorkerSettingsPage />);
+    expect(screen.getByTestId("approval-policy-row-draft_listing")).toBeInTheDocument();
+    expect(screen.getByTestId("approval-policy-row-post_listing")).toBeInTheDocument();
+    const draftRow = screen.getByTestId("approval-policy-row-draft_listing");
+    expect(within(draftRow).getByTestId("approval-policy-badge-auto-approve")).toBeInTheDocument();
+    expect(within(draftRow).getByTestId("approval-policy-trust-low")).toBeInTheDocument();
+  });
+
+  it("Approval policy: clicking Edit opens the modal; Save fires onUpdatePolicy with new policy + note", async () => {
+    const user = userEvent.setup();
+    useSettingsMock.mockReturnValue(settingsState());
+    render(<WorkerSettingsPage />);
+    await user.click(screen.getByTestId("approval-policy-edit-draft_listing"));
+    const modal = screen.getByTestId("approval-policy-edit-modal");
+    expect(within(modal).getByTestId("approval-policy-radio-auto-approve")).toBeChecked();
+    await user.click(within(modal).getByTestId("approval-policy-radio-always-ask"));
+    await user.type(within(modal).getByTestId("approval-policy-note"), "audit-evidence test");
+    await user.click(within(modal).getByTestId("approval-policy-save"));
+    expect(onUpdatePolicyMock).toHaveBeenCalledTimes(1);
+    expect(onUpdatePolicyMock).toHaveBeenCalledWith({
+      actionType: "draft_listing",
+      policy: "always-ask",
+      operatorNote: "audit-evidence test",
+    });
+  });
+
+  it("Approval policy: Save stays disabled until the operator note has non-whitespace content", async () => {
+    const user = userEvent.setup();
+    useSettingsMock.mockReturnValue(settingsState());
+    render(<WorkerSettingsPage />);
+    await user.click(screen.getByTestId("approval-policy-edit-draft_listing"));
+    const save = screen.getByTestId("approval-policy-save") as HTMLButtonElement;
+    // Same-policy + empty note: disabled.
+    expect(save).toBeDisabled();
+    // Whitespace-only note: still disabled even after picking a new policy.
+    await user.click(screen.getByTestId("approval-policy-radio-always-refuse"));
+    await user.type(screen.getByTestId("approval-policy-note"), "    ");
+    expect(save).toBeDisabled();
+    // Real note: enables Save.
+    await user.clear(screen.getByTestId("approval-policy-note"));
+    await user.type(screen.getByTestId("approval-policy-note"), "rationale");
+    expect(save).not.toBeDisabled();
+  });
+
+  it("Approval policy: Edit buttons disable + banner renders when the worker is paused", () => {
+    useWorkerMock.mockReturnValue({
+      data: makeWorker({ status: "paused" }),
+      isPending: false,
+      error: null,
+    });
+    useSettingsMock.mockReturnValue(settingsState());
+    render(<WorkerSettingsPage />);
+    expect(
+      screen.getByTestId("approval-policy-readonly-banner"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("approval-policy-edit-draft_listing")).toBeDisabled();
   });
 
   it("renders an error state with Try again that refetches", async () => {

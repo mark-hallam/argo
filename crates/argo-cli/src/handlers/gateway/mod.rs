@@ -137,6 +137,7 @@ mod routes_worker_activity;
 mod routes_worker_detail;
 mod routes_worker_memory;
 mod routes_worker_overview;
+mod routes_worker_policies;
 mod routes_worker_settings;
 mod routes_worker_trust_grade;
 mod routes_workers_hire;

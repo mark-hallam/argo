@@ -1,9 +1,9 @@
 //! PATCH-route dispatch for the J11 worker-settings endpoints.
 //!
-//! Pure router — every match arm forwards to a handler in
-//! `routes_worker_settings`. Returns `Some(resp)` on a match, `None`
-//! otherwise so the caller in `dispatch_post` can fall through to its
-//! existing retro-update PATCH arm and ultimately the 404 default.
+//! Pure router — every match arm forwards to a handler in a sibling
+//! module. Returns `Some(resp)` on a match, `None` otherwise so the
+//! caller in `dispatch_post` can fall through to the other
+//! dispatchers and ultimately the 404 default.
 //!
 //! Bearer auth + `X-Argo-Principal` parsing run upstream in
 //! `dispatch_post::dispatch_post_inner` for every verb that reaches
@@ -21,22 +21,23 @@ pub(super) async fn dispatch_patch(
     let (head, _) = rest.split_once(' ')?;
     let head_no_query = head.split('?').next().unwrap_or(head);
     let parts: Vec<&str> = head_no_query.split('/').collect();
-    if parts.len() != 2 {
-        return None;
-    }
     let worker_id = parts[0];
-    match parts[1] {
-        "channels" => Some(
+    match parts.as_slice() {
+        [_, "channels"] => Some(
             super::routes_worker_settings::patch_channels(worker_id, req, store).await,
         ),
-        "quiet-hours" => Some(
+        [_, "quiet-hours"] => Some(
             super::routes_worker_settings::patch_quiet_hours(worker_id, req, store).await,
         ),
-        "budget" => Some(
+        [_, "budget"] => Some(
             super::routes_worker_settings::patch_budget(worker_id, req, store).await,
         ),
-        "autonomy" => Some(
+        [_, "autonomy"] => Some(
             super::routes_worker_settings::patch_autonomy(worker_id, req, store).await,
+        ),
+        [_, "policies", action_type] => Some(
+            super::routes_worker_policies::update_response(worker_id, action_type, req, store)
+                .await,
         ),
         _ => None,
     }
