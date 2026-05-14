@@ -1,0 +1,96 @@
+{
+  "entry": "intake",
+  "metadata": {
+    "name": "draft-rfp-response",
+    "version": "1.0.0",
+    "description": "Draft supplier-facing RFP responses and clarification packets from stakeholder requirements, rubric, and procurement policy.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "rfp_intake",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "draft_packet",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "intake",
+      "label": "Normalize RFP Intake",
+      "kind": {
+        "type": "transform",
+        "template": "Extract buyer goals, must-have requirements, timeline, constraints, incumbent context, stakeholders, and missing fields from {{rfp_intake}}."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "fetch-policy",
+      "label": "Fetch Procurement Policy",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://procurement_policies",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "draft",
+      "label": "Draft RFP Response",
+      "kind": {
+        "type": "action",
+        "instruction": "Create an RFP response draft with scope summary, evaluation criteria, timeline, required evidence, supplier questions, and explicit approval gates. Do not send externally."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "approval",
+      "label": "Request Send Approval",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "procurement-owner",
+        "timeoutSeconds": 86400
+      },
+      "annotations": {
+        "policy": "ask"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "intake",
+      "to": "fetch-policy",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "fetch-policy",
+      "to": "draft",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "draft",
+      "to": "approval",
+      "cond": {
+        "kind": "on-success"
+      }
+    }
+  ]
+}
+

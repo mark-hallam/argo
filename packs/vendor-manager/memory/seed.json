@@ -1,0 +1,108 @@
+{
+  "vendor_roster": [
+    {
+      "vendorId": "vm-acme-cloud",
+      "name": "Acme Cloud Inc.",
+      "category": "cloud-infrastructure",
+      "riskTier": "medium",
+      "owner": "engineering",
+      "renewalDate": "2026-09-30",
+      "currentAnnualValueUsd": 48000,
+      "status": "approved"
+    },
+    {
+      "vendorId": "vm-brightline",
+      "name": "Brightline Consulting",
+      "category": "professional-services",
+      "riskTier": "low",
+      "owner": "operations",
+      "renewalDate": "2026-07-15",
+      "currentAnnualValueUsd": 36000,
+      "status": "approved"
+    },
+    {
+      "vendorId": "vm-northwind",
+      "name": "Northwind Hardware",
+      "category": "hardware",
+      "riskTier": "medium",
+      "owner": "it",
+      "renewalDate": "2027-01-31",
+      "currentAnnualValueUsd": 72000,
+      "status": "approved"
+    }
+  ],
+  "rfp_rubrics": [
+    {
+      "rubricId": "rubric-standard-saas",
+      "criteria": {
+        "functionalFit": 30,
+        "security": 20,
+        "implementation": 15,
+        "commercials": 20,
+        "supportAndSla": 15
+      }
+    },
+    {
+      "rubricId": "rubric-services",
+      "criteria": {
+        "domainExpertise": 25,
+        "deliveryPlan": 25,
+        "references": 15,
+        "commercials": 20,
+        "knowledgeTransfer": 15
+      }
+    }
+  ],
+  "procurement_policies": [
+    {
+      "policyId": "policy-quote-count",
+      "rule": "Spend above 15000 USD requires three quotes or a sole-source justification."
+    },
+    {
+      "policyId": "policy-approval-threshold",
+      "rule": "Spend above 50000 USD requires finance and legal approval before any supplier commitment."
+    },
+    {
+      "policyId": "policy-external-send",
+      "rule": "Supplier-facing messages are draft-only until a human approves."
+    }
+  ],
+  "contract_fallbacks": [
+    {
+      "topic": "term_length",
+      "preferred": "12 months",
+      "fallback": "24 months with annual termination for convenience",
+      "escalateIf": "36 months or longer"
+    },
+    {
+      "topic": "liability_cap",
+      "preferred": "12 months fees",
+      "fallback": "6 months fees for low-risk vendors",
+      "escalateIf": "less than 6 months fees or excluded data breach liability"
+    },
+    {
+      "topic": "price_increase",
+      "preferred": "0 percent first renewal year",
+      "fallback": "CPI capped at 4 percent",
+      "escalateIf": "uncapped increase or more than 7 percent"
+    }
+  ],
+  "sla_obligations": [
+    {
+      "vendorId": "vm-acme-cloud",
+      "metric": "availability",
+      "target": "99.9%",
+      "window": "monthly",
+      "credit": "10% monthly fees below target"
+    },
+    {
+      "vendorId": "vm-brightline",
+      "metric": "response_time",
+      "target": "one business day",
+      "window": "per ticket",
+      "credit": "service review after two misses"
+    }
+  ],
+  "approval_history": []
+}
+

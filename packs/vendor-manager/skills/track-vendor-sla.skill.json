@@ -1,0 +1,117 @@
+{
+  "entry": "load-sla",
+  "metadata": {
+    "name": "track-vendor-sla",
+    "version": "1.0.0",
+    "description": "Track supplier service-level obligations, identify breach trends, and prepare evidence-backed escalation drafts.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "sla_observations",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "breach_packet",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "load-sla",
+      "label": "Load SLA Obligations",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://sla_obligations",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "collect-signals",
+      "label": "Collect Performance Signals",
+      "kind": {
+        "type": "fetch",
+        "target": "workspace://vendor/performance",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "detect",
+      "label": "Detect SLA Breach",
+      "kind": {
+        "type": "condition",
+        "expression": "observed_metric < contracted_target || missed_response_window_count >= 2"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "draft-notice",
+      "label": "Draft Escalation Notice",
+      "kind": {
+        "type": "action",
+        "instruction": "Create an evidence-backed supplier escalation draft with obligation, observed miss, source evidence, requested remedy, and approval gate. Do not send externally."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "approval",
+      "label": "Approve Supplier Notice",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "vendor-owner",
+        "timeoutSeconds": 86400
+      },
+      "annotations": {
+        "policy": "ask"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "load-sla",
+      "to": "collect-signals",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "collect-signals",
+      "to": "detect",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "detect",
+      "to": "draft-notice",
+      "cond": {
+        "kind": "on-pattern",
+        "pattern": "breach"
+      }
+    },
+    {
+      "id": "e4",
+      "from": "draft-notice",
+      "to": "approval",
+      "cond": {
+        "kind": "on-success"
+      }
+    }
+  ]
+}
+

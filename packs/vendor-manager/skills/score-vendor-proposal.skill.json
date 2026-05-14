@@ -1,0 +1,116 @@
+{
+  "entry": "collect",
+  "metadata": {
+    "name": "score-vendor-proposal",
+    "version": "1.0.0",
+    "description": "Score vendor proposals against weighted procurement rubrics and produce a ranked recommendation with trade-offs.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "proposal_set",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "scorecard",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "collect",
+      "label": "Collect Proposals",
+      "kind": {
+        "type": "fetch",
+        "target": "workspace://rfp/proposals",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "rubric",
+      "label": "Load Rubric",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://rfp_rubrics",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "score",
+      "label": "Score Proposals",
+      "kind": {
+        "type": "action",
+        "instruction": "Apply the selected weighted rubric to each proposal. Produce criterion scores, evidence snippets, disqualifying gaps, TCO notes, risk flags, and ranked recommendation."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "policy-check",
+      "label": "Check Approval Thresholds",
+      "kind": {
+        "type": "condition",
+        "expression": "scorecard.recommended_spend_usd > 50000 || scorecard.has_unapproved_vendor || scorecard.has_non_standard_terms"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "approval",
+      "label": "Route Recommendation",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "procurement-owner",
+        "timeoutSeconds": 86400
+      },
+      "annotations": {
+        "policy": "ask"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "collect",
+      "to": "rubric",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "rubric",
+      "to": "score",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "score",
+      "to": "policy-check",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e4",
+      "from": "policy-check",
+      "to": "approval",
+      "cond": {
+        "kind": "always"
+      }
+    }
+  ]
+}
+

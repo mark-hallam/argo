@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "skycot.memory.schema.v1",
+  "entries": [
+    {
+      "key": "vendor_roster",
+      "type": "list<object>",
+      "purpose": "Approved and prospective vendors with category, owner, renewal date, risk tier, current contract value, and escalation contact."
+    },
+    {
+      "key": "rfp_rubrics",
+      "type": "list<object>",
+      "purpose": "Weighted scoring rubrics for vendor proposals, including commercial, technical, security, implementation, support, and legal criteria."
+    },
+    {
+      "key": "procurement_policies",
+      "type": "list<object>",
+      "purpose": "Spend thresholds, quote-count requirements, approval roles, non-standard term flags, and external-communication rules."
+    },
+    {
+      "key": "contract_fallbacks",
+      "type": "list<object>",
+      "purpose": "Negotiation fallback ranges for price, liability, term length, termination rights, DPA, audit rights, and SLA credits."
+    },
+    {
+      "key": "sla_obligations",
+      "type": "list<object>",
+      "purpose": "Contracted service levels, measurement windows, breach thresholds, credit remedies, and notification obligations."
+    },
+    {
+      "key": "approval_history",
+      "type": "list<object>",
+      "purpose": "Prior approval packets, approver decisions, conditions, rejected terms, and evidence that shortened later review cycles."
+    }
+  ]
+}
+

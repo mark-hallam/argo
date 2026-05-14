@@ -1,0 +1,89 @@
+{
+  "entry": "assemble",
+  "metadata": {
+    "name": "route-procurement-approval",
+    "version": "1.0.0",
+    "description": "Assemble and route procurement approval packets with spend, policy, risk, contract, vendor, and evidence sections.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "approval_request",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "approval_packet",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "assemble",
+      "label": "Assemble Packet",
+      "kind": {
+        "type": "action",
+        "instruction": "Build an approval packet containing business need, recommended vendor, alternatives considered, budget impact, policy checks, risk flags, contract terms, evidence links, and requested decision."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "route",
+      "label": "Route By Policy",
+      "kind": {
+        "type": "branch",
+        "arms": [
+          {
+            "label": "finance-and-legal",
+            "pattern": "spend_usd > 50000 || non_standard_terms"
+          },
+          {
+            "label": "procurement-owner",
+            "pattern": "new_vendor || supplier_message"
+          },
+          {
+            "label": "budget-owner",
+            "pattern": "default"
+          }
+        ]
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "approval",
+      "label": "Await Approval",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "policy-selected-approver",
+        "timeoutSeconds": 172800
+      },
+      "annotations": {
+        "policy": "ask"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "assemble",
+      "to": "route",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "route",
+      "to": "approval",
+      "cond": {
+        "kind": "always"
+      }
+    }
+  ]
+}
+

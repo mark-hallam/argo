@@ -1,0 +1,97 @@
+{
+  "entry": "load-contract",
+  "metadata": {
+    "name": "negotiate-renewal",
+    "version": "1.0.0",
+    "description": "Prepare renewal negotiation strategy, counteroffer language, and approval gates from contract, usage, benchmark, and fallback-term context.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "renewal_context",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "counteroffer",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "load-contract",
+      "label": "Load Contract Terms",
+      "kind": {
+        "type": "fetch",
+        "target": "workspace://contracts/current",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "load-fallbacks",
+      "label": "Load Fallback Terms",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://contract_fallbacks",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "strategy",
+      "label": "Build Renewal Strategy",
+      "kind": {
+        "type": "action",
+        "instruction": "Compare renewal proposal against fallback terms, usage, benchmark ranges, SLA history, and switching risk. Draft negotiation asks with walk-away points and human approval requirements."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "approval",
+      "label": "Approve Supplier Counter",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "finance-and-legal",
+        "timeoutSeconds": 172800
+      },
+      "annotations": {
+        "policy": "ask"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "load-contract",
+      "to": "load-fallbacks",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "load-fallbacks",
+      "to": "strategy",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "strategy",
+      "to": "approval",
+      "cond": {
+        "kind": "on-success"
+      }
+    }
+  ]
+}
+

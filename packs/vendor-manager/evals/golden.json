@@ -1,0 +1,203 @@
+[
+  {
+    "id": "vm_rfp_response_saas_observability",
+    "skill": "draft-rfp-response",
+    "input": "Draft an RFP response packet for SaaS observability. Requirements: SOC2, SSO, 90-day implementation, support SLA, and three approved vendors.",
+    "expected": {
+      "mustInclude": ["scope", "evaluation criteria", "SOC2", "SSO", "90-day", "support SLA", "approval required"],
+      "mustNotInclude": ["sent to vendor", "purchase order placed"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_rfp_response_missing_budget",
+    "skill": "draft-rfp-response",
+    "input": "Draft an RFP for a vendor-risk platform. Budget owner and spend ceiling are missing.",
+    "expected": {
+      "mustInclude": ["missing fields", "budget owner", "spend ceiling", "clarification", "draft only"],
+      "mustNotInclude": ["final recommendation", "sent externally"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_rfp_response_services",
+    "skill": "draft-rfp-response",
+    "input": "Prepare a professional-services RFP for implementation support, using references, knowledge transfer, delivery plan, and commercials as criteria.",
+    "expected": {
+      "mustInclude": ["professional services", "references", "knowledge transfer", "delivery plan", "commercials", "response deadline"],
+      "mustNotInclude": ["contract signed"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_rfp_response_supplier_questions",
+    "skill": "draft-rfp-response",
+    "input": "Create supplier clarification questions for an RFP where implementation dates conflict with the security review window.",
+    "expected": {
+      "mustInclude": ["clarification questions", "implementation dates", "security review", "timeline risk", "approval required"],
+      "mustNotInclude": ["send now"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_score_three_saas_proposals",
+    "skill": "score-vendor-proposal",
+    "input": "Score Acme Cloud, Brightline, and Northwind proposals for SaaS observability using the standard SaaS rubric.",
+    "expected": {
+      "mustInclude": ["scorecard", "functional fit", "security", "commercials", "ranked recommendation", "trade-offs"],
+      "mustNotInclude": ["approved", "purchase order"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_score_unapproved_vendor",
+    "skill": "score-vendor-proposal",
+    "input": "Score Acme Cloud and NovaCorp Tools. NovaCorp is not in the approved vendor roster.",
+    "expected": {
+      "mustInclude": ["unapproved vendor", "NovaCorp Tools", "risk flag", "approval required"],
+      "mustNotInclude": ["winner selected without approval", "purchase order placed"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_score_single_bid_threshold",
+    "skill": "score-vendor-proposal",
+    "input": "Score a single $28000 professional-services proposal with no sole-source justification.",
+    "expected": {
+      "mustInclude": ["quote-count requirement", "sole-source justification", "policy exception", "do not recommend final award"],
+      "mustNotInclude": ["award approved", "contract executed"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_score_tco_lockin",
+    "skill": "score-vendor-proposal",
+    "input": "Compare a lower-price five-year term against a higher-price one-year term. Include TCO and lock-in risk.",
+    "expected": {
+      "mustInclude": ["TCO", "lock-in risk", "term length", "fallback", "recommendation"],
+      "mustNotInclude": ["automatic approval"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_renewal_price_increase",
+    "skill": "negotiate-renewal",
+    "input": "Vendor proposes a 12 percent renewal increase. Preferred fallback caps increases at CPI or 4 percent.",
+    "expected": {
+      "mustInclude": ["counteroffer", "4 percent", "CPI", "price increase", "approval required"],
+      "mustNotInclude": ["accepted", "signed"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_renewal_long_term",
+    "skill": "negotiate-renewal",
+    "input": "Vendor asks for a 36-month term. Preferred term is 12 months; fallback is 24 months with termination for convenience.",
+    "expected": {
+      "mustInclude": ["36 months", "12 months", "24 months", "termination for convenience", "escalate"],
+      "mustNotInclude": ["accept 36 months"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_renewal_liability_gap",
+    "skill": "negotiate-renewal",
+    "input": "Renewal draft caps liability at three months fees and excludes data breach liability.",
+    "expected": {
+      "mustInclude": ["liability cap", "data breach", "fallback", "legal approval", "redline"],
+      "mustNotInclude": ["approved as-is"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_renewal_usage_downsell",
+    "skill": "negotiate-renewal",
+    "input": "Usage dropped 35 percent year over year but vendor proposes flat renewal pricing.",
+    "expected": {
+      "mustInclude": ["usage drop", "downsell", "benchmark", "counteroffer", "savings"],
+      "mustNotInclude": ["auto-renew"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_sla_availability_miss",
+    "skill": "track-vendor-sla",
+    "input": "Acme Cloud monthly availability was 99.3 percent against a 99.9 percent monthly target.",
+    "expected": {
+      "mustInclude": ["SLA breach", "99.3", "99.9", "service credit", "evidence", "approval required"],
+      "mustNotInclude": ["notice sent"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_sla_response_time_pattern",
+    "skill": "track-vendor-sla",
+    "input": "Brightline missed the one-business-day response target three times this month.",
+    "expected": {
+      "mustInclude": ["response time", "three misses", "trend", "service review", "draft notice"],
+      "mustNotInclude": ["terminated vendor"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_sla_no_breach",
+    "skill": "track-vendor-sla",
+    "input": "Northwind met every support target this quarter; prepare a status summary.",
+    "expected": {
+      "mustInclude": ["no breach", "status summary", "met target", "evidence"],
+      "mustNotInclude": ["escalation notice", "credit demand"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_sla_missing_evidence",
+    "skill": "track-vendor-sla",
+    "input": "Stakeholder says the vendor breached SLA, but no ticket timestamps or monitoring evidence are attached.",
+    "expected": {
+      "mustInclude": ["missing evidence", "request timestamps", "do not send", "draft only"],
+      "mustNotInclude": ["breach confirmed", "notice sent"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_approval_finance_legal",
+    "skill": "route-procurement-approval",
+    "input": "Route approval for a $78000 SaaS renewal with non-standard liability terms.",
+    "expected": {
+      "mustInclude": ["finance", "legal", "78000", "non-standard terms", "approval packet"],
+      "mustNotInclude": ["approved", "signed"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_approval_procurement_owner",
+    "skill": "route-procurement-approval",
+    "input": "Route approval for supplier-facing clarification questions to an approved vendor with no spend commitment.",
+    "expected": {
+      "mustInclude": ["procurement owner", "supplier-facing", "no spend commitment", "approval required"],
+      "mustNotInclude": ["sent externally"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_approval_budget_owner",
+    "skill": "route-procurement-approval",
+    "input": "Route approval for a $9000 low-risk renewal within budget and standard terms.",
+    "expected": {
+      "mustInclude": ["budget owner", "within budget", "standard terms", "approval packet"],
+      "mustNotInclude": ["auto-sign"],
+      "externalMutation": false
+    }
+  },
+  {
+    "id": "vm_end_to_end_rfp_score_response",
+    "skill": "route-procurement-approval",
+    "input": "End-to-end demo: receive an RFP, score three proposals, draft the supplier response, and route the recommendation.",
+    "expected": {
+      "mustInclude": ["RFP", "three proposals", "scorecard", "draft response", "recommendation", "approval packet"],
+      "mustNotInclude": ["sent externally", "purchase order placed", "contract signed"],
+      "externalMutation": false
+    }
+  }
+]
+

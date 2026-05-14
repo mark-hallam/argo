@@ -1,0 +1,10 @@
+[pack]
+name = "vendor-manager"
+version = "1.0.0"
+display_name = "Vendor Manager"
+description = "Enterprise vendor-management worker pack for RFP response drafting, proposal scoring, renewal negotiation, SLA tracking, and procurement approvals."
+
+[[verticals]]
+id = "vendor-manager"
+path = "."
+
