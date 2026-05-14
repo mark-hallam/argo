@@ -83,7 +83,7 @@
 >       CANVAS-PHASE-1-MERGED signal. Drives Track M (19 active + 1
 >       deferred per `streams/M0-enterprise-parity-track-overview.md`).
 >       Runs PARALLEL to Track L Tiers 3-5; doesn't pause L.
->       **Operator prereq**: `github.com/skycot/skycot-packs` repo created.
+>       **Operator prereq**: `github.com/mark-hallam/skycot-packs` repo created.
 > - **ACTIONED** — `conductor-advisory-{E0-E1,E2-E5,F-reconciliation,G-J}.md`:
 >   rows inserted into this ledger; retained for traceability only.
 > - **PRIMER**: fresh sessions read `docs/build-plan/RESUME.md` first.
@@ -608,7 +608,7 @@ C-gmail`, `status: C-gmail in review (#812)`).
 | M12-skill-sdk-typescript | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Code, Tier 2).** Depends on L1 MERGED. Fluent TS builder API that compiles to valid Skill IR. Publishable as @skycot/skill-sdk on npm. Five sample skills (one per role p... LOC ~1200. Brief: streams/M12-skill-sdk-typescript.md. |
 | M13-skill-sdk-rust | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Code, Tier 3).** Depends on L1 MERGED. Same fluent API as M12 but in Rust, for in-process workers / vertical packs shipped as crates. Useful for canonical sub-skill libr... LOC ~900. Brief: streams/M13-skill-sdk-rust.md. |
 | M14-skill-code-mode-canvas-bridge | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Code, Tier 3).** Depends on M12 MERGED; L7 MERGED. Canvas -> Code: emit M12 SDK source from current IR. Code -> Canvas: parse SDK source, build IR, render. Round-trip with no inform... LOC ~800. Brief: streams/M14-skill-code-mode-canvas-bridge.md. |
-| M15-vertical-pack-loader | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Tmpl, Tier 1).** Depends on L1 MERGED; L2 MERGED. Pack manifest format (TOML). Fetcher: pulls from github.com/skycot/skycot-packs via release tarballs. Cached at ~/.argo/packs/<nam... LOC ~900. Brief: streams/M15-vertical-pack-loader.md. |
+| M15-vertical-pack-loader | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Tmpl, Tier 1).** Depends on L1 MERGED; L2 MERGED. Pack manifest format (TOML). Fetcher: pulls from github.com/mark-hallam/skycot-packs via release tarballs. Cached at ~/.argo/packs/<nam... LOC ~900. Brief: streams/M15-vertical-pack-loader.md. |
 | M16-vertical-pack-recruiter | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Tmpl, Tier 2).** Depends on M15 MERGED; operator pre-req: skycot-packs repo exists. The Recruiter vertical pack. Worker manifest defines role: tone, escalation policy, default_display_name=Recruiter (overridable by... LOC ~2000 (mostly data + skills). Brief: streams/M16-vertical-pack-recruiter.md. |
 | M17-vertical-pack-ap-specialist | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Tmpl, Tier 2).** Depends on M15 MERGED; M2 MERGED (doc extraction). The AP Specialist vertical pack. 5 skills: process-invoice, match-po, flag-exception, route-for-approval, update-erp. Covers invoi... LOC ~2000. Brief: streams/M17-vertical-pack-ap-specialist.md. |
 | M18-vertical-pack-vendor-manager | claude | TODO | - | **NEW 2026-05-14 by conductor (Track M M-Tmpl, Tier 3).** Depends on M15 MERGED. The Vendor Manager vertical pack. 5 skills: draft-rfp-response, score-vendor-proposal, negotiate-renewal, track-vendor-sla, route-... LOC ~1800. Brief: streams/M18-vertical-pack-vendor-manager.md. |

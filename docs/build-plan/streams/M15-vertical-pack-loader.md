@@ -6,7 +6,7 @@
 
 ## Scope
 
-Pack manifest format (TOML). Fetcher: pulls from github.com/skycot/skycot-packs via release tarballs. Cached at ~/.argo/packs/<name>/<version>/. dev-link: argo packs dev-link <name> <path> points the runtime at a local checkout. CLI: argo packs install / list / update / dev-link / remove. Distribution decision locked per M0 section 1: separate skycot-packs repo from day one.
+Pack manifest format (TOML). Fetcher: pulls from github.com/mark-hallam/skycot-packs via release tarballs. Cached at ~/.argo/packs/<name>/<version>/. dev-link: argo packs dev-link <name> <path> points the runtime at a local checkout. CLI: argo packs install / list / update / dev-link / remove. Distribution decision locked per M0 section 1: separate skycot-packs repo from day one.
 
 LOC: ~900. Branch: `claude-M15-vertical-pack-loader`. PR title: `feat(packs): vertical-pack loader + dev-link CLI (M15)`.
 
@@ -47,3 +47,10 @@ LOC: ~900. Branch: `claude-M15-vertical-pack-loader`. PR title: `feat(packs): ve
 
 - See `streams/M0-enterprise-parity-track-overview.md` for the authoritative spec for this brief.
 - Mission-claim alignment: claim 3 (vertical packs as fast-start).
+
+
+## Operator-provided context (2026-05-14)
+
+The packs repo is `https://github.com/mark-hallam/skycot-packs` (PRIVATE while build phase). Pack URLs in `pack.toml` should use this path for now. Operator has not settled on long-term hosting — the URL may change pre-v1.0 release; treat as configuration, not a hardcoded constant. Add a `[fetcher] base_url = "..."` knob in the pack-loader config so swapping the URL is a TOML edit, not a code change.
+
+The repo is private; the fetcher must auth via GitHub token (use existing `GH_TOKEN` / `GITHUB_TOKEN` env-var precedent the rest of the codebase follows).

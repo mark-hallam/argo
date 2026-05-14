@@ -566,7 +566,7 @@ Pure data + assembly work. Each pack is a bundle of:
   name = "skycot-recruiter"
   version = "0.1.0"
   vertical = "people-ops"
-  source = "github:skycot/skycot-packs/recruiter"
+  source = "github:mark-hallam/skycot-packs/recruiter"
 
   [worker]
   default_display_name = "Recruiter"  # role title; tenant renames on hire
@@ -585,7 +585,7 @@ Pure data + assembly work. Each pack is a bundle of:
   [evals]
   fixtures = "evals/*.json"
   ```
-- Fetcher: pulls from `github.com/skycot/skycot-packs` via release tarballs.
+- Fetcher: pulls from `github.com/mark-hallam/skycot-packs` via release tarballs.
   Cached at `~/.argo/packs/<name>/<version>/`. Re-install is zero-network.
 - Loader: reads pack from cache, validates, instantiates per tenant.
 - **`dev-link`**: `argo packs dev-link <name> <path>` points the runtime at
@@ -732,7 +732,7 @@ Pure data + assembly work. Each pack is a bundle of:
 
 ## Operator decisions — locked 2026-05-12
 
-1. **Pack distribution — separate `github.com/skycot/skycot-packs` repo from
+1. **Pack distribution — separate `github.com/mark-hallam/skycot-packs` repo from
    day one** as the ecosystem and marketplace play. Positions packs as an
    open catalog (parallel to MCP server registry) where third-party
    consultants, vertical specialists, and partners contribute packs.
@@ -750,7 +750,7 @@ Pure data + assembly work. Each pack is a bundle of:
    identical iteration UX to in-repo development. Same pattern as
    `cargo`'s `[patch]` or `pnpm link`.
 
-   **Repo setup**: spin up `github.com/skycot/skycot-packs` before M16
+   **Repo setup**: spin up `github.com/mark-hallam/skycot-packs` before M16
    starts. Initial structure: README + `packs/` directory + `MANIFEST.toml`
    catalog file + `.github/` for pack-validation CI.
 2. **OCR / extraction strategy — Anthropic Claude vision** as the canonical
@@ -784,7 +784,7 @@ Pure data + assembly work. Each pack is a bundle of:
 
 After Track L Phase 1 (L1–L6) MERGED:
 1. **Pre-requisite (one-time, operator)**: create
-   `github.com/skycot/skycot-packs` repo with initial structure (README,
+   `github.com/mark-hallam/skycot-packs` repo with initial structure (README,
    empty `packs/` dir, `MANIFEST.toml`, pack-validation CI workflow). ~30 min
    of operator work, not a brief. Must exist before M16 claims.
 2. Author `ENTERPRISE-PARITY-v1` directive that inserts M1–M20 with tiered

@@ -195,7 +195,7 @@ End directive.
 ## BLOCK 2 — paste when CANVAS-PHASE-1-MERGED signal appears
 
 This block carries an operator prerequisite — create the
-`github.com/skycot/skycot-packs` repo before pasting. ~30 minutes
+`github.com/mark-hallam/skycot-packs` repo before pasting. ~30 minutes
 of operator setup (README, empty packs/ dir, MANIFEST.toml,
 pack-validation CI). Skycot-packs CI must be green before pasting.
 
@@ -212,7 +212,7 @@ This directive RUNS PARALLEL to remaining Track L work
 
 === OPERATOR PREREQUISITE (confirm before serving §1) ===
 
-Verify github.com/skycot/skycot-packs exists with:
+Verify github.com/mark-hallam/skycot-packs exists with:
   - README.md
   - packs/ (empty initially)
   - MANIFEST.toml (catalog file, can be empty array)
@@ -222,7 +222,7 @@ If repo does not yet exist, hold §1 row insertion and append
 to ledger header:
 
   ENTERPRISE-PARITY-v1 BLOCKED on skycot-packs repo creation.
-  Operator: create github.com/skycot/skycot-packs per
+  Operator: create github.com/mark-hallam/skycot-packs per
   M0-enterprise-parity-track-overview.md §"Track M launch
   sequence" pre-requisite.
 
