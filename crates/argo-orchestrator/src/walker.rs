@@ -48,7 +48,7 @@
 use crate::escalation::{EscalationChain, EscalationStep};
 use crate::handoff::{Handoff, HandoffStatus};
 use crate::persist::OrchestratorStore;
-use crate::routing::{RoutingContext, RoutingEngine};
+use crate::routing::{HandoffRoutingContext, RoutingEngine};
 use crate::session::SessionStatus;
 use crate::walker_helpers::{
     find_overdue_handoffs, parse_chain_from_payload, parse_index_from_payload,
@@ -174,7 +174,8 @@ impl HandoffWalker {
     /// Attach a [`HandoffPolicyHook`] consulted before the routing engine.
     #[must_use]
     pub fn with_policy_hook(mut self, hook: Arc<dyn HandoffPolicyHook>) -> Self {
-        self.policy_hook = Some(hook); self
+        self.policy_hook = Some(hook);
+        self
     }
 
     /// One sweep. Idempotent — repeated calls on the same database
@@ -283,13 +284,9 @@ impl HandoffWalker {
         report: &mut SweepReport,
     ) -> ArgoResult<()> {
         let org_idx = parse_org_chain_index_from_payload(&row.handoff.payload);
-        let step = try_advance_via_org_chart(
-            &self.pool,
-            &row.tenant_id,
-            &row.handoff.from,
-            org_idx,
-        )
-        .await?;
+        let step =
+            try_advance_via_org_chart(&self.pool, &row.tenant_id, &row.handoff.from, org_idx)
+                .await?;
         if let Some(EscalationStep::Worker(mgr)) = step {
             let target = self
                 .routing_override(&row.handoff.expected_outcome, now)
@@ -382,7 +379,11 @@ impl HandoffWalker {
         write_escalation_exhausted_audit(&self.pool, row.handoff.session_id.clone(), payload)
             .await?;
         self.store
-            .update_session_status(row.tenant_id, &row.handoff.session_id, SessionStatus::Expired)
+            .update_session_status(
+                row.tenant_id,
+                &row.handoff.session_id,
+                SessionStatus::Expired,
+            )
             .await?;
         Ok(())
     }
@@ -391,17 +392,17 @@ impl HandoffWalker {
     /// rule fires with a `SpecificWorker` / `RoundRobin` target.
     /// The walker only re-routes to workers — `Human` selectors
     /// are not currently supported and fall through to the chain.
-    fn routing_override(
-        &self,
-        expected_outcome: &str,
-        now: DateTime<Utc>,
-    ) -> Option<WorkerId> {
+    fn routing_override(&self, expected_outcome: &str, now: DateTime<Utc>) -> Option<WorkerId> {
         // policy hook (Stream `claude-worker-handoff-policy`)
-        if let Some(w) = self.policy_hook.as_ref().and_then(|h| h.override_target(expected_outcome)) {
+        if let Some(w) = self
+            .policy_hook
+            .as_ref()
+            .and_then(|h| h.override_target(expected_outcome))
+        {
             return Some(w);
         }
         let engine = self.routing_engine.as_ref()?;
-        let ctx = RoutingContext::new(now, expected_outcome);
+        let ctx = HandoffRoutingContext::new(now, expected_outcome);
         match engine.route(&ctx)? {
             EscalationStep::Worker(w) => Some(w),
             EscalationStep::Human(_) => None,

@@ -6,7 +6,7 @@
 //! * `ActionsSection` — the `[actions]` table.
 //! * `ActionDeclaration` — one entry inside `[actions]`.
 //! * `ActionRiskLevel` — the `risk` enum.
-//! * `RetryPolicy` — the `[actions.<name>.retry]` sub-section
+//! * `ActionRetryPolicy` — the `[actions.<name>.retry]` sub-section
 //!   added in #755.
 //!
 //! `ExecutorDeclaration` + `ExecutorTagged` (Stream A
@@ -134,7 +134,7 @@ pub struct ActionDeclaration {
     /// Operators can bypass the limit with `--force`; the
     /// retry handler logs a WARN-level breadcrumb when they do.
     #[serde(default)]
-    pub retry: Option<RetryPolicy>,
+    pub retry: Option<ActionRetryPolicy>,
     /// Action types to auto-emit when this action transitions
     /// to `completed` (#771). Each entry is the canonical
     /// action_type name as declared elsewhere in `[actions]`;
@@ -167,7 +167,7 @@ pub struct ActionDeclaration {
 /// retries against the upstream's recovery curve.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct RetryPolicy {
+pub struct ActionRetryPolicy {
     /// Total attempts allowed including the original. `1`
     /// means "no retries". `3` means "the original + up to 2
     /// retries". The OS counts the retry chain length from
@@ -190,7 +190,7 @@ pub struct RetryPolicy {
     pub initial_delay_seconds: u32,
 }
 
-impl Default for RetryPolicy {
+impl Default for ActionRetryPolicy {
     fn default() -> Self {
         Self {
             max_attempts: default_max_attempts(),

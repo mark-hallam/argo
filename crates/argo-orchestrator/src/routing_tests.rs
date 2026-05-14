@@ -6,8 +6,8 @@ use argo_identity::WorkerId;
 use argo_store::SessionStore;
 use chrono::TimeZone;
 
-fn ctx(now: DateTime<Utc>, outcome: &str) -> RoutingContext {
-    RoutingContext::new(now, outcome)
+fn ctx(now: DateTime<Utc>, outcome: &str) -> HandoffRoutingContext {
+    HandoffRoutingContext::new(now, outcome)
 }
 
 fn at_hour(hour: u32) -> DateTime<Utc> {

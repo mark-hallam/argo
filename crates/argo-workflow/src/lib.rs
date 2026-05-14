@@ -7,7 +7,7 @@
 //! when their dependencies are satisfied.
 //!
 //! Pieces:
-//! - [`Workflow`] / [`TaskNode`] / [`Edge`] — declarative DAG
+//! - [`Workflow`] / [`TaskNode`] / [`WorkflowEdge`] — declarative DAG
 //!   shape. [`Workflow::validate`] enforces DAG topology (no
 //!   cycles + every edge endpoint references a declared task).
 //! - [`parse_yaml`] / [`parse_yaml_str`] — YAML + JSON-bridge
@@ -56,9 +56,9 @@ mod expr;
 mod yaml;
 
 pub use checkpoint::{Checkpoint, CheckpointError, CheckpointStore, InMemoryCheckpointStore};
-pub use dag::{Edge, TaskNode, Trigger, ValidationError, Workflow, WorkflowId};
+pub use dag::{TaskNode, Trigger, ValidationError, Workflow, WorkflowEdge, WorkflowId};
 pub use executor::{
-    DryRunPlan, ExecutionRequest, ExecutionReport, Executor, MockRunner, TaskOutcome, TaskRunner,
+    DryRunPlan, ExecutionReport, ExecutionRequest, Executor, MockRunner, TaskOutcome, TaskRunner,
     TaskVerdict,
 };
 pub use expr::{Expr, ExprError};

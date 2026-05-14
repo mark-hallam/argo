@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// `session/send_message` params.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SendMessageRequest {
+pub struct AcpSendMessageRequest {
     /// Target session.
     pub session: SessionId,
     /// Message body (text).
@@ -50,7 +50,7 @@ pub struct ForkRequest {
 #[async_trait]
 pub trait AcpService: Send + Sync {
     /// Handle `session/send_message`.
-    async fn send_message(&self, req: SendMessageRequest) -> ArgoResult<()>;
+    async fn send_message(&self, req: AcpSendMessageRequest) -> ArgoResult<()>;
     /// Handle `session/list`.
     async fn list_sessions(&self) -> ArgoResult<ListSessionsResponse>;
     /// Handle `session/fork`. Returns the new session id.
@@ -109,7 +109,7 @@ impl<S: AcpService> AcpServer<S> {
             return AcpResponse::err(req.id, AcpError::permission_denied("send_message"));
         }
         let id = req.id.clone();
-        let parsed: Result<SendMessageRequest, _> = req
+        let parsed: Result<AcpSendMessageRequest, _> = req
             .params
             .ok_or_else(|| serde::de::Error::custom("missing params"))
             .and_then(serde_json::from_value);

@@ -7,12 +7,12 @@ pub use cli_reexports::{
     cli_contract_cmds, cli_duty_cmds, cli_eval_cmds, cli_handoff_cmds, cli_org_cmds,
     cli_policy_cmds, cli_recover_cmds, cli_roster_cmds, cli_skill_ab_cmds, cli_worker_cmds,
 };
+#[path = "cli_command_enum.rs"]
+mod cli_command_enum;
 #[path = "cli_runtime_cmds.rs"]
 pub mod cli_runtime_cmds;
 #[path = "cli_security_cmds.rs"]
 pub mod cli_security_cmds;
-#[path = "cli_command_enum.rs"]
-mod cli_command_enum;
 use clap::{Args, Parser, Subcommand};
 pub use cli_command_enum::{Command, E2bSandboxCmd, SandboxCmd};
 pub use cli_security_cmds::SecurityCmd;
@@ -190,7 +190,7 @@ pub enum TraceCmd {
 }
 
 #[derive(Args, Debug, Clone)]
-pub struct ComplianceSoc2Args {
+pub struct CliComplianceSoc2Args {
     /// Window start, RFC3339. Inclusive.
     #[arg(long)]
     pub from: String,

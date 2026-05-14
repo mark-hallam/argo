@@ -2,7 +2,7 @@
 
 use super::*;
 
-fn has_source(actions: &[SuggestedAction], name: &str) -> bool {
+fn has_source(actions: &[ActionSuggestion], name: &str) -> bool {
     actions.iter().any(|action| {
         matches!(
             &action.source,

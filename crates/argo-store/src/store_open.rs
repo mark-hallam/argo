@@ -49,7 +49,7 @@ async fn open_inner(
         .create_if_missing(true)
         .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
 
-    let pool_cfg = pool_config::PoolConfig::from_env();
+    let pool_cfg = pool_config::StorePoolConfig::from_env();
     let mut builder = SqlitePoolOptions::new()
         .max_connections(pool_cfg.max_connections)
         .min_connections(pool_cfg.min_connections)

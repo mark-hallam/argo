@@ -19,7 +19,7 @@
 //!    active hour the prewarmer signals that one sandbox should
 //!    be opened. Active hours are the inverse of the operator's
 //!    quiet-hours config and are supplied via
-//!    [`SandboxPrewarmConfig::active_hours`].
+//!    [`SandboxPrewarmRuntimeConfig::active_hours`].
 //!
 //! Both triggers are pure functions of timestamps + reservoir
 //! state. The async I/O (calling E2B's `open_sandbox` and stamping
@@ -38,7 +38,7 @@
 //!
 //! ## Disabled by default
 //!
-//! [`SandboxPrewarmConfig::enabled`] is `false` by default. The
+//! [`SandboxPrewarmRuntimeConfig::enabled`] is `false` by default. The
 //! pool builder skips construction of the prewarmer entirely when
 //! the config is off — the dispatch path is zero-overhead until an
 //! operator opts in. Pre-warming consumes E2B-minutes even when
@@ -62,12 +62,12 @@ pub const DEFAULT_MAX_PREWARM: u32 = 5;
 pub const DEFAULT_IDLE_TTL_SECONDS: u64 = 600;
 
 /// Operator-tunable knobs. Mirrors the values consumed off
-/// `[runtime.sandbox_prewarm]` by [`argo_config::SandboxPrewarmConfig`].
+/// `[runtime.sandbox_prewarm]` by [`argo_config::SandboxPrewarmRuntimeConfig`].
 /// Kept as a standalone struct here so the executor crate doesn't
 /// take a build-time dependency on `argo-config` just for the
 /// types; the config crate maps its TOML struct into this one.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SandboxPrewarmConfig {
+pub struct SandboxPrewarmRuntimeConfig {
     /// Master enable. When `false`, the prewarmer is not
     /// constructed at all (no overhead).
     pub enabled: bool,
@@ -89,7 +89,7 @@ pub struct SandboxPrewarmConfig {
     pub active_hours: Vec<u8>,
 }
 
-impl Default for SandboxPrewarmConfig {
+impl Default for SandboxPrewarmRuntimeConfig {
     fn default() -> Self {
         Self {
             enabled: false,
@@ -123,7 +123,7 @@ pub struct PrewarmedSandbox {
 /// up; see [`crate::pool::SandboxPool::with_prewarmer`].
 #[derive(Debug)]
 pub struct SandboxPrewarmer {
-    config: SandboxPrewarmConfig,
+    config: SandboxPrewarmRuntimeConfig,
     reservoir: VecDeque<PrewarmedSandbox>,
     spawn_events: VecDeque<Instant>,
     last_hourly_hour: Option<u32>,
@@ -132,7 +132,7 @@ pub struct SandboxPrewarmer {
 impl SandboxPrewarmer {
     /// Build a prewarmer with the given config.
     #[must_use]
-    pub fn new(config: SandboxPrewarmConfig) -> Self {
+    pub fn new(config: SandboxPrewarmRuntimeConfig) -> Self {
         Self {
             config,
             reservoir: VecDeque::new(),
@@ -143,7 +143,7 @@ impl SandboxPrewarmer {
 
     /// Read-only view of the live config.
     #[must_use]
-    pub fn config(&self) -> &SandboxPrewarmConfig {
+    pub fn config(&self) -> &SandboxPrewarmRuntimeConfig {
         &self.config
     }
 
@@ -255,10 +255,7 @@ impl SandboxPrewarmer {
     /// `template`. Emits a `runtime.sandbox_prewarm_consumed`
     /// audit on hit.
     pub fn try_consume(&mut self, template: &str) -> Option<E2bSandbox> {
-        let pos = self
-            .reservoir
-            .iter()
-            .position(|e| e.template == template)?;
+        let pos = self.reservoir.iter().position(|e| e.template == template)?;
         let entry = self.reservoir.remove(pos)?;
         tracing::info!(
             kind = "runtime.sandbox_prewarm_consumed",
@@ -279,8 +276,7 @@ impl SandboxPrewarmer {
     pub fn drain_idle(&mut self, now: Instant) -> Vec<PrewarmedSandbox> {
         let ttl = Duration::from_secs(self.config.idle_ttl_seconds);
         let mut drained = Vec::new();
-        let mut keep: VecDeque<PrewarmedSandbox> =
-            VecDeque::with_capacity(self.reservoir.len());
+        let mut keep: VecDeque<PrewarmedSandbox> = VecDeque::with_capacity(self.reservoir.len());
         for entry in self.reservoir.drain(..) {
             if now.duration_since(entry.prewarmed_at) > ttl {
                 drained.push(entry);

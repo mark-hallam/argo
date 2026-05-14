@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SuggestedAction {
+pub struct ActionSuggestion {
     pub id: String,
     pub source: ActionSource,
     pub score: f32,
@@ -30,7 +30,10 @@ pub struct SkillSummary {
 }
 
 /// Suggest the top `top_k` action candidates for a role description.
-pub fn suggest(role_description: &str, top_k: usize) -> Result<Vec<SuggestedAction>, GenesisError> {
+pub fn suggest(
+    role_description: &str,
+    top_k: usize,
+) -> Result<Vec<ActionSuggestion>, GenesisError> {
     if top_k == 0 {
         return Ok(Vec::new());
     }
@@ -132,7 +135,7 @@ pub(crate) fn manifest_action_type(id: &str) -> String {
 }
 
 fn push_connector(
-    out: &mut Vec<SuggestedAction>,
+    out: &mut Vec<ActionSuggestion>,
     role_tokens: &BTreeSet<String>,
     connector: &ConnectorSummary,
 ) {
@@ -144,7 +147,7 @@ fn push_connector(
     );
     let (score, matched) = score_text(role_tokens, &text);
     if score > 0.0 {
-        out.push(SuggestedAction {
+        out.push(ActionSuggestion {
             id: connector
                 .tools
                 .first()
@@ -158,14 +161,14 @@ fn push_connector(
 }
 
 fn push_skill(
-    out: &mut Vec<SuggestedAction>,
+    out: &mut Vec<ActionSuggestion>,
     role_tokens: &BTreeSet<String>,
     skill: &SkillSummary,
 ) {
     let text = format!("{} {}", skill.id, skill.vertical);
     let (score, matched) = score_text(role_tokens, &text);
     if score > 0.0 {
-        out.push(SuggestedAction {
+        out.push(ActionSuggestion {
             id: skill.id.clone(),
             source: ActionSource::Skill(skill.id.clone()),
             score,
@@ -197,7 +200,7 @@ fn score_text(role_tokens: &BTreeSet<String>, text: &str) -> (f32, Vec<String>) 
     }
 }
 
-fn add_generic_fallbacks(out: &mut Vec<SuggestedAction>, top_k: usize) {
+fn add_generic_fallbacks(out: &mut Vec<ActionSuggestion>, top_k: usize) {
     for (id, reason) in [
         ("web_search", "generic discovery action for unknown roles"),
         (
@@ -212,7 +215,7 @@ fn add_generic_fallbacks(out: &mut Vec<SuggestedAction>, top_k: usize) {
         if out.len() >= top_k.min(3) {
             return;
         }
-        out.push(SuggestedAction {
+        out.push(ActionSuggestion {
             id: id.to_string(),
             source: ActionSource::Skill("generic".to_string()),
             score: 0.01,
@@ -221,7 +224,7 @@ fn add_generic_fallbacks(out: &mut Vec<SuggestedAction>, top_k: usize) {
     }
 }
 
-fn compare_candidates(a: &SuggestedAction, b: &SuggestedAction) -> Ordering {
+fn compare_candidates(a: &ActionSuggestion, b: &ActionSuggestion) -> Ordering {
     b.score
         .partial_cmp(&a.score)
         .unwrap_or(Ordering::Equal)

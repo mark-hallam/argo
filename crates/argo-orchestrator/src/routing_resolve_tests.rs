@@ -8,7 +8,7 @@
 #![cfg(test)]
 
 use crate::routing::{
-    HandoffRoutingRule, RoutingContext, RoutingEngine, TargetSelector, WhenClause,
+    HandoffRoutingContext, HandoffRoutingRule, RoutingEngine, TargetSelector, WhenClause,
 };
 use crate::routing_resolve::{rank_workers, TargetResolver};
 use crate::EscalationStep;
@@ -24,16 +24,32 @@ struct StubResolver {
 
 impl StubResolver {
     fn empty() -> Self {
-        Self { skill_pick: None, role_pick: None, fail: false }
+        Self {
+            skill_pick: None,
+            role_pick: None,
+            fail: false,
+        }
     }
     fn with_skill(pick: WorkerId) -> Self {
-        Self { skill_pick: Some(pick), role_pick: None, fail: false }
+        Self {
+            skill_pick: Some(pick),
+            role_pick: None,
+            fail: false,
+        }
     }
     fn with_role(pick: WorkerId) -> Self {
-        Self { skill_pick: None, role_pick: Some(pick), fail: false }
+        Self {
+            skill_pick: None,
+            role_pick: Some(pick),
+            fail: false,
+        }
     }
     fn always_errors() -> Self {
-        Self { skill_pick: None, role_pick: None, fail: true }
+        Self {
+            skill_pick: None,
+            role_pick: None,
+            fail: true,
+        }
     }
 }
 
@@ -65,9 +81,9 @@ fn at_hour(hour: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 5, 7, hour, 0, 0).unwrap()
 }
 
-fn ctx_with_tenant(now: DateTime<Utc>, outcome: &str) -> (RoutingContext, TenantId) {
+fn ctx_with_tenant(now: DateTime<Utc>, outcome: &str) -> (HandoffRoutingContext, TenantId) {
     let tenant = TenantId::new();
-    let c = RoutingContext::new(now, outcome).with_tenant(tenant);
+    let c = HandoffRoutingContext::new(now, outcome).with_tenant(tenant);
     (c, tenant)
 }
 
@@ -148,8 +164,14 @@ fn rank_workers_orders_by_grade_then_recency_then_id() {
     // (lower UUID wins, regardless of input order).
     let a = WorkerId(uuid::Uuid::parse_str("00000000-0000-7000-8000-000000000001").unwrap());
     let b = WorkerId(uuid::Uuid::parse_str("00000000-0000-7000-8000-000000000002").unwrap());
-    assert_eq!(rank_workers(&[(a, 3, Some(now)), (b, 3, Some(now))]), Some(a));
-    assert_eq!(rank_workers(&[(b, 3, Some(now)), (a, 3, Some(now))]), Some(a));
+    assert_eq!(
+        rank_workers(&[(a, 3, Some(now)), (b, 3, Some(now))]),
+        Some(a)
+    );
+    assert_eq!(
+        rank_workers(&[(b, 3, Some(now)), (a, 3, Some(now))]),
+        Some(a)
+    );
 }
 
 #[tokio::test]
@@ -170,7 +192,7 @@ async fn resolver_error_falls_through_to_none() {
 
 #[tokio::test]
 async fn route_async_skips_resolver_when_tenant_unset() {
-    // Back-compat: a RoutingContext without `tenant_id` must keep
+    // Back-compat: a HandoffRoutingContext without `tenant_id` must keep
     // the v1 behaviour where SkillMatch/RoleMatch return None.
     let rule = HandoffRoutingRule::new(
         "skill",
@@ -179,7 +201,7 @@ async fn route_async_skips_resolver_when_tenant_unset() {
         1,
     );
     let engine = RoutingEngine::new(vec![rule]);
-    let ctx = RoutingContext::new(at_hour(12), "x");
+    let ctx = HandoffRoutingContext::new(at_hour(12), "x");
     let resolver = StubResolver::with_skill(WorkerId::new());
     assert!(engine.route_async(&ctx, &resolver).await.is_none());
 }

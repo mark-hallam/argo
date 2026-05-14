@@ -408,8 +408,12 @@ mod tests {
         // Charter would classify to MarketingIntern via keyword; the
         // LLM stub forces a different archetype to prove the LLM path
         // ran instead of the keyword fallback.
-        let cfg = GenesisConfig { use_llm_classifier: true };
-        let llm = StubProvider { slug: "ops_on_call" };
+        let cfg = GenesisConfig {
+            use_llm_classifier: true,
+        };
+        let llm = StubProvider {
+            slug: "ops_on_call",
+        };
         let p = plan_with(
             "be my marketing intern, run weekly campaigns to cold leads",
             "maya",
@@ -424,7 +428,9 @@ mod tests {
     #[tokio::test]
     async fn plan_with_falls_back_to_keyword_when_llm_disabled() {
         let cfg = GenesisConfig::default(); // use_llm_classifier=false
-        let llm = StubProvider { slug: "ops_on_call" };
+        let llm = StubProvider {
+            slug: "ops_on_call",
+        };
         let p = plan_with(
             "be my marketing intern, run weekly campaigns to cold leads",
             "maya",
@@ -438,7 +444,9 @@ mod tests {
 
     #[tokio::test]
     async fn plan_with_falls_back_to_keyword_when_no_provider() {
-        let cfg = GenesisConfig { use_llm_classifier: true };
+        let cfg = GenesisConfig {
+            use_llm_classifier: true,
+        };
         let p = plan_with(
             "be my marketing intern, run weekly campaigns to cold leads",
             "maya",

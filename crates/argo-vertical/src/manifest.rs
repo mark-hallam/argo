@@ -403,12 +403,12 @@ pub struct EvaluationSection {
 /// See `docs/design/worker_v3_execution.md` for the full design.
 ///
 /// `ActionsSection`, `ActionDeclaration`, `ActionRiskLevel`, and
-/// `RetryPolicy` live in `manifest_actions.rs` so this file stays
+/// `ActionRetryPolicy` live in `manifest_actions.rs` so this file stays
 /// under the 500-LOC budget; they're re-exported here so the
 /// public API surface (`argo_vertical::ActionsSection`, etc.) is
 /// unchanged.
 pub use crate::manifest_actions::{
-    ActionDeclaration, ActionRiskLevel, ActionsSection, RetryPolicy,
+    ActionDeclaration, ActionRetryPolicy, ActionRiskLevel, ActionsSection,
 };
 pub use crate::manifest_mcp::{McpServerDeclaration, McpServersSection};
 

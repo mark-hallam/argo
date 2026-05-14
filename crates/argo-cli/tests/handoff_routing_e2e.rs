@@ -12,7 +12,7 @@
 
 use argo_identity::{IdentityStore, Persona, Role, Worker, WorkerId};
 use argo_orchestrator::{
-    rank_workers, EscalationStep, HandoffRoutingRule, RoutingContext, RoutingEngine,
+    rank_workers, EscalationStep, HandoffRoutingContext, HandoffRoutingRule, RoutingEngine,
     TargetResolver, TargetSelector, WhenClause,
 };
 use argo_skill::SkillStore;
@@ -67,9 +67,7 @@ impl TargetResolver for E2eResolver {
     }
 }
 
-fn tuples(
-    workers: &[Worker],
-) -> Vec<(WorkerId, u8, Option<chrono::DateTime<chrono::Utc>>)> {
+fn tuples(workers: &[Worker]) -> Vec<(WorkerId, u8, Option<chrono::DateTime<chrono::Utc>>)> {
     workers
         .iter()
         .map(|w| (w.id, w.trust_grade, w.last_used_at))
@@ -141,7 +139,7 @@ async fn skill_match_handoff_picks_higher_trust_grade_worker() {
         1,
     );
     let engine = RoutingEngine::new(vec![rule]);
-    let ctx = RoutingContext::new(
+    let ctx = HandoffRoutingContext::new(
         Utc.with_ymd_and_hms(2026, 5, 12, 12, 0, 0).unwrap(),
         "review the launch copy",
     )

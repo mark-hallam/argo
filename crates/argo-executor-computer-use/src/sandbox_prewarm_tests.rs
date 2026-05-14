@@ -10,10 +10,10 @@ use super::*;
 use chrono::TimeZone;
 use std::time::Duration;
 
-fn enabled_config() -> SandboxPrewarmConfig {
-    SandboxPrewarmConfig {
+fn enabled_config() -> SandboxPrewarmRuntimeConfig {
+    SandboxPrewarmRuntimeConfig {
         enabled: true,
-        ..SandboxPrewarmConfig::default()
+        ..SandboxPrewarmRuntimeConfig::default()
     }
 }
 
@@ -31,7 +31,7 @@ fn entry(template: &str, id: &str, prewarmed_at: Instant) -> PrewarmedSandbox {
 
 #[test]
 fn sliding_window_evicts_events_older_than_configured_width() {
-    let mut p = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         window_seconds: 60,
         ..enabled_config()
     });
@@ -63,7 +63,7 @@ fn sliding_window_evicts_events_older_than_configured_width() {
 
 #[test]
 fn burst_does_not_trigger_at_or_below_threshold() {
-    let mut p = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         spawn_rate_threshold: 3,
         burst_size: 2,
         max_prewarm: 5,
@@ -80,7 +80,7 @@ fn burst_does_not_trigger_at_or_below_threshold() {
         "exactly at threshold must not trigger burst pre-warm"
     );
     // Below threshold: 2 events.
-    let mut p2 = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p2 = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         spawn_rate_threshold: 3,
         burst_size: 2,
         max_prewarm: 5,
@@ -93,7 +93,7 @@ fn burst_does_not_trigger_at_or_below_threshold() {
 
 #[test]
 fn burst_triggers_burst_size_strictly_above_threshold() {
-    let mut p = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         spawn_rate_threshold: 3,
         burst_size: 2,
         max_prewarm: 5,
@@ -105,11 +105,11 @@ fn burst_triggers_burst_size_strictly_above_threshold() {
     }
     assert_eq!(p.should_burst_prewarm(t), 2);
     // Disabled config returns 0 regardless of count.
-    let mut p_off = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p_off = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         enabled: false,
         spawn_rate_threshold: 3,
         burst_size: 2,
-        ..SandboxPrewarmConfig::default()
+        ..SandboxPrewarmRuntimeConfig::default()
     });
     for _ in 0..10 {
         p_off.record_spawn(t);
@@ -123,7 +123,7 @@ fn burst_triggers_burst_size_strictly_above_threshold() {
 
 #[test]
 fn try_admit_caps_reservoir_at_max_prewarm() {
-    let mut p = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         max_prewarm: 3,
         ..enabled_config()
     });
@@ -177,7 +177,7 @@ fn try_consume_returns_fifo_oldest_matching_template() {
 
 #[test]
 fn hourly_trigger_fires_once_per_active_hour_then_quiets() {
-    let mut p = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         active_hours: vec![9, 10, 11],
         ..enabled_config()
     });
@@ -193,7 +193,7 @@ fn hourly_trigger_fires_once_per_active_hour_then_quiets() {
     // Crossing into the next active hour re-fires.
     assert!(p.should_hourly_prewarm(in_hour_10));
     // A non-active hour does not fire even on a fresh prewarmer.
-    let mut p_quiet = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p_quiet = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         active_hours: vec![9, 10, 11],
         ..enabled_config()
     });
@@ -201,14 +201,14 @@ fn hourly_trigger_fires_once_per_active_hour_then_quiets() {
     // Empty active_hours means "every hour is active" — the
     // operator-active-default for tenants with no quiet-hours
     // configured.
-    let mut p_always = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p_always = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         active_hours: Vec::new(),
         ..enabled_config()
     });
     assert!(p_always.should_hourly_prewarm(in_quiet_hour_3));
     // Hourly trigger respects max_prewarm cap — once full, no
     // more fires until reservoir drains.
-    let mut p_full = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p_full = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         max_prewarm: 2,
         active_hours: Vec::new(),
         ..enabled_config()
@@ -221,7 +221,7 @@ fn hourly_trigger_fires_once_per_active_hour_then_quiets() {
 
 #[test]
 fn drain_idle_returns_entries_past_ttl_and_keeps_recent() {
-    let mut p = SandboxPrewarmer::new(SandboxPrewarmConfig {
+    let mut p = SandboxPrewarmer::new(SandboxPrewarmRuntimeConfig {
         idle_ttl_seconds: 60,
         max_prewarm: 5,
         ..enabled_config()

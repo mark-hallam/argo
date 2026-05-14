@@ -6,7 +6,7 @@
 //! - `acquire_timeout = 30s` (sqlx default)
 //! - `idle_timeout = None` (sqlx default — no idle reaping)
 //!
-//! [`PoolConfig::from_env`] preserves those numbers as the structural
+//! [`StorePoolConfig::from_env`] preserves those numbers as the structural
 //! defaults so a build with no env vars set is byte-equivalent to the
 //! previous behaviour. Operators tuning a swarm can override any
 //! field via env without recompiling:
@@ -31,16 +31,16 @@
 
 use std::time::Duration;
 
-/// Parsed sqlx pool tuning. Built from env via [`PoolConfig::from_env`]
+/// Parsed sqlx pool tuning. Built from env via [`StorePoolConfig::from_env`]
 /// at `SessionStore::open` time.
 ///
 /// ```
-/// use argo_store::pool_config::PoolConfig;
-/// let cfg = PoolConfig::from_env();
+/// use argo_store::pool_config::StorePoolConfig;
+/// let cfg = StorePoolConfig::from_env();
 /// assert!(cfg.max_connections >= cfg.min_connections);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PoolConfig {
+pub struct StorePoolConfig {
     /// Hard ceiling on simultaneously-checked-out connections.
     pub max_connections: u32,
     /// Lower bound — sqlx keeps at least this many connections live.
@@ -52,7 +52,7 @@ pub struct PoolConfig {
     pub idle_timeout: Option<Duration>,
 }
 
-impl Default for PoolConfig {
+impl Default for StorePoolConfig {
     fn default() -> Self {
         Self {
             max_connections: 8,
@@ -63,9 +63,9 @@ impl Default for PoolConfig {
     }
 }
 
-impl PoolConfig {
+impl StorePoolConfig {
     /// Parse `ARGO_STORE_POOL_*` env vars; invalid values warn and fall
-    /// back to [`PoolConfig::default`].
+    /// back to [`StorePoolConfig::default`].
     #[must_use]
     pub fn from_env() -> Self {
         let mut cfg = Self::default();
@@ -90,9 +90,7 @@ fn parse_env_u32(key: &str) -> Option<u32> {
     match raw.parse::<u32>() {
         Ok(v) => Some(v),
         Err(_) => {
-            eprintln!(
-                "warning: {key}={raw} is not a valid u32; falling back to default"
-            );
+            eprintln!("warning: {key}={raw} is not a valid u32; falling back to default");
             None
         }
     }
@@ -103,9 +101,7 @@ fn parse_env_u64(key: &str) -> Option<u64> {
     match raw.parse::<u64>() {
         Ok(v) => Some(v),
         Err(_) => {
-            eprintln!(
-                "warning: {key}={raw} is not a valid u64; falling back to default"
-            );
+            eprintln!("warning: {key}={raw} is not a valid u64; falling back to default");
             None
         }
     }

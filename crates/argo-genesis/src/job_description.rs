@@ -34,7 +34,9 @@
 
 use crate::archetype::Archetype;
 use crate::error::GenesisError;
-use crate::eval_seed::{generate as generate_eval_seeds, suggested_actions_from_manifest, EvalSeed};
+use crate::eval_seed::{
+    generate as generate_eval_seeds, suggested_actions_from_manifest, EvalSeed,
+};
 use crate::pipeline::{plan_with, GenesisConfig, GenesisPlan};
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::VerticalManifest;
@@ -93,9 +95,7 @@ pub struct GenesisDraft {
 /// Returns [`ArgoError::Provider`] for downstream pipeline
 /// failures (reqwest transport, malformed PDF bytes, archetype
 /// classification, etc).
-pub async fn genesis_from_job_description(
-    input: JobDescInput,
-) -> ArgoResult<GenesisDraft> {
+pub async fn genesis_from_job_description(input: JobDescInput) -> ArgoResult<GenesisDraft> {
     let raw = match input {
         JobDescInput::Pdf(path) => extract_pdf_text(&path)?,
         JobDescInput::Text(t) => t,
@@ -123,15 +123,10 @@ pub async fn genesis_from_job_description(
 }
 
 fn extract_pdf_text(path: &Path) -> ArgoResult<String> {
-    let bytes = std::fs::read(path).map_err(|e| ArgoError::Io(format!(
-        "read {}: {e}",
-        path.display()
-    )))?;
+    let bytes =
+        std::fs::read(path).map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     pdf_extract::extract_text_from_mem(&bytes).map_err(|e| {
-        ArgoError::Schema(format!(
-            "pdf extraction failed for {}: {e}",
-            path.display()
-        ))
+        ArgoError::Schema(format!("pdf extraction failed for {}: {e}", path.display()))
     })
 }
 
@@ -169,9 +164,8 @@ async fn fetch_url(url: &str) -> ArgoResult<String> {
             bytes.len()
         )));
     }
-    String::from_utf8(bytes.to_vec()).map_err(|e| {
-        ArgoError::Schema(format!("url body not utf-8 ({url}): {e}"))
-    })
+    String::from_utf8(bytes.to_vec())
+        .map_err(|e| ArgoError::Schema(format!("url body not utf-8 ({url}): {e}")))
 }
 
 /// v1 stub: pass the extracted text through unchanged. Once

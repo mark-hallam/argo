@@ -19,7 +19,7 @@
 //! roster carries an override that the resolver should layer on
 //! when computing the effective policy for one of its members.
 
-use crate::policy::QuietHours;
+use crate::policy::PolicyQuietHours;
 use serde::{Deserialize, Serialize};
 
 /// Sparse override for the per-roster policy. Every field is
@@ -45,5 +45,5 @@ pub struct RosterPolicyOverride {
     /// existing workspace-level quiet-hours. Today this is an
     /// extra block; the v2 brief decides the union semantics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub additional_quiet_hours: Option<QuietHours>,
+    pub additional_quiet_hours: Option<PolicyQuietHours>,
 }

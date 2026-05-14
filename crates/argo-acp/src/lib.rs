@@ -41,6 +41,6 @@ pub use auth::{verify, AuthError, AuthScheme, AuthToken};
 pub use harness::{Harness, HarnessCapabilities};
 pub use permission::{map_permission, AcpPermission};
 pub use server::{
-    AcpServer, AcpService, ForkRequest, ListSessionsResponse, SendMessageRequest, StreamChunk,
+    AcpSendMessageRequest, AcpServer, AcpService, ForkRequest, ListSessionsResponse, StreamChunk,
 };
 pub use wire::{AcpError, AcpNotification, AcpRequest, AcpResponse, JSONRPC_VERSION};

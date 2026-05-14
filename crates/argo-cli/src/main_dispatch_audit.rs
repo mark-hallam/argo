@@ -65,8 +65,10 @@ pub(crate) async fn errors(cmd: cli::ErrorsCmd) -> ArgoResult<()> {
             tenant,
             route,
             json,
-        } => handlers::errors_dashboard::run(&window, tenant.as_deref(), route.as_deref(), json)
-            .await,
+        } => {
+            handlers::errors_dashboard::run(&window, tenant.as_deref(), route.as_deref(), json)
+                .await
+        }
     }
 }
 
@@ -91,17 +93,19 @@ pub(crate) async fn trajectory(cmd: cli::TrajectoryCmd) -> ArgoResult<()> {
             gdpr_redact_emails,
             output,
             json,
-        } => handlers::trajectory_export::run(handlers::trajectory_export::ExportArgs {
-            since,
-            until,
-            format,
-            filter,
-            include_screenshots,
-            gdpr_redact_emails,
-            output,
-            json,
-        })
-        .await,
+        } => {
+            handlers::trajectory_export::run(handlers::trajectory_export::ExportArgs {
+                since,
+                until,
+                format,
+                filter,
+                include_screenshots,
+                gdpr_redact_emails,
+                output,
+                json,
+            })
+            .await
+        }
     }
 }
 
@@ -140,28 +144,32 @@ pub(crate) async fn feedback(cmd: cli::FeedbackCmd) -> ArgoResult<()> {
             worker,
             skill,
             json,
-        } => handlers::feedback_up::run(
-            &action_id,
-            comment.as_deref(),
-            worker.as_deref(),
-            skill.as_deref(),
-            json,
-        )
-        .await,
+        } => {
+            handlers::feedback_up::run(
+                &action_id,
+                comment.as_deref(),
+                worker.as_deref(),
+                skill.as_deref(),
+                json,
+            )
+            .await
+        }
         cli::FeedbackCmd::Down {
             action_id,
             comment,
             worker,
             skill,
             json,
-        } => handlers::feedback_down::run(
-            &action_id,
-            comment.as_deref(),
-            worker.as_deref(),
-            skill.as_deref(),
-            json,
-        )
-        .await,
+        } => {
+            handlers::feedback_down::run(
+                &action_id,
+                comment.as_deref(),
+                worker.as_deref(),
+                skill.as_deref(),
+                json,
+            )
+            .await
+        }
         cli::FeedbackCmd::List {
             worker,
             vote,

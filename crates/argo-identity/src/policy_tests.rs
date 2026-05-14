@@ -3,7 +3,7 @@
 //! so `policy.rs` stays under the per-file LOC budget.
 use super::{
     glob_match, load_policy_dir, parse_policy_yaml, resolve_effective_policy, validate_policy_file,
-    EffectivePolicy, PolicyApplies, PolicyError, PolicyFile, PolicyRule, QuietHours,
+    EffectivePolicy, PolicyApplies, PolicyError, PolicyFile, PolicyQuietHours, PolicyRule,
     QuietHoursBehavior,
 };
 use crate::AutoApprovalPolicy;
@@ -30,8 +30,7 @@ rules:
 
 #[test]
 fn parse_policy_yaml_round_trips_full_payload() {
-    let file =
-        parse_policy_yaml("finance-strict", finance_strict_yaml()).expect("parse");
+    let file = parse_policy_yaml("finance-strict", finance_strict_yaml()).expect("parse");
     assert_eq!(file.name, "finance-strict");
     assert_eq!(file.applies_to.len(), 2);
     assert_eq!(file.rules.len(), 3);
@@ -99,7 +98,7 @@ fn validate_rejects_bad_quiet_hours_time() {
         applies_to: vec![PolicyApplies::Role("x".into())],
         rules: vec![PolicyRule {
             action_kind: "x".into(),
-            quiet_hours: Some(QuietHours {
+            quiet_hours: Some(PolicyQuietHours {
                 start: "25:99".into(),
                 end: "09:00".into(),
                 behavior: QuietHoursBehavior::Block,
@@ -224,13 +223,8 @@ rules:
         parse_policy_yaml("two-sig", two_sig).expect("parse"),
         parse_policy_yaml("three-sig", three_sig).expect("parse"),
     ];
-    let effective = resolve_effective_policy(
-        &base,
-        &files,
-        "any-finance",
-        "acme-prod",
-        "stripe_charge",
-    );
+    let effective =
+        resolve_effective_policy(&base, &files, "any-finance", "acme-prod", "stripe_charge");
     assert_eq!(effective.require_signatures, 3);
     assert_eq!(effective.source_files, vec!["two-sig", "three-sig"]);
 }
@@ -267,8 +261,7 @@ rules:
 ";
     let files = vec![parse_policy_yaml("audit-everything", yaml).expect("parse")];
     let base = AutoApprovalPolicy::default();
-    let effective =
-        resolve_effective_policy(&base, &files, "any-role", "audit-prod", "any_action");
+    let effective = resolve_effective_policy(&base, &files, "any-role", "audit-prod", "any_action");
     assert!(effective.audit_chain_required);
 }
 
@@ -344,13 +337,8 @@ rules:
     // audit_chain_required=true here we'd need an action_kind
     // that finance-strict doesn't cover; let's verify with a
     // non-finance action.
-    let other = resolve_effective_policy(
-        &base,
-        &files,
-        "marketing-intern",
-        "acme-prod",
-        "tweet_post",
-    );
+    let other =
+        resolve_effective_policy(&base, &files, "marketing-intern", "acme-prod", "tweet_post");
     // marketing-intern doesn't match finance-* but tenant
     // acme-prod DOES match Tenant(acme-*), so finance-strict's
     // applies_to fires (OR semantics across applies_to entries).

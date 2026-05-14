@@ -21,7 +21,7 @@ use crate::e2b::E2bClient;
 use crate::executor_loop_exit::LoopExit;
 use crate::executor_step_helpers::run_loop;
 use crate::executor_types::default_bundle_dir;
-use crate::pool::{PoolKey, SandboxPool};
+use crate::pool::{SandboxPool, SandboxPoolKey};
 use crate::profile::ProfileRegistry;
 use crate::screenshot_persist::ScreenshotPersister;
 use crate::CuError;
@@ -173,7 +173,7 @@ impl ComputerUseExecutor {
             .unwrap_or_else(|| default_bundle_dir(&req));
         let audit = AuditLog::create(bundle_dir.clone())?;
 
-        let pool_key = PoolKey {
+        let pool_key = SandboxPoolKey {
             tenant_id: req.tenant_id.clone(),
             persona_id: req.persona_id.clone(),
             profile: req.profile_name.clone(),

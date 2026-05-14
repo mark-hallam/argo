@@ -37,7 +37,7 @@ pub enum Difficulty {
 
 /// Normalised action metadata used by the seed generator.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SuggestedAction {
+pub struct EvalSeedAction {
     /// Manifest action id.
     pub name: String,
     /// Human-readable action description.
@@ -45,7 +45,7 @@ pub struct SuggestedAction {
 }
 
 /// Generate 10 starter eval seeds from the role description and actions.
-pub fn generate(role_description: &str, actions: &[SuggestedAction]) -> ArgoResult<Vec<EvalSeed>> {
+pub fn generate(role_description: &str, actions: &[EvalSeedAction]) -> ArgoResult<Vec<EvalSeed>> {
     let role = clean_sentence(role_description)
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "worker role".into());
@@ -71,11 +71,11 @@ pub fn generate(role_description: &str, actions: &[SuggestedAction]) -> ArgoResu
 
 /// Convert manifest actions into generator input.
 #[must_use]
-pub fn suggested_actions_from_manifest(actions: &ActionsSection) -> Vec<SuggestedAction> {
+pub fn suggested_actions_from_manifest(actions: &ActionsSection) -> Vec<EvalSeedAction> {
     actions
         .actions
         .iter()
-        .map(|(name, decl)| SuggestedAction {
+        .map(|(name, decl)| EvalSeedAction {
             name: name.clone(),
             description: decl.description.clone(),
         })
@@ -110,14 +110,14 @@ pub fn to_toml(seeds: &[EvalSeed]) -> String {
     out
 }
 
-fn action_candidates(actions: &[SuggestedAction], primary: &str) -> Vec<SuggestedAction> {
+fn action_candidates(actions: &[EvalSeedAction], primary: &str) -> Vec<EvalSeedAction> {
     if actions.is_empty() {
         return vec![
-            SuggestedAction {
+            EvalSeedAction {
                 name: primary.to_string(),
                 description: format!("Handle a {primary} task"),
             },
-            SuggestedAction {
+            EvalSeedAction {
                 name: "summarize_context".into(),
                 description: "Summarize the relevant context".into(),
             },
@@ -134,7 +134,7 @@ fn difficulty_for(idx: usize) -> Difficulty {
     }
 }
 
-fn task_for(idx: usize, difficulty: Difficulty, role: &str, action: &SuggestedAction) -> String {
+fn task_for(idx: usize, difficulty: Difficulty, role: &str, action: &EvalSeedAction) -> String {
     let scenario = idx + 1;
     match difficulty {
         Difficulty::Easy => format!(
@@ -152,7 +152,7 @@ fn task_for(idx: usize, difficulty: Difficulty, role: &str, action: &SuggestedAc
     }
 }
 
-fn expected_for(difficulty: Difficulty, action: &SuggestedAction) -> String {
+fn expected_for(difficulty: Difficulty, action: &EvalSeedAction) -> String {
     match difficulty {
         Difficulty::Easy => format!("Completes `{}` with a concise result.", action.name),
         Difficulty::Medium => format!(
@@ -166,7 +166,7 @@ fn expected_for(difficulty: Difficulty, action: &SuggestedAction) -> String {
     }
 }
 
-fn keywords(primary: &str, action: &SuggestedAction) -> Vec<String> {
+fn keywords(primary: &str, action: &EvalSeedAction) -> Vec<String> {
     let mut out = Vec::new();
     push_keyword(&mut out, primary);
     for part in action.name.split('_') {

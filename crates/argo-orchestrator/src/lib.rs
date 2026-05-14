@@ -29,9 +29,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
-pub mod auction;
 /// Multi-channel approval routing plans and runtime fallback walker.
 pub mod approval_routing;
+pub mod auction;
 /// Real-time fan-out wrapper around [`auction::Auction`] for
 /// in-process worker subscribers (Stream
 /// `mission-auction-tokio-broadcast-bidder`).
@@ -67,18 +67,18 @@ mod walker_helpers;
 /// non-clean exits. See `streams/mission-worker-supervisor-cage-and-oom.md`.
 pub mod worker_supervisor;
 
-pub use auction::{
-    fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
-};
-pub use auction_dispatcher::{AuctionDispatcher, AuctionEvent, DEFAULT_CHANNEL_CAPACITY};
 pub use approval_routing::{
     ApprovalAttemptStatus, ApprovalChannel, ApprovalChannelKind, ApprovalRouteAttempt,
     ApprovalRouteNode, ApprovalRoutingAction, ApprovalRoutingError, ApprovalRoutingPlan,
     ApprovalRoutingRuntime, APPROVAL_ROUTING_ANNOTATION,
 };
+pub use auction::{
+    fit_score, Auction, AuctionBid, AuctionStatus, AuctionStore, AuctionTask, AuctionWinner,
+};
+pub use auction_dispatcher::{AuctionDispatcher, AuctionEvent, DEFAULT_CHANNEL_CAPACITY};
 pub use duty_scheduler::{
     spawn_duty_scheduler, ClosedGate, DutyGate, DutyRecord, DutyScheduler, DutyStore,
-    FireDecision, OpenGate, TickReport,
+    DutyTickReport, FireDecision, OpenGate,
 };
 pub use escalation::{EscalationChain, EscalationStep};
 pub use handoff::{Handoff, HandoffId, HandoffStatus};
@@ -88,8 +88,8 @@ pub use retry::{
     SkillRetryPolicy,
 };
 pub use routing::{
-    HandoffRoutingRule, RoutingContext, RoutingEngine, RoutingRuleStore, RuleId, TargetSelector,
-    WhenClause,
+    HandoffRoutingContext, HandoffRoutingRule, RoutingEngine, RoutingRuleStore, RuleId,
+    TargetSelector, WhenClause,
 };
 pub use routing_resolve::{rank_workers, TargetResolver};
 pub use session::{Session, SessionId, SessionStatus};
@@ -99,15 +99,13 @@ pub use sla::{
 };
 pub use vertical_lock::{LockConfig, LockGuard, VerticalConcurrencyLock};
 pub use walker::{HandoffNotifier, HandoffPolicyHook, HandoffWalker, SweepReport};
-pub use worker_supervisor::{
-    WorkerSnapshot, WorkerSpec, WorkerSupervisor, MAX_RESPAWN_LOOPS,
-};
+pub use worker_supervisor::{WorkerSnapshot, WorkerSpec, WorkerSupervisor, MAX_RESPAWN_LOOPS};
 
 #[cfg(test)]
 mod approval_routing_tests;
 #[cfg(test)]
-mod vertical_lock_tests;
+mod retry_tests;
 #[cfg(test)]
 mod sla_tests;
 #[cfg(test)]
-mod retry_tests;
+mod vertical_lock_tests;

@@ -1,6 +1,6 @@
 //! Thin CLI shim for `argo compliance export`.
 
-use crate::cli::ComplianceExportArgs as CliComplianceExportArgs;
+use crate::cli::CliComplianceExportArgs;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_compliance::export::ComplianceExportArgs;
 use argo_store::SessionStore;

@@ -142,7 +142,7 @@ impl WhenClause {
     /// Check whether the conjunctive match conditions hold for
     /// the given context.
     #[must_use]
-    pub fn matches(&self, ctx: &RoutingContext) -> bool {
+    pub fn matches(&self, ctx: &HandoffRoutingContext) -> bool {
         if let Some(needle) = &self.expected_outcome_contains {
             let outcome = ctx.expected_outcome.to_ascii_lowercase();
             if !outcome.contains(&needle.to_ascii_lowercase()) {
@@ -184,7 +184,7 @@ pub enum TargetSelector {
 
 /// Inputs the routing engine inspects per evaluation.
 #[derive(Debug, Clone)]
-pub struct RoutingContext {
+pub struct HandoffRoutingContext {
     /// `now` in UTC — drives time-based conditions.
     pub now: DateTime<Utc>,
     /// `expected_outcome` text the handoff payload carried.
@@ -198,7 +198,7 @@ pub struct RoutingContext {
     pub tenant_id: Option<TenantId>,
 }
 
-impl RoutingContext {
+impl HandoffRoutingContext {
     /// Convenience constructor for tests + walker callers. Leaves
     /// `tenant_id` unset so the sync `route` path keeps its
     /// pre-resolver behaviour.
@@ -251,9 +251,8 @@ impl RoutingEngine {
     /// matched" — the caller should fall back to the explicit
     /// escalation chain.
     #[must_use]
-    pub fn route(&self, ctx: &RoutingContext) -> Option<EscalationStep> {
-        let mut sorted: Vec<&HandoffRoutingRule> =
-            self.rules.iter().filter(|r| r.active).collect();
+    pub fn route(&self, ctx: &HandoffRoutingContext) -> Option<EscalationStep> {
+        let mut sorted: Vec<&HandoffRoutingRule> = self.rules.iter().filter(|r| r.active).collect();
         sorted.sort_by_key(|r| r.priority);
         for rule in sorted {
             if !rule.when.matches(ctx) {
@@ -294,18 +293,16 @@ impl RoutingEngine {
     /// rather than crashing the tick.
     pub async fn route_async(
         &self,
-        ctx: &RoutingContext,
+        ctx: &HandoffRoutingContext,
         resolver: &dyn TargetResolver,
     ) -> Option<EscalationStep> {
-        let mut sorted: Vec<&HandoffRoutingRule> =
-            self.rules.iter().filter(|r| r.active).collect();
+        let mut sorted: Vec<&HandoffRoutingRule> = self.rules.iter().filter(|r| r.active).collect();
         sorted.sort_by_key(|r| r.priority);
         for rule in sorted {
             if !rule.when.matches(ctx) {
                 continue;
             }
-            if let Some(step) = self.resolve_target_async(&rule.target, ctx, resolver).await
-            {
+            if let Some(step) = self.resolve_target_async(&rule.target, ctx, resolver).await {
                 return Some(step);
             }
         }
@@ -315,7 +312,7 @@ impl RoutingEngine {
     async fn resolve_target_async(
         &self,
         target: &TargetSelector,
-        ctx: &RoutingContext,
+        ctx: &HandoffRoutingContext,
         resolver: &dyn TargetResolver,
     ) -> Option<EscalationStep> {
         match target {

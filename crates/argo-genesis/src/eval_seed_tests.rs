@@ -9,7 +9,7 @@ struct SeedDoc {
     seed: Vec<EvalSeed>,
 }
 
-fn marketing_actions() -> Vec<SuggestedAction> {
+fn marketing_actions() -> Vec<EvalSeedAction> {
     let manifest = build_manifest(
         "be my marketing intern, run weekly campaigns to cold leads",
         Archetype::MarketingIntern,
@@ -90,9 +90,7 @@ fn empty_actions_slice_still_works_from_role_description() {
     let seeds = generate("bookkeeping assistant reconciles invoices", &[]).expect("generate");
 
     assert_eq!(seeds.len(), 10);
-    assert!(
-        seeds
-            .iter()
-            .all(|s| { s.task.contains("bookkeeping") || s.task.contains("summarize_context") })
-    );
+    assert!(seeds
+        .iter()
+        .all(|s| { s.task.contains("bookkeeping") || s.task.contains("summarize_context") }));
 }

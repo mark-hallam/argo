@@ -7,7 +7,7 @@
 
 #![cfg(test)]
 
-use crate::dag::{Edge, TaskNode, Trigger, ValidationError, Workflow};
+use crate::dag::{TaskNode, Trigger, ValidationError, Workflow, WorkflowEdge};
 use std::collections::BTreeMap;
 
 fn task(id: &str, deps: &[&str]) -> TaskNode {
@@ -67,7 +67,7 @@ fn validate_unknown_edge_endpoint_errors() {
         id: "x".into(),
         description: String::new(),
         tasks: vec![task("a", &[])],
-        edges: vec![Edge {
+        edges: vec![WorkflowEdge {
             from_task: "a".into(),
             to_task: "ghost".into(),
             trigger: Trigger::Success,
@@ -148,7 +148,7 @@ fn topo_order_handles_explicit_edges_too() {
         id: "x".into(),
         description: String::new(),
         tasks: vec![task("a", &[]), task("b", &[])],
-        edges: vec![Edge {
+        edges: vec![WorkflowEdge {
             from_task: "a".into(),
             to_task: "b".into(),
             trigger: Trigger::Success,

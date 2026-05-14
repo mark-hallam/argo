@@ -1,4 +1,4 @@
-//! DAG primitives — Workflow / TaskNode / Edge + topology
+//! DAG primitives — Workflow / TaskNode / WorkflowEdge + topology
 //! validator. The shape is serde-friendly so the YAML parser
 //! lands by deriving Deserialize on these types.
 use serde::{Deserialize, Serialize};
@@ -36,12 +36,12 @@ impl Default for WorkflowId {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Trigger {
-    /// Edge fires when `from_task` succeeds.
+    /// WorkflowEdge fires when `from_task` succeeds.
     #[default]
     Success,
-    /// Edge fires regardless of `from_task` outcome.
+    /// WorkflowEdge fires regardless of `from_task` outcome.
     Always,
-    /// Edge fires only when `from_task` failed (compensation).
+    /// WorkflowEdge fires only when `from_task` failed (compensation).
     Failure,
 }
 
@@ -85,7 +85,7 @@ pub struct TaskNode {
 /// One edge between tasks. The parser may synthesise edges from
 /// `depends_on` shortcuts during validation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Edge {
+pub struct WorkflowEdge {
     /// Upstream task id.
     pub from_task: String,
     /// Downstream task id.
@@ -110,7 +110,7 @@ pub struct Workflow {
     /// Explicit edges. Combined with `depends_on` shortcuts during
     /// validation.
     #[serde(default)]
-    pub edges: Vec<Edge>,
+    pub edges: Vec<WorkflowEdge>,
 }
 
 /// Topology / shape errors surfaced by [`Workflow::validate`].
@@ -146,7 +146,7 @@ impl Workflow {
     /// Returns the canonicalised edge list (original `edges` plus
     /// any synthetic ones from `depends_on`) so callers don't have
     /// to merge twice.
-    pub fn validate(&self) -> Result<Vec<Edge>, ValidationError> {
+    pub fn validate(&self) -> Result<Vec<WorkflowEdge>, ValidationError> {
         if self.tasks.is_empty() {
             return Err(ValidationError::Empty);
         }
@@ -159,7 +159,7 @@ impl Workflow {
 
         // Materialise the full edge list: explicit edges + folded
         // depends_on shortcuts.
-        let mut edges: Vec<Edge> = self.edges.clone();
+        let mut edges: Vec<WorkflowEdge> = self.edges.clone();
         for t in &self.tasks {
             for dep in &t.depends_on {
                 if !ids.contains(dep) {
@@ -168,7 +168,7 @@ impl Workflow {
                         to: dep.clone(),
                     });
                 }
-                edges.push(Edge {
+                edges.push(WorkflowEdge {
                     from_task: dep.clone(),
                     to_task: t.id.clone(),
                     trigger: Trigger::Success,
@@ -189,8 +189,11 @@ impl Workflow {
         // anything left after the pass is part of a cycle.
         let mut indegree: BTreeMap<&str, usize> =
             self.tasks.iter().map(|t| (t.id.as_str(), 0)).collect();
-        let mut adj: BTreeMap<&str, Vec<&str>> =
-            self.tasks.iter().map(|t| (t.id.as_str(), Vec::new())).collect();
+        let mut adj: BTreeMap<&str, Vec<&str>> = self
+            .tasks
+            .iter()
+            .map(|t| (t.id.as_str(), Vec::new()))
+            .collect();
         for e in &edges {
             *indegree.entry(e.to_task.as_str()).or_insert(0) += 1;
             adj.entry(e.from_task.as_str())
@@ -236,8 +239,11 @@ impl Workflow {
         let edges = self.validate()?;
         let mut indegree: BTreeMap<&str, usize> =
             self.tasks.iter().map(|t| (t.id.as_str(), 0)).collect();
-        let mut adj: BTreeMap<&str, Vec<&str>> =
-            self.tasks.iter().map(|t| (t.id.as_str(), Vec::new())).collect();
+        let mut adj: BTreeMap<&str, Vec<&str>> = self
+            .tasks
+            .iter()
+            .map(|t| (t.id.as_str(), Vec::new()))
+            .collect();
         for e in &edges {
             *indegree.entry(e.to_task.as_str()).or_insert(0) += 1;
             adj.entry(e.from_task.as_str())
@@ -283,4 +289,3 @@ impl Workflow {
         self.tasks.iter().find(|t| t.id == id)
     }
 }
-

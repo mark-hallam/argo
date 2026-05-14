@@ -160,7 +160,7 @@ struct StubService {
 
 #[async_trait]
 impl AcpService for StubService {
-    async fn send_message(&self, _req: SendMessageRequest) -> ArgoResult<()> {
+    async fn send_message(&self, _req: AcpSendMessageRequest) -> ArgoResult<()> {
         self.sent.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
@@ -196,7 +196,7 @@ async fn authenticated_send_message_dispatches_to_service() {
     let svc = StubService::default();
     let counter = Arc::clone(&svc.sent);
     let server = AcpServer::new(Harness::Generic, AuthScheme::GenericBearer, svc);
-    let payload = SendMessageRequest {
+    let payload = AcpSendMessageRequest {
         session: SessionId::new(),
         text: "hi".into(),
     };
@@ -230,7 +230,7 @@ async fn capability_disabled_returns_permission_denied() {
         StubService::default(),
     );
     server.capabilities = HarnessCapabilities::empty();
-    let payload = SendMessageRequest {
+    let payload = AcpSendMessageRequest {
         session: SessionId::new(),
         text: "hi".into(),
     };

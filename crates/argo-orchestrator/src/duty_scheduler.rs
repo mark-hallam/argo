@@ -114,7 +114,7 @@ impl DutyRecord {
 
 /// Outcome of a single tick.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct TickReport {
+pub struct DutyTickReport {
     /// Total duties evaluated.
     pub evaluated: usize,
     /// Duty ids whose cron matched and the gate auto-approved.
@@ -139,7 +139,11 @@ impl DutyScheduler {
         orchestrator: Arc<OrchestratorStore>,
         gate: Arc<dyn DutyGate>,
     ) -> Self {
-        Self { duties, orchestrator, gate }
+        Self {
+            duties,
+            orchestrator,
+            gate,
+        }
     }
 
     /// Walk every active duty and fire those whose cron window has
@@ -151,8 +155,8 @@ impl DutyScheduler {
     /// (the default for legacy rows) delegates to the
     /// scheduler-level gate so today's behavior is preserved. The
     /// other variants override per-duty.
-    pub async fn tick(&self, now: DateTime<Utc>) -> ArgoResult<TickReport> {
-        let mut report = TickReport::default();
+    pub async fn tick(&self, now: DateTime<Utc>) -> ArgoResult<DutyTickReport> {
+        let mut report = DutyTickReport::default();
         let active = self.duties.list_active(now).await?;
         report.evaluated = active.len();
         for duty in active {
@@ -214,7 +218,11 @@ impl DutyScheduler {
     async fn spawn_session(&self, duty: &DutyRecord, now: DateTime<Utc>) -> ArgoResult<SessionId> {
         let mut session = Session::new(
             duty.tenant_id,
-            format!("duty:{}@{}", duty.entry_action, now.format("%Y-%m-%dT%H:%MZ")),
+            format!(
+                "duty:{}@{}",
+                duty.entry_action,
+                now.format("%Y-%m-%dT%H:%MZ")
+            ),
         );
         session.add_participant(duty.worker_id);
         self.orchestrator.insert_session(&session).await?;
@@ -349,8 +357,26 @@ mod tests {
         let (duties, _) = open_stores().await;
         let a = TenantId::new();
         let b = TenantId::new();
-        duties.insert(&DutyRecord::new(a, WorkerId::new(), "0 * * * * *", "ping", "")).await.unwrap();
-        duties.insert(&DutyRecord::new(b, WorkerId::new(), "0 * * * * *", "ping", "")).await.unwrap();
+        duties
+            .insert(&DutyRecord::new(
+                a,
+                WorkerId::new(),
+                "0 * * * * *",
+                "ping",
+                "",
+            ))
+            .await
+            .unwrap();
+        duties
+            .insert(&DutyRecord::new(
+                b,
+                WorkerId::new(),
+                "0 * * * * *",
+                "ping",
+                "",
+            ))
+            .await
+            .unwrap();
         assert_eq!(duties.list_for_tenant(a).await.unwrap().len(), 1);
         assert_eq!(duties.list_for_tenant(b).await.unwrap().len(), 1);
     }
@@ -360,9 +386,24 @@ mod tests {
         let (duties, _) = open_stores().await;
         let d = record("0 * * * * *");
         duties.insert(&d).await.unwrap();
-        duties.set_paused(&d.id, Some(Utc::now() + CDur::hours(2))).await.unwrap();
-        assert!(duties.get(&d.id).await.unwrap().unwrap().paused_until.is_some());
+        duties
+            .set_paused(&d.id, Some(Utc::now() + CDur::hours(2)))
+            .await
+            .unwrap();
+        assert!(duties
+            .get(&d.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .paused_until
+            .is_some());
         duties.set_paused(&d.id, None).await.unwrap();
-        assert!(duties.get(&d.id).await.unwrap().unwrap().paused_until.is_none());
+        assert!(duties
+            .get(&d.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .paused_until
+            .is_none());
     }
 }

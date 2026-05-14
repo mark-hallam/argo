@@ -123,7 +123,7 @@ pub struct PolicyRule {
     /// by [`QuietHoursBehavior`]. Outside the window, the rule
     /// has no effect.
     #[serde(default)]
-    pub quiet_hours: Option<QuietHours>,
+    pub quiet_hours: Option<PolicyQuietHours>,
     /// Per-action USD ceiling. Lower than the worker's existing
     /// per-action ceiling tightens it; higher is ignored.
     #[serde(default)]
@@ -140,7 +140,7 @@ pub struct PolicyRule {
 /// strings; `behavior` decides what to do when an action fires
 /// inside the window.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct QuietHours {
+pub struct PolicyQuietHours {
     /// Window start (`HH:MM`).
     pub start: String,
     /// Window end (`HH:MM`); when `end < start` the window wraps
@@ -151,15 +151,16 @@ pub struct QuietHours {
     pub behavior: QuietHoursBehavior,
 }
 
-impl QuietHours {
+impl PolicyQuietHours {
     /// Parse `start` + `end` into [`NaiveTime`]. Used by the gate
     /// when checking the active window.
     pub fn parse_times(&self) -> Result<(NaiveTime, NaiveTime), PolicyError> {
-        let start = NaiveTime::parse_from_str(&self.start, "%H:%M")
-            .map_err(|e| PolicyError::QuietHoursTimeParse {
+        let start = NaiveTime::parse_from_str(&self.start, "%H:%M").map_err(|e| {
+            PolicyError::QuietHoursTimeParse {
                 value: self.start.clone(),
                 message: e.to_string(),
-            })?;
+            }
+        })?;
         let end = NaiveTime::parse_from_str(&self.end, "%H:%M").map_err(|e| {
             PolicyError::QuietHoursTimeParse {
                 value: self.end.clone(),
@@ -195,7 +196,7 @@ pub struct EffectivePolicy {
     /// Number of human signatures required. Defaults to `1`.
     pub require_signatures: u32,
     /// Active quiet-hours window, if any.
-    pub quiet_hours: Option<QuietHours>,
+    pub quiet_hours: Option<PolicyQuietHours>,
     /// Whether the audit hook must succeed before the action
     /// counts as approved. `false` by default.
     pub audit_chain_required: bool,
@@ -262,11 +263,10 @@ pub enum PolicyError {
 /// loader and the gate's runtime loader. `name` is the file
 /// basename (e.g. `finance-strict` for `finance-strict.yaml`).
 pub fn parse_policy_yaml(name: &str, body: &str) -> Result<PolicyFile, PolicyError> {
-    let mut file: PolicyFile =
-        serde_yaml::from_str(body).map_err(|e| PolicyError::Parse {
-            name: name.to_string(),
-            message: e.to_string(),
-        })?;
+    let mut file: PolicyFile = serde_yaml::from_str(body).map_err(|e| PolicyError::Parse {
+        name: name.to_string(),
+        message: e.to_string(),
+    })?;
     file.name = name.to_string();
     validate_policy_file(&file)?;
     Ok(file)
@@ -301,9 +301,7 @@ pub fn validate_policy_file(file: &PolicyFile) -> Result<(), PolicyError> {
             if !cap.is_finite() || cap < 0.0 {
                 return Err(PolicyError::Validation {
                     name: file.name.clone(),
-                    detail: format!(
-                        "rules[{i}].spend_cap_per_action_usd must be >= 0; got {cap}"
-                    ),
+                    detail: format!("rules[{i}].spend_cap_per_action_usd must be >= 0; got {cap}"),
                 });
             }
         }

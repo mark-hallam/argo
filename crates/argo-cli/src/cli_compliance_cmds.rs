@@ -18,19 +18,19 @@ pub enum ComplianceCmd {
     /// SOC2 Common Criteria 6.x audit-trail report. Groups events
     /// in `[--from, --to)` by control category (Access, ChangeMgmt,
     /// DataMgmt, Security, Other).
-    Soc2(crate::cli::ComplianceSoc2Args),
+    Soc2(crate::cli::CliComplianceSoc2Args),
     /// Emit every tenant-scoped row across the database for GDPR
     /// right-to-access. Output is a single JSON envelope.
-    Export(ComplianceExportArgs),
+    Export(CliComplianceExportArgs),
     /// Cascade-delete every tenant-scoped row for GDPR right-to-
     /// erasure. Audit rows are tombstoned in place (PII fields
     /// replaced with `<erased>`, hash chain re-stitched). The whole
     /// operation is a single transaction; `--dry-run` rolls it back.
-    Delete(ComplianceDeleteArgs),
+    Delete(CliComplianceDeleteArgs),
 }
 
 #[derive(Args, Debug)]
-pub struct ComplianceExportArgs {
+pub struct CliComplianceExportArgs {
     /// Tenant id (UUID) whose data should be exported.
     #[arg(long)]
     pub tenant: String,
@@ -43,7 +43,7 @@ pub struct ComplianceExportArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct ComplianceDeleteArgs {
+pub struct CliComplianceDeleteArgs {
     /// Tenant id (UUID) whose data should be deleted.
     #[arg(long)]
     pub tenant: String,

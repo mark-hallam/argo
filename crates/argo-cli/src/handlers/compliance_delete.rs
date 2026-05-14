@@ -1,6 +1,6 @@
 //! Thin CLI shim for `argo compliance delete`.
 
-use crate::cli::ComplianceDeleteArgs as CliComplianceDeleteArgs;
+use crate::cli::CliComplianceDeleteArgs;
 use crate::home::{db_path, ensure_dir, resolve_home};
 use argo_compliance::delete::ComplianceDeleteArgs;
 use argo_store::SessionStore;

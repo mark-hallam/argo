@@ -108,10 +108,10 @@ pub use eval_score_judge::{
 pub use isolation::check_isolation;
 pub use loader::{load_dir, LoadError};
 pub use manifest::{
-    parse, ActionDeclaration, ActionRiskLevel, ActionsSection, EscalationSection,
-    EvaluationSection, GatewaySection, KpiComparator, KpiDefinition, KpiGate, KpiKind,
-    McpServerDeclaration, McpServersSection, MemorySection, ProviderSection, RetryPolicy,
-    RoleSection, SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection, VerticalIdentity,
+    parse, ActionDeclaration, ActionRetryPolicy, ActionRiskLevel, ActionsSection,
+    EscalationSection, EvaluationSection, GatewaySection, KpiComparator, KpiDefinition, KpiGate,
+    KpiKind, McpServerDeclaration, McpServersSection, MemorySection, ProviderSection, RoleSection,
+    SkillsSection, SuccessMetricsSection, ToolsSection, TuiSection, VerticalIdentity,
     VerticalManifest, WorkflowsSection, SCHEMA_VERSION,
 };
 // Stream A (#A-executor-trait) executor-decl schema. Re-exported

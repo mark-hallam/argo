@@ -24,7 +24,7 @@ use argo_audit::verify_session;
 use argo_genesis::{plan, write_vertical, Archetype};
 use argo_identity::WorkerId;
 use argo_orchestrator::{
-    duty_scheduler::{DutyRecord, DutyScheduler, FireDecision, OpenGate, TickReport},
+    duty_scheduler::{DutyRecord, DutyScheduler, DutyTickReport, FireDecision, OpenGate},
     DutyStore, OrchestratorStore, SessionId as OrchSessionId,
 };
 use argo_store::SessionStore;
@@ -74,26 +74,28 @@ async fn genesis_to_first_duty_smoke() {
     //    sessions store and emits the duty cron job file.
     let home = tempfile::tempdir().expect("ARGO_HOME tmpdir");
     let workspace = tempfile::tempdir().expect("workspace tmpdir");
-    let duty_spec = format!(
-        "{DAILY_9AM_WEEKDAYS}::post_campaign::Daily 9am Marketplace post"
-    );
+    let duty_spec = format!("{DAILY_9AM_WEEKDAYS}::post_campaign::Daily 9am Marketplace post");
 
     let create = run_argo(
         home.path(),
         workspace.path(),
         &[
-            "worker", "create",
-            "--vertical", &plan.vertical_id,
-            "--persona", PERSONA,
-            "--charter", CHARTER,
-            "--duty", &duty_spec,
+            "worker",
+            "create",
+            "--vertical",
+            &plan.vertical_id,
+            "--persona",
+            PERSONA,
+            "--charter",
+            CHARTER,
+            "--duty",
+            &duty_spec,
             "--json",
         ],
     );
     assert_success("worker create", &create);
 
-    let body: Value =
-        serde_json::from_slice(&create.stdout).expect("worker create json body");
+    let body: Value = serde_json::from_slice(&create.stdout).expect("worker create json body");
     let worker_id_str = body["id"].as_str().expect("worker id").to_string();
     assert_eq!(body["persona"]["name"], PERSONA);
     assert_eq!(body["vertical_id"], EXPECTED_VERTICAL_ID);
@@ -111,8 +113,7 @@ async fn genesis_to_first_duty_smoke() {
         .filter_map(Result::ok)
         .collect();
     assert_eq!(cron_files.len(), 1, "expected exactly one cron job file");
-    let cron_body =
-        std::fs::read_to_string(cron_files[0].path()).expect("read cron job file");
+    let cron_body = std::fs::read_to_string(cron_files[0].path()).expect("read cron job file");
     assert!(
         cron_body.contains(DAILY_9AM_WEEKDAYS),
         "cron job file missing cron expr `{DAILY_9AM_WEEKDAYS}`: {cron_body}"
@@ -121,19 +122,17 @@ async fn genesis_to_first_duty_smoke() {
     // 3. Worker row visible in the store; pull tenant_id for step 4.
     let db = home.path().join("sessions.db");
     let store = Arc::new(SessionStore::open(&db).await.expect("reopen store"));
-    let row_count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM worker WHERE id = ?")
-            .bind(&worker_id_str)
-            .fetch_one(store.pool())
-            .await
-            .expect("count worker row");
+    let row_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM worker WHERE id = ?")
+        .bind(&worker_id_str)
+        .fetch_one(store.pool())
+        .await
+        .expect("count worker row");
     assert_eq!(row_count.0, 1, "worker row missing from store");
-    let (tenant_str,): (String,) =
-        sqlx::query_as("SELECT tenant_id FROM worker WHERE id = ?")
-            .bind(&worker_id_str)
-            .fetch_one(store.pool())
-            .await
-            .expect("worker tenant lookup");
+    let (tenant_str,): (String,) = sqlx::query_as("SELECT tenant_id FROM worker WHERE id = ?")
+        .bind(&worker_id_str)
+        .fetch_one(store.pool())
+        .await
+        .expect("worker tenant lookup");
     let tenant_id = TenantId(Uuid::parse_str(&tenant_str).expect("tenant uuid"));
     let worker_id = WorkerId::from_str(&worker_id_str).expect("worker uuid");
 
@@ -160,15 +159,8 @@ async fn genesis_to_first_duty_smoke() {
     let duty_id = first_duty.id.clone();
     duties.insert(&first_duty).await.expect("insert duty");
 
-    let scheduler = DutyScheduler::new(
-        Arc::clone(&duties),
-        Arc::clone(&orch),
-        Arc::new(OpenGate),
-    );
-    let report: TickReport = scheduler
-        .tick(Utc::now())
-        .await
-        .expect("scheduler tick");
+    let scheduler = DutyScheduler::new(Arc::clone(&duties), Arc::clone(&orch), Arc::new(OpenGate));
+    let report: DutyTickReport = scheduler.tick(Utc::now()).await.expect("scheduler tick");
     assert!(
         report.fired.contains(&duty_id),
         "duty `{duty_id}` did not fire: {report:?}",
@@ -180,8 +172,7 @@ async fn genesis_to_first_duty_smoke() {
         .await
         .expect("sessions_for_duty");
     assert_eq!(fires.len(), 1, "expected 1 fire row, got {}", fires.len());
-    let (orch_session_id, _fired_at, decision) =
-        fires.into_iter().next().expect("first fire row");
+    let (orch_session_id, _fired_at, decision) = fires.into_iter().next().expect("first fire row");
     assert_eq!(
         decision,
         FireDecision::AutoApprove.label(),

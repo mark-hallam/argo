@@ -3,7 +3,7 @@
 //! a hypothetical handoff context — no DB writes.
 
 use super::handoff_rules_list::{open_routing_store, parse_tenant};
-use argo_orchestrator::{EscalationStep, RoutingContext};
+use argo_orchestrator::{EscalationStep, HandoffRoutingContext};
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{Datelike, Timelike, Utc};
 use serde::Serialize;
@@ -41,7 +41,7 @@ pub async fn run(
         let _ = now.weekday().num_days_from_monday();
         let _ = now.minute();
     }
-    let ctx = RoutingContext::new(now, expected_outcome);
+    let ctx = HandoffRoutingContext::new(now, expected_outcome);
     let resolved = engine.route(&ctx);
     let out = match resolved {
         None => TestOut {

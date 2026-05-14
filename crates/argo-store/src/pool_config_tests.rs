@@ -1,9 +1,9 @@
-//! Unit tests for [`super::PoolConfig`].
+//! Unit tests for [`super::StorePoolConfig`].
 //!
 //! Env-mutating tests share `ENV_LOCK` so cargo's parallel test runner
 //! cannot interleave reads/writes on the process-wide env table.
 
-use super::PoolConfig;
+use super::StorePoolConfig;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -26,8 +26,8 @@ fn clear_env() {
 fn from_env_returns_defaults_when_unset() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     clear_env();
-    let cfg = PoolConfig::from_env();
-    assert_eq!(cfg, PoolConfig::default());
+    let cfg = StorePoolConfig::from_env();
+    assert_eq!(cfg, StorePoolConfig::default());
     assert_eq!(cfg.max_connections, 8);
     assert_eq!(cfg.min_connections, 0);
     assert_eq!(cfg.acquire_timeout, Duration::from_secs(30));
@@ -42,7 +42,7 @@ fn env_overrides_apply() {
     std::env::set_var("ARGO_STORE_POOL_MIN", "4");
     std::env::set_var("ARGO_STORE_POOL_ACQUIRE_TIMEOUT_MS", "1500");
     std::env::set_var("ARGO_STORE_POOL_IDLE_TIMEOUT_S", "45");
-    let cfg = PoolConfig::from_env();
+    let cfg = StorePoolConfig::from_env();
     clear_env();
     assert_eq!(cfg.max_connections, 32);
     assert_eq!(cfg.min_connections, 4);
@@ -56,9 +56,9 @@ fn invalid_env_falls_back_to_defaults_without_panic() {
     clear_env();
     std::env::set_var("ARGO_STORE_POOL_MAX", "not-a-number");
     std::env::set_var("ARGO_STORE_POOL_ACQUIRE_TIMEOUT_MS", "-5");
-    let cfg = PoolConfig::from_env();
+    let cfg = StorePoolConfig::from_env();
     clear_env();
-    let defaults = PoolConfig::default();
+    let defaults = StorePoolConfig::default();
     assert_eq!(cfg.max_connections, defaults.max_connections);
     assert_eq!(cfg.acquire_timeout, defaults.acquire_timeout);
 }
