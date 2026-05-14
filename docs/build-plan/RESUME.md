@@ -102,9 +102,39 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-## Right-now snapshot (2026-05-14) — operator out of quota until 2026-05-19 (Australia/Melbourne, ~Tuesday 4am)
+## Right-now snapshot (2026-05-15) — operator out of quota until 2026-05-19 (Australia/Melbourne, ~Tuesday 4am)
 
 **fresh session picking up SKYCOT v1.0 work: read this WHOLE section, then the audit reports in `docs/skycot/audit/`, then start work.** The operator is handing over to a new session on 2026-05-19. **Continuity matters.** This snapshot is the hand-off.
+
+### What's MERGED since the original 2026-05-14 hand-off
+
+12 PRs landed in conductor ticks 2026-05-14 → 2026-05-15 (codex + claude workers, conductor squash-merged):
+
+| PR | Brief | Notes |
+|---|---|---|
+| #1635 | M13 Rust skill SDK | M-Code Phase 1 |
+| #1636 | mission-marketplace-seller-e2b-demo | demo proof |
+| #1637 | L9 skill-canvas-diff | Track L Phase 2 |
+| #1638 | M1 Claude vision extraction | M-Doc Phase 1 |
+| #1639 | M9 cross-version regression detection | M-Eval Phase 1 |
+| #1640 | mission-sso-oidc-jwt-signature-verify | gateway |
+| #1641 | M5 SLA tracking + breach events | M-Orch Phase 1 |
+| #1642 | claude-defer-non-macos-computer-use | scope cut shipped |
+| #1643 | claude-canonicalize-approval-decision-type | 2/5 type canonicalization round 1 |
+| #1644 | claude-canonicalize-decision-type | renamed both as different concepts |
+| #1645 | M11 eval self-healing fixtures | M-Eval Phase 1 |
+| #1646 | M6 per-skill retry policy | M-Orch Phase 1 |
+
+**Track M Phase 1 nearly complete**: M1, M5, M6, M9, M11, M12, M13 MERGED. Remaining M-Phase-1: M3 (TODO), M4 (CLAIMED), M7 (TODO), M8 (TODO), M10 (CLAIMED → in PR #1647).
+
+**Type canonicalization round 1**: 2/4 done (ApprovalDecision + Decision). Remaining: `claude-canonicalize-medium-duplicates` CLAIMED; `claude-canonicalize-audit-row-type` ⚠️ CLAUDE-PREFERRED (held for Tuesday).
+
+**Still unshipped (priority order for next account)**:
+1. 🔴 `claude-skill-library-worker-load-wire` (SHIP-BLOCKER, CLAUDE-PREFERRED)
+2. 🔴 `claude-migration-slot-dedup-and-validator` (P0 operational risk, CLAUDE-PREFERRED)
+3. `claude-canonicalize-audit-row-type` (CLAUDE-PREFERRED, 4-way data integrity)
+4. `claude-canonicalize-parallel-names-round2-high` (CLAUDE-PREFERRED, 7 HIGH-sev round-2 types)
+5. Everything else in the priority list below
 
 ### The mission, in one line
 
@@ -380,4 +410,4 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-14 (session hand-off). Cron loop STOPPED. ALL 5 AUDIT PHASES (A/A.5/B/C/D) COMPLETE. 22 remediation briefs authored including one v1 SHIP-BLOCKER (`claude-skill-library-worker-load-wire`) and one P0 operational fix (`claude-migration-slot-dedup-and-validator`).
+Last refreshed: 2026-05-15 (session hand-off). Cron loop STOPPED. ALL 5 AUDIT PHASES (A/A.5/B/C/D) COMPLETE. 22 remediation briefs authored 2026-05-14; **12 already MERGED** by codex/claude workers in 2026-05-14 → 2026-05-15. v1 SHIP-BLOCKER `claude-skill-library-worker-load-wire` and P0 `claude-migration-slot-dedup-and-validator` STILL TODO (CLAUDE-PREFERRED; held for Tuesday). BLOCKED-cleanup pass dropped 17 dead rows (65 → 49). Queue at hand-off: TODO 27, CLAIMED 5, IN_REVIEW 10, BLOCKED 49.

@@ -117,6 +117,8 @@ The full audit reports live in `docs/skycot/audit/` (5 phases, all complete 2026
 - `2026-05-14-phase-C-mission-claim-coverage.md` — E2E coverage per claim
 - `2026-05-14-phase-D-cross-cutting-drift.md` — 11 migration collisions + 19 new parallel names + 236 TOML violations
 
+**Status 2026-05-15:** 12 of the 22 remediation briefs already MERGED by codex/claude workers (Track M Phase 1 mostly done; type canonicalization round 1 at 2/4). 🔴 SHIP-BLOCKER + P0 migration-slot still TODO — both CLAUDE-PREFERRED, held for the fresh session 2026-05-19. See `docs/build-plan/RESUME.md` "Right-now snapshot" for the per-PR breakdown + remaining priority order.
+
 ## Project rename — Argo → Skycot
 
 The project will rename from Argo to **Skycot** (domain: skycot.com).

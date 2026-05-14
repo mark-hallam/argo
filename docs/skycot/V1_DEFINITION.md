@@ -144,10 +144,10 @@ Plus 5 mission-X-UI briefs MERGED: trust-grade-ui, skill-cohort-ui, retro-review
 
 | Sub-track | Briefs | State | Claim |
 |---|---|---|---|
-| M-Doc — Document Understanding | M1, M2 (DEFERRED), M3, M4 | M1 BLOCKED → unblocked; others TODO | 5 |
-| M-Orch — Orchestration maturity | M5-M8 | M5 BLOCKED → unblocked; others TODO; **SLA tracking #1618 already MERGED** | 2, 6 |
-| M-Eval — Regression eval | M9-M11 | M9 BLOCKED → unblocked; M10/M11 TODO | 4 |
-| M-Code — Pro-code skill mode | M12-M14 | **M12 MERGED**; M13/M14 TODO | 3 |
+| M-Doc — Document Understanding | M1, M2 (DEFERRED), M3, M4 | **M1 MERGED (#1638)**; M3 TODO; M4 CLAIMED+in-flight | 5 |
+| M-Orch — Orchestration maturity | M5-M8 | **M5 MERGED (#1641)**, **M6 MERGED (#1646)**; M7+M8 TODO | 2, 6 |
+| M-Eval — Regression eval | M9-M11 | **M9 MERGED (#1639)**, **M11 MERGED (#1645)**; M10 CLAIMED → PR #1647 | 4 |
+| M-Code — Pro-code skill mode | M12-M14 | **M12 MERGED**, **M13 MERGED (#1635)**; M14 TODO | 3 |
 | M-Tmpl — Vertical template packs | M15-M20 | M15-M20 TODO (operator pre-req: skycot-packs repo done) | 1, 3 |
 
 ## 5. v1.0 ship checklist (operator + swarm)
@@ -164,14 +164,14 @@ Plus 5 mission-X-UI briefs MERGED: trust-grade-ui, skill-cohort-ui, retro-review
 - [ ] **🔴 P0: `claude-migration-slot-dedup-and-validator` MERGED** (11 argo-store slot collisions; operational risk)
 - [ ] All 5 MISSION.md success scenarios pass smoke test
 - [ ] `scripts/smoke-skycot.sh` passes
-- [ ] All Track L briefs MERGED (L1-L17 + L4-gw) — 18 briefs total; **3 done, 15 to go**
-- [ ] All Track M briefs MERGED except M2 (DEFERRED) — 19 briefs; **2 done, 17 to go**
-- [ ] All E2 hire-flow polish briefs MERGED (E2-f, E2-i — currently CLAIMED)
+- [ ] All Track L briefs MERGED (L1-L17 + L4-gw) — 18 briefs total; **7 done as of 2026-05-15** (L1, L2, L3, L4, L4-gw, L5, L9; L6 IN_REVIEW DIRTY). 11 to go.
+- [ ] All Track M briefs MERGED except M2 (DEFERRED) — 19 briefs; **7 done as of 2026-05-15** (M1, M5, M6, M9, M11, M12, M13; M4+M10 CLAIMED+in-flight). 10-12 to go.
+- [x] E2 hire-flow polish briefs MERGED (E2-f via #1634 MERGED; E2-i CLAIMED on worker-loop)
 - [x] Track C polish: real gateway wire-up at `/inbox` — DONE via #1411 (E1-a) + #1329 (mission-inbox-ws-real-websocket) + #1418 (J3) + 7c9f156 (D-webinbox). Storybook + Playwright are post-v1.
 - [ ] Production-hardening items from MISSION_BACKLOG marked as v1.0-relevant:
-  - mission-vertical-action-executor-completion
+  - mission-vertical-action-executor-completion (BLOCKED on L1)
   - mission-per-vertical-demo-script
-  - mission-marketplace-seller-e2b-demo
+  - [x] mission-marketplace-seller-e2b-demo (MERGED #1636 on 2026-05-14)
   - mission-cross-tenant-trajectory-aggregation
   - mission-rtbf-dreams-propagation
   - mission-forge-spend-polling-race-fix
