@@ -7,9 +7,10 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DutyToggleRow } from "@/components/skycot/hire/DutyToggleRow";
+import { StructuredAdjustDrawer } from "@/components/skycot/hire/StructuredAdjustDrawer";
 import type { WorkerDraft } from "@/lib/hire/draft-types";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,8 @@ export function WorkerDraftCard({
   onAdjust,
   adjustDisabled = false,
 }: WorkerDraftCardProps) {
+  const [structuredOpen, setStructuredOpen] = useState(false);
+
   const updateName = (next: string) =>
     onChange({ ...draft, suggestedName: next });
   const updateTagline = (next: string) =>
@@ -96,18 +99,23 @@ export function WorkerDraftCard({
             displayClassName="text-sm text-[var(--muted-foreground)]"
           />
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          data-testid="hire-step4-adjust"
-          onClick={onAdjust}
-          disabled={adjustDisabled}
-          aria-label={`Adjust ${draft.suggestedName}`}
-        >
-          <Pencil className="size-3.5" aria-hidden />
-          <span>Adjust</span>
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button type="button" variant="ghost" size="sm"
+            data-testid="hire-step4-adjust" onClick={onAdjust}
+            disabled={adjustDisabled}
+            aria-label={`Adjust ${draft.suggestedName}`}>
+            <Pencil className="size-3.5" aria-hidden /><span>Adjust</span>
+          </Button>
+          <Button type="button" variant="link" size="sm"
+            data-testid="hire-step4-edit-fields"
+            onClick={() => setStructuredOpen(true)}
+            disabled={adjustDisabled}
+            aria-label={`Edit fields for ${draft.suggestedName}`}
+            className="h-auto p-0 text-xs">
+            <SlidersHorizontal className="size-3" aria-hidden />
+            Edit fields
+          </Button>
+        </div>
       </div>
 
       <InlineEditable
@@ -141,6 +149,10 @@ export function WorkerDraftCard({
           </div>
         </section>
       ) : null}
+
+      <StructuredAdjustDrawer open={structuredOpen} onOpenChange={setStructuredOpen}
+        draft={draft}
+        onSave={(next) => { onChange(next); setStructuredOpen(false); }} />
     </article>
   );
 }
