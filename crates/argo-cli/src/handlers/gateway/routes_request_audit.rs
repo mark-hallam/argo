@@ -16,8 +16,20 @@ use super::rate_limit;
 use super::routes_auth_principal::principal_id_for_audit;
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use std::time::Duration;
+
+/// Cap on `user_agent_truncated` so a hostile header can't blow up the
+/// audit_record JSON. Matches the parallel-flow default in
+/// [`super::request_audit`] which lands in `GatewayRequestAuditConfig`.
+const USER_AGENT_MAX_LEN: usize = 200;
+
+/// Cap on the request body size considered for `body_sha256_hex`. The
+/// gateway only reads 4 KiB into the request buffer (see
+/// [`super::boot`]); the explicit cap defends against future buffer
+/// growth without changing the hash inputs.
+const BODY_HASH_LIMIT: usize = 1024 * 1024;
 
 /// Path prefixes that bypass the per-request audit write. Members
 /// are matched via `path.starts_with(prefix)`, so `/health` covers
@@ -89,6 +101,9 @@ pub(super) async fn record(
         "status": status,
         "duration_ms": duration_ms,
         "tenant_id": tenant,
+        "source_ip": source_ip_from_req(req),
+        "user_agent_truncated": user_agent_truncated(req),
+        "body_sha256_hex": body_sha256_hex(req),
     });
     let sink = AuditSink::new(Arc::clone(store));
     if let Err(e) = sink
@@ -103,6 +118,74 @@ pub(super) async fn record(
             "request audit write failed"
         );
     }
+}
+
+/// Read a header value by case-insensitive name from a raw HTTP
+/// request. Returns the trimmed value, or `None` if the header is
+/// absent. Used for `X-Forwarded-For` (audit row `source_ip`) and
+/// `User-Agent` (audit row `user_agent_truncated`).
+fn header_value<'a>(req: &'a str, name: &str) -> Option<&'a str> {
+    let needle = format!("{name}:");
+    req.split("\r\n").find_map(|line| {
+        if line.to_ascii_lowercase().starts_with(&needle) {
+            line.split_once(':').map(|(_, v)| v.trim())
+        } else {
+            None
+        }
+    })
+}
+
+/// Best-effort `source_ip` extraction for the audit_record payload.
+/// Returns the first comma-separated `X-Forwarded-For` token when
+/// present; `None` otherwise. The peer-socket IP is not available at
+/// this layer — operators behind a trusted proxy get the real client
+/// address; direct-bind deployments land `null` (the legacy
+/// gateway_request_audit row, still captured during v1.x via
+/// [`super::request_audit`], retains the peer-socket fallback for
+/// audit-recovery use cases until v1.2 deletion).
+pub(super) fn source_ip_from_req(req: &str) -> Option<String> {
+    header_value(req, "x-forwarded-for")
+        .and_then(|v| v.split(',').next())
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// Truncated User-Agent value for the audit_record payload. Returns
+/// `None` when no `User-Agent` header is present. The truncation cap
+/// matches the parallel-flow default so the two surfaces capture the
+/// same prefix.
+pub(super) fn user_agent_truncated(req: &str) -> Option<String> {
+    Some(
+        header_value(req, "user-agent")?
+            .chars()
+            .take(USER_AGENT_MAX_LEN)
+            .collect(),
+    )
+}
+
+/// Hex-encoded SHA-256 of the request body, or `None` when the body
+/// is empty. Operators correlating audit rows with capture-side body
+/// proofs use this; matches the parallel flow's
+/// [`super::request_audit`] hash inputs so cross-table reconciliation
+/// is byte-identical for bodies ≤ [`BODY_HASH_LIMIT`].
+pub(super) fn body_sha256_hex(req: &str) -> Option<String> {
+    let body = req.split_once("\r\n\r\n").map(|(_, b)| b.as_bytes())?;
+    if body.is_empty() {
+        return None;
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(&body[..body.len().min(BODY_HASH_LIMIT)]);
+    Some(hex_bytes(&hasher.finalize()))
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    const LUT: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push(char::from(LUT[usize::from(b >> 4)]));
+        out.push(char::from(LUT[usize::from(b & 0x0f)]));
+    }
+    out
 }
 
 #[cfg(test)]
@@ -169,6 +252,69 @@ mod tests {
         assert_eq!(payload["path"], "/sessions");
         assert_eq!(payload["status"], 200);
         assert!(payload["duration_ms"].as_u64().is_some());
+        assert!(payload["source_ip"].is_null());
+        assert!(payload["user_agent_truncated"].is_null());
+        assert!(payload["body_sha256_hex"].is_null());
+    }
+
+    #[tokio::test]
+    async fn record_writes_consolidated_payload_keys() {
+        let store = Arc::new(argo_store::SessionStore::open(":memory:").await.unwrap());
+        store.migrate().await.unwrap();
+        let req = "POST /sessions HTTP/1.1\r\nHost: x\r\nX-Forwarded-For: 203.0.113.5, 10.0.0.2\r\nUser-Agent: argo-cli/0.1\r\n\r\n{\"hello\":\"world\"}";
+        let result = ("201 Created", "{}".to_string());
+        record(req, Some(&store), &result, Duration::from_millis(3)).await;
+
+        let payload: String = sqlx::query_scalar(
+            "SELECT payload_json FROM audit_record WHERE kind = 'http.request'",
+        )
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        assert_eq!(payload["source_ip"], "203.0.113.5");
+        assert_eq!(payload["user_agent_truncated"], "argo-cli/0.1");
+        let body_hex = payload["body_sha256_hex"].as_str().unwrap();
+        // SHA-256 of `{"hello":"world"}`.
+        assert_eq!(
+            body_hex,
+            "93a23971a914e5eacbf0a8d25154cda309c3c1c72fbb9914d47c60f3cb681588"
+        );
+    }
+
+    #[test]
+    fn source_ip_from_req_strips_proxy_chain_and_handles_missing() {
+        let req = "GET / HTTP/1.1\r\nX-Forwarded-For: 198.51.100.7 , 10.0.0.1\r\n\r\n";
+        assert_eq!(
+            source_ip_from_req(req),
+            Some("198.51.100.7".to_string())
+        );
+        let no_header = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
+        assert_eq!(source_ip_from_req(no_header), None);
+        let empty = "GET / HTTP/1.1\r\nX-Forwarded-For: \r\n\r\n";
+        assert_eq!(source_ip_from_req(empty), None);
+    }
+
+    #[test]
+    fn user_agent_truncated_caps_at_limit() {
+        let huge = "x".repeat(1024);
+        let req = format!("GET / HTTP/1.1\r\nUser-Agent: {huge}\r\n\r\n");
+        let got = user_agent_truncated(&req).unwrap();
+        assert_eq!(got.chars().count(), USER_AGENT_MAX_LEN);
+        let missing = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
+        assert_eq!(user_agent_truncated(missing), None);
+    }
+
+    #[test]
+    fn body_sha256_hex_returns_none_for_empty_body() {
+        let req = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
+        assert_eq!(body_sha256_hex(req), None);
+        let with_body = "POST / HTTP/1.1\r\n\r\nabc";
+        // SHA-256 of "abc".
+        assert_eq!(
+            body_sha256_hex(with_body).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[tokio::test]

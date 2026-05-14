@@ -1,5 +1,17 @@
 //! Gateway request audit table primitives.
 //!
+//! DEPRECATED: use `audit_record` `kind='http.request'` (the
+//! `argo gateway audit list/show` CLI was migrated in
+//! `mission-gateway-request-audit-consolidate-to-audit-record`). The
+//! `source_ip` / `user_agent_truncated` / `body_sha256_hex` fields
+//! now ride on `audit_record.payload_json`. This module + the
+//! `gateway_request_audit` table remain in v1.x for two reasons:
+//! historical row retention (the v1.x chain-hash impl is locked, so
+//! retroactive copy into `audit_record` would either break parent
+//! chaining or require a chain rebuild) and the parallel boot.rs
+//! capture path (boot-time removal is out of scope per the brief).
+//! Planned deletion: v1.2.
+//!
 //! The table is intentionally separate from the append-only audit
 //! chain: it captures one row per HTTP request for compliance
 //! reporting without changing the chain hash inputs or retention

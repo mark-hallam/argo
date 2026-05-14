@@ -1,4 +1,10 @@
 //! Schema migration v66 — gateway request audit table.
+//!
+//! DEPRECATED: see [`crate::gateway_request_audit`]. The
+//! `gateway_request_audit` table is superseded by `audit_record`
+//! `kind='http.request'` as of
+//! `mission-gateway-request-audit-consolidate-to-audit-record`.
+//! Planned deletion in v1.2; legacy rows remain queryable directly.
 use argo_types::ArgoError;
 use sqlx::Sqlite;
 
