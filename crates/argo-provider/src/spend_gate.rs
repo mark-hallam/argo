@@ -30,9 +30,12 @@
 //! WITHOUT invoking the inner transport. Pass-through when all
 //! ceilings are uncapped or every window has headroom.
 use crate::transport::{ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport};
-use argo_types::{ArgoResult, CapabilitySet};
+use argo_types::{
+    AnomalyAlert, AnomalyDispatch, AnomalyKind, ArgoError, ArgoResult, CapabilitySet, Severity,
+};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Conservative ceiling-side projected-cost fallback (USD micros) —
@@ -111,6 +114,7 @@ pub struct SpendGate<T: Transport> {
     inner: T,
     enforcer: Arc<dyn BudgetEnforcer>,
     projected_cost_micros: u64,
+    anomaly_dispatch: Option<Arc<dyn AnomalyDispatch>>,
 }
 
 impl<T: Transport> SpendGate<T> {
@@ -121,6 +125,7 @@ impl<T: Transport> SpendGate<T> {
             inner,
             enforcer,
             projected_cost_micros: FALLBACK_PROJECTED_COST_MICROS,
+            anomaly_dispatch: None,
         }
     }
 
@@ -138,13 +143,57 @@ impl<T: Transport> SpendGate<T> {
             inner,
             enforcer,
             projected_cost_micros,
+            anomaly_dispatch: None,
         }
+    }
+
+    /// Attach anomaly dispatch for hard budget-ceiling hits.
+    #[must_use]
+    pub fn with_anomaly_dispatch(mut self, dispatch: Arc<dyn AnomalyDispatch>) -> Self {
+        self.anomaly_dispatch = Some(dispatch);
+        self
     }
 
     /// Borrowed inner transport (used by the routing brief to
     /// compose `SpendGate` over an already-wrapped `BreakerTransport`).
     pub fn inner(&self) -> &T {
         &self.inner
+    }
+
+    async fn emit_budget_ceiling(&self, err: &ArgoError) {
+        let Some(dispatch) = self.anomaly_dispatch.as_ref() else {
+            return;
+        };
+        let ArgoError::BudgetExceeded {
+            window,
+            used_micros,
+            ceiling_micros,
+            projected_cost_micros,
+        } = err
+        else {
+            return;
+        };
+        let mut context = BTreeMap::new();
+        context.insert("provider_id".into(), self.inner.id().to_string());
+        context.insert("window".into(), format!("{window:?}"));
+        context.insert("used_micros".into(), used_micros.to_string());
+        context.insert("ceiling_micros".into(), ceiling_micros.to_string());
+        context.insert(
+            "projected_cost_micros".into(),
+            projected_cost_micros.to_string(),
+        );
+        let alert = AnomalyAlert {
+            kind: AnomalyKind::BudgetCeiling,
+            severity: Severity::Warn,
+            message: format!(
+                "budget ceiling blocked provider call to {}",
+                self.inner.id()
+            ),
+            context,
+        };
+        if let Err(e) = dispatch.dispatch(alert).await {
+            tracing::warn!(target: "provider::spend_gate", error = %e, "budget ceiling anomaly dispatch failed");
+        }
     }
 }
 
@@ -159,7 +208,10 @@ impl<T: Transport> Transport for SpendGate<T> {
     }
 
     async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
-        self.enforcer.enforce(self.projected_cost_micros).await?;
+        if let Err(e) = self.enforcer.enforce(self.projected_cost_micros).await {
+            self.emit_budget_ceiling(&e).await;
+            return Err(e);
+        }
         self.inner.complete(req).await
     }
 
@@ -170,7 +222,10 @@ impl<T: Transport> Transport for SpendGate<T> {
         // Same contract as `complete`: project the charge BEFORE
         // establishing the stream so we don't burn the open-connect
         // cost on a doomed-to-fail call.
-        self.enforcer.enforce(self.projected_cost_micros).await?;
+        if let Err(e) = self.enforcer.enforce(self.projected_cost_micros).await {
+            self.emit_budget_ceiling(&e).await;
+            return Err(e);
+        }
         self.inner.complete_stream(req).await
     }
 }

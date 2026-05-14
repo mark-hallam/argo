@@ -130,7 +130,7 @@ burst = 3
 #[test]
 fn prompt_cache_affinity_defaults_enabled_with_270s_ttl() {
     let cfg = PromptCacheAffinityConfig::default();
-    assert!(cfg.enabled, "must default enabled");
+    assert!(cfg.enabled, "must default enabled - strict cache win");
     assert_eq!(cfg.ttl_secs, 270);
 }
 
@@ -181,6 +181,38 @@ cpu_weight = 250
 fn empty_toml_runtime_yields_cage_defaults() {
     let cfg: RuntimeConfig = toml::from_str("").expect("parse");
     assert_eq!(cfg.worker_resource_cage, WorkerResourceConfig::default());
+}
+
+#[test]
+fn anomaly_alerting_defaults_disabled() {
+    let cfg = AnomalyAlertingConfig::default();
+    assert!(!cfg.enabled);
+    assert_eq!(cfg.default_severity_threshold, "warn");
+    assert!(cfg.channel_routing.is_empty());
+}
+
+#[test]
+fn anomaly_alerting_parses_from_toml() {
+    let body = r#"
+[anomaly_alerting]
+enabled = true
+default_severity_threshold = "critical"
+
+[anomaly_alerting.channel_routing]
+provider_storm = ["slack", "email"]
+chain_break = ["sms"]
+"#;
+    let cfg: RuntimeConfig = toml::from_str(body).expect("parse");
+    assert!(cfg.anomaly_alerting.enabled);
+    assert_eq!(cfg.anomaly_alerting.default_severity_threshold, "critical");
+    assert_eq!(
+        cfg.anomaly_alerting.channel_routing["provider_storm"],
+        vec!["slack".to_string(), "email".to_string()]
+    );
+    assert_eq!(
+        cfg.anomaly_alerting.channel_routing["chain_break"],
+        vec!["sms".to_string()]
+    );
 }
 
 #[test]

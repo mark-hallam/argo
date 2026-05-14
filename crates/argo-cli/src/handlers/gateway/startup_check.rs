@@ -17,10 +17,13 @@
 //! Sibling tests live in `health_check_tests.rs`.
 
 use crate::home::{db_path, ensure_dir, resolve_home};
+use argo_channels::{AnomalyAlert, AnomalyDispatch, AnomalyKind, MultiChannelDispatch, Severity};
 use argo_config::ArgoConfig;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Instant;
 
 /// Exit code for critical startup-check failure. Matches the BSD
@@ -54,10 +57,19 @@ pub(super) const STARTUP_CHECK_EXIT: i32 = 78;
 /// Returns `Err` on any critical failure. Caller maps that to
 /// `exit(78)` before the listener binds.
 pub(super) async fn run_startup_checks(skip: bool, cwd: &Path) -> ArgoResult<()> {
+    let dispatch = anomaly_dispatch_from_cwd(cwd);
+    match run_startup_checks_inner(skip, cwd).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            dispatch_gateway_boot_fail(&dispatch, cwd, &e).await;
+            Err(e)
+        }
+    }
+}
+
+async fn run_startup_checks_inner(skip: bool, cwd: &Path) -> ArgoResult<()> {
     if skip {
-        eprintln!(
-            "argo gateway: --skip-startup-check set; bypassing critical health checks"
-        );
+        eprintln!("argo gateway: --skip-startup-check set; bypassing critical health checks");
         return Ok(());
     }
     let started = Instant::now();
@@ -97,6 +109,30 @@ pub(super) async fn run_startup_checks(skip: bool, cwd: &Path) -> ArgoResult<()>
     Ok(())
 }
 
+pub(super) fn anomaly_dispatch_from_cwd(cwd: &Path) -> Arc<dyn AnomalyDispatch> {
+    let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    MultiChannelDispatch::from_config(&cfg.runtime.anomaly_alerting, BTreeMap::new())
+}
+
+async fn dispatch_gateway_boot_fail(
+    dispatch: &Arc<dyn AnomalyDispatch>,
+    cwd: &Path,
+    err: &ArgoError,
+) {
+    let mut context = BTreeMap::new();
+    context.insert("cwd".into(), cwd.display().to_string());
+    context.insert("error".into(), err.to_string());
+    let alert = AnomalyAlert {
+        kind: AnomalyKind::GatewayBootFail,
+        severity: Severity::Critical,
+        message: format!("gateway startup check failed: {err}"),
+        context,
+    };
+    if let Err(e) = dispatch.dispatch(alert).await {
+        tracing::warn!(target: "gateway::startup_check", error = %e, "gateway boot-fail anomaly dispatch failed");
+    }
+}
+
 pub(super) fn provider_key_present() -> bool {
     let any = |k: &str| std::env::var(k).is_ok_and(|v| !v.is_empty());
     any("ANTHROPIC_API_KEY") || any("OPENAI_API_KEY")
@@ -112,11 +148,7 @@ pub(super) fn provider_key_present() -> bool {
 /// Delegates to [`super::proxy_guard::validate_bind_address`], which
 /// loads the `[gateway.behind_proxy]` contract from `argo.toml`. See
 /// the module docs there for the decision matrix.
-pub(super) fn validate_bind_safety(
-    bind: &str,
-    insecure_bind: bool,
-    cwd: &Path,
-) -> ArgoResult<()> {
+pub(super) fn validate_bind_safety(bind: &str, insecure_bind: bool, cwd: &Path) -> ArgoResult<()> {
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     super::proxy_guard::validate_bind_address(bind, &cfg.gateway.behind_proxy, insecure_bind)
 }
@@ -124,10 +156,18 @@ pub(super) fn validate_bind_safety(
 fn warn_unprobed_channels(cwd: &Path) {
     let cfg = ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
     if !cfg.gateway.adapters.is_empty() {
+        let unique = cfg
+            .gateway
+            .adapters
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         eprintln!(
             "argo gateway: channels probe warn-only ({} adapter(s): {})",
-            cfg.gateway.adapters.len(),
-            cfg.gateway.adapters.join(", ")
+            unique.len(),
+            unique.join(", ")
         );
     }
 }

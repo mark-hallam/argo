@@ -317,6 +317,7 @@ version = "0.0.1"
 dependencies = [
  "argo-bluebubbles-client",
  "argo-config",
+ "argo-types",
  "async-trait",
  "chrono",
  "chrono-tz",
@@ -1566,6 +1567,7 @@ dependencies = [
 name = "argo-types"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "chrono",
  "globset",
  "proptest",

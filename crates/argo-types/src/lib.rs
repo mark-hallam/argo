@@ -7,6 +7,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+mod anomaly;
 mod budget;
 mod capability;
 mod cost_ceilings;
@@ -18,6 +19,7 @@ mod messages;
 mod plan_provenance;
 mod routing;
 
+pub use anomaly::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 pub use budget::{Budget, BudgetExhausted, BudgetKind, BudgetNode};
 pub use capability::{Capability, CapabilitySet, Principal, Role, RoleBinding, SpawnKind};
 pub use cost_ceilings::{

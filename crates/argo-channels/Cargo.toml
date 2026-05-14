@@ -9,6 +9,7 @@ description = "Argo notification channels and approval transport"
 
 [dependencies]
 argo-config = { path = "../argo-config", version = "0.0.1" }
+argo-types = { path = "../argo-types", version = "0.0.1" }
 argo-bluebubbles-client = { path = "../argo-bluebubbles-client", version = "0.0.1" }
 async-trait = { workspace = true }
 chrono = { workspace = true }

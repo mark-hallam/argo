@@ -17,9 +17,10 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod discord;
+pub mod dispatch;
 pub mod email;
 pub mod email_inbound;
-pub mod discord;
 pub mod fallback;
 pub mod imessage;
 pub mod manifest;
@@ -41,10 +42,10 @@ pub mod voice_format;
 pub mod webinbox;
 pub mod whatsapp;
 
+pub use argo_types::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 pub use discord::DiscordChannel;
+pub use dispatch::{MultiChannelDispatch, NoopDispatch};
 pub use matrix::{MatrixChannel, MatrixChannelConfig};
-pub use teams::{TeamsApprovalChannel, TeamsApprovalChannelConfig};
-pub use teams_payload::TeamsAttachment;
 pub use operator_preferences::{
     InMemoryPreferencesSource, OperatorId, OperatorPreferences, OperatorPreferencesResolver,
     OperatorPreferencesSource, OperatorQuietHours, TomlPreferencesSource,
@@ -57,6 +58,8 @@ pub use operator_risk_overrides::{
 pub use quiet_hours::QuietHours;
 pub use rate_limit::{RateLimit, RateLimitConfig};
 pub use slack_inbound::InboundChannel;
+pub use teams::{TeamsApprovalChannel, TeamsApprovalChannelConfig};
+pub use teams_payload::TeamsAttachment;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

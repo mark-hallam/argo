@@ -1,9 +1,13 @@
 use super::{ObservedBreakerTransport, StateObserver};
 use crate::circuit::{Breaker, BreakerConfig, CircuitState};
-use crate::transport::Transport;
-use argo_types::{ArgoResult, CapabilitySet};
+use crate::transport::{ProviderRequest, ProviderResponse, Transport};
+use argo_types::{
+    AnomalyAlert, AnomalyDispatch, AnomalyKind, ArgoError, ArgoResult, CapabilitySet,
+};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Minimal Transport used in tests — never invoked, just needed so
@@ -32,6 +36,53 @@ impl Transport for ProbeTransport {
         _req: &crate::transport::ProviderRequest,
     ) -> ArgoResult<BoxStream<'static, ArgoResult<crate::transport::ProviderResponseDelta>>> {
         unreachable!("ProbeTransport.complete_stream is never invoked in unit tests")
+    }
+}
+
+struct FailingTransport {
+    id: String,
+    caps: CapabilitySet,
+}
+
+#[async_trait]
+impl Transport for FailingTransport {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn capabilities(&self) -> &CapabilitySet {
+        &self.caps
+    }
+    async fn complete(&self, _req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
+        Err(ArgoError::Provider("test-provider HTTP 500: boom".into()))
+    }
+    async fn complete_stream(
+        &self,
+        _req: &ProviderRequest,
+    ) -> ArgoResult<BoxStream<'static, ArgoResult<crate::transport::ProviderResponseDelta>>> {
+        Err(ArgoError::Provider("test-provider HTTP 500: boom".into()))
+    }
+}
+
+struct CountingDispatch {
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl AnomalyDispatch for CountingDispatch {
+    async fn dispatch(&self, alert: AnomalyAlert) -> ArgoResult<()> {
+        assert_eq!(alert.kind, AnomalyKind::ProviderStorm);
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+fn dummy_request() -> ProviderRequest {
+    ProviderRequest {
+        model: "test".into(),
+        messages: Vec::new(),
+        tools: Vec::new(),
+        system: None,
+        sampling: Default::default(),
     }
 }
 
@@ -132,4 +183,29 @@ fn observed_transport_tracks_breaker_state_after_failures() {
         observed.observer().observe(cur),
         Some((CircuitState::Closed, CircuitState::Open))
     );
+}
+
+#[tokio::test]
+async fn observed_transport_dispatches_provider_storm_on_open() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let probe = FailingTransport {
+        id: "storm-test".into(),
+        caps: CapabilitySet::default(),
+    };
+    let breaker = Breaker::new(BreakerConfig {
+        failure_threshold: 1,
+        cooldown: Duration::from_millis(1),
+        cooldown_max: Duration::from_millis(1),
+    });
+    let dispatch = Arc::new(CountingDispatch {
+        calls: Arc::clone(&calls),
+    });
+    let observed = ObservedBreakerTransport::with_anomaly_dispatch(probe, breaker, dispatch);
+    let err = observed
+        .complete(&dummy_request())
+        .await
+        .expect_err("failing provider");
+    assert!(format!("{err}").contains("HTTP 500"));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(observed.observer().last_state(), CircuitState::Open);
 }

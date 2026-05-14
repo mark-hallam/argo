@@ -7,6 +7,7 @@
 //! `pub use` façade that keeps `argo_config::ContextCompressConfig`
 //! (and friends) resolving against the historic path.
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use crate::sections_streaming_retry::StreamingRetryConfig;
 
@@ -50,6 +51,30 @@ impl Default for VerticalLockConfig {
     }
 }
 
+/// `[runtime.anomaly_alerting]` — event-source anomaly dispatch
+/// knobs for `argo-channels::AnomalyDispatch`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AnomalyAlertingConfig {
+    /// Master enable. Disabled means callers construct a no-op
+    /// dispatcher and do no channel work on anomaly emission.
+    pub enabled: bool,
+    /// Minimum severity sent to channels: `warn` or `critical`.
+    pub default_severity_threshold: String,
+    /// Optional alert-kind to channel-id routing table.
+    pub channel_routing: BTreeMap<String, Vec<String>>,
+}
+
+impl Default for AnomalyAlertingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            default_severity_threshold: "warn".into(),
+            channel_routing: BTreeMap::new(),
+        }
+    }
+}
+
 /// `[runtime]` — parent for runtime-side TOML knobs.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -70,6 +95,8 @@ pub struct RuntimeConfig {
     /// `[runtime.worker_resource_cage]` — per-worker cgroup-v2
     /// memory + CPU caps.
     pub worker_resource_cage: WorkerResourceConfig,
+    /// `[runtime.anomaly_alerting]` — event-source anomaly dispatch.
+    pub anomaly_alerting: AnomalyAlertingConfig,
     /// `[runtime.plugin_registry]` — configured plugin subprocesses.
     pub plugin_registry: PluginRegistryConfig,
     /// `[runtime.vertical_lock]` — per-tenant/vertical/worker mutex.

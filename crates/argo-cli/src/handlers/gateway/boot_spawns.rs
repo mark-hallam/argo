@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use argo_channels::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 use argo_config::SiemConfig;
 use argo_orchestrator::{
     spawn_duty_scheduler, ClosedGate, DutyScheduler, DutyStore, OrchestratorStore, WorkerSupervisor,
@@ -27,6 +28,7 @@ use super::boot::AbortOnDrop;
 use super::shutdown::{self, ShutdownController};
 use crate::handlers::alerts;
 use crate::handlers::cu_screenshots::CuScreenshotStore;
+use std::collections::BTreeMap;
 
 const DEFAULT_DUTY_SCHEDULER_SECS: u64 = 60;
 /// Sweep cadence for the `cu_screenshot` retention task. Hourly is
@@ -39,7 +41,16 @@ const CU_SCREENSHOT_SWEEP_SECS: u64 = 3_600;
 const DEFAULT_CU_SCREENSHOT_RETENTION_DAYS: u64 = 14;
 
 pub(super) fn spawn_audit_watchdog(store: Arc<SessionStore>) -> AbortOnDrop {
-    let cb: Arc<dyn Fn(argo_audit::ChainBreak) + Send + Sync> = Arc::new(|b| {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let dispatch = super::startup_check::anomaly_dispatch_from_cwd(&cwd);
+    spawn_audit_watchdog_with_dispatch(store, dispatch)
+}
+
+pub(super) fn spawn_audit_watchdog_with_dispatch(
+    store: Arc<SessionStore>,
+    dispatch: Arc<dyn AnomalyDispatch>,
+) -> AbortOnDrop {
+    let cb: Arc<dyn Fn(argo_audit::ChainBreak) + Send + Sync> = Arc::new(move |b| {
         tracing::error!(
             target: "gateway::audit_watchdog",
             seq = b.seq,
@@ -47,6 +58,22 @@ pub(super) fn spawn_audit_watchdog(store: Arc<SessionStore>) -> AbortOnDrop {
             reason = %b.reason,
             "audit chain break detected"
         );
+        let dispatch = Arc::clone(&dispatch);
+        tokio::spawn(async move {
+            let mut context = BTreeMap::new();
+            context.insert("seq".into(), b.seq.to_string());
+            context.insert("kind".into(), b.kind);
+            context.insert("reason".into(), b.reason);
+            let alert = AnomalyAlert {
+                kind: AnomalyKind::ChainBreak,
+                severity: Severity::Critical,
+                message: "audit chain break detected".into(),
+                context,
+            };
+            if let Err(e) = dispatch.dispatch(alert).await {
+                tracing::warn!(target: "gateway::audit_watchdog", error = %e, "chain-break anomaly dispatch failed");
+            }
+        });
     });
     eprintln!("argo gateway: audit chain watchdog enabled");
     AbortOnDrop::new(argo_audit::spawn_watchdog(

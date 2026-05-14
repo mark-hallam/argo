@@ -8,7 +8,9 @@
 //!    inclusive).
 use super::*;
 use crate::transport::{Sampling, StopReason};
-use argo_types::{ArgoError, ArgoResult, BudgetWindow, CapabilitySet};
+use argo_types::{
+    AnomalyAlert, AnomalyDispatch, AnomalyKind, ArgoError, ArgoResult, BudgetWindow, CapabilitySet,
+};
 use async_trait::async_trait;
 use futures::stream::{self, BoxStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -78,6 +80,19 @@ impl BudgetEnforcer for AlwaysAllow {
 /// the gate short-circuits before the inner transport runs.
 struct AlwaysBlock {
     window: BudgetWindow,
+}
+
+struct CountingDispatch {
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl AnomalyDispatch for CountingDispatch {
+    async fn dispatch(&self, alert: AnomalyAlert) -> ArgoResult<()> {
+        assert_eq!(alert.kind, AnomalyKind::BudgetCeiling);
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
 }
 #[async_trait]
 impl BudgetEnforcer for AlwaysBlock {
@@ -177,4 +192,26 @@ async fn streaming_path_also_short_circuits_on_ceiling_trip() {
         Ok(_) => panic!("stream should not establish when ceiling trips"),
     }
     assert_eq!(count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn budget_ceiling_dispatches_anomaly() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let (inner, count) = RecordingTransport::new();
+    let gate = SpendGate::new(
+        inner,
+        Arc::new(AlwaysBlock {
+            window: BudgetWindow::Day,
+        }),
+    )
+    .with_anomaly_dispatch(Arc::new(CountingDispatch {
+        calls: Arc::clone(&calls),
+    }));
+    let err = gate
+        .complete(&dummy_request())
+        .await
+        .expect_err("ceiling trips");
+    assert!(matches!(err, ArgoError::BudgetExceeded { .. }));
+    assert_eq!(count.load(Ordering::SeqCst), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
 }

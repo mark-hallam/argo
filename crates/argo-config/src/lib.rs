@@ -79,10 +79,11 @@ pub use sections::{
     SsoOidcTenant, SsoSamlTenant, TeamsTomlConfig, TelemetryConfig, TenantConfig,
 };
 pub use sections_context::{
-    ActionThrottleConfig, ActionThrottlePolicyConfig, ContextCompressConfig, McpPoolConfig,
-    PluginManifestEntry, PluginRegistryConfig, PromptCacheAffinityConfig, RuntimeConfig,
-    SandboxPrewarmConfig, DEFAULT_ACTION_THROTTLE_AUDIT_SECS, DEFAULT_MCP_POOL_IDLE_TTL_SECS,
-    DEFAULT_MCP_POOL_MAX_CLIENTS, DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS,
+    ActionThrottleConfig, ActionThrottlePolicyConfig, AnomalyAlertingConfig, ContextCompressConfig,
+    McpPoolConfig, PluginManifestEntry, PluginRegistryConfig, PromptCacheAffinityConfig,
+    RuntimeConfig, SandboxPrewarmConfig, DEFAULT_ACTION_THROTTLE_AUDIT_SECS,
+    DEFAULT_MCP_POOL_IDLE_TTL_SECS, DEFAULT_MCP_POOL_MAX_CLIENTS,
+    DEFAULT_PLUGIN_REGISTRY_TIMEOUT_SECS,
 };
 pub use sections_streaming_retry::{
     StreamingRetryConfig, DEFAULT_STREAMING_RETRY_BACKOFF_INITIAL_MS,

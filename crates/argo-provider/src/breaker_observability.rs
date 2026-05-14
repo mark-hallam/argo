@@ -14,10 +14,12 @@ use crate::circuit::{Breaker, CircuitState};
 use crate::transport::{
     BreakerTransport, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
 };
-use argo_types::{ArgoResult, CapabilitySet};
+use argo_types::{AnomalyAlert, AnomalyDispatch, AnomalyKind, ArgoResult, CapabilitySet, Severity};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
 
 const CLOSED_U8: u8 = 0;
 const OPEN_U8: u8 = 1;
@@ -148,6 +150,7 @@ impl StateObserver {
 pub struct ObservedBreakerTransport<T: Transport> {
     inner: BreakerTransport<T>,
     observer: StateObserver,
+    anomaly_dispatch: Option<Arc<dyn AnomalyDispatch>>,
 }
 
 impl<T: Transport> ObservedBreakerTransport<T> {
@@ -158,7 +161,20 @@ impl<T: Transport> ObservedBreakerTransport<T> {
         Self {
             inner: BreakerTransport::new(inner, breaker),
             observer,
+            anomaly_dispatch: None,
         }
+    }
+
+    /// Wrap `inner` and emit `ProviderStorm` anomalies when the
+    /// breaker transitions to Open.
+    pub fn with_anomaly_dispatch(
+        inner: T,
+        breaker: Breaker,
+        anomaly_dispatch: Arc<dyn AnomalyDispatch>,
+    ) -> Self {
+        let mut wrapped = Self::new(inner, breaker);
+        wrapped.anomaly_dispatch = Some(anomaly_dispatch);
+        wrapped
     }
 
     /// Borrowed breaker — the CLI inspector uses this to read state.
@@ -177,9 +193,38 @@ impl<T: Transport> ObservedBreakerTransport<T> {
     }
 
     /// Sample the current state and run it through the observer.
-    fn observe_current(&self) {
+    async fn observe_current(&self) {
         let cur = self.inner.breaker().state_of(self.observer.provider_id());
-        let _ = self.observer.observe(cur);
+        if let Some((previous, current)) = self.observer.observe(cur) {
+            if current == CircuitState::Open {
+                self.dispatch_provider_storm(previous, current).await;
+            }
+        }
+    }
+
+    async fn dispatch_provider_storm(&self, previous: CircuitState, current: CircuitState) {
+        let Some(dispatch) = self.anomaly_dispatch.as_ref() else {
+            return;
+        };
+        let mut context = BTreeMap::new();
+        context.insert(
+            "provider_id".into(),
+            self.observer.provider_id().to_string(),
+        );
+        context.insert("previous".into(), format!("{previous:?}"));
+        context.insert("current".into(), format!("{current:?}"));
+        let alert = AnomalyAlert {
+            kind: AnomalyKind::ProviderStorm,
+            severity: Severity::Critical,
+            message: format!(
+                "provider {} circuit breaker opened",
+                self.observer.provider_id()
+            ),
+            context,
+        };
+        if let Err(e) = dispatch.dispatch(alert).await {
+            tracing::warn!(target: "provider::breaker", error = %e, "provider storm anomaly dispatch failed");
+        }
     }
 }
 
@@ -195,7 +240,7 @@ impl<T: Transport> Transport for ObservedBreakerTransport<T> {
 
     async fn complete(&self, req: &ProviderRequest) -> ArgoResult<ProviderResponse> {
         let result = self.inner.complete(req).await;
-        self.observe_current();
+        self.observe_current().await;
         result
     }
 
@@ -204,7 +249,7 @@ impl<T: Transport> Transport for ObservedBreakerTransport<T> {
         req: &ProviderRequest,
     ) -> ArgoResult<BoxStream<'static, ArgoResult<ProviderResponseDelta>>> {
         let result = self.inner.complete_stream(req).await;
-        self.observe_current();
+        self.observe_current().await;
         result
     }
 }
