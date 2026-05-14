@@ -6,12 +6,14 @@
 #![warn(missing_docs)]
 
 mod serde;
+pub mod store;
 pub mod types;
 
 #[cfg(test)]
 mod types_tests;
 
 pub use self::serde::{canonical_hash, canonical_hash_hex, canonical_json};
+pub use self::store::{ChainRow, SkillIrStore, SqliteSkillIrStore, ensure_schema, verify_chain};
 pub use self::types::{
     BranchArm, Edge, EdgeCond, EdgeId, Node, NodeAnnotations, NodeId, NodeKind, NodePolicy,
     SkillGraph, SkillGraphMetadata, SubSkillRef, ToolBinding, Variable, VariableScope,

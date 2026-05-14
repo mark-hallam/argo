@@ -39,6 +39,12 @@ pub struct SkillVersion {
     pub created_at_rfc3339: String,
     /// Underlying micros for stable sorts.
     pub created_at_micros: i64,
+    /// Hex-encoded canonical IR hash from `skill_ir` (L2). Populated
+    /// once `crate::ir::SkillIrStore::put` has recorded an IR row for
+    /// this `(skill_id, version)` pair; `None` for legacy rows that
+    /// predate the IR (Track L Phase 1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ir_hash: Option<String>,
 }
 
 /// List every version of `name` in this workspace, newest-first.
@@ -73,6 +79,7 @@ pub async fn list_versions(
             lifecycle_state: row.get("lifecycle_state"),
             created_at_rfc3339: micros_to_rfc3339(created_at),
             created_at_micros: created_at,
+            ir_hash: None,
         });
     }
     Ok(out)
