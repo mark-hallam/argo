@@ -1439,6 +1439,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "argo-skill-sdk"
+version = "0.0.1"
+dependencies = [
+ "argo-skill",
+ "serde_json",
+]
+
+[[package]]
 name = "argo-store"
 version = "0.0.1"
 dependencies = [

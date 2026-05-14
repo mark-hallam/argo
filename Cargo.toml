@@ -11,6 +11,7 @@ members = [
   "crates/argo-tool",
   "crates/argo-memory",
   "crates/argo-skill",
+  "crates/argo-skill-sdk",
   "crates/argo-cron",
   "crates/argo-channels",
   "crates/argo-bluebubbles-client",
