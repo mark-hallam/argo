@@ -14,7 +14,7 @@
 //! Brief: `mission-skill-version-migration-path` (MISSION_BACKLOG
 //! Section 3 Claim 4 #79).
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SkillId, TenantId};
+use argo_types::{ArgoError, ArgoResult, Capability, SkillId, TenantId};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -41,10 +41,12 @@ pub struct MigrationRow {
     /// Version string the migration upgrades TO.
     pub to_version: String,
     /// Hex-encoded tenant id of the publisher who recorded the
-    /// migration. Surfaced for operator audits and future
-    /// publisher-ownership enforcement (TODO: gate
-    /// [`record_migration`] on `publisher_tenant_id ==
-    /// skill.publisher_tenant_id`).
+    /// migration. Surfaced for operator audits. The first row
+    /// recorded for a given `skill_id` binds the canonical
+    /// publisher; subsequent [`record_migration`] calls whose
+    /// `publisher_tenant_id` differs are rejected with
+    /// [`ArgoError::CapabilityDenied`]`(`[`Capability::SkillMigrateRecord`]`)`
+    /// (`mission-skill-version-migration-publisher-check`).
     pub publisher_tenant_id: String,
     /// Optional free-text rationale ("v2 fixes the trailing-slash
     /// bug"); capped to [`MIGRATION_REASON_MAX_LEN`] chars on
@@ -58,6 +60,16 @@ pub struct MigrationRow {
 }
 
 /// Insert (or no-op) a publisher-side migration row.
+///
+/// **Publisher-ownership gate** (`mission-skill-version-migration-publisher-check`):
+/// the first row recorded for any given `skill_id` binds its
+/// canonical publisher. Subsequent calls whose `publisher_tenant_id`
+/// does not match the canonical publisher are rejected with
+/// [`ArgoError::CapabilityDenied`]`(`[`Capability::SkillMigrateRecord`]`)`,
+/// preventing cross-tenant tampering with the migration graph of a
+/// skill family. A `tracing::warn!` line on the reject path surfaces
+/// the attempt for ops dashboards even when the call site does not
+/// emit its own audit row.
 ///
 /// Idempotent on the composite PK `(skill_id, from_version,
 /// to_version)` — re-running a CI job that records the same
@@ -73,6 +85,18 @@ pub async fn record_migration(
     reason: Option<&str>,
     auto_upgrade: bool,
 ) -> ArgoResult<()> {
+    if let Some(canonical) = canonical_publisher(store, skill_id).await? {
+        if canonical != publisher_tenant_id {
+            tracing::warn!(
+                target: "skill_version_migration",
+                skill_id = %hex_from_blob(skill_id.0.as_bytes()),
+                claimed_publisher = %hex_from_blob(publisher_tenant_id.0.as_bytes()),
+                canonical_publisher = %hex_from_blob(canonical.0.as_bytes()),
+                "record_migration rejected: caller tenant does not match canonical publisher"
+            );
+            return Err(ArgoError::CapabilityDenied(Capability::SkillMigrateRecord));
+        }
+    }
     let trimmed_reason = reason.map(truncate_reason);
     let now = Utc::now().timestamp_micros();
     sqlx::query(
@@ -92,6 +116,33 @@ pub async fn record_migration(
     .await
     .map_err(|e| ArgoError::Provider(format!("record_migration: {e}")))?;
     Ok(())
+}
+
+/// Read the canonical publisher tenant for a skill family — the
+/// `publisher_tenant_id` from the earliest (`MIN(created_at)`) row in
+/// `skill_version_migration`. Returns `Ok(None)` when no row exists
+/// yet; the first [`record_migration`] call will then bind ownership
+/// (TOFU). Returning [`ArgoError::Provider`] on a malformed blob is
+/// intentional — a corrupted publisher column should not silently
+/// permit a cross-tenant insert.
+async fn canonical_publisher(
+    store: &SessionStore,
+    skill_id: SkillId,
+) -> ArgoResult<Option<TenantId>> {
+    let row: Option<(Vec<u8>,)> = sqlx::query_as(
+        "SELECT publisher_tenant_id FROM skill_version_migration \
+         WHERE skill_id = ? ORDER BY created_at ASC LIMIT 1",
+    )
+    .bind(skill_id.0.as_bytes().as_slice())
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|e| ArgoError::Provider(format!("canonical_publisher: {e}")))?;
+    let Some((blob,)) = row else { return Ok(None) };
+    let arr: [u8; 16] = blob
+        .as_slice()
+        .try_into()
+        .map_err(|_| ArgoError::Provider("canonical_publisher: malformed tenant blob".to_string()))?;
+    Ok(Some(TenantId(Uuid::from_bytes(arr))))
 }
 
 /// Find a migration whose `from_version` matches `installed_version`

@@ -68,6 +68,12 @@ pub enum Capability {
     SkillWrite,
     /// Emit judge verdicts (only the judge subsystem).
     SkillJudge,
+    /// Record a publisher-side skill-version migration row in
+    /// `skill_version_migration`. Gates `record_migration` against
+    /// cross-tenant writes — only the skill family's canonical
+    /// publisher (TOFU-bound by the first migration row) may add
+    /// further rows.
+    SkillMigrateRecord,
     /// Run an Argo Forge optimization (only the Forge subsystem).
     ForgeRun,
     /// Dispatch image-generation tools served by
@@ -148,7 +154,8 @@ impl CapabilitySet {
 fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
         AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, MemoryWrite,
-        MemoryWriteTeam, NetEgress, SecretRead, SkillJudge, SkillWrite, Spawn, ToolDispatch,
+        MemoryWriteTeam, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord, SkillWrite,
+        Spawn, ToolDispatch,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -181,6 +188,7 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
         (MemoryWriteTeam, MemoryWriteTeam) => true,
         (SkillWrite, SkillWrite) => true,
         (SkillJudge, SkillJudge) => true,
+        (SkillMigrateRecord, SkillMigrateRecord) => true,
         (ForgeRun, ForgeRun) => true,
         (ImageGenerate, ImageGenerate) => true,
         _ => false,

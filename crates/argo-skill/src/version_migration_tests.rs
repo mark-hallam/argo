@@ -1,5 +1,6 @@
 //! Unit tests for the `skill_version_migration` storage layer
-//! (`mission-skill-version-migration-path`).
+//! (`mission-skill-version-migration-path` + publisher-ownership
+//! gate from `mission-skill-version-migration-publisher-check`).
 //!
 //! Coverage map:
 //! 1. `record_roundtrip` — insert + lookup returns matching row.
@@ -12,9 +13,16 @@
 //! 6. `auto_upgrade_flag_roundtrip` — bool persists both ways.
 //! 7. `reason_text_length_cap` — long reason truncated to
 //!    `MIGRATION_REASON_MAX_LEN` chars.
+//! 8. `same_tenant_subsequent_calls_succeed` — canonical publisher
+//!    can record further rows for its own skill family.
+//! 9. `cross_tenant_record_migration_rejected` — non-canonical
+//!    publisher gets `CapabilityDenied(SkillMigrateRecord)` and
+//!    cannot leak a row into another family's migration graph.
+//! 10. `independent_families_have_independent_publishers` — TOFU is
+//!     per `skill_id`; different families bind separately.
 use super::*;
 use argo_store::SessionStore;
-use argo_types::{SkillId, TenantId};
+use argo_types::{Capability, SkillId, TenantId};
 
 async fn open_store() -> SessionStore {
     let store = SessionStore::open(":memory:").await.unwrap();
@@ -122,6 +130,77 @@ async fn auto_upgrade_flag_roundtrip() {
         .unwrap()
         .unwrap();
     assert!(row.auto_upgrade, "auto_upgrade=true must persist");
+}
+
+#[tokio::test]
+async fn same_tenant_subsequent_calls_succeed() {
+    // The canonical publisher (first record) records two further
+    // (from, to) pairs without rejection.
+    let store = open_store().await;
+    let skill_id = SkillId::new();
+    let publisher = TenantId::new();
+    record_migration(&store, skill_id, "v1", "v2", publisher, None, false)
+        .await
+        .unwrap();
+    record_migration(&store, skill_id, "v2", "v3", publisher, Some("note"), true)
+        .await
+        .unwrap();
+    record_migration(&store, skill_id, "v1", "v3", publisher, None, false)
+        .await
+        .unwrap();
+    let rows = list_for_skill(&store, skill_id).await.unwrap();
+    assert_eq!(rows.len(), 3, "all three rows persisted for canonical publisher");
+}
+
+#[tokio::test]
+async fn cross_tenant_record_migration_rejected() {
+    // First call binds tenant A as canonical publisher. Tenant B's
+    // attempt to record a different (from, to) pair must be rejected
+    // and must NOT leak a row into the migration graph.
+    let store = open_store().await;
+    let skill_id = SkillId::new();
+    let canonical = TenantId::new();
+    let attacker = TenantId::new();
+    assert_ne!(canonical, attacker);
+    record_migration(&store, skill_id, "v1", "v2", canonical, None, false)
+        .await
+        .unwrap();
+    let err = record_migration(&store, skill_id, "v2", "v3", attacker, None, false)
+        .await
+        .unwrap_err();
+    match err {
+        ArgoError::CapabilityDenied(Capability::SkillMigrateRecord) => {}
+        other => panic!("expected CapabilityDenied(SkillMigrateRecord), got {other:?}"),
+    }
+    let rows = list_for_skill(&store, skill_id).await.unwrap();
+    assert_eq!(rows.len(), 1, "rejected attempt must not leak a row");
+    assert_eq!(rows[0].from_version, "v1");
+    assert_eq!(rows[0].to_version, "v2");
+}
+
+#[tokio::test]
+async fn independent_families_have_independent_publishers() {
+    // TOFU binding is scoped per skill_id — tenant A owns skill X,
+    // tenant B owns skill Y, and cross-family attempts on either
+    // family still reject.
+    let store = open_store().await;
+    let skill_a = SkillId::new();
+    let skill_b = SkillId::new();
+    let tenant_a = TenantId::new();
+    let tenant_b = TenantId::new();
+    record_migration(&store, skill_a, "v1", "v2", tenant_a, None, false)
+        .await
+        .unwrap();
+    record_migration(&store, skill_b, "v1", "v2", tenant_b, None, false)
+        .await
+        .unwrap();
+    let cross_err = record_migration(&store, skill_a, "v2", "v3", tenant_b, None, false)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        cross_err,
+        ArgoError::CapabilityDenied(Capability::SkillMigrateRecord)
+    ));
 }
 
 #[tokio::test]
