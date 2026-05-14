@@ -49,6 +49,7 @@
 
 pub mod auth;
 pub mod document_gsuite;
+mod document_gsuite_payload;
 pub mod types;
 
 pub use auth::{GsuiteAuth, GsuiteAuthConfig};
