@@ -24,7 +24,15 @@ use super::worker_actions_auto_approval;
 use super::worker_actions_dispatch_ledger::auto_refresh_ledger;
 use super::worker_actions_executor;
 use super::worker_actions_transitions;
+use argo_config::{ActionThrottleConfig, ArgoConfig};
+use argo_runtime::action_throttle::{
+    acquire_or_wait, build_audit_payload, should_emit_audit, ThrottleConfig, ThrottlePolicy,
+    ThrottleRegistry,
+};
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
+use std::sync::Arc;
+use std::time::Duration;
 
 pub(crate) use super::worker_actions_dispatch_ledger::render;
 pub(crate) use super::worker_actions_dispatch_retry::{count_retry_chain, retry};
@@ -114,7 +122,8 @@ pub(crate) async fn approve_batch(
 }
 
 pub(crate) async fn execute(action_id: &str, dry_run: bool, json: bool) -> ArgoResult<()> {
-    let (memory, ws) = worker_actions_transitions::open_workspace_memory().await?;
+    let (memory, ws, store) =
+        worker_actions_transitions::open_workspace_memory_with_store().await?;
     worker_actions_auto_approval::ensure_circuit_allows_dispatch(&memory, ws, action_id).await?;
     if dry_run {
         return super::worker_actions_dry_run::preview(&memory, ws, action_id, json).await;
@@ -123,6 +132,10 @@ pub(crate) async fn execute(action_id: &str, dry_run: bool, json: bool) -> ArgoR
     // auto-approved action gets a real `approve()` audit row.
     worker_actions_auto_approval::maybe_auto_approve(&memory, ws, action_id).await?;
     let rec = worker_actions_transitions::execute(&memory, ws, action_id).await?;
+    // mission-throttle-registry-wire-dispatch: per-(tenant,
+    // action_type) gate. No-op when [runtime.action_throttle] is
+    // disabled or no policy is configured for this action_type.
+    throttle_gate(&store, &rec).await;
     let (final_rec, bundle_path) = match invoke_executor_for(&rec).await? {
         worker_actions_executor::ActionOutcome::HumanHandoff { bundle_path } => (rec, bundle_path),
         // Auto-complete path (#A-executor-trait): the executor
@@ -231,6 +244,76 @@ pub(crate) async fn cancel(
     print_record(&rec, json);
     auto_refresh_ledger(&memory, ws).await;
     Ok(())
+}
+
+/// `mission-throttle-registry-wire-dispatch`: gate one dispatch
+/// through the per-`(tenant_id, action_type)` token bucket. No-op
+/// on disabled config / unconfigured action_type / missing
+/// `argo.toml` so the legacy hot path stays zero-overhead until an
+/// operator opts in. Emits a `runtime.action_throttled` warning
+/// trace when cumulative wait crosses
+/// [`ThrottleConfig::audit_threshold`].
+async fn throttle_gate(store: &Arc<SessionStore>, rec: &ActionRecord) {
+    let cfg = match load_throttle_config() {
+        Some(c) => c,
+        None => return,
+    };
+    if !cfg.enabled || cfg.policies.is_empty() {
+        return;
+    }
+    let runtime_cfg = build_runtime_config(&cfg);
+    let registry = ThrottleRegistry::new(runtime_cfg);
+    let tenant_id = match resolve_tenant(store).await {
+        Some(t) => t,
+        None => return,
+    };
+    let waited = acquire_or_wait(
+        &registry,
+        &tenant_id,
+        &rec.action_type,
+        chrono::Utc::now,
+        tokio::time::sleep,
+    )
+    .await;
+    if should_emit_audit(registry.config(), waited) {
+        let payload = build_audit_payload(&tenant_id, &rec.action_type, waited);
+        tracing::warn!(
+            kind = argo_runtime::action_throttle::AUDIT_KIND_LABEL,
+            payload = %payload,
+            "action dispatch throttled past audit threshold",
+        );
+    }
+}
+
+fn load_throttle_config() -> Option<ActionThrottleConfig> {
+    let cwd = std::env::current_dir().ok()?;
+    let toml_path = cwd.join("argo.toml");
+    Some(ArgoConfig::load(&toml_path).unwrap_or_default().runtime.action_throttle)
+}
+
+fn build_runtime_config(cfg: &ActionThrottleConfig) -> ThrottleConfig {
+    let mut policies = std::collections::HashMap::new();
+    for (name, p) in &cfg.policies {
+        if let Some(policy) = ThrottlePolicy::new(p.tokens_per_sec, p.burst) {
+            policies.insert(name.clone(), policy);
+        }
+    }
+    ThrottleConfig {
+        enabled: cfg.enabled,
+        policies,
+        audit_threshold: Duration::from_secs(u64::from(cfg.audit_threshold_secs)),
+    }
+}
+
+async fn resolve_tenant(store: &Arc<SessionStore>) -> Option<String> {
+    let cwd = std::env::current_dir().ok()?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _ws) = store.ensure_workspace(name, &root).await.ok()?;
+    Some(tenant.to_string())
 }
 
 pub(crate) async fn status(action_id: &str, json: bool) -> ArgoResult<()> {

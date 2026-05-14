@@ -318,6 +318,48 @@ pub fn should_emit_audit(config: &ThrottleConfig, queued_for: Duration) -> bool 
     queued_for >= config.audit_threshold
 }
 
+/// Block until [`ThrottleRegistry::try_acquire`] returns
+/// [`ThrottleDecision::Proceed`] for `(tenant_id, action_type)`,
+/// invoking `sleep_fn` between polls. Returns the cumulative
+/// wall-clock time spent waiting so the caller can compare
+/// against [`ThrottleConfig::audit_threshold`] and emit a
+/// `runtime.action_throttled` row via [`build_audit_payload`] when
+/// [`should_emit_audit`] reports the gate held the dispatch long
+/// enough to be operator-visible.
+///
+/// `now_fn` is the wall-clock injector — production callers pass
+/// `chrono::Utc::now`; tests pass a deterministic clock.
+/// `sleep_fn` is the async-runtime sleeper — production callers
+/// pass `tokio::time::sleep`; this keeps `argo-runtime` free of a
+/// hard tokio dependency so the crate stays runtime-agnostic.
+///
+/// The disabled-registry path returns immediately with
+/// `Duration::ZERO` because [`ThrottleRegistry::try_acquire`]
+/// short-circuits to `Proceed` without taking the bucket lock.
+pub async fn acquire_or_wait<NowFn, SleepFn, SleepFut>(
+    registry: &ThrottleRegistry,
+    tenant_id: &str,
+    action_type: &str,
+    mut now_fn: NowFn,
+    mut sleep_fn: SleepFn,
+) -> Duration
+where
+    NowFn: FnMut() -> DateTime<Utc>,
+    SleepFn: FnMut(Duration) -> SleepFut,
+    SleepFut: std::future::Future<Output = ()>,
+{
+    let mut total = Duration::ZERO;
+    loop {
+        match registry.try_acquire(tenant_id, action_type, now_fn()) {
+            ThrottleDecision::Proceed => return total,
+            ThrottleDecision::Wait { delay } => {
+                sleep_fn(delay).await;
+                total = total.saturating_add(delay);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "action_throttle_tests.rs"]
 mod action_throttle_tests;
