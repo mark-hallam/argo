@@ -108,10 +108,14 @@ These are not architectural preferences; they are operator decisions that scope 
 - **Enterprise focus, not consumer.** SKYCOT serves enterprise customers. MCP connector priority and authoring decisions reflect this. The 4 consumer/redundant connector stubs (signal, telegram, mailgun, resend) are being deleted; the 3 enterprise stubs (apollo, zoominfo, zoom) stay as DEFERRED-v1.x placeholders. When in doubt about a connector, ask "is this enterprise?"
 - **Type canonicalization is in progress.** Phase A audit found 11+ duplicate `pub struct/enum` definitions across crates (worst: `AuditRow` in 4 crates, real data-integrity risk). 4 canonicalization briefs + 1 CI-lint brief are authored; do not introduce new parallel `pub` types until the canonical home is established. Re-export from `argo-types` is the preferred pattern when in doubt.
 - **Skill-library worker load is the v1 SHIP-BLOCKER.** Phase A.5 audit found that `argo-agent-runner/src/turn.rs` never calls `LayeredLookup::with_library` — workers do NOT load marketplace skills at runtime. MISSION.md success scenario #2 silently fails. Brief: `streams/claude-skill-library-worker-load-wire.md` (~150 LOC). Ship this first.
+- **Migration slot collisions are P0 operational risk.** Phase D audit found 11 slot-number collisions in `crates/argo-store/migrations/` (slots 19, 22, 23, 24, 26, 27, 28, 30, 45, 51, 75 — some 3-way). sqlx runner may process duplicates silently in filesystem order. Brief: `streams/claude-migration-slot-dedup-and-validator.md` (~500 LOC). Ship in the first wave alongside the SHIP-BLOCKER.
 
-The full audit reports live in `docs/skycot/audit/`:
+The full audit reports live in `docs/skycot/audit/` (5 phases, all complete 2026-05-14):
 - `2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims mapping
-- `2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace
+- `2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace (found SHIP-BLOCKER)
+- `2026-05-14-phase-B-per-crate-deep-dive.md` — top 20 by LOC (verdict: production-ready, 1 orphan)
+- `2026-05-14-phase-C-mission-claim-coverage.md` — E2E coverage per claim
+- `2026-05-14-phase-D-cross-cutting-drift.md` — 11 migration collisions + 19 new parallel names + 236 TOML violations
 
 ## Project rename — Argo → Skycot
 

@@ -131,22 +131,45 @@ Ship SKYCOT v1.0: AI workers humans bring into their team as real teammates. v1.
 
 88 crates, ~520K LOC. **argo-cli is 199K LOC (38% of codebase) — leave it alone for v1** (compile time managed via shared `CARGO_TARGET_DIR`; not on demo critical path). **2 SPOFs by claim**: Claim 1 (only argo-identity directly serves "Teammate" — actually false alarm, multiple layers serve), Claim 3 (only argo-genesis builds workers — real SPOF). **Claim 4 drift = real**: skills loop fragmented across 5 crates (Phase A.5 traced edges; SHIP-BLOCKER above is the load-bearing fix). **Claim 5 over-coverage**: 40+ crates including 4 OS-specific computer-use implementations.
 
-### 11 new briefs authored 2026-05-14 (all TODO)
+### 21 new briefs authored 2026-05-14 (all TODO)
 
 Order to ship them (priority ↓):
 
-1. 🔴 `claude-skill-library-worker-load-wire` — SHIP-BLOCKER, ~150 LOC
-2. `claude-skill-marketplace-end-to-end-test` — depends on #1; regression-prevent
-3. `mission-per-worker-skill-learning-cron` — depends on #1; ~200 LOC
-4. `claude-canonicalize-audit-row-type` — HIGH data integrity, 4-way dup, ~500 LOC
+**🔴 P0 SHIP-BLOCKERS + operational risk:**
+1. `claude-skill-library-worker-load-wire` — SHIP-BLOCKER (claim 4), ~150 LOC
+2. `claude-migration-slot-dedup-and-validator` — 11 argo-store slot collisions, ~500 LOC
+
+**P0 cleanup:**
+3. `claude-channels-fallback-orphan-cleanup` — 1 confirmed orphan, 50-150 LOC
+4. `claude-delete-ai-receptionist-vertical` — stale vertical + 34 refs, ~300 LOC
 5. `claude-defer-non-macos-computer-use` — scope cut, ~150 LOC
 6. `claude-delete-consumer-mcp-stubs` — cleanup, ~150 LOC
-7. `claude-canonicalize-decision-type` — ~300 LOC
-8. `claude-canonicalize-approval-decision-type` — ~300 LOC
-9. `claude-canonicalize-medium-duplicates` — 4-type bundle, ~600 LOC
-10. `claude-ci-lint-parallel-pub-types` — regression-prevent, ~400 LOC
-11. `claude-forge-dspy-stub-warning-upgrade` — clarify v1-stub, ~80 LOC
-12. `claude-delete-ai-receptionist-vertical` — cleanup, ~300 LOC (authored 2026-05-14)
+
+**P0.5 demo proof:**
+7. `claude-skill-marketplace-end-to-end-test` — depends on #1, ~250 LOC
+8. `claude-computer-use-full-workflow-smoke` — depends on action-executor, ~300 LOC
+
+**P1 type canonicalization (8 briefs total, do in order):**
+9. `claude-canonicalize-audit-row-type` — HIGH data integrity, 4-way dup, ~500 LOC
+10. `claude-canonicalize-decision-type` — ~300 LOC
+11. `claude-canonicalize-approval-decision-type` — ~300 LOC
+12. `claude-canonicalize-medium-duplicates` — 4-type bundle, ~600 LOC
+13. `claude-canonicalize-parallel-names-round2-high` — 7 HIGH-sev round-2 types, ~800 LOC
+14. `claude-ci-lint-parallel-pub-types` — regression-prevent, ~400 LOC
+
+**P1 other:**
+15. `mission-per-worker-skill-learning-cron` — depends on #1, ~200 LOC
+16. `claude-toml-inherit-workspace-versions` — 236 TOML lines, ~50 LOC easy fix
+17. `claude-store-migrations-registry-split` — pre-emptive 461→<500 split, ~200 LOC
+18. `claude-multiworker-duty-handoff-e2e-smoke` — scenario #3, ~200 LOC
+19. `claude-argo-acp-triage` — investigate dead crate, ~100 LOC
+20. `claude-argo-delegate-triage` — investigate dead crate, ~100 LOC
+
+**P1.5:**
+21. `claude-vertical-eval-seed-generation-test` — claim 3 completeness, ~120 LOC
+22. `claude-forge-dspy-stub-warning-upgrade` — clarify v1-stub, ~80 LOC
+
+Plus 7 from earlier 2026-05-14 — `mission-vertical-action-executor-completion`, `mission-per-vertical-demo-script`, `mission-marketplace-seller-e2b-demo`, `mission-cross-tenant-trajectory-aggregation`, `mission-rtbf-dreams-propagation`, `mission-forge-spend-polling-race-fix`, `mission-canonical-exponential-backoff`.
 
 Plus 7 from earlier 2026-05-14 — `mission-vertical-action-executor-completion`, `mission-per-vertical-demo-script`, `mission-marketplace-seller-e2b-demo`, `mission-cross-tenant-trajectory-aggregation`, `mission-rtbf-dreams-propagation`, `mission-forge-spend-polling-race-fix`, `mission-canonical-exponential-backoff`.
 
@@ -158,15 +181,16 @@ Plus 7 from earlier 2026-05-14 — `mission-vertical-action-executor-completion`
 
 `grep -c '^| .* | claude | TODO' docs/build-plan/BUILD_STATUS.md` was 30 before the 12 new briefs above landed; should be ~42+ now. **Above the 25 replenishment threshold; no replenishment needed.**
 
-### Audit Phases pending (B, C, D, E)
+### Audit Phases A + A.5 + B + C + D ALL COMPLETE
 
-Phase A + A.5 done. Pending:
-- **Phase B**: per-crate deep dive on top 20 by LOC.
-- **Phase C**: mission-claim coverage proof (with E2E test evidence per claim).
-- **Phase D**: cross-cutting drift checks (parallel-name surfaces, dead code, migration slot inventory).
-- **Phase E**: punch-list + brief authoring for anything B/C/D surface.
+All 5 audit phases ran 2026-05-14. Reports in `docs/skycot/audit/`:
+- `2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims
+- `2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace; FOUND v1 SHIP-BLOCKER
+- `2026-05-14-phase-B-per-crate-deep-dive.md` — top 20 by LOC; verdict "production-ready, 0 invariant violations, 1 orphan"
+- `2026-05-14-phase-C-mission-claim-coverage.md` — E2E test coverage per claim; Claim 4 WEAK (SHIP-BLOCKER)
+- `2026-05-14-phase-D-cross-cutting-drift.md` — 11 migration slot collisions + 19 NEW parallel names + 236 TOML violations
 
-The 11 briefs above are the Phase A+A.5 punch-list already authored. Phase B/C/D/E can wait until those are merging.
+Phase E (brief authoring) ongoing — 21 briefs authored 2026-05-14 total (11 from A/A.5, 10 from B/C/D).
 
 ### What changed in CLAUDE.md / V1_DEFINITION.md / memory
 
@@ -356,4 +380,4 @@ The conductor refreshes it during freshness passes. If you read
 this file and the snapshot dates look weeks old, treat the
 BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-14 (session hand-off). Cron loop STOPPED. Phase A + A.5 audits complete. 11 new remediation briefs authored including one v1 SHIP-BLOCKER (`claude-skill-library-worker-load-wire`). HEAD `37570754` at refresh time.
+Last refreshed: 2026-05-14 (session hand-off). Cron loop STOPPED. ALL 5 AUDIT PHASES (A/A.5/B/C/D) COMPLETE. 22 remediation briefs authored including one v1 SHIP-BLOCKER (`claude-skill-library-worker-load-wire`) and one P0 operational fix (`claude-migration-slot-dedup-and-validator`).

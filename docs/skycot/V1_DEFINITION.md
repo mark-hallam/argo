@@ -10,9 +10,16 @@
 - **🔴 v1 SHIP-BLOCKER discovered**: Phase A.5 audit (2026-05-14) found that workers do NOT load marketplace skills at runtime. `argo-agent-runner/src/turn.rs` never calls `LayeredLookup::with_library`. MISSION.md success scenario #2 silently fails. Fix: brief `claude-skill-library-worker-load-wire`, ~150 LOC. **This must ship before v1.**
 - **Type canonicalization in progress.** 11+ duplicate `pub struct/enum` definitions across crates. 4 canonicalization briefs + 1 CI-lint brief authored.
 
-Audit reports backing these decisions:
+Audit reports backing these decisions (all 5 phases complete 2026-05-14):
 - `docs/skycot/audit/2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims
-- `docs/skycot/audit/2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace
+- `docs/skycot/audit/2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace (found SHIP-BLOCKER)
+- `docs/skycot/audit/2026-05-14-phase-B-per-crate-deep-dive.md` — top 20 by LOC; verdict "production-ready, 0 invariant violations"
+- `docs/skycot/audit/2026-05-14-phase-C-mission-claim-coverage.md` — E2E test coverage per claim
+- `docs/skycot/audit/2026-05-14-phase-D-cross-cutting-drift.md` — 11 argo-store migration slot collisions (operational risk) + 19 NEW parallel names + 236 TOML hygiene violations
+
+Phase D also found a second P0: **`claude-migration-slot-dedup-and-validator`** (argo-store has 11 migration slot collisions; sqlx runner may process duplicates silently in filesystem order). Brief ~500 LOC.
+
+Track C `/inbox` gateway wire-up question (in §5 below): DONE — already shipped via #1411 (E1-a) + #1329 (mission-inbox-ws-real-websocket) + #1418 (J3) + commit 7c9f156 (D-webinbox). The §5 checkbox can be marked.
 
 > If this document disagrees with `docs/skycot/MISSION.md`, MISSION.md's mission statement + 6 claims + 5 success scenarios win (they are operator-authored ground truth). This document consolidates everything else.
 
@@ -154,12 +161,13 @@ Plus 5 mission-X-UI briefs MERGED: trust-grade-ui, skill-cohort-ui, retro-review
 **Swarm-deliverable gates**:
 
 - [ ] **🔴 SHIP-BLOCKER: `claude-skill-library-worker-load-wire` MERGED** (workers load marketplace skills at runtime; success scenario #2 works)
+- [ ] **🔴 P0: `claude-migration-slot-dedup-and-validator` MERGED** (11 argo-store slot collisions; operational risk)
 - [ ] All 5 MISSION.md success scenarios pass smoke test
 - [ ] `scripts/smoke-skycot.sh` passes
 - [ ] All Track L briefs MERGED (L1-L17 + L4-gw) — 18 briefs total; **3 done, 15 to go**
 - [ ] All Track M briefs MERGED except M2 (DEFERRED) — 19 briefs; **2 done, 17 to go**
 - [ ] All E2 hire-flow polish briefs MERGED (E2-f, E2-i — currently CLAIMED)
-- [ ] Track C polish: real gateway wire-up at `/inbox` (Storybook + Playwright are post-v1)
+- [x] Track C polish: real gateway wire-up at `/inbox` — DONE via #1411 (E1-a) + #1329 (mission-inbox-ws-real-websocket) + #1418 (J3) + 7c9f156 (D-webinbox). Storybook + Playwright are post-v1.
 - [ ] Production-hardening items from MISSION_BACKLOG marked as v1.0-relevant:
   - mission-vertical-action-executor-completion
   - mission-per-vertical-demo-script
