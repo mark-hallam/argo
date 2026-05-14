@@ -6,6 +6,7 @@
 //! `EventReceiver` onto the parser inside the `complete_stream` future.
 
 use crate::transport::{ProviderResponseDelta, StopReason};
+use crate::HeartbeatMonitor;
 use argo_types::{ArgoError, ArgoResult};
 use aws_sdk_bedrockruntime::types as bt;
 
@@ -15,6 +16,7 @@ pub(super) struct StreamRunner {
         aws_sdk_bedrockruntime::types::error::ConverseStreamOutputError,
     >,
     core: StreamCore,
+    heartbeat: HeartbeatMonitor,
 }
 
 /// Pure mutable state for the Bedrock stream parser. Decoupled from
@@ -45,10 +47,12 @@ impl StreamRunner {
             bt::ConverseStreamOutput,
             aws_sdk_bedrockruntime::types::error::ConverseStreamOutputError,
         >,
+        grace_ms: Option<u64>,
     ) -> Self {
         Self {
             stream,
             core: StreamCore::new(),
+            heartbeat: HeartbeatMonitor::from_grace_ms(grace_ms),
         }
     }
 }
@@ -63,8 +67,16 @@ pub(super) async fn step_stream(
         return None;
     }
     loop {
-        match s.stream.recv().await {
-            Ok(Some(event)) => {
+        match tokio::time::timeout(s.heartbeat.grace(), s.stream.recv()).await {
+            Err(_) => {
+                s.core.done = true;
+                return Some((
+                    Err(ArgoError::Provider("heartbeat grace exceeded".into())),
+                    s,
+                ));
+            }
+            Ok(Ok(Some(event))) => {
+                s.heartbeat.note_activity();
                 handle_stream_event(event, &mut s.core);
                 if let Some(item) = s.core.pending.pop_front() {
                     return Some((item, s));
@@ -73,11 +85,11 @@ pub(super) async fn step_stream(
                     return None;
                 }
             }
-            Ok(None) => {
+            Ok(Ok(None)) => {
                 s.core.done = true;
                 return None;
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 s.core.done = true;
                 return Some((Err(ArgoError::Provider(format!("bedrock stream: {e}"))), s));
             }

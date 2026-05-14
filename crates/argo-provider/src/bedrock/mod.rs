@@ -144,7 +144,11 @@ impl Transport for BedrockTransport {
             .await
             .map_err(|e| ArgoError::Provider(format!("bedrock converse_stream: {e}")))?;
         let stream = output.stream;
-        Ok(fstream::unfold(StreamRunner::new(stream), step_stream).boxed())
+        Ok(fstream::unfold(
+            StreamRunner::new(stream, self.manifest.transport.heartbeat_grace_ms),
+            step_stream,
+        )
+        .boxed())
     }
 }
 

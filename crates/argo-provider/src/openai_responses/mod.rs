@@ -18,6 +18,7 @@ use crate::sse::SseBuffer;
 use crate::transport::{
     build_http_client, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
 };
+use crate::HeartbeatMonitor;
 use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
 use async_trait::async_trait;
 use futures::stream::{self as fstream, BoxStream, StreamExt};
@@ -181,7 +182,7 @@ impl Transport for OpenAiResponsesTransport {
                 "openai-responses HTTP {status}: {text}"
             )));
         }
-        Ok(stream_response_body(resp).boxed())
+        Ok(stream_response_body(resp, self.manifest.transport.heartbeat_grace_ms).boxed())
     }
 }
 
@@ -287,8 +288,9 @@ fn truncate_for_error(s: String) -> String {
 
 fn stream_response_body(
     resp: reqwest::Response,
+    grace_ms: Option<u64>,
 ) -> impl futures::Stream<Item = ArgoResult<ProviderResponseDelta>> + Send + 'static {
-    fstream::unfold(StreamRunner::new(resp), step_stream)
+    fstream::unfold(StreamRunner::new(resp, grace_ms), step_stream)
 }
 
 struct StreamRunner {
@@ -296,16 +298,18 @@ struct StreamRunner {
     buf: SseBuffer,
     state: StreamState,
     pending: std::collections::VecDeque<ArgoResult<ProviderResponseDelta>>,
+    heartbeat: HeartbeatMonitor,
     done: bool,
 }
 
 impl StreamRunner {
-    fn new(resp: reqwest::Response) -> Self {
+    fn new(resp: reqwest::Response, grace_ms: Option<u64>) -> Self {
         Self {
             resp,
             buf: SseBuffer::new(),
             state: StreamState::new(),
             pending: std::collections::VecDeque::new(),
+            heartbeat: HeartbeatMonitor::from_grace_ms(grace_ms),
             done: false,
         }
     }
@@ -338,16 +342,24 @@ async fn step_stream(
             }
             continue;
         }
-        match s.resp.chunk().await {
-            Ok(Some(bytes)) => {
+        match tokio::time::timeout(s.heartbeat.grace(), s.resp.chunk()).await {
+            Err(_) => {
+                s.done = true;
+                return Some((
+                    Err(ArgoError::Provider("heartbeat grace exceeded".into())),
+                    s,
+                ));
+            }
+            Ok(Ok(Some(bytes))) => {
+                s.heartbeat.note_activity();
                 let chunk = String::from_utf8_lossy(&bytes);
                 s.buf.extend(&chunk);
             }
-            Ok(None) => {
+            Ok(Ok(None)) => {
                 s.done = true;
                 return None;
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 s.done = true;
                 return Some((
                     Err(ArgoError::Provider(format!(

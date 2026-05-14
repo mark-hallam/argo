@@ -46,6 +46,16 @@ impl HeartbeatMonitor {
         }
     }
 
+    /// New monitor with a grace window from a manifest
+    /// `heartbeat_grace_ms` value. Missing values use the 30s
+    /// default; zero is clamped to 1ms so timeout callers never arm
+    /// an immediately-expired zero-duration timer by accident.
+    #[must_use]
+    pub fn from_grace_ms(grace_ms: Option<u64>) -> Self {
+        let ms = grace_ms.unwrap_or(30_000).max(1);
+        Self::with_grace(Duration::from_millis(ms))
+    }
+
     /// Note that the connection saw activity (data byte / ping /
     /// keep-alive). Resets the grace timer.
     pub fn note_activity(&self) {
@@ -57,6 +67,13 @@ impl HeartbeatMonitor {
     #[must_use]
     pub fn is_stale(&self, now: Instant) -> bool {
         now.saturating_duration_since(*self.last_activity.lock()) > self.grace
+    }
+
+    /// `true` when no activity has been seen for longer than
+    /// `grace` as of now.
+    #[must_use]
+    pub fn is_stale_now(&self) -> bool {
+        self.is_stale(Instant::now())
     }
 
     /// Time since the last `note_activity()` call.
@@ -120,6 +137,22 @@ mod tests {
     fn grace_is_propagated_from_constructor() {
         let m = HeartbeatMonitor::with_grace(Duration::from_secs(7));
         assert_eq!(m.grace(), Duration::from_secs(7));
+    }
+
+    #[test]
+    fn grace_from_manifest_defaults_and_clamps_zero() {
+        assert_eq!(
+            HeartbeatMonitor::from_grace_ms(None).grace(),
+            Duration::from_secs(30)
+        );
+        assert_eq!(
+            HeartbeatMonitor::from_grace_ms(Some(0)).grace(),
+            Duration::from_millis(1)
+        );
+        assert_eq!(
+            HeartbeatMonitor::from_grace_ms(Some(10_000)).grace(),
+            Duration::from_secs(10)
+        );
     }
 
     #[test]
