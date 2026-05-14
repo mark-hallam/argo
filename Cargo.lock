@@ -418,6 +418,7 @@ name = "argo-compliance"
 version = "0.0.1"
 dependencies = [
  "argo-audit",
+ "argo-executor-document-csv",
  "argo-store",
  "argo-types",
  "chrono",
@@ -605,6 +606,7 @@ dependencies = [
 name = "argo-executor-document"
 version = "0.0.1"
 dependencies = [
+ "argo-executor-document-csv",
  "argo-types",
  "base64 0.22.1",
  "pulldown-cmark",

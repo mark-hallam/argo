@@ -177,30 +177,34 @@ fn row_from_sql(row: sqlx::sqlite::SqliteRow) -> ArgoResult<ApprovalExportRow> {
 }
 
 fn render_csv(rows: &[ApprovalExportRow]) -> ArgoResult<Vec<u8>> {
-    let mut writer = csv::WriterBuilder::new()
-        .has_headers(false)
-        .from_writer(Vec::new());
-    writer
-        .write_record([
-            "id",
-            "requested_at",
-            "decided_at",
-            "decision",
-            "worker",
-            "action_kind",
-            "decided_by",
-            "latency_secs",
-            "payload_excerpt",
-        ])
-        .map_err(|e| ArgoError::Provider(format!("approval export CSV header: {e}")))?;
-    for row in rows {
-        writer
-            .serialize(row)
-            .map_err(|e| ArgoError::Provider(format!("approval export CSV row: {e}")))?;
-    }
-    writer
-        .into_inner()
-        .map_err(|e| ArgoError::Provider(format!("approval export CSV flush: {e}")))
+    let header = [
+        "id",
+        "requested_at",
+        "decided_at",
+        "decision",
+        "worker",
+        "action_kind",
+        "decided_by",
+        "latency_secs",
+        "payload_excerpt",
+    ];
+    let body_rows: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| {
+            vec![
+                row.id.clone(),
+                row.requested_at.clone(),
+                row.decided_at.clone().unwrap_or_default(),
+                row.decision.clone(),
+                row.worker.clone(),
+                row.action_kind.clone(),
+                row.decided_by.clone().unwrap_or_default(),
+                row.latency_secs.map(|n| n.to_string()).unwrap_or_default(),
+                row.payload_excerpt.clone(),
+            ]
+        })
+        .collect();
+    Ok(argo_executor_document_csv::render_rfc4180(&header, &body_rows))
 }
 
 fn render_jsonl(rows: &[ApprovalExportRow]) -> ArgoResult<Vec<u8>> {

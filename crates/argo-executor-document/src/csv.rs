@@ -1,27 +1,19 @@
-//! CSV backend — RFC 4180 escaping. Pure-Rust, no extra deps.
-//!
-//! Spec compliance:
-//!   * Fields containing `,`, `"`, `\r`, or `\n` are wrapped in
-//!     double-quotes.
-//!   * Embedded `"` is escaped by doubling: `She said "hi"` →
-//!     `"She said ""hi"""`.
-//!   * Records terminated with `\r\n` (the spec's required line
-//!     ending; Excel chokes on bare `\n` for some locales).
-//!   * The header row is mandatory and constrains the row width;
-//!     malformed rows raise [`DocExecutorError::CsvShapeMismatch`]
-//!     so a poisoned manifest can't ship malformed CSV downstream.
+//! CSV backend — thin shim around the canonical RFC 4180 writer in
+//! `argo-executor-document-csv`. Owns shape validation (row arity vs
+//! header width) and the file-write convenience wrapper; quoting and
+//! line-terminator rules live in the shared helper.
 
 use crate::error::{DocExecutorError, DocResult};
+use argo_executor_document_csv::render_rfc4180;
 use std::path::Path;
 
-const NEEDS_QUOTE: [char; 4] = [',', '"', '\r', '\n'];
-
 /// Render the CSV bytes for the given header + rows. Returns the
-/// final UTF-8 string; the executor writes it via
-/// [`write_csv_to`].
+/// final UTF-8 string; the executor writes it via [`write_csv_to`].
+///
+/// Rows with arity != header length raise
+/// [`DocExecutorError::CsvShapeMismatch`] so a poisoned manifest
+/// can't ship malformed CSV downstream.
 pub fn render_csv(header: &[String], rows: &[Vec<String>]) -> DocResult<String> {
-    let mut out = String::new();
-    push_record(&mut out, header);
     for (i, row) in rows.iter().enumerate() {
         if row.len() != header.len() {
             return Err(DocExecutorError::CsvShapeMismatch {
@@ -30,9 +22,11 @@ pub fn render_csv(header: &[String], rows: &[Vec<String>]) -> DocResult<String> 
                 got: row.len(),
             });
         }
-        push_record(&mut out, row);
     }
-    Ok(out)
+    let bytes = render_rfc4180(header, rows);
+    // render_rfc4180 only emits the caller's UTF-8 strings + ASCII
+    // framing, so the result is always valid UTF-8.
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// Convenience wrapper: render + write in one call.
@@ -48,38 +42,6 @@ pub fn write_csv_to(target: &Path, header: &[String], rows: &[Vec<String>]) -> D
     std::fs::write(target, body.as_bytes())
         .map_err(|e| DocExecutorError::io(format!("csv: write {}", target.display()), e))?;
     Ok(body.len() as u64)
-}
-
-fn push_record(out: &mut String, fields: &[String]) {
-    let mut first = true;
-    for f in fields {
-        if !first {
-            out.push(',');
-        }
-        push_field(out, f);
-        first = false;
-    }
-    out.push_str("\r\n");
-}
-
-fn push_field(out: &mut String, f: &str) {
-    if needs_quoting(f) {
-        out.push('"');
-        for c in f.chars() {
-            if c == '"' {
-                out.push_str("\"\"");
-            } else {
-                out.push(c);
-            }
-        }
-        out.push('"');
-    } else {
-        out.push_str(f);
-    }
-}
-
-fn needs_quoting(f: &str) -> bool {
-    f.chars().any(|c| NEEDS_QUOTE.contains(&c))
 }
 
 #[cfg(test)]

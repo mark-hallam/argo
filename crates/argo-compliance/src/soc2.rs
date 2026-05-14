@@ -271,29 +271,36 @@ pub(crate) fn render_with_format(report: &Soc2Report, format: ReportFormat) -> A
 }
 
 fn render_csv(report: &Soc2Report) -> String {
-    let mut out = String::from("seq,id,ts,actor,tenant,action,category,target,session_id\n");
-    for ev in &report.events {
-        let fields = [
-            ev.seq.to_string(),
-            ev.id.clone(),
-            ev.ts.clone(),
-            ev.actor.clone().unwrap_or_default(),
-            ev.tenant.clone().unwrap_or_default(),
-            ev.action.clone(),
-            ev.category.label().to_string(),
-            ev.target.clone().unwrap_or_default(),
-            ev.session_id.clone().unwrap_or_default(),
-        ];
-        out.push_str(
-            &fields
-                .iter()
-                .map(|f| csv_escape(f))
-                .collect::<Vec<_>>()
-                .join(","),
-        );
-        out.push('\n');
-    }
-    out
+    let header = [
+        "seq",
+        "id",
+        "ts",
+        "actor",
+        "tenant",
+        "action",
+        "category",
+        "target",
+        "session_id",
+    ];
+    let rows: Vec<Vec<String>> = report
+        .events
+        .iter()
+        .map(|ev| {
+            vec![
+                ev.seq.to_string(),
+                ev.id.clone(),
+                ev.ts.clone(),
+                ev.actor.clone().unwrap_or_default(),
+                ev.tenant.clone().unwrap_or_default(),
+                ev.action.clone(),
+                ev.category.label().to_string(),
+                ev.target.clone().unwrap_or_default(),
+                ev.session_id.clone().unwrap_or_default(),
+            ]
+        })
+        .collect();
+    String::from_utf8_lossy(&argo_executor_document_csv::render_rfc4180(&header, &rows))
+        .into_owned()
 }
 
 fn render_markdown(report: &Soc2Report) -> String {
@@ -339,14 +346,6 @@ fn render_markdown(report: &Soc2Report) -> String {
 
 fn opt(v: &Option<String>) -> String {
     v.clone().unwrap_or_else(|| "—".to_string())
-}
-
-fn csv_escape(raw: &str) -> String {
-    if raw.contains([',', '"', '\n', '\r']) {
-        format!("\"{}\"", raw.replace('"', "\"\""))
-    } else {
-        raw.to_string()
-    }
 }
 
 fn parse_rfc3339(raw: &str, flag: &str) -> ArgoResult<i64> {

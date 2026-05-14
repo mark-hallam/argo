@@ -12,6 +12,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 argo-types = { path = "../argo-types" }
+argo-executor-document-csv = { path = "../argo-executor-document-csv", version = "0.0.1" }
 pulldown-cmark = { version = "0.10", default-features = false, features = ["html"] }
 reqwest = { workspace = true }
 tokio = { workspace = true }

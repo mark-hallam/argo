@@ -106,13 +106,22 @@ fn render_ndjson(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
 }
 
 fn render_csv(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
-    let mut out = String::from(
-        "seq,id,session_id,vertical_id,kind,created_at_micros,payload_json,parent_hash,self_hash\n",
-    );
+    let header = [
+        "seq",
+        "id",
+        "session_id",
+        "vertical_id",
+        "kind",
+        "created_at_micros",
+        "payload_json",
+        "parent_hash",
+        "self_hash",
+    ];
+    let mut body_rows: Vec<Vec<String>> = Vec::with_capacity(rows.len());
     for row in rows {
         let payload = serde_json::to_string(&row.payload)
             .map_err(|e| ArgoError::Provider(format!("serialize audit payload: {e}")))?;
-        let fields = [
+        body_rows.push(vec![
             row.seq.to_string(),
             row.id.clone(),
             row.session_id.clone().unwrap_or_default(),
@@ -122,17 +131,9 @@ fn render_csv(rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
             payload,
             row.parent_hash.clone(),
             row.self_hash.clone(),
-        ];
-        out.push_str(
-            &fields
-                .iter()
-                .map(|field| csv_escape(field))
-                .collect::<Vec<_>>()
-                .join(","),
-        );
-        out.push('\n');
+        ]);
     }
-    Ok(out.into_bytes())
+    Ok(argo_executor_document_csv::render_rfc4180(&header, &body_rows))
 }
 
 fn render_tarball(query: &NormalizedExport, rows: &[ExportedRow]) -> ArgoResult<Vec<u8>> {
@@ -181,14 +182,6 @@ fn append_tar_bytes<W: Write>(
         .map_err(|e| ArgoError::Provider(format!("append {path}: {e}")))
 }
 
-fn csv_escape(raw: &str) -> String {
-    if raw.contains([',', '"', '\n', '\r']) {
-        format!("\"{}\"", raw.replace('"', "\"\""))
-    } else {
-        raw.to_string()
-    }
-}
-
 fn sha256_hex(bytes: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(bytes);
@@ -201,13 +194,6 @@ audit.ndjson contains records in seq order. manifest.json records query paramete
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn csv_escape_handles_quotes_commas_and_newlines() {
-        assert_eq!(csv_escape("plain"), "plain");
-        assert_eq!(csv_escape("a,b"), "\"a,b\"");
-        assert_eq!(csv_escape("a\"b\nc"), "\"a\"\"b\nc\"");
-    }
 
     #[test]
     fn ndjson_formatter_redacts_payloads() {
