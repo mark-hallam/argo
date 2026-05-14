@@ -36,6 +36,7 @@
 pub mod csv;
 pub mod error;
 pub mod executor;
+pub mod extract;
 pub mod markdown;
 pub mod msgraph;
 pub mod pdf;
