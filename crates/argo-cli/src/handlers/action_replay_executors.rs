@@ -6,7 +6,7 @@
 use crate::cli::ActionReplayExecutor;
 use crate::handlers::worker_actions::ActionRecord;
 use argo_executor_computer_use::{
-    ComputerUseExecutor, CuConfig, Outcome, ProfileRegistry, RunRequest,
+    ComputerUseExecutor, CuConfig, CuOutcome, ProfileRegistry, RunRequest,
 };
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::ActionDeclaration;
@@ -90,7 +90,7 @@ async fn run_computer_use(
         .await
         .map_err(ArgoError::from)?;
     Ok(match outcome {
-        Outcome::Completed {
+        CuOutcome::Completed {
             result,
             bundle_dir,
             budget,
@@ -103,7 +103,7 @@ async fn run_computer_use(
             "tokens_used": result.tokens_used,
             "budget": budget,
         }),
-        Outcome::HumanHandoff {
+        CuOutcome::HumanHandoff {
             reason,
             bundle_dir,
             budget,
@@ -148,12 +148,10 @@ fn computer_use_prompt(action: &ActionRecord, decl: &ActionDeclaration) -> Strin
 
 fn write_text(path: &Path, body: &str) -> ArgoResult<()> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            ArgoError::Io(format!("create replay dir {}: {e}", parent.display()))
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| ArgoError::Io(format!("create replay dir {}: {e}", parent.display())))?;
     }
-    std::fs::write(path, body)
-        .map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
+    std::fs::write(path, body).map_err(|e| ArgoError::Io(format!("write {}: {e}", path.display())))
 }
 
 pub(super) fn write_json(path: &Path, value: &serde_json::Value) -> ArgoResult<()> {

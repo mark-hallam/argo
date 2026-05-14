@@ -11,9 +11,7 @@ use chrono::TimeZone;
 use std::time::Duration;
 
 fn t(offset_secs: i64) -> chrono::DateTime<chrono::Utc> {
-    chrono::Utc
-        .with_ymd_and_hms(2026, 5, 12, 0, 0, 0)
-        .unwrap()
+    chrono::Utc.with_ymd_and_hms(2026, 5, 12, 0, 0, 0).unwrap()
         + chrono::Duration::seconds(offset_secs)
 }
 
@@ -47,7 +45,10 @@ fn classify_exit_137_as_oom_killed() {
 #[test]
 fn classify_clean_exit_as_clean() {
     let status = status_from_code(0);
-    assert_eq!(classify_exit(status, None), WorkerExitReason::Clean { code: 0 });
+    assert_eq!(
+        classify_exit(status, None),
+        WorkerExitReason::Clean { code: 0 }
+    );
 }
 
 #[cfg(unix)]
@@ -87,7 +88,7 @@ fn restart_coordinator_allows_up_to_max_restarts() {
     for i in 1..=DEFAULT_MAX_RESTARTS {
         let decision = decide_restart(&mut coord, &exit, t(i64::from(i)));
         match decision {
-            RestartDecision::Restart { attempt, .. } => assert_eq!(attempt, i),
+            OomRestartDecision::Restart { attempt, .. } => assert_eq!(attempt, i),
             other => panic!("attempt {i}: expected Restart, got {other:?}"),
         }
     }
@@ -105,7 +106,7 @@ fn restart_coordinator_blocks_after_budget_exhausted() {
     }
     let decision = decide_restart(&mut coord, &exit, t(100));
     match decision {
-        RestartDecision::GiveUp { salvage_note } => {
+        OomRestartDecision::GiveUp { salvage_note } => {
             assert!(salvage_note.contains("restarts in window exceeded"));
             assert!(salvage_note.contains("OOM (signal 9)"));
             assert!(salvage_note.contains("oom-restart.md"));
@@ -129,7 +130,7 @@ fn restart_window_resets_after_full_window() {
     let later = t(2 * (DEFAULT_RESTART_WINDOW.as_secs() as i64));
     let decision = decide_restart(&mut coord, &exit, later);
     match decision {
-        RestartDecision::Restart { attempt, .. } => assert_eq!(attempt, 1),
+        OomRestartDecision::Restart { attempt, .. } => assert_eq!(attempt, 1),
         other => panic!("expected Restart after window roll, got {other:?}"),
     }
 }
@@ -150,7 +151,7 @@ fn backoff_doubles_and_clamps_at_max() {
     let mut backoffs = Vec::new();
     for i in 1..=6 {
         let decision = decide_restart(&mut coord, &exit, t(i));
-        if let RestartDecision::Restart { after_backoff, .. } = decision {
+        if let OomRestartDecision::Restart { after_backoff, .. } = decision {
             backoffs.push(after_backoff.as_secs());
         }
     }
@@ -166,7 +167,7 @@ fn audit_row_shape_matches_spec() {
         signal: 9,
         cgroup_evidence: Some("oom_kill 3".to_string()),
     };
-    let decision = RestartDecision::Restart {
+    let decision = OomRestartDecision::Restart {
         after_backoff: Duration::from_secs(4),
         attempt: 2,
     };
@@ -192,7 +193,7 @@ fn clean_exit_yields_ignore_decision() {
     let mut coord = OomRestartCoordinator::with_defaults();
     let exit = WorkerExitReason::Clean { code: 0 };
     let decision = decide_restart(&mut coord, &exit, t(0));
-    assert_eq!(decision, RestartDecision::IgnoreCleanExit);
+    assert_eq!(decision, OomRestartDecision::IgnoreCleanExit);
     // Clean exits must not consume a restart-budget slot.
     assert_eq!(coord.attempts_in_window(t(0)), 0);
 }

@@ -10,7 +10,7 @@
 //! Three layers — pure / dispatcher / transport:
 //!
 //! 1. The pure layer (in `argo_vertical::eval_score_judge`) builds the
-//!    prompt, parses the response, and shapes `JudgeVerdict`.
+//!    prompt, parses the response, and shapes `EvalJudgeVerdict`.
 //!    Unit-testable without any provider call.
 //! 2. The dispatcher layer (this file) owns:
 //!     - the [`JudgeBackend`] trait — a one-method abstraction over
@@ -35,7 +35,7 @@
 use argo_provider::{ProviderFamily, ProviderManifest};
 use argo_types::ArgoResult;
 use argo_vertical::{
-    build_judge_prompt, parse_judge_response, FixtureScore, FixtureStatus, JudgeVerdict,
+    build_judge_prompt, parse_judge_response, EvalJudgeVerdict, FixtureScore, FixtureStatus,
 };
 use async_trait::async_trait;
 
@@ -55,7 +55,7 @@ pub(super) use super::vertical_eval_judge_backends::{
 /// [`build_judge_backend`].
 #[async_trait]
 pub(super) trait JudgeBackend: Send + Sync {
-    /// Source label that ends up in `JudgeVerdict.source`. Live
+    /// Source label that ends up in `EvalJudgeVerdict.source`. Live
     /// backends use `live:<provider>/<model>`; mock backends pick
     /// something traceable like `mock:foo`.
     fn source(&self) -> String;
@@ -86,17 +86,14 @@ pub(super) async fn build_judge_backend(
     let manifest = super::vertical_eval_judge_backends::load_manifest(provider_id)?;
     match manifest.provider.family {
         ProviderFamily::Anthropic => Ok(Box::new(build_anthropic_backend(provider_id, model)?)),
-        ProviderFamily::OpenaiCompatible => Ok(Box::new(build_openai_compat_backend(
-            provider_id,
-            model,
-        )?)),
+        ProviderFamily::OpenaiCompatible => {
+            Ok(Box::new(build_openai_compat_backend(provider_id, model)?))
+        }
         ProviderFamily::OpenaiResponses => Ok(Box::new(build_openai_responses_backend(
             provider_id,
             model,
         )?)),
-        ProviderFamily::Bedrock => {
-            Ok(Box::new(build_bedrock_backend(provider_id, model).await?))
-        }
+        ProviderFamily::Bedrock => Ok(Box::new(build_bedrock_backend(provider_id, model).await?)),
     }
 }
 
@@ -181,12 +178,12 @@ pub(super) async fn grade_fixture<B: JudgeBackend + ?Sized>(
     fixture_input: &str,
     expected: &serde_json::Value,
     actual: &str,
-) -> JudgeVerdict {
+) -> EvalJudgeVerdict {
     let prompt = build_judge_prompt(fixture_input, expected, actual);
     let source = backend.source();
     match backend.grade(&prompt).await {
         Ok(text) => parse_judge_response(&text, &source),
-        Err(e) => JudgeVerdict {
+        Err(e) => EvalJudgeVerdict {
             passed: false,
             reason: format!("uncertain: live judge call failed: {e}"),
             source,
@@ -210,8 +207,8 @@ pub(super) async fn judge_all_fixtures<B: JudgeBackend + ?Sized>(
     backend: &B,
     score_fixtures: &[FixtureScore],
     fixture_inputs: &[(String, String, serde_json::Value, String)], // (id, input, expected, actual)
-) -> Vec<Option<JudgeVerdict>> {
-    let mut out: Vec<Option<JudgeVerdict>> = Vec::with_capacity(score_fixtures.len());
+) -> Vec<Option<EvalJudgeVerdict>> {
+    let mut out: Vec<Option<EvalJudgeVerdict>> = Vec::with_capacity(score_fixtures.len());
     for fx in score_fixtures {
         if !matches!(fx.status, FixtureStatus::Scored) {
             out.push(None);

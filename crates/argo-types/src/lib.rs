@@ -23,7 +23,9 @@ use serde::{Deserialize, Serialize};
 
 pub use anomaly::{AnomalyAlert, AnomalyDispatch, AnomalyKind, Severity};
 pub use budget::{Budget, BudgetExhausted, BudgetKind, BudgetNode};
-pub use capability::{Capability, CapabilitySet, Principal, Role, RoleBinding, SpawnKind};
+pub use capability::{
+    Capability, CapabilityRole, CapabilitySet, Principal, RoleBinding, SpawnKind,
+};
 pub use cost_ceilings::{
     enforce_pre_spend, CapBlocked, CapScope, CostCeilings, EnforceContext, NotifyEvent,
     SpendCounters,

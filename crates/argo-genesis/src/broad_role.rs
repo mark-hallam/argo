@@ -24,7 +24,9 @@
 
 use crate::archetype::{Archetype, ClassificationResult, ProviderClient};
 use crate::error::GenesisError;
-use crate::genesis_judge::{judge_genesis_draft, GenesisJudgeClient, JudgeInput, JudgeVerdict};
+use crate::genesis_judge::{
+    judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
+};
 use crate::pipeline::{assemble_plan, validate_persona, GenesisConfig, GenesisPlan};
 use argo_types::{ArgoError, ArgoResult};
 use async_trait::async_trait;
@@ -102,7 +104,8 @@ pub trait BroadRoleClient: Send + Sync {
 /// the archetype path.
 #[must_use]
 pub fn should_use_broad_role(classification: &ClassificationResult) -> bool {
-    classification.archetype.is_none() || classification.confidence < BROAD_ROLE_CONFIDENCE_THRESHOLD
+    classification.archetype.is_none()
+        || classification.confidence < BROAD_ROLE_CONFIDENCE_THRESHOLD
 }
 
 /// Build the deterministic confidence-classifier prompt. Asks the
@@ -138,7 +141,10 @@ fn parse_confidence_response(raw: &str) -> ClassificationResult {
     } else {
         Archetype::from_slug(slug)
     };
-    ClassificationResult { archetype, confidence }
+    ClassificationResult {
+        archetype,
+        confidence,
+    }
 }
 
 /// LLM-driven classifier that returns a [`ClassificationResult`]
@@ -206,7 +212,9 @@ pub async fn genesis_broad_role(
         return Err(ArgoError::from(GenesisError::EmptyCharter));
     }
     if persona.trim().is_empty() {
-        return Err(ArgoError::from(GenesisError::InvalidPersona(persona.to_string())));
+        return Err(ArgoError::from(GenesisError::InvalidPersona(
+            persona.to_string(),
+        )));
     }
     let prompt = build_broad_role_prompt(charter, persona);
     let raw = client.synthesize(&prompt).await?;
@@ -373,7 +381,7 @@ impl GenesisOutcome {
 /// - Empty charter / invalid persona / broad-role provider failure.
 /// - Low-confidence without `allow_broad_role` → explicit error
 ///   mentioning the flag.
-/// - `JudgeVerdict::Block` → `GenesisError::Validation`.
+/// - `GenesisJudgeVerdict::Block` → `GenesisError::Validation`.
 #[allow(clippy::too_many_arguments)]
 pub async fn plan_or_broad(
     charter: &str,
@@ -389,13 +397,15 @@ pub async fn plan_or_broad(
     let mut outcome = if should_use_broad_role(&classification) {
         build_broad_outcome(charter, persona, broad, allow_broad_role).await?
     } else {
-        let archetype = classification.archetype.ok_or_else(|| GenesisError::UnknownArchetype {
-            available: Archetype::ALL
-                .iter()
-                .map(|a| a.label())
-                .collect::<Vec<_>>()
-                .join(", "),
-        })?;
+        let archetype = classification
+            .archetype
+            .ok_or_else(|| GenesisError::UnknownArchetype {
+                available: Archetype::ALL
+                    .iter()
+                    .map(|a| a.label())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            })?;
         GenesisOutcome::Plan(Box::new(assemble_plan(charter, persona, archetype)?))
     };
     if let Some(judge_client) = judge {
@@ -456,15 +466,15 @@ async fn apply_judge(
             detail: e.to_string(),
         })?;
     match verdict {
-        JudgeVerdict::Block { reason } => Err(GenesisError::Validation {
+        GenesisJudgeVerdict::Block { reason } => Err(GenesisError::Validation {
             stage: "safety_judge",
             detail: format!("judge blocked draft: {reason}"),
         }),
-        JudgeVerdict::AllowWithDisclaimer { reason } => {
+        GenesisJudgeVerdict::AllowWithDisclaimer { reason } => {
             outcome.apply_disclaimer(&reason);
             Ok(())
         }
-        JudgeVerdict::Allow => Ok(()),
+        GenesisJudgeVerdict::Allow => Ok(()),
     }
 }
 

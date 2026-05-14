@@ -15,7 +15,7 @@ use argo_executor_computer_use::e2b::{ActionResult, CuAction};
 use argo_executor_computer_use::testing::{
     cu_harness_run, CannedResponse, ScriptedAction, TestScript,
 };
-use argo_executor_computer_use::Outcome;
+use argo_executor_computer_use::CuOutcome;
 
 fn click(x: u32, y: u32, tokens: u32) -> CannedResponse {
     CannedResponse::one(CuStepResponse::ToolCall {
@@ -26,9 +26,7 @@ fn click(x: u32, y: u32, tokens: u32) -> CannedResponse {
 
 fn typed(text: &str, tokens: u32) -> CannedResponse {
     CannedResponse::one(CuStepResponse::ToolCall {
-        action: CuAction::Type {
-            text: text.into(),
-        },
+        action: CuAction::Type { text: text.into() },
         tokens_used: tokens,
     })
 }
@@ -88,7 +86,7 @@ fn scripted(expected: CuAction, response: ActionResult) -> ScriptedAction {
 }
 
 /// Regression 1: a single-action turn (click) followed by a
-/// `stop_success` cleanly produces `Outcome::Completed` with the
+/// `stop_success` cleanly produces `CuOutcome::Completed` with the
 /// captured trail. Audit log has exactly one row.
 #[tokio::test]
 async fn single_action_then_stop_success_completes() {
@@ -98,7 +96,7 @@ async fn single_action_then_stop_success_completes() {
     );
     let run = cu_harness_run(script).await;
     let outcome = run.outcome.expect("loop returns an outcome");
-    let Outcome::Completed { result, .. } = outcome else {
+    let CuOutcome::Completed { result, .. } = outcome else {
         panic!("expected Completed; got: {outcome:?}");
     };
     assert_eq!(result.actions_taken.len(), 1);
@@ -147,12 +145,15 @@ async fn covers_every_parser_supported_action_shape() {
         ],
     );
     let run = cu_harness_run(script).await;
-    assert!(matches!(run.outcome, Ok(Outcome::Completed { .. })));
+    assert!(matches!(run.outcome, Ok(CuOutcome::Completed { .. })));
     assert_eq!(run.received_actions.len(), 4);
     assert_eq!(run.received_actions[0], CuAction::Click { x: 5, y: 6 });
     assert!(matches!(run.received_actions[1], CuAction::Type { .. }));
     assert!(matches!(run.received_actions[2], CuAction::Key { .. }));
-    assert_eq!(run.received_actions[3], CuAction::MouseMove { x: 99, y: 99 });
+    assert_eq!(
+        run.received_actions[3],
+        CuAction::MouseMove { x: 99, y: 99 }
+    );
     assert_eq!(run.steps, 5);
 }
 
@@ -173,7 +174,7 @@ async fn inline_screenshot_path_does_not_break_step_trail() {
     );
     let run = cu_harness_run(script).await;
     let outcome = run.outcome.expect("loop returns an outcome");
-    assert!(matches!(outcome, Outcome::Completed { .. }));
+    assert!(matches!(outcome, CuOutcome::Completed { .. }));
     assert_eq!(run.received_actions.len(), 1);
     assert_eq!(run.audit_rows.len(), 1);
     let row = &run.audit_rows[0];
@@ -202,7 +203,7 @@ async fn inline_screenshot_b64_skips_post_action_http_fetch() {
         )],
     );
     let inline = cu_harness_run(inline_script).await;
-    assert!(matches!(inline.outcome, Ok(Outcome::Completed { .. })));
+    assert!(matches!(inline.outcome, Ok(CuOutcome::Completed { .. })));
     assert_eq!(
         inline.screenshot_calls, 1,
         "inline screenshot path must skip post-action HTTP fetch \
@@ -215,7 +216,7 @@ async fn inline_screenshot_b64_skips_post_action_http_fetch() {
         vec![scripted(CuAction::Click { x: 3, y: 4 }, ok_response())],
     );
     let fallback = cu_harness_run(fallback_script).await;
-    assert!(matches!(fallback.outcome, Ok(Outcome::Completed { .. })));
+    assert!(matches!(fallback.outcome, Ok(CuOutcome::Completed { .. })));
     assert_eq!(
         fallback.screenshot_calls, 2,
         "absent screenshot_b64 must fall back to post-action HTTP \
@@ -277,10 +278,13 @@ async fn multi_action_turn_dispatches_both_actions_in_one_round_trip() {
     );
     let run = cu_harness_run(script).await;
     let outcome = run.outcome.expect("loop returns an outcome");
-    assert!(matches!(outcome, Outcome::Completed { .. }));
+    assert!(matches!(outcome, CuOutcome::Completed { .. }));
     // Both actions ran in document order.
     assert_eq!(run.received_actions.len(), 2);
-    assert_eq!(run.received_actions[0], CuAction::MouseMove { x: 10, y: 20 });
+    assert_eq!(
+        run.received_actions[0],
+        CuAction::MouseMove { x: 10, y: 20 }
+    );
     assert_eq!(run.received_actions[1], CuAction::Click { x: 10, y: 20 });
     // Two anthropic calls only: one for the multi-action turn,
     // one for the terminal stop_success. Today (pre-fix) this
@@ -317,7 +321,7 @@ async fn e2b_sees_expected_coordinates_in_order() {
     let run = cu_harness_run(script).await;
 
     let outcome = run.outcome.expect("loop returns an outcome");
-    let Outcome::HumanHandoff { reason, .. } = outcome else {
+    let CuOutcome::HumanHandoff { reason, .. } = outcome else {
         panic!("stop_failure must map to HumanHandoff; got: {outcome:?}");
     };
     assert!(reason.contains("stop_failure"), "got reason: {reason}");

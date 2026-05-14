@@ -10,7 +10,7 @@ use crate::budget::BudgetVerdict;
 use crate::e2b::{E2bClient, E2bSandbox};
 use crate::executor_types::RunResult;
 use crate::profile::Profile;
-use crate::restart::{self, emit_restart_event, RestartCoordinator, RestartDecision};
+use crate::restart::{self, emit_restart_event, CuRestartDecision, RestartCoordinator};
 use crate::CuError;
 
 #[derive(Debug)]
@@ -44,14 +44,12 @@ pub(crate) async fn handle_restart(
     base_system_prompt: &str,
 ) -> Result<Option<String>, CuError> {
     match coordinator.should_restart(err) {
-        RestartDecision::Continue => Ok(Some(format!("{stage} failed: {err}"))),
-        RestartDecision::Bail => {
+        CuRestartDecision::Continue => Ok(Some(format!("{stage} failed: {err}"))),
+        CuRestartDecision::Bail => {
             emit_restart_event(stage, coordinator.attempts(), Some(false));
-            Ok(Some(format!(
-                "{stage} failed (retries exhausted): {err}"
-            )))
+            Ok(Some(format!("{stage} failed (retries exhausted): {err}")))
         }
-        RestartDecision::Retry { with_context } => {
+        CuRestartDecision::Retry { with_context } => {
             emit_restart_event(stage, coordinator.attempts(), None);
             if !with_context {
                 if let Some(snap) = coordinator.last_snapshot().cloned() {

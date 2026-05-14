@@ -41,10 +41,10 @@
 //! let req = RunRequest::demo("act-1", "marketplace_browser");
 //! let outcome = exec.run(req).await?;
 //! match outcome {
-//!     argo_executor_computer_use::Outcome::Completed { result, .. } => {
+//!     argo_executor_computer_use::CuOutcome::Completed { result, .. } => {
 //!         println!("CU loop completed: {result:?}");
 //!     }
-//!     argo_executor_computer_use::Outcome::HumanHandoff { reason, .. } => {
+//!     argo_executor_computer_use::CuOutcome::HumanHandoff { reason, .. } => {
 //!         eprintln!("CU loop handed off: {reason}");
 //!     }
 //! }
@@ -80,7 +80,7 @@ pub mod testing_mocks;
 pub use config::CuConfig;
 pub use e2b_reap::{E2bReapReport, E2bSandboxInfo};
 pub use error::CuError;
-pub use executor::{ComputerUseExecutor, Outcome, RunRequest, RunResult};
+pub use executor::{ComputerUseExecutor, CuOutcome, RunRequest, RunResult};
 pub use profile::{Profile, ProfileRegistry};
 
 mod error;

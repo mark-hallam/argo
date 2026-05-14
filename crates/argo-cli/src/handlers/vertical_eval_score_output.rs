@@ -4,7 +4,7 @@
 //! budget. The data carrier `SuiteOutcome` lives here too so
 //! the renderer owns its own input shape; the runner imports it
 //! back via `super::vertical_eval_score_output::SuiteOutcome`.
-use argo_vertical::{FixtureStatus, JudgeVerdict, SuiteScore};
+use argo_vertical::{EvalJudgeVerdict, FixtureStatus, SuiteScore};
 
 /// One suite's outcome bundle: relative path, the score rollup,
 /// any per-suite IO errors, the unknown-id warning list (for
@@ -19,7 +19,7 @@ pub(super) struct SuiteOutcome {
     /// judge was configured (`--judge` not set) or the fixture
     /// wasn't scored (no actual). Always-present + always
     /// `Some` for `Scored` fixtures when a judge is active.
-    pub(super) judge_verdicts: Vec<Option<JudgeVerdict>>,
+    pub(super) judge_verdicts: Vec<Option<EvalJudgeVerdict>>,
 }
 
 pub(super) fn emit_json(
@@ -45,8 +45,7 @@ pub(super) fn emit_json(
                         if let Some(obj) = v.as_object_mut() {
                             obj.insert(
                                 "judge".to_string(),
-                                serde_json::to_value(verdict)
-                                    .unwrap_or(serde_json::Value::Null),
+                                serde_json::to_value(verdict).unwrap_or(serde_json::Value::Null),
                             );
                         }
                     }
@@ -96,12 +95,8 @@ pub(super) fn emit_text(id: &str, per_suite: &[SuiteOutcome], judge_systemic_fai
         println!(
             "  WARN: live judge appears misconfigured — every scored fixture's judge call failed."
         );
-        println!(
-            "        Re-run with `--judge heuristic` to confirm rules still work, then read"
-        );
-        println!(
-            "        per-fixture `judge.reason` strings below for the underlying error."
-        );
+        println!("        Re-run with `--judge heuristic` to confirm rules still work, then read");
+        println!("        per-fixture `judge.reason` strings below for the underlying error.");
         println!();
     }
     if per_suite.is_empty() {

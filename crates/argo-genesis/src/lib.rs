@@ -65,14 +65,14 @@ pub use broad_role::{
     genesis_broad_role, plan_or_broad, should_use_broad_role, BroadRoleClient, BroadRoleDraft,
     GenesisOutcome, BROAD_ROLE_CONFIDENCE_THRESHOLD, BROAD_SENTINEL,
 };
-pub use genesis_judge::{
-    build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, JudgeInput, JudgeVerdict,
-};
 pub use charter_dialogue::{
     dialogue_to_charter, name_to_persona_slug, CharterDialogue, DialogueError, Question, QUESTIONS,
 };
 pub use conflict::{detect as detect_conflicts, highest_score, ConflictMatch, ConflictReport};
 pub use error::GenesisError;
+pub use genesis_judge::{
+    build_judge_prompt, judge_genesis_draft, GenesisJudgeClient, GenesisJudgeVerdict, JudgeInput,
+};
 pub use job_description::{genesis_from_job_description, GenesisDraft, JobDescInput};
 pub use pipeline::{
     plan, plan_from_seed_vertical, plan_from_seed_vertical_in_default_root, plan_with,

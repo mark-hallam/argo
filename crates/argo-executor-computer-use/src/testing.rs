@@ -27,7 +27,7 @@ use crate::anthropic::{AnthropicCall, CuStepRequest, CuStepResponse, StopReason}
 use crate::audit::{AuditLog, AuditRow};
 use crate::budget::{BudgetTracker, BudgetVerdict};
 use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall};
-use crate::executor::{Outcome, RunRequest, RunResult};
+use crate::executor::{CuOutcome, RunRequest, RunResult};
 use crate::profile::Profile;
 use crate::CuError;
 use std::path::Path;
@@ -69,9 +69,9 @@ impl TestScript {
 /// What the harness captured from one run.
 #[derive(Debug)]
 pub struct TestRun {
-    /// Outcome the parallel loop produced, or the propagated
+    /// CuOutcome the parallel loop produced, or the propagated
     /// `CuError` if the loop bailed.
-    pub outcome: Result<Outcome, CuError>,
+    pub outcome: Result<CuOutcome, CuError>,
     /// CU actions the mock E2B client recorded in order.
     pub received_actions: Vec<CuAction>,
     /// Number of `step` calls the mock Anthropic client observed.
@@ -94,13 +94,8 @@ pub struct TestRun {
 pub async fn cu_harness_run(script: TestScript) -> TestRun {
     let mock_anthropic = MockAnthropic::scripted(script.anthropic);
     let mock_e2b = MockE2bClient::scripted(script.e2b, script.screenshot_png);
-    let (outcome, audit_rows, steps) = drive(
-        &mock_anthropic,
-        &mock_e2b,
-        &script.request,
-        &script.profile,
-    )
-    .await;
+    let (outcome, audit_rows, steps) =
+        drive(&mock_anthropic, &mock_e2b, &script.request, &script.profile).await;
     TestRun {
         outcome,
         received_actions: mock_e2b.received_actions(),
@@ -116,7 +111,7 @@ async fn drive(
     e2b: &dyn E2bCall,
     req: &RunRequest,
     profile: &Profile,
-) -> (Result<Outcome, CuError>, Vec<AuditRow>, u32) {
+) -> (Result<CuOutcome, CuError>, Vec<AuditRow>, u32) {
     let bundle_dir = harness_bundle_dir();
     let audit = match AuditLog::create(bundle_dir.clone()) {
         Ok(a) => a,
@@ -166,7 +161,7 @@ async fn drive_loop(
     audit: &AuditLog,
     tracker: &mut BudgetTracker,
     bundle_dir: &Path,
-) -> Result<Outcome, CuError> {
+) -> Result<CuOutcome, CuError> {
     let sandbox = e2b.open_sandbox(&profile.sandbox_template).await?;
     let mut prior_actions: Vec<String> = Vec::new();
     let mut last_text: Option<String> = None;
@@ -187,7 +182,7 @@ async fn drive_loop(
         // order, accumulate per-action audit info, then take ONE
         // post-turn screenshot all rows reference.
         let mut pending: Vec<(u32, CuAction, ActionResult, u32)> = Vec::new();
-        let mut early: Option<Outcome> = None;
+        let mut early: Option<CuOutcome> = None;
         for resp in responses {
             match resp {
                 CuStepResponse::Stop {
@@ -197,7 +192,7 @@ async fn drive_loop(
                 } => {
                     let verdict = tracker.charge_step(tokens_used);
                     if let BudgetVerdict::Exhausted { reason: r } = verdict {
-                        early = Some(Outcome::HumanHandoff {
+                        early = Some(CuOutcome::HumanHandoff {
                             reason: r,
                             bundle_dir: bundle_dir.to_path_buf(),
                             budget: tracker.snapshot(),
@@ -207,7 +202,7 @@ async fn drive_loop(
                     last_text = text.or(last_text);
                     let snap = tracker.snapshot();
                     early = Some(match reason {
-                        StopReason::Success => Outcome::Completed {
+                        StopReason::Success => CuOutcome::Completed {
                             result: RunResult {
                                 final_text: last_text.clone(),
                                 actions_taken: prior_actions.clone(),
@@ -216,7 +211,7 @@ async fn drive_loop(
                             bundle_dir: bundle_dir.to_path_buf(),
                             budget: snap,
                         },
-                        StopReason::Failure => Outcome::HumanHandoff {
+                        StopReason::Failure => CuOutcome::HumanHandoff {
                             reason: format!(
                                 "model emitted stop_failure: {}",
                                 last_text.clone().unwrap_or_default()
@@ -233,7 +228,7 @@ async fn drive_loop(
                 } => {
                     let verdict = tracker.charge_step(tokens_used);
                     if let BudgetVerdict::Exhausted { reason: r } = verdict {
-                        early = Some(Outcome::HumanHandoff {
+                        early = Some(CuOutcome::HumanHandoff {
                             reason: r,
                             bundle_dir: bundle_dir.to_path_buf(),
                             budget: tracker.snapshot(),

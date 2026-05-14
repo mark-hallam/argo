@@ -3,7 +3,7 @@
 
 use super::handoff_stats_query::{
     breakdown_by, classify, destination_label, overview, top_n_from, top_n_to, volume_per_bucket,
-    BreakdownAxis, HandoffWindowRow, Outcome,
+    BreakdownAxis, HandoffOutcome, HandoffWindowRow,
 };
 
 fn row(
@@ -36,12 +36,44 @@ fn sample_window() -> Vec<HandoffWindowRow> {
     // histogram test partitions by 1-second buckets cleanly.
     vec![
         // s-1: chain advances — ack then settled
-        row("s-1", "w-a", &worker_to("w-b"), "ship", "acknowledged", 1_000_000, None),
-        row("s-1", "w-b", &worker_to("w-c"), "ship", "settled", 2_000_000, Some(2_000_600)),
+        row(
+            "s-1",
+            "w-a",
+            &worker_to("w-b"),
+            "ship",
+            "acknowledged",
+            1_000_000,
+            None,
+        ),
+        row(
+            "s-1",
+            "w-b",
+            &worker_to("w-c"),
+            "ship",
+            "settled",
+            2_000_000,
+            Some(2_000_600),
+        ),
         // s-2: settled standalone
-        row("s-2", "w-a", &worker_to("w-b"), "review", "settled", 3_000_000, Some(3_000_600)),
+        row(
+            "s-2",
+            "w-a",
+            &worker_to("w-b"),
+            "review",
+            "settled",
+            3_000_000,
+            Some(3_000_600),
+        ),
         // s-3: still in flight
-        row("s-3", "w-c", &worker_to("w-a"), "ship", "pending", 4_000_000, None),
+        row(
+            "s-3",
+            "w-c",
+            &worker_to("w-a"),
+            "ship",
+            "pending",
+            4_000_000,
+            None,
+        ),
         // s-4: cancelled to a human
         row(
             "s-4",
@@ -141,6 +173,6 @@ fn breakdown_by_worker_carries_per_key_outcome_split() {
 #[test]
 fn classify_marks_escalated_only_when_session_has_later_row() {
     let r = row("s-1", "w", &worker_to("w"), "x", "acknowledged", 1, None);
-    assert_eq!(classify(&r, false), Outcome::Pending);
-    assert_eq!(classify(&r, true), Outcome::Escalated);
+    assert_eq!(classify(&r, false), HandoffOutcome::Pending);
+    assert_eq!(classify(&r, true), HandoffOutcome::Escalated);
 }

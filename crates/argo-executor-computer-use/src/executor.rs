@@ -4,12 +4,12 @@
 //! (`worker_actions_executor_stubs::ComputerUseExecutor`) is
 //! replaced by a thin shim that calls into this crate.
 //!
-//! Outcome polarity:
+//! CuOutcome polarity:
 //!
-//! - `Outcome::Completed` — model emitted `stop_success` and the
+//! - `CuOutcome::Completed` — model emitted `stop_success` and the
 //!   loop captured a result. The dispatch shim auto-completes
 //!   the action with the embedded `result_json`.
-//! - `Outcome::HumanHandoff` — budget exhausted, model emitted
+//! - `CuOutcome::HumanHandoff` — budget exhausted, model emitted
 //!   `stop_failure`, or a recoverable HTTP failure surfaced. The
 //!   ledger row stays at `executing` and the operator finishes
 //!   manually.
@@ -28,7 +28,7 @@ use crate::CuError;
 use argo_skill::SkillStore;
 use std::sync::Arc;
 
-pub use crate::executor_types::{Outcome, RunRequest, RunResult};
+pub use crate::executor_types::{CuOutcome, RunRequest, RunResult};
 
 /// Top-level executor. Cloneable — internals are `Arc`-shared so
 /// the same instance can drive concurrent dispatches across
@@ -88,12 +88,8 @@ impl ComputerUseExecutor {
             // is to fall back to a no-op client that errors at
             // first call. Safe because `new` is only fallible
             // in pathological tls envs.
-            E2bClient::new(
-                "http://localhost:1".into(),
-                "invalid".into(),
-                1,
-            )
-            .unwrap_or_else(|_| panic!("reqwest cannot build any client"))
+            E2bClient::new("http://localhost:1".into(), "invalid".into(), 1)
+                .unwrap_or_else(|_| panic!("reqwest cannot build any client"))
         });
         let pool = SandboxPool::new(e2b.clone());
         Self {
@@ -167,7 +163,7 @@ impl ComputerUseExecutor {
     /// request; this method orchestrates pool acquire, budget
     /// tracking, screenshot+audit per step, and outcome
     /// classification.
-    pub async fn run(&self, req: RunRequest) -> Result<Outcome, CuError> {
+    pub async fn run(&self, req: RunRequest) -> Result<CuOutcome, CuError> {
         let profile = self.profiles.get(&req.profile_name)?.clone();
         let bundle_dir = req
             .bundle_dir
@@ -207,12 +203,12 @@ impl ComputerUseExecutor {
         .await;
         self.pool.release(&pool_key).await;
         let final_outcome = outcome.map(|o| match o {
-            LoopExit::Success(result) => Outcome::Completed {
+            LoopExit::Success(result) => CuOutcome::Completed {
                 result,
                 bundle_dir,
                 budget: tracker.snapshot(),
             },
-            LoopExit::Handoff(reason) => Outcome::HumanHandoff {
+            LoopExit::Handoff(reason) => CuOutcome::HumanHandoff {
                 reason,
                 bundle_dir,
                 budget: tracker.snapshot(),

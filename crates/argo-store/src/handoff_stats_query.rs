@@ -19,7 +19,7 @@ use sqlx::Row;
 /// Logical outcome bucket for a handoff row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Outcome {
+pub enum HandoffOutcome {
     /// Terminal, receiver met `expected_outcome`.
     Resolved,
     /// Acknowledged by the receiver but the same session held a
@@ -202,14 +202,14 @@ pub async fn fetch_window(
 
 /// Classify a window row's outcome. `later_in_session` is `true` when
 /// the same session_id has a later `created_at` row in the window;
-/// such rows are reported as [`Outcome::Escalated`].
+/// such rows are reported as [`HandoffOutcome::Escalated`].
 #[must_use]
-pub fn classify(row: &HandoffWindowRow, later_in_session: bool) -> Outcome {
+pub fn classify(row: &HandoffWindowRow, later_in_session: bool) -> HandoffOutcome {
     match row.status.as_str() {
-        "settled" => Outcome::Resolved,
-        "expired" | "cancelled" => Outcome::Abandoned,
-        _ if later_in_session => Outcome::Escalated,
-        _ => Outcome::Pending,
+        "settled" => HandoffOutcome::Resolved,
+        "expired" | "cancelled" => HandoffOutcome::Abandoned,
+        _ if later_in_session => HandoffOutcome::Escalated,
+        _ => HandoffOutcome::Pending,
     }
 }
 
@@ -229,10 +229,10 @@ pub fn overview(rows: &[HandoffWindowRow]) -> OverviewStats {
         *sessions_multi.entry(row.session_id.as_str()).or_default() += 1;
         let later = later_set.contains(&(row.session_id.as_str(), row.created_at));
         match classify(row, later) {
-            Outcome::Resolved => resolved += 1,
-            Outcome::Escalated => escalated += 1,
-            Outcome::Abandoned => abandoned += 1,
-            Outcome::Pending => pending += 1,
+            HandoffOutcome::Resolved => resolved += 1,
+            HandoffOutcome::Escalated => escalated += 1,
+            HandoffOutcome::Abandoned => abandoned += 1,
+            HandoffOutcome::Pending => pending += 1,
         }
         if row.status == "settled" {
             if let Some(end) = row.resolved_at {
@@ -332,10 +332,10 @@ pub fn breakdown_by(rows: &[HandoffWindowRow], axis: BreakdownAxis) -> Vec<Break
         entry.count += 1;
         let later = later_set.contains(&(row.session_id.as_str(), row.created_at));
         match classify(row, later) {
-            Outcome::Resolved => entry.resolved += 1,
-            Outcome::Escalated => entry.escalated += 1,
-            Outcome::Abandoned => entry.abandoned += 1,
-            Outcome::Pending => entry.pending += 1,
+            HandoffOutcome::Resolved => entry.resolved += 1,
+            HandoffOutcome::Escalated => entry.escalated += 1,
+            HandoffOutcome::Abandoned => entry.abandoned += 1,
+            HandoffOutcome::Pending => entry.pending += 1,
         }
     }
     let mut out: Vec<BreakdownRow> = acc.into_values().collect();
@@ -365,9 +365,7 @@ fn top_by<F: Fn(&HandoffWindowRow) -> String>(
     out
 }
 
-fn sessions_with_later_rows(
-    rows: &[HandoffWindowRow],
-) -> std::collections::HashSet<(&str, i64)> {
+fn sessions_with_later_rows(rows: &[HandoffWindowRow]) -> std::collections::HashSet<(&str, i64)> {
     let mut latest: std::collections::HashMap<&str, i64> = std::collections::HashMap::new();
     for row in rows {
         latest

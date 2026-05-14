@@ -8,7 +8,7 @@
 
 use super::*;
 use crate::budget::BudgetSnapshot;
-use crate::executor::Outcome;
+use crate::executor::CuOutcome;
 use argo_types::SessionId;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -50,16 +50,16 @@ fn budget_zero() -> BudgetSnapshot {
     }
 }
 
-fn completed_outcome() -> Outcome {
-    Outcome::Completed {
+fn completed_outcome() -> CuOutcome {
+    CuOutcome::Completed {
         result: run_result(),
         bundle_dir: PathBuf::from("/tmp/bundle"),
         budget: budget_zero(),
     }
 }
 
-fn handoff_outcome() -> Outcome {
-    Outcome::HumanHandoff {
+fn handoff_outcome() -> CuOutcome {
+    CuOutcome::HumanHandoff {
         reason: "budget exhausted".into(),
         bundle_dir: PathBuf::from("/tmp/bundle"),
         budget: budget_zero(),

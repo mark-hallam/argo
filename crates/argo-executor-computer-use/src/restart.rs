@@ -14,7 +14,7 @@
 //! operator opts in to via the executor manifest:
 //!
 //! - [`RestartStrategy::None`] — pre-existing behaviour: one-shot
-//!   dispatch, fall through to [`crate::Outcome::HumanHandoff`] on
+//!   dispatch, fall through to [`crate::CuOutcome::HumanHandoff`] on
 //!   transient failure.
 //! - [`RestartStrategy::RetryWithContext`] — re-prompt the *same*
 //!   sandbox session up to `max_attempts` times. Trajectory log is
@@ -32,9 +32,9 @@
 //!    keep the snapshot buffer current.
 //! 2. On a per-step error (Anthropic call, sandbox action), call
 //!    [`RestartCoordinator::should_restart`].
-//!    - [`RestartDecision::Continue`] → existing handoff path.
-//!    - [`RestartDecision::Retry`] → restart per `with_context`.
-//!    - [`RestartDecision::Bail`] → retry budget exhausted, handoff.
+//!    - [`CuRestartDecision::Continue`] → existing handoff path.
+//!    - [`CuRestartDecision::Retry`] → restart per `with_context`.
+//!    - [`CuRestartDecision::Bail`] → retry budget exhausted, handoff.
 //!
 //! Retry budget is *cumulative per dispatch*: a successful retry does
 //! not reset the counter, so worst-case runtime is bounded by the
@@ -80,7 +80,7 @@ pub enum RestartStrategy {
 /// Coordinator decision returned by
 /// [`RestartCoordinator::should_restart`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RestartDecision {
+pub enum CuRestartDecision {
     /// No restart applies. Either the strategy is
     /// [`RestartStrategy::None`] or the error is fatal (not in the
     /// retryable set). Caller falls through to the existing handoff
@@ -143,27 +143,27 @@ impl RestartCoordinator {
     }
 
     /// Decide whether to restart on the given failure. Charges one
-    /// attempt against the budget when returning [`RestartDecision::Retry`].
+    /// attempt against the budget when returning [`CuRestartDecision::Retry`].
     ///
     /// Decision tree:
-    /// - [`RestartStrategy::None`] → always [`RestartDecision::Continue`].
-    /// - Fatal error (see [`is_retryable_error`]) → [`RestartDecision::Continue`].
-    /// - Attempts ≥ `max_attempts` → [`RestartDecision::Bail`].
-    /// - Otherwise → [`RestartDecision::Retry { with_context }`].
-    pub fn should_restart(&mut self, err: &CuError) -> RestartDecision {
+    /// - [`RestartStrategy::None`] → always [`CuRestartDecision::Continue`].
+    /// - Fatal error (see [`is_retryable_error`]) → [`CuRestartDecision::Continue`].
+    /// - Attempts ≥ `max_attempts` → [`CuRestartDecision::Bail`].
+    /// - Otherwise → [`CuRestartDecision::Retry { with_context }`].
+    pub fn should_restart(&mut self, err: &CuError) -> CuRestartDecision {
         if matches!(self.strategy, RestartStrategy::None) {
-            return RestartDecision::Continue;
+            return CuRestartDecision::Continue;
         }
         if !is_retryable_error(err) {
-            return RestartDecision::Continue;
+            return CuRestartDecision::Continue;
         }
         let max = max_attempts(&self.strategy);
         if self.attempts >= max {
-            return RestartDecision::Bail;
+            return CuRestartDecision::Bail;
         }
         self.attempts = self.attempts.saturating_add(1);
         let with_context = matches!(self.strategy, RestartStrategy::RetryWithContext { .. });
-        RestartDecision::Retry { with_context }
+        CuRestartDecision::Retry { with_context }
     }
 
     /// Attempts charged so far this dispatch.
@@ -188,14 +188,16 @@ impl RestartCoordinator {
                 snapshot_every_n_steps,
                 ..
             } => {
-                snapshot_every_n_steps > 0 && step > 0 && step.is_multiple_of(snapshot_every_n_steps)
+                snapshot_every_n_steps > 0
+                    && step > 0
+                    && step.is_multiple_of(snapshot_every_n_steps)
             }
             _ => false,
         }
     }
 
     /// Most recent snapshot. The executor reads this on
-    /// [`RestartDecision::Retry { with_context: false }`] to seed the
+    /// [`CuRestartDecision::Retry { with_context: false }`] to seed the
     /// fresh sandbox.
     #[must_use]
     pub fn last_snapshot(&self) -> Option<&Snapshot> {
@@ -267,7 +269,7 @@ pub fn restore_from(
 }
 
 /// Emit the `cu.restart` telemetry event. The executor calls this
-/// every time the coordinator returns [`RestartDecision::Retry`] (and
+/// every time the coordinator returns [`CuRestartDecision::Retry`] (and
 /// once more after the retry resolves with `success`). Uses the
 /// existing `tracing` macros — no new exporter.
 pub fn emit_restart_event(reason: &str, attempt: u32, success: Option<bool>) {

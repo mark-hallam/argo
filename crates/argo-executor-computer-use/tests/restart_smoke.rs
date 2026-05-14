@@ -9,7 +9,7 @@
 //! produces a `stop_success`.
 
 use argo_executor_computer_use::{
-    ComputerUseExecutor, CuConfig, Outcome, ProfileRegistry, RunRequest,
+    ComputerUseExecutor, CuConfig, CuOutcome, ProfileRegistry, RunRequest,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -93,8 +93,8 @@ backoff_ms = 0
     // The executor should have completed, not handed off, because
     // the third Anthropic call returned stop_success.
     match outcome {
-        Outcome::Completed { .. } => {}
-        Outcome::HumanHandoff { reason, .. } => {
+        CuOutcome::Completed { .. } => {}
+        CuOutcome::HumanHandoff { reason, .. } => {
             panic!("expected Completed but got HumanHandoff: {reason}");
         }
     }

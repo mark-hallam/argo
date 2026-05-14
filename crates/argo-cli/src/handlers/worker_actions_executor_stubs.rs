@@ -21,7 +21,7 @@ use super::worker_actions_executor_api;
 use super::worker_actions_executor_browser;
 use super::worker_actions_executor_mcp;
 use argo_executor_computer_use::{
-    ComputerUseExecutor as CuExecutorImpl, CuConfig, Outcome, ProfileRegistry, RunRequest,
+    ComputerUseExecutor as CuExecutorImpl, CuConfig, CuOutcome, ProfileRegistry, RunRequest,
 };
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{ActionDeclaration, McpServerDeclaration};
@@ -167,7 +167,7 @@ impl Executor for ComputerUseExecutor {
 /// Bridge sync `Executor::dispatch` to the async `cu.run`. We're
 /// always inside a tokio runtime here (the cli is async); we use
 /// `block_in_place` to allow the loop to run without panicking.
-fn run_blocking(cu: CuExecutorImpl, req: RunRequest) -> ArgoResult<Outcome> {
+fn run_blocking(cu: CuExecutorImpl, req: RunRequest) -> ArgoResult<CuOutcome> {
     let handle = tokio::runtime::Handle::try_current().map_err(|e| {
         ArgoError::Provider(format!(
             "computer-use executor needs a tokio runtime to run; got: {e}"
@@ -177,9 +177,9 @@ fn run_blocking(cu: CuExecutorImpl, req: RunRequest) -> ArgoResult<Outcome> {
     outcome.map_err(Into::into)
 }
 
-fn map_outcome(o: Outcome) -> ActionOutcome {
+fn map_outcome(o: CuOutcome) -> ActionOutcome {
     match o {
-        Outcome::Completed {
+        CuOutcome::Completed {
             result,
             bundle_dir,
             budget,
@@ -193,7 +193,7 @@ fn map_outcome(o: Outcome) -> ActionOutcome {
                 "budget": budget,
             }),
         },
-        Outcome::HumanHandoff {
+        CuOutcome::HumanHandoff {
             reason,
             bundle_dir,
             budget,

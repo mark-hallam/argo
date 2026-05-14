@@ -23,7 +23,9 @@ struct FailingJudge;
 #[async_trait::async_trait]
 impl GenesisJudgeClient for FailingJudge {
     async fn judge(&self, _prompt: &str) -> ArgoResult<String> {
-        Err(ArgoError::Provider("simulated judge transport crash".into()))
+        Err(ArgoError::Provider(
+            "simulated judge transport crash".into(),
+        ))
     }
 }
 
@@ -45,8 +47,10 @@ async fn allow_clean_draft() {
         response: r#"{"verdict": "allow"}"#.into(),
     };
     let input = JudgeInput::from_broad(&draft);
-    let verdict = judge_genesis_draft(&input, &judge).await.expect("judge runs");
-    assert_eq!(verdict, JudgeVerdict::Allow);
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("judge runs");
+    assert_eq!(verdict, GenesisJudgeVerdict::Allow);
 }
 
 #[tokio::test]
@@ -54,12 +58,16 @@ async fn block_illegal_instructions() {
     let mut draft = sample_draft();
     draft.action_vocabulary = vec!["forge_signature".into(), "wire_funds".into()];
     let judge = CannedJudge {
-        response: r#"{"verdict": "block", "reason": "action vocabulary includes financial fraud verbs"}"#.into(),
+        response:
+            r#"{"verdict": "block", "reason": "action vocabulary includes financial fraud verbs"}"#
+                .into(),
     };
     let input = JudgeInput::from_broad(&draft);
-    let verdict = judge_genesis_draft(&input, &judge).await.expect("judge runs");
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("judge runs");
     match verdict {
-        JudgeVerdict::Block { reason } => {
+        GenesisJudgeVerdict::Block { reason } => {
             assert!(reason.contains("financial fraud"), "got: {reason}");
         }
         other => panic!("expected Block, got {other:?}"),
@@ -76,9 +84,11 @@ async fn allow_with_disclaimer_medical_without_disclaimer() {
         response: r#"{"verdict": "allow_with_disclaimer", "reason": "not a licensed medical professional; consult a doctor"}"#.into(),
     };
     let input = JudgeInput::from_broad(&draft);
-    let verdict = judge_genesis_draft(&input, &judge).await.expect("judge runs");
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("judge runs");
     match verdict {
-        JudgeVerdict::AllowWithDisclaimer { reason } => {
+        GenesisJudgeVerdict::AllowWithDisclaimer { reason } => {
             assert!(reason.contains("licensed medical"), "got: {reason}");
         }
         other => panic!("expected AllowWithDisclaimer, got {other:?}"),
@@ -91,12 +101,15 @@ async fn impersonation_detection() {
     draft.persona_description =
         "You are Elon Musk, the CEO of Tesla and SpaceX, replying to fans on social media.".into();
     let judge = CannedJudge {
-        response: r#"{"verdict": "block", "reason": "persona impersonates a real public figure"}"#.into(),
+        response: r#"{"verdict": "block", "reason": "persona impersonates a real public figure"}"#
+            .into(),
     };
     let input = JudgeInput::from_broad(&draft);
-    let verdict = judge_genesis_draft(&input, &judge).await.expect("judge runs");
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("judge runs");
     match verdict {
-        JudgeVerdict::Block { reason } => {
+        GenesisJudgeVerdict::Block { reason } => {
             assert!(reason.contains("impersonates"), "got: {reason}");
         }
         other => panic!("expected Block, got {other:?}"),
@@ -108,9 +121,11 @@ async fn judge_error_falls_back_to_block() {
     let draft = sample_draft();
     let judge = FailingJudge;
     let input = JudgeInput::from_broad(&draft);
-    let verdict = judge_genesis_draft(&input, &judge).await.expect("never panics");
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("never panics");
     match verdict {
-        JudgeVerdict::Block { reason } => {
+        GenesisJudgeVerdict::Block { reason } => {
             assert!(
                 reason.contains("transport error"),
                 "expected transport-error wording, got: {reason}",
@@ -129,9 +144,11 @@ async fn unparseable_judge_response_blocks() {
         response: "this is not json at all, just prose".into(),
     };
     let input = JudgeInput::from_broad(&draft);
-    let verdict = judge_genesis_draft(&input, &judge).await.expect("never panics");
+    let verdict = judge_genesis_draft(&input, &judge)
+        .await
+        .expect("never panics");
     match verdict {
-        JudgeVerdict::Block { .. } => {}
+        GenesisJudgeVerdict::Block { .. } => {}
         other => panic!("expected Block on unparseable response, got {other:?}"),
     }
 }

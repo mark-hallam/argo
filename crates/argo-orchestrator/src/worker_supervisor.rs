@@ -60,12 +60,10 @@ use std::sync::Arc;
 
 use argo_identity::WorkerId;
 use argo_runtime::oom_restart::{
-    build_audit_payload, classify_exit, decide_restart, OomRestartConfig,
-    OomRestartCoordinator, RestartDecision, WorkerExitReason,
+    build_audit_payload, classify_exit, decide_restart, OomRestartConfig, OomRestartCoordinator,
+    OomRestartDecision, WorkerExitReason,
 };
-use argo_runtime::worker_resource_cage::{
-    CageStatus, WorkerResourceCage, WorkerResourceConfig,
-};
+use argo_runtime::worker_resource_cage::{CageStatus, WorkerResourceCage, WorkerResourceConfig};
 use argo_types::TenantId;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -185,7 +183,9 @@ impl WorkerSupervisor {
         let pid = child
             .id()
             .ok_or_else(|| std::io::Error::other("child has no pid (already exited?)"))?;
-        let cage_status = self.cage.install_on(&worker_id.to_string(), pid, &self.cage_config);
+        let cage_status = self
+            .cage
+            .install_on(&worker_id.to_string(), pid, &self.cage_config);
         let snapshot = WorkerSnapshot {
             worker_id,
             tenant_id,
@@ -231,7 +231,11 @@ impl WorkerSupervisor {
 
     /// Read-only snapshot of a tracked worker, if any.
     pub async fn snapshot(&self, id: &WorkerId) -> Option<WorkerSnapshot> {
-        self.workers.lock().await.get(id).map(|r| r.snapshot.clone())
+        self.workers
+            .lock()
+            .await
+            .get(id)
+            .map(|r| r.snapshot.clone())
     }
 
     async fn supervise(
@@ -261,9 +265,9 @@ impl WorkerSupervisor {
             let decision = decide_restart(&mut coordinator, &exit, now);
             self.emit_audit_record(&spec.worker_id, &exit, &decision, loop_idx);
             match decision {
-                RestartDecision::IgnoreCleanExit => break,
-                RestartDecision::GiveUp { .. } => break,
-                RestartDecision::Restart { after_backoff, .. } => {
+                OomRestartDecision::IgnoreCleanExit => break,
+                OomRestartDecision::GiveUp { .. } => break,
+                OomRestartDecision::Restart { after_backoff, .. } => {
                     if active_cgroup.is_some() {
                         let _ = self.cage.uninstall(&spec.worker_id.to_string());
                     }
@@ -272,8 +276,11 @@ impl WorkerSupervisor {
                         Ok(new_child) => {
                             child = new_child;
                             let pid = child.id().unwrap_or(0);
-                            let cage_status =
-                                self.cage.install_on(&spec.worker_id.to_string(), pid, &self.cage_config);
+                            let cage_status = self.cage.install_on(
+                                &spec.worker_id.to_string(),
+                                pid,
+                                &self.cage_config,
+                            );
                             active_cgroup = active_cgroup_path(&cage_status);
                             snapshot.pid = pid;
                             snapshot.cage = cage_status;
@@ -321,7 +328,7 @@ impl WorkerSupervisor {
         &self,
         worker_id: &WorkerId,
         exit: &WorkerExitReason,
-        decision: &RestartDecision,
+        decision: &OomRestartDecision,
         attempt_count: u32,
     ) {
         if !exit.is_actionable() {

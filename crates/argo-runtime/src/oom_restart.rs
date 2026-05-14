@@ -184,10 +184,10 @@ impl OomRestartCoordinator {
     }
 }
 
-/// Outcome of [`decide_restart`].
+/// OOM restart decision returned by [`decide_restart`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum RestartDecision {
+pub enum OomRestartDecision {
     /// Sleep `after_backoff`, then respawn with the same brief.
     Restart {
         /// Backoff before respawn (`base * 2^(attempt-1)`,
@@ -281,20 +281,20 @@ pub fn decide_restart(
     coord: &mut OomRestartCoordinator,
     exit: &WorkerExitReason,
     now: DateTime<Utc>,
-) -> RestartDecision {
+) -> OomRestartDecision {
     if !exit.is_actionable() {
-        return RestartDecision::IgnoreCleanExit;
+        return OomRestartDecision::IgnoreCleanExit;
     }
     let attempts_used = coord.attempts_in_window(now);
     if attempts_used >= coord.config.max_restarts {
-        return RestartDecision::GiveUp {
+        return OomRestartDecision::GiveUp {
             salvage_note: build_salvage_note(coord, exit),
         };
     }
     let attempt = attempts_used.saturating_add(1);
     let backoff = backoff_for_attempt(&coord.config, attempt);
     coord.record_attempt(now, exit.clone());
-    RestartDecision::Restart {
+    OomRestartDecision::Restart {
         after_backoff: backoff,
         attempt,
     }
@@ -317,7 +317,7 @@ pub fn decide_restart(
 pub fn build_audit_payload(
     worker_id: &str,
     exit: &WorkerExitReason,
-    decision: &RestartDecision,
+    decision: &OomRestartDecision,
     attempt_count: u32,
 ) -> serde_json::Value {
     serde_json::json!({

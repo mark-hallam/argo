@@ -1,6 +1,6 @@
 //! Stream `claude-skill-success-metric` — heuristic computation
 //! of the structured `argo_skill::SuccessMetric` from a CU
-//! [`Outcome`].
+//! [`CuOutcome`].
 //!
 //! The pre-existing binary metric in [`crate::learn`] stays
 //! around for the deprecated shim path. This module is the
@@ -10,7 +10,7 @@
 //! struct that the proposal gate then evaluates against per-
 //! dimension floors.
 
-use crate::executor::Outcome;
+use crate::executor::CuOutcome;
 use argo_skill::SuccessMetric;
 
 /// Build a structured [`SuccessMetric`] from a CU outcome.
@@ -25,13 +25,13 @@ use argo_skill::SuccessMetric;
 ///   vertical doesn't define a fixture.
 #[must_use]
 pub fn metric_from_outcome(
-    outcome: &Outcome,
+    outcome: &CuOutcome,
     duration_seconds: f64,
     final_state_score: Option<f64>,
 ) -> SuccessMetric {
     let (confidence, trajectory_length) = match outcome {
-        Outcome::Completed { result, .. } => (1.0_f64, result.actions_taken.len() as u32),
-        Outcome::HumanHandoff { .. } => (0.0_f64, 0_u32),
+        CuOutcome::Completed { result, .. } => (1.0_f64, result.actions_taken.len() as u32),
+        CuOutcome::HumanHandoff { .. } => (0.0_f64, 0_u32),
     };
     SuccessMetric::new(
         confidence,
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn completed_outcome_yields_confidence_one_and_real_trajectory_length() {
-        let outcome = Outcome::Completed {
+        let outcome = CuOutcome::Completed {
             result: RunResult {
                 final_text: None,
                 actions_taken: vec!["a".into(), "b".into(), "c".into()],
@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn handoff_outcome_yields_confidence_zero_and_zero_length() {
-        let outcome = Outcome::HumanHandoff {
+        let outcome = CuOutcome::HumanHandoff {
             reason: "test".into(),
             bundle_dir: PathBuf::from("/tmp/x"),
             budget: budget_zero(),
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn final_state_score_passes_through_when_supplied() {
-        let outcome = Outcome::Completed {
+        let outcome = CuOutcome::Completed {
             result: RunResult {
                 final_text: None,
                 actions_taken: vec![],

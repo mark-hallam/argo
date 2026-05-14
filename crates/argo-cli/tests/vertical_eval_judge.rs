@@ -80,8 +80,13 @@ fn judge_heuristic_attaches_verdict_when_rules_pass() {
     );
     let (success, out, _) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "heuristic",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--json",
+            "--judge",
+            "heuristic",
         ],
         dir.path(),
     );
@@ -92,10 +97,7 @@ fn judge_heuristic_attaches_verdict_when_rules_pass() {
     assert_eq!(judge["passed"], true);
     assert_eq!(judge["source"], "heuristic");
     assert!(
-        judge["reason"]
-            .as_str()
-            .unwrap()
-            .contains("rule check"),
+        judge["reason"].as_str().unwrap().contains("rule check"),
         "reason should reference rule checks: {judge}"
     );
 }
@@ -110,8 +112,13 @@ fn judge_heuristic_propagates_rule_failure_into_suite_failure() {
     );
     let (success, out, _) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "heuristic",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--json",
+            "--judge",
+            "heuristic",
         ],
         dir.path(),
     );
@@ -122,10 +129,7 @@ fn judge_heuristic_propagates_rule_failure_into_suite_failure() {
     let judge = &fx["judge"];
     assert_eq!(judge["passed"], false);
     assert!(
-        judge["reason"]
-            .as_str()
-            .unwrap()
-            .contains("absent"),
+        judge["reason"].as_str().unwrap().contains("absent"),
         "judge reason should surface the failing-rule detail: {judge}"
     );
 }
@@ -148,7 +152,12 @@ fn judge_invalid_spec_is_rejected_before_any_fixture_runs() {
     );
     let (success, _out, stderr) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--judge", "invalid-no-slash",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--judge",
+            "invalid-no-slash",
         ],
         dir.path(),
     );
@@ -211,8 +220,13 @@ fn judge_systemic_failure_field_is_false_when_heuristic_judge_passes() {
     );
     let (success, out, _) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "heuristic",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--json",
+            "--judge",
+            "heuristic",
         ],
         dir.path(),
     );
@@ -235,8 +249,13 @@ fn judge_systemic_failure_field_distinct_from_per_fixture_rule_failure() {
     );
     let (_success, out, _) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "heuristic",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--json",
+            "--judge",
+            "heuristic",
         ],
         dir.path(),
     );
@@ -289,7 +308,7 @@ fn live_judge_without_api_key_errors_clearly_with_actionable_message() {
 
 #[test]
 fn judge_verdict_json_includes_score_field() {
-    // #701 added `score` to JudgeVerdict. Lock the JSON shape —
+    // #701 added `score` to EvalJudgeVerdict. Lock the JSON shape —
     // operators downstream parse this.
     let dir = tempfile::tempdir().unwrap();
     write_synthetic_vertical(
@@ -298,8 +317,13 @@ fn judge_verdict_json_includes_score_field() {
     );
     let (success, out, _) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "heuristic",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--json",
+            "--judge",
+            "heuristic",
         ],
         dir.path(),
     );
@@ -324,8 +348,13 @@ fn judge_verdict_json_failed_criteria_populated_on_heuristic_fail() {
     );
     let (success, out, _) = run_eval(
         &[
-            "vertical", "eval", "judge-fixture", "--score", "--json",
-            "--judge", "heuristic",
+            "vertical",
+            "eval",
+            "judge-fixture",
+            "--score",
+            "--json",
+            "--judge",
+            "heuristic",
         ],
         dir.path(),
     );
@@ -336,8 +365,12 @@ fn judge_verdict_json_failed_criteria_populated_on_heuristic_fail() {
     assert_eq!(judge["score"].as_f64().unwrap(), 0.0);
     let criteria = judge["failed_criteria"].as_array().unwrap();
     assert_eq!(criteria.len(), 2, "two must_include rules failed: {judge}");
-    assert!(criteria.iter().any(|c| c.as_str().unwrap().contains("absent")));
-    assert!(criteria.iter().any(|c| c.as_str().unwrap().contains("missing")));
+    assert!(criteria
+        .iter()
+        .any(|c| c.as_str().unwrap().contains("absent")));
+    assert!(criteria
+        .iter()
+        .any(|c| c.as_str().unwrap().contains("missing")));
 }
 
 #[test]

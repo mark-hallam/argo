@@ -17,7 +17,7 @@
 //! a half-built bundle on disk.
 
 use argo_executor_computer_use::{
-    ComputerUseExecutor, CuConfig, Outcome, ProfileRegistry, RunRequest,
+    ComputerUseExecutor, CuConfig, CuOutcome, ProfileRegistry, RunRequest,
 };
 
 #[tokio::test]
@@ -65,8 +65,8 @@ async fn cu_navigates_example_com_and_captures_outcome() {
 
     // Either outcome polarity is fine — non-deterministic model.
     let bundle_dir = match outcome {
-        Outcome::Completed { bundle_dir, .. } => bundle_dir,
-        Outcome::HumanHandoff { bundle_dir, .. } => bundle_dir,
+        CuOutcome::Completed { bundle_dir, .. } => bundle_dir,
+        CuOutcome::HumanHandoff { bundle_dir, .. } => bundle_dir,
     };
     assert_eq!(bundle_dir, bundle, "outcome carries the requested bundle");
     let jsonl = bundle.join("browser.jsonl");

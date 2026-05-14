@@ -51,7 +51,10 @@ fn fx_failed(passes: usize, fails: Vec<&str>) -> FixtureScore {
 
 #[test]
 fn parses_heuristic_literal() {
-    assert_eq!(parse_judge_spec("heuristic").unwrap(), JudgePolicy::Heuristic);
+    assert_eq!(
+        parse_judge_spec("heuristic").unwrap(),
+        JudgePolicy::Heuristic
+    );
 }
 
 #[test]
@@ -118,7 +121,11 @@ fn heuristic_truncates_summary_after_three_failures() {
     let score = fx_failed(0, vec!["a", "b", "c", "d", "e"]);
     let v = judge_fixture(&JudgePolicy::Heuristic, &score);
     assert!(!v.passed);
-    assert!(v.reason.contains("(+2 more)"), "should truncate: {}", v.reason);
+    assert!(
+        v.reason.contains("(+2 more)"),
+        "should truncate: {}",
+        v.reason
+    );
 }
 
 #[test]
@@ -151,7 +158,11 @@ fn live_placeholder_mirrors_rule_outcome_and_explains_gap() {
     let score_pass = fx_passed(2);
     let v = judge_fixture(&policy, &score_pass);
     assert!(v.passed, "placeholder mirrors rule-engine pass");
-    assert!(v.reason.contains("not invoked at this layer"), "{}", v.reason);
+    assert!(
+        v.reason.contains("not invoked at this layer"),
+        "{}",
+        v.reason
+    );
     assert!(v.reason.contains("anthropic/claude-x"));
     assert_eq!(v.source, "not_wired:anthropic/claude-x");
     assert_eq!(v.score, Some(1.0));
@@ -271,7 +282,9 @@ fn parse_judge_response_falls_back_to_uncertain_on_invalid_json() {
     assert!(!v.passed);
     assert_eq!(v.score, Some(0.5));
     assert!(v.reason.starts_with("uncertain:"));
-    assert!(v.failed_criteria.contains(&"judge_response_parse".to_string()));
+    assert!(v
+        .failed_criteria
+        .contains(&"judge_response_parse".to_string()));
 }
 
 #[test]
@@ -289,7 +302,8 @@ fn parse_judge_response_accepts_response_without_fence() {
     // Some providers (Bedrock anthropic) emit raw JSON without
     // a fence when asked for JSON output. The parser falls
     // back to whole-body parsing when no ```json block exists.
-    let body = "{\"verdict\":\"pass\",\"score\":0.85,\"rationale\":\"clean\",\"failed_criteria\":[]}";
+    let body =
+        "{\"verdict\":\"pass\",\"score\":0.85,\"rationale\":\"clean\",\"failed_criteria\":[]}";
     let v = parse_judge_response(body, "live:x/y");
     assert!(v.passed, "{}", v.reason);
     assert_eq!(v.score, Some(0.85));
@@ -308,7 +322,10 @@ fn parse_judge_response_safety_veto_caps_score_at_two_tenths_and_forces_fail() {
         {\"verdict\":\"pass\",\"score\":0.85,\"rationale\":\"unsafe send detected but otherwise good\",\"failed_criteria\":[],\"safety_veto\":true}\n\
         ```";
     let v = parse_judge_response(body, "live:x/y");
-    assert!(!v.passed, "safety_veto must force fail regardless of model verdict");
+    assert!(
+        !v.passed,
+        "safety_veto must force fail regardless of model verdict"
+    );
     assert!(
         v.score.unwrap() <= 0.2,
         "safety_veto must cap score at 0.2; got {:?}",
@@ -334,7 +351,11 @@ fn parse_judge_response_picks_up_low_dimension_scores_into_failed_criteria() {
     let v = parse_judge_response(body, "live:x/y");
     // specificity (0.3) and operational_usefulness (0.4) are
     // both below 0.5 → both should be in failed_criteria.
-    assert!(v.failed_criteria.contains(&"specificity".into()), "{:?}", v.failed_criteria);
+    assert!(
+        v.failed_criteria.contains(&"specificity".into()),
+        "{:?}",
+        v.failed_criteria
+    );
     assert!(v.failed_criteria.contains(&"operational_usefulness".into()));
     // evidence_awareness (0.9), safe_abstention (0.8), role_fit
     // (0.7), non_generic_gtm_reasoning (0.6) are all ≥ 0.5 →

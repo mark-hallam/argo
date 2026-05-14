@@ -24,7 +24,7 @@
 //! `SkillStore`-backed flow lives in
 //! `tests/skill_learning.rs`.
 
-use crate::executor::{Outcome, RunRequest, RunResult};
+use crate::executor::{CuOutcome, RunRequest, RunResult};
 use argo_skill::{
     should_propose_with_feedback, FeedbackVote, Judge, ProposalThreshold, SkillCandidate,
     SkillStore, SuccessMetric, DEFAULT_SUCCESS_THRESHOLD,
@@ -32,14 +32,14 @@ use argo_skill::{
 use argo_types::SessionId;
 
 /// Scoring heuristic: `1.0` when the executor returned
-/// `Outcome::Completed`, `0.0` otherwise. v1 placeholder per the
+/// `CuOutcome::Completed`, `0.0` otherwise. v1 placeholder per the
 /// brief — nuanced metrics (operator-rated, trajectory-length,
 /// model-confidence) land in a follow-up.
 #[must_use]
-pub fn success_metric_for_outcome(outcome: &Outcome) -> f64 {
+pub fn success_metric_for_outcome(outcome: &CuOutcome) -> f64 {
     match outcome {
-        Outcome::Completed { .. } => 1.0,
-        Outcome::HumanHandoff { .. } => 0.0,
+        CuOutcome::Completed { .. } => 1.0,
+        CuOutcome::HumanHandoff { .. } => 0.0,
     }
 }
 
@@ -86,7 +86,7 @@ impl From<f64> for ProposalGate {
 /// the [`success_metric_for_outcome`] heuristic + the
 /// feedback-aware proposal gate from `argo-skill`.
 #[must_use]
-pub fn should_propose_outcome(outcome: &Outcome, threshold: f64) -> bool {
+pub fn should_propose_outcome(outcome: &CuOutcome, threshold: f64) -> bool {
     metric_clears_proposal_gate(
         success_metric_for_outcome(outcome),
         ProposalGate::new(threshold),
@@ -260,7 +260,7 @@ pub async fn propose_skill_from_run_judged(
 pub async fn maybe_propose(
     store: Option<&SkillStore>,
     request: &RunRequest,
-    outcome: &Outcome,
+    outcome: &CuOutcome,
     session: SessionId,
     gate: impl Into<ProposalGate>,
 ) -> Option<SkillCandidate> {
@@ -274,7 +274,7 @@ pub async fn maybe_propose(
 pub async fn maybe_propose_judged(
     store: Option<&SkillStore>,
     request: &RunRequest,
-    outcome: &Outcome,
+    outcome: &CuOutcome,
     session: SessionId,
     gate: impl Into<ProposalGate>,
     judge: Option<&dyn Judge>,
@@ -284,8 +284,8 @@ pub async fn maybe_propose_judged(
         return None;
     }
     let result = match outcome {
-        Outcome::Completed { result, .. } => result.clone(),
-        Outcome::HumanHandoff { .. } => return None,
+        CuOutcome::Completed { result, .. } => result.clone(),
+        CuOutcome::HumanHandoff { .. } => return None,
     };
     let candidate = build_candidate(request, &result, session, metric);
     if let Some(s) = store {

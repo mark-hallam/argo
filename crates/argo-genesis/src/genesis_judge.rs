@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 /// / block.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "verdict", rename_all = "snake_case")]
-pub enum JudgeVerdict {
+pub enum GenesisJudgeVerdict {
     /// Draft is safe — pipeline continues unchanged.
     Allow,
     /// Draft is safe but a disclaimer must be prepended to the
@@ -127,21 +127,23 @@ pub fn build_judge_prompt(input: &JudgeInput<'_>) -> String {
 pub async fn judge_genesis_draft(
     input: &JudgeInput<'_>,
     client: &dyn GenesisJudgeClient,
-) -> ArgoResult<JudgeVerdict> {
+) -> ArgoResult<GenesisJudgeVerdict> {
     let prompt = build_judge_prompt(input);
     match client.judge(&prompt).await {
-        Ok(raw) => Ok(parse_verdict(&raw).unwrap_or_else(|reason| JudgeVerdict::Block { reason })),
-        Err(e) => Ok(JudgeVerdict::Block {
+        Ok(raw) => {
+            Ok(parse_verdict(&raw).unwrap_or_else(|reason| GenesisJudgeVerdict::Block { reason }))
+        }
+        Err(e) => Ok(GenesisJudgeVerdict::Block {
             reason: format!("safety judge transport error: {e}"),
         }),
     }
 }
 
-fn parse_verdict(raw: &str) -> Result<JudgeVerdict, String> {
+fn parse_verdict(raw: &str) -> Result<GenesisJudgeVerdict, String> {
     let json_text = crate::broad_role::first_balanced_object(raw)
         .ok_or_else(|| "judge response: no JSON object".to_string())?;
-    let value: serde_json::Value = serde_json::from_str(json_text)
-        .map_err(|e| format!("judge response JSON parse: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_str(json_text).map_err(|e| format!("judge response JSON parse: {e}"))?;
     let verdict_str = value
         .get("verdict")
         .and_then(|v| v.as_str())
@@ -154,15 +156,15 @@ fn parse_verdict(raw: &str) -> Result<JudgeVerdict, String> {
         .trim()
         .to_string();
     match verdict_str.as_str() {
-        "allow" => Ok(JudgeVerdict::Allow),
-        "allow_with_disclaimer" => Ok(JudgeVerdict::AllowWithDisclaimer {
+        "allow" => Ok(GenesisJudgeVerdict::Allow),
+        "allow_with_disclaimer" => Ok(GenesisJudgeVerdict::AllowWithDisclaimer {
             reason: if reason.is_empty() {
                 "disclaimer required".to_string()
             } else {
                 reason
             },
         }),
-        "block" => Ok(JudgeVerdict::Block {
+        "block" => Ok(GenesisJudgeVerdict::Block {
             reason: if reason.is_empty() {
                 "blocked by safety judge".to_string()
             } else {

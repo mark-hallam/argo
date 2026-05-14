@@ -7,7 +7,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
-use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, Principal, Role};
+use argo_types::{ArgoError, ArgoResult, Capability, CapabilityRole, CapabilitySet, Principal};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
@@ -46,10 +46,10 @@ pub fn audit_view_cross_tenant_capability() -> Capability {
 ///
 /// ```
 /// use argo_capability::CapabilityEngine;
-/// use argo_types::{Capability, CapabilitySet, Principal, Role};
+/// use argo_types::{Capability, CapabilitySet, Principal, CapabilityRole};
 ///
 /// let engine = CapabilityEngine::new();
-/// engine.add_role(Role {
+/// engine.add_role(CapabilityRole {
 ///     name: "user".into(),
 ///     inherits_from: None,
 ///     capabilities: CapabilitySet(vec![Capability::ToolDispatch {
@@ -67,7 +67,7 @@ pub fn audit_view_cross_tenant_capability() -> Capability {
 /// }).is_err());
 /// ```
 pub struct CapabilityEngine {
-    roles: RwLock<HashMap<String, Role>>,
+    roles: RwLock<HashMap<String, CapabilityRole>>,
     bindings: RwLock<HashMap<Principal, String>>,
     /// Dynamic per-principal grants (e.g., user-approved one-shot grants).
     dynamic: RwLock<HashMap<Principal, Vec<Capability>>>,
@@ -97,7 +97,7 @@ impl CapabilityEngine {
     }
 
     /// Define or replace a role.
-    pub fn add_role(&self, role: Role) -> ArgoResult<()> {
+    pub fn add_role(&self, role: CapabilityRole) -> ArgoResult<()> {
         if let Some(parent) = &role.inherits_from {
             if !self.roles.read().contains_key(parent) {
                 return Err(ArgoError::Schema(format!(
@@ -178,7 +178,12 @@ impl Default for CapabilityEngine {
     }
 }
 
-fn walk_role(roles: &HashMap<String, Role>, name: &str, out: &mut Vec<Capability>, depth: u32) {
+fn walk_role(
+    roles: &HashMap<String, CapabilityRole>,
+    name: &str,
+    out: &mut Vec<Capability>,
+    depth: u32,
+) {
     if depth > 16 {
         return;
     }
@@ -191,7 +196,7 @@ fn walk_role(roles: &HashMap<String, Role>, name: &str, out: &mut Vec<Capability
     }
 }
 
-fn would_create_cycle(roles: &HashMap<String, Role>, new_role: &Role) -> bool {
+fn would_create_cycle(roles: &HashMap<String, CapabilityRole>, new_role: &CapabilityRole) -> bool {
     let Some(start) = &new_role.inherits_from else {
         return false;
     };
@@ -215,10 +220,10 @@ fn would_create_cycle(roles: &HashMap<String, Role>, new_role: &Role) -> bool {
 
 /// Default role presets shipped by `argo init` (build plan §10.2).
 #[must_use]
-pub fn default_roles() -> Vec<Role> {
+pub fn default_roles() -> Vec<CapabilityRole> {
     use argo_types::SpawnKind;
     vec![
-        Role {
+        CapabilityRole {
             name: "owner".into(),
             inherits_from: None,
             capabilities: CapabilitySet(vec![
@@ -250,7 +255,7 @@ pub fn default_roles() -> Vec<Role> {
                 },
             ]),
         },
-        Role {
+        CapabilityRole {
             name: "admin".into(),
             inherits_from: None,
             capabilities: CapabilitySet(vec![
@@ -277,7 +282,7 @@ pub fn default_roles() -> Vec<Role> {
                 },
             ]),
         },
-        Role {
+        CapabilityRole {
             name: "user".into(),
             inherits_from: None,
             capabilities: CapabilitySet(vec![
@@ -307,7 +312,7 @@ pub fn default_roles() -> Vec<Role> {
                 Capability::MemoryWrite,
             ]),
         },
-        Role {
+        CapabilityRole {
             name: "guest".into(),
             inherits_from: None,
             capabilities: CapabilitySet(vec![

@@ -63,8 +63,8 @@ impl AuditLog {
     }
 
     /// Path to the bundle dir. Public so the executor can
-    /// surface it in the `Outcome::HumanHandoff` /
-    /// `Outcome::Completed` payload.
+    /// surface it in the `CuOutcome::HumanHandoff` /
+    /// `CuOutcome::Completed` payload.
     #[must_use]
     pub fn bundle_dir(&self) -> &Path {
         &self.bundle_dir

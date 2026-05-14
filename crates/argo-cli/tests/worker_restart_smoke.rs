@@ -20,7 +20,7 @@ mod common;
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_runtime::oom_restart::{
-    build_audit_payload, classify_exit, decide_restart, OomRestartCoordinator, RestartDecision,
+    build_audit_payload, classify_exit, decide_restart, OomRestartCoordinator, OomRestartDecision,
     WorkerExitReason,
 };
 use argo_store::SessionStore;
@@ -64,7 +64,7 @@ async fn synthetic_exit_137_classifies_audits_and_lists() {
     // 2) Drive the coordinator + emit the audit row.
     let mut coord = OomRestartCoordinator::with_defaults();
     let decision = decide_restart(&mut coord, &reason, Utc::now());
-    assert!(matches!(decision, RestartDecision::Restart { .. }));
+    assert!(matches!(decision, OomRestartDecision::Restart { .. }));
     let payload = build_audit_payload("wkr-smoke", &reason, &decision, 1);
     sink.write(None, AuditKind::WorkerOomRestart, payload, None)
         .await
@@ -78,7 +78,7 @@ async fn synthetic_exit_137_classifies_audits_and_lists() {
     }
     let exhausted = decide_restart(&mut budget_coord, &reason, Utc::now());
     match &exhausted {
-        RestartDecision::GiveUp { salvage_note } => {
+        OomRestartDecision::GiveUp { salvage_note } => {
             assert!(salvage_note.contains("oom-restart.md"));
             assert!(salvage_note.contains("restarts in window exceeded"));
         }
@@ -98,10 +98,7 @@ async fn synthetic_exit_137_classifies_audits_and_lists() {
     //    arm, the handler, and the audit_record schema all line
     //    up end-to-end. `--since 1h` is wide enough to catch the
     //    fresh rows under any plausible clock skew.
-    let out = run_ok(
-        home.path(),
-        &["worker", "restarts", "--since", "1h"],
-    );
+    let out = run_ok(home.path(), &["worker", "restarts", "--since", "1h"]);
     let body = String::from_utf8(out.stdout).unwrap();
     let lines: Vec<&str> = body.lines().filter(|l| !l.trim().is_empty()).collect();
     assert!(
@@ -119,7 +116,14 @@ async fn synthetic_exit_137_classifies_audits_and_lists() {
     // 6) Worker-id filter narrows down.
     let filtered = run_ok(
         home.path(),
-        &["worker", "restarts", "--worker", "wkr-smoke", "--since", "1h"],
+        &[
+            "worker",
+            "restarts",
+            "--worker",
+            "wkr-smoke",
+            "--since",
+            "1h",
+        ],
     );
     let filtered_body = String::from_utf8(filtered.stdout).unwrap();
     let filtered_lines: Vec<&str> = filtered_body

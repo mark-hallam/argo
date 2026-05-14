@@ -33,16 +33,16 @@ fn case_1_exhausts_budget_then_bails() {
     // 2 attempts allowed.
     assert_eq!(
         c.should_restart(&http_err()),
-        RestartDecision::Retry { with_context: true }
+        CuRestartDecision::Retry { with_context: true }
     );
     assert_eq!(c.attempts(), 1);
     assert_eq!(
         c.should_restart(&http_err()),
-        RestartDecision::Retry { with_context: true }
+        CuRestartDecision::Retry { with_context: true }
     );
     assert_eq!(c.attempts(), 2);
     // 3rd attempt: budget exhausted → Bail.
-    assert_eq!(c.should_restart(&http_err()), RestartDecision::Bail);
+    assert_eq!(c.should_restart(&http_err()), CuRestartDecision::Bail);
     assert_eq!(c.attempts(), 2, "Bail does not charge a fresh attempt");
 }
 
@@ -53,7 +53,7 @@ fn case_2_retryable_vs_fatal_error_kinds() {
         snapshot_every_n_steps: 1,
     });
     // Fatal error: Continue (no charge).
-    assert_eq!(c.should_restart(&fatal_err()), RestartDecision::Continue);
+    assert_eq!(c.should_restart(&fatal_err()), CuRestartDecision::Continue);
     assert_eq!(c.attempts(), 0);
     // Retryable: Retry.
     let dec = c.should_restart(&CuError::HttpStatus {
@@ -61,7 +61,12 @@ fn case_2_retryable_vs_fatal_error_kinds() {
         status: 502,
         body: "bad gateway".into(),
     });
-    assert_eq!(dec, RestartDecision::Retry { with_context: false });
+    assert_eq!(
+        dec,
+        CuRestartDecision::Retry {
+            with_context: false
+        }
+    );
     assert_eq!(c.attempts(), 1);
     // Another fatal kind: still Continue.
     let unknown_profile = CuError::UnknownProfile {
@@ -70,7 +75,7 @@ fn case_2_retryable_vs_fatal_error_kinds() {
     };
     assert_eq!(
         c.should_restart(&unknown_profile),
-        RestartDecision::Continue
+        CuRestartDecision::Continue
     );
     assert_eq!(c.attempts(), 1);
 }
@@ -104,7 +109,10 @@ fn case_4_restore_from_reseeds_prompt_with_goal_summary() {
     let mut prompt = String::from("base prompt");
     let mut screenshot = vec![0u8; 0];
     restore_from(&snap, &mut prompt, &mut screenshot).expect("restore_from must succeed");
-    assert!(prompt.contains("base prompt"), "preserves base; got {prompt}");
+    assert!(
+        prompt.contains("base prompt"),
+        "preserves base; got {prompt}"
+    );
     assert!(
         prompt.contains("RESTART CONTEXT"),
         "stamps restart marker; got {prompt}"
@@ -195,8 +203,8 @@ fn case_6_retry_with_context_does_not_snapshot() {
 fn case_7_none_strategy_is_no_op() {
     let mut c = RestartCoordinator::new(RestartStrategy::None);
     // Every error → Continue (existing flow), zero attempts charged.
-    assert_eq!(c.should_restart(&http_err()), RestartDecision::Continue);
-    assert_eq!(c.should_restart(&fatal_err()), RestartDecision::Continue);
+    assert_eq!(c.should_restart(&http_err()), CuRestartDecision::Continue);
+    assert_eq!(c.should_restart(&fatal_err()), CuRestartDecision::Continue);
     assert_eq!(c.attempts(), 0);
     // No backoff, no snapshot cadence.
     assert_eq!(c.backoff_ms(), 0);

@@ -8,7 +8,7 @@
 //!
 //! Re-exported from `eval_score_judge` via `pub(crate) use`,
 //! so callers see a single judge-layer surface.
-use crate::eval_score_judge::JudgeVerdict;
+use crate::eval_score_judge::EvalJudgeVerdict;
 
 /// Build the prompt the LLM judge sees for one fixture. Pure
 /// function — same `(input, expected, actual)` always produces
@@ -116,7 +116,7 @@ caught literal misses, so the judge can credit semantic alignment more easily): 
     )
 }
 
-/// Parse the LLM's reply into a [`JudgeVerdict`]. Pure —
+/// Parse the LLM's reply into a [`EvalJudgeVerdict`]. Pure —
 /// extracts the first ```json fenced block, parses it, and
 /// maps the verdict string into `passed: bool` (pass=true,
 /// fail=false, uncertain=false but score in [0.4, 0.65)).
@@ -137,12 +137,12 @@ caught literal misses, so the judge can credit semantic alignment more easily): 
 /// is conservative) AND surfaces a clear reason so the
 /// operator can fix the prompt or model choice.
 #[must_use]
-pub fn parse_judge_response(text: &str, source: &str) -> JudgeVerdict {
+pub fn parse_judge_response(text: &str, source: &str) -> EvalJudgeVerdict {
     let body = extract_json_fence(text).unwrap_or(text.trim());
     let parsed: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
         Err(e) => {
-            return JudgeVerdict {
+            return EvalJudgeVerdict {
                 passed: false,
                 reason: format!("uncertain: live judge response did not parse as JSON: {e}"),
                 source: source.into(),
@@ -207,7 +207,7 @@ pub fn parse_judge_response(text: &str, source: &str) -> JudgeVerdict {
         "fail" => "fail",
         _ => "uncertain",
     };
-    JudgeVerdict {
+    EvalJudgeVerdict {
         passed,
         reason: format!("{reason_prefix}: {rationale}"),
         source: source.into(),

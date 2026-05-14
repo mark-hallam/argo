@@ -57,12 +57,12 @@ impl RunRequest {
     }
 }
 
-/// Outcome of one dispatch. Mirrors Stream A's `ActionOutcome`
+/// Computer-use outcome of one dispatch. Mirrors Stream A's `ActionOutcome`
 /// enum (HumanHandoff / Completed) — the cli shim maps from
 /// this type into that.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
-pub enum Outcome {
+pub enum CuOutcome {
     Completed {
         result: RunResult,
         bundle_dir: PathBuf,
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn outcome_serialises_with_outcome_tag() {
-        let v = Outcome::HumanHandoff {
+        let v = CuOutcome::HumanHandoff {
             reason: "test".into(),
             bundle_dir: PathBuf::from("/tmp/test"),
             budget: BudgetSnapshot {

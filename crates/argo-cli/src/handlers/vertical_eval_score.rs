@@ -39,7 +39,7 @@
 use argo_types::{ArgoError, ArgoResult};
 use argo_vertical::{
     judge_fixture, parse_actuals_jsonl, parse_judge_spec, score_suite_jsonl,
-    score_suite_jsonl_with_actuals, ActualsMap, FixtureStatus, JudgePolicy, JudgeVerdict,
+    score_suite_jsonl_with_actuals, ActualsMap, EvalJudgeVerdict, FixtureStatus, JudgePolicy,
     LoadedVertical, SuiteScore,
 };
 
@@ -107,21 +107,18 @@ pub(super) async fn run_scored(
         // #701: when the policy is `Live`, replace the
         // placeholder verdicts with real LLM verdicts via the
         // live backend. Heuristic mode keeps the pure helper.
-        let judge_verdicts: Vec<Option<JudgeVerdict>> = match &judge_policy {
+        let judge_verdicts: Vec<Option<EvalJudgeVerdict>> = match &judge_policy {
             None => score.fixtures.iter().map(|_| None).collect(),
             Some(JudgePolicy::Heuristic) => score
                 .fixtures
                 .iter()
                 .map(|fx| match fx.status {
-                    FixtureStatus::Scored => {
-                        Some(judge_fixture(&JudgePolicy::Heuristic, fx))
-                    }
+                    FixtureStatus::Scored => Some(judge_fixture(&JudgePolicy::Heuristic, fx)),
                     _ => None,
                 })
                 .collect(),
             Some(JudgePolicy::Live { provider, model }) => {
-                live_judge_for_suite(provider, model, &score, &body, actuals.as_ref())
-                    .await?
+                live_judge_for_suite(provider, model, &score, &body, actuals.as_ref()).await?
             }
         };
         let judge_failed = judge_verdicts
@@ -210,7 +207,7 @@ fn load_actuals(path: &str) -> ArgoResult<ActualsMap> {
 
 /// Build a live judge backend, re-parse the suite to extract
 /// per-fixture (input, expected, actual) triples, and grade
-/// every Scored fixture (#701). Returns one `Option<JudgeVerdict>`
+/// every Scored fixture (#701). Returns one `Option<EvalJudgeVerdict>`
 /// per `score.fixtures` entry, indexed parallel.
 ///
 /// Errors propagate from backend construction (missing manifest,
@@ -223,14 +220,13 @@ async fn live_judge_for_suite(
     score: &SuiteScore,
     suite_body: &str,
     actuals: Option<&ActualsMap>,
-) -> ArgoResult<Vec<Option<JudgeVerdict>>> {
+) -> ArgoResult<Vec<Option<EvalJudgeVerdict>>> {
     // Cross-family dispatch (#701b): pick the right backend based on
     // the manifest's `[provider].family`. Pre-#701b this hard-coded
     // the Anthropic builder and 400'd for any other family at the
     // dispatcher; now OpenAI Compatible / OpenAI Responses / Bedrock
     // all work, with per-family temperature + max_tokens policy.
-    let backend =
-        super::vertical_eval_judge_live::build_judge_backend(provider, model).await?;
+    let backend = super::vertical_eval_judge_live::build_judge_backend(provider, model).await?;
     let inputs = collect_fixture_inputs(suite_body, actuals);
     Ok(super::vertical_eval_judge_live::judge_all_fixtures(
         backend.as_ref(),
@@ -267,10 +263,7 @@ fn collect_fixture_inputs(
         if let Some(map) = actuals {
             if let Some(a) = map.get(&id) {
                 if let Some(obj) = v.as_object_mut() {
-                    obj.insert(
-                        "actual".to_string(),
-                        serde_json::Value::String(a.clone()),
-                    );
+                    obj.insert("actual".to_string(), serde_json::Value::String(a.clone()));
                 }
             }
         }
@@ -279,7 +272,10 @@ fn collect_fixture_inputs(
             .and_then(|x| x.as_str())
             .unwrap_or("")
             .to_string();
-        let expected = v.get("expected").cloned().unwrap_or(serde_json::Value::Null);
+        let expected = v
+            .get("expected")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
         let Some(actual) = v.get("actual").and_then(|x| x.as_str()).map(String::from) else {
             // No actual → won't be Scored, so the live judge
             // will skip it. Still emit the tuple so id matching

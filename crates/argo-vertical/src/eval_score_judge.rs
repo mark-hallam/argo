@@ -5,7 +5,7 @@
 //! - **`Heuristic`** — pure, deterministic, no LLM dependency.
 //!   Takes the existing per-rule outcomes from the rule engine
 //!   (#693) and aggregates them into a single
-//!   `JudgeVerdict { passed, reason }`. Useful as a CI gate
+//!   `EvalJudgeVerdict { passed, reason }`. Useful as a CI gate
 //!   that wants ONE pass/fail per fixture instead of N rule
 //!   checks. Also catches "rules disagree" cases (e.g. some
 //!   pass, some fail with low-confidence markers).
@@ -24,7 +24,7 @@
 //!
 //! ## File layout
 //!
-//! - This file: types (`JudgeVerdict`, `JudgePolicy`),
+//! - This file: types (`EvalJudgeVerdict`, `JudgePolicy`),
 //!   `parse_judge_spec`, the dispatcher `judge_fixture`, and
 //!   the heuristic aggregator.
 //! - Sibling `eval_score_judge_live.rs`: pure helpers for the
@@ -47,7 +47,7 @@ pub use crate::eval_score_judge_live::{build_judge_prompt, parse_judge_response}
 /// detail. Heuristic verdicts populate `score` as 0.0 / 1.0
 /// (mirrors `passed`) and leave `failed_criteria` empty.
 #[derive(Debug, Clone, Serialize)]
-pub struct JudgeVerdict {
+pub struct EvalJudgeVerdict {
     pub passed: bool,
     pub reason: String,
     /// `"heuristic"` for the rule-aggregating judge,
@@ -128,10 +128,10 @@ pub enum JudgePolicy {
 /// a `not_wired` placeholder; the CLI dispatcher overrides it
 /// with the real verdict from a live transport call.
 #[must_use]
-pub fn judge_fixture(policy: &JudgePolicy, score: &FixtureScore) -> JudgeVerdict {
+pub fn judge_fixture(policy: &JudgePolicy, score: &FixtureScore) -> EvalJudgeVerdict {
     match policy {
         JudgePolicy::Heuristic => heuristic_verdict(score),
-        JudgePolicy::Live { provider, model } => JudgeVerdict {
+        JudgePolicy::Live { provider, model } => EvalJudgeVerdict {
             passed: score.passed,
             reason: format!(
                 "live LLM judge for `{provider}/{model}` not invoked at this layer; CLI handler overrides via the live transport seam (#701). Placeholder mirrors rule-engine outcome (passed={})",
@@ -152,10 +152,10 @@ pub fn judge_fixture(policy: &JudgePolicy, score: &FixtureScore) -> JudgeVerdict
 ///   passes with `"all N rule check(s) passed"`.
 /// - If there were zero checks (e.g. fixture had no scoring
 ///   keys) → judge passes with `"no rule checks ran (vacuous)"`.
-fn heuristic_verdict(score: &FixtureScore) -> JudgeVerdict {
+fn heuristic_verdict(score: &FixtureScore) -> EvalJudgeVerdict {
     let total = score.checks.len();
     if total == 0 {
-        return JudgeVerdict {
+        return EvalJudgeVerdict {
             passed: true,
             reason: "no rule checks ran (vacuous pass — fixture has no scoring keys)".into(),
             source: "heuristic".into(),
@@ -180,7 +180,7 @@ fn heuristic_verdict(score: &FixtureScore) -> JudgeVerdict {
         .map(|c| c.name.clone())
         .collect();
     if failures.is_empty() {
-        JudgeVerdict {
+        EvalJudgeVerdict {
             passed: true,
             reason: format!("all {total} rule check(s) passed"),
             source: "heuristic".into(),
@@ -194,9 +194,12 @@ fn heuristic_verdict(score: &FixtureScore) -> JudgeVerdict {
         } else {
             String::new()
         };
-        JudgeVerdict {
+        EvalJudgeVerdict {
             passed: false,
-            reason: format!("{}/{total} rule check(s) failed: {summary}{more}", score.fail_reasons.len()),
+            reason: format!(
+                "{}/{total} rule check(s) failed: {summary}{more}",
+                score.fail_reasons.len()
+            ),
             source: "heuristic".into(),
             score: Some(0.0),
             failed_criteria,

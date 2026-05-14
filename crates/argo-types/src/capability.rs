@@ -154,8 +154,8 @@ impl CapabilitySet {
 fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
         AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, MemoryWrite,
-        MemoryWriteTeam, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord, SkillWrite,
-        Spawn, ToolDispatch,
+        MemoryWriteTeam, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord, SkillWrite, Spawn,
+        ToolDispatch,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -208,15 +208,15 @@ fn glob_covers(grant_glob: &str, requested: &str) -> bool {
 /// A named role: a `CapabilitySet` plus optional single-inheritance.
 ///
 /// ```
-/// use argo_types::{Capability, CapabilitySet, Role};
-/// let role = Role {
+/// use argo_types::{Capability, CapabilitySet, CapabilityRole};
+/// let role = CapabilityRole {
 ///     name: "operator".into(), capabilities: CapabilitySet(vec![Capability::AuditWrite]),
 ///     inherits_from: Some("viewer".into()),
 /// };
 /// assert_eq!(role.inherits_from.as_deref(), Some("viewer"));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Role {
+pub struct CapabilityRole {
     /// Role name (e.g. `"owner"`).
     pub name: String,
     /// Capabilities granted by the role.
@@ -273,6 +273,6 @@ pub enum Principal {
 pub struct RoleBinding {
     /// Bound principal.
     pub principal: Principal,
-    /// Role name (resolved via the role table).
+    /// CapabilityRole name (resolved via the role table).
     pub role_name: String,
 }

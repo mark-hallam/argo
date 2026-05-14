@@ -1,6 +1,6 @@
 use super::*;
 use argo_capability::CapabilityEngine;
-use argo_types::{ArgoResult, CapabilitySet, Principal, Role, SessionId};
+use argo_types::{ArgoResult, CapabilityRole, CapabilitySet, Principal, SessionId};
 use async_trait::async_trait;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -109,7 +109,7 @@ fn permission_maps_through_capability_engine() {
     // SAME capability engine that backs CLI / TUI / gateway.
     let engine = CapabilityEngine::new();
     engine
-        .add_role(Role {
+        .add_role(CapabilityRole {
             name: "ide".into(),
             inherits_from: None,
             capabilities: CapabilitySet(vec![argo_types::Capability::FsRead {

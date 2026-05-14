@@ -75,7 +75,7 @@ fn dynamic_grant_widens() {
 #[test]
 fn role_inheritance_walks_parents() {
     let e = CapabilityEngine::new();
-    e.add_role(Role {
+    e.add_role(CapabilityRole {
         name: "base".into(),
         inherits_from: None,
         capabilities: CapabilitySet(vec![Capability::ToolDispatch {
@@ -83,7 +83,7 @@ fn role_inheritance_walks_parents() {
         }]),
     })
     .unwrap();
-    e.add_role(Role {
+    e.add_role(CapabilityRole {
         name: "extended".into(),
         inherits_from: Some("base".into()),
         capabilities: CapabilitySet(vec![Capability::ToolDispatch {
@@ -114,20 +114,20 @@ fn role_inheritance_walks_parents() {
 #[test]
 fn cycle_detection_rejects_two_node_cycle() {
     let e = CapabilityEngine::new();
-    e.add_role(Role {
+    e.add_role(CapabilityRole {
         name: "a".into(),
         inherits_from: None,
         capabilities: CapabilitySet::empty(),
     })
     .unwrap();
-    e.add_role(Role {
+    e.add_role(CapabilityRole {
         name: "b".into(),
         inherits_from: Some("a".into()),
         capabilities: CapabilitySet::empty(),
     })
     .unwrap();
     // Now try to redefine 'a' to inherit from 'b' → cycle.
-    let res = e.add_role(Role {
+    let res = e.add_role(CapabilityRole {
         name: "a".into(),
         inherits_from: Some("b".into()),
         capabilities: CapabilitySet::empty(),
@@ -138,7 +138,7 @@ fn cycle_detection_rejects_two_node_cycle() {
 #[test]
 fn unknown_parent_rejected() {
     let e = CapabilityEngine::new();
-    let res = e.add_role(Role {
+    let res = e.add_role(CapabilityRole {
         name: "x".into(),
         inherits_from: Some("does-not-exist".into()),
         capabilities: CapabilitySet::empty(),
