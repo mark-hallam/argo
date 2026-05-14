@@ -26,11 +26,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
-/// `[budget.ceiling]` TOML section — hard per-session / per-day /
-/// per-month USD ceilings consumed by
-/// `argo-provider::spend_gate::SpendGate` (Stream
-/// `mission-llm-budget-hard-ceiling`).
-pub mod budget_ceiling;
 pub mod cred;
 /// OS-keyring backend for [`cred`] (Stream
 /// `mission-system-keyring-integration`). See module docs for service
