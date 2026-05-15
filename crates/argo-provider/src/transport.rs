@@ -169,7 +169,7 @@ pub trait Transport: Send + Sync {
 }
 
 /// Build a `reqwest::Client` with this crate's pool-sizing knobs
-/// stamped on plus the manifest-driven connect/read timeouts.
+/// stamped on plus the manifest-driven connect/per-read timeouts.
 ///
 /// Centralised here so each manifest-backed transport
 /// (`anthropic`, `openai_compat`, `openai_responses`) has a single
@@ -189,7 +189,11 @@ pub fn build_http_client(
     let cfg = crate::pool_config::ProviderPoolConfig::from_env();
     cfg.apply_pool(reqwest::Client::builder())
         .connect_timeout(std::time::Duration::from_millis(connect_timeout_ms))
-        .timeout(std::time::Duration::from_millis(read_timeout_ms))
+        .read_timeout(std::time::Duration::from_millis(read_timeout_ms))
         .build()
         .map_err(|e| argo_types::ArgoError::Provider(format!("reqwest client build: {e}")))
 }
+
+#[cfg(test)]
+#[path = "transport_tests.rs"]
+mod transport_tests;
