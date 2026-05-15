@@ -1,0 +1,54 @@
+{
+  "entry": "load-context",
+  "metadata": {
+    "name": "draft-deal-summary",
+    "version": "1.0.0",
+    "description": "Draft an executive-ready deal summary with quote state, discount rationale, non-standard terms, approvals needed, and recommended next action.",
+    "source": "M20 deal-desk pack"
+  },
+  "variables": [
+    { "name": "deal_context", "varType": "DealContext", "scope": "graph" },
+    { "name": "summary", "varType": "DealSummary", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-context",
+      "label": "Load deal context",
+      "kind": { "type": "fetch", "target": "workspace://deal/context", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "load-history",
+      "label": "Load prior exceptions",
+      "kind": { "type": "fetch", "target": "memory://deal_history", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft",
+      "label": "Draft summary",
+      "kind": {
+        "type": "transform",
+        "template": "Create a concise deal summary with account, ACV, term, products, discount, requested concessions, policy fit, non-standard terms, evidence gaps, approvers, recommendation, and customer-facing hold status."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.89 }
+    },
+    {
+      "id": "approval-ready",
+      "label": "Ready to share?",
+      "kind": { "type": "condition", "expression": "summary.missing_evidence.length == 0 && summary.customer_facing == false" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "review",
+      "label": "Review summary",
+      "kind": { "type": "await-approval", "approverRole": "sales-leader", "timeoutSeconds": 7200 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-context", "to": "load-history", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "load-history", "to": "draft", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "draft", "to": "approval-ready", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "approval-ready", "to": "review", "cond": { "kind": "always" } }
+  ]
+}

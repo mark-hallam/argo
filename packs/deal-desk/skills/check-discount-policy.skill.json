@@ -1,0 +1,57 @@
+{
+  "entry": "load-quote",
+  "metadata": {
+    "name": "check-discount-policy",
+    "version": "1.0.0",
+    "description": "Compare quote discounts against segment, ACV, product, and term policy thresholds and identify required approvals.",
+    "source": "M20 deal-desk pack"
+  },
+  "variables": [
+    { "name": "quote", "varType": "Quote", "scope": "graph" },
+    { "name": "discount_review", "varType": "DiscountReview", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-quote",
+      "label": "Load quote",
+      "kind": { "type": "fetch", "target": "crm.current_quote", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "salesforce", "toolName": "get_quote" }
+      }
+    },
+    {
+      "id": "load-policy",
+      "label": "Load discount policy",
+      "kind": { "type": "fetch", "target": "memory://discount_policies", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "review",
+      "label": "Check discount",
+      "kind": {
+        "type": "transform",
+        "template": "Map the account segment and ACV to the discount policy. Return allowed threshold, requested discount, overage, margin-review need, approvers, and a concise rationale."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.9 }
+    },
+    {
+      "id": "exception-check",
+      "label": "Exception required?",
+      "kind": { "type": "condition", "expression": "discount_review.requested_percent > discount_review.allowed_percent || discount_review.requires_margin_review" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Route discount exception",
+      "kind": { "type": "await-approval", "approverRole": "finance", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-quote", "to": "load-policy", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "load-policy", "to": "review", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "review", "to": "exception-check", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "exception-check", "to": "approval", "cond": { "kind": "on-pattern", "pattern": "true" } }
+  ]
+}

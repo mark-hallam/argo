@@ -1,0 +1,22 @@
+[
+  { "id": "deal-001", "prompt": "Validate a commercial quote missing start date, billing contact, and region-specific price book.", "expected_skill": "validate-quote", "expected_outcome": "missing_required_fields" },
+  { "id": "deal-002", "prompt": "Validate an expansion quote that does not co-term with the master subscription.", "expected_skill": "validate-quote", "expected_outcome": "coterm_blocker" },
+  { "id": "deal-003", "prompt": "Validate a quote that includes premium support without the required enterprise platform SKU.", "expected_skill": "validate-quote", "expected_outcome": "sku_bundle_incompatible" },
+  { "id": "deal-004", "prompt": "Validate a customer-facing quote where all required fields are present and the price book is current.", "expected_skill": "validate-quote", "expected_outcome": "quote_ready" },
+  { "id": "deal-005", "prompt": "Check a 17 percent commercial discount on a 24 month 42000 USD deal.", "expected_skill": "check-discount-policy", "expected_outcome": "sales_leader_review" },
+  { "id": "deal-006", "prompt": "Check a 31 percent enterprise discount on a 95000 USD annual contract.", "expected_skill": "check-discount-policy", "expected_outcome": "finance_and_cro_approval" },
+  { "id": "deal-007", "prompt": "Check a 42 percent strategic discount on a 300000 USD multi-year deal.", "expected_skill": "check-discount-policy", "expected_outcome": "executive_exception" },
+  { "id": "deal-008", "prompt": "Check a 10 percent commercial discount on a 12000 USD standard annual deal.", "expected_skill": "check-discount-policy", "expected_outcome": "within_policy" },
+  { "id": "deal-009", "prompt": "Flag terms where customer asks for Net 60 payment and setoff rights.", "expected_skill": "flag-non-standard-terms", "expected_outcome": "finance_and_legal_flag" },
+  { "id": "deal-010", "prompt": "Flag terms where customer requires uncapped liability and special damages.", "expected_skill": "flag-non-standard-terms", "expected_outcome": "legal_high_severity" },
+  { "id": "deal-011", "prompt": "Flag terms where customer asks for custom uptime credits on a standard support plan.", "expected_skill": "flag-non-standard-terms", "expected_outcome": "support_sla_exception" },
+  { "id": "deal-012", "prompt": "Flag terms where customer requests termination for convenience in month six with refund.", "expected_skill": "flag-non-standard-terms", "expected_outcome": "termination_exception" },
+  { "id": "deal-013", "prompt": "Route approval for a 78000 USD enterprise quote with 28 percent discount and no legal redlines.", "expected_skill": "route-deal-desk-approval", "expected_outcome": "finance_and_sales_route" },
+  { "id": "deal-014", "prompt": "Route approval for a 260000 USD strategic deal with non-standard liability and Net 60 terms.", "expected_skill": "route-deal-desk-approval", "expected_outcome": "finance_legal_cro_cfo_route" },
+  { "id": "deal-015", "prompt": "Route approval for supplier-facing contract changes where required evidence is missing.", "expected_skill": "route-deal-desk-approval", "expected_outcome": "missing_evidence_hold" },
+  { "id": "deal-016", "prompt": "Draft a deal summary for an approved 45000 USD commercial renewal with no exceptions.", "expected_skill": "draft-deal-summary", "expected_outcome": "clean_summary" },
+  { "id": "deal-017", "prompt": "Draft a deal summary for an enterprise expansion with 34 percent discount and custom SLA.", "expected_skill": "draft-deal-summary", "expected_outcome": "exception_summary" },
+  { "id": "deal-018", "prompt": "Draft a deal summary where the sales team has not supplied competitor pricing evidence.", "expected_skill": "draft-deal-summary", "expected_outcome": "evidence_gap" },
+  { "id": "deal-019", "prompt": "End-to-end demo: incoming quote, validate it, flag Net 60 and 32 percent discount, then route deal-desk approval.", "expected_skill": "route-deal-desk-approval", "expected_outcome": "quote_to_approval_packet" },
+  { "id": "deal-020", "prompt": "End-to-end demo: strategic quote passes SKU checks but has uncapped liability and CFO-level discount.", "expected_skill": "route-deal-desk-approval", "expected_outcome": "legal_and_executive_packet" }
+]

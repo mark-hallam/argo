@@ -1,0 +1,9 @@
+[pack]
+name = "deal-desk"
+version = "1.0.0"
+display_name = "Deal Desk Analyst"
+description = "Enterprise deal-desk worker pack for quote validation, discount-policy checks, non-standard-term detection, approval routing, and deal-summary drafting."
+
+[[verticals]]
+id = "deal-desk"
+path = "."

@@ -1,0 +1,54 @@
+{
+  "entry": "load-terms",
+  "metadata": {
+    "name": "flag-non-standard-terms",
+    "version": "1.0.0",
+    "description": "Review quote and contract terms against standard fallback positions and flag legal, billing, support, and termination exceptions.",
+    "source": "M20 deal-desk pack"
+  },
+  "variables": [
+    { "name": "terms", "varType": "ContractTerms", "scope": "graph" },
+    { "name": "term_flags", "varType": "TermFlagReport", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-terms",
+      "label": "Load proposed terms",
+      "kind": { "type": "fetch", "target": "workspace://deal/terms", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "load-standards",
+      "label": "Load standard terms",
+      "kind": { "type": "fetch", "target": "memory://standard_terms", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "compare",
+      "label": "Compare terms",
+      "kind": {
+        "type": "transform",
+        "template": "Compare payment terms, termination rights, liability cap, data-processing commitments, support SLA, audit rights, and governing-law changes against standard and fallback positions. Return flags with severity and approver."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.86 }
+    },
+    {
+      "id": "legal-check",
+      "label": "Legal approval needed?",
+      "kind": { "type": "condition", "expression": "term_flags.high_severity.length > 0 || term_flags.requires_legal" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "legal-approval",
+      "label": "Route legal review",
+      "kind": { "type": "await-approval", "approverRole": "legal", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-terms", "to": "load-standards", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "load-standards", "to": "compare", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "compare", "to": "legal-check", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "legal-check", "to": "legal-approval", "cond": { "kind": "on-pattern", "pattern": "true" } }
+  ]
+}

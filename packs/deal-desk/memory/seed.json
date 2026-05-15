@@ -1,0 +1,92 @@
+{
+  "discount_policies": [
+    {
+      "segment": "commercial",
+      "maxAutoDiscountPercent": 15,
+      "financeApprovalAbovePercent": 20,
+      "croApprovalAbovePercent": 30,
+      "requiresMarginReviewAboveAcvUsd": 50000
+    },
+    {
+      "segment": "enterprise",
+      "maxAutoDiscountPercent": 20,
+      "financeApprovalAbovePercent": 25,
+      "croApprovalAbovePercent": 35,
+      "requiresMarginReviewAboveAcvUsd": 100000
+    },
+    {
+      "segment": "strategic",
+      "maxAutoDiscountPercent": 25,
+      "financeApprovalAbovePercent": 30,
+      "croApprovalAbovePercent": 40,
+      "requiresCfoApprovalAboveAcvUsd": 250000
+    }
+  ],
+  "standard_terms": [
+    {
+      "topic": "payment_terms",
+      "standard": "Net 30",
+      "fallback": "Net 45 with finance approval",
+      "escalateIf": "Net 60 or later, contingent payment, or customer-side setoff rights"
+    },
+    {
+      "topic": "termination_for_convenience",
+      "standard": "No termination for convenience during committed term",
+      "fallback": "Termination for convenience after 12 months with 60 days notice and no refund",
+      "escalateIf": "Any refund obligation or termination in first 12 months"
+    },
+    {
+      "topic": "liability_cap",
+      "standard": "12 months fees",
+      "fallback": "6 months fees for low-risk commercial deals",
+      "escalateIf": "Uncapped liability, special damages, or data breach carve-out changes"
+    },
+    {
+      "topic": "support_sla",
+      "standard": "Standard support plan only unless SKU is included",
+      "fallback": "Premium support if priced as line item",
+      "escalateIf": "Custom uptime, response-time, or service-credit commitment"
+    }
+  ],
+  "approval_matrix": [
+    {
+      "condition": "discount_percent > policy.financeApprovalAbovePercent",
+      "approvers": ["sales-leader", "finance"]
+    },
+    {
+      "condition": "discount_percent > policy.croApprovalAbovePercent",
+      "approvers": ["sales-leader", "finance", "cro"]
+    },
+    {
+      "condition": "has_non_standard_legal_terms",
+      "approvers": ["legal", "deal-desk-lead"]
+    },
+    {
+      "condition": "payment_terms not in standard_fallbacks",
+      "approvers": ["finance", "deal-desk-lead"]
+    },
+    {
+      "condition": "acv_usd >= 250000",
+      "approvers": ["finance", "cro", "cfo"]
+    }
+  ],
+  "quote_validation_rules": [
+    {
+      "ruleId": "required-fields",
+      "fields": ["account_id", "opportunity_id", "quote_id", "currency", "term_months", "start_date", "line_items", "discount_percent"]
+    },
+    {
+      "ruleId": "sku-bundle-compatibility",
+      "rule": "Enterprise support SKUs require enterprise platform SKU and term alignment."
+    },
+    {
+      "ruleId": "co-terming",
+      "rule": "Expansion quotes must co-term to the master subscription unless legal approves a split term."
+    },
+    {
+      "ruleId": "price-book",
+      "rule": "Use active region-specific price book and flag expired promotional prices."
+    }
+  ],
+  "deal_history": []
+}

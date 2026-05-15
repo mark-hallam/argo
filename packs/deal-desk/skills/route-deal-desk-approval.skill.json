@@ -1,0 +1,47 @@
+{
+  "entry": "collect-packet",
+  "metadata": {
+    "name": "route-deal-desk-approval",
+    "version": "1.0.0",
+    "description": "Build and route a deal-desk approval packet to the correct finance, legal, sales, and executive approvers.",
+    "source": "M20 deal-desk pack"
+  },
+  "variables": [
+    { "name": "packet", "varType": "ApprovalPacket", "scope": "graph" },
+    { "name": "routing_plan", "varType": "ApprovalRoutingPlan", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "collect-packet",
+      "label": "Collect deal packet",
+      "kind": { "type": "fetch", "target": "workspace://deal/approval-packet", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "load-matrix",
+      "label": "Load approval matrix",
+      "kind": { "type": "fetch", "target": "memory://approval_matrix", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "plan-route",
+      "label": "Plan approval route",
+      "kind": {
+        "type": "transform",
+        "template": "Select required approvers from discount, ACV, legal-term, payment-term, and executive-approval triggers. Include missing evidence, first approver, fallback channel, and deadline."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.87 }
+    },
+    {
+      "id": "route",
+      "label": "Request approval",
+      "kind": { "type": "await-approval", "approverRole": "deal-desk-lead", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "collect-packet", "to": "load-matrix", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "load-matrix", "to": "plan-route", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "plan-route", "to": "route", "cond": { "kind": "always" } }
+  ]
+}

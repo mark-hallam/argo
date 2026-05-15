@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "skycot.memory.schema.v1",
+  "entries": [
+    {
+      "key": "discount_policies",
+      "type": "list<object>",
+      "purpose": "Segment, ACV, product, and term-specific discount thresholds with required approval roles."
+    },
+    {
+      "key": "standard_terms",
+      "type": "list<object>",
+      "purpose": "Approved commercial, legal, billing, security, support, and termination terms for quote validation."
+    },
+    {
+      "key": "approval_matrix",
+      "type": "list<object>",
+      "purpose": "Approval routing rules by discount, ACV, payment exception, product bundle, region, and contract risk."
+    },
+    {
+      "key": "quote_validation_rules",
+      "type": "list<object>",
+      "purpose": "Required quote fields, SKU rules, co-terming checks, price-book constraints, and packaging constraints."
+    },
+    {
+      "key": "deal_history",
+      "type": "list<object>",
+      "purpose": "Prior approved exceptions, rejected concessions, approver conditions, and reusable deal-summary evidence."
+    }
+  ]
+}

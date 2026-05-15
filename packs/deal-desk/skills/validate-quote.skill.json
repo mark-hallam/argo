@@ -1,0 +1,57 @@
+{
+  "entry": "load-quote",
+  "metadata": {
+    "name": "validate-quote",
+    "version": "1.0.0",
+    "description": "Validate an incoming quote for required fields, SKU compatibility, price-book accuracy, co-terming, and customer-facing readiness.",
+    "source": "M20 deal-desk pack"
+  },
+  "variables": [
+    { "name": "quote", "varType": "Quote", "scope": "graph" },
+    { "name": "validation", "varType": "QuoteValidation", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-quote",
+      "label": "Load quote",
+      "kind": { "type": "fetch", "target": "crm.current_quote", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "salesforce", "toolName": "get_quote" }
+      }
+    },
+    {
+      "id": "load-rules",
+      "label": "Load validation rules",
+      "kind": { "type": "fetch", "target": "memory://quote_validation_rules", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "validate",
+      "label": "Validate quote",
+      "kind": {
+        "type": "transform",
+        "template": "Check required fields, active price book, SKU compatibility, currency, term dates, co-terming, product bundle constraints, and customer-facing readiness. Return blockers, warnings, and evidence."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.88 }
+    },
+    {
+      "id": "blocker-check",
+      "label": "Blockers present?",
+      "kind": { "type": "condition", "expression": "validation.blockers.length > 0 || validation.customer_facing_ready == false" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Route blocker packet",
+      "kind": { "type": "await-approval", "approverRole": "deal-desk-lead", "timeoutSeconds": 7200 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-quote", "to": "load-rules", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "load-rules", "to": "validate", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "validate", "to": "blocker-check", "cond": { "kind": "always" } },
+    { "id": "e4", "from": "blocker-check", "to": "approval", "cond": { "kind": "on-pattern", "pattern": "true" } }
+  ]
+}
