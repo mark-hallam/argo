@@ -1,0 +1,21 @@
+[package]
+name = "argo-mcp-connector-postmark"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Argo MCP connector for Postmark servers, messages, templates, and email"
+
+[[bin]]
+name = "argo-mcp-connector-postmark"
+path = "src/main.rs"
+
+[dependencies]
+argo-config = { path = "../argo-config" }
+argo-mcp = { path = "../argo-mcp" }
+argo-types = { path = "../argo-types" }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
