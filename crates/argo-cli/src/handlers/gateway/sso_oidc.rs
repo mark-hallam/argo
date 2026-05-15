@@ -356,7 +356,10 @@ async fn audit_callback(
     outcome: &str,
 ) {
     let Some(store) = store else { return };
-    let sink = argo_audit::AuditSink::new(std::sync::Arc::clone(store));
+    let sink = argo_audit::AuditSink::new_with_tenant(
+        std::sync::Arc::clone(store),
+        argo_audit::ANONYMOUS_AUDIT_TENANT_ID.to_string(),
+    );
     let payload = serde_json::json!({
         "event_type": "sso.oidc.id_token",
         "outcome": outcome,

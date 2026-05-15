@@ -22,7 +22,7 @@
 //!
 //! Operators can override either gate manually via the existing
 //! `argo skill promote` CLI.
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_judge::{Judge, JudgeEvidence, ProposedArtifact};
 use argo_store::SessionStore;
 use argo_types::{JudgeSubject, JudgeVerdict, SessionId};
@@ -211,7 +211,7 @@ pub(crate) async fn write_promote_blocked_audit(
     best_version: &str,
     decision: &PromoteDecision,
 ) {
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), SYSTEM_AUDIT_TENANT_ID.to_string());
     match decision {
         PromoteDecision::Allow => {}
         PromoteDecision::BelowThreshold { score, threshold } => {

@@ -78,7 +78,11 @@ pub(super) async fn audit_acs(
         "name_id": outcome.audit_name_id,
         "reason": outcome.audit_reason,
     });
-    let _ = argo_audit::AuditSink::new(Arc::clone(store))
+    let sink = argo_audit::AuditSink::new_with_tenant(
+        Arc::clone(store),
+        argo_audit::ANONYMOUS_AUDIT_TENANT_ID.to_string(),
+    );
+    let _ = sink
         .write(None, argo_audit::AuditKind::HttpRequest, payload, None)
         .await;
 }

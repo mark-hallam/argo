@@ -4,7 +4,7 @@
 //! `parse_run_id` helper + the audit-on-abort wiring.
 
 use super::forge_subject::open_store;
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
@@ -60,7 +60,7 @@ pub(super) async fn abort_all_runs() -> ArgoResult<()> {
         };
         if let Ok(n) = store.abort_forge_run(id).await {
             aborted += n;
-            AuditSink::new(Arc::clone(&store))
+            AuditSink::new_with_tenant(Arc::clone(&store), SYSTEM_AUDIT_TENANT_ID.to_string())
                 .write(
                     None,
                     AuditKind::ForgeRunEnd,
@@ -100,7 +100,7 @@ pub(super) async fn sweep_stalled(older_than_minutes: i64) -> ArgoResult<()> {
     let swept = store.sweep_stalled_forge_runs(cutoff_micros).await?;
     for r in &candidates {
         if let Ok(id) = uuid::Uuid::from_slice(&r.id) {
-            AuditSink::new(Arc::clone(&store))
+            AuditSink::new_with_tenant(Arc::clone(&store), SYSTEM_AUDIT_TENANT_ID.to_string())
                 .write(
                     None,
                     AuditKind::ForgeRunEnd,
@@ -128,7 +128,7 @@ pub(super) async fn abort_run(raw: &str) -> ArgoResult<()> {
     if affected == 0 {
         return Err(ArgoError::Provider(format!("no forge run with id {raw}")));
     }
-    AuditSink::new(Arc::clone(&store))
+    AuditSink::new_with_tenant(Arc::clone(&store), SYSTEM_AUDIT_TENANT_ID.to_string())
         .write(
             None,
             AuditKind::ForgeRunEnd,

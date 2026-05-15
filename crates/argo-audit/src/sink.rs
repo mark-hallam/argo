@@ -15,6 +15,7 @@
 //! unchanged).
 use crate::event::AuditKind;
 use crate::filter_dims::{extract_filter_dims, FilterDims};
+use crate::sink_tenant::{stamp_tenant_id, DEFAULT_AUDIT_TENANT_ID};
 use argo_security::pii_detect;
 use argo_store::batched_writer::{self, BatchedWriter};
 use argo_store::SessionStore;
@@ -39,17 +40,6 @@ fn chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
     buf.copy_from_slice(&out);
     buf
 }
-
-/// Default tenant id used by [`AuditSink::new`] when no explicit id
-/// is supplied (Stream `mission-enterprise-cross-tenant-audit`). New
-/// rows lose the `__legacy__` sentinel and self-name under one
-/// stable workspace bucket; the audit feed's default tenant unions
-/// this constant into its read scope so single-tenant deployments
-/// behave identically to pre-tenant audits. Callers that know their
-/// workspace tenant should use [`AuditSink::new_with_tenant`] (or
-/// [`AuditSink::write_with_tenant`] for ad-hoc writes); `argo-config`
-/// exposes `workspace_tenant_id` for the canonical resolution path.
-pub const DEFAULT_AUDIT_TENANT_ID: &str = "ws-default";
 
 /// Append-only sink that writes to the §7 `audit_record` table.
 ///
@@ -289,30 +279,6 @@ impl AuditSink {
 #[must_use]
 pub fn compute_chain_hash(parent: &[u8; 32], kind: &str, payload: &str) -> [u8; 32] {
     chain_hash(parent, kind, payload)
-}
-
-/// Stamp `tenant_id` into a payload at the publish edge (Stream
-/// `mission-enterprise-cross-tenant-audit`). Objects gain a
-/// top-level `"tenant_id"` key; non-object payloads are rewritten to
-/// `{ "_": <original>, "tenant_id": <id> }` so the column-vs-payload
-/// invariant holds for every row. An existing `tenant_id` key in an
-/// object payload is overwritten — the sink is authoritative.
-fn stamp_tenant_id(payload: serde_json::Value, tenant_id: &str) -> serde_json::Value {
-    if let serde_json::Value::Object(mut map) = payload {
-        map.insert(
-            "tenant_id".to_string(),
-            serde_json::Value::String(tenant_id.to_string()),
-        );
-        serde_json::Value::Object(map)
-    } else {
-        let mut map = serde_json::Map::new();
-        map.insert("_".to_string(), payload);
-        map.insert(
-            "tenant_id".to_string(),
-            serde_json::Value::String(tenant_id.to_string()),
-        );
-        serde_json::Value::Object(map)
-    }
 }
 
 /// Pull every UUID-shaped worker id out of a freshly-written audit

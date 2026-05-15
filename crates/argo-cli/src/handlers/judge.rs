@@ -7,7 +7,7 @@
 //! judge stays with the daemon's worker.
 use crate::cli::JudgeCmd;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, JudgeRecordId, SessionId};
 use chrono::{DateTime, Utc};
@@ -52,7 +52,7 @@ async fn override_verdict(raw: &str, new_verdict: &str) -> ArgoResult<()> {
             "no judge record with id {raw}"
         )));
     };
-    AuditSink::new(Arc::clone(&store))
+    AuditSink::new_with_tenant(Arc::clone(&store), SYSTEM_AUDIT_TENANT_ID.to_string())
         .write(
             Some(session_id),
             AuditKind::JudgeVerdict,

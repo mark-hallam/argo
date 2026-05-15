@@ -7,7 +7,7 @@ use super::forge_optimize;
 use super::forge_runs_list;
 use super::forge_subject::{open_store, BenchSubject};
 use crate::cli::{ForgeCmd, ForgeRunsCmd};
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_eval::{load_jsonl, run_eval};
 use argo_skill::SkillStore;
 use argo_types::{ArgoError, ArgoResult};
@@ -245,7 +245,7 @@ async fn promote(skill_name: &str, version: &str) -> ArgoResult<()> {
     let store = Arc::new(open_store().await?);
     let skills = SkillStore::new(Arc::clone(&store));
     let promoted = skills.promote(skill_name, version).await?;
-    AuditSink::new(Arc::clone(&store))
+    AuditSink::new_with_tenant(Arc::clone(&store), SYSTEM_AUDIT_TENANT_ID.to_string())
         .write(
             None,
             AuditKind::ForgeRunEnd,

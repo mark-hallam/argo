@@ -2,7 +2,7 @@
 //!
 //! The store owns the state transition; this task only calls it on a
 //! fixed cadence and writes one audit row when a sweep expires rows.
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_store::{approvals, SessionStore};
 use argo_types::ArgoResult;
 use chrono::{DateTime, Utc};
@@ -53,7 +53,7 @@ pub(crate) async fn sweep_once(store: &Arc<SessionStore>, now: DateTime<Utc>) ->
             "count": count,
             "swept_at_iso": now.to_rfc3339(),
         });
-        AuditSink::new(Arc::clone(store))
+        AuditSink::new_with_tenant(Arc::clone(store), SYSTEM_AUDIT_TENANT_ID.to_string())
             .write(None, AuditKind::ApprovalExpiredByTimeout, payload, None)
             .await?;
     }

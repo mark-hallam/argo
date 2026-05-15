@@ -3,7 +3,7 @@
 //! that file under the 500-LOC ceiling.
 
 use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_store::SessionStore;
 use argo_telemetry::span_context::{enter_context, LogContext};
 use argo_types::{ArgoError, ArgoResult};
@@ -413,7 +413,7 @@ fn insecure_bind_audit_payload(bind: &str, port: u16, pid: u32) -> Value {
 }
 
 async fn emit_insecure_bind_audit(store: &Arc<SessionStore>, bind: &str, port: u16) {
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), SYSTEM_AUDIT_TENANT_ID.to_string());
     let payload = insecure_bind_audit_payload(bind, port, std::process::id());
     if let Err(e) = sink
         .write(None, AuditKind::GatewayInsecureBind, payload, None)
