@@ -1,17 +1,6 @@
-//! Public `MacosCuExecutor` orchestrator. Wires preflight + app
-//! activation + screenshot capture + Anthropic CU loop +
-//! event injection into a single `run()` entry point.
-//!
-//! The executor is structurally a sibling of
-//! [`argo_executor_computer_use::ComputerUseExecutor`] — same
-//! `RunRequest → Outcome` shape, same Anthropic-loop step
-//! semantics. The only difference is the sandbox driver.
-//!
-//! For the V1.5 PoC the executor is buildable + testable but
-//! NOT yet wired into `argo-cli`'s
-//! `worker_actions_executor::resolve_executor` arm — that
-//! ExecutorKind variant + dispatch arm ships as the follow-up
-//! brief. The crate stands alone here as a library.
+//! Public `MacosCuExecutor` orchestrator: preflight, app
+//! activation, screenshot capture, Anthropic CU loop, and event
+//! injection through native macOS primitives.
 
 use crate::a11y::{activate_app, assert_front_app_is};
 use crate::config::MacosCuConfig;
@@ -20,7 +9,17 @@ use crate::events::{action_kind, post, MacosActionResult};
 use crate::preflight::{probe, PermissionReport};
 use crate::screenshot::{capture_front_window, read_png, screen_size};
 use crate::MacosCuResult;
-use argo_executor_computer_use::e2b::CuAction;
+use argo_executor_computer_use::anthropic::{
+    AnthropicCall, AnthropicClient, CuStepRequest, CuStepResponse, StopReason,
+};
+use argo_executor_computer_use::audit::{AuditLog, CuAuditEvent};
+use argo_executor_computer_use::budget::{BudgetTracker, BudgetVerdict};
+use argo_executor_computer_use::config::DEFAULT_TOOL_VARIANT;
+use argo_executor_computer_use::e2b::{ActionResult, CuAction};
+use argo_executor_computer_use::profile::Profile;
+use argo_executor_computer_use::restart::RestartCoordinator;
+use argo_executor_computer_use::{CuError, CuStepRunner};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -32,44 +31,25 @@ pub struct MacosCuExecutor {
     config: MacosCuConfig,
 }
 
-/// One dispatch input. Mirrors
-/// [`argo_executor_computer_use::RunRequest`] in shape so the
-/// dispatcher can hand off between executors with minimal glue.
+/// One native-macOS CU dispatch input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MacosCuRunRequest {
-    /// Action id from the worker_action ledger row.
     pub action_id: String,
-    /// Full system prompt — task description, target app, any
-    /// app-specific context.
     pub system_prompt: String,
-    /// Where to write the per-step screenshots + audit jsonl.
     pub audit_dir: PathBuf,
-    /// Anthropic API key. The executor stamps a fresh client per
-    /// run so concurrent dispatches don't share state.
     pub anthropic_api_key: String,
 }
 
-/// Outcome polarity matches the E2B executor:
-/// [`argo_executor_computer_use::Outcome`]. Both feed the same
-/// dispatcher arm; the dispatcher auto-completes on `Completed`
-/// and routes to human handoff on `HumanHandoff`.
+/// Outcome polarity matches the E2B executor.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MacosCuOutcome {
-    /// Model emitted `stop_success`; the loop captured a result.
     Completed {
-        /// Plain-English summary of what the loop accomplished.
         summary: String,
-        /// Per-step audit-friendly trace.
         steps: Vec<MacosStepRecord>,
-        /// Wallclock seconds the loop took.
         wallclock_seconds: u32,
     },
-    /// Budget exhausted, model emitted `stop_failure`, or a
-    /// recoverable error surfaced.
     HumanHandoff {
-        /// One-line operator-facing reason.
         reason: String,
-        /// Steps taken so far.
         steps: Vec<MacosStepRecord>,
     },
 }
@@ -77,19 +57,17 @@ pub enum MacosCuOutcome {
 /// One CU loop step's audit row.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MacosStepRecord {
-    /// 0-indexed step number in this dispatch.
     pub step: u32,
-    /// Action kind label (`click` / `type` / `key` / ...).
-    /// Owned `String` (not `&'static str`) so the row round-trips
-    /// through the audit jsonl.
     pub action_kind: String,
-    /// Operator-facing summary of the action.
     pub action_summary: String,
-    /// Result returned by the OS.
     pub result: MacosActionResult,
-    /// Whether this step ended the loop (stop_success or
-    /// stop_failure). `None` if the model emitted a tool_use.
     pub stop_signal: Option<String>,
+}
+
+/// Per-dispatch native macOS session used by `CuStepRunner`.
+#[derive(Debug, Clone)]
+pub struct MacosCuSession {
+    pub(crate) screenshot_path: PathBuf,
 }
 
 impl MacosCuExecutor {
@@ -106,6 +84,36 @@ impl MacosCuExecutor {
     /// `report.actionable_summary()` if any are missing.
     pub async fn preflight(&self) -> PermissionReport {
         probe()
+    }
+
+    /// Run the autonomous Anthropic computer-use loop against
+    /// native macOS step primitives.
+    pub async fn run(&self, req: MacosCuRunRequest) -> MacosCuResult<MacosCuOutcome> {
+        let report = self.preflight().await;
+        if !report.all_granted() {
+            return Ok(Self::handoff(report.actionable_summary(), Vec::new()));
+        }
+        let audit = AuditLog::create(req.audit_dir.clone()).map_err(macos_from_cu)?;
+        let (width, height) = self.screen_size()?;
+        let profile = profile_from_config(&self.config, width, height);
+        let anthropic =
+            anthropic_client(&self.config, &req.anthropic_api_key).map_err(macos_from_cu)?;
+        let session = MacosCuSession {
+            screenshot_path: req.audit_dir.join("front-window.png"),
+        };
+        let mut tracker = BudgetTracker::new(&profile);
+        run_loop_with_client(
+            self,
+            &anthropic,
+            &req,
+            &profile,
+            &session,
+            &audit,
+            &mut tracker,
+            Instant::now(),
+        )
+        .await
+        .map_err(macos_from_cu)
     }
 
     /// Borrow the active config for the dispatcher.
@@ -196,63 +204,292 @@ impl MacosCuExecutor {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[async_trait]
+impl CuStepRunner for MacosCuExecutor {
+    type Session = MacosCuSession;
 
-    #[test]
-    fn new_validates_config() {
-        let mut cfg = MacosCuConfig::for_notes_app();
-        cfg.target_app = "com.apple.Terminal".to_string();
-        let err = MacosCuExecutor::new(cfg).unwrap_err();
-        assert!(matches!(err, MacosCuError::Protocol(_)));
-    }
-
-    #[test]
-    fn new_accepts_default_config() {
-        let cfg = MacosCuConfig::for_notes_app();
-        let _ = MacosCuExecutor::new(cfg).unwrap();
-    }
-
-    #[test]
-    fn handoff_helper_packages_reason() {
-        let out = MacosCuExecutor::handoff("budget", vec![]);
-        match out {
-            MacosCuOutcome::HumanHandoff { reason, steps } => {
-                assert_eq!(reason, "budget");
-                assert!(steps.is_empty());
-            }
-            _ => panic!("expected HumanHandoff"),
+    async fn preflight(&self) -> Result<(), CuError> {
+        let report = MacosCuExecutor::preflight(self).await;
+        if report.all_granted() {
+            Ok(())
+        } else {
+            Err(CuError::Protocol(report.actionable_summary()))
         }
     }
 
-    #[test]
-    fn completed_helper_records_wallclock_in_seconds() {
-        let out = MacosCuExecutor::completed("ok", vec![], std::time::Duration::from_secs(42));
-        match out {
-            MacosCuOutcome::Completed {
-                wallclock_seconds, ..
-            } => {
-                assert_eq!(wallclock_seconds, 42);
+    async fn warm_up(&self, session: &Self::Session) -> Result<Vec<u8>, CuError> {
+        MacosCuExecutor::warm_up(self, &session.screenshot_path)
+            .await
+            .map_err(|e| macos_to_cu(e, "macos.warm_up"))
+    }
+
+    async fn capture_screenshot(&self, session: &Self::Session) -> Result<Vec<u8>, CuError> {
+        capture_front_window(&session.screenshot_path)
+            .map_err(|e| macos_to_cu(e, "macos.screenshot"))?;
+        read_png(&session.screenshot_path).map_err(|e| macos_to_cu(e, "macos.screenshot.read"))
+    }
+
+    async fn execute_step_recorded(
+        &self,
+        _session: &Self::Session,
+        action: &CuAction,
+    ) -> Result<ActionResult, CuError> {
+        let result = MacosCuExecutor::execute_step(self, action)
+            .await
+            .map_err(|e| macos_to_cu(e, "macos.action"))?;
+        Ok(ActionResult {
+            ok: result.ok,
+            text: result.text,
+            screenshot_b64: None,
+        })
+    }
+
+    async fn recover_after_error(
+        &self,
+        err: &CuError,
+        stage: &'static str,
+        _profile: &Profile,
+        _coordinator: &mut RestartCoordinator,
+        _session: &mut Self::Session,
+        _screenshot: &mut Vec<u8>,
+        _system_prompt: &mut String,
+        _base_system_prompt: &str,
+    ) -> Result<Option<String>, CuError> {
+        Ok(Some(format!("{stage} failed: {err}")))
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn run_loop_with_client<R, A>(
+    runner: &R,
+    anthropic: &A,
+    req: &MacosCuRunRequest,
+    profile: &Profile,
+    session: &R::Session,
+    audit: &AuditLog,
+    tracker: &mut BudgetTracker,
+    started_at: Instant,
+) -> Result<MacosCuOutcome, CuError>
+where
+    R: CuStepRunner + ?Sized,
+    A: AnthropicCall + ?Sized,
+{
+    runner.preflight().await?;
+    let mut state = LoopState::new(req.system_prompt.clone(), runner.warm_up(session).await?);
+    audit.save_screenshot(0, &state.screenshot)?;
+    loop {
+        let responses = anthropic.step(step_request(profile, &state)).await?;
+        for response in responses {
+            if let Some(outcome) = handle_response(
+                runner, session, audit, tracker, &mut state, response, started_at,
+            )
+            .await?
+            {
+                return Ok(outcome);
             }
-            _ => panic!("expected Completed"),
         }
     }
+}
 
-    #[test]
-    fn budget_exhausted_when_steps_exceed_max() {
-        let cfg = MacosCuConfig::for_notes_app();
-        let exec = MacosCuExecutor::new(cfg).unwrap();
-        let started = Instant::now();
-        assert!(exec.budget_exhausted(exec.config.max_steps, started));
-        assert!(exec.budget_exhausted(exec.config.max_steps + 1, started));
-        assert!(!exec.budget_exhausted(exec.config.max_steps - 1, started));
+struct LoopState {
+    prior_actions: Vec<String>,
+    steps: Vec<MacosStepRecord>,
+    screenshot: Vec<u8>,
+    system_prompt: String,
+}
+
+impl LoopState {
+    fn new(system_prompt: String, screenshot: Vec<u8>) -> Self {
+        Self {
+            prior_actions: Vec::new(),
+            steps: Vec::new(),
+            screenshot,
+            system_prompt,
+        }
     }
+}
 
-    #[test]
-    fn budget_not_exhausted_below_ceiling() {
-        let cfg = MacosCuConfig::for_notes_app();
-        let exec = MacosCuExecutor::new(cfg).unwrap();
-        assert!(!exec.budget_exhausted(0, Instant::now()));
+fn step_request<'a>(profile: &'a Profile, state: &'a LoopState) -> CuStepRequest<'a> {
+    CuStepRequest {
+        system_prompt: &state.system_prompt,
+        screenshot_png: &state.screenshot,
+        prior_actions: &state.prior_actions,
+        screen_width: profile.screen_width,
+        screen_height: profile.screen_height,
+    }
+}
+
+async fn handle_response<R>(
+    runner: &R,
+    session: &R::Session,
+    audit: &AuditLog,
+    tracker: &mut BudgetTracker,
+    state: &mut LoopState,
+    response: CuStepResponse,
+    started_at: Instant,
+) -> Result<Option<MacosCuOutcome>, CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
+    match response {
+        CuStepResponse::Stop {
+            reason,
+            text,
+            tokens_used,
+        } => Ok(Some(stop_outcome(
+            reason,
+            text,
+            tokens_used,
+            tracker,
+            state,
+            started_at,
+        ))),
+        CuStepResponse::ToolCall {
+            action,
+            tokens_used,
+        } => handle_tool_call(runner, session, audit, tracker, state, action, tokens_used).await,
+    }
+}
+
+fn stop_outcome(
+    reason: StopReason,
+    text: Option<String>,
+    tokens_used: u32,
+    tracker: &mut BudgetTracker,
+    state: &LoopState,
+    started_at: Instant,
+) -> MacosCuOutcome {
+    if let BudgetVerdict::Exhausted { reason } = tracker.charge_step(tokens_used) {
+        return MacosCuExecutor::handoff(reason, state.steps.clone());
+    }
+    match reason {
+        StopReason::Success => MacosCuExecutor::completed(
+            text.unwrap_or_else(|| "macOS computer-use action completed".into()),
+            state.steps.clone(),
+            started_at.elapsed(),
+        ),
+        StopReason::Failure => MacosCuExecutor::handoff(
+            text.unwrap_or_else(|| "model emitted stop_failure".into()),
+            state.steps.clone(),
+        ),
+    }
+}
+
+async fn handle_tool_call<R>(
+    runner: &R,
+    session: &R::Session,
+    audit: &AuditLog,
+    tracker: &mut BudgetTracker,
+    state: &mut LoopState,
+    action: CuAction,
+    tokens_used: u32,
+) -> Result<Option<MacosCuOutcome>, CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
+    if let BudgetVerdict::Exhausted { reason } = tracker.charge_step(tokens_used) {
+        return Ok(Some(MacosCuExecutor::handoff(reason, state.steps.clone())));
+    }
+    let step = tracker.step();
+    let result = match runner.execute_step_recorded(session, &action).await {
+        Ok(result) => result,
+        Err(err) => {
+            return Ok(Some(MacosCuExecutor::handoff(
+                err.to_string(),
+                state.steps.clone(),
+            )))
+        }
+    };
+    state
+        .prior_actions
+        .push(format!("step {step}: {}", action.summary()));
+    state.screenshot = runner.capture_screenshot(session).await?;
+    append_step(audit, tracker, state, step, action, result, tokens_used)?;
+    Ok(None)
+}
+
+fn append_step(
+    audit: &AuditLog,
+    tracker: &BudgetTracker,
+    state: &mut LoopState,
+    step: u32,
+    action: CuAction,
+    result: ActionResult,
+    tokens_used: u32,
+) -> Result<(), CuError> {
+    let screenshot_relpath = audit.save_screenshot(step, &state.screenshot)?;
+    audit.append(&CuAuditEvent {
+        step,
+        at: chrono::Utc::now().to_rfc3339(),
+        action: action.clone(),
+        result: result.clone(),
+        screenshot_relpath,
+        tokens_used,
+        budget: tracker.snapshot(),
+    })?;
+    state.steps.push(step_record(step, action, result));
+    Ok(())
+}
+
+fn step_record(step: u32, action: CuAction, result: ActionResult) -> MacosStepRecord {
+    MacosStepRecord {
+        step,
+        action_kind: action_kind(&action).to_string(),
+        action_summary: action.summary(),
+        result: MacosActionResult {
+            ok: result.ok,
+            text: result.text,
+            front_app_after: None,
+        },
+        stop_signal: None,
+    }
+}
+
+fn profile_from_config(config: &MacosCuConfig, width: u32, height: u32) -> Profile {
+    Profile {
+        sandbox_template: "native-macos".into(),
+        description: format!("Native macOS target app {}", config.target_app),
+        url_whitelist: Vec::new(),
+        max_tokens_per_action: 150_000,
+        max_wallclock_seconds: config.max_wallclock_seconds,
+        max_steps: config.max_steps,
+        screen_width: width,
+        screen_height: height,
+        model: config.anthropic_model.clone(),
+        restart: Default::default(),
+    }
+}
+
+fn anthropic_client(config: &MacosCuConfig, api_key: &str) -> Result<AnthropicClient, CuError> {
+    AnthropicClient::new(
+        config
+            .anthropic_base_url
+            .clone()
+            .unwrap_or_else(|| "https://api.anthropic.com".into()),
+        api_key.to_string(),
+        config.anthropic_model.clone(),
+        DEFAULT_TOOL_VARIANT.to_string(),
+        config.anthropic_timeout_seconds,
+    )
+}
+
+fn macos_from_cu(err: CuError) -> MacosCuError {
+    let msg = err.to_string();
+    match err {
+        CuError::Io { source, .. } => MacosCuError::Io(source),
+        CuError::Http { .. } | CuError::HttpStatus { .. } => MacosCuError::Anthropic(msg),
+        _ => MacosCuError::Protocol(msg),
+    }
+}
+
+fn macos_to_cu(err: MacosCuError, stage: &'static str) -> CuError {
+    let message = err.to_string();
+    if err.is_recoverable_to_handoff() {
+        CuError::BudgetExhausted {
+            step: 0,
+            reason: format!("{stage}: {message}"),
+        }
+    } else {
+        CuError::Protocol(format!("{stage}: {message}"))
     }
 }
