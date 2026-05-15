@@ -13,7 +13,7 @@ LOC: ~300.
 ## Files you may touch
 
 - `crates/argo-provider/src/transport.rs` — narrowly: timeout reset on heartbeat. ≤80 modified lines.
-- `crates/argo-provider/src/transport_tests.rs` (sibling) — integration test with mock SSE. ≤150 LOC.
+- `crates/argo-provider/src/transport_tests.rs` (NEW) (sibling) — integration test with mock SSE. ≤150 LOC.
 
 ## Files you must NOT touch
 

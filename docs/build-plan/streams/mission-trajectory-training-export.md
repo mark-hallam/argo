@@ -6,13 +6,13 @@
 
 ## Scope
 
-v2.0 self-improvement. Aggregate successful session trajectories into jsonl format (instruction + input + expected_output per action). CLI: `argo skill export-training --vertical X --start-date Y`. Filter + format. Output consumable by Claude/etc fine-tuning APIs.
+v2.0 self-improvement. Aggregate successful session trajectories into jsonl format (instruction + input + expected_output per action). CLI: `argo training export --vertical X --start-date Y` (new top-level `Training` enum variant, distinct from skill management). Filter + format. Output consumable by Claude/etc fine-tuning APIs.
 
 LOC: ~450.
 
 ## Files you may touch
 
-- NEW `crates/argo-cli/src/handlers/training.rs` — exporter handler. ≤250 LOC.
+- NEW `crates/argo-cli/src/handlers/training.rs` (NEW) — exporter handler. ≤250 LOC.
 - `crates/argo-audit/src/export.rs` — narrowly: trajectory aggregation. ≤80 modified lines.
 - `crates/argo-cli/src/cli_command_enum.rs` — narrowly: `Training` variant. ≤20 modified lines.
 - Test sibling — round-trip + format validation. ≤100 LOC.

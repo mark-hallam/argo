@@ -12,7 +12,7 @@ LOC: ~250.
 
 ## Files you may touch
 
-- `crates/argo-runtime/src/executor.rs` — narrowly: add Filesystem variant + dispatch arm. ≤40 modified lines.
+- `crates/argo-runtime/src/executor.rs` (NEW) — narrowly: add Filesystem variant + dispatch arm. ≤40 modified lines.
 - `crates/argo-core/src/agent.rs` (or current dispatch location) — narrowly: route filesystem actions. ≤30 modified lines.
 - `crates/argo-executor-filesystem/tests/` — integration test: file create/read/delete in worker root + sandbox-escape rejection. ≤150 LOC.
 

@@ -12,9 +12,9 @@ LOC: ~700.
 
 ## Files you may touch
 
-- NEW `crates/argo-policy/src/lib.rs` — Policy IR + loader. ≤400 LOC.
-- NEW `crates/argo-policy/src/lib_tests.rs` — parsing + evaluation. ≤200 LOC.
-- NEW `crates/argo-policy/Cargo.toml`.
+- NEW `crates/argo-policy/src/lib.rs` (NEW) — Policy IR + loader. ≤400 LOC.
+- NEW `crates/argo-policy/src/lib_tests.rs` (NEW) — parsing + evaluation. ≤200 LOC.
+- NEW `crates/argo-policy/Cargo.toml` (NEW).
 - Workspace `Cargo.toml` — add member.
 - `crates/argo-cli/src/handlers/work_loop.rs` — narrowly: policy-gate hook. ≤40 modified lines.
 

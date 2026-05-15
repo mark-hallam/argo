@@ -15,7 +15,7 @@ LOC: ~350.
 - `crates/argo-skill/src/quality.rs` — narrowly: QualityTrend + slope math. ≤120 modified lines.
 - Test sibling — trend computation, slope calc. ≤100 LOC.
 - `crates/argo-cli/src/handlers/gateway/routes_skill_quality.rs` (NEW) — `/api/skills/<id>/quality-trend` endpoint. ≤120 LOC.
-- `crates/argo-forge/src/promote.rs` — narrowly: demote on negative trend. ≤30 modified lines.
+- `crates/argo-forge/src/promote.rs` (NEW) — narrowly: demote on negative trend. ≤30 modified lines.
 
 ## Files you must NOT touch
 

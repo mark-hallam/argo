@@ -13,7 +13,7 @@ LOC: ~900.
 ## Files you may touch
 
 - `crates/argo-orchestrator/src/checkpoint.rs` (NEW) — serialization + persistence. ≤400 LOC.
-- NEW `crates/argo-store/migrations/NNNN_dag_checkpoint.sql` — pick next free slot at claim. ≤30 lines.
+- NEW `crates/argo-store/migrations/NNNN_dag_checkpoint.sql` (NEW) — pick next free slot at claim. ≤30 lines.
 - `crates/argo-cli/src/handlers/workflow.rs` — narrowly: add resume command. ≤80 modified lines.
 - Test sibling — crash + resume integration test. ≤180 LOC.
 

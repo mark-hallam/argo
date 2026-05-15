@@ -12,8 +12,8 @@ LOC: ~750.
 
 ## Files you may touch
 
-- NEW `crates/argo-runtime/src/anomaly.rs` — scoring engine. ≤500 LOC.
-- NEW `crates/argo-runtime/src/anomaly_tests.rs` — synthetic anomalous trajectories. ≤200 LOC.
+- NEW `crates/argo-runtime/src/anomaly.rs` (NEW) — scoring engine. ≤500 LOC.
+- NEW `crates/argo-runtime/src/anomaly_tests.rs` (NEW) — synthetic anomalous trajectories. ≤200 LOC.
 - `crates/argo-cli/src/handlers/work_loop.rs` — narrowly: anomaly-check gate. ≤50 modified lines.
 - `crates/argo-runtime/src/lib.rs` — `pub mod anomaly;`. ≤3 lines.
 - `crates/argo-config/src/sections.rs` — `[anomaly]` block. ≤25 modified lines.

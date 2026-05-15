@@ -13,6 +13,8 @@ LOC: ~250.
 ## Files you may touch
 
 - `crates/argo-cli/src/handlers/work_loop.rs` — narrowly: error-counter + pause-gate. ≤80 modified lines.
+- `crates/argo-cli/src/cli_worker_cmds.rs` — narrowly: `WorkerCmd::Resume` enum variant if absent. ≤20 modified lines.
+- `crates/argo-cli/src/handlers/worker_actions.rs` — narrowly: `resume_worker` handler (clear circuit-breaker state). ≤40 modified lines.
 - `crates/argo-config/src/sections.rs` — `[work_loop.circuit_breaker]` block. ≤25 modified lines.
 - Test sibling — counter reset, threshold firing, gate behavior. ≤140 LOC.
 

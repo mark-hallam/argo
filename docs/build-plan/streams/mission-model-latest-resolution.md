@@ -13,7 +13,7 @@ LOC: ~180.
 ## Files you may touch
 
 - `crates/argo-provider/src/transport.rs` (or discovery.rs sibling) — refresh scheduler. ≤80 modified lines.
-- `crates/argo-config/src/sections_provider.rs` — `refresh_interval_hours` parsing. ≤20 modified lines.
+- `crates/argo-config/src/sections_provider.rs` (NEW) — `refresh_interval_hours` parsing. ≤20 modified lines.
 - Test sibling — mock-endpoint cache test. ≤80 LOC.
 
 ## Files you must NOT touch

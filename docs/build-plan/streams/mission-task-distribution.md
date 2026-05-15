@@ -13,7 +13,7 @@ LOC: ~800.
 ## Files you may touch
 
 - `crates/argo-orchestrator/src/routing.rs` — narrowly: round_robin() + skill_auction() impls. ≤200 modified lines.
-- `crates/argo-skill/src/skill_match.rs` — narrowly: real impl (current returns None). ≤120 modified lines.
+- `crates/argo-skill/src/skill_match.rs` (NEW) — narrowly: real impl (current returns None). ≤120 modified lines.
 - Test sibling — both modes with synthetic workers. ≤200 LOC.
 
 ## Files you must NOT touch

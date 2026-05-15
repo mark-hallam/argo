@@ -12,9 +12,9 @@ LOC: ~600.
 
 ## Files you may touch
 
-- NEW `crates/argo-classification/src/lib.rs` — tags + handlers. ≤350 LOC.
-- NEW `crates/argo-classification/src/lib_tests.rs` — tests. ≤150 LOC.
-- NEW `crates/argo-classification/Cargo.toml`.
+- NEW `crates/argo-classification/src/lib.rs` (NEW) — tags + handlers. ≤350 LOC.
+- NEW `crates/argo-classification/src/lib_tests.rs` (NEW) — tests. ≤150 LOC.
+- NEW `crates/argo-classification/Cargo.toml` (NEW).
 - Workspace `Cargo.toml` — add member.
 - `crates/argo-audit/src/event.rs` — narrowly: emit classification metadata. ≤40 modified lines.
 - `crates/argo-store/src/redact.rs` (NEW or extend) — narrowly: per-class redaction. ≤60 modified lines.

@@ -13,7 +13,7 @@ LOC: ~500.
 ## Files you may touch
 
 - `crates/argo-skill/src/ab_test.rs` — narrowly: regression detector. ≤120 modified lines.
-- `crates/argo-forge/src/promote.rs` — narrowly: auto-promote/demote decision. ≤80 modified lines.
+- `crates/argo-forge/src/promote.rs` (NEW) — narrowly: auto-promote/demote decision. ≤80 modified lines.
 - Test sibling — cohort assignment + regression math. ≤200 LOC.
 
 ## Files you must NOT touch

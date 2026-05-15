@@ -12,11 +12,11 @@ LOC: ~900.
 
 ## Files you may touch
 
-- NEW `crates/argo-executor-code/src/lib.rs` — executor impl. ≤500 LOC.
-- NEW `crates/argo-executor-code/src/lib_tests.rs` — language/timeout/memory tests. ≤250 LOC.
-- NEW `crates/argo-executor-code/Cargo.toml`.
+- NEW `crates/argo-executor-code/src/lib.rs` (NEW) — executor impl. ≤500 LOC.
+- NEW `crates/argo-executor-code/src/lib_tests.rs` (NEW) — language/timeout/memory tests. ≤250 LOC.
+- NEW `crates/argo-executor-code/Cargo.toml` (NEW).
 - Workspace `Cargo.toml` — narrowly: add member. ≤3 lines.
-- `crates/argo-runtime/src/executor.rs` — narrowly: register `ExecutorKind::Code` variant. ≤30 modified lines.
+- `crates/argo-runtime/src/executor.rs` (NEW) — narrowly: register `ExecutorKind::Code` variant. ≤30 modified lines.
 - `crates/argo-config/src/sections.rs` — narrowly: `[executor.code]` block. ≤25 modified lines.
 
 ## Files you must NOT touch

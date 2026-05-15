@@ -12,7 +12,7 @@ LOC: ~220.
 
 ## Files you may touch
 
-- `crates/argo-runtime/src/executor.rs` — narrowly: add Document* variants + dispatch arms. ≤50 modified lines.
+- `crates/argo-runtime/src/executor.rs` (NEW) — narrowly: add Document* variants + dispatch arms. ≤50 modified lines.
 - `crates/argo-core/src/agent.rs` — narrowly: route document actions. ≤30 modified lines.
 - Integration test sibling — PDF + markdown + CSV happy path. ≤130 LOC.
 

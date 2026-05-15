@@ -15,9 +15,9 @@ LOC: ~500.
 - NEW `crates/argo-identity/src/roster.rs` — Roster struct + storage. ≤250 LOC.
 - NEW `crates/argo-identity/src/roster_tests.rs` — unit tests. ≤150 LOC.
 - `crates/argo-identity/src/policy.rs` — narrowly: team-level inheritance. ≤30 modified lines.
-- NEW `crates/argo-cli/src/handlers/roster.rs` — CLI handler. ≤200 LOC.
+- NEW `crates/argo-cli/src/handlers/roster.rs` (NEW) — CLI handler. ≤200 LOC.
 - `crates/argo-cli/src/cli_command_enum.rs` — Roster variant. ≤15 modified lines.
-- NEW `crates/argo-store/migrations/NNNN_roster.sql` — pick next free slot. ≤25 lines.
+- NEW `crates/argo-store/migrations/NNNN_roster.sql` (NEW) — pick next free slot. ≤25 lines.
 
 ## Files you must NOT touch
 

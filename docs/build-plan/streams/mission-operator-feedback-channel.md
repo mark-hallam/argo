@@ -14,8 +14,8 @@ LOC: ~300.
 
 - `crates/argo-audit/src/event.rs` — narrowly: add `OperatorFeedback { action_id, rating }` variant. ≤30 modified lines.
 - `crates/argo-cli/src/handlers/gateway/routes_action_feedback.rs` (NEW) — web endpoint. ≤120 LOC.
-- `crates/argo-cli/src/handlers/action.rs` — narrowly: CLI vote handler. ≤50 modified lines.
-- `crates/argo-forge/src/propose.rs` — narrowly: feedback-weighted scoring. ≤40 modified lines.
+- `crates/argo-cli/src/handlers/action.rs` (NEW) — narrowly: CLI vote handler. ≤50 modified lines.
+- `crates/argo-forge/src/propose.rs` (NEW) — narrowly: feedback-weighted scoring. ≤40 modified lines.
 - Test sibling — feedback storage + Forge weighting. ≤100 LOC.
 
 ## Files you must NOT touch

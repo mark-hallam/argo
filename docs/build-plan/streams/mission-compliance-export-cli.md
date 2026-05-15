@@ -13,7 +13,7 @@ LOC: ~600.
 ## Files you may touch
 
 - `crates/argo-compliance/src/export.rs` (NEW) — export query engine + format writers. ≤350 LOC.
-- `crates/argo-cli/src/handlers/compliance.rs` — narrowly: wire export subcommand. ≤50 modified lines.
+- `crates/argo-cli/src/handlers/compliance.rs` (NEW) — narrowly: wire export subcommand. ≤50 modified lines.
 - `crates/argo-cli/src/cli_compliance_cmds.rs` — `Export` variant. ≤30 modified lines.
 - Test sibling — round-trip + filter + checksum tests. ≤180 LOC.
 

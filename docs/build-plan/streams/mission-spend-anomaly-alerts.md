@@ -14,7 +14,7 @@ LOC: ~280.
 
 - `crates/argo-runtime/src/spend_tracking.rs` (NEW) — rolling-window accumulator. ≤180 LOC.
 - `crates/argo-provider/src/transport.rs` — narrowly: call into accumulator on each commit. ≤30 modified lines.
-- `crates/argo-channels/src/notify.rs` — narrowly: emit alert. ≤25 modified lines.
+- `crates/argo-channels/src/notify.rs` (NEW) — narrowly: emit alert. ≤25 modified lines.
 - Test sibling — window edge cases + rolling sum + spike detection. ≤100 LOC.
 
 ## Files you must NOT touch

@@ -13,10 +13,10 @@ LOC: ~1100.
 ## Files you may touch
 
 - NEW `crates/argo-mcp-connector-salesforce/src/lib.rs` — OAuth + REST + 15+ tools. ≤700 LOC.
-- NEW `crates/argo-mcp-connector-salesforce/src/soql.rs` — SOQL helper. ≤200 LOC.
-- NEW `crates/argo-mcp-connector-salesforce/src/lib_tests.rs` — mock + integration. ≤200 LOC.
+- NEW `crates/argo-mcp-connector-salesforce/src/soql.rs` (NEW) — SOQL helper. ≤200 LOC.
+- NEW `crates/argo-mcp-connector-salesforce/src/lib_tests.rs` (NEW) — mock + integration. ≤200 LOC.
 - Workspace `Cargo.toml` — add member.
-- `crates/argo-mcp/src/registry.rs` — register.
+- `crates/argo-mcp/src/registry.rs` (NEW) — register.
 
 ## Files you must NOT touch
 

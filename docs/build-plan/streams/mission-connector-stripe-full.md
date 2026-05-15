@@ -13,10 +13,10 @@ LOC: ~500.
 ## Files you may touch
 
 - NEW `crates/argo-mcp-connector-stripe/src/lib.rs` — REST client wrapper + 10+ tools. ≤400 LOC.
-- NEW `crates/argo-mcp-connector-stripe/src/lib_tests.rs` — mock HTTP unit tests. ≤180 LOC.
+- NEW `crates/argo-mcp-connector-stripe/src/lib_tests.rs` (NEW) — mock HTTP unit tests. ≤180 LOC.
 - NEW `crates/argo-mcp-connector-stripe/Cargo.toml`.
 - Workspace `Cargo.toml` — add member. ≤3 lines.
-- `crates/argo-mcp/src/registry.rs` — register connector. ≤15 modified lines.
+- `crates/argo-mcp/src/registry.rs` (NEW) — register connector. ≤15 modified lines.
 
 ## Files you must NOT touch
 
