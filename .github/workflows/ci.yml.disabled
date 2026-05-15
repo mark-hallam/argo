@@ -191,8 +191,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Audit ArgoError variant usage (warning-only)
-        run: bash scripts/check-error-variant-usage.sh || true
+      - name: Audit ArgoError variant usage
+        run: bash scripts/check-error-variant-usage.sh --strict
 
   config-callsite-audit:
     # Warning-only ratchet from claude-config-loader-overhaul.

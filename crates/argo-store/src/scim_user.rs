@@ -373,12 +373,12 @@ fn decode_row(row: RawRow) -> StoreResult<ScimUserRow> {
     let (id_b, tid_b, external_id, user_name, display_name, emails_json, active, created, updated, deleted) =
         row;
     let id = Uuid::from_slice(&id_b)
-        .map_err(|e| ArgoError::Provider(format!("decode scim_user id: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode scim_user id: {e}")))?;
     let tenant_id = Uuid::from_slice(&tid_b)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("decode scim_user tenant: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode scim_user tenant: {e}")))?;
     let emails: Vec<String> = serde_json::from_str(&emails_json)
-        .map_err(|e| ArgoError::Provider(format!("decode emails_json: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode emails_json: {e}")))?;
     let created_at = ts(created, "created_at")?;
     let updated_at = ts(updated, "updated_at")?;
     let deleted_at = match deleted {
@@ -402,10 +402,10 @@ fn decode_row(row: RawRow) -> StoreResult<ScimUserRow> {
 fn decode_tombstone(row: RawTombstoneRow) -> StoreResult<ScimTombstoneRow> {
     let (id_b, tid_b, user_name, deleted, reason) = row;
     let id = Uuid::from_slice(&id_b)
-        .map_err(|e| ArgoError::Provider(format!("decode tombstone id: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode tombstone id: {e}")))?;
     let tenant_id = Uuid::from_slice(&tid_b)
         .map(TenantId)
-        .map_err(|e| ArgoError::Provider(format!("decode tombstone tenant: {e}")))?;
+        .map_err(|e| ArgoError::Invariant(format!("decode tombstone tenant: {e}")))?;
     let deleted_at = ts(deleted, "deleted_at")?;
     Ok(ScimTombstoneRow {
         id,
@@ -419,5 +419,5 @@ fn decode_tombstone(row: RawTombstoneRow) -> StoreResult<ScimTombstoneRow> {
 fn ts(secs: i64, label: &str) -> StoreResult<DateTime<Utc>> {
     Utc.timestamp_opt(secs, 0)
         .single()
-        .ok_or_else(|| ArgoError::Provider(format!("decode {label} out of range")))
+        .ok_or_else(|| ArgoError::Invariant(format!("decode {label} out of range")))
 }

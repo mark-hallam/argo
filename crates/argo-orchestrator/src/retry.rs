@@ -313,7 +313,7 @@ fn row_to_policy(row: sqlx::sqlite::SqliteRow) -> ArgoResult<SkillRetryPolicy> {
 
 fn micros(v: i64) -> ArgoResult<DateTime<Utc>> {
     DateTime::from_timestamp_micros(v)
-        .ok_or_else(|| ArgoError::Provider(format!("timestamp out of range: {v}")))
+        .ok_or_else(|| ArgoError::Invariant(format!("timestamp out of range: {v}")))
 }
 
 fn db(e: impl std::fmt::Display) -> ArgoError {

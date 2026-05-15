@@ -291,7 +291,7 @@ impl SlaStore {
         .bind(sla.updated_at.timestamp_micros())
         .execute(self.store.pool())
         .await
-        .map_err(|e| ArgoError::Provider(format!("create sla: {e}")))?;
+        .map_err(|e| ArgoError::Io(format!("create sla: {e}")))?;
         Ok(())
     }
 
@@ -408,7 +408,7 @@ fn row_to_sla(row: sqlx::sqlite::SqliteRow) -> ArgoResult<Sla> {
 
 fn micros(v: i64) -> ArgoResult<DateTime<Utc>> {
     DateTime::from_timestamp_micros(v)
-        .ok_or_else(|| ArgoError::Provider(format!("timestamp out of range: {v}")))
+        .ok_or_else(|| ArgoError::Invariant(format!("timestamp out of range: {v}")))
 }
 
 fn db(e: impl std::fmt::Display) -> ArgoError {

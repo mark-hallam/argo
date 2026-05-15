@@ -85,7 +85,7 @@ impl PackFetcher for GitHubReleaseFetcher {
             let bytes = response
                 .bytes()
                 .await
-                .map_err(|e| ArgoError::Provider(format!("read pack archive body: {e}")))?;
+                .map_err(|e| ArgoError::Io(format!("read pack archive body: {e}")))?;
             tokio::fs::write(dest, bytes)
                 .await
                 .map_err(|e| ArgoError::Io(format!("write {}: {e}", dest.display())))

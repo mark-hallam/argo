@@ -282,7 +282,7 @@ impl RosterStore {
         let override_raw: Option<String> = row.get("policy_override_json");
         let policy_override = match override_raw {
             Some(raw) => Some(serde_json::from_str::<RosterPolicyOverride>(&raw).map_err(
-                |e| ArgoError::Provider(format!("decode roster policy_override: {e}")),
+                |e| ArgoError::Invariant(format!("decode roster policy_override: {e}")),
             )?),
             None => None,
         };
