@@ -307,6 +307,7 @@ pub mod trace;
 pub mod trace_explore;
 pub mod trajectory_export;
 mod trajectory_export_render;
+pub mod training;
 pub mod trust_graph;
 pub mod tui;
 pub mod vertical;

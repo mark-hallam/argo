@@ -252,6 +252,11 @@ pub enum Command {
         #[command(subcommand)]
         cmd: TrajectoryCmd,
     },
+    /// Export successful action trajectories as fine-tuning JSONL.
+    Training {
+        #[command(subcommand)]
+        cmd: crate::handlers::training::TrainingCmd,
+    },
     /// Action debugging tools that do not mutate the action ledger.
     Action {
         #[command(subcommand)]
