@@ -6,6 +6,7 @@
 #![warn(missing_docs)]
 
 pub mod backfill;
+pub mod confidence_telemetry;
 pub mod ghostwriter;
 pub mod ghostwriter_prompts;
 pub mod portable;
@@ -20,6 +21,9 @@ mod types_tests;
 pub use self::backfill::{
     synthesize_graph, BackfillEntry, BackfillReport, BackfillStatus, BACKFILL_ENTRY_NODE_ID,
     BACKFILL_SOURCE,
+};
+pub use self::confidence_telemetry::{
+    ConfidenceTelemetry, NodeTelemetryKey, NodeTelemetryRow, TelemetryOutcome, TelemetrySample,
 };
 pub use self::ghostwriter::{
     generate_from_prompt, offline_template, validate_graph, GhostwriterClient, GhostwriterError,
