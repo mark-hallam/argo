@@ -112,12 +112,13 @@ pub(crate) async fn run_live_loop(
     max_tool_rounds: usize,
 ) -> ArgoResult<StepRunOutput> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let anomaly_policy = load_anomaly_policy(&cwd);
     // Tracked outside the closure because async closures can't
     // easily mutate captured state; we hold the latest assistant
     // id in a Cell so the loop helper stays parametric.
     let last_assistant_id = std::cell::Cell::new(Uuid::nil());
 
-    let outcome = work_loop::run_loop(initial_prompt, max_steps, |_step, prompt| {
+    let step_driver = |_step: u32, prompt: String| {
         let store = store.clone();
         let cwd = cwd.clone();
         let last_assistant_id = &last_assistant_id;
@@ -168,14 +169,29 @@ pub(crate) async fn run_live_loop(
                 }
             }
         }
-    })
-    .await;
+    };
+    let outcome =
+        work_loop::run_loop_with_anomaly(initial_prompt, max_steps, anomaly_policy, step_driver)
+            .await;
 
     Ok(StepRunOutput {
         assistant_text: outcome.final_text.clone(),
         assistant_id: last_assistant_id.get(),
         user_message_id: Uuid::nil(),
         outcome,
+    })
+}
+
+fn load_anomaly_policy(cwd: &std::path::Path) -> Option<argo_runtime::AnomalyPolicy> {
+    let cfg = argo_config::ArgoConfig::load(&cwd.join("argo.toml")).unwrap_or_default();
+    cfg.anomaly.auto_pause.then(|| {
+        argo_runtime::AnomalyPolicy {
+            auto_pause: cfg.anomaly.auto_pause,
+            threshold: cfg.anomaly.threshold,
+            repeated_step_limit: cfg.anomaly.repeated_step_limit,
+            max_step_latency_ms: cfg.anomaly.max_step_latency_ms,
+        }
+        .sanitized()
     })
 }
 

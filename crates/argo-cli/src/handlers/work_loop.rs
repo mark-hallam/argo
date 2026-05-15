@@ -31,7 +31,9 @@
 //! re-export it as `pub(crate) use` so callers still see
 //! `work_loop::parse_stop_marker`.
 
+use argo_runtime::{AnomalyPolicy, SessionAnomalyState, StepSignal};
 use std::future::Future;
+use std::time::Instant;
 use tracing::Instrument;
 
 pub(crate) use super::work_loop_stop_marker::parse_stop_marker;
@@ -50,6 +52,8 @@ pub(crate) enum StopReason {
     /// requested. We refuse to start rather than silently produce
     /// an unverified output.
     ResearchToolsUnavailable,
+    /// Session-level anomaly detector paused the worker loop.
+    AnomalyPaused(String),
 }
 
 impl StopReason {
@@ -61,6 +65,7 @@ impl StopReason {
             StopReason::NeedInfo(_) => "need_info",
             StopReason::MaxStepsReached => "max_steps_reached",
             StopReason::ResearchToolsUnavailable => "research_tools_unavailable",
+            StopReason::AnomalyPaused(_) => "anomaly_paused",
         }
     }
 
@@ -69,6 +74,7 @@ impl StopReason {
     pub(crate) fn detail(&self) -> &str {
         match self {
             StopReason::NeedInfo(s) => s.as_str(),
+            StopReason::AnomalyPaused(s) => s.as_str(),
             _ => "",
         }
     }
@@ -108,9 +114,24 @@ pub(crate) struct StepResult {
 /// of steps. The caller is responsible for persisting per-step
 /// data — the loop only cares about driving the conversation
 /// forward and detecting termination.
+#[allow(dead_code)]
 pub(crate) async fn run_loop<F, Fut>(
     initial_prompt: String,
     max_steps: u32,
+    step_fn: F,
+) -> LoopOutcome
+where
+    F: FnMut(u32, String) -> Fut,
+    Fut: Future<Output = StepResult>,
+{
+    run_loop_with_anomaly(initial_prompt, max_steps, None, step_fn).await
+}
+
+/// Variant of [`run_loop`] with an opt-in session-level anomaly gate.
+pub(crate) async fn run_loop_with_anomaly<F, Fut>(
+    initial_prompt: String,
+    max_steps: u32,
+    anomaly_policy: Option<AnomalyPolicy>,
     mut step_fn: F,
 ) -> LoopOutcome
 where
@@ -127,6 +148,9 @@ where
     let mut prompt = initial_prompt;
     let mut last_text = String::new();
     let mut steps_completed = 0u32;
+    let mut anomaly_state = anomaly_policy
+        .as_ref()
+        .map(|_| SessionAnomalyState::default());
     for step in 1..=max_steps {
         // mvp-structured-logging — open a per-step span so
         // emissions inside `step_fn` (which calls `chat::run_turn`
@@ -138,6 +162,7 @@ where
         // the full {tenant_id, vertical_id, job_id, step,
         // session_id, worker_id} set.
         let step_span = tracing::info_span!("step", step = step, max_steps = max_steps);
+        let started = Instant::now();
         let result = step_fn(step, prompt).instrument(step_span).await;
         steps_completed = step;
         last_text = result.text;
@@ -147,6 +172,23 @@ where
                 stop_reason: reason,
                 final_text: last_text,
             };
+        }
+        if let (Some(policy), Some(state)) = (anomaly_policy.as_ref(), anomaly_state.as_mut()) {
+            let decision = state.observe(
+                &StepSignal {
+                    step,
+                    text: last_text.clone(),
+                    latency_ms: started.elapsed().as_millis() as u64,
+                },
+                policy,
+            );
+            if decision.should_pause {
+                return LoopOutcome {
+                    steps_completed,
+                    stop_reason: StopReason::AnomalyPaused(decision.reasons.join("; ")),
+                    final_text: last_text,
+                };
+            }
         }
         prompt = continue_nudge(step + 1, max_steps);
     }

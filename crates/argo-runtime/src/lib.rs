@@ -28,6 +28,8 @@
 /// audit row on long cumulative waits. Disabled by default so the
 /// wire is zero-overhead until operators opt in.
 pub mod action_throttle;
+/// Session-level worker anomaly scoring and auto-pause decisions.
+pub mod anomaly;
 /// Context-window-aware compression
 /// (`mission-context-window-aware-compression`). LLM-summarises
 /// older turns once running token-count crosses the operator-tuned
@@ -88,6 +90,8 @@ pub mod prompt_cache_affinity;
 pub mod worker_resource_cage;
 
 #[cfg(test)]
+mod anomaly_tests;
+#[cfg(test)]
 mod dispatch_gate_tests;
 #[cfg(test)]
 mod planner_tests;
@@ -99,6 +103,7 @@ mod worker_resource_cage_tests;
 pub use dispatch_gate::{
     DecomposeGate, GateError, HeuristicGate, HEURISTIC_LENGTH_THRESHOLD, HEURISTIC_LIST_MARKERS,
 };
+pub use anomaly::{AnomalyDecision, AnomalyPolicy, SessionAnomalyState, StepSignal};
 pub use planner::{
     record_decomposition, AnthropicCaller, DecomposeResult, LlmPlanner, PlanTemplate, PlannedSubtask,
     Planner, PlannerContext, PlannerError, SubtaskSink, TemplatePlanner,

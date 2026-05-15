@@ -74,8 +74,8 @@ pub use loader::{load, load_from};
 pub use provider::{BreakerSection, ProviderEntry, ProvidersConfig};
 pub use sandbox::SandboxConfig;
 pub use sections::{
-    AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig, DocumentCsvConfig,
-    DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
+    AnomalyConfig, AuditConfig, BudgetConfig, ChannelsConfig, CoreConfig, DelegateConfig,
+    DocumentCsvConfig, DocumentGsuiteConfig, ForgeConfig, GatewayBehindProxyConfig, GatewayConfig,
     GatewayRequestAuditConfig, GatewaySecurityHeadersConfig, IpAllowlistConfig, JudgeConfig,
     LoopConfig, MatrixTomlConfig, ParallelConfig, PlannerBiasConfig, PlannerConfig, PluginConfig,
     RoutingConfig, RoutingTieredConfig, SecurityConfig, SecurityEncryptionConfig,
@@ -205,6 +205,8 @@ pub struct ArgoConfig {
     /// `[runtime.context_compress]` and
     /// `[runtime.streaming_retry]`).
     pub runtime: RuntimeConfig,
+    /// `[anomaly]` — session-level worker anomaly detection.
+    pub anomaly: AnomalyConfig,
     /// `[sso]` — Single Sign-On at the gateway edge.
     pub sso: SsoConfig,
     /// `[planner]` — planner bias knobs
