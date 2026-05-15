@@ -65,3 +65,29 @@ the keybindings active _on the current overlay_, plus a global section.
 - Keep the table sorted by overlay then key for readability.
 - Coordinate with whoever lands `app.rs` split — `?` is a global key
   routed from `app.rs`, so an arm there is unavoidable.
+
+
+## Amendment 2026-05-15 (input_globals extension point — supersedes old may-touch)
+
+Worker self-BLOCKED 2026-05-08 noting the original may-touch forbade `crates/argo-tui/src/input.rs` (where global-key dispatch lived). PR #1670 (`claude-tui-input-globals-split`) MERGED 2026-05-15 extracts the global-key dispatcher into a sibling `input_globals.rs` with a registry-builder API: `default_global_keys() -> Vec<GlobalKeyBinding>` and `lookup_global_key(registry, key) -> Option<GlobalKeyAction>`.
+
+This brief is now claimable using the new extension point. Updated may-touch:
+
+- `crates/argo-tui/src/keybindings_help.rs` — NEW. The feature module itself (≤300 LOC).
+- `crates/argo-tui/src/keybindings_help_tests.rs` — NEW. Unit tests (≤200 LOC, 5+ cases).
+- `crates/argo-tui/src/input_globals.rs` — narrowly: add ONE new variant `GlobalKeyAction::KeybindingsHelpOverlay` + ONE new entry in `default_global_keys()` mapping key `?` to that variant. **≤15 modified lines total.**
+- `crates/argo-tui/src/input.rs` — narrowly: add the dispatch arm that matches `GlobalKeyAction::KeybindingsHelpOverlay` and invokes the new feature module. **≤15 modified lines.** (Previously forbidden — now in scope because the file is no longer the centralized dispatcher; it delegates to `input_globals` per #1670.)
+- `crates/argo-tui/src/lib.rs` — narrowly: `pub mod keybindings_help;` declaration. **≤3 modified lines.**
+
+Files still forbidden:
+- `crates/argo-tui/src/render.rs` — overlay rendering is separate from input dispatch.
+- `crates/argo-tui/src/overlays.rs` — same.
+- Any other crate.
+
+Acceptance criteria (in addition to the brief's original list):
+- New variant added to `GlobalKeyAction` enum.
+- New key binding registered in `default_global_keys()`.
+- `cargo test -p argo-tui input_globals` includes a coverage case for the new key→variant mapping.
+- No regression: existing global keys still dispatch correctly.
+
+**Drift-prevention:** brief adds ONE new pub variant + ONE new pub module — no parallel-name surfaces.

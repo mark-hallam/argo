@@ -72,3 +72,29 @@ checkpoint reason, and quick approve/reject keys.
   or `q` global keys are routed.
 - Tray should be modal (eats keys until closed) to avoid double-routing.
 - Coordinate with `app.rs` split if it lands first.
+
+
+## Amendment 2026-05-15 (input_globals extension point — supersedes old may-touch)
+
+Worker self-BLOCKED 2026-05-08 noting the original may-touch forbade `crates/argo-tui/src/input.rs` (where global-key dispatch lived). PR #1670 (`claude-tui-input-globals-split`) MERGED 2026-05-15 extracts the global-key dispatcher into a sibling `input_globals.rs` with a registry-builder API: `default_global_keys() -> Vec<GlobalKeyBinding>` and `lookup_global_key(registry, key) -> Option<GlobalKeyAction>`.
+
+This brief is now claimable using the new extension point. Updated may-touch:
+
+- `crates/argo-tui/src/approval_tray.rs` — NEW. The feature module itself (≤300 LOC).
+- `crates/argo-tui/src/approval_tray_tests.rs` — NEW. Unit tests (≤200 LOC, 5+ cases).
+- `crates/argo-tui/src/input_globals.rs` — narrowly: add ONE new variant `GlobalKeyAction::ApprovalTrayOverlay` + ONE new entry in `default_global_keys()` mapping key `A` to that variant. **≤15 modified lines total.**
+- `crates/argo-tui/src/input.rs` — narrowly: add the dispatch arm that matches `GlobalKeyAction::ApprovalTrayOverlay` and invokes the new feature module. **≤15 modified lines.** (Previously forbidden — now in scope because the file is no longer the centralized dispatcher; it delegates to `input_globals` per #1670.)
+- `crates/argo-tui/src/lib.rs` — narrowly: `pub mod approval_tray;` declaration. **≤3 modified lines.**
+
+Files still forbidden:
+- `crates/argo-tui/src/render.rs` — overlay rendering is separate from input dispatch.
+- `crates/argo-tui/src/overlays.rs` — same.
+- Any other crate.
+
+Acceptance criteria (in addition to the brief's original list):
+- New variant added to `GlobalKeyAction` enum.
+- New key binding registered in `default_global_keys()`.
+- `cargo test -p argo-tui input_globals` includes a coverage case for the new key→variant mapping.
+- No regression: existing global keys still dispatch correctly.
+
+**Drift-prevention:** brief adds ONE new pub variant + ONE new pub module — no parallel-name surfaces.
