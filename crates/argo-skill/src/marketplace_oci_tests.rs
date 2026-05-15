@@ -1,4 +1,7 @@
-use super::{fetch_all_pages, MarketplaceConfig, OciRegistryScan, DEFAULT_MAX_CATALOG_ITEMS};
+use super::{
+    fetch_all_pages, MarketplaceConfig, MarketplaceTagPolicy, OciRegistryScan,
+    DEFAULT_MAX_CATALOG_ITEMS,
+};
 use crate::marketplace::MarketplaceSource;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -12,10 +15,15 @@ max_catalog_items = 250
 [[registry]]
 url = "https://skycot.cr"
 namespace = "skills"
+tag_policy = "alphabetical_last"
 "#,
     )
     .expect("marketplace TOML parses");
     assert_eq!(cfg.max_catalog_items, 250);
+    assert_eq!(
+        cfg.registries[0].tag_policy,
+        MarketplaceTagPolicy::AlphabeticalLast
+    );
 
     let defaulted = MarketplaceConfig::parse_toml("").expect("empty TOML parses");
     assert_eq!(defaulted.max_catalog_items, DEFAULT_MAX_CATALOG_ITEMS);
@@ -47,6 +55,41 @@ async fn fetch_all_pages_stops_at_configured_cap() {
     assert_eq!(rows[199], "skills/skill-199");
 }
 
+#[tokio::test]
+async fn timestamp_newest_policy_selects_newest_manifest_created_at() {
+    let row = scan_one_with_policy(MarketplaceTagPolicy::TimestampNewest).await;
+    assert_eq!(row.version, "2.0.0");
+    assert_eq!(row.oci_ref, "skills/tagged:latest");
+}
+
+#[tokio::test]
+async fn alphabetical_last_policy_preserves_legacy_tag_ordering() {
+    let row = scan_one_with_policy(MarketplaceTagPolicy::AlphabeticalLast).await;
+    assert_eq!(row.version, "1.0.0");
+    assert_eq!(row.oci_ref, "skills/tagged:v1");
+}
+
+#[tokio::test]
+async fn explicit_policy_selects_named_tag() {
+    let row = scan_one_with_policy(MarketplaceTagPolicy::Explicit("beta".into())).await;
+    assert_eq!(row.version, "1.5.0");
+    assert_eq!(row.oci_ref, "skills/tagged:beta");
+}
+
+async fn scan_one_with_policy(
+    policy: MarketplaceTagPolicy,
+) -> crate::marketplace::MarketplaceSkill {
+    let (base, server) = spawn_tag_registry().await;
+    let rows =
+        OciRegistryScan::with_tag_policy(base, "skills".into(), DEFAULT_MAX_CATALOG_ITEMS, policy)
+            .list_all()
+            .await
+            .expect("tag policy scan");
+    server.abort();
+    assert_eq!(rows.len(), 1);
+    rows.into_iter().next().expect("one row")
+}
+
 async fn spawn_registry(page_count: usize) -> (String, tokio::task::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -61,6 +104,59 @@ async fn spawn_registry(page_count: usize) -> (String, tokio::task::JoinHandle<(
         }
     });
     (format!("http://127.0.0.1:{port}"), server)
+}
+
+async fn spawn_tag_registry() -> (String, tokio::task::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        loop {
+            let Ok((mut stream, _)) = listener.accept().await else {
+                break;
+            };
+            tokio::spawn(async move {
+                handle_tag_policy_one(&mut stream).await;
+            });
+        }
+    });
+    (format!("http://127.0.0.1:{port}"), server)
+}
+
+async fn handle_tag_policy_one(stream: &mut tokio::net::TcpStream) {
+    let mut buf = [0u8; 4096];
+    let n = stream.read(&mut buf).await.unwrap_or(0);
+    let req = String::from_utf8_lossy(&buf[..n]);
+    let path = req
+        .lines()
+        .next()
+        .unwrap_or("")
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or("/");
+
+    let body = if path.starts_with("/v2/_catalog") {
+        r#"{"repositories":["skills/tagged"]}"#.to_string()
+    } else if path == "/v2/skills/tagged/tags/list" {
+        r#"{"tags":["v1","latest","beta"]}"#.to_string()
+    } else if path == "/v2/skills/tagged/manifests/v1" {
+        tag_manifest("1.0.0", "2026-05-10T00:00:00Z")
+    } else if path == "/v2/skills/tagged/manifests/latest" {
+        tag_manifest("2.0.0", "2026-05-12T00:00:00Z")
+    } else if path == "/v2/skills/tagged/manifests/beta" {
+        tag_manifest("1.5.0", "2026-05-11T00:00:00Z")
+    } else {
+        let _ = stream
+            .write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
+            .await;
+        return;
+    };
+    write_ok(stream, "", &body).await;
+}
+
+fn tag_manifest(version: &str, created: &str) -> String {
+    format!(
+        r#"{{"annotations":{{"org.opencontainers.image.title":"tagged","org.opencontainers.image.description":"tag policy test","org.opencontainers.image.version":"{version}","org.opencontainers.image.created":"{created}","org.skycot.tenant":"acme"}}}}"#
+    )
 }
 
 async fn handle_one(stream: &mut tokio::net::TcpStream, page_count: usize) {

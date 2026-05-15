@@ -122,10 +122,11 @@ pub async fn fetch_catalog(home: &Path) -> Vec<MarketplaceSkill> {
     let mut sources: Vec<Box<dyn MarketplaceSource>> = vec![Box::new(StaticIndex)];
     let max_catalog_items = cfg.max_catalog_items;
     for r in cfg.registries {
-        sources.push(Box::new(OciRegistryScan::with_max_catalog_items(
+        sources.push(Box::new(OciRegistryScan::with_tag_policy(
             r.url,
             r.namespace,
             max_catalog_items,
+            r.tag_policy,
         )));
     }
     MarketplaceClient::new(sources).list_all().await

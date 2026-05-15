@@ -65,6 +65,7 @@ Journeys:
 - `journey-delegate-ongoing-work.md` — recurring delegation, post-hire.
 - `journey-audit-replay.md` — forensic + compliance flow.
 - `journey-retrain-a-worker.md` — plain-English correction → durable change.
+- Operator reference: [marketplace tag policy](../skycot/operator/marketplace-tag-policy.md).
 
 Plus `README.md` — index, conventions, validation plan.
 
