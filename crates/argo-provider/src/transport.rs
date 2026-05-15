@@ -10,7 +10,14 @@
 use argo_types::{ArgoResult, CapabilitySet, Message, ToolCallRequest};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use crate::manifest::{DiscoverySpec, ProviderManifest};
 
 /// One turn's worth of input: messages + tools + sampling knobs.
 #[derive(Debug, Clone)]
@@ -194,6 +201,165 @@ pub fn build_http_client(
         .map_err(|e| argo_types::ArgoError::Provider(format!("reqwest client build: {e}")))
 }
 
+#[derive(Debug, Clone, Default)]
+struct LatestModelState {
+    model: Option<String>,
+    refreshed_at: Option<Instant>,
+}
+
+/// Cache for manifest-driven `model = "latest"` resolution.
+///
+/// Daemons call [`LatestModelCache::refresh_if_due_with`] with their
+/// `/v1/models` fetcher on startup and before provider requests. Calls made
+/// before the manifest's `refresh_interval_hours` expires reuse the cached
+/// value; calls after it expires fetch ids again and apply
+/// [`crate::resolve_latest`].
+///
+/// ```
+/// # fn doc() -> argo_types::ArgoResult<()> {
+/// use argo_provider::{DiscoverySpec, PreferRule};
+/// use argo_provider::transport::LatestModelCache;
+/// use std::time::Instant;
+///
+/// let spec = DiscoverySpec {
+///     endpoint: "{base_url}/v1/models".into(),
+///     include_pattern: "^gpt-".into(),
+///     exclude_pattern: None,
+///     prefer: PreferRule::LexicographicMax,
+///     refresh_interval_hours: 24,
+/// };
+/// let cache = LatestModelCache::new(spec, "gpt-4o-mini");
+/// cache.refresh_if_due_with(Instant::now(), || Ok(vec!["gpt-4o", "gpt-4.1"]))?;
+/// assert_eq!(cache.resolve_request_model("latest"), "gpt-4o");
+/// # Ok(()) }
+/// ```
+#[derive(Debug, Clone)]
+pub struct LatestModelCache {
+    spec: DiscoverySpec,
+    fallback_model: String,
+    refresh_interval: Duration,
+    state: Arc<RwLock<LatestModelState>>,
+}
+
+impl LatestModelCache {
+    /// Build a cache from a discovery spec plus the manifest's static
+    /// fallback model. A zero-hour refresh interval is treated as one hour so
+    /// an invalid config cannot create a tight fetch loop.
+    #[must_use]
+    pub fn new(spec: DiscoverySpec, fallback_model: impl Into<String>) -> Self {
+        let hours = spec.refresh_interval_hours.max(1);
+        Self {
+            spec,
+            fallback_model: fallback_model.into(),
+            refresh_interval: Duration::from_secs(u64::from(hours) * 60 * 60),
+            state: Arc::new(RwLock::new(LatestModelState::default())),
+        }
+    }
+
+    /// Build a cache from a manifest's optional `[discovery]` block.
+    ///
+    /// Returns `None` when the manifest has no discovery config; callers
+    /// should keep using [`ProviderManifest::resolve_model_id`] in that case.
+    #[must_use]
+    pub fn from_manifest(manifest: &ProviderManifest) -> Option<Self> {
+        let spec = manifest.discovery.clone()?;
+        let fallback = manifest
+            .models
+            .first()
+            .map(|m| m.id.clone())
+            .unwrap_or_else(|| "latest".to_string());
+        Some(Self::new(spec, fallback))
+    }
+
+    /// Effective refresh interval after applying the one-hour floor.
+    #[must_use]
+    pub fn refresh_interval(&self) -> Duration {
+        self.refresh_interval
+    }
+
+    /// Last successfully resolved model id, if any.
+    #[must_use]
+    pub fn cached_model(&self) -> Option<String> {
+        self.state.read().model.clone()
+    }
+
+    /// Resolve a request model, replacing `"latest"` with the cached value
+    /// when available and otherwise with the static manifest fallback.
+    #[must_use]
+    pub fn resolve_request_model(&self, requested: &str) -> String {
+        if requested != "latest" {
+            return requested.to_string();
+        }
+        self.cached_model()
+            .unwrap_or_else(|| self.fallback_model.clone())
+    }
+
+    /// Clone a provider request with `"latest"` replaced by the current
+    /// cached model id. Other request fields are preserved.
+    #[must_use]
+    pub fn resolve_provider_request(&self, req: &ProviderRequest) -> ProviderRequest {
+        let mut resolved = req.clone();
+        resolved.model = self.resolve_request_model(&req.model);
+        resolved
+    }
+
+    /// Refresh the cache from a known model-id list immediately.
+    ///
+    /// This is useful for startup pre-warming and tests that already have a
+    /// recorded `/v1/models` fixture.
+    ///
+    /// # Errors
+    /// Returns the same errors as [`crate::resolve_latest`] when filtering
+    /// or selection fails.
+    pub fn refresh_with_ids<S: AsRef<str>>(
+        &self,
+        now: Instant,
+        model_ids: &[S],
+    ) -> ArgoResult<String> {
+        let model = crate::discovery::resolve_latest(&self.spec, model_ids)?;
+        let mut state = self.state.write();
+        state.model = Some(model.clone());
+        state.refreshed_at = Some(now);
+        Ok(model)
+    }
+
+    /// Fetch and refresh only when the cache is empty or expired.
+    ///
+    /// The fetcher is intentionally injected so the daemon can use its own
+    /// authenticated HTTP client while tests can use an in-memory mock.
+    ///
+    /// # Errors
+    /// Propagates fetcher errors and [`crate::resolve_latest`] failures.
+    pub fn refresh_if_due_with<S, F>(
+        &self,
+        now: Instant,
+        fetch_model_ids: F,
+    ) -> ArgoResult<Option<String>>
+    where
+        S: AsRef<str>,
+        F: FnOnce() -> ArgoResult<Vec<S>>,
+    {
+        if !self.needs_refresh(now) {
+            return Ok(None);
+        }
+        let ids = fetch_model_ids()?;
+        self.refresh_with_ids(now, &ids).map(Some)
+    }
+
+    fn needs_refresh(&self, now: Instant) -> bool {
+        let state = self.state.read();
+        if state.model.is_none() {
+            return true;
+        }
+        match state.refreshed_at {
+            Some(refreshed_at) => {
+                now.saturating_duration_since(refreshed_at) >= self.refresh_interval
+            }
+            None => true,
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "transport_tests.rs"]
-mod transport_tests;
+mod tests;

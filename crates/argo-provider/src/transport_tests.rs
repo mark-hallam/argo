@@ -1,7 +1,82 @@
-use super::build_http_client;
+use super::*;
+use crate::manifest::PreferRule;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+
+fn discovery_spec(refresh_interval_hours: u32) -> DiscoverySpec {
+    DiscoverySpec {
+        endpoint: "{base_url}/v1/models".into(),
+        include_pattern: "^gpt-".into(),
+        exclude_pattern: Some("preview|legacy|deprecated".into()),
+        prefer: PreferRule::HighestMinor,
+        refresh_interval_hours,
+    }
+}
+
+#[test]
+fn latest_cache_defaults_to_static_model_until_refreshed() {
+    let cache = LatestModelCache::new(discovery_spec(24), "gpt-4o-mini");
+
+    assert_eq!(cache.refresh_interval(), Duration::from_secs(24 * 60 * 60));
+    assert_eq!(cache.cached_model(), None);
+    assert_eq!(cache.resolve_request_model("latest"), "gpt-4o-mini");
+    assert_eq!(cache.resolve_request_model("gpt-4.1"), "gpt-4.1");
+}
+
+#[test]
+fn latest_cache_fetches_once_until_refresh_interval_expires() {
+    let cache = LatestModelCache::new(discovery_spec(1), "gpt-4o-mini");
+    let now = Instant::now();
+    let mut calls = 0;
+
+    let first = cache
+        .refresh_if_due_with(now, || {
+            calls += 1;
+            Ok(vec!["gpt-4.0", "gpt-4.1", "gpt-4.5-preview"])
+        })
+        .unwrap();
+    assert_eq!(first.as_deref(), Some("gpt-4.1"));
+    assert_eq!(calls, 1);
+
+    let before_due = now + Duration::from_secs(59 * 60);
+    let second = cache
+        .refresh_if_due_with(before_due, || {
+            calls += 1;
+            Ok(vec!["gpt-4.2"])
+        })
+        .unwrap();
+    assert_eq!(second, None);
+    assert_eq!(calls, 1);
+    assert_eq!(cache.resolve_request_model("latest"), "gpt-4.1");
+
+    let after_due = now + Duration::from_secs(61 * 60);
+    let third = cache
+        .refresh_if_due_with(after_due, || {
+            calls += 1;
+            Ok(vec!["gpt-4.0", "gpt-4.2"])
+        })
+        .unwrap();
+    assert_eq!(third.as_deref(), Some("gpt-4.2"));
+    assert_eq!(calls, 2);
+}
+
+#[test]
+fn latest_cache_keeps_previous_model_when_fetch_fails() {
+    let cache = LatestModelCache::new(discovery_spec(1), "gpt-4o-mini");
+    let now = Instant::now();
+    cache
+        .refresh_if_due_with(now, || Ok(vec!["gpt-4.0", "gpt-4.1"]))
+        .unwrap();
+
+    let err = cache
+        .refresh_if_due_with::<&str, _>(now + Duration::from_secs(61 * 60), || {
+            Err(argo_types::ArgoError::Provider("mock endpoint down".into()))
+        })
+        .unwrap_err();
+    assert!(format!("{err}").contains("mock endpoint down"));
+    assert_eq!(cache.resolve_request_model("latest"), "gpt-4.1");
+}
 
 #[tokio::test]
 async fn heartbeat_chunks_keep_body_read_alive_past_base_timeout() {
