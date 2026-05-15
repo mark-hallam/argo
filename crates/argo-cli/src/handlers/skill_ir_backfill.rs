@@ -9,10 +9,8 @@
 //! `skill_ir`.
 //!
 //! Tenant scope: the local skill store has no tenant column, so the
-//! backfill writes under the nil tenant (`TenantId(Uuid::nil())`) —
-//! the same default the rest of the local CLI uses for tenant-scoped
-//! primitives. Multi-tenant backfills run elsewhere (the publisher /
-//! marketplace path that has tenants in scope).
+//! backfill writes under the current workspace tenant resolved from
+//! the session store.
 use argo_skill::SkillStore;
 use argo_skill::ir::backfill::backfill;
 use argo_skill::ir::{
@@ -21,7 +19,6 @@ use argo_skill::ir::{
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use std::sync::Arc;
-use uuid::Uuid;
 
 /// Entrypoint dispatched from [`crate::handlers::skill::run`].
 pub async fn run(
@@ -33,7 +30,7 @@ pub async fn run(
     ensure_schema(&store).await?;
     let ir = SqliteSkillIrStore::new(&store);
     let rows = skills.list_active().await?;
-    let tenant = TenantId(Uuid::nil());
+    let tenant = workspace_tenant(&store).await?;
     let report = backfill(&rows, &ir, tenant, dry_run).await?;
     if json {
         print_json(&report, dry_run)?;
@@ -41,6 +38,17 @@ pub async fn run(
         print_summary(&report, dry_run);
     }
     Ok(())
+}
+
+async fn workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> {
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
 }
 
 fn print_summary(report: &BackfillReport, dry_run: bool) {

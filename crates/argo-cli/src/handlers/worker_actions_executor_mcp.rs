@@ -28,7 +28,6 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::sync::Mutex;
-use uuid::Uuid;
 
 /// Default per-action wallclock budget. The MCP `McpClient` enforces
 /// its own per-RPC timeout (30s) for line-by-line transport health;
@@ -100,8 +99,9 @@ pub(crate) async fn dispatch_action(
     let server_decl = EnvMcpRegistryLookup
         .lookup(server_name, cwd, servers)
         .await?;
+    let tenant = action_tenant(action, cwd).await?;
     let args = substitute_args(&action.payload, action);
-    let client = acquire_client(pool, client_pool, server_name, &server_decl).await?;
+    let client = acquire_client(pool, client_pool, tenant, server_name, &server_decl).await?;
     super::mcp_rate_limit::acquire_for_dispatch(server_name).await?;
     let result = match tokio::time::timeout(timeout, client.call_tool(tool_name, args)).await {
         Ok(r) => r,
@@ -248,6 +248,7 @@ async fn lookup_registry_server(cwd: &Path, server_name: &str) -> ArgoResult<Mcp
 async fn acquire_client(
     pool: &McpPool,
     client_pool: &Arc<McpClientPool>,
+    tenant: TenantId,
     server_name: &str,
     server_decl: &McpServerDeclaration,
 ) -> ArgoResult<Arc<McpClient>> {
@@ -264,17 +265,14 @@ async fn acquire_client(
     }
     // mission-mcp-pool-wire-dispatch: route cold spawn through the
     // injected [`McpClientPool`] so subprocesses survive across turns.
-    // Tenant identity is not threaded to this call site today (the
-    // action-level executor pre-dates the multi-tenant orchestrator);
-    // a nil sentinel keeps all dispatch under one key until plumbed.
+    // The pool key is tenant-scoped so same-named servers cannot share
+    // a subprocess across workspaces.
     let command = server_decl.command.clone();
     let args = server_decl.args.clone();
     let arc = client_pool
-        .acquire(
-            TenantId(Uuid::nil()),
-            server_name.to_string(),
-            || async move { McpClient::connect_stdio(&command, &args).await },
-        )
+        .acquire(tenant, server_name.to_string(), || async move {
+            McpClient::connect_stdio(&command, &args).await
+        })
         .await
         .map_err(|e| {
             ArgoError::Provider(format!(
@@ -285,6 +283,51 @@ async fn acquire_client(
         .client_arc();
     guard.insert(server_name.to_string(), arc.clone());
     Ok(arc)
+}
+
+async fn action_tenant(action: &ActionRecord, cwd: &Path) -> ArgoResult<TenantId> {
+    if let Some(raw) = action.payload.get("tenant_id").and_then(|v| v.as_str()) {
+        let id = uuid::Uuid::parse_str(raw)
+            .map_err(|e| ArgoError::Schema(format!("invalid action tenant_id '{raw}': {e}")))?;
+        return Ok(TenantId(id));
+    }
+    #[cfg(test)]
+    {
+        Ok(test_workspace_tenant(cwd))
+    }
+    #[cfg(not(test))]
+    {
+        workspace_tenant(cwd).await
+    }
+}
+
+#[cfg(test)]
+fn test_workspace_tenant(cwd: &Path) -> TenantId {
+    use sha2::{Digest, Sha256};
+    let mut digest = Sha256::new();
+    digest.update(b"argo-test-workspace-tenant-v1");
+    digest.update(cwd.to_string_lossy().as_bytes());
+    let bytes = digest.finalize();
+    let mut id = [0u8; 16];
+    id.copy_from_slice(&bytes[..16]);
+    id[6] = (id[6] & 0x0f) | 0x80;
+    id[8] = (id[8] & 0x3f) | 0x80;
+    TenantId(uuid::Uuid::from_bytes(id))
+}
+
+#[cfg(not(test))]
+async fn workspace_tenant(cwd: &Path) -> ArgoResult<TenantId> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
 }
 
 /// Walk a JSON value, substituting `{{ key }}` placeholders inside

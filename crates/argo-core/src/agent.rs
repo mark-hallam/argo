@@ -256,8 +256,17 @@ impl Agent {
                 None,
             )
             .await?;
-        let mut ctx =
-            ToolContext::new(opts.principal.clone(), opts.workspace_root.clone());
+        let session = self
+            .deps
+            .store
+            .get_session(session_id)
+            .await?
+            .ok_or_else(|| ArgoError::Provider(format!("no session {}", session_id.0)))?;
+        let mut ctx = ToolContext::new_with_tenant(
+            opts.principal.clone(),
+            opts.workspace_root.clone(),
+            session.tenant_id,
+        );
         ctx.call_id = call.id;
         let result = self
             .deps

@@ -11,7 +11,7 @@ use argo_audit::{AuditKind, AuditSink};
 use argo_capability::CapabilityEngine;
 use argo_store::SessionStore;
 use argo_tool::{ToolContext, ToolRegistry};
-use argo_types::{ArgoError, ArgoResult, Principal, SessionId, ToolCallId};
+use argo_types::{ArgoError, ArgoResult, Principal, SessionId, TenantId, ToolCallId};
 use argo_vertical::WorkflowStep;
 use std::path::Path;
 use std::sync::Arc;
@@ -26,6 +26,7 @@ use uuid::Uuid;
 pub(super) struct WorkflowAuditCtx {
     audit: AuditSink,
     session_id: SessionId,
+    tenant_id: TenantId,
 }
 
 pub(super) struct StepOutcome {
@@ -157,7 +158,16 @@ async fn run_tool_call_step(
     )
     .await;
     let args = step.args.clone().unwrap_or(serde_json::Value::Null);
-    let mut ctx = ToolContext::new(principal.clone(), cwd.to_path_buf());
+    let tenant_id = match workflow_tenant(cwd, audit_ctx).await {
+        Ok(t) => t,
+        Err(e) => {
+            return StepOutcome {
+                status: "failed".into(),
+                message: format!("resolve workflow tenant: {e}"),
+            };
+        }
+    };
+    let mut ctx = ToolContext::new_with_tenant(principal.clone(), cwd.to_path_buf(), tenant_id);
     ctx.call_id = call_id;
     let result = registry.dispatch(tool_name, args, &ctx, engine).await;
     let (is_error, duration_ms) = match &result {
@@ -205,6 +215,24 @@ async fn emit_audit(
     let _ = ctx.audit.write(Some(ctx.session_id), kind, payload, None).await;
 }
 
+async fn workflow_tenant(cwd: &Path, audit_ctx: Option<&WorkflowAuditCtx>) -> ArgoResult<TenantId> {
+    if let Some(ctx) = audit_ctx {
+        return Ok(ctx.tenant_id);
+    }
+    use crate::home::{db_path, ensure_dir, resolve_home};
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home).to_string_lossy().as_ref()).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
+}
+
 pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowAuditCtx> {
     use crate::home::{db_path, ensure_dir, resolve_home};
     let cwd = std::env::current_dir()
@@ -220,15 +248,16 @@ pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowA
         ))
     })?;
     let sid = SessionId(uuid);
-    if store.get_session(sid).await?.is_none() {
+    let Some(session) = store.get_session(sid).await? else {
         return Err(ArgoError::Provider(format!(
             "no session with id '{session_id_str}'"
         )));
-    }
+    };
     let audit = AuditSink::new(store);
     Ok(WorkflowAuditCtx {
         audit,
         session_id: sid,
+        tenant_id: session.tenant_id,
     })
 }
 

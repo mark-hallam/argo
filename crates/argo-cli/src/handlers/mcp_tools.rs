@@ -12,11 +12,11 @@
 //! manifest is the only configuration site, so `--vertical` is
 //! required.
 use argo_mcp::{McpClient, McpToolSchema};
+use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
 use argo_vertical::{load_dir, McpServerDeclaration};
 use regex::Regex;
 use std::sync::Arc;
-use uuid::Uuid;
 
 use super::worker_actions_executor_mcp::{default_pool, shared_client_pool};
 
@@ -131,18 +131,15 @@ async fn list_tools(
         } else {
             // mission-mcp-pool-wire-dispatch: cold spawn routed through
             // the process-wide warm [`McpClientPool`]. Discovery is an
-            // operator CLI command with no per-call tenant scope, so a
-            // nil [`TenantId`] keeps every `argo mcp tools` invocation
-            // under one pool key (the underlying child stays warm for
-            // subsequent action-level dispatches against `server_id`).
+            // operator CLI command scoped to the current workspace, so
+            // pool keys use that workspace tenant.
+            let tenant = current_workspace_tenant().await?;
             let command = decl.command.clone();
             let args = decl.args.clone();
             let arc = shared_client_pool()
-                .acquire(
-                    TenantId(Uuid::nil()),
-                    server_id.to_string(),
-                    || async move { McpClient::connect_stdio(&command, &args).await },
-                )
+                .acquire(tenant, server_id.to_string(), || async move {
+                    McpClient::connect_stdio(&command, &args).await
+                })
                 .await
                 .map_err(|e| {
                     ArgoError::Provider(format!(
@@ -160,6 +157,22 @@ async fn list_tools(
             "list_tools on MCP server '{server_id}': {e}"
         ))
     })
+}
+
+async fn current_workspace_tenant() -> ArgoResult<TenantId> {
+    use crate::home::{db_path, ensure_dir, resolve_home};
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
+    let home = resolve_home(&cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home).to_string_lossy().as_ref()).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
 }
 
 /// Compile `--filter` eagerly so an invalid pattern surfaces before

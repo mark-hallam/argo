@@ -14,7 +14,7 @@
 use super::turn_helpers_context::prepare_context_messages;
 use super::turn_skills_runtime::PendingAbOutcome;
 use super::{build_system_prompt_with_ab, ContextWindowPolicy, TurnResult};
-use crate::dispatch::{build_dispatch_ctx, dispatch_one, provider_schemas_filtered};
+use crate::dispatch::{build_dispatch_ctx, dispatch_one_with_tenant, provider_schemas_filtered};
 use crate::helpers::{
     build_assistant_content, emit_event, message_from_row, record_turn_spend, stream_one_round,
     RoundResp, RunEventSink, SpendCtx,
@@ -363,8 +363,16 @@ pub(super) async fn run_turn_with_tools(
                 // consume the one-shot after the dispatch.
                 let approved_via_grant =
                     vertical_approval.contains(&call.name) && session_grants.allows(&call.name);
-                let res =
-                    dispatch_one(&registry, &engine, &principal, cwd, &orch_session_id, call).await;
+                let res = dispatch_one_with_tenant(
+                    &registry,
+                    &engine,
+                    &principal,
+                    spend.tenant_id,
+                    cwd,
+                    &orch_session_id,
+                    call,
+                )
+                .await;
                 if approved_via_grant {
                     consume_one_shot_if_present(
                         store,

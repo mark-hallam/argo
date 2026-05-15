@@ -5,7 +5,7 @@
 //! implementations.
 use crate::process_registry::ProcessRegistry;
 use argo_orchestrator::{HandoffId, SessionId};
-use argo_types::{ArgoResult, CapabilitySet, ContentBlock, Principal, ToolCallResult};
+use argo_types::{ArgoResult, CapabilitySet, ContentBlock, Principal, TenantId, ToolCallResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -56,6 +56,9 @@ pub struct ToolContext {
     /// The workspace root the tool operates against; relative paths in
     /// args resolve here.
     pub workspace_root: PathBuf,
+    /// Tenant scope for tenant-keyed pools, stores, and audit side
+    /// effects. Production dispatchers must pass the session tenant.
+    pub tenant_id: TenantId,
     /// Stable correlation id for the call.
     pub call_id: argo_types::ToolCallId,
     /// Wall-clock deadline for the call.
@@ -99,12 +102,29 @@ pub struct ToolContext {
 }
 
 impl ToolContext {
-    /// Convenience constructor used in tests + the agent loop.
+    /// Convenience constructor retained for tests.
     #[must_use]
+    #[cfg_attr(
+        not(debug_assertions),
+        deprecated(
+            note = "production callers must use new_with_tenant; new() retained for test fixtures only"
+        )
+    )]
     pub fn new(principal: Principal, workspace_root: PathBuf) -> Self {
+        Self::new_with_tenant(principal, workspace_root, TenantId(uuid::Uuid::nil()))
+    }
+
+    /// Construct a context with the tenant scope in hand.
+    #[must_use]
+    pub fn new_with_tenant(
+        principal: Principal,
+        workspace_root: PathBuf,
+        tenant_id: TenantId,
+    ) -> Self {
         Self {
             principal,
             workspace_root,
+            tenant_id,
             call_id: argo_types::ToolCallId::new(),
             deadline: None,
             progress_tx: None,

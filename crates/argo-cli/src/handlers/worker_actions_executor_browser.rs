@@ -37,7 +37,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::sync::Mutex;
-use uuid::Uuid;
+
+#[cfg(not(test))]
+use crate::home::{db_path, ensure_dir, resolve_home};
+#[cfg(not(test))]
+use argo_store::SessionStore;
 
 /// Default per-action wallclock budget. Overridable via
 /// `ARGO_BROWSER_ACTION_TIMEOUT_MS`.
@@ -102,8 +106,9 @@ pub(crate) async fn dispatch_action(
             bundle_path.display()
         ))
     })?;
-    let key = session_key(action, binding.session_scope);
-    let client = acquire_client(pool, client_pool, &key).await?;
+    let tenant = action_tenant(action, cwd).await?;
+    let key = session_key(action, binding.session_scope, tenant);
+    let client = acquire_client(pool, client_pool, tenant, &key).await?;
     let outcome = tokio::time::timeout(
         timeout,
         run_action(&client, &binding, &bundle_path, action),
@@ -180,16 +185,14 @@ fn bundle_dir(cwd: &Path, action: &ActionRecord) -> PathBuf {
         .join(&action.action_id)
 }
 
-/// Build a `(tenant, worker)` key for the session pool. Until Stream
-/// E threads tenant identity through `ActionRecord` we use a stable
-/// `default-tenant` sentinel matching
-/// [`super::worker_actions_executor_stubs::ComputerUseExecutor`].
-fn session_key(action: &ActionRecord, scope: SessionScope) -> SessionKey {
+/// Build a `(tenant, worker)` key for the session pool.
+fn session_key(action: &ActionRecord, scope: SessionScope, tenant: TenantId) -> SessionKey {
     let worker = action.worker_id.to_string();
+    let tenant = tenant.to_string();
     match scope {
-        SessionScope::PerWorker => ("default-tenant".to_string(), worker),
+        SessionScope::PerWorker => (tenant, worker),
         SessionScope::PerAction => (
-            "default-tenant".to_string(),
+            tenant,
             format!("{worker}::{}", action.action_id),
         ),
     }
@@ -198,6 +201,7 @@ fn session_key(action: &ActionRecord, scope: SessionScope) -> SessionKey {
 async fn acquire_client(
     pool: &BrowserPool,
     client_pool: &Arc<McpClientPool>,
+    tenant: TenantId,
     key: &SessionKey,
 ) -> ArgoResult<Arc<McpClient>> {
     let mut guard = pool.lock().await;
@@ -222,7 +226,7 @@ async fn acquire_client(
     let pool_program = program.clone();
     let pool_args = args.clone();
     let arc = client_pool
-        .acquire(TenantId(Uuid::nil()), manifest_id, || async move {
+        .acquire(tenant, manifest_id, || async move {
             McpClient::connect_stdio(&pool_program, &pool_args).await
         })
         .await
@@ -230,6 +234,51 @@ async fn acquire_client(
         .client_arc();
     guard.insert(key.clone(), arc.clone());
     Ok(arc)
+}
+
+async fn action_tenant(action: &ActionRecord, cwd: &Path) -> ArgoResult<TenantId> {
+    if let Some(raw) = action.payload.get("tenant_id").and_then(|v| v.as_str()) {
+        let id = uuid::Uuid::parse_str(raw)
+            .map_err(|e| ArgoError::Schema(format!("invalid action tenant_id '{raw}': {e}")))?;
+        return Ok(TenantId(id));
+    }
+    #[cfg(test)]
+    {
+        Ok(test_workspace_tenant(cwd))
+    }
+    #[cfg(not(test))]
+    {
+        workspace_tenant(cwd).await
+    }
+}
+
+#[cfg(test)]
+fn test_workspace_tenant(cwd: &Path) -> TenantId {
+    use sha2::{Digest, Sha256};
+    let mut digest = Sha256::new();
+    digest.update(b"argo-test-workspace-tenant-v1");
+    digest.update(cwd.to_string_lossy().as_bytes());
+    let bytes = digest.finalize();
+    let mut id = [0u8; 16];
+    id.copy_from_slice(&bytes[..16]);
+    id[6] = (id[6] & 0x0f) | 0x80;
+    id[8] = (id[8] & 0x3f) | 0x80;
+    TenantId(uuid::Uuid::from_bytes(id))
+}
+
+#[cfg(not(test))]
+async fn workspace_tenant(cwd: &Path) -> ArgoResult<TenantId> {
+    let home = resolve_home(cwd)?;
+    ensure_dir(&home)?;
+    let store = SessionStore::open(db_path(&home)).await?;
+    store.migrate().await?;
+    let name = cwd
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("workspace");
+    let root = cwd.to_string_lossy();
+    let (tenant, _workspace) = store.ensure_workspace(name, &root).await?;
+    Ok(tenant)
 }
 
 /// Split the env-var spec into `(program, args)`. Honours simple

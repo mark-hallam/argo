@@ -15,17 +15,6 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
-use uuid::Uuid;
-
-/// Sentinel tenant used by the in-process agent-runner dispatch path.
-/// Tenant identity is not threaded through `dispatch_one` (the inner
-/// agent loop is currently single-tenant per process); a stable nil
-/// UUID keeps every dispatch in this process under one pool key and
-/// preserves [`McpClientPool`]'s (tenant, manifest) isolation invariant
-/// for any future multi-tenant call site that does plumb a real tenant.
-fn dispatch_tenant() -> TenantId {
-    TenantId(Uuid::nil())
-}
 
 /// Wrapper around the process-wide [`McpClientPool`] (shipped in
 /// `mission-mcp-connection-pooling`). The agent-runner used to spawn a
@@ -54,11 +43,16 @@ impl std::fmt::Debug for McpConnectionPool {
 }
 
 impl McpConnectionPool {
-    async fn client(&self, name: &str, transport: &Value) -> Result<Arc<McpClient>, String> {
+    async fn client(
+        &self,
+        tenant_id: TenantId,
+        name: &str,
+        transport: &Value,
+    ) -> Result<Arc<McpClient>, String> {
         let (command, args) = parse_stdio_transport(transport)?;
         let guard = self
             .pool
-            .acquire(dispatch_tenant(), name.to_string(), || async move {
+            .acquire(tenant_id, name.to_string(), || async move {
                 McpClient::connect_stdio(&command, &args).await
             })
             .await
@@ -135,6 +129,7 @@ pub(crate) fn provider_schemas_filtered(
 /// Cap-check + dispatch one tool call. Errors during dispatch are
 /// turned into a `ToolCallResult { is_error: true, ... }` so the
 /// loop can surface them to the model rather than abort the turn.
+#[cfg(test)]
 pub(crate) async fn dispatch_one(
     registry: &ToolRegistry,
     engine: &CapabilityEngine,
@@ -143,15 +138,34 @@ pub(crate) async fn dispatch_one(
     session_id: &OrchSessionId,
     call: &ToolCallRequest,
 ) -> ToolCallResult {
+    let tenant_id = TenantId(uuid::Uuid::from_u128(1));
+    dispatch_one_with_tenant(
+        registry, engine, principal, tenant_id, cwd, session_id, call,
+    )
+    .await
+}
+
+/// Cap-check + dispatch one tool call under an explicit tenant.
+pub(crate) async fn dispatch_one_with_tenant(
+    registry: &ToolRegistry,
+    engine: &CapabilityEngine,
+    principal: &Principal,
+    tenant_id: TenantId,
+    cwd: &Path,
+    session_id: &OrchSessionId,
+    call: &ToolCallRequest,
+) -> ToolCallResult {
     let started = std::time::Instant::now();
+    let mut ctx = ToolContext::new_with_tenant(principal.clone(), cwd.to_path_buf(), tenant_id);
+    ctx.call_id = call.id;
+    ctx.session_id = session_id.clone();
     if registry.get(&call.name).is_none() {
-        if let Some(r) = dispatch_mcp(registry, engine, principal, call, started).await {
+        if let Some(r) =
+            dispatch_mcp(registry, engine, principal, ctx.tenant_id, call, started).await
+        {
             return r;
         }
     }
-    let mut ctx = ToolContext::new(principal.clone(), cwd.to_path_buf());
-    ctx.call_id = call.id;
-    ctx.session_id = session_id.clone();
     // `current_handoff_id` stays `None` here; the upstream agent loop
     // does not yet track which inbound handoff (if any) is being
     // serviced this turn. `mission-delegate-task-fallback-chain-v2`
@@ -173,6 +187,7 @@ async fn dispatch_mcp(
     registry: &ToolRegistry,
     engine: &CapabilityEngine,
     principal: &Principal,
+    tenant_id: TenantId,
     call: &ToolCallRequest,
     started: std::time::Instant,
 ) -> Option<ToolCallResult> {
@@ -190,14 +205,14 @@ async fn dispatch_mcp(
     }
     let pool = mcp_pool(registry)?;
     if registry.mcp_route(&call.name).is_none() {
-        if let Some(e) = discover_mcp_tools(registry, &pool).await {
+        if let Some(e) = discover_mcp_tools(registry, &pool, tenant_id).await {
             if registry.mcp_route(&call.name).is_none() {
                 return Some(argo_tool::error_text(call.id, e, elapsed_ms(started)));
             }
         }
     }
     let (server_name, transport) = registry.mcp_route(&call.name)?;
-    let client = match pool.client(&server_name, &transport).await {
+    let client = match pool.client(tenant_id, &server_name, &transport).await {
         Ok(c) => c,
         Err(e) => return Some(argo_tool::error_text(call.id, e, elapsed_ms(started))),
     };
@@ -213,10 +228,14 @@ async fn dispatch_mcp(
     )
 }
 
-async fn discover_mcp_tools(registry: &ToolRegistry, pool: &McpConnectionPool) -> Option<String> {
+async fn discover_mcp_tools(
+    registry: &ToolRegistry,
+    pool: &McpConnectionPool,
+    tenant_id: TenantId,
+) -> Option<String> {
     let mut first_err = None;
     for (server_name, transport) in registry.undiscovered_mcp_servers() {
-        let client = match pool.client(&server_name, &transport).await {
+        let client = match pool.client(tenant_id, &server_name, &transport).await {
             Ok(c) => c,
             Err(e) => {
                 first_err.get_or_insert(e);
@@ -308,6 +327,10 @@ fn parse_stdio_transport(transport: &Value) -> Result<(String, Vec<String>), Str
         .unwrap_or_default();
     Ok((command, args))
 }
+
+#[cfg(test)]
+#[path = "dispatch_tenant_isolation_tests.rs"]
+mod dispatch_tenant_isolation_tests;
 
 fn elapsed_ms(started: std::time::Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)

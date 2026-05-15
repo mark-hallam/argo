@@ -17,17 +17,6 @@ use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
-use uuid::Uuid;
-
-/// Tenant used by the in-process agent-runner dispatch path. The
-/// inner agent loop is currently single-tenant per process, so a
-/// stable nil UUID matches the sentinel used by
-/// `argo-agent-runner::dispatch::dispatch_tenant`. The downstream
-/// fallback-chain brief is the natural place to thread a real
-/// tenant id through `ToolContext`.
-fn dispatch_tenant() -> argo_types::TenantId {
-    argo_types::TenantId(Uuid::nil())
-}
 
 /// In-core `delegate_task` tool. `Default::default()` returns a
 /// stub that errors at dispatch — used by the legacy
@@ -181,7 +170,7 @@ impl Tool for DelegateTask {
         if let Some(ms) = parsed.deadline_ms {
             handoff.deadline = Some(Utc::now() + chrono::Duration::milliseconds(ms as i64));
         }
-        match store.insert_handoff(dispatch_tenant(), &handoff).await {
+        match store.insert_handoff(ctx.tenant_id, &handoff).await {
             Ok(()) => Ok(success_text(
                 ctx.call_id,
                 handoff.id.to_string(),
@@ -221,7 +210,7 @@ async fn inherit_active_chain(
     let Some(active_id) = ctx.current_handoff_id.as_ref() else {
         return Ok(());
     };
-    let Some(active) = store.find_handoff(dispatch_tenant(), active_id).await? else {
+    let Some(active) = store.find_handoff(ctx.tenant_id, active_id).await? else {
         return Ok(());
     };
     let Some(active_chain) = active.active_escalation_chain() else {
@@ -232,6 +221,52 @@ async fn inherit_active_chain(
     steps.extend_from_slice(active_chain.steps());
     handoff.set_escalation_chain(&EscalationChain::new(steps), 0);
     Ok(())
+}
+
+#[cfg(test)]
+mod tenant_tests {
+    use super::*;
+    use argo_orchestrator::Session;
+    use argo_store::SessionStore;
+    use argo_types::{Principal, TenantId};
+
+    #[tokio::test]
+    async fn dispatch_persists_handoff_under_context_tenant() {
+        let session_id = argo_orchestrator::SessionId::new();
+        let tenant = TenantId::new();
+        let session_store = Arc::new(SessionStore::open(":memory:").await.unwrap());
+        session_store.migrate().await.unwrap();
+        let store = Arc::new(OrchestratorStore::new(session_store));
+        store.ensure_schema().await.unwrap();
+        let mut session = Session::new(tenant, "delegate-task-tenant-test");
+        session.id = session_id.clone();
+        store.insert_session(&session).await.unwrap();
+
+        let principal = Principal::Local { os_user: "delegate".into() };
+        let mut ctx = ToolContext::new_with_tenant(principal, "/tmp".into(), tenant);
+        ctx.session_id = session_id.clone();
+        let result = DelegateTask::new(Arc::clone(&store))
+            .dispatch(
+                serde_json::json!({"worker_id": WorkerId::new().0.to_string(), "task": "verify"}),
+                &ctx,
+            )
+            .await
+            .unwrap();
+
+        assert!(!result.is_error, "dispatch: {:?}", result.content);
+        let handoffs = store
+            .list_handoffs_for_session(tenant, &session_id)
+            .await
+            .unwrap();
+        assert_eq!(handoffs.len(), 1);
+        assert!(
+            store
+                .list_handoffs_for_session(TenantId::new(), &session_id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
 }
 
 #[cfg(test)]
