@@ -12,8 +12,13 @@ LOC: ~400.
 
 ## Files you may touch
 
-- `crates/argo-forge/src/spend.rs` — TOUCH. Wrap accumulate+commit in single transaction OR convert to atomic CAS. Verify exact path at claim time. ≤40 modified lines.
-- `crates/argo-forge/src/spend_tests.rs` — TOUCH. Add race-test (synthetic concurrent commits). ≤30 modified lines.
+**Authoritative may-touch — 2026-05-15 evening v3 final (codex parsers should use THIS list).**
+
+- `crates/argo-forge/src/cost.rs` — narrowly: wrap accumulate+commit in single transaction OR atomic CAS on `spend_usd_micros`. ≤50 modified lines.
+- `crates/argo-forge/src/persist.rs` — narrowly: same change at the persistence boundary. ≤30 modified lines.
+- `crates/argo-forge/src/cost_tests.rs` (or sibling, NEW if needed) — narrowly: synthetic 100-iteration concurrent commit race test. ≤80 modified lines.
+
+The original brief targeted `crates/argo-forge/src/spend.rs` and `spend_tests.rs` which DO NOT EXIST. Current spend accumulation lives in `cost.rs` and DB writes in `persist.rs`. Acceptance criterion unchanged: race scenario produces correct final value with no lost updates.
 
 ## Files you must NOT touch
 

@@ -78,25 +78,15 @@ NEW skill + duty wiring:
 
 ## Files you may touch
 
-- `crates/argo-skills/src/day1_wrap.rs` — NEW. The
-  `worker-day1-wrap` skill implementation: query +
-  compose + send. ≤ 350 LOC.
-- `crates/argo-skills/src/day1_wrap_tests.rs` — NEW.
-  ≥ 8 unit tests. ≤ 300 LOC.
-- `crates/argo-skills/src/lib.rs` — narrowly scoped:
-  register the new skill module. 1-line addition.
-- `crates/argo-cli/src/handlers/worker_hire.rs` —
-  narrowly scoped: after worker insert, register a
-  one-shot duty `hire-day1-wrap` scheduled at
-  `now + 24h`. ≤ 80 LOC additions.
-- `manifests/skills/worker-day1-wrap.toml` — NEW.
-  Skill manifest (id, version, kind: `notify`,
-  trust-grade seed). ≤ 50 LOC.
-- `crates/argo-runtime/src/duty_scheduler.rs` —
-  narrowly scoped: if the existing scheduler doesn't
-  support one-shot duties (i.e. fires once and clears),
-  add that capability. Otherwise no changes. ≤ 100
-  LOC additions.
+**Authoritative may-touch — 2026-05-15 evening v3 final (codex parsers should use THIS list, ignore any later appendix).**
+
+- NEW `crates/argo-vertical/src/skills/worker_day1_wrap.rs` — built-in day-1 wrap skill. ≤200 LOC.
+- NEW `crates/argo-vertical/src/skills/worker_day1_wrap_tests.rs` — unit tests. ≤150 LOC.
+- `crates/argo-vertical/src/skills/mod.rs` (or `crates/argo-vertical/src/lib.rs`) — narrowly: `pub mod worker_day1_wrap;`. ≤5 modified lines.
+- `crates/argo-cli/src/handlers/gateway/routes_post_workers_hire.rs` (or wherever the POST /api/v1/workers/hire handler lives — verify at claim time) — narrowly: register the one-shot day1-wrap duty on successful hire. ≤30 modified lines.
+- `crates/argo-orchestrator/src/duty_scheduler.rs` (or current cron-scheduling location — verify) — narrowly: ONLY if a new one-shot variant is needed. ≤20 modified lines.
+
+Verify exact handler/scheduler paths via `rg 'POST.*workers.*hire\|fn.*hire_worker' crates/argo-cli/src/handlers/` at claim time. The original brief listed `crates/argo-skills/` (note plural-s) which DOES NOT EXIST; the canonical crate is `crates/argo-vertical/`.
 
 ## Files you must NOT touch
 

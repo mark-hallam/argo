@@ -33,16 +33,14 @@ The **3 genuinely-new operator verbs** this brief adds:
 
 ## Files you may touch
 
-- `crates/argo-cli/src/cli_plan_cmds.rs` — narrowly: add `Reject`, `Annotate`, `RequestRevision` variants to `PlanTemplateCmd` (around line 73-110). Mirror existing `Promote` shape. ≤30 modified lines.
-- `<NEW: crates/argo-cli/src/handlers/plan_template_reject.rs>` (≤50 LOC) — handler that calls existing `learned_plan_template::reject`.
-- `<NEW: crates/argo-cli/src/handlers/plan_template_annotate.rs>` (≤120 LOC) — handler + new table insert.
-- `<NEW: crates/argo-cli/src/handlers/plan_template_request_revision.rs>` (≤120 LOC) — handler + revision-request row insert.
-- `<NEW: crates/argo-store/migrations/<slot>__learned_plan_template_feedback.sql>` (≤30 LOC) — ONE migration creates BOTH new tables (`learned_plan_template_note`, `learned_plan_template_revision_request`).
-- `crates/argo-store/src/migrations/registry.rs` — register the new slot.
-- `<NEW: crates/argo-store/src/learned_plan_template_feedback.rs>` (≤150 LOC) — `insert_note`, `insert_revision_request`, `fetch_pending_revisions_for_cohort` helpers + unit tests.
-- `crates/argo-store/src/lib.rs` — narrowly: re-export the new module.
-- `crates/argo-skill/src/dreams_distillation.rs` — narrowly: at the cohort-prompt construction site, consult `fetch_pending_revisions_for_cohort` and inject `gap_description` into the prompt. ≤70 modified lines.
-- `crates/argo-cli/src/main.rs` — narrowly: dispatch the 3 new subcommands. ≤15 modified lines.
+**Authoritative may-touch — 2026-05-15 evening v3 final (codex parsers should use THIS list).**
+
+- `crates/argo-cli/src/cli_plan_cmds.rs` — narrowly: add `Reject`, `Annotate`, `RequestRevision` enum variants + dispatch arms (mirroring existing `Promote`). ≤60 modified lines.
+- `crates/argo-store/src/learned_plan_template.rs` — narrowly: add `annotate(id, author, note)` + `request_revision(id, gap)` helper functions. ≤60 modified lines.
+- NEW `crates/argo-store/migrations/NNNN_learned_plan_template_note.sql` — single-row table. Pick next free slot at claim time (~slot 79+). ≤20 lines.
+- NEW `crates/argo-store/migrations/NNNN_learned_plan_template_revision_request.sql` — single-row table. ≤20 lines.
+- `crates/argo-runtime/src/dreams_plan_templates.rs` — narrowly: extend `distill_plan_cohort` to consult `revision_request` rows for cohort templates + include `gap_description` in prompt. ≤80 modified lines. (NOT `argo-skill/src/dreams_distillation.rs` which was the v1 brief's wrong path.)
+- `crates/argo-runtime/src/dreams_plan_templates_tests.rs` (or sibling) — narrowly: 3 unit tests for revision-injection path. ≤100 modified lines.
 
 ## Files you must NOT touch
 

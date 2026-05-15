@@ -12,9 +12,16 @@ LOC: ~600. Branch: `claude-M3-doc-extraction-canvas-node`. PR title: `feat(skill
 
 ## Files you may touch
 
-- NEW crates/argo-skill/src/ir/node_kinds/extract_doc.rs - new variant ExtractDocument
-- NEW web/components/skycot/canvas/nodes/ExtractDocumentNode.tsx
-- NEW web/components/skycot/canvas/nodes/ExtractDocumentInspector.tsx
+**Authoritative may-touch — 2026-05-15 evening v3 final (codex parsers should use THIS list).**
+
+- `crates/argo-skill/src/ir/types.rs` (488 LOC near 500-LOC ceiling) — narrowly: add `NodeKind::ExtractDocument { source, schema, output_var }` variant ONLY. ≤25 modified lines. If types.rs would exceed 500 LOC, BLOCK with precursor split request `claude-skill-ir-types-split`.
+- `crates/argo-skill/src/ir/types_tests.rs` — narrowly: add 2 tests for ExtractDocument variant. ≤40 modified lines if room.
+- `crates/argo-skill/src/ir/serde.rs` — narrowly: ensure new variant serializes back-compat. ≤15 modified lines.
+- NEW `web/components/skycot/canvas/nodes/ExtractDocumentNode.tsx` — canvas renderer + inspector. ≤200 LOC.
+- `web/components/skycot/canvas/SkillCanvas.tsx` — narrowly: register new node kind. ≤15 modified lines.
+- `web/lib/skill-ir/types.ts` — narrowly: TS mirror of new variant. ≤25 modified lines.
+
+The brief previously said "don't touch L1 core schema" — that contradicts adding a NodeKind variant. This v3 explicitly permits the narrow additive variant edit. types.rs is at 488 LOC; respect 500-LOC ceiling.
 
 ## Files you must NOT touch
 
