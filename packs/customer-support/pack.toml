@@ -1,0 +1,9 @@
+[pack]
+name = "customer-support"
+version = "1.0.0"
+display_name = "Customer Support"
+description = "Full customer-support worker pack for Tier-1 triage, Tier-2 research, refund prep, account-change handling, and escalation-safe customer replies."
+
+[[verticals]]
+id = "customer-support"
+path = "."

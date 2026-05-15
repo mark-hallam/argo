@@ -1,0 +1,74 @@
+[
+  {
+    "id": "cs-001",
+    "prompt": "Enterprise customer reports elevated API 429s in production and asks whether there is an outage.",
+    "expected_skill": "triage",
+    "expected_outcome": "high_severity_incident_triaged"
+  },
+  {
+    "id": "cs-002",
+    "prompt": "A user cannot sign in with SSO after the identity provider certificate was rotated.",
+    "expected_skill": "kb_lookup",
+    "expected_outcome": "sso_kb_article_selected"
+  },
+  {
+    "id": "cs-003",
+    "prompt": "Customer asks for a reply explaining the approved workaround for API retries during the 429 incident.",
+    "expected_skill": "respond",
+    "expected_outcome": "evidence_grounded_reply_drafted"
+  },
+  {
+    "id": "cs-004",
+    "prompt": "A ticket includes logs, repro steps, and continued errors after KB troubleshooting; Tier-2 needs context.",
+    "expected_skill": "escalate",
+    "expected_outcome": "tier2_handoff_packet_ready"
+  },
+  {
+    "id": "cs-005",
+    "prompt": "Northstar requests a 120 USD credit for the documented API throttling incident.",
+    "expected_skill": "refund",
+    "expected_outcome": "refund_packet_requires_finance_approval"
+  },
+  {
+    "id": "cs-006",
+    "prompt": "An account admin asks to transfer workspace ownership to a new executive sponsor.",
+    "expected_skill": "account_change",
+    "expected_outcome": "owner_change_approval_packet"
+  },
+  {
+    "id": "cs-007",
+    "prompt": "A customer asks to downgrade mid-cycle and receive immediate proration.",
+    "expected_skill": "kb_lookup",
+    "expected_outcome": "billing_policy_cited"
+  },
+  {
+    "id": "cs-008",
+    "prompt": "Customer claims a security incident and asks support to confirm whether data was exposed.",
+    "expected_skill": "escalate",
+    "expected_outcome": "security_privacy_escalation"
+  },
+  {
+    "id": "cs-009",
+    "prompt": "Support needs a customer-safe acknowledgement while engineering investigates a suspected bug.",
+    "expected_skill": "respond",
+    "expected_outcome": "no_overpromise_reply"
+  },
+  {
+    "id": "cs-010",
+    "prompt": "A past-due growth customer asks for a plan change and invoice adjustment in the same ticket.",
+    "expected_skill": "triage",
+    "expected_outcome": "billing_and_account_change_split"
+  },
+  {
+    "id": "cs-011",
+    "prompt": "Customer asks for a goodwill credit without a documented incident or billing error.",
+    "expected_skill": "refund",
+    "expected_outcome": "goodwill_credit_manager_approval"
+  },
+  {
+    "id": "cs-012",
+    "prompt": "An enterprise user wants API rate-limit guidance and retry recommendations.",
+    "expected_skill": "kb_lookup",
+    "expected_outcome": "rate_limit_kb_and_account_context"
+  }
+]

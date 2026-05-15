@@ -1,0 +1,114 @@
+{
+  "support_policies": [
+    {
+      "policyId": "sla-enterprise",
+      "rule": "Enterprise priority tickets require first response within 30 minutes and manager escalation when severity is high or impact affects production users."
+    },
+    {
+      "policyId": "external-reply-evidence",
+      "rule": "Customer-facing replies must cite an approved KB article, account fact, incident statement, or approved internal note."
+    },
+    {
+      "policyId": "account-change-approval",
+      "rule": "Role, permission, region, plan, domain, or owner changes require a human approval packet before mutation."
+    },
+    {
+      "policyId": "refund-approval",
+      "rule": "Refunds above 50 USD, any annual-plan credit, or goodwill credits require finance or customer-success approval."
+    }
+  ],
+  "knowledge_base": [
+    {
+      "articleId": "kb-login-sso",
+      "title": "Troubleshooting SSO login failures",
+      "productArea": "identity",
+      "summary": "Check IdP certificate validity, ACS URL, clock skew, and user assignment before escalating to identity engineering.",
+      "freshness": "2026-05-01"
+    },
+    {
+      "articleId": "kb-billing-proration",
+      "title": "Plan-change proration policy",
+      "productArea": "billing",
+      "summary": "Mid-cycle plan upgrades prorate immediately; downgrades apply at renewal unless customer-success approves an exception.",
+      "freshness": "2026-04-22"
+    },
+    {
+      "articleId": "kb-api-rate-limit",
+      "title": "API rate-limit troubleshooting",
+      "productArea": "platform",
+      "summary": "Confirm tenant limit, burst capacity, retry headers, and recent incident status before recommending exponential backoff.",
+      "freshness": "2026-05-09"
+    }
+  ],
+  "customer_accounts": [
+    {
+      "accountId": "acct-northstar",
+      "name": "Northstar Analytics",
+      "tier": "enterprise",
+      "plan": "business-plus",
+      "region": "us",
+      "owner": "csm-ava",
+      "billingStatus": "current",
+      "openIncident": "inc-api-429"
+    },
+    {
+      "accountId": "acct-riverbend",
+      "name": "Riverbend Health",
+      "tier": "regulated",
+      "plan": "enterprise",
+      "region": "us",
+      "owner": "csm-noah",
+      "billingStatus": "current",
+      "openIncident": null
+    },
+    {
+      "accountId": "acct-summit",
+      "name": "Summit Retail",
+      "tier": "growth",
+      "plan": "pro",
+      "region": "eu",
+      "owner": "csm-mia",
+      "billingStatus": "past_due",
+      "openIncident": null
+    }
+  ],
+  "incident_log": [
+    {
+      "incidentId": "inc-api-429",
+      "status": "monitoring",
+      "impact": "Elevated 429s for a subset of API tenants in us region.",
+      "approvedStatement": "We identified elevated API throttling and applied mitigation. Retries should now succeed; we are monitoring error rates."
+    }
+  ],
+  "refund_rules": [
+    {
+      "reason": "documented_outage",
+      "maxAutoPrepareUsd": 50,
+      "approverRole": "customer-success-manager"
+    },
+    {
+      "reason": "billing_error",
+      "maxAutoPrepareUsd": 250,
+      "approverRole": "finance-ops"
+    },
+    {
+      "reason": "goodwill",
+      "maxAutoPrepareUsd": 0,
+      "approverRole": "support-manager"
+    }
+  ],
+  "handoff_templates": [
+    {
+      "queue": "tier2-technical",
+      "requiredFields": ["customer", "impact", "repro_steps", "logs", "kb_checked", "customer_update_draft"]
+    },
+    {
+      "queue": "billing",
+      "requiredFields": ["customer", "invoice", "amount", "policy_basis", "refund_or_credit", "approval_needed"]
+    },
+    {
+      "queue": "security",
+      "requiredFields": ["customer", "data_scope", "suspected_issue", "evidence", "containment", "legal_hold"]
+    }
+  ]
+}

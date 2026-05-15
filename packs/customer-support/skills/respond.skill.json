@@ -1,0 +1,50 @@
+{
+  "entry": "draft",
+  "metadata": {
+    "name": "respond",
+    "version": "1.0.0",
+    "description": "Draft customer-facing replies grounded in approved evidence, SLA context, and support policy.",
+    "source": "customer-support pack"
+  },
+  "variables": [
+    { "name": "response_context", "varType": "json", "scope": "graph" },
+    { "name": "reply_draft", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "draft",
+      "label": "Draft Reply",
+      "kind": {
+        "type": "action",
+        "instruction": "Draft a concise customer reply with acknowledgement, answer or workaround, evidence citation, next step, owner, and ETA. Never promise refunds, account mutations, or outage root cause unless approved."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "safety",
+      "label": "Check Reply Safety",
+      "kind": {
+        "type": "condition",
+        "expression": "reply_draft.contains_unapproved_refund || reply_draft.contains_account_change || reply_draft.evidence_count == 0 || reply_draft.incident_statement_unapproved"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Approve External Reply",
+      "kind": { "type": "await-approval", "approverRole": "support-manager", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask", "channel": "slack" }
+    },
+    {
+      "id": "record",
+      "label": "Record Reply Draft",
+      "kind": { "type": "store", "target": "memory://support_reply_history" },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "draft", "to": "safety", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "safety", "to": "approval", "cond": { "kind": "on-pattern", "pattern": "risky" } },
+    { "id": "e3", "from": "safety", "to": "record", "cond": { "kind": "always" } }
+  ]
+}

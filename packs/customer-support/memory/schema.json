@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "skycot.memory.schema.v1",
+  "entries": [
+    {
+      "key": "support_policies",
+      "type": "list<object>",
+      "purpose": "Support rules for SLA tiers, escalation triggers, refund thresholds, account-change approval gates, and external messaging constraints."
+    },
+    {
+      "key": "knowledge_base",
+      "type": "list<object>",
+      "purpose": "Approved help-center articles with product area, customer-visible summary, internal caveats, and freshness metadata."
+    },
+    {
+      "key": "customer_accounts",
+      "type": "list<object>",
+      "purpose": "Customer account snapshots with tier, plan, region, account owner, billing status, entitlements, open incidents, and support history."
+    },
+    {
+      "key": "incident_log",
+      "type": "list<object>",
+      "purpose": "Recent incidents, outage statements, workarounds, customer impact, and approved status-page language."
+    },
+    {
+      "key": "refund_rules",
+      "type": "list<object>",
+      "purpose": "Credit/refund eligibility rules, amount thresholds, required approver roles, and evidence expectations."
+    },
+    {
+      "key": "handoff_templates",
+      "type": "list<object>",
+      "purpose": "Tier-2, engineering, billing, security, and customer-success handoff packet templates."
+    }
+  ]
+}

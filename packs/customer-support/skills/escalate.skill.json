@@ -1,0 +1,57 @@
+{
+  "entry": "assemble",
+  "metadata": {
+    "name": "escalate",
+    "version": "1.0.0",
+    "description": "Prepare complete Tier-2, billing, security, or engineering handoff packets without losing customer context.",
+    "source": "customer-support pack"
+  },
+  "variables": [
+    { "name": "handoff_context", "varType": "json", "scope": "graph" },
+    { "name": "handoff_packet", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "assemble",
+      "label": "Assemble Handoff",
+      "kind": {
+        "type": "action",
+        "instruction": "Build a handoff packet with summary, customer impact, account facts, reproduction steps, logs, KB checked, evidence links, customer update draft, risk flags, and requested owner."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "templates",
+      "label": "Load Handoff Templates",
+      "kind": { "type": "fetch", "target": "memory://handoff_templates", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "route",
+      "label": "Route Escalation",
+      "kind": {
+        "type": "branch",
+        "arms": [
+          { "label": "security", "pattern": "intent == 'security_privacy'" },
+          { "label": "billing", "pattern": "intent == 'billing' || refund_requested" },
+          { "label": "tier2-technical", "pattern": "default" }
+        ]
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "notify",
+      "label": "Notify Owner",
+      "kind": {
+        "type": "action",
+        "instruction": "Create an internal Slack-ready escalation note and customer-safe status update. Do not claim resolution or send externally."
+      },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "assemble", "to": "templates", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "templates", "to": "route", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "route", "to": "notify", "cond": { "kind": "always" } }
+  ]
+}

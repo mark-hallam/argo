@@ -1,0 +1,50 @@
+{
+  "entry": "query",
+  "metadata": {
+    "name": "kb_lookup",
+    "version": "1.0.0",
+    "description": "Find approved knowledge-base and account context for a support ticket before drafting a resolution.",
+    "source": "customer-support pack"
+  },
+  "variables": [
+    { "name": "triage_result", "varType": "json", "scope": "graph" },
+    { "name": "kb_result", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "query",
+      "label": "Build KB Query",
+      "kind": {
+        "type": "transform",
+        "template": "Create a search query using product area, error codes, customer plan, symptoms, and requested outcome from {{triage_result}}."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "fetch-kb",
+      "label": "Fetch KB Articles",
+      "kind": { "type": "fetch", "target": "memory://knowledge_base", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "fetch-account",
+      "label": "Fetch Account Snapshot",
+      "kind": { "type": "fetch", "target": "memory://customer_accounts", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "select",
+      "label": "Select Evidence",
+      "kind": {
+        "type": "action",
+        "instruction": "Select the best approved article, account facts, incident context, and caveats. Return citations and confidence. If no approved evidence exists, flag Tier-2 research instead of inventing an answer."
+      },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "query", "to": "fetch-kb", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "fetch-kb", "to": "fetch-account", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "fetch-account", "to": "select", "cond": { "kind": "on-success" } }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "entry": "validate",
+  "metadata": {
+    "name": "account_change",
+    "version": "1.0.0",
+    "description": "Prepare account-change requests for human approval with entitlement, identity, billing, and audit checks.",
+    "source": "customer-support pack"
+  },
+  "variables": [
+    { "name": "change_request", "varType": "json", "scope": "graph" },
+    { "name": "change_packet", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "validate",
+      "label": "Validate Requester",
+      "kind": {
+        "type": "action",
+        "instruction": "Verify requester identity, account role, entitlement, requested change, risk, billing impact, and required approver. Do not mutate the account."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "account",
+      "label": "Load Account",
+      "kind": { "type": "fetch", "target": "memory://customer_accounts", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "risk",
+      "label": "Classify Change Risk",
+      "kind": {
+        "type": "condition",
+        "expression": "change_request.type in ['owner_change','permission_change','region_change','plan_change','domain_change']"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Approve Account Change",
+      "kind": { "type": "await-approval", "approverRole": "account-owner-or-support-manager", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "validate", "to": "account", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "account", "to": "risk", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "risk", "to": "approval", "cond": { "kind": "always" } }
+  ]
+}

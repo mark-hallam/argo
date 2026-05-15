@@ -1,0 +1,53 @@
+{
+  "entry": "normalize",
+  "metadata": {
+    "name": "triage",
+    "version": "1.0.0",
+    "description": "Classify inbound support tickets by intent, severity, SLA risk, required evidence, and likely owning queue.",
+    "source": "customer-support pack"
+  },
+  "variables": [
+    { "name": "ticket", "varType": "json", "scope": "graph" },
+    { "name": "triage_result", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "normalize",
+      "label": "Normalize Ticket",
+      "kind": {
+        "type": "transform",
+        "template": "Extract customer, account id, product area, urgency, symptoms, requested change, sentiment, attachments, and missing fields from {{ticket}}."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "load-policy",
+      "label": "Load Support Policy",
+      "kind": { "type": "fetch", "target": "memory://support_policies", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "classify",
+      "label": "Classify Intent And Severity",
+      "kind": {
+        "type": "action",
+        "instruction": "Classify the ticket as how_to, incident, billing, refund, account_change, security_privacy, bug, or feature_request. Assign severity, SLA deadline, owner queue, missing evidence, and whether a customer reply can be drafted safely."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "risk-check",
+      "label": "Check Escalation Risk",
+      "kind": {
+        "type": "condition",
+        "expression": "triage_result.severity == 'high' || triage_result.intent == 'security_privacy' || triage_result.requires_mutation"
+      },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "normalize", "to": "load-policy", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "load-policy", "to": "classify", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "classify", "to": "risk-check", "cond": { "kind": "on-success" } }
+  ]
+}

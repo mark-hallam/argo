@@ -1,0 +1,54 @@
+{
+  "entry": "eligibility",
+  "metadata": {
+    "name": "refund",
+    "version": "1.0.0",
+    "description": "Prepare refund or credit recommendations from billing facts, policy, incident evidence, and approval thresholds.",
+    "source": "customer-support pack"
+  },
+  "variables": [
+    { "name": "refund_request", "varType": "json", "scope": "graph" },
+    { "name": "refund_packet", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "eligibility",
+      "label": "Check Eligibility",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://refund_rules",
+        "method": "GET"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "billing",
+      "label": "Collect Billing Facts",
+      "kind": {
+        "type": "action",
+        "instruction": "Collect invoice, payment, outage, plan, and customer-success context. Calculate candidate credit amount and policy basis. Mark unknown facts instead of guessing."
+      },
+      "annotations": { "policy": "auto", "executor": "mcp:stripe" }
+    },
+    {
+      "id": "packet",
+      "label": "Prepare Refund Packet",
+      "kind": {
+        "type": "action",
+        "instruction": "Prepare an approval packet with refund reason, amount, policy rule, evidence, customer impact, risk, and exact Stripe/customer-success action to take after approval."
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Approve Refund",
+      "kind": { "type": "await-approval", "approverRole": "finance-ops", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "eligibility", "to": "billing", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "billing", "to": "packet", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "packet", "to": "approval", "cond": { "kind": "on-success" } }
+  ]
+}
