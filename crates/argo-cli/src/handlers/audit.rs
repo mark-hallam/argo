@@ -115,6 +115,7 @@ pub async fn run(cmd: AuditCmd) -> ArgoResult<()> {
                 ))
             }
         }
+        AuditCmd::VerifyChain { json } => super::audit_verify_chain::run(&store, json).await,
         AuditCmd::Show {
             tail,
             json,

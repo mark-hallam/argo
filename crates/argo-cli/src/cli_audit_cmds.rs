@@ -81,6 +81,12 @@ pub enum AuditQueryCmd {
         #[arg(long, default_value = "text")]
         format: String,
     },
+    /// Verify the full audit chain and print an operator summary.
+    VerifyChain {
+        /// Emit a single JSON object instead of the text report.
+        #[arg(long)]
+        json: bool,
+    },
     /// Export audit rows for compliance review.
     Export {
         /// Output format: ndjson, csv, or tarball.
