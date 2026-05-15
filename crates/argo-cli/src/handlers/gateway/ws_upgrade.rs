@@ -74,12 +74,10 @@ pub(super) enum Route {
 /// Top-level entry from the accept loop. Owns the stream for the
 /// lifetime of the WS connection (handshake → frame loop → close).
 ///
-/// J3 sensible deviation: the inbox route now accepts `?token=<JWT>`
-/// in addition to the legacy bearer-token path. When a JWT verifies,
-/// we subscribe to the per-tenant broadcast (isolated from other
-/// tenants) and send a connection-time `hello` frame; legacy
-/// bearer-token connections fall through to the original global
-/// broadcast so the HTML inbox keeps working unchanged.
+/// J3/F-003 posture: the inbox route requires `?token=<JWT>` and
+/// subscribes to the per-tenant broadcast keyed by the token's `tnt`
+/// claim. Legacy bearer-token websocket auth is rejected before the
+/// handshake because it cannot identify a safe tenant key.
 pub(super) async fn serve(
     req: &str,
     _store: Option<&Arc<SessionStore>>,
@@ -89,10 +87,7 @@ pub(super) async fn serve(
     let tenant_for_inbox = match &route {
         Route::Inbox => match super::ws_inbox_events::authorize(req, chrono::Utc::now().timestamp())
         {
-            Ok(auth) => match auth {
-                super::ws_inbox_events::WsAuth::Jwt(_) => Some(auth.tenant_key().to_string()),
-                super::ws_inbox_events::WsAuth::Legacy => None,
-            },
+            Ok(auth) => Some(auth.tenant_key().to_string()),
             Err((status, body)) => return write_http_response(stream, status, &body).await,
         },
         Route::Audit => {
@@ -151,7 +146,14 @@ pub(super) async fn serve(
     }
     let mut rx = match (&route, tenant_for_inbox.as_deref()) {
         (Route::Inbox, Some(tenant)) => super::ws_inbox_events::subscribe_tenant(tenant),
-        (Route::Inbox, None) => inbox_broadcast().subscribe(),
+        (Route::Inbox, None) => {
+            // Authorization above requires a JWT tenant before the
+            // handshake. If a future edit regresses that invariant,
+            // fail closed with an empty receiver instead of joining
+            // the legacy global channel.
+            let (_tx, rx) = broadcast::channel::<String>(1);
+            rx
+        }
         (Route::Audit, _) => {
             // No shared `AuditSink` is wired through the gateway yet
             // (each call-site builds its own `AuditSink::new(store)`).

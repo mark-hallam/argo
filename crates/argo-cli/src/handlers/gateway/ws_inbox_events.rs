@@ -19,9 +19,9 @@
 //!   is per-Principal RBAC filtering (`mission-enterprise-ws-rbac-filter`).
 //! - Sequence numbers are per-connection (not per-tenant): replay
 //!   protection is a v1.5 brief.
-//! - Tenant key defaults to the operator id when a JWT is absent so
-//!   the legacy bearer-token consumers still receive every tenant's
-//!   broadcast on the global channel (back-compat).
+//! - Tenant key is always explicit. JWT connections subscribe to their
+//!   `tnt` claim; legacy bearer-token websocket auth is rejected so it
+//!   cannot fall back to a cross-tenant global channel.
 
 use super::jwt::{self, Claims, JwtError};
 use argo_channels::webinbox::{ApprovalRowFull, WebInboxEvent as ChannelEvent, WebInboxRow};
@@ -157,70 +157,56 @@ pub(super) fn subscribe_tenant(tenant_id: &str) -> broadcast::Receiver<String> {
 
 /// Result of authorizing a WS connection at upgrade-time. Carries
 /// enough context (tenant id) for the per-tenant broadcast subscribe
-/// step. Legacy bearer-token connections fall back to the global
-/// broadcast and receive every tenant's events — that's the v1
-/// back-compat seam.
+/// step. Legacy bearer-token websocket auth is no longer accepted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum WsAuth {
     /// JWT-authed connection. Tenant id is `claims.tnt`.
     Jwt(Claims),
-    /// Legacy bearer-token connection. No tenant filtering.
-    Legacy,
 }
 
 impl WsAuth {
     /// Tenant key for the per-tenant broadcast registry. Legacy
-    /// connections use the well-known `"*"` key so an operator can
-    /// publish to "every legacy listener" via the same primitive
-    /// (the wire side still posts to the global channel).
+    /// connections do not map to a wildcard; authorization rejects
+    /// them before the subscribe step.
     pub(super) fn tenant_key(&self) -> &str {
         match self {
             WsAuth::Jwt(c) => c.tnt.as_str(),
-            WsAuth::Legacy => "*",
         }
     }
 }
 
-/// Authorize a WS upgrade request. JWT (`?token=…`) wins when both
-/// are present; bearer-token fallback preserves the HTML inbox path.
+/// Authorize a WS upgrade request. JWT (`?token=…`) is required so the
+/// subscription key comes from the tenant claim. Legacy bearer/cookie
+/// auth is rejected for this route because it cannot identify one
+/// tenant safely.
 pub(super) fn authorize(req: &str, now_unix: i64) -> Result<WsAuth, (&'static str, String)> {
     if let Some(token) = token_from_query(req) {
         return match jwt::verify_jwt(token, now_unix) {
             Ok(claims) => Ok(WsAuth::Jwt(claims)),
-            Err(JwtError::NoPubkey) => {
-                // No pubkey configured — fall through to bearer path.
-                bearer_or_unauth(req)
-            }
+            Err(JwtError::NoPubkey) => Err(legacy_bearer_rejected(req)),
             Err(e) => Err((
                 "401 Unauthorized",
                 format!("{{\"error\":\"{}\"}}", e.reason()),
             )),
         };
     }
-    bearer_or_unauth(req)
+    Err(legacy_bearer_rejected(req))
 }
 
-fn bearer_or_unauth(req: &str) -> Result<WsAuth, (&'static str, String)> {
+fn legacy_bearer_rejected(req: &str) -> (&'static str, String) {
     let token = header_value(req, "Authorization")
         .and_then(|h| h.strip_prefix("Bearer "))
         .or_else(|| cookie_value(req, "argo_operator_token"));
-    let Some(token) = token else {
-        return Err((
+    if token.is_none() {
+        return (
             "401 Unauthorized",
-            "{\"error\":\"missing bearer token\"}".to_string(),
-        ));
-    };
-    // Mirror the env-var match in ws_upgrade::check_auth so legacy
-    // consumers keep their existing failure mode for invalid tokens.
-    if let Ok(expected) = argo_config::cred::get("ARGO_WEBINBOX_BEARER_TOKEN") {
-        if !expected.is_empty() && token != expected {
-            return Err((
-                "401 Unauthorized",
-                "{\"error\":\"invalid bearer token\"}".to_string(),
-            ));
-        }
+            "{\"error\":\"missing inbox websocket JWT\"}".to_string(),
+        );
     }
-    Ok(WsAuth::Legacy)
+    (
+        "401 Unauthorized",
+        "{\"error\":\"inbox websocket requires tenant-scoped JWT\"}".to_string(),
+    )
 }
 
 /// Extract `?token=<JWT>` from the request line. Returns `None` if

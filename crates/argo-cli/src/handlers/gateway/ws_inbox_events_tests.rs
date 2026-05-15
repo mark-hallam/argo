@@ -22,6 +22,11 @@ use serde_json::{json, Value};
 
 const PUBKEY_ENV: &str = "ARGO_INBOX_WS_JWT_PUBKEY";
 
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn sample_row(approval_id: &str) -> WebInboxRow {
     WebInboxRow {
         operator_id: "op-1".into(),
@@ -192,18 +197,19 @@ fn token_from_query_parses_and_handles_missing() {
 }
 
 #[test]
-fn authorize_falls_back_to_bearer_when_no_jwt_pubkey() {
+fn authorize_rejects_legacy_bearer_when_no_jwt_pubkey() {
+    let _guard = env_lock();
     std::env::remove_var(PUBKEY_ENV);
     let req = "GET /inbox/ws?token=eyJ.eyJ.sig HTTP/1.1\r\nAuthorization: Bearer x\r\n\r\n";
     let now = chrono::Utc::now().timestamp();
-    match authorize(req, now) {
-        Ok(WsAuth::Legacy) => {}
-        other => panic!("expected legacy fallback, got {other:?}"),
-    }
+    let err = authorize(req, now).expect_err("legacy fallback is disabled");
+    assert_eq!(err.0, "401 Unauthorized");
+    assert!(err.1.contains("requires tenant-scoped JWT"));
 }
 
 #[test]
 fn authorize_uses_jwt_tenant_when_pubkey_present() {
+    let _guard = env_lock();
     let signing = SigningKey::generate(&mut OsRng);
     let vk = signing.verifying_key();
     let b64 = base64::engine::general_purpose::STANDARD.encode(vk.to_bytes());
@@ -228,12 +234,61 @@ fn authorize_uses_jwt_tenant_when_pubkey_present() {
 
 #[test]
 fn authorize_rejects_missing_credentials() {
+    let _guard = env_lock();
     std::env::remove_var(PUBKEY_ENV);
     let req = "GET /inbox/ws HTTP/1.1\r\n\r\n";
     let now = chrono::Utc::now().timestamp();
     let err = authorize(req, now).expect_err("no token -> 401");
     assert_eq!(err.0, "401 Unauthorized");
-    assert!(err.1.contains("missing bearer token"));
+    assert!(err.1.contains("missing inbox websocket JWT"));
+}
+
+#[tokio::test]
+async fn jwt_auth_subscribes_only_to_claim_tenant() {
+    let tenant = {
+        let _guard = env_lock();
+        let signing = SigningKey::generate(&mut OsRng);
+        let vk = signing.verifying_key();
+        let b64 = base64::engine::general_purpose::STANDARD.encode(vk.to_bytes());
+        std::env::set_var(PUBKEY_ENV, b64);
+        let now = chrono::Utc::now().timestamp();
+        let token = super::jwt::sign_jwt_for_test(
+            &signing,
+            &Claims {
+                sub: "op-jwt-sub".into(),
+                tnt: "tenant-jwt-sub".into(),
+                iat: now,
+                exp: now + 60,
+            },
+        );
+        let req = format!(
+            "GET /inbox/ws?token={token} HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"
+        );
+        let auth = authorize(&req, now).expect("jwt verifies");
+        let tenant = auth.tenant_key().to_string();
+        std::env::remove_var(PUBKEY_ENV);
+        tenant
+    };
+    let mut rx = subscribe_tenant(&tenant);
+    publish_event(
+        "tenant-jwt-other",
+        WebInboxEvent::ApprovalCreated {
+            payload: json!({"id": "blocked"}),
+        },
+    );
+    publish_event(
+        &tenant,
+        WebInboxEvent::ApprovalCreated {
+            payload: json!({"id": "allowed"}),
+        },
+    );
+    let frame = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv())
+        .await
+        .expect("claim tenant receives")
+        .expect("frame");
+    assert!(frame.contains("allowed"), "claim tenant frame: {frame}");
+    assert!(!frame.contains("blocked"), "other tenant leaked: {frame}");
+    assert!(rx.try_recv().is_err());
 }
 
 #[tokio::test]
