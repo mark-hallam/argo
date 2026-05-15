@@ -58,6 +58,9 @@ mod anthropic_parse;
 pub mod audit;
 pub mod budget;
 pub mod config;
+pub mod cu_step_runner;
+#[cfg(test)]
+mod cu_step_runner_tests;
 pub mod e2b;
 pub mod e2b_reap;
 pub mod e2b_reap_cron;
@@ -78,6 +81,7 @@ pub mod testing;
 pub mod testing_mocks;
 
 pub use config::CuConfig;
+pub use cu_step_runner::CuStepRunner;
 pub use e2b_reap::{E2bReapReport, E2bSandboxInfo};
 pub use error::CuError;
 pub use executor::{ComputerUseExecutor, CuOutcome, RunRequest, RunResult};

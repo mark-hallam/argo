@@ -8,9 +8,10 @@ use std::sync::Arc;
 use crate::anthropic::{AnthropicClient, CuStepRequest, CuStepResponse, StopReason};
 use crate::audit::{AuditLog, CuAuditEvent};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bClient, E2bSandbox};
+use crate::cu_step_runner::CuStepRunner;
+use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction};
 use crate::executor::AnthropicClientTemplate;
-use crate::executor_loop_exit::{handle_restart, stringify_verdict, LoopExit};
+use crate::executor_loop_exit::{stringify_verdict, LoopExit};
 use crate::executor_types::{RunRequest, RunResult};
 use crate::profile::Profile;
 use crate::restart::{self, RestartCoordinator};
@@ -30,37 +31,37 @@ pub(crate) fn anthropic_for(
     )
 }
 
-/// Per-step CU loop. Drives Anthropic + E2B until the model emits
-/// a stop reason or the budget is exhausted.
+/// Per-step CU loop. Drives Anthropic + a platform runner until the
+/// model emits a stop reason or the budget is exhausted.
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn run_loop(
-    e2b: &E2bClient,
+pub(crate) async fn run_loop<R>(
+    runner: &R,
     template: &AnthropicClientTemplate,
     screenshot_persister: Option<&Arc<dyn ScreenshotPersister>>,
     req: &RunRequest,
     profile: &Profile,
-    sandbox: &E2bSandbox,
+    session: &R::Session,
     audit: &AuditLog,
     tracker: &mut BudgetTracker,
-) -> Result<LoopExit, CuError> {
+) -> Result<LoopExit, CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
     let anthropic = anthropic_for(template, profile)?;
-    let mut prior_actions: Vec<String> = Vec::new();
-    let mut last_text: Option<String> = None;
-    let mut sandbox = sandbox.clone();
-    let mut system_prompt = req.system_prompt.clone();
-    let mut coordinator = RestartCoordinator::new(profile.restart.clone());
+    let mut state = LoopState::new(req, profile, session.clone());
 
     // Step 0: capture the initial screenshot before sending
     // the first message.
-    let mut screenshot = e2b.screenshot(&sandbox).await?;
-    persist_step(screenshot_persister, req, 0, &screenshot).await;
+    runner.preflight().await?;
+    state.screenshot = runner.warm_up(&state.session).await?;
+    persist_step(screenshot_persister, req, 0, &state.screenshot).await;
 
-    'outer: loop {
+    loop {
         let responses = anthropic
             .step(CuStepRequest {
-                system_prompt: &system_prompt,
-                screenshot_png: &screenshot,
-                prior_actions: &prior_actions,
+                system_prompt: &state.system_prompt,
+                screenshot_png: &state.screenshot,
+                prior_actions: &state.prior_actions,
                 screen_width: profile.screen_width,
                 screen_height: profile.screen_height,
             })
@@ -68,18 +69,8 @@ pub(crate) async fn run_loop(
         let responses = match responses {
             Ok(r) => r,
             Err(e) if e.is_recoverable_to_handoff() => {
-                match handle_restart(
-                    e2b,
-                    &e,
-                    "anthropic_step",
-                    profile,
-                    &mut coordinator,
-                    &mut sandbox,
-                    &mut screenshot,
-                    &mut system_prompt,
-                    &req.system_prompt,
-                )
-                .await?
+                match recover_after_error(runner, &e, "anthropic_step", profile, req, &mut state)
+                    .await?
                 {
                     Some(handoff) => return Ok(LoopExit::Handoff(handoff)),
                     None => continue,
@@ -87,144 +78,262 @@ pub(crate) async fn run_loop(
             }
             Err(e) => return Err(e),
         };
-
-        // The model may emit several `tool_use` blocks per turn
-        // (e.g. `mouse_move` then `left_click`). Dispatch each
-        // sequentially, accumulate audit rows, then take ONE
-        // post-turn screenshot the rows reference. A Stop or
-        // budget-exhaust mid-Vec audits the actions that already
-        // ran before exiting.
-        let mut pending: Vec<PendingAudit> = Vec::new();
-        let mut early_exit: Option<LoopExit> = None;
-        for resp in responses {
-            match resp {
-                CuStepResponse::Stop {
-                    reason,
-                    text,
-                    tokens_used,
-                } => {
-                    let verdict = tracker.charge_step(tokens_used);
-                    if matches!(verdict, BudgetVerdict::Exhausted { .. }) {
-                        early_exit = Some(LoopExit::Handoff(stringify_verdict(verdict)));
-                        break;
-                    }
-                    last_text = text.or(last_text);
-                    early_exit = Some(match reason {
-                        StopReason::Success => LoopExit::Success(RunResult {
-                            final_text: last_text.clone(),
-                            actions_taken: prior_actions.clone(),
-                            tokens_used: tracker.tokens_used(),
-                        }),
-                        StopReason::Failure => LoopExit::Handoff(format!(
-                            "model emitted stop_failure: {}",
-                            last_text.clone().unwrap_or_default()
-                        )),
-                    });
-                    break;
-                }
-                CuStepResponse::ToolCall {
-                    action,
-                    tokens_used,
-                } => {
-                    let verdict = tracker.charge_step(tokens_used);
-                    if let BudgetVerdict::Exhausted { .. } = verdict {
-                        early_exit = Some(LoopExit::Handoff(stringify_verdict(verdict)));
-                        break;
-                    }
-                    let summary = action.summary();
-                    let result = match e2b.execute_action(&sandbox, &action).await {
-                        Ok(r) => r,
-                        Err(e) if e.is_recoverable_to_handoff() => {
-                            match handle_restart(
-                                e2b,
-                                &e,
-                                "sandbox_action",
-                                profile,
-                                &mut coordinator,
-                                &mut sandbox,
-                                &mut screenshot,
-                                &mut system_prompt,
-                                &req.system_prompt,
-                            )
-                            .await?
-                            {
-                                Some(handoff) => {
-                                    return Ok(LoopExit::Handoff(format!(
-                                        "{handoff} (step {})",
-                                        tracker.step()
-                                    )))
-                                }
-                                // Restart restored state; the
-                                // partial audit for this turn is
-                                // dropped (sandbox is wedged-then-
-                                // recovered, those rows would not
-                                // reflect on-disk truth).
-                                None => continue 'outer,
-                            }
-                        }
-                        Err(e) => return Err(e),
-                    };
-                    if let Some(t) = result.text.clone() {
-                        last_text = Some(t);
-                    }
-                    let step_num = tracker.step();
-                    pending.push(PendingAudit {
-                        step: step_num,
-                        action,
-                        result,
-                        tokens_used,
-                    });
-                    prior_actions.push(format!("step {step_num}: {summary}"));
-                }
-            }
-        }
-
-        // After the turn: if any actions ran, take ONE screenshot
-        // and audit each row referencing it. If E2B shipped a
-        // screenshot inline with the last action's response, reuse
-        // it; only fall back to a fresh HTTP fetch when absent.
-        // Saves one round-trip per turn.
-        if !pending.is_empty() {
-            screenshot = match pending
-                .last()
-                .and_then(|p| p.result.screenshot_b64.as_deref())
-            {
-                Some(b64) => decode_inline_screenshot(b64)?,
-                None => e2b.screenshot(&sandbox).await?,
-            };
-            let final_step = pending
-                .last()
-                .map(|p| p.step)
-                .unwrap_or_else(|| tracker.step());
-            persist_step(screenshot_persister, req, final_step, &screenshot).await;
-            let relpath = audit.save_screenshot(final_step, &screenshot)?;
-            for entry in pending.drain(..) {
-                audit.append(&CuAuditEvent {
-                    step: entry.step,
-                    at: chrono::Utc::now().to_rfc3339(),
-                    action: entry.action,
-                    result: entry.result,
-                    screenshot_relpath: relpath.clone(),
-                    tokens_used: entry.tokens_used,
-                    budget: tracker.snapshot(),
-                })?;
-            }
-            // Take a snapshot at the configured cadence so a
-            // SnapshotResetRetry has fresh state to seed from.
-            if coordinator.should_snapshot(final_step) {
-                coordinator.record_snapshot(restart::take_snapshot(
-                    &screenshot,
-                    final_step,
-                    &req.system_prompt,
-                    &prior_actions,
-                ));
-            }
-        }
-
-        if let Some(exit) = early_exit {
-            return Ok(exit);
+        match process_turn(
+            runner,
+            screenshot_persister,
+            req,
+            profile,
+            audit,
+            tracker,
+            &mut state,
+            responses,
+        )
+        .await?
+        {
+            TurnFlow::Continue => {}
+            TurnFlow::Exit(exit) => return Ok(exit),
         }
     }
+}
+
+struct LoopState<S> {
+    prior_actions: Vec<String>,
+    last_text: Option<String>,
+    session: S,
+    screenshot: Vec<u8>,
+    system_prompt: String,
+    coordinator: RestartCoordinator,
+}
+
+impl<S> LoopState<S> {
+    fn new(req: &RunRequest, profile: &Profile, session: S) -> Self {
+        Self {
+            prior_actions: Vec::new(),
+            last_text: None,
+            session,
+            screenshot: Vec::new(),
+            system_prompt: req.system_prompt.clone(),
+            coordinator: RestartCoordinator::new(profile.restart.clone()),
+        }
+    }
+}
+
+enum TurnFlow {
+    Continue,
+    Exit(LoopExit),
+}
+
+enum ToolFlow {
+    Recorded(PendingAudit),
+    Restarted,
+    Exit(LoopExit),
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn process_turn<R>(
+    runner: &R,
+    screenshot_persister: Option<&Arc<dyn ScreenshotPersister>>,
+    req: &RunRequest,
+    profile: &Profile,
+    audit: &AuditLog,
+    tracker: &mut BudgetTracker,
+    state: &mut LoopState<R::Session>,
+    responses: Vec<CuStepResponse>,
+) -> Result<TurnFlow, CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
+    let mut pending: Vec<PendingAudit> = Vec::new();
+    let mut early_exit: Option<LoopExit> = None;
+    for resp in responses {
+        match resp {
+            CuStepResponse::Stop {
+                reason,
+                text,
+                tokens_used,
+            } => {
+                early_exit = Some(handle_stop(reason, text, tokens_used, tracker, state));
+                break;
+            }
+            CuStepResponse::ToolCall {
+                action,
+                tokens_used,
+            } => match handle_tool_call(runner, req, profile, tracker, state, action, tokens_used)
+                .await?
+            {
+                ToolFlow::Recorded(entry) => pending.push(entry),
+                ToolFlow::Restarted => return Ok(TurnFlow::Continue),
+                ToolFlow::Exit(exit) => {
+                    early_exit = Some(exit);
+                    break;
+                }
+            },
+        }
+    }
+    flush_pending(
+        runner,
+        screenshot_persister,
+        req,
+        audit,
+        tracker,
+        state,
+        pending,
+    )
+    .await?;
+    Ok(match early_exit {
+        Some(exit) => TurnFlow::Exit(exit),
+        None => TurnFlow::Continue,
+    })
+}
+
+fn handle_stop<S>(
+    reason: StopReason,
+    text: Option<String>,
+    tokens_used: u32,
+    tracker: &mut BudgetTracker,
+    state: &mut LoopState<S>,
+) -> LoopExit {
+    let verdict = tracker.charge_step(tokens_used);
+    if matches!(verdict, BudgetVerdict::Exhausted { .. }) {
+        return LoopExit::Handoff(stringify_verdict(verdict));
+    }
+    if text.is_some() {
+        state.last_text = text;
+    }
+    match reason {
+        StopReason::Success => LoopExit::Success(RunResult {
+            final_text: state.last_text.clone(),
+            actions_taken: state.prior_actions.clone(),
+            tokens_used: tracker.tokens_used(),
+        }),
+        StopReason::Failure => LoopExit::Handoff(format!(
+            "model emitted stop_failure: {}",
+            state.last_text.clone().unwrap_or_default()
+        )),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn handle_tool_call<R>(
+    runner: &R,
+    req: &RunRequest,
+    profile: &Profile,
+    tracker: &mut BudgetTracker,
+    state: &mut LoopState<R::Session>,
+    action: CuAction,
+    tokens_used: u32,
+) -> Result<ToolFlow, CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
+    let verdict = tracker.charge_step(tokens_used);
+    if let BudgetVerdict::Exhausted { .. } = verdict {
+        return Ok(ToolFlow::Exit(LoopExit::Handoff(stringify_verdict(
+            verdict,
+        ))));
+    }
+    let summary = action.summary();
+    let result = match runner.execute_step_recorded(&state.session, &action).await {
+        Ok(r) => r,
+        Err(e) if e.is_recoverable_to_handoff() => {
+            match recover_after_error(runner, &e, "sandbox_action", profile, req, state).await? {
+                Some(handoff) => {
+                    return Ok(ToolFlow::Exit(LoopExit::Handoff(format!(
+                        "{handoff} (step {})",
+                        tracker.step()
+                    ))));
+                }
+                None => return Ok(ToolFlow::Restarted),
+            }
+        }
+        Err(e) => return Err(e),
+    };
+    if let Some(t) = result.text.clone() {
+        state.last_text = Some(t);
+    }
+    let step = tracker.step();
+    state.prior_actions.push(format!("step {step}: {summary}"));
+    Ok(ToolFlow::Recorded(PendingAudit {
+        step,
+        action,
+        result,
+        tokens_used,
+    }))
+}
+
+async fn recover_after_error<R>(
+    runner: &R,
+    err: &CuError,
+    stage: &'static str,
+    profile: &Profile,
+    req: &RunRequest,
+    state: &mut LoopState<R::Session>,
+) -> Result<Option<String>, CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
+    runner
+        .recover_after_error(
+            err,
+            stage,
+            profile,
+            &mut state.coordinator,
+            &mut state.session,
+            &mut state.screenshot,
+            &mut state.system_prompt,
+            &req.system_prompt,
+        )
+        .await
+}
+
+async fn flush_pending<R>(
+    runner: &R,
+    screenshot_persister: Option<&Arc<dyn ScreenshotPersister>>,
+    req: &RunRequest,
+    audit: &AuditLog,
+    tracker: &BudgetTracker,
+    state: &mut LoopState<R::Session>,
+    pending: Vec<PendingAudit>,
+) -> Result<(), CuError>
+where
+    R: CuStepRunner + ?Sized,
+{
+    if pending.is_empty() {
+        return Ok(());
+    }
+    state.screenshot = match pending
+        .last()
+        .and_then(|p| p.result.screenshot_b64.as_deref())
+    {
+        Some(b64) => decode_inline_screenshot(b64)?,
+        None => runner.capture_screenshot(&state.session).await?,
+    };
+    let final_step = pending
+        .last()
+        .map(|p| p.step)
+        .unwrap_or_else(|| tracker.step());
+    persist_step(screenshot_persister, req, final_step, &state.screenshot).await;
+    let relpath = audit.save_screenshot(final_step, &state.screenshot)?;
+    for entry in pending {
+        audit.append(&CuAuditEvent {
+            step: entry.step,
+            at: chrono::Utc::now().to_rfc3339(),
+            action: entry.action,
+            result: entry.result,
+            screenshot_relpath: relpath.clone(),
+            tokens_used: entry.tokens_used,
+            budget: tracker.snapshot(),
+        })?;
+    }
+    if state.coordinator.should_snapshot(final_step) {
+        state.coordinator.record_snapshot(restart::take_snapshot(
+            &state.screenshot,
+            final_step,
+            &req.system_prompt,
+            &state.prior_actions,
+        ));
+    }
+    Ok(())
 }
 
 /// Per-action audit info accumulated during a multi-action turn.
