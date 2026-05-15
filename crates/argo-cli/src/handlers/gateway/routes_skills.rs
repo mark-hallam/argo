@@ -35,8 +35,6 @@ async fn skills_list_response(
     };
     let skills = SkillStore::new(Arc::clone(store));
     let lookup = LayeredLookup::workspace_only(&skills);
-    // TODO(H-4b follow-up): replace workspace_only with with_library
-    // once the gateway owns a distinct read-only library store.
     list_response_for_lookup(&lookup, raw_risk).await
 }
 

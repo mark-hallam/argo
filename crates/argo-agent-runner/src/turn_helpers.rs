@@ -23,13 +23,100 @@ use crate::transport::load_manifest;
 use crate::turn_vertical::{consume_one_shot_if_present, SessionGrantState};
 use argo_audit::{AuditKind, AuditSink};
 use argo_provider::{ProviderRequest, Sampling, Transport};
+use argo_skill::{LayeredLookup, Skill, SkillLayer, SkillStore};
 use argo_store::SessionStore;
-use argo_types::{
-    ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult,
-};
+use argo_types::{ArgoError, ArgoResult, ContentBlock, MessageRole, SessionId, ToolCallResult};
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
+
+pub(super) async fn load_prompt_skills(
+    workspace: &SkillStore,
+    session_id: SessionId,
+    vertical_id: Option<&str>,
+) -> ArgoResult<Vec<Skill>> {
+    let library = open_skill_library().await?;
+    load_prompt_skills_with_library(workspace, session_id, vertical_id, library.as_ref()).await
+}
+
+pub(super) async fn load_prompt_skills_with_library(
+    workspace: &SkillStore,
+    session_id: SessionId,
+    vertical_id: Option<&str>,
+    library: Option<&SkillStore>,
+) -> ArgoResult<Vec<Skill>> {
+    let attached = workspace.skills_for_session(session_id).await?;
+    if !attached.is_empty() {
+        return Ok(attached);
+    }
+
+    let Some(library) = library else {
+        return match vertical_id {
+            Some(vid) => workspace.list_skills_for_vertical(vid).await,
+            None => workspace.list_active().await,
+        };
+    };
+
+    let lookup = LayeredLookup::with_library(workspace, library);
+    let rows = lookup.list_for_action("low").await?;
+    let mut active = Vec::new();
+    for row in rows {
+        if row.layer == SkillLayer::Library && !is_marketplace_skill(&row.skill) {
+            continue;
+        }
+        if let Some(vid) = vertical_id {
+            if row.layer == SkillLayer::Workspace && row.skill.vertical_id.as_deref() != Some(vid) {
+                continue;
+            }
+        }
+        active.push(row.skill);
+    }
+    Ok(active)
+}
+
+pub(super) fn render_skill_prompt(active: Vec<Skill>) -> String {
+    let mut out = String::new();
+    if active.is_empty() {
+        return out;
+    }
+    out.push_str(
+        "You have access to the following workspace skills. \
+         Apply them as guidance for tool selection, response style, \
+         and domain knowledge.\n\n",
+    );
+    for s in active {
+        out.push_str(&format!(
+            "## {} (v{})\n",
+            s.frontmatter.name, s.frontmatter.version
+        ));
+        if !s.frontmatter.description.is_empty() {
+            out.push_str(&s.frontmatter.description);
+            out.push('\n');
+        }
+        out.push('\n');
+        out.push_str(s.body.trim_end());
+        out.push_str("\n\n---\n\n");
+    }
+    out
+}
+
+async fn open_skill_library() -> ArgoResult<Option<SkillStore>> {
+    let Some(path) = std::env::var_os("ARGO_SKILL_LIBRARY_DB") else {
+        return Ok(None);
+    };
+    let store = SessionStore::open(PathBuf::from(path)).await?;
+    store.migrate().await?;
+    Ok(Some(SkillStore::new(Arc::new(store))))
+}
+
+fn is_marketplace_skill(skill: &Skill) -> bool {
+    skill
+        .frontmatter
+        .provenance
+        .source
+        .starts_with("published:")
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_turn_with_tools(

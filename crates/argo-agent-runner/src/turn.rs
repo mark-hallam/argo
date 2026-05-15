@@ -373,39 +373,12 @@ async fn build_system_prompt_with_ab(
     invocation_id: &str,
 ) -> ArgoResult<(Option<String>, Vec<turn_skills_runtime::PendingAbOutcome>)> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
-    let attached = skills.skills_for_session(session_id).await?;
-    let mut active = if !attached.is_empty() {
-        attached
-    } else if let Some(vid) = vertical_id {
-        skills.list_skills_for_vertical(vid).await?
-    } else {
-        skills.list_active().await?
-    };
+    let mut active = turn_helpers::load_prompt_skills(&skills, session_id, vertical_id).await?;
     turn_canary::apply_canary_routing(store, &skills, session_id, &mut active).await?;
     let (active, pending) =
         turn_skills_runtime::resolve_variants_for_turn(store, invocation_id, active).await;
     turn_skills_migration::emit_pending_migration_hints(store, &active).await;
-    let mut out = String::new();
-    if !active.is_empty() {
-        out.push_str(
-            "You have access to the following workspace skills. \
-             Apply them as guidance for tool selection, response style, \
-             and domain knowledge.\n\n",
-        );
-        for s in active {
-            out.push_str(&format!(
-                "## {} (v{})\n",
-                s.frontmatter.name, s.frontmatter.version
-            ));
-            if !s.frontmatter.description.is_empty() {
-                out.push_str(&s.frontmatter.description);
-                out.push('\n');
-            }
-            out.push('\n');
-            out.push_str(s.body.trim_end());
-            out.push_str("\n\n---\n\n");
-        }
-    }
+    let mut out = turn_helpers::render_skill_prompt(active);
     // mission-skill-session-boot-wire: render the trust-gated
     // "Available skills" block (name + version + description only,
     // no body) once per session boot, between the active workspace
@@ -448,6 +421,10 @@ mod turn_skills;
 #[cfg(test)]
 #[path = "turn_skills_tests.rs"]
 mod turn_skills_tests;
+
+#[cfg(test)]
+#[path = "turn_library_integration_tests.rs"]
+mod turn_library_integration_tests;
 
 #[path = "turn_planner.rs"]
 pub mod turn_planner;
