@@ -102,335 +102,117 @@ the header and (if you are conductor) flag the drift for cleanup.
 
 ---
 
-## Right-now snapshot (2026-05-15) — operator out of quota until 2026-05-19 (Australia/Melbourne, ~Tuesday 4am)
+---
 
-**fresh session picking up SKYCOT v1.0 work: read this WHOLE section, then the audit reports in `docs/skycot/audit/`, then start work.** The operator is handing over to a new session on 2026-05-19. **Continuity matters.** This snapshot is the hand-off.
+## Right-now snapshot (2026-05-16) — codex-audit-driven plan in flight
 
-### What's MERGED since the original 2026-05-14 hand-off
+**fresh session picking up SKYCOT v1.0: READ THIS SECTION END-TO-END before doing anything.** session hand-off from the 2026-05-16 conductor session at ~97% context.
 
-**26 PRs MERGED** in conductor ticks 2026-05-14 → 2026-05-15 (codex + claude workers, conductor squash-merged). Workers are absolutely shipping.
+### Where we are: audit-driven plan in execution
 
-| PR | Brief | Notes |
+The 2026-05-14 Phase A–D audits + 2026-05-15 codex full-architecture audit converged on a remediation plan. **Read the codex audit report first:** `docs/skycot/audit/2026-05-15-codex-full-architecture-audit.md`. 18 findings F-001 through F-018, severity-rated, with phased execution roadmap. Authored by codex against `abceee8f`; validated and amended by Claude.
+
+Operator paste-ready audit prompt (in case re-run is needed): `docs/skycot/audit/CODEX_AUDIT_PROMPT_2026-05-15.md`.
+
+### Operator decisions LOCKED 2026-05-15 (do not re-debate)
+
+1. **Q1 macOS CU for v1 gate:** Both paths stay. F-001 (P0 macOS run-loop) stays the ship gate; E2B `computer_use` remains operational. Demo runs on macOS.
+2. **Q2 Marketplace authz:** POST install requires bearer/JWT. GET browse stays anonymous (normal SaaS pattern for prospects). Already SHIPPED via #1721.
+3. **Q3 AuditSink::new cadence:** Rip the band-aid — one brief marks `#[cfg(test)]` AND migrates every production caller. **NOTE:** pre-flight found 106 production callers (not codex's ~25 estimate). Brief deferred until F-004 lands; will likely split into 2-3 sub-briefs.
+4. **Q4 Migration filename duplicates:** Rename to canonical prefixes (best practice; industry norm for Diesel/sqlx/Alembic/Rails). F-016 LOC bumped from 80 → ~250 to account for fallout in tests/tools that grep by filename.
+5. **F-008 15-vs-8 invariant drift:** Update CLAUDE.md to match reality. Keep all 15 in core. No tool-to-MCP migration. F-008 brief is a doc edit (~40 LOC).
+6. **F-009 unwired tool advertising:** Don't hide via registry split — WIRE the tools (Memory, DelegateTask, SessionSearch, SendMessage). Build `builtin_tools_with_runtime(deps)` in argo-tool; agent runner uses that.
+7. **F-011 type canonicalization:** Re-scope to truly-public cross-crate `pub struct` duplicates only (NOT `pub(super)`/`pub(crate)`). Expected count ~5–15 (not codex's 51). LOC ~120.
+
+### Audit-driven briefs — current state (11 authored, 5 MERGED, 3 CLAIMED, 3 TODO, 7 unauthored)
+
+**Phase 1 — v1 SHIP-BLOCKER:**
+| Brief | F-NNN | State | Notes |
+|---|---|---|---|
+| codex-cu-platform-neutral-loop-trait | F-001a | MERGED #1719 | CuStepRunner trait extract — precursor |
+| codex-cu-macos-run-loop-wiring | F-001b | CLAIMED | 🔴 V1 SHIP-BLOCKER. Wire macOS exec through trait |
+
+**Phase 2 — P1 security/multi-tenancy:**
+| Brief | F-NNN | State | Notes |
+|---|---|---|---|
+| codex-marketplace-install-authz | F-002 | MERGED #1721 | POST behind auth, GET anonymous |
+| codex-webinbox-tenant-auth | F-003 | MERGED #1720 | WsAuth::Legacy removed entirely |
+| codex-toolcontext-tenant | F-004 | TODO | **3 BLOCKs amended** — see lessons below; additive-constructor pattern; ~350 LOC |
+| (codex-audit-tenant-plumb) | F-005 | DEFERRED until F-004 lands | 106 production callers — needs re-sizing |
+| codex-rbac-workspace-scope | F-006 | CLAIMED | ~120 LOC |
+| codex-send-message-channel-rbac | F-007 | CLAIMED | New `Capability::MessageSend` variant; ~220 LOC |
+
+**Phase 3 — P2 drift (first batch authored):**
+| Brief | F-NNN | State | Notes |
+|---|---|---|---|
+| codex-claude-md-tool-count-invariant-update | F-008 | TODO | ~40 LOC doc edit per operator Q3 |
+| codex-tool-runtime-wiring | F-009 | TODO | Wire (not hide) — `builtin_tools_with_runtime`; ~280 LOC |
+
+**Unauthored (still to write):**
+- F-010 mission-genesis-jd-synthesis (~180 LOC, operator-independent)
+- F-011 type-canonicalization-wave-2 (~120 LOC, rescoped)
+- F-012 file-size-budget-split (~120 LOC)
+- F-013 fn-impl-size-budget (~500 LOC)
+- F-014 public-api-rustdoc-wave (~600 LOC, Phase 4 polish)
+- F-015 global-state-audit (~300 LOC)
+- F-016 migration-raw-filename-rename (~250 LOC per operator Q4 best-practice)
+- F-017 sql-ident-helper (~120 LOC)
+- F-018 provider-comment-refresh (~5 LOC, trivial)
+
+### Pre-flight lessons (3 codex BLOCKs on F-004; apply going forward)
+
+Authoring a brief WITHOUT careful production-callsite grep produced 3 amendment cycles on F-004. **Apply these rules before authoring any of the 7 unauthored audit briefs:**
+
+1. **Grep for `^pub struct X` (definition) not `pub use X` (re-export).** ToolContext is in `tool.rs:53`, not `lib.rs` (which only re-exports). My initial may-touch listed lib.rs.
+2. **Filter test files when listing production callsites:** `rg 'PATTERN' crates --type rust -l | grep -v '_tests.rs\|/tests/'`. Inner-mod test functions don't need brief boundaries.
+3. **Additive constructor beats breaking signature** when a function has 15+ test callers. Pattern: keep `Foo::new` (set new field to sentinel + `#[deprecated]`); add `Foo::new_with_X` as production constructor. Avoids touching test files that are already at file-size ceiling.
+4. **Check for hidden production callsites in adjacent modules.** F-004 had `dispatch_one` in `turn_helpers.rs` (which shares spend.tenant_id scope) — easy to miss because the obvious file is `dispatch.rs`. Always also grep crate-wide.
+
+### Outstanding question (operator was deciding when context ran out)
+
+"Want me to do a proactive pre-flight sweep on F-006/F-007/F-008/F-009 with the new rules before codex hits them?" — Operator hadn't answered. Recommend the fresh session ask this before resuming. If yes: ~15min cost saves ~30-60min of amendment cycles downstream.
+
+### Queue state at hand-off (2026-05-16)
+
+- MERGED: 478 (475 from 2026-05-15 carryover + 3 audit-driven: #1719/#1720/#1721)
+- CLAIMED: 3 (codex-cu-macos-run-loop-wiring [v1 SHIP-BLOCKER], codex-rbac-workspace-scope, codex-send-message-channel-rbac)
+- IN_REVIEW: 0
+- TODO: 3 (codex-toolcontext-tenant + codex-claude-md-tool-count-invariant-update + codex-tool-runtime-wiring)
+- BLOCKED: 14 (all categorical pauses — operator-deferred or cascade)
+- DROPPED: 44
+
+**0 open PRs.** No swarm-protocol crises in flight.
+
+### What MERGED 2026-05-15/16 (audit-driven session)
+
+| PR | Brief | F-NNN |
 |---|---|---|
-| #1635 | M13 Rust skill SDK | M-Code Phase 1 |
-| #1636 | mission-marketplace-seller-e2b-demo | demo proof |
-| #1637 | L9 skill-canvas-diff | Track L Phase 2 |
-| #1638 | M1 Claude vision extraction | M-Doc Phase 1 |
-| #1639 | M9 cross-version regression detection | M-Eval Phase 1 |
-| #1640 | mission-sso-oidc-jwt-signature-verify | gateway |
-| #1641 | M5 SLA tracking + breach events | M-Orch Phase 1 |
-| #1642 | claude-defer-non-macos-computer-use | scope cut shipped |
-| #1643 | claude-canonicalize-approval-decision-type | 2/5 type canonicalization round 1 |
-| #1644 | claude-canonicalize-decision-type | renamed both as different concepts |
-| #1645 | M11 eval self-healing fixtures | M-Eval Phase 1 |
-| #1646 | M6 per-skill retry policy | M-Orch Phase 1 |
-| #1647 | M10 eval results dashboard | M-Eval Phase 1 |
-| #1648 | claude-delete-ai-receptionist-vertical | smoke step 14 unblocked |
-| #1649 | M4 doc table extraction | M-Doc Phase 1 |
-| #1650 | claude-ci-lint-parallel-pub-types | drift regression-prevention live |
-| #1651 | claude-canonicalize-medium-duplicates | JudgeVerdict + Role + Outcome + RestartDecision |
-| #1652 | claude-channels-fallback-orphan-cleanup | Phase B's 1 orphan resolved |
-| #1653 | claude-argo-acp-triage | Path C (standalone documented) |
-| #1654 | claude-multiworker-duty-handoff-e2e-smoke | scenario #3 demoable |
-| #1655 | claude-vertical-eval-seed-generation-test | claim 3 coverage |
-| #1656 | claude-toml-inherit-workspace-versions | 236 TOML lines cleaned |
-| #1658 | claude-store-migrations-registry-split | 461 LOC → split |
-| #1659 | claude-forge-dspy-stub-warning-upgrade | stub clarity |
-| #1660 | M7 orch queue management UI | M-Orch Phase 1 COMPLETE |
+| #1719 | codex-cu-platform-neutral-loop-trait | F-001a precursor |
+| #1720 | codex-webinbox-tenant-auth | F-003 P1 |
+| #1721 | codex-marketplace-install-authz | F-002 P1 |
+| (earlier today: #1704–#1718 from Tick 12/13 backlog batch — see commits before audit) | | |
 
-**Track L Phase 1 essentially COMPLETE**: L1 ✅, L2 ✅, L3 ✅, L4 ✅, L4-gw ✅, L5 ✅, L9 ✅. Only L6 (PR #1632) remaining — currently DIRTY; rebase brief `claude-rebase-pr-1632` authored.
+### Carryover from 2026-05-15 session
 
-**Track M Phase 1 essentially COMPLETE**: M1 ✅, M4 ✅, M5 ✅, M6 ✅, M7 ✅, M9 ✅, M10 ✅, M11 ✅, M12 ✅, M13 ✅. Remaining: M3 (TODO), M8 (TODO), M14 (TODO), M2 (PaddleOCR DEFERRED).
+Tick 12/13 of the 2026-05-15 conductor session authored 28 post-v1 backlog briefs. **14 of those (50%) turned out to target already-shipped surfaces** (codex's strict per-claim check caught them). This drift rate is what motivated the formal codex audit. The audit's 18 findings replace that stale gap analysis with a fresh ground-truth plan.
 
-**Type canonicalization round 1 COMPLETE except AuditRow**: ApprovalDecision (#1643) + Decision (#1644) + medium-duplicates bundle (#1651) all MERGED. Only `claude-canonicalize-audit-row-type` (4-way, CLAUDE-PREFERRED) remains.
+**Memory of the lesson:** the codebase has dramatically more shipped surface than any gap analysis from before 2026-05-15 credited. Future replenishment passes should grep-verify scope before authoring (CLAUDE.md drift-prevention rule §3).
 
-**Still unshipped (priority order for next account)**:
-1. 🔴 `claude-skill-library-worker-load-wire` (SHIP-BLOCKER, CLAUDE-PREFERRED)
-2. 🔴 `claude-migration-slot-dedup-and-validator` (P0 operational risk, CLAUDE-PREFERRED)
-3. `claude-canonicalize-audit-row-type` (CLAUDE-PREFERRED, 4-way data integrity)
-4. `claude-canonicalize-parallel-names-round2-high` (CLAUDE-PREFERRED, 7 HIGH-sev round-2 types)
+### For the next conductor: how to resume
 
-**3 rebase recovery briefs authored 2026-05-15** (codex-eligible, just need a worker to grab them):
-- `claude-rebase-pr-1632` — 🔴 HIGH PRIORITY (unblocks L7/L8/L10/L13/L14/L15/L16/L17 cascade)
-- `claude-rebase-pr-1657` — argo-delegate workspace conflict
-- `claude-rebase-pr-1606` — gateway-boot-split-v2
+1. **First action: pull main + check queue state.** `git pull --ff-only origin main && python3 -c "..."` (the state script in every prior tick output works).
+2. **Read the codex audit report** (`docs/skycot/audit/2026-05-15-codex-full-architecture-audit.md`) and this hand-off section. ~15 min total.
+3. **Ask operator about the proactive pre-flight sweep** before continuing brief authoring.
+4. **In-flight CLAIMED briefs will surface as PRs.** Tier-1 review them per the standard pattern; admin-merge on GHA-billing-blocked checks (operator-authorized pattern).
+5. **Author the 7 unauthored Phase 3/4 briefs** when codex_todo drops below threshold AND the pre-flight discipline is applied. Don't author all 7 at once — codex's first-claim attempt is feedback; 2-3 per tick lets you correct quickly.
+6. **F-005 needs special sizing decision** — 106 callers across ~30 files. Either: (a) one big brief that's bigger than codex's normal sizing, (b) split into AuditSink-deprecation-only + 2-3 migration batches, (c) escalate to operator. Recommend (b).
 
-**#1506 cli-help-reference**: BLOCKED on operator-side GitHub Actions billing failure (`payment failed / spending limit needs to be increased`). Code fix already shipped via force-push on 2026-05-14; the PR cannot land until GHA billing is restored. **Operator action required, not worker action.**
+### When does the codebase actually ship v1?
 
-**BLOCKED triage v2 (2026-05-15)** dropped queue from 49 → 39: 6 stale-blocks freed to TODO (L11, L12, mission-cross-tenant-skill-propagation, mission-forge-stubforge-cleanup, mission-gdpr-data-residency, mission-saml-xml-signature-verify) + 4 dead rows dropped. Report: `docs/skycot/audit/2026-05-15-phase-D-blocked-triage.md`.
-
-### The mission, in one line
-
-Ship SKYCOT v1.0: AI workers humans bring into their team as real teammates. v1.0 scope locked 2026-05-14 = **all 5 MISSION.md success scenarios + ALL Tracks L (Skill Canvas, 17 briefs) + ALL Track M (Enterprise Parity, 20 briefs minus M2 PaddleOCR DEFERRED) + demo recording**. Ship gate: `docs/skycot/demos/v1-mission-mvp.mp4` exists AND `scripts/smoke-skycot.sh` passes.
-
-### What MUST be the next agent's first ~3 steps
-
-1. **Pull origin/main** and read `docs/skycot/V1_DEFINITION.md` — the consolidated v1 scope doc (operator-authored decisions live here).
-2. **Read both audit reports** — `docs/skycot/audit/2026-05-14-phase-A-crate-inventory.md` and `docs/skycot/audit/2026-05-14-phase-A.5-skills-loop.md`. The A.5 report contains a **v1 SHIP-BLOCKER** finding.
-3. **Re-arm the cron** if you want auto-ticks. Operator stopped the loop 2026-05-14 to conserve quota. To resume: `/loop 15m Conductor tick for the SKYCOT 14-day v1 swarm. Follow docs/build-plan/PROTOCOL_LOOP_PROMPT.md verbatim ...` (full prompt in `PROTOCOL_LOOP_PROMPT.md`).
-
-### 🔴 v1 SHIP-BLOCKER
-
-**`claude-skill-library-worker-load-wire`** (~150 LOC). Phase A.5 audit discovered that `argo-agent-runner/src/turn.rs` ~line 180 never calls `LayeredLookup::with_library` — workers do NOT load marketplace skills at runtime. MISSION.md success scenario #2 ("learned skill propagates across workers") silently fails. **This is the highest-priority brief to ship.** Brief: `docs/build-plan/streams/claude-skill-library-worker-load-wire.md`.
-
-### Strategic operator decisions locked 2026-05-14
-
-- **macOS-first computer-use**: `argo-executor-computer-use-macos` is the v1 demo path. E2B, Linux, Windows executors are DEFERRED-v1.x (still shipped, just not v1-polished). Brief: `claude-defer-non-macos-computer-use`.
-- **Enterprise focus, not consumer**: 4 consumer/redundant MCP connector stubs to be deleted (signal, telegram, mailgun, resend). 3 enterprise stubs kept (apollo, zoominfo, zoom). Brief: `claude-delete-consumer-mcp-stubs`.
-- **Type canonicalization in progress**: 11+ duplicate `pub struct/enum` definitions across crates. Fixes via briefs `claude-canonicalize-audit-row-type` (HIGH), `claude-canonicalize-decision-type`, `claude-canonicalize-approval-decision-type`, `claude-canonicalize-medium-duplicates`, + CI lint via `claude-ci-lint-parallel-pub-types`.
-- **ai-receptionist vertical being deleted**: brief `claude-delete-ai-receptionist-vertical` removes the stale vertical + 34 references.
-
-### Phase A audit findings (one-paragraph summary)
-
-88 crates, ~520K LOC. **argo-cli is 199K LOC (38% of codebase) — leave it alone for v1** (compile time managed via shared `CARGO_TARGET_DIR`; not on demo critical path). **2 SPOFs by claim**: Claim 1 (only argo-identity directly serves "Teammate" — actually false alarm, multiple layers serve), Claim 3 (only argo-genesis builds workers — real SPOF). **Claim 4 drift = real**: skills loop fragmented across 5 crates (Phase A.5 traced edges; SHIP-BLOCKER above is the load-bearing fix). **Claim 5 over-coverage**: 40+ crates including 4 OS-specific computer-use implementations.
-
-### 21 new briefs authored 2026-05-14 (all TODO)
-
-Order to ship them (priority ↓):
-
-**🔴 P0 SHIP-BLOCKERS + operational risk:**
-1. `claude-skill-library-worker-load-wire` — SHIP-BLOCKER (claim 4), ~150 LOC
-2. `claude-migration-slot-dedup-and-validator` — 11 argo-store slot collisions, ~500 LOC
-
-**P0 cleanup:**
-3. `claude-channels-fallback-orphan-cleanup` — 1 confirmed orphan, 50-150 LOC
-4. `claude-delete-ai-receptionist-vertical` — stale vertical + 34 refs, ~300 LOC
-5. `claude-defer-non-macos-computer-use` — scope cut, ~150 LOC
-6. `claude-delete-consumer-mcp-stubs` — cleanup, ~150 LOC
-
-**P0.5 demo proof:**
-7. `claude-skill-marketplace-end-to-end-test` — depends on #1, ~250 LOC
-8. `claude-computer-use-full-workflow-smoke` — depends on action-executor, ~300 LOC
-
-**P1 type canonicalization (8 briefs total, do in order):**
-9. `claude-canonicalize-audit-row-type` — HIGH data integrity, 4-way dup, ~500 LOC
-10. `claude-canonicalize-decision-type` — ~300 LOC
-11. `claude-canonicalize-approval-decision-type` — ~300 LOC
-12. `claude-canonicalize-medium-duplicates` — 4-type bundle, ~600 LOC
-13. `claude-canonicalize-parallel-names-round2-high` — 7 HIGH-sev round-2 types, ~800 LOC
-14. `claude-ci-lint-parallel-pub-types` — regression-prevent, ~400 LOC
-
-**P1 other:**
-15. `mission-per-worker-skill-learning-cron` — depends on #1, ~200 LOC
-16. `claude-toml-inherit-workspace-versions` — 236 TOML lines, ~50 LOC easy fix
-17. `claude-store-migrations-registry-split` — pre-emptive 461→<500 split, ~200 LOC
-18. `claude-multiworker-duty-handoff-e2e-smoke` — scenario #3, ~200 LOC
-19. `claude-argo-acp-triage` — investigate dead crate, ~100 LOC
-20. `claude-argo-delegate-triage` — investigate dead crate, ~100 LOC
-
-**P1.5:**
-21. `claude-vertical-eval-seed-generation-test` — claim 3 completeness, ~120 LOC
-22. `claude-forge-dspy-stub-warning-upgrade` — clarify v1-stub, ~80 LOC
-
-Plus 7 from earlier 2026-05-14 — `mission-vertical-action-executor-completion`, `mission-per-vertical-demo-script`, `mission-marketplace-seller-e2b-demo`, `mission-cross-tenant-trajectory-aggregation`, `mission-rtbf-dreams-propagation`, `mission-forge-spend-polling-race-fix`, `mission-canonical-exponential-backoff`.
-
-Plus 7 from earlier 2026-05-14 — `mission-vertical-action-executor-completion`, `mission-per-vertical-demo-script`, `mission-marketplace-seller-e2b-demo`, `mission-cross-tenant-trajectory-aggregation`, `mission-rtbf-dreams-propagation`, `mission-forge-spend-polling-race-fix`, `mission-canonical-exponential-backoff`.
-
-### Cron loop status
-
-**STOPPED 2026-05-14.** Two cron jobs cancelled (`65e8b50a` recurring 15-min; `a11ecbcd` one-shot resume). Operator stopped to conserve quota. **Next account: re-arm with `/loop 15m <prompt>` if you want auto-ticking, or drive ticks manually.**
-
-### Queue depth at hand-off
-
-`grep -c '^| .* | claude | TODO' docs/build-plan/BUILD_STATUS.md` was 30 before the 12 new briefs above landed; should be ~42+ now. **Above the 25 replenishment threshold; no replenishment needed.**
-
-### Audit Phases A + A.5 + B + C + D ALL COMPLETE
-
-All 5 audit phases ran 2026-05-14. Reports in `docs/skycot/audit/`:
-- `2026-05-14-phase-A-crate-inventory.md` — 88 crates × 6 claims
-- `2026-05-14-phase-A.5-skills-loop.md` — claim-4 edge trace; FOUND v1 SHIP-BLOCKER
-- `2026-05-14-phase-B-per-crate-deep-dive.md` — top 20 by LOC; verdict "production-ready, 0 invariant violations, 1 orphan"
-- `2026-05-14-phase-C-mission-claim-coverage.md` — E2E test coverage per claim; Claim 4 WEAK (SHIP-BLOCKER)
-- `2026-05-14-phase-D-cross-cutting-drift.md` — 11 migration slot collisions + 19 NEW parallel names + 236 TOML violations
-
-Phase E (brief authoring) ongoing — 21 briefs authored 2026-05-14 total (11 from A/A.5, 10 from B/C/D).
-
-### What changed in CLAUDE.md / V1_DEFINITION.md / memory
-
-- `CLAUDE.md` — added §"v1.0 strategic decisions (operator-locked 2026-05-14)" with macOS-first + enterprise focus + canonicalization-in-progress directives.
-- `V1_DEFINITION.md` — refreshed §4 Claim 4/5 rows + §5 ship checklist with the new briefs.
-- Memory at `~/.claude/projects/-Users-operator-code-argo/memory/` — added entries for: v1-ship-blocker, macOS-first decision, enterprise focus, type-canonicalization-in-progress, Phase A/A.5 audit findings location.
-
-### Open PRs at hand-off
-
-`gh pr list --state open` (~4 open):
-- #1632 L6-ghostwriter-prompt-to-ir (DIRTY)
-- #1606 claude-claude-gateway-boot-split-v2 (DIRTY)
-- #1506 claude-mission-cli-help-public-api-reference (RED, known doc-drift CI flake)
-- One or two possibly newer from active workers
-
-Conductor should let workers rebase DIRTY ones (recipe: `gh pr checkout <N> && git merge origin/main && git push`).
-
-Refreshed at 98.5% weekly cap, operator relaunching Claude again
-(this is the SECOND hand-off in one hour — the prior account
-shipped 8 merges then ran out). Codex worker has been the
-workhorse since: 3-for-3 PRs since 2026-05-09 resumption (#1528
-sweeper, #1533 forge-cron, #1537 HIPAA). **A fresh session
-resuming should read this whole section + SWARM_PROTOCOL.md HARD
-RULES + the 5 files at the top of this doc, then start ticking.**
-
-### Live state (origin/main)
-
-- **HEAD**: `7b590df9` (3 MERGED in one tick: #1536 + #1537 + #1538)
-- **Queue counts**:
-  - TODO = **12**  (below 25 trigger; replenish next tick if no merges)
-  - CLAIMED = **6**  (2 codex + 4 claude; active worker progress, no PR yet)
-  - IN_REVIEW = **19**  (open PRs; most are DIRTY chain-rebase)
-  - BLOCKED = **41**  (mostly dep-chain; cascade-unblocks as PRs land)
-  - MERGED = **241 live + 463 archived = 704 total**
-
-### What just landed since the previous RESUME snapshot at `36a5904d`
-
-Eight merges in ~1 hour:
-- **#1529** J12-gateway-retrain-endpoints — 4 retrain endpoints
-- **#1530** mission-dashboard-planning-visibility — your operator-spec dashboard work, 4 features shipped end-to-end
-- **#1461** mission-encryption-at-rest-sqlcipher — final encryption-trio piece; **cascade-unblocked byok + rotation-cli-wiring**
-- **#1533** mission-forge-cron-lowest-quality (**CODEX**) — Forge proactive cron tick
-- **#1534** mission-voice-route-consistency — voice now uses unified channels dispatcher
-- **#1536** mission-document-voice-chat-paper-only — v1.0 voice-status doc
-- **#1537** mission-hipaa-path-baa (**CODEX**) — HIPAA design + startup-check
-- **#1538** mission-rotation-cli-subsystem-wiring — coordinator spawns subsystem CLIs via current_exe()
-
-### What just landed (last ~4 hours conductor work)
-
-Major push:
-- 🎯 **K5 v1.0 ship-gate** MERGED (#1490) — deploy-smoke-test-e2e
-- 🎉 **Track E5 100% complete** — all 8 audit briefs (a..h) MERGED
-- 🎉 **Track E4 complete** — all worker-profile dialogs MERGED
-- 🎉 **Track E2 mostly complete** — Step1–6 MERGED; E2-f/i CLAIMED
-- 🔓 **Track J 7/8/9/10/13/15 endpoints** all MERGED; J11/J12 in flight
-- 🚨 **4 unblock-swarm split-preps** all MERGED in <2h (#1524–#1527
-  for sections/store-lib/doctor/routes-dispatch-post)
-- 🎉 **Codex back online 2026-05-13** — first codex worker claimed
-  `claude-approval-timeout-default-decision` (in active worker
-  progress, no PR yet); `PROTOCOL_WORKER_PROMPT_CODEX.md` refreshed
-  for resumption
-
-### CLAIMED — workers in flight (no PR yet)
-
-**Codex** (2 active claims):
-1. **`claude-error-dashboard-runbook`** — codex
-2. **`claude-troubleshooting-guide-expand`** — codex
-
-**Claude** (4 active claims):
-3. **`mission-enterprise-audit-full-text-search`** — pre-existing claim, stale since 2026-05-12T16:45Z (worker may have given up or be holding)
-4. **`mission-byok-enterprise-tenants`** — fresh claim post sqlcipher-MERGE cascade-unblock
-5. **`E2-f-hire-flow-structured-adjust`** — claude worker
-6. **`E2-i-hire-flow-day1-wrap-duty`** — claude worker
-
-### Codex performance summary (since 2026-05-09 resumption)
-
-- **3-for-3 production PRs shipped clean.** Codex pre-push gate
-  (`scripts/codex-pre-push.sh`) is working correctly.
-- **Acceptable use of `ARGO_CLAIM_FORCE=1`** for legitimate ceiling-
-  headroom briefs (verified on #1528 where boot.rs was at 498 LOC
-  and codex stayed -3 LOC net).
-- **PR branch naming**: codex uses the brief slug verbatim, so a
-  `claude-*` prefixed brief produces a `claude-*` branch even
-  though the worker is codex. That's per the brief, not a bug.
-
-### IN_REVIEW — 16 open PRs (all DIRTY or UNSTABLE, fix-recipes on file)
-
-Two **MERGEABLE/UNSTABLE** (passing-but-CI-policy):
-- **#1498** `mission-vulnerability-management-workflow` — fix-recipe
-  posted: vuln-scan workflow PR introduces fires on its own lockfile
-  touch + correctly flags pre-existing advisories (chicken-egg).
-  Recipe: seed `vuln-waivers.toml` baseline OR `continue-on-error:
-  true` for first run OR cron-only trigger.
-- **#1506** `mission-cli-help-public-api-reference` — fix-recipe
-  posted: drift CI workflow PR introduces fails on its own
-  CI-vs-local terminal-width regen diff. Recipe: force `COLUMNS=120`
-  + strip ANSI in the script.
-
-Fourteen **DIRTY** (chain-rebase backlog from recent merges):
-#1447, #1450, #1461, #1463, #1464, #1466, #1467, #1469, #1472,
-#1482, #1494, #1503, #1504, #1511. Each has a fix-recipe comment;
-standard pattern is `gh pr checkout <N> && git fetch origin main
-&& git merge origin/main`, additive route-dispatch conflicts take
-both sides. Stalest is #1461 (~12h, but the row is already
-STALE-DEMOTED to TODO with salvage note — PR stays open).
-
-### Worker / quota situation
-
-- **Claude workers** (claude-worker-loop.sh on mac-host): holding
-  4 active claims. Quota state fluid; workers may release/re-claim
-  multiple times as caps reset.
-- **Codex** (operator-driven tab): **3-for-3 shipped**. Currently
-  holding 2 claims (`error-dashboard-runbook` + `troubleshooting-
-  guide-expand`). Both are doc-shaped, should ship fast.
-- **This conductor session (second conductor session this hour)**:
-  **at 98.5% weekly cap**; operator relaunching now → this session
-  ends imminently. This is the second resume-safety hand-off in
-  ~1 hour.
-
-### What a fresh conductor (next session) should do first
-
-1. `cd "$ARGO_REPO_ROOT" && git fetch origin main && git reset --hard origin/main`
-2. Read this `RESUME.md` first 100 lines, then `BUILD_STATUS.md`
-   first 90 lines (header).
-3. Run the 9-step conductor tick (or arm `/loop 5m` with the prompt
-   from `PROTOCOL_LOOP_PROMPT.md`). **Note: cron loop currently
-   CANCELLED** (operator cancelled `178d5bd0` mid-session). Re-arm
-   if you want auto-ticks, otherwise drive manually.
-4. **Expect codex PRs to land soon** for
-   `claude-error-dashboard-runbook` + `claude-troubleshooting-guide-
-   expand`. Both are doc-shaped; should ship in ~30 min each. Tier-1
-   review + merge per usual.
-5. **Replenishment trigger may fire** — claude_todo=12 < 25. The
-   straight-forward 3-5 brief replenishment is fine; remaining
-   high-confidence MISSION_BACKLOG [NEW] items getting thin so
-   default to small / doc-shaped briefs and PR-deferrals from
-   recent merges if the operator hasn't paused.
-6. The 14 DIRTY PRs need their workers to do `git fetch && git merge
-   origin/main && git push` (recipe on each PR). Conductor's job is
-   to wait, not push. **Stalest is #1447 / #1450 at 24h+** — those
-   may merit recovery-brief escalation per the af500037 amendment
-   (>24h with multiple fix-request rounds).
-7. The 2 UNSTABLE PRs (#1498 vuln-mgmt, #1506 cli-help-reference)
-   are the chicken-egg pattern; fix-recipes posted — worker needs
-   to either seed waivers or use `continue-on-error` for first run.
-
-### Productivity since 2026-05-09 codex outage
-
-Codex came back online 2026-05-13 and immediately shipped 3 clean
-PRs (#1528 + #1533 + #1537). Claude workers have shipped 8+ MERGEs
-in the last ~2 hours including the entire encryption-at-rest trio
-(SQLCipher + credentials-toml + key-rotation) plus the rotation-cli
-wiring follow-up. The swarm is in excellent shape going into the
-hand-off.
-
-### Pending operator decisions
-
-None blocking. The mission-dashboard-planning-visibility work the
-operator requested earlier MERGED via #1530. No active questions
-on conductor's plate.
-
-### Active directives (header is authoritative; do NOT trust this
-list if it disagrees)
-
-- **ACTIVE**: `conductor-prompt-deployment-path-v3.md` — §5 stop
-  condition technically met by K5 #1490 first green run. Operator's
-  call to formally close v3 and paste BLOCK 1 SKILL-CANVAS-v1.
-- **QUEUED**: `conductor-prompt-post-v3-directives.md` BLOCK 1
-  (SKILL-CANVAS-v1, Track L) + BLOCK 2 (ENTERPRISE-PARITY-v1,
-  Track M) per `streams/L0-skill-canvas-track-overview.md` +
-  `streams/M0-enterprise-parity-track-overview.md`.
-
-### Pending operator decision (unactioned by conductor)
-
-The operator pasted a tools/mission-dashboard improvement spec
-(4 changes: cross-link, advisory tracker, archive-aware burn-up,
-status-weight completeness). Conductor offered three execution
-paths (author brief / implement directly / acknowledge that
-operator will drive it). **No response yet** — current conductor
-behaviour is to wait for operator confirmation rather than
-implement Python operator-tooling unilaterally. Fresh conductor
-inheriting this: leave it alone unless operator re-asks.
+Per V1_DEFINITION.md: `docs/skycot/demos/v1-mission-mvp.mp4` exists + `scripts/smoke-skycot.sh` passes (incl. BrowserExecutor + Slack-approval). F-001b (the v1 SHIP-BLOCKER) is currently CLAIMED. Once it merges + a few P1s, the demo recording can be done.
 
 ## When this file is stale
 
-The conductor refreshes it during freshness passes. If you read
-this file and the snapshot dates look weeks old, treat the
-BUILD_STATUS.md header as authoritative and ignore the snapshot.
+The conductor refreshes it during hand-off + major state changes. If you read this file and the snapshot dates look weeks old, treat the BUILD_STATUS.md header as authoritative and ignore the snapshot.
 
-Last refreshed: 2026-05-15 evening (session hand-off). Cron loop STOPPED. ALL 5 AUDIT PHASES (A/A.5/B/C/D) COMPLETE. 22 remediation briefs authored 2026-05-14; **26 PRs MERGED 2026-05-14 → 2026-05-15** (codex shipping clean). Track L Phase 1 + Track M Phase 1 essentially complete; type canonicalization round 1 done except AuditRow. v1 SHIP-BLOCKER + P0 migration-slot STILL TODO (CLAUDE-PREFERRED; held for Tuesday). 3 rebase recovery briefs authored + 1 GHA billing issue (operator-side). BLOCKED-cleanup v2 dropped queue 49 → 39. Queue at hand-off: TODO 25, CLAIMED 3, IN_REVIEW 11, BLOCKED 39.
+Last refreshed: 2026-05-16 (codex-audit-driven plan in execution; operator approaching 97% context; handing over). Cron loop STOPPED. Manual ticks. Queue at hand-off: MERGED 478, TODO 3, CLAIMED 3, IN_REVIEW 0, BLOCKED 14.
