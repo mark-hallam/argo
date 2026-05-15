@@ -28,11 +28,10 @@
 //! ## Capability gating
 //!
 //! `Capability::ToolDispatch { tool_name_glob: "send_message" }` is
-//! enforced by [`crate::ToolRegistry::dispatch`] like every tool;
-//! that's the only fixed gate on this surface. Channel-level
-//! authentication (Slack bot token, SMTP creds, Blue Bubbles password,
-//! SMS provider keys) is operator-managed via `argo-config` and is not
-//! re-validated here.
+//! enforced by [`crate::ToolRegistry::dispatch`] like every tool. This
+//! tool also declares `Capability::MessageSend { channel,
+//! recipient_scope }` from the call arguments so roles can allow Slack
+//! or email while denying SMS/iMessage.
 //!
 //! ## Dispatch backend
 //!
@@ -52,7 +51,7 @@
 //! ```
 use crate::path_guard::confine_path;
 use crate::tool::{error_text, success_text, Concurrency, Tool, ToolContext};
-use argo_types::{ArgoResult, CapabilitySet, ToolCallResult};
+use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, ToolCallResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -203,11 +202,15 @@ impl Tool for SendMessage {
         Concurrency::Serial
     }
 
-    fn required_capabilities(&self, _args: &serde_json::Value) -> ArgoResult<CapabilitySet> {
-        // Registry already enforces ToolDispatch{send_message}; no
-        // extra fine-grained caps. Channel-level auth lives in
-        // `argo-channels` config.
-        Ok(CapabilitySet(vec![]))
+    fn required_capabilities(&self, args: &serde_json::Value) -> ArgoResult<CapabilitySet> {
+        let parsed: Args = serde_json::from_value(args.clone()).map_err(|e| ArgoError::Tool {
+            tool: "send_message".into(),
+            msg: format!("invalid arguments: {e}"),
+        })?;
+        Ok(CapabilitySet(vec![Capability::MessageSend {
+            channel: parsed.channel,
+            recipient_scope: parsed.recipient,
+        }]))
     }
 
     async fn dispatch(

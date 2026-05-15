@@ -48,6 +48,13 @@ pub enum Capability {
         /// Tool-name glob.
         tool_name_glob: String,
     },
+    /// Send an outbound message over a specific channel to a scoped recipient.
+    MessageSend {
+        /// Channel glob (`slack`, `email`, `sms`, `imessage`, or `*`).
+        channel: String,
+        /// Recipient glob, such as `#general`, `*@company.com`, or `*`.
+        recipient_scope: String,
+    },
     /// Spawn a sub-process / sub-agent / container.
     Spawn {
         /// Kind of spawn.
@@ -154,8 +161,8 @@ impl CapabilitySet {
 fn capability_covers(grant: &Capability, want: &Capability) -> bool {
     use Capability::{
         AuditWrite, EnvRead, ForgeRun, FsRead, FsWrite, ImageGenerate, MemoryWrite,
-        MemoryWriteTeam, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord, SkillWrite, Spawn,
-        ToolDispatch,
+        MemoryWriteTeam, MessageSend, NetEgress, SecretRead, SkillJudge, SkillMigrateRecord,
+        SkillWrite, Spawn, ToolDispatch,
     };
     match (grant, want) {
         (FsRead { path_glob: g }, FsRead { path_glob: w })
@@ -182,6 +189,16 @@ fn capability_covers(grant: &Capability, want: &Capability) -> bool {
         (ToolDispatch { tool_name_glob: g }, ToolDispatch { tool_name_glob: w }) => {
             glob_covers(g, w)
         }
+        (
+            MessageSend {
+                channel: gc,
+                recipient_scope: gr,
+            },
+            MessageSend {
+                channel: wc,
+                recipient_scope: wr,
+            },
+        ) => glob_covers(gc, wc) && glob_covers(gr, wr),
         (Spawn { spawn_kind: g }, Spawn { spawn_kind: w }) => g == w,
         (AuditWrite, AuditWrite) => true,
         (MemoryWrite, MemoryWrite) => true,

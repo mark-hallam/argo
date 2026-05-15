@@ -2,7 +2,7 @@
 //! `clarify_tests.rs` / `vision_tests.rs` convention.
 
 use super::*;
-use argo_types::{ContentBlock, Principal};
+use argo_types::{Capability, ContentBlock, Principal};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -72,6 +72,36 @@ fn schema_lists_four_channels() {
     assert!(chans.as_array().unwrap().iter().any(|v| v == "email"));
     assert!(chans.as_array().unwrap().iter().any(|v| v == "sms"));
     assert!(chans.as_array().unwrap().iter().any(|v| v == "imessage"));
+}
+
+#[test]
+fn required_capabilities_scope_to_channel_and_recipient() {
+    let caps = SendMessage::default()
+        .required_capabilities(&serde_json::json!({
+            "channel": "email",
+            "recipient": "ops@example.com",
+            "body": "hi",
+        }))
+        .unwrap();
+    assert!(caps.covers(&Capability::MessageSend {
+        channel: "email".into(),
+        recipient_scope: "ops@example.com".into(),
+    }));
+    assert!(!caps.covers(&Capability::MessageSend {
+        channel: "sms".into(),
+        recipient_scope: "ops@example.com".into(),
+    }));
+}
+
+#[test]
+fn required_capabilities_reject_invalid_args_cleanly() {
+    let err = SendMessage::default()
+        .required_capabilities(&serde_json::json!({
+            "channel": "slack",
+            "body": "missing recipient",
+        }))
+        .unwrap_err();
+    assert!(err.to_string().contains("invalid arguments"));
 }
 
 #[tokio::test]

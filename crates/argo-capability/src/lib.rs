@@ -256,6 +256,10 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 Capability::ToolDispatch {
                     tool_name_glob: "*".into(),
                 },
+                Capability::MessageSend {
+                    channel: "*".into(),
+                    recipient_scope: "*".into(),
+                },
                 Capability::Spawn {
                     spawn_kind: SpawnKind::Subagent,
                 },
@@ -287,6 +291,10 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 },
                 Capability::ToolDispatch {
                     tool_name_glob: "*".into(),
+                },
+                Capability::MessageSend {
+                    channel: "*".into(),
+                    recipient_scope: "*".into(),
                 },
                 Capability::Spawn {
                     spawn_kind: SpawnKind::Subagent,
@@ -326,6 +334,17 @@ pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole>
                 },
                 Capability::ToolDispatch {
                     tool_name_glob: "clarify".into(),
+                },
+                Capability::ToolDispatch {
+                    tool_name_glob: "send_message".into(),
+                },
+                Capability::MessageSend {
+                    channel: "slack".into(),
+                    recipient_scope: "*".into(),
+                },
+                Capability::MessageSend {
+                    channel: "email".into(),
+                    recipient_scope: "*".into(),
                 },
                 Capability::MemoryWrite,
             ]),

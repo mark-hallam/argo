@@ -62,6 +62,19 @@ fn engine_for_principal(grants: &[Capability]) -> CapabilityEngine {
     engine
 }
 
+fn tool_dispatch() -> Capability {
+    Capability::ToolDispatch {
+        tool_name_glob: "send_message".into(),
+    }
+}
+
+fn message_send(channel: &str, recipient_scope: &str) -> Capability {
+    Capability::MessageSend {
+        channel: channel.into(),
+        recipient_scope: recipient_scope.into(),
+    }
+}
+
 fn ctx(workspace: &std::path::Path) -> ToolContext {
     ToolContext::new(principal(), workspace.to_path_buf())
 }
@@ -104,9 +117,7 @@ async fn dispatch_blocks_principal_without_send_message_tooldispatch() {
 async fn end_to_end_slack_send_carries_low_risk_tier() {
     let stub = Arc::new(StubDispatcher::default());
     let reg = registry_with(stub.clone());
-    let engine = engine_for_principal(&[Capability::ToolDispatch {
-        tool_name_glob: "send_message".into(),
-    }]);
+    let engine = engine_for_principal(&[tool_dispatch(), message_send("slack", "C123")]);
     let ws = tempfile::tempdir().unwrap();
     let result = reg
         .dispatch(
@@ -136,12 +147,102 @@ async fn end_to_end_slack_send_carries_low_risk_tier() {
 }
 
 #[tokio::test]
+async fn dispatch_blocks_principal_without_message_send_capability() {
+    let stub = Arc::new(StubDispatcher::default());
+    let reg = registry_with(stub.clone());
+    let engine = engine_for_principal(&[tool_dispatch()]);
+    let ws = tempfile::tempdir().unwrap();
+    let err = reg
+        .dispatch(
+            "send_message",
+            serde_json::json!({
+                "channel": "slack",
+                "recipient": "C123",
+                "body": "your order shipped",
+            }),
+            &ctx(ws.path()),
+            &engine,
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(err, argo_types::ArgoError::RbacDenied { .. }));
+    assert!(stub.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn default_user_can_send_slack_but_not_sms() {
+    let stub = Arc::new(StubDispatcher::default());
+    let reg = registry_with(stub.clone());
+    let engine = CapabilityEngine::with_defaults();
+    let actor = principal();
+    engine.bind(actor, "user".into()).unwrap();
+    let ws = tempfile::tempdir().unwrap();
+
+    let result = reg
+        .dispatch(
+            "send_message",
+            serde_json::json!({
+                "channel": "slack",
+                "recipient": "C123",
+                "body": "safe update",
+            }),
+            &ctx(ws.path()),
+            &engine,
+        )
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", body(&result.content[0]));
+
+    let err = reg
+        .dispatch(
+            "send_message",
+            serde_json::json!({
+                "channel": "sms",
+                "recipient": "+15551234567",
+                "body": "high-risk update",
+            }),
+            &ctx(ws.path()),
+            &engine,
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(err, argo_types::ArgoError::RbacDenied { .. }));
+    assert_eq!(stub.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn default_admin_can_send_high_risk_channel() {
+    let stub = Arc::new(StubDispatcher::default());
+    let reg = registry_with(stub.clone());
+    let engine = CapabilityEngine::with_defaults();
+    let actor = principal();
+    engine.bind(actor, "admin".into()).unwrap();
+    let ws = tempfile::tempdir().unwrap();
+    let result = reg
+        .dispatch(
+            "send_message",
+            serde_json::json!({
+                "channel": "sms",
+                "recipient": "+15551234567",
+                "body": "approved high-risk update",
+            }),
+            &ctx(ws.path()),
+            &engine,
+        )
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", body(&result.content[0]));
+    assert_eq!(stub.calls.lock().unwrap()[0].0, "sms");
+}
+
+#[tokio::test]
 async fn end_to_end_imessage_marks_high_risk_and_resolves_attachment() {
     let stub = Arc::new(StubDispatcher::default());
     let reg = registry_with(stub.clone());
-    let engine = engine_for_principal(&[Capability::ToolDispatch {
-        tool_name_glob: "send_message".into(),
-    }]);
+    let engine = engine_for_principal(&[
+        tool_dispatch(),
+        message_send("imessage", "iMessage;-;chat-guid-1"),
+    ]);
     let ws = tempfile::tempdir().unwrap();
     let attach_rel = "receipt.pdf";
     std::fs::write(ws.path().join(attach_rel), b"%PDF-stub").unwrap();
@@ -176,9 +277,7 @@ async fn end_to_end_imessage_marks_high_risk_and_resolves_attachment() {
 async fn end_to_end_unknown_channel_does_not_call_dispatcher() {
     let stub = Arc::new(StubDispatcher::default());
     let reg = registry_with(stub.clone());
-    let engine = engine_for_principal(&[Capability::ToolDispatch {
-        tool_name_glob: "send_message".into(),
-    }]);
+    let engine = engine_for_principal(&[tool_dispatch(), message_send("carrier-pigeon", "x")]);
     let ws = tempfile::tempdir().unwrap();
     let result = reg
         .dispatch(
