@@ -59,6 +59,26 @@ is the hot-path family for driving the action ledger. Genesis
 + doctor + worker actions + audit are the four families an
 operator touches daily.
 
+### Regenerating the auto-generated CLI reference
+
+`book/reference/cli.md` is generated from `argo --help` (recursive
+across every subcommand level) by `scripts/build-cli-reference.sh`.
+The drift CI (`cli-reference-drift.yml`) re-runs the script on
+every PR that touches `crates/argo-cli/**` and fails if the
+checked-in page is out of date.
+
+When that CI step fails, regenerate locally and commit the diff:
+
+```bash
+cargo build --release -p argo-cli
+ARGO=target/release/argo bash scripts/build-cli-reference.sh
+git add book/reference/cli.md && git commit -m "docs: refresh CLI reference"
+```
+
+Output is byte-stable at a given git revision — re-running the
+script twice produces identical bytes, so any diff genuinely
+reflects a CLI surface change.
+
 ## Appendix B — File checklist for a customer demo
 
 Before showing this to a customer, verify:

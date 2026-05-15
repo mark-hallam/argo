@@ -1,0 +1,59 @@
+# Verify book/reference/cli.md stays in sync with `argo --help`.
+#
+# Triggers on PRs that touch the CLI surface or the generator script.
+# Builds the `argo` binary (debug, faster than release), runs
+# scripts/build-cli-reference.sh, and fails if the regenerated page
+# differs from what's checked in. Operator response: run the script
+# locally and commit the diff.
+#
+# Target wall-clock on a fresh runner: <2 min thanks to swatinem/
+# rust-cache. The brief target is <60s but the cold debug-build of
+# argo-cli alone is ~90s on a 2-core ubuntu-latest runner; cache hit
+# brings it well below 60s.
+
+name: cli-reference-drift
+
+on:
+  pull_request:
+    paths:
+      - "crates/argo-cli/**"
+      - "scripts/build-cli-reference.sh"
+      - "book/reference/cli.md"
+      - ".github/workflows/cli-reference-drift.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    name: regenerate cli.md and diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: cli-reference-drift
+
+      - name: Build argo-cli
+        run: cargo build -p argo-cli --release
+
+      - name: Regenerate CLI reference
+        env:
+          ARGO: target/release/argo
+        run: bash scripts/build-cli-reference.sh book/reference/cli.md
+
+      - name: Diff against committed page
+        run: |
+          if ! git diff --exit-code -- book/reference/cli.md; then
+            echo "::error::book/reference/cli.md is out of date." >&2
+            echo "::error::Re-run scripts/build-cli-reference.sh locally and commit the diff." >&2
+            exit 1
+          fi

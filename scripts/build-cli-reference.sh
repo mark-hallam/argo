@@ -1,25 +1,39 @@
 #!/usr/bin/env bash
 # Auto-generate the CLI reference page in book/reference/cli.md
-# (or wherever the first arg points). Walks `argo --help`
-# recursively, then writes the result between the
+# (or wherever the first arg points). Walks `argo --help` depth-first
+# through every subcommand level, then splices the result between the
 # BEGIN/END AUTO-GENERATED CLI REFERENCE markers.
 #
 # Usage:
 #   scripts/build-cli-reference.sh [output-file]
 #
-# If no output-file is given, defaults to book/reference/cli.md.
+# Defaults: output → book/reference/cli.md. Resolves the `argo` binary
+# from $ARGO if set, else $PATH, else $CARGO_TARGET_DIR/release/argo,
+# else target/release/argo.
 #
-# Requires the `argo` binary to be on PATH (cargo build first if
-# you don't have one). Exits non-zero on any error so CI fails
-# loudly.
+# Output is byte-stable across runs at the same git revision (no
+# timestamp, no host data). The drift CI relies on that.
 set -euo pipefail
 
 OUT_FILE="${1:-book/reference/cli.md}"
-ARGO="${ARGO:-argo}"
 
-if ! command -v "$ARGO" >/dev/null 2>&1; then
-  echo "build-cli-reference: '$ARGO' not on PATH" >&2
-  echo "  hint: cargo build --release -p argo-cli && export PATH=\$PWD/target/release:\$PATH" >&2
+# Resolve the argo binary deterministically.
+if [ -z "${ARGO:-}" ]; then
+  if command -v argo >/dev/null 2>&1; then
+    ARGO="argo"
+  elif [ -n "${CARGO_TARGET_DIR:-}" ] && [ -x "$CARGO_TARGET_DIR/release/argo" ]; then
+    ARGO="$CARGO_TARGET_DIR/release/argo"
+  elif [ -x "target/release/argo" ]; then
+    ARGO="target/release/argo"
+  else
+    echo "build-cli-reference: 'argo' not on PATH and no release binary found" >&2
+    echo "  hint: cargo build --release -p argo-cli" >&2
+    exit 1
+  fi
+fi
+
+if ! "$ARGO" --help >/dev/null 2>&1; then
+  echo "build-cli-reference: '$ARGO --help' failed" >&2
   exit 1
 fi
 
@@ -30,67 +44,80 @@ fi
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
-
 GEN_FILE="$TMP_DIR/cli.md"
 
-# Capture the top-level help. Most subcommands surface in the
-# "Commands:" section; their names sit at the start of indented
-# lines.
-TOP_HELP="$("$ARGO" --help 2>&1)"
+# Strip ANSI color escapes defensively. clap normally writes plain
+# text when stdout is not a TTY, but `--color=always` or some shells
+# can leak escapes; the drift CI catches us if it ever happens.
+strip_ansi() {
+  sed -E $'s/\x1b\\[[0-9;]*[a-zA-Z]//g'
+}
 
-{
-  echo "_Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) from \`$ARGO --help\`._"
-  echo
-  echo "## Top-level"
-  echo
-  echo '```text'
-  printf '%s\n' "$TOP_HELP"
-  echo '```'
-  echo
-} > "$GEN_FILE"
+# Parse subcommand names from a help output passed on stdin. Reads
+# the lines under `Commands:` until the next `Section:` header.
+parse_subcommands() {
+  awk '
+    /^Commands:/                 { in_cmds=1; next }
+    in_cmds && /^[A-Z][a-z]+:/   { in_cmds=0 }
+    in_cmds && /^  [a-z]/ {
+      gsub(/^ +/, "")
+      split($0, parts, /[ \t]+/)
+      print parts[1]
+    }
+  ' | { grep -vE '^(help)$' || true; } | sort -u
+}
 
-# Extract subcommand names from the "Commands:" block. Lines that
-# begin with two spaces, a non-space char, then more chars are the
-# command listings; the first whitespace-separated token is the
-# name.
-SUBCOMMANDS="$(printf '%s\n' "$TOP_HELP" \
-  | awk '
-      /^Commands:/      { in_cmds=1; next }
-      /^[A-Z][a-z]+:/   { in_cmds=0 }
-      in_cmds && /^  [a-z]/ {
-        # First non-whitespace token only.
-        gsub(/^ +/, "")
-        split($0, parts, /[ \t]+/)
-        print parts[1]
-      }
-    ' \
-  | grep -vE '^(help)$' \
-  | sort -u)"
+# Recursively emit one command's help block + every descendant.
+# $1 = subcommand chain (empty for root, else space-separated, e.g.
+#      "worker actions"). $2 = markdown heading depth (clamped to 6).
+emit_command() {
+  local cmd_path="$1"
+  local depth="$2"
+  if [ "$depth" -gt 6 ]; then depth=6; fi
+  local hashes
+  hashes="$(printf '%*s' "$depth" '' | tr ' ' '#')"
 
-if [ -z "$SUBCOMMANDS" ]; then
-  echo "build-cli-reference: no subcommands parsed from top-level help" >&2
-  echo "  (this often means '$ARGO --help' format changed; update the awk parser)" >&2
-  exit 1
-fi
+  local heading help_out
+  if [ -z "$cmd_path" ]; then
+    heading="\`argo\`"
+    help_out="$("$ARGO" --help 2>&1 | strip_ansi || true)"
+  else
+    heading="\`argo $cmd_path\`"
+    # shellcheck disable=SC2086
+    help_out="$($ARGO $cmd_path --help 2>&1 | strip_ansi || true)"
+  fi
 
-echo "## Subcommands" >> "$GEN_FILE"
-echo >> "$GEN_FILE"
-
-for cmd in $SUBCOMMANDS; do
-  HELP_OUT="$("$ARGO" "$cmd" --help 2>&1 || true)"
   {
-    echo "### \`argo $cmd\`"
+    echo "$hashes $heading"
     echo
     echo '```text'
-    printf '%s\n' "$HELP_OUT"
+    printf '%s\n' "$help_out"
     echo '```'
     echo
   } >> "$GEN_FILE"
-done
 
-# Splice the generated block into OUT_FILE between the markers.
-# If markers exist, replace the content between them. If they
-# don't, append a new block at the bottom.
+  local subs sub
+  subs="$(printf '%s\n' "$help_out" | parse_subcommands)"
+  for sub in $subs; do
+    if [ -z "$cmd_path" ]; then
+      emit_command "$sub" $((depth + 1))
+    else
+      emit_command "$cmd_path $sub" $((depth + 1))
+    fi
+  done
+}
+
+{
+  echo "_Auto-generated from \`argo --help\` recursively. Do not edit by"
+  echo "hand — re-run \`scripts/build-cli-reference.sh\` to regenerate._"
+  echo
+} > "$GEN_FILE"
+
+emit_command "" 2
+
+# Splice generated content into OUT_FILE between BEGIN/END markers.
+# If markers exist, replace the content between them. If not, append
+# a new block at the bottom.
 BEGIN_MARK="<!-- BEGIN AUTO-GENERATED CLI REFERENCE -->"
 END_MARK="<!-- END AUTO-GENERATED CLI REFERENCE -->"
 
