@@ -8,14 +8,41 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
 /// Insert (or upsert) a `ForgeRun` row.
+///
+/// Upserts keep cumulative counters monotonic. Forge worker progress
+/// can arrive from overlapping poll/commit paths; a stale in-flight
+/// write must not replace a later higher spend value and reopen the
+/// one-extra-step budget window.
 pub async fn persist_forge_run(store: &SessionStore, run: &ForgeRun) -> ArgoResult<()> {
     sqlx::query(
-        "INSERT OR REPLACE INTO forge_run \
+        "INSERT INTO forge_run \
          (id, skill_name, started_at, ended_at, base_version, candidate_version, \
           examples_count, iterations, spend_usd_micros, final_score, status, \
           llm_input_tokens, llm_output_tokens, llm_cache_read_tokens, \
           llm_cost_usd_micros, e2b_seconds, e2b_cost_usd_micros, total_cost_usd_micros) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+         ON CONFLICT(id) DO UPDATE SET \
+           skill_name = excluded.skill_name, \
+           started_at = MIN(forge_run.started_at, excluded.started_at), \
+           ended_at = COALESCE(excluded.ended_at, forge_run.ended_at), \
+           base_version = excluded.base_version, \
+           candidate_version = COALESCE(excluded.candidate_version, forge_run.candidate_version), \
+           examples_count = MAX(forge_run.examples_count, excluded.examples_count), \
+           iterations = MAX(forge_run.iterations, excluded.iterations), \
+           spend_usd_micros = MAX(forge_run.spend_usd_micros, excluded.spend_usd_micros), \
+           final_score = COALESCE(excluded.final_score, forge_run.final_score), \
+           status = CASE \
+             WHEN forge_run.status IN ('budget_exceeded', 'completed', 'aborted', 'failed') \
+                  AND excluded.status IN ('pending', 'running') THEN forge_run.status \
+             ELSE excluded.status \
+           END, \
+           llm_input_tokens = MAX(forge_run.llm_input_tokens, excluded.llm_input_tokens), \
+           llm_output_tokens = MAX(forge_run.llm_output_tokens, excluded.llm_output_tokens), \
+           llm_cache_read_tokens = MAX(forge_run.llm_cache_read_tokens, excluded.llm_cache_read_tokens), \
+           llm_cost_usd_micros = MAX(forge_run.llm_cost_usd_micros, excluded.llm_cost_usd_micros), \
+           e2b_seconds = MAX(forge_run.e2b_seconds, excluded.e2b_seconds), \
+           e2b_cost_usd_micros = MAX(forge_run.e2b_cost_usd_micros, excluded.e2b_cost_usd_micros), \
+           total_cost_usd_micros = MAX(forge_run.total_cost_usd_micros, excluded.total_cost_usd_micros)",
     )
     .bind(run.id.0.as_bytes().as_slice())
     .bind(&run.skill_name)

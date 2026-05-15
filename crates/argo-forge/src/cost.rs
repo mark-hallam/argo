@@ -353,3 +353,7 @@ mod tests {
         assert_eq!(tokens_per_dollar_for_model("not-a-real-model-2099"), None);
     }
 }
+
+#[cfg(test)]
+#[path = "cost_tests.rs"]
+mod cost_tests;
