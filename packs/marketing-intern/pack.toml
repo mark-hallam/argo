@@ -1,0 +1,10 @@
+[pack]
+name = "marketing-intern"
+version = "1.0.0"
+display_name = "Marketing Intern"
+description = "Enterprise marketing worker pack for content drafting, social posts, campaign analytics, scheduling coordination, and competitive monitoring."
+
+[[verticals]]
+id = "marketing-intern"
+path = "."
+

@@ -1,0 +1,32 @@
+{
+  "brand_voice": [
+    {
+      "tone": "clear, useful, and evidence-backed",
+      "approved_terms": ["operator-ready", "audit-backed", "team-scale automation"],
+      "blocked_terms": ["guaranteed ROI", "fully hands-off finance decisions"],
+      "legal_notes": ["Do not imply regulated outcomes without approved evidence."]
+    }
+  ],
+  "campaign_calendar": [
+    {
+      "campaign": "Q3 teammate launch",
+      "channel": "blog, LinkedIn, newsletter",
+      "launch_at": "2026-07-15T14:00:00Z",
+      "owner": "growth",
+      "status": "drafting"
+    }
+  ],
+  "analytics_baselines": [
+    { "metric": "linkedin_ctr", "segment": "enterprise_ops", "baseline": 1.7, "period": "last_90_days" },
+    { "metric": "newsletter_reply_rate", "segment": "founder_operators", "baseline": 2.4, "period": "last_90_days" }
+  ],
+  "competitor_watchlist": [
+    {
+      "competitor": "Workflow Copilot Co",
+      "source": "pricing-page",
+      "claim": "Single-user browser automation for SMB workflows",
+      "severity": "medium"
+    }
+  ]
+}
+

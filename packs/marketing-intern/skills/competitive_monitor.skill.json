@@ -1,0 +1,42 @@
+{
+  "entry": "scan-watchlist",
+  "metadata": {
+    "name": "competitive_monitor",
+    "version": "1.0.0",
+    "description": "Monitors competitor changes and drafts evidence-backed response options.",
+    "source": "vertical-pack/marketing-intern"
+  },
+  "variables": [
+    { "name": "watchlist", "varType": "json", "scope": "graph" },
+    { "name": "changes", "varType": "json", "scope": "graph" },
+    { "name": "responseOptions", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "scan-watchlist",
+      "label": "Scan competitor sources",
+      "kind": { "type": "fetch", "target": "mcp://browser/competitor-watch", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "browser", "toolName": "page.diff" } }
+    },
+    {
+      "id": "classify-change",
+      "label": "Classify severity",
+      "kind": { "type": "branch", "arms": [
+        { "label": "high", "pattern": "pricing_or_security_claim_changed == true" },
+        { "label": "medium", "pattern": "positioning_claim_changed == true" },
+        { "label": "low", "pattern": "default" }
+      ] },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft-response",
+      "label": "Draft response options",
+      "kind": { "type": "action", "instruction": "Summarize observed change with URL evidence, severity, suggested response angles, and approval needs." },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "scan-watchlist", "to": "classify-change", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "classify-change", "to": "draft-response", "cond": { "kind": "always" } }
+  ]
+}

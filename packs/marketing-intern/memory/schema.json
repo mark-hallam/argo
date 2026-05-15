@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "namespace": "marketing-intern",
+  "collections": [
+    {
+      "name": "brand_voice",
+      "description": "Approved voice, positioning, prohibited claims, and compliance notes.",
+      "fields": {
+        "tone": "string",
+        "approved_terms": "array<string>",
+        "blocked_terms": "array<string>",
+        "legal_notes": "array<string>"
+      }
+    },
+    {
+      "name": "campaign_calendar",
+      "description": "Planned campaigns, launch dates, channels, owners, and approval state.",
+      "fields": {
+        "campaign": "string",
+        "channel": "string",
+        "launch_at": "datetime",
+        "owner": "string",
+        "status": "string"
+      }
+    },
+    {
+      "name": "analytics_baselines",
+      "description": "Historic channel and funnel metrics used to detect campaign drift.",
+      "fields": {
+        "metric": "string",
+        "segment": "string",
+        "baseline": "number",
+        "period": "string"
+      }
+    },
+    {
+      "name": "competitor_watchlist",
+      "description": "Competitors, monitored sources, positioning claims, and response notes.",
+      "fields": {
+        "competitor": "string",
+        "source": "string",
+        "claim": "string",
+        "severity": "string"
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,46 @@
+{
+  "entry": "load-brief",
+  "metadata": {
+    "name": "draft_blog",
+    "version": "1.0.0",
+    "description": "Drafts evidence-backed blog posts from campaign briefs and approved proof points.",
+    "source": "vertical-pack/marketing-intern"
+  },
+  "variables": [
+    { "name": "campaignBrief", "varType": "json", "scope": "graph" },
+    { "name": "proofPacket", "varType": "json", "scope": "graph" },
+    { "name": "blogDraft", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-brief",
+      "label": "Load campaign brief",
+      "kind": { "type": "fetch", "target": "mcp://cms/campaign-brief", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "cms", "toolName": "campaign.get_brief" } }
+    },
+    {
+      "id": "map-proof",
+      "label": "Map proof to claims",
+      "kind": { "type": "transform", "template": "Pair each draft claim with a customer proof point or mark it unsupported." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft-outline",
+      "label": "Draft outline and body",
+      "kind": { "type": "action", "instruction": "Write a blog draft with headline options, section outline, body copy, evidence notes, and unsupported-claim flags." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "review-risk",
+      "label": "Review legal and brand risk",
+      "kind": { "type": "action", "instruction": "Flag blocked terms, unsupported regulated claims, embargoed customer references, and publication approval requirements." },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-brief", "to": "map-proof", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "map-proof", "to": "draft-outline", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "draft-outline", "to": "review-risk", "cond": { "kind": "always" } }
+  ]
+}
+

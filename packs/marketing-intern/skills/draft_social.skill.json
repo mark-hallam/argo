@@ -1,0 +1,41 @@
+{
+  "entry": "load-message",
+  "metadata": {
+    "name": "draft_social",
+    "version": "1.0.0",
+    "description": "Adapts approved campaign messages into channel-specific social and newsletter copy.",
+    "source": "vertical-pack/marketing-intern"
+  },
+  "variables": [
+    { "name": "messageHouse", "varType": "json", "scope": "graph" },
+    { "name": "channelDrafts", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-message",
+      "label": "Load message house",
+      "kind": { "type": "fetch", "target": "mcp://cms/message-house", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "cms", "toolName": "campaign.get_message_house" } }
+    },
+    {
+      "id": "adapt-copy",
+      "label": "Adapt per channel",
+      "kind": { "type": "action", "instruction": "Create LinkedIn, newsletter, and short-form variants with channel length, audience, and CTA constraints." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "claim-check",
+      "label": "Check claims and embargoes",
+      "kind": { "type": "branch", "arms": [
+        { "label": "safe", "pattern": "no_blocked_claims && no_embargo_conflict" },
+        { "label": "approval", "pattern": "default" }
+      ] },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-message", "to": "adapt-copy", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "adapt-copy", "to": "claim-check", "cond": { "kind": "always" } }
+  ]
+}
+

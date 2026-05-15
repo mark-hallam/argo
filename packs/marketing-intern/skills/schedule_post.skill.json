@@ -1,0 +1,38 @@
+{
+  "entry": "read-calendar",
+  "metadata": {
+    "name": "schedule_post",
+    "version": "1.0.0",
+    "description": "Prepares calendar-ready publishing plans and approval packets for external posts.",
+    "source": "vertical-pack/marketing-intern"
+  },
+  "variables": [
+    { "name": "postPlan", "varType": "json", "scope": "graph" },
+    { "name": "approvalPacket", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "read-calendar",
+      "label": "Read campaign calendar",
+      "kind": { "type": "fetch", "target": "mcp://calendar/campaign", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "calendar", "toolName": "events.search" } }
+    },
+    {
+      "id": "prepare-slot",
+      "label": "Prepare publishing slot",
+      "kind": { "type": "action", "instruction": "Choose a channel slot that avoids conflicts, respects timezone, and includes campaign owner." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "route-approval",
+      "label": "Route publish approval",
+      "kind": { "type": "action", "instruction": "Create a pending approval packet; do not publish externally without approval." },
+      "annotations": { "policy": "ask", "toolBinding": { "mcpServer": "calendar", "toolName": "events.create_draft" } }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "read-calendar", "to": "prepare-slot", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "prepare-slot", "to": "route-approval", "cond": { "kind": "always" } }
+  ]
+}
+

@@ -1,0 +1,39 @@
+{
+  "entry": "fetch-metrics",
+  "metadata": {
+    "name": "analytics_report",
+    "version": "1.0.0",
+    "description": "Builds campaign analytics readouts with baseline comparisons and anomaly notes.",
+    "source": "vertical-pack/marketing-intern"
+  },
+  "variables": [
+    { "name": "metrics", "varType": "json", "scope": "graph" },
+    { "name": "baselines", "varType": "json", "scope": "graph" },
+    { "name": "report", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "fetch-metrics",
+      "label": "Fetch campaign metrics",
+      "kind": { "type": "fetch", "target": "mcp://analytics/campaign", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "analytics", "toolName": "campaign.metrics" } }
+    },
+    {
+      "id": "compare-baseline",
+      "label": "Compare to baseline",
+      "kind": { "type": "transform", "template": "Compute variance for CTR, conversion rate, reply rate, CAC proxy, and pipeline contribution." },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "write-report",
+      "label": "Write analytics report",
+      "kind": { "type": "action", "instruction": "Return JSON with metric table, baseline deltas, anomalies, likely causes, and recommended next experiments." },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "fetch-metrics", "to": "compare-baseline", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "compare-baseline", "to": "write-report", "cond": { "kind": "always" } }
+  ]
+}
+

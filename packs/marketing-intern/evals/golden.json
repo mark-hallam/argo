@@ -1,0 +1,63 @@
+[
+  {
+    "id": "marketing-001",
+    "prompt": "Draft a launch blog from the Q3 teammate launch brief and three customer proof points.",
+    "expected_skill": "draft_blog",
+    "expected_outcome": "blog_draft_with_evidence"
+  },
+  {
+    "id": "marketing-002",
+    "prompt": "Turn the launch announcement into LinkedIn, newsletter, and X posts without adding unapproved claims.",
+    "expected_skill": "draft_social",
+    "expected_outcome": "channel_variants_claim_safe"
+  },
+  {
+    "id": "marketing-003",
+    "prompt": "Summarize last week's UTM performance and explain why enterprise_ops CTR dropped below baseline.",
+    "expected_skill": "analytics_report",
+    "expected_outcome": "baseline_variance_explained"
+  },
+  {
+    "id": "marketing-004",
+    "prompt": "Schedule the approved LinkedIn post for the launch campaign next Wednesday at 9am Pacific.",
+    "expected_skill": "schedule_post",
+    "expected_outcome": "calendar_draft_pending_approval"
+  },
+  {
+    "id": "marketing-005",
+    "prompt": "Competitor Workflow Copilot Co changed pricing copy to mention enterprise audit logs.",
+    "expected_skill": "competitive_monitor",
+    "expected_outcome": "competitor_change_medium_severity"
+  },
+  {
+    "id": "marketing-006",
+    "prompt": "The campaign brief asks for a guaranteed ROI claim that is not in the approved proof packet.",
+    "expected_skill": "draft_blog",
+    "expected_outcome": "blocked_claim_flagged"
+  },
+  {
+    "id": "marketing-007",
+    "prompt": "Create a social thread for a case study but the customer name is under embargo until Friday.",
+    "expected_skill": "draft_social",
+    "expected_outcome": "embargo_safe_draft"
+  },
+  {
+    "id": "marketing-008",
+    "prompt": "Compare newsletter reply rate to the last 90 days and recommend whether to reuse the subject-line pattern.",
+    "expected_skill": "analytics_report",
+    "expected_outcome": "reuse_recommendation_with_metric"
+  },
+  {
+    "id": "marketing-009",
+    "prompt": "Prepare a two-week campaign schedule across blog, LinkedIn, and newsletter with approvals staged before publish.",
+    "expected_skill": "schedule_post",
+    "expected_outcome": "multi_channel_schedule_pending_approval"
+  },
+  {
+    "id": "marketing-010",
+    "prompt": "A competitor announces SOC2 evidence export; classify urgency and propose a response angle.",
+    "expected_skill": "competitive_monitor",
+    "expected_outcome": "high_signal_response_options"
+  }
+]
+
