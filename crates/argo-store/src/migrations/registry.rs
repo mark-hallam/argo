@@ -14,10 +14,16 @@ use super::{
     Migration,
 };
 
+#[path = "slot_validator.rs"]
+mod slot_validator;
+
 pub(crate) async fn run(pool: &Pool<Sqlite>) -> Result<(), ArgoError> {
     ensure_schema_table(pool).await?;
+    let migrations = all_migrations();
+    slot_validator::validate_registered_versions(migrations.iter().map(|m| m.version))?;
+    slot_validator::warn_on_historical_raw_collisions();
     let mut current = current_version(pool).await?;
-    for m in all_migrations() {
+    for m in migrations {
         if m.version > current {
             let mut tx = pool
                 .begin()
@@ -45,6 +51,7 @@ pub(crate) async fn roll_back_to(pool: &Pool<Sqlite>, target: u32) -> Result<(),
     ensure_schema_table(pool).await?;
     let mut current = current_version(pool).await?;
     let migs = all_migrations();
+    slot_validator::validate_registered_versions(migs.iter().map(|m| m.version))?;
     while current > target {
         let m = migs
             .iter()
@@ -87,8 +94,10 @@ pub(crate) async fn current_version(pool: &Pool<Sqlite>) -> Result<u32, ArgoErro
 #[cfg(test)]
 pub(crate) async fn run_up_to(pool: &Pool<Sqlite>, target: u32) -> Result<(), ArgoError> {
     ensure_schema_table(pool).await?;
+    let migrations = all_migrations();
+    slot_validator::validate_registered_versions(migrations.iter().map(|m| m.version))?;
     let mut current = current_version(pool).await?;
-    for m in all_migrations().into_iter().filter(|m| m.version <= target) {
+    for m in migrations.into_iter().filter(|m| m.version <= target) {
         if m.version > current {
             let mut tx = pool
                 .begin()

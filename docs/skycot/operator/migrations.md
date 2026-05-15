@@ -178,6 +178,27 @@ operator script: don't. That entry point exists for the in-process
 test harness; it is not a stable operator API, has no audit
 integration, and will not be supported across releases.
 
+## 7. Historical raw-SQL filename collisions
+
+Some pre-v1 raw SQL files were merged with duplicate numeric filename
+prefixes (`19__…`, `22__…`, `23__…`, `24__…`, `26__…`, `27__…`,
+`28__…`, `30__…`, `45__…`, `51__…`, and `75__…`). Those files are not
+renamed: operators may already have databases that saw them through
+lazy helper paths, and renaming would make filesystem-based tooling
+treat old DDL as new work.
+
+The supported Path A is non-destructive:
+
+- The Rust migration registry remains the canonical startup order.
+- Startup emits a loud warning that those raw filename collisions are
+  historical and intentionally preserved.
+- New collisions are blocked by `scripts/check-migration-slots.sh`;
+  use the next free raw filename slot when adding SQL.
+
+The `schema_version` value is authoritative for the versioned runner.
+Raw SQL filename prefixes are bookkeeping only and may differ from the
+registered `vN` number when a migration was reconciled after the fact.
+
 ---
 
 **Cross-references**
