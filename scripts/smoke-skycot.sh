@@ -293,6 +293,13 @@ cross_tenant_out=$(cargo test -p argo-cli --test cross_tenant_skill_discovery_ne
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "cross_tenant_skill_discovery_negative passed"
 
+heading "25. Claim-4 skill marketplace loop smoke"
+cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+claim4_out=$(cargo test -p argo-skill --test end_to_end_claim4_loop --quiet 2>&1) \
+  || fail "end_to_end_claim4_loop" "$claim4_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "end_to_end_claim4_loop passed"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"

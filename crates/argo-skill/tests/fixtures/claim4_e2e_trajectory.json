@@ -1,0 +1,14 @@
+{
+  "name": "claim4_price_check",
+  "action_type": "verify_marketplace_price",
+  "vertical_id": "marketplace-worker",
+  "trajectory": [
+    "open the seller dashboard",
+    "search the published listing title",
+    "compare the visible price with the requested price",
+    "record the listing URL and confirmation text"
+  ],
+  "final_text": "price verified at USD 42 for listing claim4-demo",
+  "tokens_used": 1187,
+  "success_metric": 0.94
+}
