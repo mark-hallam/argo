@@ -175,7 +175,8 @@ pub enum RuntimeCmd {
     /// Diagnose configuration / sandbox / port issues.
     #[command(after_help = "Examples:\n  \
         argo doctor\n  \
-        argo doctor --json")]
+        argo doctor --json\n  \
+        argo doctor --summary")]
     Doctor {
         #[command(subcommand)]
         cmd: Option<DoctorCmd>,
@@ -184,6 +185,10 @@ pub enum RuntimeCmd {
         /// `--format json`.
         #[arg(long)]
         json: bool,
+        /// Emit a one-line health summary. With `--json`, emits a
+        /// compact summary envelope instead of the full report.
+        #[arg(long)]
+        summary: bool,
         /// Output format: `text` (default), `json`, or `markdown`.
         /// `--json` wins if both are passed.
         #[arg(long, default_value = "text")]

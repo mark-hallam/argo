@@ -43,6 +43,12 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     let payload = collect().await?;
     let pick = if json { "json" } else { format };
     match pick {
+        "summary" | "summary-json" => {
+            let summary = summarize(&payload);
+            let line = if pick == "summary-json" { serde_json::to_string(&summary.json()).map_err(|e| ArgoError::Provider(format!("serialize: {e}")))? } else { summary.line() };
+            println!("{line}");
+            std::process::exit(summary.state.exit_code());
+        }
         "json" => {
             println!(
                 "{}",
@@ -58,7 +64,7 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
         "text" => {}
         other => {
             return Err(ArgoError::Provider(format!(
-                "unknown format '{other}' (expected 'text', 'json', or 'markdown')"
+                "unknown format '{other}' (expected 'text', 'json', 'markdown', or 'summary')"
             )));
         }
     }
@@ -116,6 +122,76 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     doctor_h_stack::print_text(&payload["auto_approval"]);
     print_channels(&payload["channels"]);
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum SummaryState { Ok, Degraded, Fail }
+
+impl SummaryState {
+    fn label(self) -> &'static str { match self { Self::Ok => "OK", Self::Degraded => "DEGRADED", Self::Fail => "FAIL" } }
+    fn exit_code(self) -> i32 { match self { Self::Ok => 0, Self::Degraded => 1, Self::Fail => 2 } }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DoctorSummary { pub(crate) state: SummaryState, pub(crate) passed: usize, pub(crate) warned: usize, pub(crate) failed: usize, issue: Option<&'static str> }
+impl DoctorSummary {
+    pub(crate) fn line(&self) -> String {
+        let total = self.passed + self.warned + self.failed;
+        let base = format!("{} {}/{} checks", self.state.label(), self.passed, total);
+        match (self.issue, self.warned, self.failed) {
+            (Some(issue), warned, 0) if warned > 0 => format!("{base} ({warned} warn: {issue})"),
+            (Some(issue), _, failed) if failed > 0 => format!("{base} ({failed} fail: {issue})"),
+            _ => base,
+        }
+    }
+
+    pub(crate) fn json(&self) -> serde_json::Value { serde_json::json!({"state": self.state.label(), "passed": self.passed, "warned": self.warned, "failed": self.failed}) }
+}
+
+pub(crate) fn summarize(v: &serde_json::Value) -> DoctorSummary {
+    let checks = [
+        ("argo_toml", yes(v["argo_toml"]["ok"].as_bool().unwrap_or(false), SummaryState::Fail)),
+        ("argo_home", yes(v["argo_home"]["ok"].as_bool().unwrap_or(false), SummaryState::Degraded)),
+        ("bundle_dirs", yes(v["bundle_dirs_missing"].as_array().is_none_or(Vec::is_empty), SummaryState::Degraded)),
+        ("memory_files", yes(v["memory_files_missing"].as_array().is_none_or(Vec::is_empty), SummaryState::Degraded)),
+        ("db", db_state(&v["db"])),
+        ("audit", audit_state(&v["audit"])),
+        ("cron", SummaryState::Ok),
+        ("creds", yes(v["creds"]["set"].as_array().is_some_and(|items| !items.is_empty()), SummaryState::Degraded)),
+        ("gateway", yes(v["gateway"]["running"].as_bool().unwrap_or(false), SummaryState::Degraded)),
+        ("gateway_health", gateway_health_state(v)),
+        ("routes", yes(v["routes"]["total"].as_u64().unwrap_or(0) > 0, SummaryState::Fail)),
+        ("auto_approval", status_group_state(&v["auto_approval"])),
+        ("channels", status_group_state(&v["channels"])),
+    ];
+    let mut out = DoctorSummary { state: SummaryState::Ok, passed: 0, warned: 0, failed: 0, issue: None };
+    for (name, state) in checks {
+        match state { SummaryState::Ok => out.passed += 1, SummaryState::Degraded => out.warned += 1, SummaryState::Fail => out.failed += 1 }
+        if state > out.state { out.state = state; out.issue = Some(name); }
+    }
+    out
+}
+fn yes(ok: bool, otherwise: SummaryState) -> SummaryState { if ok { SummaryState::Ok } else { otherwise } }
+fn db_state(v: &serde_json::Value) -> SummaryState {
+    if v["open_error"].is_string() || v["migrate_error"].is_string() { SummaryState::Fail }
+    else if !v["present"].as_bool().unwrap_or(false) || !v["workspace_registered"].as_bool().unwrap_or(false) { SummaryState::Degraded }
+    else { SummaryState::Ok }
+}
+fn audit_state(v: &serde_json::Value) -> SummaryState {
+    if !v["available"].as_bool().unwrap_or(false) { SummaryState::Degraded }
+    else { yes(v["ok"].as_bool().unwrap_or(false), SummaryState::Fail) }
+}
+fn gateway_health_state(v: &serde_json::Value) -> SummaryState {
+    if !v["gateway"]["running"].as_bool().unwrap_or(false) { return SummaryState::Degraded; }
+    yes(v["gateway_health"]["reachable"].as_bool().unwrap_or(false) && v["gateway_health"]["status_code"].as_u64().unwrap_or(0) < 500, SummaryState::Fail)
+}
+fn status_group_state(v: &serde_json::Value) -> SummaryState {
+    let Some(obj) = v.as_object() else { return SummaryState::Degraded; };
+    let mut state = SummaryState::Ok;
+    for status in obj.values().filter_map(|item| item.get("status").and_then(|s| s.as_str())) {
+        match status { "ERROR" | "FAIL" | "BROKEN" => return SummaryState::Fail, "WARN" | "MISSING" => state = SummaryState::Degraded, _ => {} }
+    }
+    state
 }
 
 fn print_channels(v: &serde_json::Value) {
@@ -179,3 +255,5 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "channels": channels,
     }))
 }
+
+#[cfg(test)] #[path = "doctor_tests.rs"] mod doctor_tests;
