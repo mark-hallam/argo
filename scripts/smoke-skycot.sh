@@ -286,6 +286,13 @@ handoff_out=$(cargo test -p argo-orchestrator --test multiworker_handoff_e2e_smo
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "multiworker_handoff_e2e_smoke passed"
 
+heading "24. Cross-tenant skill discovery negative smoke"
+cd "$SCRIPT_DIR/.." || fail "cd to repo root for cargo test" ""
+cross_tenant_out=$(cargo test -p argo-cli --test cross_tenant_skill_discovery_negative --quiet 2>&1) \
+  || fail "cross_tenant_skill_discovery_negative" "$cross_tenant_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "cross_tenant_skill_discovery_negative passed"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  workspace: $WORKDIR"
