@@ -42,3 +42,14 @@ LOC: ~600.
 
 - Mission-claim alignment: claim 4 (Skills are shared and learned + compliance: GDPR Article 17).
 - Authored from MISSION_BACKLOG.md [NEW] item — no prior brief existed; check `rg 'pub (struct|enum|fn) <Name>'` for any new names introduced before declaring (drift prevention rule).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief targets nonexistent `crates/argo-cli/src/handlers/tenant_rtbf.rs`. Current GDPR/delete surfaces live under `crates/argo-cli/src/handlers/gdpr_delete.rs`. Correcting:
+
+- NEW `crates/argo-skill/src/rtbf_propagation.rs` — RTBF cascade through Dreams + skill marketplace. ≤300 LOC.
+- NEW `crates/argo-skill/src/rtbf_propagation_tests.rs` — unit tests. ≤200 LOC.
+- `crates/argo-cli/src/handlers/gdpr_delete.rs` — narrowly: wire propagation into existing GDPR delete handler. ≤30 modified lines.
+- `crates/argo-skill/src/lib.rs` — narrowly: `pub mod rtbf_propagation;`. ≤3 lines.
+- Optional: NEW `crates/argo-skill/migrations/NNNN_rtbf_propagation.sql` (if a tombstone schema is needed).

@@ -90,3 +90,13 @@ If your task genuinely requires a file not listed, **stop and mark this brief BL
 - Operator-visible: **before this lands, the SAML SSO surface is functionally insecure for enterprise.** Production deployments should either disable SAML in config OR run with this brief landed.
 - Audit-event naming: `sso.saml.response.verified` / `sso.saml.response.rejected`.
 - This brief is the security-hardening companion to #1469. Pair with `mission-sso-oidc-jwt-signature-verify` for full coverage.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted XML-DSig moved into `crates/argo-cli/src/handlers/gateway/sso_saml_xmlsig.rs` (now exists on current main). Widening:
+
+- `crates/argo-cli/src/handlers/gateway/sso_saml_xmlsig.rs` — narrowly: implement remaining signature-verification gaps. ≤200 modified lines.
+- `crates/argo-cli/src/handlers/gateway/sso_saml_xmlsig_tests.rs` — narrowly: add coverage tests. ≤150 modified lines.
+- `crates/argo-cli/src/handlers/gateway/sso_saml.rs` — narrowly: call into xmlsig module. ≤30 modified lines.
+- Cargo.lock — re-resolved deps as needed.

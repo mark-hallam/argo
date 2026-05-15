@@ -50,3 +50,13 @@ LOC: ~250.
 - Mission-claim alignment: production hardening (forward-compat for eval-driven claim 3 + claim 4 work).
 - Smaller-scope subset of the post-v1 `mission-serialization-versioning` backlog item — that big brief stays separate.
 - Drift-prevention: extends existing fixture surface; no parallel.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted live fixture loaders are at `crates/argo-cli/src/handlers/eval_run.rs` and `crates/argo-vertical/src/eval_score.rs`, not the brief's `crates/argo-eval/src/fixture.rs`. Correcting:
+
+- `crates/argo-cli/src/handlers/eval_run.rs` — narrowly: add `schema_version: u32` field deserialization with default fallback. ≤30 modified lines.
+- `crates/argo-vertical/src/eval_score.rs` — narrowly: same field. ≤30 modified lines.
+- `crates/argo-vertical/src/eval_score_tests.rs` (sibling) — 4 unit tests: legacy, v1 explicit, v2 future-tag-fails, default. ≤80 modified lines.
+- NEW `docs/skycot/operator/eval-fixture-versioning.md` — policy doc.

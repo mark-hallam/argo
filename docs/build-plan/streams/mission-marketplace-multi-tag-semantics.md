@@ -43,3 +43,12 @@ LOC: ~100.
 - Mission-claim alignment: claim 4 (Skills shared and learned — predictable tag resolution).
 - This is post-v1 polish. Operator-decisional whether to backport.
 - Drift-prevention: adds one new `pub enum MarketplaceTagPolicy` — no duplicate of an existing surface.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted current OCI marketplace code is under `crates/argo-skill/src/marketplace_oci*`, not `crates/argo-marketplace`. Correcting:
+
+- `crates/argo-skill/src/marketplace_oci.rs` — narrowly: add `MarketplaceTagPolicy` enum + timestamp-newest default. ≤80 modified lines.
+- `crates/argo-skill/src/marketplace_oci_tests.rs` (or sibling) — narrowly: 3 unit tests per policy variant. ≤80 modified lines.
+- NEW `docs/skycot/operator/marketplace-tag-policy.md` — operator doc.

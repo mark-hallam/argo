@@ -46,3 +46,13 @@ LOC: ~150.
 
 - Mission-claim alignment: production hardening (operator UX; supports operability across all claims).
 - Drift-prevention: extends existing `argo doctor` surface; no parallel command.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted `--summary` Clap flag requires `crates/argo-cli/src/cli_runtime_cmds.rs`. Widening:
+
+- `crates/argo-cli/src/cli_runtime_cmds.rs` — narrowly: add `--summary` flag to `Doctor` subcommand. ≤15 modified lines.
+- `crates/argo-cli/src/handlers/doctor.rs` — narrowly: format summary line when flag set. ≤80 modified lines.
+- `crates/argo-cli/src/handlers/doctor_tests.rs` (sibling) — narrowly: 4 unit tests. ≤80 modified lines.
+- `docs/skycot/runbook/doctor.md` — narrowly: doc the flag. ≤30 modified lines.

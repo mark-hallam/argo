@@ -119,3 +119,24 @@ These are the same load-bearing edits the original brief implied. With both amen
 - Module: NEW feature module + tests + `lib.rs` declaration
 
 No file > 500 LOC after; behavior of existing overlays preserved.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+This list is the canonical may-touch — codex pre-claim parsers should treat this as the enforceable boundary. Original `## Files you may touch` and `## Files you must NOT touch` sections above are advisory only and may be stale.
+
+**Permitted edits:**
+- `crates/argo-tui/src/spend_monitor.rs` — NEW. Feature module. ≤300 LOC.
+- `crates/argo-tui/src/spend_monitor_tests.rs` — NEW. Unit tests, ≥5 cases. ≤200 LOC.
+- `crates/argo-tui/src/lib.rs` — narrowly: `pub mod spend_monitor;` declaration. ≤3 modified lines.
+- `crates/argo-tui/src/input_globals.rs` — narrowly: add ONE new `GlobalKeyAction` variant + ONE entry in `default_global_keys()`. ≤15 modified lines.
+- `crates/argo-tui/src/input.rs` — narrowly: dispatch arm matching the new GlobalKeyAction variant. ≤15 modified lines. (Input.rs is post-boot-helpers-split; no longer at LOC ceiling.)
+- `crates/argo-tui/src/app.rs` — narrowly: state field on ViewerState (or equivalent) for the overlay's open/closed + cursor state. ≤30 modified lines.
+- `crates/argo-tui/src/render.rs` — narrowly: call site in render loop when this overlay is the active overlay. ≤15 modified lines.
+- `crates/argo-tui/src/overlays.rs` — narrowly: `pub fn draw_spend_monitor(state, frame, area)` function. ≤200 LOC for the new function + helpers if cohesive.
+
+**Forbidden edits:**
+- Any other crate outside `argo-tui`.
+- Anything not in the permitted list above.
+
+**Rationale:** The previously-claimed `at 500 LOC ceiling` constraint on input.rs is stale — boot-helpers split (#1670) freed it to 122 LOC. State management lives in `app.rs::ViewerState`, not a separate `state.rs`. Overlay rendering is split across `render.rs` (dispatcher) + `overlays.rs` (per-overlay draw functions).
