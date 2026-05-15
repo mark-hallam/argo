@@ -39,9 +39,9 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    Y  yank message at scroll cursor"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory / Cost / Audit / Providers / Cron / Tools"),
+        Line::from("  Forge / Skills / Memory / Spend / Audit / Providers / Cron / Tools"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
-        Line::from("    M  active memory               $  cost rollup"),
+        Line::from("    M  active memory               $  spend monitor"),
         Line::from("    A  audit chain (selected ses)  P  providers   K  cron"),
         Line::from("    T  tool registry"),
         Line::from("    R  force-refresh   C  clear live-event trail"),
@@ -200,6 +200,16 @@ pub(crate) fn draw_cost(
     );
     frame.render_widget(Clear, panel);
     frame.render_widget(para, panel);
+}
+
+/// Fleet spend monitor overlay. Triggered by `$`. Esc / `$` / q close;
+/// r refreshes the snapshot from the store.
+pub(crate) fn draw_spend_monitor(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    monitor: &crate::spend_monitor::SpendMonitor,
+) {
+    monitor.render(frame, area);
 }
 
 /// Detail view for one persisted message — pretty-prints the

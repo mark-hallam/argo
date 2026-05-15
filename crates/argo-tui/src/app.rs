@@ -118,6 +118,8 @@ pub struct ViewerState {
     /// Loaded cross-tenant spend rollup when the user has the
     /// cost overlay open (entered with `$`). `None` when closed.
     pub cost_overlay: Option<argo_store::GlobalSpend>,
+    /// Fleet spend monitor with sparklines when open (entered with `$`).
+    pub spend_monitor: Option<crate::spend_monitor::SpendMonitor>,
     /// Loaded audit-chain rows for the selected session when
     /// the user has the audit overlay open (entered with `A`).
     /// `None` when closed.
@@ -242,6 +244,7 @@ impl ViewerState {
             memory_overlay: None,
             memory_overlay_scroll: 0,
             cost_overlay: None,
+            spend_monitor: None,
             audit_overlay: None,
             audit_overlay_scroll: 0,
             providers_overlay: None,

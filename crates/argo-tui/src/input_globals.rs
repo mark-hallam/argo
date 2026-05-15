@@ -31,6 +31,8 @@ pub enum GlobalKeyAction {
     DashboardOverlay,
     /// Open the universal Ctrl-K search overlay.
     SearchEverywhereOverlay,
+    /// Open the fleet spend monitor overlay.
+    SpendMonitorOverlay,
 }
 
 /// One global keybinding entry.
@@ -96,7 +98,7 @@ pub fn default_global_keys() -> Vec<GlobalKeyBinding> {
         (KeyCode::Char('?'), GlobalKeyAction::KeybindingsHelpOverlay),
         (KeyCode::Char('F'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('S'), GlobalKeyAction::StoreBackedOverlay),
-        (KeyCode::Char('$'), GlobalKeyAction::StoreBackedOverlay),
+        (KeyCode::Char('$'), GlobalKeyAction::SpendMonitorOverlay),
         (KeyCode::Char('K'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('P'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('T'), GlobalKeyAction::StoreBackedOverlay),
@@ -166,6 +168,9 @@ pub async fn dispatch_global_key(
         GlobalKeyAction::DashboardOverlay => crate::input_dashboard::open_dashboard_overlay(state),
         GlobalKeyAction::SearchEverywhereOverlay => {
             crate::search_everywhere::run_search_overlay(terminal, state, store).await?;
+        }
+        GlobalKeyAction::SpendMonitorOverlay => {
+            crate::spend_monitor::open_spend_monitor(state, store).await?;
         }
     }
     Ok(true)

@@ -42,6 +42,7 @@ mod render_messages;
 pub mod search_everywhere;
 pub mod session_detail;
 mod session_detail_render;
+pub mod spend_monitor;
 mod text_input;
 pub mod theme;
 mod viewer;

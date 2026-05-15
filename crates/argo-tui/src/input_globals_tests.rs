@@ -50,6 +50,10 @@ fn default_registry_preserves_existing_global_openers() {
     );
     assert_eq!(
         lookup_global_key(&registry, KeyCode::Char('$')),
+        Some(GlobalKeyAction::SpendMonitorOverlay)
+    );
+    assert_eq!(
+        lookup_global_key(&registry, KeyCode::Char('M')),
         Some(GlobalKeyAction::StoreBackedOverlay)
     );
     assert_eq!(

@@ -124,6 +124,9 @@ pub(crate) async fn run(
                 handle_message_overlay(key.code, state);
                 continue;
             }
+            if crate::spend_monitor::handle_spend_monitor_key(state, &store, key.code).await? {
+                continue;
+            }
             // List/scroll overlays (forge-runs, skills, memory,
             // cost, audit, cron, providers, tools, tool-errors)
             // share a close-key shape — see input_overlay_dispatch.
