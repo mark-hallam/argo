@@ -83,6 +83,8 @@ pub struct ViewerState {
     /// True while the user has the keybinding-help overlay open
     /// (entered with `?`). Any key while open closes it.
     pub help_overlay: bool,
+    /// True while the context-aware keybinding-help overlay is open.
+    pub keybindings_help_overlay: bool,
     /// `Some(idx)` while the user has a message expanded (entered
     /// with `o` while focused on the messages pane); the index
     /// points into `selected_messages`. Esc / o / q closes.
@@ -229,6 +231,7 @@ impl ViewerState {
             focus: PaneFocus::Sessions,
             messages_scroll: 0,
             help_overlay: false,
+            keybindings_help_overlay: false,
             message_overlay: None,
             message_overlay_text_only: false,
             message_overlay_scroll: 0,

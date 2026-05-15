@@ -19,6 +19,8 @@ use std::sync::Arc;
 pub enum GlobalKeyAction {
     /// Open the help overlay.
     HelpOverlay,
+    /// Open or close the context-aware keybindings help overlay.
+    KeybindingsHelpOverlay,
     /// Delegate to the store-backed overlay dispatcher.
     StoreBackedOverlay,
     /// Delegate to the H-stack overlay dispatcher.
@@ -91,7 +93,7 @@ pub fn register_global_key_with_modifiers(
 pub fn default_global_keys() -> Vec<GlobalKeyBinding> {
     let mut registry = Vec::new();
     for (key, action) in [
-        (KeyCode::Char('?'), GlobalKeyAction::HelpOverlay),
+        (KeyCode::Char('?'), GlobalKeyAction::KeybindingsHelpOverlay),
         (KeyCode::Char('F'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('S'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('$'), GlobalKeyAction::StoreBackedOverlay),
@@ -150,6 +152,9 @@ pub async fn dispatch_global_key(
     };
     match action {
         GlobalKeyAction::HelpOverlay => state.help_overlay = true,
+        GlobalKeyAction::KeybindingsHelpOverlay => {
+            state.keybindings_help_overlay = !state.keybindings_help_overlay;
+        }
         GlobalKeyAction::StoreBackedOverlay => {
             return crate::input_overlay_dispatch::try_open_overlay(state, store, cwd, key.code)
                 .await;

@@ -38,6 +38,9 @@ pub fn draw(frame: &mut Frame<'_>, state: &ViewerState) {
     if state.help_overlay {
         crate::overlays::draw_help(frame, area);
     }
+    if state.keybindings_help_overlay {
+        crate::overlays::draw_keybindings_help(state, frame, area);
+    }
     if let Some(idx) = state.message_overlay {
         crate::overlays::draw_message(frame, area, state, idx);
     }

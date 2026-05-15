@@ -6,13 +6,13 @@ fn register_global_key_adds_lookup_entry() {
     register_global_key(
         &mut registry,
         KeyCode::Char('?'),
-        GlobalKeyAction::HelpOverlay,
+        GlobalKeyAction::KeybindingsHelpOverlay,
     )
     .unwrap();
 
     assert_eq!(
         lookup_global_key(&registry, KeyCode::Char('?')),
-        Some(GlobalKeyAction::HelpOverlay)
+        Some(GlobalKeyAction::KeybindingsHelpOverlay)
     );
 }
 
@@ -22,7 +22,7 @@ fn register_global_key_rejects_duplicate_key() {
     register_global_key(
         &mut registry,
         KeyCode::Char('?'),
-        GlobalKeyAction::HelpOverlay,
+        GlobalKeyAction::KeybindingsHelpOverlay,
     )
     .unwrap();
 
@@ -36,7 +36,7 @@ fn register_global_key_rejects_duplicate_key() {
     assert_eq!(err.key, KeyCode::Char('?'));
     assert_eq!(
         lookup_global_key(&registry, KeyCode::Char('?')),
-        Some(GlobalKeyAction::HelpOverlay)
+        Some(GlobalKeyAction::KeybindingsHelpOverlay)
     );
 }
 
@@ -46,7 +46,7 @@ fn default_registry_preserves_existing_global_openers() {
 
     assert_eq!(
         lookup_global_key(&registry, KeyCode::Char('?')),
-        Some(GlobalKeyAction::HelpOverlay)
+        Some(GlobalKeyAction::KeybindingsHelpOverlay)
     );
     assert_eq!(
         lookup_global_key(&registry, KeyCode::Char('$')),

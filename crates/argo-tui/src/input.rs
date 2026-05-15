@@ -102,7 +102,16 @@ pub(crate) async fn run(
                 }
                 continue;
             }
-            // Help overlay: any key closes it.
+            if state.keybindings_help_overlay {
+                if matches!(
+                    crate::keybindings_help::handle_key(key.code),
+                    crate::keybindings_help::HelpOutcome::Close
+                ) {
+                    state.keybindings_help_overlay = false;
+                }
+                continue;
+            }
+            // Legacy static help overlay: any key closes it.
             if state.help_overlay {
                 state.help_overlay = false;
                 continue;

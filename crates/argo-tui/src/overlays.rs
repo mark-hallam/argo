@@ -55,6 +55,12 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
     frame.render_widget(para, panel);
 }
 
+/// Context-aware keybindings overlay. Triggered by `?`; q, Esc,
+/// or `?` closes it.
+pub(crate) fn draw_keybindings_help(state: &ViewerState, frame: &mut Frame<'_>, area: Rect) {
+    crate::keybindings_help::render(frame, area, state);
+}
+
 /// Cron job list overlay. Triggered by `K`. Lists every
 /// `cron/jobs/*.json` basename in cwd. Esc / K / q close.
 pub(crate) fn draw_cron(

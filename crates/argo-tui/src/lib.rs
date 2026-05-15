@@ -23,6 +23,7 @@ mod input_h_stack;
 mod input_helpers;
 mod input_overlay_dispatch;
 mod input_replay;
+pub mod keybindings_help;
 mod live_event;
 pub mod notifications;
 mod overlay_text;
