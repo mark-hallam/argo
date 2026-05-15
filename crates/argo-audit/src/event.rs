@@ -150,6 +150,10 @@ pub enum AuditKind {
     /// deployment region did not match that tenant's configured
     /// data-residency region.
     CrossRegionBlocked,
+    /// Gateway boot deliberately bound a non-loopback address through
+    /// the development/recovery escape hatch. Payload carries bind,
+    /// port, pid, TLS/proxy context, and the source of the bind value.
+    GatewayInsecureBind,
 }
 
 impl AuditKind {
@@ -186,6 +190,7 @@ impl AuditKind {
             Self::SecurityKeyRotated => "security.key_rotated",
             Self::ApprovalExpiredByTimeout => "approval.expired_by_timeout",
             Self::CrossRegionBlocked => "security.cross_region_blocked",
+            Self::GatewayInsecureBind => "gateway_insecure_bind",
         }
     }
 
@@ -224,6 +229,7 @@ impl AuditKind {
             "security.key_rotated" => Self::SecurityKeyRotated,
             "approval.expired_by_timeout" => Self::ApprovalExpiredByTimeout,
             "security.cross_region_blocked" => Self::CrossRegionBlocked,
+            "gateway_insecure_bind" => Self::GatewayInsecureBind,
             _ => return None,
         })
     }
@@ -262,6 +268,7 @@ impl AuditKind {
             Self::SecurityKeyRotated,
             Self::ApprovalExpiredByTimeout,
             Self::CrossRegionBlocked,
+            Self::GatewayInsecureBind,
         ];
         v.sort_by_key(|k| k.label());
         v

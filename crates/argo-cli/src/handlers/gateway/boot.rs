@@ -3,9 +3,12 @@
 //! that file under the 500-LOC ceiling.
 
 use crate::home::{cwd_workspace, db_path, ensure_dir, resolve_home};
+use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
 use argo_telemetry::span_context::{enter_context, LogContext};
 use argo_types::{ArgoError, ArgoResult};
+use serde_json::{json, Value};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -13,9 +16,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
-use super::boot_helpers::{http_status_label, parse_status_line, StartupPhases};
 #[cfg(test)]
 use super::boot_helpers::check_bind_loopback;
+use super::boot_helpers::{http_status_label, parse_status_line, StartupPhases};
 use super::boot_spawns::{
     finish_shutdown, spawn_alerts_loop, spawn_approval_reminder, spawn_audit_watchdog,
     spawn_cu_screenshot_sweep, spawn_gateway_duty_scheduler, spawn_siem_from_config,
@@ -74,7 +77,7 @@ pub(super) async fn start(
     cli_quiet: bool,
     profile_startup: bool,
     skip_startup_check: bool,
-    insecure_bind: bool,
+    bind_non_loopback: bool,
 ) -> ArgoResult<()> {
     // Boot-time context: tenant_id resolves per-request inside the
     // route handlers — this entry covers everything that emits before
@@ -87,7 +90,7 @@ pub(super) async fn start(
     // Load-bearing bind-safety guard runs FIRST, so plaintext
     // non-loopback bind without TLS/proxy config is refused even
     // under `--skip-startup-check`.
-    validate_bind_safety(bind, insecure_bind, &cwd_for_check)?;
+    validate_bind_safety(bind, bind_non_loopback, &cwd_for_check)?;
     if let Err(e) = run_startup_checks(skip_startup_check, &cwd_for_check).await {
         eprintln!("argo gateway: STARTUP CHECK FAILED ({e}); refusing to bind");
         std::process::exit(STARTUP_CHECK_EXIT);
@@ -100,6 +103,24 @@ pub(super) async fn start(
     let gateway_cfg = cfg.gateway.clone();
     let behind_proxy = gateway_cfg.behind_proxy.clone();
     let request_audit_cfg = gateway_cfg.request_audit.clone();
+    let prebound_store = if bind_non_loopback && !is_loopback_bind(bind) {
+        match open_store(&cwd_for_check).await {
+            Ok(s) => {
+                let store = Arc::new(s);
+                emit_insecure_bind_audit(&store, bind, port).await;
+                Some(store)
+            }
+            Err(e) => {
+                eprintln!(
+                    "argo gateway: bind-non-loopback audit unavailable before bind ({e}); \
+                     continuing"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
     let addr = format!("{bind}:{port}");
     let listener = TcpListener::bind(&addr)
         .await
@@ -111,12 +132,15 @@ pub(super) async fn start(
     // /health and /version still answer.
     let cwd_for_store =
         std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
-    let store = match open_store(&cwd_for_store).await {
-        Ok(s) => Some(Arc::new(s)),
-        Err(e) => {
-            eprintln!("argo gateway: store open failed ({e}); /sessions etc. will return 503");
-            None
-        }
+    let store = match prebound_store {
+        Some(s) => Some(s),
+        None => match open_store(&cwd_for_store).await {
+            Ok(s) => Some(Arc::new(s)),
+            Err(e) => {
+                eprintln!("argo gateway: store open failed ({e}); /sessions etc. will return 503");
+                None
+            }
+        },
     };
     phases.mark("store_open_migrate");
     if let Some(s) = store.as_ref() {
@@ -369,6 +393,40 @@ pub(super) async fn start(
     Ok(())
 }
 
+fn is_loopback_bind(bind: &str) -> bool {
+    bind.parse::<IpAddr>()
+        .map(|ip| ip.is_loopback())
+        .unwrap_or(false)
+}
+
+fn insecure_bind_audit_payload(bind: &str, port: u16, pid: u32) -> Value {
+    json!({
+        "event_type": "gateway_insecure_bind",
+        "severity": "warn",
+        "actor": "system",
+        "bind": bind,
+        "port": port,
+        "pid": pid,
+        "tls_enabled": false,
+        "bind_source": "cli"
+    })
+}
+
+async fn emit_insecure_bind_audit(store: &Arc<SessionStore>, bind: &str, port: u16) {
+    let sink = AuditSink::new(Arc::clone(store));
+    let payload = insecure_bind_audit_payload(bind, port, std::process::id());
+    if let Err(e) = sink
+        .write(None, AuditKind::GatewayInsecureBind, payload, None)
+        .await
+    {
+        tracing::warn!(target: "gateway::bind", error = %e, "gateway insecure bind audit write failed");
+        return;
+    }
+    if let Err(e) = sink.flush_pending().await {
+        tracing::warn!(target: "gateway::bind", error = %e, "gateway insecure bind audit flush failed");
+    }
+}
+
 pub(super) async fn stop() -> ArgoResult<()> {
     let pidfile = pid_path()?;
     let raw = std::fs::read_to_string(&pidfile)
@@ -394,3 +452,7 @@ pub(super) async fn stop() -> ArgoResult<()> {
 #[cfg(test)]
 #[path = "boot_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "boot_bind_tests.rs"]
+mod bind_tests;

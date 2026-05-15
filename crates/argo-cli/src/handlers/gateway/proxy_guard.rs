@@ -11,7 +11,8 @@
 //! - [`validate_bind_address`] is the **load-bearing** bind-safety
 //!   guard. It refuses to boot when the operator binds a non-loopback
 //!   address without setting `[gateway.behind_proxy].expected_proxy =
-//!   true` (or passing the explicit `--insecure-bind` escape hatch).
+//!   true` (or passing the explicit `--bind-non-loopback`
+//!   `--accept-insecure-bind-warning` escape hatch).
 //!   Today's `argo gateway start --bind 0.0.0.0:7400` failure mode —
 //!   plaintext HTTP served to the world — exits non-zero with a
 //!   runbook link instead.
@@ -39,7 +40,7 @@ use std::net::{IpAddr, SocketAddr};
 
 /// Path the load-bearing error message points operators at. Kept as
 /// a `const` so the smoke test can assert on the exact string.
-pub(super) const RUNBOOK_PATH: &str = "docs/skycot/runbook/gateway-tls-deployment.md";
+pub(super) const RUNBOOK_PATH: &str = "docs/skycot/runbook/gateway-bind.md";
 
 /// Validate the gateway's bind address against the
 /// `[gateway.behind_proxy]` contract. Returns `Ok` when ANY of:
@@ -48,7 +49,8 @@ pub(super) const RUNBOOK_PATH: &str = "docs/skycot/runbook/gateway-tls-deploymen
 ///   local dev / on-host probes are always safe.
 /// - `cfg.expected_proxy = true` — the operator has signed the
 ///   reverse-proxy contract.
-/// - `insecure_bind = true` — the explicit CLI escape hatch.
+/// - `bind_non_loopback = true` — the explicit two-flag CLI escape
+///   hatch.
 ///
 /// Otherwise returns `Err` with a load-bearing message pointing at
 /// the runbook ([`RUNBOOK_PATH`]). The error is what the BSD
@@ -56,7 +58,7 @@ pub(super) const RUNBOOK_PATH: &str = "docs/skycot/runbook/gateway-tls-deploymen
 pub(super) fn validate_bind_address(
     bind: &str,
     cfg: &GatewayBehindProxyConfig,
-    insecure_bind: bool,
+    bind_non_loopback: bool,
 ) -> ArgoResult<()> {
     let is_loopback = bind
         .parse::<IpAddr>()
@@ -74,9 +76,10 @@ pub(super) fn validate_bind_address(
         );
         return Ok(());
     }
-    if insecure_bind {
+    if bind_non_loopback {
         eprintln!(
-            "\x1b[33margo gateway: binding non-loopback {bind} per --insecure-bind; \
+            "\x1b[33margo gateway: binding non-loopback {bind} per \
+             --bind-non-loopback --accept-insecure-bind-warning; \
              ensure a TLS-terminating proxy is in front (see {RUNBOOK_PATH})\x1b[0m"
         );
         return Ok(());
@@ -84,8 +87,9 @@ pub(super) fn validate_bind_address(
     Err(ArgoError::Provider(format!(
         "refusing to bind non-loopback {bind} without TLS or reverse-proxy contract. \
          Set [gateway.behind_proxy].expected_proxy=true (with `trusted_proxies` listing \
-         the load-balancer egress IPs) once a TLS-terminating proxy is in front, or pass \
-         --insecure-bind for dev/recovery. See {RUNBOOK_PATH}"
+         the load-balancer egress IPs) once a TLS-terminating proxy is in front. \
+         Pass --bind-non-loopback --accept-insecure-bind-warning to override for \
+         dev/recovery. See {RUNBOOK_PATH}"
     )))
 }
 

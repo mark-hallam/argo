@@ -194,8 +194,15 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             quiet,
             profile_startup,
             skip_startup_check,
+            bind_non_loopback,
+            accept_insecure_bind_warning,
             insecure_bind,
         } => {
+            let bind_non_loopback = resolve_non_loopback_override(
+                bind_non_loopback,
+                accept_insecure_bind_warning,
+                insecure_bind,
+            )?;
             // Record gateway-start instant for the `/health` +
             // `/readyz` `uptime_seconds` field. Idempotent across
             // re-entry — see `routes_health::mark_start`.
@@ -221,7 +228,7 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
                 quiet,
                 profile_startup,
                 skip_startup_check,
-                insecure_bind,
+                bind_non_loopback,
             )
             .await
         }
@@ -241,6 +248,31 @@ pub async fn run(cmd: GatewayCmd) -> ArgoResult<()> {
             json,
         } => super::gateway_probe::run(kind, host, port, json).await,
     }
+}
+
+fn resolve_non_loopback_override(
+    bind_non_loopback: bool,
+    accept_warning: bool,
+    deprecated_insecure_bind: bool,
+) -> ArgoResult<bool> {
+    if deprecated_insecure_bind {
+        return Err(ArgoError::Schema(
+            "--insecure-bind is deprecated; use --bind-non-loopback and pass \
+             --accept-insecure-bind-warning to confirm"
+                .into(),
+        ));
+    }
+    if bind_non_loopback && !accept_warning {
+        return Err(ArgoError::Schema(
+            "--bind-non-loopback requires --accept-insecure-bind-warning".into(),
+        ));
+    }
+    if accept_warning && !bind_non_loopback {
+        return Err(ArgoError::Schema(
+            "--accept-insecure-bind-warning requires --bind-non-loopback".into(),
+        ));
+    }
+    Ok(bind_non_loopback)
 }
 
 fn status(cfg: &ArgoConfig, json: bool) -> ArgoResult<()> {
@@ -360,4 +392,27 @@ pub(super) async fn spend_per_session(
         .into_iter()
         .map(|(sid, total)| (sid, u64::try_from(total).unwrap_or(0)))
         .collect())
+}
+
+#[cfg(test)]
+mod bind_flag_tests {
+    use super::resolve_non_loopback_override;
+
+    #[test]
+    fn two_flag_override_required() {
+        assert!(resolve_non_loopback_override(false, false, false).is_ok_and(|v| !v));
+        assert!(resolve_non_loopback_override(true, true, false).is_ok_and(|v| v));
+        assert!(resolve_non_loopback_override(true, false, false).is_err());
+        assert!(resolve_non_loopback_override(false, true, false).is_err());
+    }
+
+    #[test]
+    fn deprecated_insecure_bind_is_rejected() {
+        let msg = resolve_non_loopback_override(false, false, true)
+            .expect_err("deprecated flag must fail")
+            .to_string();
+        assert!(msg.contains("--insecure-bind is deprecated"), "{msg}");
+        assert!(msg.contains("--bind-non-loopback"), "{msg}");
+        assert!(msg.contains("--accept-insecure-bind-warning"), "{msg}");
+    }
 }

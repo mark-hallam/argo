@@ -110,6 +110,15 @@ fn approval_expired_by_timeout_round_trips_and_listed() {
 }
 
 #[test]
+fn gateway_insecure_bind_round_trips_and_listed() {
+    let kind = AuditKind::GatewayInsecureBind;
+    assert_eq!(AuditKind::from_label("gateway_insecure_bind"), Some(kind));
+    assert_eq!(kind.label(), "gateway_insecure_bind");
+    let labels: Vec<&'static str> = AuditKind::all().iter().map(|k| k.label()).collect();
+    assert!(labels.contains(&"gateway_insecure_bind"));
+}
+
+#[test]
 fn legacy_http_request_event_type_strings_still_parse_as_labels() {
     // Acceptance: the new variant labels were chosen to match the
     // historical `event_type` payload strings emitted while the

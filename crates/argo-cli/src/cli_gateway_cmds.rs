@@ -44,14 +44,16 @@ pub enum GatewayCmd {
         /// CrashLoopBackoff.
         #[arg(long, hide = true)]
         skip_startup_check: bool,
-        /// Opt in to binding a non-loopback address (e.g. `0.0.0.0`).
-        /// By default the gateway refuses to bind anything outside
-        /// `127.0.0.1` / `::1` / loopback ranges because it ships
-        /// without TLS — operators who terminate TLS upstream (k8s
-        /// service mesh, nginx, Caddy) pass this flag to acknowledge
-        /// the reverse-proxy deployment. See
-        /// `docs/skycot/SECURITY.md`.
-        #[arg(long)]
+        /// Opt in to binding a non-loopback address for dev/recovery.
+        #[arg(long = "bind-non-loopback")]
+        bind_non_loopback: bool,
+        /// Required with `--bind-non-loopback`; records operator
+        /// acceptance of the plaintext bind warning.
+        #[arg(long = "accept-insecure-bind-warning")]
+        accept_insecure_bind_warning: bool,
+        /// Deprecated old escape hatch. Use `--bind-non-loopback`
+        /// plus `--accept-insecure-bind-warning` instead.
+        #[arg(long = "insecure-bind")]
         insecure_bind: bool,
     },
     Stop,
