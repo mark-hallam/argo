@@ -5,9 +5,8 @@ use argo_mcp::{McpClient, McpClientPool, McpContent, PoolConfig};
 use argo_memory::MemoryStore;
 use argo_orchestrator::{OrchestratorStore, SessionId as OrchSessionId};
 use argo_provider::ToolSchema as ProviderToolSchema;
-use argo_tool::{
-    builtin_tools, builtin_tools_with_memory, DelegateTask, ToolContext, ToolRegistry, ToolSchema,
-};
+use argo_store::SessionStore;
+use argo_tool::{builtin_tools_with_runtime, ToolContext, ToolRegistry, ToolSchema};
 use argo_types::{
     ArgoResult, Capability, ContentBlock, Principal, TenantId, ToolCallRequest, ToolCallResult,
     WorkspaceId,
@@ -69,34 +68,20 @@ impl McpConnectionPool {
 }
 
 /// Build a tool registry + capability engine that grants the local
-/// OS user the `owner` role. When `memory` is `Some((store, ws,
-/// vertical_id))`, the registered `memory` tool is wired through the
-/// supplied `MemoryStore` (per claude-memory-tool-wire); otherwise it
-/// stays a stub that errors with the historical "memory store not
-/// wired" message at dispatch.
+/// OS user the `owner` role. Runtime-backed tools are registered with
+/// the stores from the active turn: `memory` when a workspace exists,
+/// `delegate_task` through the orchestrator store, and `session_search`
+/// through the session store.
 pub(crate) fn build_dispatch_ctx(
     cwd: &Path,
     memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
-    orchestrator: Option<Arc<OrchestratorStore>>,
+    orchestrator: Arc<OrchestratorStore>,
+    session_store: Arc<SessionStore>,
 ) -> ArgoResult<(ToolRegistry, CapabilityEngine, Principal)> {
     let mut reg = ToolRegistry::new();
-    let tools = match memory {
-        Some((store, ws, vertical_id)) => {
-            builtin_tools_with_memory(cwd.to_path_buf(), store, ws, vertical_id)
-        }
-        None => builtin_tools(cwd.to_path_buf()),
-    };
+    let tools = builtin_tools_with_runtime(cwd.to_path_buf(), memory, orchestrator, session_store);
     for t in tools {
         reg.register(t);
-    }
-    // `mission-delegate-task-make-real`: when the agent runner has an
-    // OrchestratorStore handle, replace the stub DelegateTask registered
-    // by `builtin_tools` with one wired to that store so dispatch
-    // actually emits a handoff. Keeps `builtin_tools` callers that have
-    // no orchestrator (CLI shell-outs, examples) on the historical
-    // "not wired" stub.
-    if let Some(store) = orchestrator {
-        reg.register(Arc::new(DelegateTask::new(store)));
     }
     reg.set_mcp_pool(Arc::new(McpConnectionPool::default()));
     register_manifest_mcp_servers(&mut reg);
@@ -331,6 +316,7 @@ fn elapsed_ms(started: std::time::Instant) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use argo_tool::builtin_tools;
     use std::path::PathBuf;
 
     #[test]

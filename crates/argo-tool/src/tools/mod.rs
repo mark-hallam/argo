@@ -45,6 +45,8 @@ pub use web::{WebExtract, WebSearch};
 
 use crate::tool::Tool;
 use argo_memory::MemoryStore;
+use argo_orchestrator::OrchestratorStore;
+use argo_store::SessionStore;
 use argo_types::WorkspaceId;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -57,8 +59,8 @@ use std::sync::Arc;
 ///
 /// `Memory` is constructed with `Default::default()` here, which
 /// returns the historical "memory store not wired" error at dispatch.
-/// Callers that want live memory dispatch use
-/// [`builtin_tools_with_memory`] instead.
+/// Agent-runner callers that want live runtime-backed dispatch use
+/// [`builtin_tools_with_runtime`] instead.
 #[must_use]
 pub fn builtin_tools(_workspace_root: PathBuf) -> Vec<Arc<dyn Tool>> {
     vec![
@@ -106,6 +108,50 @@ pub fn builtin_tools_with_memory(
         Arc::new(CodeExecute::default()),
         Arc::new(SendMessage::default()),
         Arc::new(SessionSearch::default()),
+        Arc::new(Todo),
+        Arc::new(Clarify::default()),
+        Arc::new(Process),
+    ]
+}
+
+/// Same shape as [`builtin_tools`] but wires the runtime-backed tools
+/// that need stores supplied by the agent runner.
+///
+/// `memory`, when `Some`, enables live memory dispatch through
+/// [`MemoryStore`]. `delegate_task` is always wired to the supplied
+/// [`OrchestratorStore`], and `session_search` is always wired to the
+/// supplied [`SessionStore`]. `send_message` intentionally remains on
+/// its default dispatcher until a production channel dispatcher exists.
+///
+/// ```ignore
+/// let tools = builtin_tools_with_runtime(cwd, memory, orchestrator, session_store);
+/// ```
+#[must_use]
+pub fn builtin_tools_with_runtime(
+    _workspace_root: PathBuf,
+    memory: Option<(Arc<MemoryStore>, WorkspaceId, Option<String>)>,
+    orchestrator: Arc<OrchestratorStore>,
+    session_store: Arc<SessionStore>,
+) -> Vec<Arc<dyn Tool>> {
+    let memory_tool: Arc<dyn Tool> = match memory {
+        Some((store, workspace_id, vertical_id)) => {
+            Arc::new(Memory::new(store, workspace_id, vertical_id))
+        }
+        None => Arc::new(Memory::default()),
+    };
+    vec![
+        Arc::new(FileRead),
+        Arc::new(FileWrite),
+        Arc::new(FilePatch),
+        Arc::new(Terminal::default()),
+        Arc::new(WebSearch),
+        Arc::new(WebExtract),
+        memory_tool,
+        Arc::new(DelegateTask::new(orchestrator)),
+        Arc::new(Vision::default()),
+        Arc::new(CodeExecute::default()),
+        Arc::new(SendMessage::default()),
+        Arc::new(SessionSearch::new(session_store)),
         Arc::new(Todo),
         Arc::new(Clarify::default()),
         Arc::new(Process),

@@ -170,7 +170,7 @@ pub(super) async fn run_turn_with_tools(
     let orchestrator_ctx = Arc::new(argo_orchestrator::OrchestratorStore::new(store.clone()));
     let orch_session_id = argo_orchestrator::SessionId::from_string(session_id.to_string());
     let (registry, engine, principal) =
-        build_dispatch_ctx(cwd, memory_ctx, Some(Arc::clone(&orchestrator_ctx)))?;
+        build_dispatch_ctx(cwd, memory_ctx, orchestrator_ctx, Arc::clone(store))?;
     // #721: hide manifest-denied tools from the model's tool list
     // entirely — the per-call deny check below remains the hard
     // authoritative guard; this is the discoverability layer that
