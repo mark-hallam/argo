@@ -78,6 +78,8 @@ pub mod skill_rating;
 /// cases — `no-forge-feedback` toggles ingestion off for noisy
 /// skills.
 pub mod skill_flag;
+/// Per-version skill provenance log backing `argo skill explain`.
+pub mod skill_provenance;
 mod spend;
 /// Spend anomaly detector — Welford rolling stats per (worker,
 /// hour-of-day) + z-score check (Stream
@@ -269,7 +271,7 @@ pub type StoreResult<T> = Result<T, ArgoError>;
 /// compares this to the on-disk `schema_version` and refuses to bind
 /// when the two diverge. Bump this whenever a new `vNN` migration is
 /// added.
-pub const EXPECTED_SCHEMA_VERSION: u32 = 68;
+pub const EXPECTED_SCHEMA_VERSION: u32 = 69;
 
 
 #[cfg(test)]

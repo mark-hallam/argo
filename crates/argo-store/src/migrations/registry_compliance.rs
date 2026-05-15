@@ -1,6 +1,6 @@
-//! Ordered migration registrations for versions 57..=68.
+//! Ordered migration registrations for versions 57..=69.
 
-use super::{v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, Migration};
+use super::{v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, Migration};
 
 pub(crate) fn migrations() -> Vec<Migration> {
     vec![
@@ -63,6 +63,11 @@ pub(crate) fn migrations() -> Vec<Migration> {
             version: 68,
             up: |tx| Box::pin(v68::up(tx)),
             down: |tx| Box::pin(v68::down(tx)),
+        },
+        Migration {
+            version: 69,
+            up: |tx| Box::pin(v69::up(tx)),
+            down: |tx| Box::pin(v69::down(tx)),
         },
     ]
 }

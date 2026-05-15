@@ -11,6 +11,7 @@
 use crate::parse::parse_skill_md;
 use crate::skill::{PrincipalOverride, Skill, SkillFrontmatter};
 use crate::trust::TrustGrade;
+use argo_store::skill_provenance::{record_provenance, NewSkillProvenance, SkillProvenanceKind};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, Lock, SessionId, SkillId};
 use chrono::Utc;
@@ -113,6 +114,7 @@ impl SkillStore {
     /// `promote` flips the active pointer without touching the
     /// candidate's bytes.
     pub async fn promote(&self, name: &str, version: &str) -> ArgoResult<Skill> {
+        let previous = self.find_active_by_name(name).await?;
         let row: Option<RawSkill> = sqlx::query_as::<_, RawSkill>(
             "SELECT s.id, s.name, s.version, s.body, s.frontmatter, s.source, s.hash, \
              s.learned_in, s.superseded_by, s.created_at, l.lock, s.vertical_id, \
@@ -147,6 +149,21 @@ impl SkillStore {
             .map_err(|e| ArgoError::Provider(format!("skill promote clear: {e}")))?;
         let mut promoted = Skill::try_from(row)?;
         promoted.superseded_by = None;
+        record_provenance(
+            self.store.pool(),
+            NewSkillProvenance {
+                skill_name: name,
+                skill_version: &promoted.frontmatter.version,
+                kind: SkillProvenanceKind::ForgePromoted,
+                actor: Some("forge"),
+                parent_id: previous
+                    .as_ref()
+                    .map(|skill| skill.frontmatter.version.as_str()),
+                change_reason: Some("forge promotion"),
+                breaking_change: false,
+            },
+        )
+        .await?;
         Ok(promoted)
     }
 
@@ -354,6 +371,7 @@ impl SkillStore {
         let created_at = Utc::now();
         let hash = sha256(&body);
         frontmatter.lock = Lock::None;
+        let learned_in_string = learned_in.map(|s| s.0.to_string());
         let frontmatter_json = serde_json::to_string(&frontmatter)
             .map_err(|e| ArgoError::Schema(format!("frontmatter serialize: {e}")))?;
         sqlx::query(
@@ -375,6 +393,19 @@ impl SkillStore {
         .execute(self.store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("skill install: {e}")))?;
+        record_provenance(
+            self.store.pool(),
+            NewSkillProvenance {
+                skill_name: &frontmatter.name,
+                skill_version: &frontmatter.version,
+                kind: provenance_kind(&frontmatter.provenance.source),
+                actor: actor_for_source(&frontmatter.provenance.source),
+                parent_id: learned_in_string.as_deref(),
+                change_reason: Some("skill row inserted"),
+                breaking_change: false,
+            },
+        )
+        .await?;
         Ok(Skill {
             id,
             frontmatter,
@@ -386,6 +417,30 @@ impl SkillStore {
             vertical_id: vertical_id.map(str::to_string),
             lifecycle_state: state,
         })
+    }
+}
+
+fn provenance_kind(source: &str) -> SkillProvenanceKind {
+    if source == "builtin" || source.starts_with("bundle:") {
+        SkillProvenanceKind::Bootstrap
+    } else if source == "forge" {
+        SkillProvenanceKind::ForgePromoted
+    } else if source == "user" || source == "cli-create" || source.starts_with("refined-from-") {
+        SkillProvenanceKind::OperatorAuthored
+    } else if source == "learned" || source.starts_with("learned:") {
+        SkillProvenanceKind::DreamsDerived
+    } else {
+        SkillProvenanceKind::Imported
+    }
+}
+
+fn actor_for_source(source: &str) -> Option<&'static str> {
+    if source == "user" || source == "cli-create" || source.starts_with("refined-from-") {
+        Some("operator")
+    } else if source == "forge" {
+        Some("forge")
+    } else {
+        None
     }
 }
 

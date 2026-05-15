@@ -55,6 +55,11 @@ pub async fn run(cmd: SkillCmd) -> ArgoResult<()> {
             json,
         } => count(&skills, include_superseded, json).await,
         SkillCmd::View { name, json } => super::skill_view::view(&skills, &name, json).await,
+        SkillCmd::Explain {
+            name,
+            history_depth,
+            json,
+        } => super::skill_explain::run(&skills, &name, history_depth, json).await,
         SkillCmd::Verify { name, all } => {
             if all {
                 super::skill_verify::verify_all(&skills).await

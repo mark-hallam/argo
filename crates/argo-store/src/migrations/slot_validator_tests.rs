@@ -4,7 +4,7 @@ use super::{
 
 #[test]
 fn clean_registry_versions_pass() {
-    let versions = 1..=68;
+    let versions = 1..=69;
     validate_registered_versions(versions).expect("dense registry is accepted");
 }
 

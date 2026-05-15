@@ -63,6 +63,7 @@ mod v65;
 mod v66;
 mod v67;
 mod v68;
+mod v69;
 mod v6;
 mod v7;
 mod v8;

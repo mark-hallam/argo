@@ -68,6 +68,16 @@ pub enum SkillCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Explain one skill's provenance, version, Forge, trust, and usage history.
+    Explain {
+        name: String,
+        /// Limit history sections to N rows.
+        #[arg(long, default_value_t = 20)]
+        history_depth: usize,
+        /// Output as a single JSON object for scripting.
+        #[arg(long)]
+        json: bool,
+    },
     /// Verify a skill's body matches its frontmatter `provenance.hash`.
     /// Pass `--all` to verify every active skill in the workspace.
     Verify {
