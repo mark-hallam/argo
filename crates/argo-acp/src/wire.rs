@@ -36,6 +36,32 @@ impl AcpRequest {
             params,
         }
     }
+
+    /// Returns `true` when this request is one of the supported ACP
+    /// client handshake frames.
+    #[must_use]
+    pub fn is_client_handshake(&self) -> bool {
+        matches!(
+            self.method.as_str(),
+            "initialize" | "acp/handshake" | "harness/declare"
+        )
+    }
+
+    /// Parse handshake params from an initialization/declaration frame.
+    pub fn handshake_params(&self) -> Result<ClientHandshakeParams, serde_json::Error> {
+        serde_json::from_value(self.params.clone().unwrap_or_default())
+    }
+}
+
+/// Optional harness hints sent by an ACP client during handshake.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct ClientHandshakeParams {
+    /// Explicit harness identifier, e.g. `"cursor_cli"` or `"zed"`.
+    #[serde(default)]
+    pub harness: Option<String>,
+    /// User-agent style client identifier.
+    #[serde(default, alias = "userAgent")]
+    pub user_agent: Option<String>,
 }
 
 /// Outbound ACP response.

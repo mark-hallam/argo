@@ -3,7 +3,7 @@
 //! capability methods to a user-supplied [`AcpService`].
 use crate::auth::{verify, AuthScheme, AuthToken};
 use crate::harness::{Harness, HarnessCapabilities};
-use crate::wire::{AcpError, AcpRequest, AcpResponse};
+use crate::wire::{AcpError, AcpRequest, AcpResponse, ClientHandshakeParams};
 use argo_types::{ArgoResult, SessionId};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -85,10 +85,13 @@ impl<S: AcpService> AcpServer<S> {
         }
     }
 
-    /// Dispatch one request. `auth_token` is the harness's claimed
-    /// credential; it is verified against `self.auth_scheme` before
-    /// any method is called.
+    /// Dispatch one request. Handshake frames are answered before
+    /// auth so clients can learn the filtered capability set; all
+    /// operational methods verify `auth_token` first.
     pub async fn dispatch(&self, req: AcpRequest, auth_token: &AuthToken) -> AcpResponse {
+        if req.is_client_handshake() {
+            return self.handle_client_handshake(req);
+        }
         if let Err(e) = verify(self.auth_scheme, auth_token) {
             return AcpResponse::err(req.id, AcpError::unauthenticated(e.to_string()));
         }
@@ -102,6 +105,26 @@ impl<S: AcpService> AcpServer<S> {
             "session/fork" => self.handle_fork(req).await,
             other => AcpResponse::err(req.id, AcpError::method_not_found(other)),
         }
+    }
+
+    fn handle_client_handshake(&self, req: AcpRequest) -> AcpResponse {
+        let id = req.id.clone();
+        let params = match req.handshake_params() {
+            Ok(params) => params,
+            Err(e) => return AcpResponse::err(id, AcpError::invalid_params(e.to_string())),
+        };
+        let harness = match detect_harness(&params, self.harness) {
+            Ok(harness) => harness,
+            Err(detail) => return AcpResponse::err(id, AcpError::invalid_params(detail)),
+        };
+        let capabilities = filtered_capabilities(harness, &self.capabilities);
+        AcpResponse::ok(
+            id,
+            serde_json::json!({
+                "harness": harness.id(),
+                "capabilities": capabilities,
+            }),
+        )
     }
 
     async fn handle_send_message(&self, req: AcpRequest) -> AcpResponse {
@@ -148,5 +171,67 @@ impl<S: AcpService> AcpServer<S> {
             },
             Err(e) => AcpResponse::err(id, AcpError::invalid_params(e.to_string())),
         }
+    }
+}
+
+fn filtered_capabilities(harness: Harness, ceiling: &HarnessCapabilities) -> HarnessCapabilities {
+    let defaults = HarnessCapabilities::default_for(harness);
+    HarnessCapabilities {
+        send_message: defaults.send_message && ceiling.send_message,
+        stream: defaults.stream && ceiling.stream,
+        list_sessions: defaults.list_sessions && ceiling.list_sessions,
+        fork_session: defaults.fork_session && ceiling.fork_session,
+    }
+}
+
+fn detect_harness(params: &ClientHandshakeParams, fallback: Harness) -> Result<Harness, String> {
+    if let Some(harness) = params.harness.as_deref().filter(|s| !s.trim().is_empty()) {
+        return parse_harness_id(harness)
+            .ok_or_else(|| format!("unknown ACP harness declaration: {harness}"));
+    }
+    if let Some(user_agent) = params.user_agent.as_deref() {
+        return Ok(detect_harness_from_user_agent(user_agent));
+    }
+    Ok(fallback)
+}
+
+fn parse_harness_id(raw: &str) -> Option<Harness> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "copilot_cli" | "copilot-cli" | "copilot" | "github-copilot" => Some(Harness::CopilotCli),
+        "cursor_cli" | "cursor-cli" | "cursor" => Some(Harness::CursorCli),
+        "vscode" | "vs_code" | "vs-code" | "visual-studio-code" => Some(Harness::VsCode),
+        "zed" => Some(Harness::Zed),
+        "jetbrains" | "intellij" | "goland" | "pycharm" | "webstorm" | "clion" => {
+            Some(Harness::JetBrains)
+        }
+        "generic" | "acp" => Some(Harness::Generic),
+        _ => None,
+    }
+}
+
+fn detect_harness_from_user_agent(user_agent: &str) -> Harness {
+    let ua = user_agent.to_ascii_lowercase();
+    if ua.contains("copilot") {
+        Harness::CopilotCli
+    } else if ua.contains("cursor") {
+        Harness::CursorCli
+    } else if ua.contains("vscode") || ua.contains("visual studio code") {
+        Harness::VsCode
+    } else if ua.contains("zed") {
+        Harness::Zed
+    } else if [
+        "jetbrains",
+        "intellij",
+        "goland",
+        "pycharm",
+        "webstorm",
+        "clion",
+    ]
+    .iter()
+    .any(|needle| ua.contains(needle))
+    {
+        Harness::JetBrains
+    } else {
+        Harness::Generic
     }
 }

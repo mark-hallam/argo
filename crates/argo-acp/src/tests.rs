@@ -178,6 +178,10 @@ fn req(method: &str, params: serde_json::Value) -> AcpRequest {
     AcpRequest::new(serde_json::json!(1), method, Some(params))
 }
 
+fn handshake(params: serde_json::Value) -> AcpRequest {
+    AcpRequest::new(serde_json::json!("init"), "initialize", Some(params))
+}
+
 #[tokio::test]
 async fn unauthenticated_request_returns_1001() {
     let server = AcpServer::new(
@@ -189,6 +193,85 @@ async fn unauthenticated_request_returns_1001() {
     let resp = server.dispatch(r, &AuthToken("not-a-token".into())).await;
     let err = resp.error.unwrap();
     assert_eq!(err.code, 1001);
+}
+
+#[tokio::test]
+async fn handshake_detects_harness_from_user_agent() {
+    let server = AcpServer::new(
+        Harness::Generic,
+        AuthScheme::CopilotOAuth,
+        StubService::default(),
+    );
+    let resp = server
+        .dispatch(
+            handshake(serde_json::json!({"user_agent": "Cursor/0.45 ACP"})),
+            &AuthToken("any".into()),
+        )
+        .await;
+    assert!(resp.error.is_none());
+    let payload = resp.result.unwrap();
+    assert_eq!(payload["harness"], Harness::CursorCli.id());
+    assert_eq!(payload["capabilities"]["send_message"], true);
+}
+
+#[tokio::test]
+async fn explicit_harness_declaration_overrides_user_agent() {
+    let server = AcpServer::new(
+        Harness::Generic,
+        AuthScheme::GenericBearer,
+        StubService::default(),
+    );
+    let req = AcpRequest::new(
+        serde_json::json!("decl"),
+        "harness/declare",
+        Some(serde_json::json!({
+            "harness": "zed",
+            "user_agent": "Cursor/0.45"
+        })),
+    );
+    let resp = server.dispatch(req, &AuthToken("not-a-token".into())).await;
+    assert!(resp.error.is_none());
+    assert_eq!(resp.result.unwrap()["harness"], Harness::Zed.id());
+}
+
+#[tokio::test]
+async fn handshake_filters_capabilities_against_server_ceiling() {
+    let mut server = AcpServer::new(
+        Harness::Generic,
+        AuthScheme::GenericBearer,
+        StubService::default(),
+    );
+    server.capabilities.fork_session = false;
+    server.capabilities.stream = false;
+    let resp = server
+        .dispatch(
+            handshake(serde_json::json!({"harness": "jetbrains"})),
+            &AuthToken("any".into()),
+        )
+        .await;
+    let caps = &resp.result.unwrap()["capabilities"];
+    assert_eq!(caps["send_message"], true);
+    assert_eq!(caps["list_sessions"], true);
+    assert_eq!(caps["stream"], false);
+    assert_eq!(caps["fork_session"], false);
+}
+
+#[tokio::test]
+async fn unknown_explicit_harness_is_invalid_params() {
+    let server = AcpServer::new(
+        Harness::Generic,
+        AuthScheme::GenericBearer,
+        StubService::default(),
+    );
+    let resp = server
+        .dispatch(
+            handshake(serde_json::json!({"harness": "mystery-ide"})),
+            &AuthToken("any".into()),
+        )
+        .await;
+    let err = resp.error.unwrap();
+    assert_eq!(err.code, -32602);
+    assert!(err.message.contains("unknown ACP harness"));
 }
 
 #[tokio::test]
@@ -254,6 +337,31 @@ async fn list_sessions_returns_payload() {
     let resp = server.dispatch(r, &AuthToken("any".into())).await;
     assert!(resp.error.is_none());
     let payload: ListSessionsResponse = serde_json::from_value(resp.result.unwrap()).unwrap();
+    assert_eq!(payload.sessions.len(), 1);
+}
+
+#[tokio::test]
+async fn mock_client_can_handshake_then_list_sessions() {
+    let server = AcpServer::new(
+        Harness::Generic,
+        AuthScheme::GenericBearer,
+        StubService::default(),
+    );
+    let init = server
+        .dispatch(
+            handshake(serde_json::json!({"userAgent": "Zed/0.17"})),
+            &AuthToken("any".into()),
+        )
+        .await;
+    assert_eq!(init.result.unwrap()["harness"], Harness::Zed.id());
+
+    let list = server
+        .dispatch(
+            req("session/list", serde_json::json!({})),
+            &AuthToken("any".into()),
+        )
+        .await;
+    let payload: ListSessionsResponse = serde_json::from_value(list.result.unwrap()).unwrap();
     assert_eq!(payload.sessions.len(), 1);
 }
 
