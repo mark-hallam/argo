@@ -39,10 +39,10 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
         Line::from("    Y  yank message at scroll cursor"),
         Line::from("    t  inside msg detail: toggle drill-into-text view"),
         Line::from(""),
-        Line::from("  Forge / Skills / Memory / Spend / Audit / Providers / Cron / Tools"),
+        Line::from("  Forge / Skills / Memory / Cost / Approvals / Providers / Cron / Tools"),
         Line::from("    F  forge runs (auto-refresh)   S  active skills"),
-        Line::from("    M  active memory               $  spend monitor"),
-        Line::from("    A  audit chain (selected ses)  P  providers   K  cron"),
+        Line::from("    M  active memory               $  cost rollup"),
+        Line::from("    A  pending approvals           P  providers   K  cron"),
         Line::from("    T  tool registry"),
         Line::from("    R  force-refresh   C  clear live-event trail"),
         Line::from(""),
@@ -59,6 +59,17 @@ pub(crate) fn draw_help(frame: &mut Frame<'_>, area: Rect) {
 /// or `?` closes it.
 pub(crate) fn draw_keybindings_help(state: &ViewerState, frame: &mut Frame<'_>, area: Rect) {
     crate::keybindings_help::render(frame, area, state);
+}
+
+/// Pending approvals tray. Triggered by `A`. The tray restores
+/// the previous overlay when closed because it is drawn as the
+/// topmost modal over existing state.
+pub(crate) fn draw_approval_tray(
+    tray: &crate::approval_tray::ApprovalTray,
+    frame: &mut Frame<'_>,
+    area: Rect,
+) {
+    tray.render(frame, area);
 }
 
 /// Cron job list overlay. Triggered by `K`. Lists every

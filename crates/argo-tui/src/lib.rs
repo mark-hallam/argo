@@ -15,6 +15,7 @@
 mod actions;
 mod app;
 mod app_navigation;
+pub mod approval_tray;
 mod clipboard;
 mod input;
 mod input_dashboard;

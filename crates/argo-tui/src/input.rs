@@ -72,6 +72,7 @@ pub(crate) async fn run(
                 ));
             }
             crate::input_dashboard::refresh_dashboard(state, &store).await;
+            crate::approval_tray::refresh_open_tray(state).await;
             last_refresh = std::time::Instant::now();
         }
         if !event::poll(Duration::from_millis(200))
@@ -112,6 +113,17 @@ pub(crate) async fn run(
                 continue;
             }
             // Legacy static help overlay: any key closes it.
+            if crate::approval_tray::try_handle_approval_tray(state, key).await? {
+                continue;
+            }
+            if matches!(key.code, KeyCode::Char('A'))
+                && key.modifiers == KeyModifiers::NONE
+                && crate::input_globals::dispatch_global_key(terminal, state, &store, &cwd, key)
+                    .await?
+            {
+                continue;
+            }
+            // Help overlay: any key closes it.
             if state.help_overlay {
                 state.help_overlay = false;
                 continue;

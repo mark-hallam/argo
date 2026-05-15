@@ -33,6 +33,8 @@ pub enum GlobalKeyAction {
     SearchEverywhereOverlay,
     /// Open the fleet spend monitor overlay.
     SpendMonitorOverlay,
+    /// Open the pending-approvals tray.
+    ApprovalTrayOverlay,
 }
 
 /// One global keybinding entry.
@@ -102,7 +104,7 @@ pub fn default_global_keys() -> Vec<GlobalKeyBinding> {
         (KeyCode::Char('K'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('P'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('T'), GlobalKeyAction::StoreBackedOverlay),
-        (KeyCode::Char('A'), GlobalKeyAction::StoreBackedOverlay),
+        (KeyCode::Char('A'), GlobalKeyAction::ApprovalTrayOverlay),
         (KeyCode::Char('E'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('M'), GlobalKeyAction::StoreBackedOverlay),
         (KeyCode::Char('O'), GlobalKeyAction::HStackOverlay),
@@ -171,6 +173,9 @@ pub async fn dispatch_global_key(
         }
         GlobalKeyAction::SpendMonitorOverlay => {
             crate::spend_monitor::open_spend_monitor(state, store).await?;
+        }
+        GlobalKeyAction::ApprovalTrayOverlay => {
+            crate::approval_tray::open_approval_tray(state).await;
         }
     }
     Ok(true)

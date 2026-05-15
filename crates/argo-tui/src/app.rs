@@ -124,6 +124,8 @@ pub struct ViewerState {
     /// the user has the audit overlay open (entered with `A`).
     /// `None` when closed.
     pub audit_overlay: Option<Vec<argo_store::AuditRow>>,
+    /// Pending-approvals tray opened with `A`.
+    pub approval_tray: Option<crate::approval_tray::ApprovalTray>,
     /// Scroll offset (in rows) into the audit overlay. Honoured
     /// by `j`/`k`/`PgUp`/`PgDn` while the overlay is open.
     pub audit_overlay_scroll: usize,
@@ -246,6 +248,7 @@ impl ViewerState {
             cost_overlay: None,
             spend_monitor: None,
             audit_overlay: None,
+            approval_tray: None,
             audit_overlay_scroll: 0,
             providers_overlay: None,
             providers_overlay_scroll: 0,

@@ -60,5 +60,9 @@ fn default_registry_preserves_existing_global_openers() {
         lookup_global_key(&registry, KeyCode::Char('V')),
         Some(GlobalKeyAction::ReplayOverlay)
     );
+    assert_eq!(
+        lookup_global_key(&registry, KeyCode::Char('A')),
+        Some(GlobalKeyAction::ApprovalTrayOverlay)
+    );
     assert_eq!(lookup_global_key(&registry, KeyCode::Char('x')), None);
 }
