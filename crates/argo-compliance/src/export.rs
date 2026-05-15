@@ -16,21 +16,30 @@ use crate::tenant_tables::{BLOB_TENANT_TABLES, SESSION_FK_TABLES_FOR_EXPORT, TEX
 use argo_audit::compute_chain_hash;
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::{json, Map, Value};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row;
 use std::io::Write;
 use uuid::Uuid;
 
-const FORMAT_GDPR: &str = "gdpr";
 const AUDIT_KIND: &str = "compliance.export";
 
 #[derive(Debug, Clone)]
 pub struct ComplianceExportArgs {
     pub tenant: String,
     pub format: String,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub session_id: Option<String>,
     pub out: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ExportFilters {
+    start: Option<i64>,
+    end: Option<i64>,
+    session: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -48,34 +57,111 @@ struct ColumnInfo {
 }
 
 pub async fn run(args: ComplianceExportArgs, store: &SessionStore) -> ArgoResult<()> {
-    if args.format != FORMAT_GDPR {
-        return Err(ArgoError::Provider(format!(
-            "compliance export: unsupported --format '{}', expected 'gdpr'",
-            args.format
-        )));
-    }
+    let format = normalize_format(&args.format)?;
+    let filters = ExportFilters::parse(&args)?;
     let tenant = parse_tenant(&args.tenant)?;
 
-    let envelope = build_envelope(store, tenant).await?;
-    write_envelope(&envelope, args.out.as_deref())?;
+    let mut envelope = build_envelope(store, tenant, &filters).await?;
+    stamp_integrity(&mut envelope)?;
+    write_envelope(&envelope, args.out.as_deref(), format)?;
     append_audit(store, tenant, &envelope).await?;
     Ok(())
 }
 
-async fn build_envelope(store: &SessionStore, tenant: TenantId) -> ArgoResult<Value> {
+fn normalize_format(raw: &str) -> ArgoResult<&'static str> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "json" | "gdpr" => Ok("json"),
+        "csv" => Ok("csv"),
+        "pdf" => Ok("pdf"),
+        other => Err(ArgoError::Provider(format!(
+            "compliance export: unsupported --format '{other}', expected json|csv|pdf"
+        ))),
+    }
+}
+
+impl ExportFilters {
+    fn parse(args: &ComplianceExportArgs) -> ArgoResult<Self> {
+        Ok(Self {
+            start: parse_date(args.start_date.as_deref(), "start-date")?,
+            end: parse_date(args.end_date.as_deref(), "end-date")?,
+            session: args.session_id.as_ref().map(|s| s.trim().to_string()),
+        })
+    }
+
+    fn matches(&self, row: &Value) -> bool {
+        self.matches_session(row) && self.matches_date(row)
+    }
+
+    fn matches_session(&self, row: &Value) -> bool {
+        let Some(want) = self.session.as_deref() else {
+            return true;
+        };
+        row.get("session_id")
+            .and_then(Value::as_str)
+            .is_some_and(|got| got == want || got.eq_ignore_ascii_case(&want.replace('-', "")))
+    }
+
+    fn matches_date(&self, row: &Value) -> bool {
+        if self.start.is_none() && self.end.is_none() {
+            return true;
+        }
+        let Some(ts) = row.get("created_at").and_then(value_to_micros) else {
+            return false;
+        };
+        if let Some(start) = self.start {
+            if ts < start {
+                return false;
+            }
+        }
+        if let Some(end) = self.end {
+            if ts > end {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+fn parse_date(raw: Option<&str>, label: &str) -> ArgoResult<Option<i64>> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    DateTime::parse_from_rfc3339(raw)
+        .map(|dt| Some(dt.timestamp_micros()))
+        .map_err(|e| ArgoError::Provider(format!("compliance export: --{label} invalid: {e}")))
+}
+
+fn value_to_micros(v: &Value) -> Option<i64> {
+    if let Some(n) = v.as_i64() {
+        return Some(if n.abs() < 10_000_000_000 {
+            n * 1_000_000
+        } else {
+            n
+        });
+    }
+    v.as_str()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.timestamp_micros())
+}
+
+async fn build_envelope(
+    store: &SessionStore,
+    tenant: TenantId,
+    filters: &ExportFilters,
+) -> ArgoResult<Value> {
     let mut tables: Map<String, Value> = Map::new();
     for table in BLOB_TENANT_TABLES {
-        if let Some(entry) = export_blob_table(store, table, tenant).await? {
+        if let Some(entry) = export_blob_table(store, table, tenant, filters).await? {
             tables.insert((*table).to_string(), entry);
         }
     }
     for table in TEXT_TENANT_TABLES {
-        if let Some(entry) = export_text_table(store, table, tenant).await? {
+        if let Some(entry) = export_text_table(store, table, tenant, filters).await? {
             tables.insert((*table).to_string(), entry);
         }
     }
     for table in SESSION_FK_TABLES_FOR_EXPORT {
-        if let Some(entry) = export_session_fk_table(store, table, tenant).await? {
+        if let Some(entry) = export_session_fk_table(store, table, tenant, filters).await? {
             tables.insert((*table).to_string(), entry);
         }
     }
@@ -83,16 +169,38 @@ async fn build_envelope(store: &SessionStore, tenant: TenantId) -> ArgoResult<Va
         "subject": tenant.to_string(),
         "exported_at": Utc::now().to_rfc3339(),
         "argo_version": env!("CARGO_PKG_VERSION"),
+        "filters": {
+            "start_date": filters.start,
+            "end_date": filters.end,
+            "session_id": filters.session,
+        },
         "tables": Value::Object(tables),
     }))
 }
 
-fn write_envelope(envelope: &Value, out: Option<&str>) -> ArgoResult<()> {
-    let body = serde_json::to_string_pretty(envelope)
-        .map_err(|e| ArgoError::Provider(format!("compliance export serialize: {e}")))?;
+fn stamp_integrity(envelope: &mut Value) -> ArgoResult<()> {
+    let canonical = serde_json::to_string(envelope)
+        .map_err(|e| ArgoError::Provider(format!("compliance export integrity json: {e}")))?;
+    let checksum = compute_chain_hash(&[0_u8; 32], "compliance.export.checksum", &canonical);
+    let signature = compute_chain_hash(&checksum, "compliance.export.signature", &canonical);
+    envelope["integrity"] = json!({
+        "checksum": format!("sha256:{}", hex::encode(checksum)),
+        "signature": format!("argo-chain:{}", hex::encode(signature)),
+    });
+    Ok(())
+}
+
+fn write_envelope(envelope: &Value, out: Option<&str>, format: &str) -> ArgoResult<()> {
+    let body = match format {
+        "csv" => render_csv(envelope),
+        "pdf" => render_pdf(envelope),
+        _ => serde_json::to_string_pretty(envelope)
+            .map_err(|e| ArgoError::Provider(format!("compliance export serialize: {e}")))?,
+    };
     match out {
-        Some(path) => std::fs::write(path, &body)
-            .map_err(|e| ArgoError::Io(format!("write {path}: {e}"))),
+        Some(path) => {
+            std::fs::write(path, &body).map_err(|e| ArgoError::Io(format!("write {path}: {e}")))
+        }
         None => {
             let mut sink = std::io::stdout().lock();
             sink.write_all(body.as_bytes())
@@ -103,10 +211,48 @@ fn write_envelope(envelope: &Value, out: Option<&str>) -> ArgoResult<()> {
     }
 }
 
+fn render_csv(envelope: &Value) -> String {
+    let mut out = "table,row_index,row_json\n".to_string();
+    if let Some(tables) = envelope.get("tables").and_then(Value::as_object) {
+        for (table, entry) in tables {
+            if let Some(rows) = entry.get("rows").and_then(Value::as_array) {
+                for (idx, row) in rows.iter().enumerate() {
+                    let row_json = serde_json::to_string(row).unwrap_or_default();
+                    out.push_str(&format!(
+                        "{},{},{}\n",
+                        csv_cell(table),
+                        idx,
+                        csv_cell(&row_json)
+                    ));
+                }
+            }
+        }
+    }
+    let integrity = serde_json::to_string(&envelope["integrity"]).unwrap_or_default();
+    out.push_str(&format!("integrity,0,{}\n", csv_cell(&integrity)));
+    out
+}
+
+fn csv_cell(s: &str) -> String {
+    format!("\"{}\"", s.replace('"', "\"\""))
+}
+
+fn render_pdf(envelope: &Value) -> String {
+    let subject = envelope["subject"].as_str().unwrap_or("unknown");
+    let checksum = envelope["integrity"]["checksum"].as_str().unwrap_or("");
+    format!(
+        "%PDF-1.4\n% argo compliance export\n1 0 obj <<>> endobj\n\
+         2 0 obj << /Length 128 >> stream\nBT /F1 12 Tf 72 720 Td \
+         (Argo compliance export) Tj 0 -18 Td (subject: {subject}) Tj \
+         0 -18 Td (checksum: {checksum}) Tj ET\nendstream endobj\n%%EOF\n"
+    )
+}
+
 async fn export_blob_table(
     store: &SessionStore,
     table: &str,
     tenant: TenantId,
+    filters: &ExportFilters,
 ) -> ArgoResult<Option<Value>> {
     let Some(cols) = table_columns(store, table).await? else {
         return Ok(None);
@@ -121,13 +267,14 @@ async fn export_blob_table(
         .fetch_all(store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("compliance export {table}: {e}")))?;
-    Ok(Some(build_table_entry(&cols, &rows)))
+    Ok(Some(build_table_entry(&cols, &rows, filters)))
 }
 
 async fn export_text_table(
     store: &SessionStore,
     table: &str,
     tenant: TenantId,
+    filters: &ExportFilters,
 ) -> ArgoResult<Option<Value>> {
     let Some(cols) = table_columns(store, table).await? else {
         return Ok(None);
@@ -142,13 +289,14 @@ async fn export_text_table(
         .fetch_all(store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("compliance export {table}: {e}")))?;
-    Ok(Some(build_table_entry(&cols, &rows)))
+    Ok(Some(build_table_entry(&cols, &rows, filters)))
 }
 
 async fn export_session_fk_table(
     store: &SessionStore,
     table: &str,
     tenant: TenantId,
+    filters: &ExportFilters,
 ) -> ArgoResult<Option<Value>> {
     let Some(cols) = table_columns(store, table).await? else {
         return Ok(None);
@@ -168,12 +316,16 @@ async fn export_session_fk_table(
         .fetch_all(store.pool())
         .await
         .map_err(|e| ArgoError::Provider(format!("compliance export {table}: {e}")))?;
-    Ok(Some(build_table_entry(&cols, &rows)))
+    Ok(Some(build_table_entry(&cols, &rows, filters)))
 }
 
-fn build_table_entry(cols: &[ColumnInfo], rows: &[SqliteRow]) -> Value {
+fn build_table_entry(cols: &[ColumnInfo], rows: &[SqliteRow], filters: &ExportFilters) -> Value {
     let schema: Vec<Value> = cols.iter().map(|c| Value::String(c.name.clone())).collect();
-    let rendered: Vec<Value> = rows.iter().map(|row| row_to_json(row, cols)).collect();
+    let rendered: Vec<Value> = rows
+        .iter()
+        .map(|row| row_to_json(row, cols))
+        .filter(|row| filters.matches(row))
+        .collect();
     json!({
         "schema": Value::Array(schema),
         "rows": Value::Array(rendered),

@@ -3,7 +3,7 @@
 //! GDPR Article 15 (right-to-access) data export:
 //!
 //! ```text
-//! argo compliance export --tenant <id> --format gdpr [--out <path>]
+//! argo compliance export --tenant-id <id> --format json [--out <path>]
 //! ```
 //!
 //! GDPR Article 17 (right-to-erasure) tenant-cascade delete:
@@ -19,8 +19,8 @@ pub enum ComplianceCmd {
     /// in `[--from, --to)` by control category (Access, ChangeMgmt,
     /// DataMgmt, Security, Other).
     Soc2(crate::cli::CliComplianceSoc2Args),
-    /// Emit every tenant-scoped row across the database for GDPR
-    /// right-to-access. Output is a single JSON envelope.
+    /// Emit tenant-scoped compliance data with filters and an
+    /// integrity stamp.
     Export(CliComplianceExportArgs),
     /// Cascade-delete every tenant-scoped row for GDPR right-to-
     /// erasure. Audit rows are tombstoned in place (PII fields
@@ -32,11 +32,21 @@ pub enum ComplianceCmd {
 #[derive(Args, Debug)]
 pub struct CliComplianceExportArgs {
     /// Tenant id (UUID) whose data should be exported.
-    #[arg(long)]
+    #[arg(long, alias = "tenant-id")]
     pub tenant: String,
-    /// Output shape. Currently the only accepted value is `gdpr`.
-    #[arg(long, default_value = "gdpr")]
+    /// Output shape: `json`, `csv`, or `pdf`. `gdpr` remains a
+    /// backwards-compatible alias for `json`.
+    #[arg(long, default_value = "json")]
     pub format: String,
+    /// Include rows created on or after this RFC3339 date/time.
+    #[arg(long = "start-date")]
+    pub start_date: Option<String>,
+    /// Include rows created on or before this RFC3339 date/time.
+    #[arg(long = "end-date")]
+    pub end_date: Option<String>,
+    /// Restrict rows to this session id.
+    #[arg(long = "session-id")]
+    pub session_id: Option<String>,
     /// Write the JSON envelope to this path. Defaults to stdout.
     #[arg(long)]
     pub out: Option<String>,

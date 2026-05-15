@@ -20,6 +20,9 @@ impl From<CliComplianceExportArgs> for ComplianceExportArgs {
         Self {
             tenant: args.tenant,
             format: args.format,
+            start_date: args.start_date,
+            end_date: args.end_date,
+            session_id: args.session_id,
             out: args.out,
         }
     }
