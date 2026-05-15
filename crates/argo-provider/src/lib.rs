@@ -39,6 +39,9 @@ mod openai_compat;
 mod openai_responses;
 /// reqwest connection-pool tuning knobs (env-driven).
 pub mod pool_config;
+/// Canonical non-streaming provider retry/backoff helpers, adapted
+/// from the shared MCP connector retry primitive.
+pub mod retry;
 /// Enforcement-time hard `[budget.ceiling]` wrapper —
 /// `SpendGate<T: Transport>` short-circuits LLM calls that would
 /// exceed any configured per-session / per-day / per-month cap, and

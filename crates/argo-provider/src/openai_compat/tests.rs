@@ -173,18 +173,19 @@ fn truncate_for_error_respects_utf8_boundaries() {
 
 #[test]
 fn compute_backoff_delay_grows_exponentially_then_caps() {
-    use super::compute_backoff_delay;
+    use crate::retry::{provider_backoff_delay, provider_retry_policy};
     let initial = 100u64;
     let max = 800u64;
-    // Run a few rolls per attempt; we sample jitter so any single delay is
-    // bounded by [1, cap]. The cap doubles per attempt until `max`.
+    let policy = provider_retry_policy(6, initial, max);
+    // Run a few rolls per attempt; the shared MCP connector primitive
+    // doubles the base delay until `max`, then adds bounded jitter.
     for attempt in 0..6 {
         let cap = (initial << attempt.min(31)).min(max).max(1);
         let mut max_seen = 0u64;
         for _ in 0..32 {
-            let d = compute_backoff_delay(initial, max, attempt as u32).as_millis() as u64;
+            let d = provider_backoff_delay(&policy, attempt as u32).as_millis() as u64;
             assert!(
-                (1..=cap).contains(&d),
+                (cap..=cap + 99).contains(&d),
                 "attempt={attempt} delay={d} cap={cap}"
             );
             max_seen = max_seen.max(d);
@@ -197,12 +198,13 @@ fn compute_backoff_delay_grows_exponentially_then_caps() {
 
 #[test]
 fn compute_backoff_delay_clamps_attempt_overflow() {
-    use super::compute_backoff_delay;
+    use crate::retry::{provider_backoff_delay, provider_retry_policy};
+    let policy = provider_retry_policy(u32::MAX, 100, 800);
     // attempt = 64 would overflow `1u64 << 64`. We must clamp.
-    let d = super::compute_backoff_delay(100, 800, 64).as_millis() as u64;
-    assert!((1..=800).contains(&d));
+    let d = provider_backoff_delay(&policy, 64).as_millis() as u64;
+    assert!((800..=899).contains(&d));
     let _ = d;
-    let _ = compute_backoff_delay(100, 800, u32::MAX).as_millis();
+    let _ = provider_backoff_delay(&policy, u32::MAX).as_millis();
 }
 
 #[test]

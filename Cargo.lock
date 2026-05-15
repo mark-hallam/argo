@@ -1297,6 +1297,7 @@ dependencies = [
 name = "argo-provider"
 version = "0.0.1"
 dependencies = [
+ "argo-mcp-connector-shared",
  "argo-telemetry",
  "argo-types",
  "async-trait",

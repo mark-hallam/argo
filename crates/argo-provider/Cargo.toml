@@ -9,6 +9,7 @@ description = "Argo — provider manifests + transports"
 
 [dependencies]
 argo-types = { path = "../argo-types" }
+argo-mcp-connector-shared = { path = "../argo-mcp-connector-shared" }
 # Process-global prompt cache hit-rate counters (mission-prompt-cache-hit-rate-observability).
 argo-telemetry = { path = "../argo-telemetry" }
 serde = { workspace = true }

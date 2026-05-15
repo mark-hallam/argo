@@ -13,6 +13,7 @@ use crate::breaker_observability::ObservedBreakerTransport;
 use crate::circuit::{Breaker, BreakerConfig};
 use crate::extractors::extract_tool_calls;
 use crate::manifest::{ProviderFamily, ProviderManifest};
+use crate::retry::{provider_backoff_delay, provider_retries_exhausted, provider_retry_policy};
 use crate::sse::SseBuffer;
 use crate::transport::{
     build_http_client, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
@@ -22,7 +23,6 @@ use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
 use async_trait::async_trait;
 use futures::stream::{self as fstream, BoxStream, StreamExt};
 use reqwest::{header::HeaderName, Client};
-use std::time::Duration;
 use stream::StreamState;
 use wire::{assemble_response, build_request_body, AnthropicResponse};
 
@@ -208,6 +208,11 @@ async fn retry_post_json(
     body: &serde_json::Value,
 ) -> ArgoResult<serde_json::Value> {
     let idem = RequestId::new().to_string();
+    let retry_policy = provider_retry_policy(
+        t.manifest.transport.max_retries,
+        t.manifest.transport.initial_backoff_ms,
+        t.manifest.transport.max_backoff_ms,
+    );
     let mut attempt: u32 = 0;
     loop {
         let resp = t
@@ -225,14 +230,10 @@ async fn retry_post_json(
             AttemptOutcome::Ok(v) => return Ok(v),
             AttemptOutcome::Fatal(e) => return Err(e),
             AttemptOutcome::Retry(e) => {
-                if attempt >= t.manifest.transport.max_retries {
+                if provider_retries_exhausted(&retry_policy, attempt) {
                     return Err(e);
                 }
-                let delay = compute_backoff_delay(
-                    t.manifest.transport.initial_backoff_ms,
-                    t.manifest.transport.max_backoff_ms,
-                    attempt,
-                );
+                let delay = provider_backoff_delay(&retry_policy, attempt);
                 tracing::warn!(attempt, delay_ms = delay.as_millis() as u64, error = %e, "anthropic retry");
                 tokio::time::sleep(delay).await;
                 attempt = attempt.saturating_add(1);
@@ -276,20 +277,6 @@ async fn classify_attempt(resp: Result<reqwest::Response, reqwest::Error>) -> At
     } else {
         AttemptOutcome::Fatal(err)
     }
-}
-
-fn compute_backoff_delay(initial_ms: u64, max_ms: u64, attempt: u32) -> Duration {
-    let bounded_attempt = attempt.min(31);
-    let cap = initial_ms
-        .saturating_mul(1u64 << bounded_attempt)
-        .min(max_ms.max(initial_ms))
-        .max(1);
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.subsec_nanos() as u64)
-        .unwrap_or(1)
-        .wrapping_add(1);
-    Duration::from_millis((nanos % cap) + 1)
 }
 
 fn truncate_for_error(s: String) -> String {

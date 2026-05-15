@@ -14,6 +14,7 @@ use crate::breaker_observability::ObservedBreakerTransport;
 use crate::circuit::{Breaker, BreakerConfig};
 use crate::extractors::extract_tool_calls;
 use crate::manifest::{ProviderFamily, ProviderManifest};
+use crate::retry::{provider_backoff_delay, provider_retries_exhausted, provider_retry_policy};
 use crate::sse::SseBuffer;
 use crate::transport::{
     build_http_client, ProviderRequest, ProviderResponse, ProviderResponseDelta, Transport,
@@ -23,7 +24,6 @@ use argo_types::{ArgoError, ArgoResult, CapabilitySet, RequestId};
 use async_trait::async_trait;
 use futures::stream::{self as fstream, BoxStream, StreamExt};
 use reqwest::{header::HeaderName, Client};
-use std::time::Duration;
 pub use stream::event_to_deltas;
 use wire::{assemble_response, build_request_body, OpenAiResponse};
 
@@ -298,6 +298,7 @@ async fn retry_post_json(
     max_backoff_ms: u64,
 ) -> ArgoResult<serde_json::Value> {
     let idem = RequestId::new().to_string();
+    let retry_policy = provider_retry_policy(max_retries, initial_backoff_ms, max_backoff_ms);
     let mut attempt: u32 = 0;
     loop {
         let resp = client
@@ -313,10 +314,10 @@ async fn retry_post_json(
             AttemptOutcome::Ok(value) => return Ok(value),
             AttemptOutcome::Fatal(err) => return Err(err),
             AttemptOutcome::Retry(err) => {
-                if attempt >= max_retries {
+                if provider_retries_exhausted(&retry_policy, attempt) {
                     return Err(err);
                 }
-                let delay = compute_backoff_delay(initial_backoff_ms, max_backoff_ms, attempt);
+                let delay = provider_backoff_delay(&retry_policy, attempt);
                 tracing::warn!(
                     attempt,
                     delay_ms = delay.as_millis() as u64,
@@ -328,30 +329,6 @@ async fn retry_post_json(
             }
         }
     }
-}
-
-/// Compute the backoff delay for a given attempt with full jitter.
-///
-/// Algorithm from issue #3 / F-6: bounded exponential growth, then a uniform
-/// random pick in `[1, delay]`. We use system-time nanos as the entropy
-/// source to keep the dep allowlist tight (no `rand`).
-fn compute_backoff_delay(initial_ms: u64, max_ms: u64, attempt: u32) -> Duration {
-    let bounded_attempt = attempt.min(31);
-    let cap = initial_ms
-        .saturating_mul(1u64 << bounded_attempt)
-        .min(max_ms.max(initial_ms))
-        .max(1);
-    let jittered = (jitter_seed() % cap) + 1;
-    Duration::from_millis(jittered)
-}
-
-fn jitter_seed() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.subsec_nanos() as u64)
-        .unwrap_or(1)
-        .wrapping_add(1)
 }
 
 enum AttemptOutcome {
