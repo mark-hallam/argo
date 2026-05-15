@@ -254,12 +254,9 @@ fn make_terminal_err(source: ArgoError, buffered: &mut String) -> ArgoError {
     }
 }
 
-/// Classify an error as a retryable transient failure. Mirrors the
-/// circuit-breaker classifier ([`crate::circuit::is_breaker_failure`])
-/// but additionally counts HTTP 429 as retryable — the breaker
-/// deliberately ignores 429 (it isn't a server-health signal), but
-/// the rate-limit is exactly the case mid-stream retry-with-backoff
-/// is designed to ride out.
+/// Classify an error as a retryable transient failure. Counts HTTP
+/// 429 as retryable because rate limits are exactly the case
+/// mid-stream retry-with-backoff is designed to ride out.
 fn is_retryable(err: &ArgoError) -> bool {
     let msg = match err {
         ArgoError::Provider(m) => m.as_str(),

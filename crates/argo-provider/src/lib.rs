@@ -24,11 +24,6 @@
 
 mod anthropic;
 mod bedrock;
-/// Per-provider breaker state-transition observability + the
-/// `ObservedBreakerTransport` composition wrapper.
-pub mod breaker_observability;
-/// Per-provider circuit breaker (Anthropic / OpenAI / Bedrock / …).
-pub mod circuit;
 /// In-process LLM-call dedup cache (mission-llm-call-dedup-cache-v2).
 pub mod dedup_cache;
 mod discovery;
@@ -60,8 +55,6 @@ pub mod transport;
 
 pub use anthropic::AnthropicTransport;
 pub use bedrock::BedrockTransport;
-pub use breaker_observability::{ObservedBreakerTransport, StateObserver};
-pub use circuit::{Breaker, BreakerConfig, CircuitState, Permit};
 pub use dedup_cache::DedupCache;
 pub use discovery::resolve_latest;
 pub use extractors::{

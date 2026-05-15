@@ -176,7 +176,7 @@ async fn streaming_path_also_short_circuits_on_ceiling_trip() {
     // Locks the contract that `complete_stream` projects BEFORE
     // dialing — same as `complete`. The most-common regression
     // mode for streaming wrappers is "checks on complete but not
-    // complete_stream" (cf. BreakerTransport history).
+    // complete_stream".
     let (inner, count) = RecordingTransport::new();
     let gate = SpendGate::new(
         inner,

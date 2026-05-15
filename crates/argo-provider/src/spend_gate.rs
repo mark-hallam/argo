@@ -7,9 +7,8 @@
 //!
 //! # Shape
 //!
-//! Mirrors [`crate::transport::BreakerTransport`]: thin wrapper, no
-//! request-shape mutation, full `Transport` re-impl. The read side
-//! (where the ledger lives) is provided through the
+//! Thin wrapper, no request-shape mutation, full `Transport` re-impl.
+//! The read side (where the ledger lives) is provided through the
 //! [`BudgetEnforcer`] trait so this crate stays free of an
 //! `argo-store` dependency. Production callers wire a
 //! `SessionStore`-backed enforcer in via the follow-up routing brief
@@ -154,8 +153,7 @@ impl<T: Transport> SpendGate<T> {
         self
     }
 
-    /// Borrowed inner transport (used by the routing brief to
-    /// compose `SpendGate` over an already-wrapped `BreakerTransport`).
+    /// Borrowed inner transport.
     pub fn inner(&self) -> &T {
         &self.inner
     }
