@@ -67,3 +67,13 @@ This is NOT in scope: changing the 10-min idle TTL itself; making the interval p
 - For test fixturing, build a fake pool via the existing `SandboxPool::new` constructor with a stub `E2bClient` (the pool is empty, `reap_idle` returns 0 each tick — that's fine for the spawn test).
 - The interval default of 60s matches the idle TTL of 600s — the reaper sweeps 10× per TTL window, so a sandbox idle for >TTL is closed within one TTL+interval. Don't make this configurable in v1; document the choice in the doc-comment of `spawn_pool_reaper`.
 - If `SandboxPool::reap_idle` doesn't actually return a count of reaped sandboxes (re-verify the signature first 5 minutes), adapt the logging accordingly. Today's signature returns `Result<usize, CuError>` per pool.rs:128.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted `gateway boot.rs` is now 396 LOC post-split (headroom available) and the live SandboxPool is private inside `argo-executor-computer-use::ComputerUseExecutor`. Widening:
+
+- `crates/argo-executor-computer-use/src/lib.rs` — narrowly: expose SandboxPool via a pub accessor or new pub method. ≤30 modified lines.
+- `crates/argo-cli/src/handlers/gateway/boot.rs` — narrowly: wire reaper cron at boot. ≤30 modified lines.
+- `crates/argo-cli/src/handlers/gateway/sandbox_reaper.rs` — NEW. Reaper cron implementation. ≤250 LOC.
+- `crates/argo-cli/src/handlers/gateway/sandbox_reaper_tests.rs` — NEW. Unit tests. ≤150 LOC.

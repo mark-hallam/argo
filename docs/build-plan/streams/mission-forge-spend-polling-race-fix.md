@@ -40,3 +40,12 @@ LOC: ~400.
 
 - Mission-claim alignment: production-hardening (operational correctness, supports all mission claims).
 - Authored from MISSION_BACKLOG.md [NEW] item — no prior brief existed; check `rg 'pub (struct|enum|fn) <Name>'` for any new names introduced before declaring (drift prevention rule).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief targets `crates/argo-forge/src/spend.rs` and `spend_tests.rs` (don't exist); spend accumulation actually lives in `cost.rs`/`persist.rs`. Correcting:
+
+- `crates/argo-forge/src/cost.rs` — narrowly: wrap accumulate+commit in single transaction OR convert to atomic CAS. ≤40 modified lines.
+- `crates/argo-forge/src/persist.rs` — narrowly: same change at the persistence boundary. ≤30 modified lines.
+- `crates/argo-forge/src/cost_tests.rs` (or sibling, NEW if needed) — synthetic concurrent-commit race test. ≤50 modified lines.

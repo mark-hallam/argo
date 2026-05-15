@@ -52,3 +52,13 @@ Pre-empted from the same self-BLOCK pattern that hit M1/M5/M9: workers reasonabl
 - If a gateway endpoint is in scope: register the route in the appropriate `routes_dispatch_*.rs` sibling (post-#1601 split). **≤10 modified lines.**
 
 These edits are mechanical and required for the new code to compile + be reachable. Do NOT widen beyond the brief's original scope (no business logic in lib.rs, no new dependencies beyond what the brief names).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted the Rust IR enum lives in `crates/argo-skill/src/ir/types.rs` (not under `crates/argo-skill/src/ir/nodes/`). Correcting:
+
+- `crates/argo-skill/src/ir/types.rs` — narrowly: add `NodeKind::ExtractDocument { source, schema }` variant. ≤30 modified lines.
+- `crates/argo-skill/src/ir/types_tests.rs` (sibling, near 488 LOC — may need split first; verify at claim time). ≤80 modified lines if room.
+- `web/components/skycot/canvas/nodes/ExtractDocumentNode.tsx` — NEW. Canvas node renderer for the variant. ≤150 LOC.
+- `web/components/skycot/canvas/SkillCanvas.tsx` — narrowly: register the new node kind. ≤15 modified lines.

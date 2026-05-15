@@ -75,3 +75,11 @@ This is NOT in scope: shipping the actual Python DSPy/GEPA worker plugin (that's
 - The actual Python DSPy/GEPA worker is a **separate** brief — this one only opens the seam.
 - Don't try to delete the trait. The trait+plugin-id pattern is the right v1 shape.
 - `forge_optimize_response` may have additional logic (auth, request validation) — preserve all of that; only swap the "compute the run" core.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief targets nonexistent `crates/argo-cli/src/handlers/forge_run.rs` and `crates/argo-config/src/forge.rs`. Current Forge stub lives in `argo-forge/src/forge.rs::StubForge`. After mission-forge-dspy-stub-warning-upgrade landed, this cleanup brief can target the orphan code that warning brief identified. Widening:
+
+- `crates/argo-forge/src/forge.rs` — narrowly: remove the orphan `finalize_run` pub fn (Phase B audit P1 #2 confirmed zero callers). ≤30 modified lines.
+- `crates/argo-forge/src/lib.rs` — narrowly: remove re-export of finalize_run. ≤3 lines.

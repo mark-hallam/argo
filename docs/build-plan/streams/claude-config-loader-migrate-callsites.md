@@ -55,3 +55,15 @@ The scaffold phase produced `docs/skycot/CONFIG_CALLSITE_AUDIT.md` listing every
 - Workspace-wide clippy + tests are in acceptance because migrations span multiple crates; budget for the cold workspace build.
 - If the audit report has > 50 rows, consider splitting into per-crate sub-PRs (e.g. argo-cli/handlers, argo-vertical, argo-marketplace) — but the original estimate was ~30 callsites, manageable in one PR.
 - Preserve byte-identical defaults: a field that reads `std::env::var("ARGO_GATEWAY_PORT").unwrap_or_else(|_| "8080".into())` becomes `cfg.gateway_port` where `cfg.gateway_port` already defaults to `"8080"`.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief is 3146 commits behind main (very stale) and glob-style may-touch can't be enforced. `bash scripts/check-no-direct-env-reads.sh` reports current state. Path forward:
+
+- Re-extract callsite list from current `check-no-direct-env-reads.sh` output (live audit, not stale CONFIG_CALLSITE_AUDIT.md).
+- Migrate found callsites to read from `argo-config::ArgoConfig` typed accessors.
+- Permitted: `crates/argo-config/src/sections.rs` and section siblings — extend bindings as new env vars require. ≤200 modified lines combined.
+- Permitted: callsite files surfaced by the script (audit at claim time, then list explicitly in PR description).
+- Forbidden: schema migrations or argo-config core architecture changes.
+- Recommended: split into per-crate sub-PRs (gateway-rate-limit, channels, security cluster, etc.) — single mega-PR is unreviewable.

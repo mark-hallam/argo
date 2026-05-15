@@ -57,3 +57,12 @@ This is NOT in scope: tenant-discovery (operators manually configure pool member
 - The opt-in posture is critical — operators get the value of cross-tenant skill sharing without paying for a noisy global marketplace. Pool membership is the operator's lever.
 - Consent dialog is more than UX — it's the legal-evidence-trail for what the operator agreed to when installing. Audit-row captures it fully.
 - Migration slot 73 follows 71 (approval-bundle) + 72 (retros).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted migration slot 73 collision with `73__approval_escalation` AND parent dep mission-skill-publish-verified-ingest is BLOCKED. Path forward:
+
+- This brief stays BLOCKED until mission-skill-publish-verified-ingest is reworked (different brief). NOT cascade-flipping yet.
+- When the parent ships, migration slot must be chosen empirically from `argo-store/migrations/registry.rs` slot table (next free slot, currently ~79+).
+- For now: this row stays BLOCKED. Conductor will revisit when parent unblocks.

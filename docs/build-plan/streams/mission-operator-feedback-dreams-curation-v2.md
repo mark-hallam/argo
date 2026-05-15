@@ -78,3 +78,12 @@ The **3 genuinely-new operator verbs** this brief adds:
 - The `request-revision` curation-loop wiring is the load-bearing-new feature. Without it, the operator's revision-gap text never reaches the next curation pass.
 - Per CLAUDE.md "no parallel abstractions" — if you find yourself building a `DreamsFeedbackStore` trait, stop and re-read this brief.
 - ~350 LOC total. Should ship in one PR.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief targets `crates/argo-skill/src/dreams_distillation.rs`, but the learned-plan-template Dreams curation loop is at `crates/argo-skill/src/learned_plan_template_dreams.rs` (verify exact path at claim time; was `dreams_distillation.rs` until 2026-05-12 split). Correcting:
+
+- `crates/argo-skill/src/learned_plan_template_dreams.rs` — narrowly: add request-revision pathway gated on operator-feedback signal. ≤100 modified lines.
+- `crates/argo-skill/src/learned_plan_template_dreams_tests.rs` (or sibling) — narrowly: test the revision pathway with synthetic feedback. ≤80 modified lines.
+- Verify path with `rg dreams_distillation crates/argo-skill/src/` at claim time; if file genuinely moved, follow the rename.

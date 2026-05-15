@@ -42,3 +42,12 @@ LOC: ~1500 spread across verticals.
 
 - Mission-claim alignment: claim 5 (real-world PC execution per vertical, not generic fallback).
 - Authored from MISSION_BACKLOG.md [NEW] item — no prior brief existed; check `rg 'pub (struct|enum|fn) <Name>'` for any new names introduced before declaring (drift prevention rule).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief targets `verticals/<slug>/vertical.toml` paths but the 5 priority v1 packs now live under `packs/{recruiter,ap-specialist,vendor-manager,support-tier1,deal-desk}/`. Correcting:
+
+- For each of the 5 packs: `packs/<pack-slug>/pack.toml` — fill in action_executor, instruction_template, retry_policy sections. ≤30 modified lines per pack.
+- For each pack: `packs/<pack-slug>/worker.toml` (if exists, else NEW) — set executor binding. ≤15 modified lines.
+- `crates/argo-vertical-packs/src/loader.rs` — narrowly: confirm registration; no parallel registry surface. ≤10 modified lines.

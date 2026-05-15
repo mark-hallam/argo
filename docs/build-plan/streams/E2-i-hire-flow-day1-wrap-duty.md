@@ -248,3 +248,13 @@ NOT blocking this PR:
   configurable cadence (24h / 48h / weekly).
 - `mission-enterprise-hire-wrap-template` — operator-
   overridable template per workspace.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes original list)
+
+Codex noted brief targets `crates/argo-skills` (doesn't exist) and stale `worker_hire.rs`/`duty_scheduler` paths. Skill content lives in `crates/argo-vertical` and per-pack `packs/<slug>/skills/`. Correcting:
+
+- `crates/argo-vertical/src/day1_wrap.rs` — NEW. Day-1 wrap-up duty implementation. ≤200 LOC.
+- `crates/argo-vertical/src/day1_wrap_tests.rs` — NEW. Unit tests. ≤150 LOC.
+- `crates/argo-vertical/src/lib.rs` — narrowly: `pub mod day1_wrap;`. ≤3 lines.
+- `crates/argo-cli/src/handlers/hire.rs` (or current hire handler — verify path) — narrowly: trigger day1_wrap on hire success. ≤20 modified lines.
