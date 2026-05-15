@@ -252,6 +252,59 @@ fn gtm_weak_evidence_skill_proposal_composite() {
     assert_eq!(score.fail_reasons.len(), 1);
 }
 
+// ---- Fixture schema versioning ----------------------------------
+
+#[test]
+fn schema_version_defaults_to_v1_when_absent() {
+    let score = score_fixture(&fx(
+        r#"{"id":"legacy","input":"","expected":{"must_include":["alpha"]},"actual":"alpha"}"#,
+    ));
+    assert_eq!(score.status, FixtureStatus::Scored);
+    assert!(score.passed, "fail_reasons: {:?}", score.fail_reasons);
+}
+
+#[test]
+fn schema_version_v1_explicit_is_accepted() {
+    let score = score_fixture(&fx(
+        r#"{"schema_version":1,"id":"v1","input":"","expected":{"must_include":["alpha"]},"actual":"alpha"}"#,
+    ));
+    assert_eq!(score.status, FixtureStatus::Scored);
+    assert!(score.passed, "fail_reasons: {:?}", score.fail_reasons);
+}
+
+#[test]
+fn schema_version_future_tag_fails_cleanly() {
+    let score = score_fixture(&fx(
+        r#"{"schema_version":2,"id":"future","input":"","expected":{"must_include":["alpha"]},"actual":"alpha"}"#,
+    ));
+    assert_eq!(score.status, FixtureStatus::Malformed);
+    assert!(!score.passed);
+    assert!(
+        score
+            .fail_reasons
+            .iter()
+            .any(|r| r.contains("unsupported fixture schema_version 2")),
+        "{:?}",
+        score.fail_reasons
+    );
+}
+
+#[test]
+fn schema_version_non_integer_fails_cleanly() {
+    let score = score_fixture(&fx(
+        r#"{"schema_version":"1","id":"bad","input":"","expected":{"must_include":["alpha"]},"actual":"alpha"}"#,
+    ));
+    assert_eq!(score.status, FixtureStatus::Malformed);
+    assert!(
+        score
+            .fail_reasons
+            .iter()
+            .any(|r| r.contains("positive integer")),
+        "{:?}",
+        score.fail_reasons
+    );
+}
+
 // ---- Suite-level rollup ------------------------------------------
 
 #[test]

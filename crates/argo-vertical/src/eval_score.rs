@@ -46,6 +46,8 @@ use crate::eval_score_heuristics::{
     personalization_quality,
 };
 
+const SUPPORTED_FIXTURE_SCHEMA_VERSION: u32 = 1;
+
 /// One scoring outcome per fixture. `passed` is the AND of every
 /// `check.passed`; `fail_reasons` collects human-readable detail
 /// for the `false` checks (operator-facing CI output).
@@ -149,6 +151,15 @@ pub fn score_fixture(fixture: &Value) -> FixtureScore {
         .and_then(Value::as_str)
         .unwrap_or("(unknown)")
         .to_string();
+    if let Err(reason) = fixture_schema_version(fixture) {
+        return FixtureScore {
+            id,
+            status: FixtureStatus::Malformed,
+            checks: Vec::new(),
+            passed: false,
+            fail_reasons: vec![reason],
+        };
+    }
     let expected = match fixture.get("expected") {
         Some(Value::Object(_)) => &fixture["expected"],
         _ => {
@@ -311,6 +322,21 @@ pub fn score_fixture(fixture: &Value) -> FixtureScore {
         passed,
         fail_reasons,
     }
+}
+
+fn fixture_schema_version(fixture: &Value) -> Result<u32, String> {
+    let Some(value) = fixture.get("schema_version") else {
+        return Ok(SUPPORTED_FIXTURE_SCHEMA_VERSION);
+    };
+    let Some(version) = value.as_u64().and_then(|v| u32::try_from(v).ok()) else {
+        return Err("'schema_version' must be a positive integer".into());
+    };
+    if version == 0 || version > SUPPORTED_FIXTURE_SCHEMA_VERSION {
+        return Err(format!(
+            "unsupported fixture schema_version {version}; supported latest is {SUPPORTED_FIXTURE_SCHEMA_VERSION}"
+        ));
+    }
+    Ok(version)
 }
 
 /// Parse the JSONL body of an eval suite + score every row.

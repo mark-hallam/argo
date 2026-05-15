@@ -145,12 +145,14 @@ fn run_vertical(
         let mut row = fixture.raw.clone();
         if let Some(obj) = row.as_object_mut() {
             obj.insert("actual".into(), Value::String(actual.clone()));
+            obj.insert("schema_version".into(), Value::from(fixture.schema_version));
         }
 
         let mut result = json!({
             "id": fixture.id,
             "suite": fixture.suite,
             "line": fixture.line,
+            "schema_version": fixture.schema_version,
             "input": fixture.input,
             "actual": actual,
         });
@@ -280,10 +282,13 @@ pub(super) struct FixtureRow {
     pub(super) id: String,
     pub(super) input: String,
     pub(super) expected: Value,
+    pub(super) schema_version: u32,
     pub(super) raw: Value,
     pub(super) suite: String,
     pub(super) line: usize,
 }
+
+const SUPPORTED_FIXTURE_SCHEMA_VERSION: u32 = 1;
 
 pub(super) fn collect_fixtures(loaded: &LoadedVertical) -> ArgoResult<Vec<FixtureRow>> {
     let suites = loaded
@@ -329,14 +334,33 @@ fn parse_fixture(suite: &str, line: usize, raw: Value) -> ArgoResult<FixtureRow>
             "{suite} line {line}: 'expected' must be an object"
         )));
     }
+    let schema_version = fixture_schema_version(&raw, suite, line)?;
     Ok(FixtureRow {
         id,
         input,
         expected,
+        schema_version,
         raw,
         suite: suite.to_string(),
         line,
     })
+}
+
+fn fixture_schema_version(raw: &Value, suite: &str, line: usize) -> ArgoResult<u32> {
+    let Some(value) = raw.get("schema_version") else {
+        return Ok(SUPPORTED_FIXTURE_SCHEMA_VERSION);
+    };
+    let Some(version) = value.as_u64().and_then(|v| u32::try_from(v).ok()) else {
+        return Err(ArgoError::Schema(format!(
+            "{suite} line {line}: 'schema_version' must be a positive integer"
+        )));
+    };
+    if version == 0 || version > SUPPORTED_FIXTURE_SCHEMA_VERSION {
+        return Err(ArgoError::Schema(format!(
+            "{suite} line {line}: unsupported fixture schema_version {version}; supported latest is {SUPPORTED_FIXTURE_SCHEMA_VERSION}"
+        )));
+    }
+    Ok(version)
 }
 
 fn required_str(raw: &Value, suite: &str, line: usize, key: &str) -> ArgoResult<String> {
