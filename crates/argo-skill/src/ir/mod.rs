@@ -7,6 +7,7 @@
 
 pub mod backfill;
 pub mod confidence_telemetry;
+pub mod from_cu_trajectory;
 pub mod ghostwriter;
 pub mod ghostwriter_prompts;
 pub mod portable;
@@ -24,6 +25,9 @@ pub use self::backfill::{
 };
 pub use self::confidence_telemetry::{
     ConfidenceTelemetry, NodeTelemetryKey, NodeTelemetryRow, TelemetryOutcome, TelemetrySample,
+};
+pub use self::from_cu_trajectory::{
+    graph_from_cu_trajectory, CuTrajectory, CU_RECORDING_SOURCE, LOW_CONFIDENCE_THRESHOLD,
 };
 pub use self::ghostwriter::{
     generate_from_prompt, offline_template, validate_graph, GhostwriterClient, GhostwriterError,

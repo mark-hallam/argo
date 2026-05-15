@@ -26,6 +26,7 @@
 
 use crate::executor::{CuOutcome, RunRequest, RunResult};
 use argo_skill::{
+    ir::{graph_from_cu_trajectory, CuTrajectory, SkillGraph},
     should_propose_with_feedback, FeedbackVote, Judge, ProposalThreshold, SkillCandidate,
     SkillStore, SuccessMetric, DEFAULT_SUCCESS_THRESHOLD,
 };
@@ -159,6 +160,29 @@ pub fn build_candidate(
     )
 }
 
+/// Build the canonical Skill IR graph for a CU trajectory.
+///
+/// This is the L11 graph-emission sibling to [`build_candidate`]:
+/// existing review flows still receive the `SkillCandidate`, while
+/// Skill Canvas / runtime consumers can use the structured graph.
+#[must_use]
+pub fn build_skill_graph(
+    request: &RunRequest,
+    result: &RunResult,
+    session: SessionId,
+) -> SkillGraph {
+    let session_short = session_short(session);
+    let action_type = action_type_from_request(request);
+    let name = format!("{}_{}", action_type, session_short);
+    graph_from_cu_trajectory(CuTrajectory {
+        name: &name,
+        version: "0.1.0",
+        description: result.final_text.as_deref(),
+        actions: &result.actions_taken,
+        final_text: result.final_text.as_deref(),
+    })
+}
+
 /// First 8 chars of a session id. Used as the provenance
 /// short-form so reviewers can correlate the proposal back to
 /// the originating CU run.
@@ -288,6 +312,16 @@ pub async fn maybe_propose_judged(
         CuOutcome::HumanHandoff { .. } => return None,
     };
     let candidate = build_candidate(request, &result, session, metric);
+    let graph = build_skill_graph(request, &result, session);
+    tracing::info!(
+        target: "argo_executor_computer_use::learn",
+        tenant_id = %request.tenant_id,
+        action_id = %request.action_id,
+        nodes = graph.nodes.len(),
+        edges = graph.edges.len(),
+        source = %graph.metadata.source.as_deref().unwrap_or("unknown"),
+        "synthesized skill IR graph from computer-use trajectory",
+    );
     if let Some(s) = store {
         propose_skill_from_run_judged(s, &candidate, session, judge).await;
     }

@@ -9,6 +9,7 @@
 use super::*;
 use crate::budget::BudgetSnapshot;
 use crate::executor::CuOutcome;
+use argo_skill::ir::{NodeKind, CU_RECORDING_SOURCE, LOW_CONFIDENCE_THRESHOLD};
 use argo_types::SessionId;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -35,6 +36,14 @@ fn run_result() -> RunResult {
             "step 2: click".into(),
             "step 3: type".into(),
         ],
+        tokens_used: 12_345,
+    }
+}
+
+fn run_result_with(actions: &[&str]) -> RunResult {
+    RunResult {
+        final_text: Some("recording complete".into()),
+        actions_taken: actions.iter().map(|s| (*s).to_string()).collect(),
         tokens_used: 12_345,
     }
 }
@@ -123,6 +132,90 @@ fn build_candidate_carries_trajectory_and_final_text() {
     assert_eq!(candidate.final_text.as_deref(), Some("https://example.com"));
     assert_eq!(candidate.vertical_id, "marketplace_browser");
     assert!((candidate.success_metric - 1.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn build_skill_graph_records_marketplace_fixture_as_linear_ir() {
+    let req = run_request();
+    let result = run_result_with(&[
+        "navigate to https://marketplace.example/listings",
+        "click create listing",
+        "type item title",
+        "ask operator approval before publishing",
+    ]);
+    let graph = build_skill_graph(&req, &result, session());
+    assert_eq!(graph.nodes.len(), 4);
+    assert_eq!(graph.edges.len(), 3);
+    assert_eq!(graph.metadata.source.as_deref(), Some(CU_RECORDING_SOURCE));
+    assert_eq!(graph.entry.as_str(), "n1");
+    assert!(matches!(graph.nodes[0].kind, NodeKind::Fetch { .. }));
+    assert!(matches!(
+        graph.nodes[3].kind,
+        NodeKind::AwaitApproval { .. }
+    ));
+}
+
+#[test]
+fn build_skill_graph_records_recruiter_fixture_with_confidence() {
+    let mut req = run_request();
+    req.action_id = "screen_candidate-42".into();
+    let result = run_result_with(&[
+        "open https://ats.example/candidate/123",
+        "read candidate summary",
+        "summarize role fit",
+        "click save note",
+    ]);
+    let graph = build_skill_graph(&req, &result, session());
+    assert_eq!(graph.nodes.len(), 4);
+    assert!(graph
+        .nodes
+        .iter()
+        .all(|node| node.annotations.confidence.is_some()));
+    assert!(matches!(graph.nodes[1].kind, NodeKind::Transform { .. }));
+    assert!(graph
+        .metadata
+        .name
+        .as_deref()
+        .unwrap_or("")
+        .starts_with("screen"));
+}
+
+#[test]
+fn build_skill_graph_flags_low_confidence_ops_fixture() {
+    let mut req = run_request();
+    req.action_id = "invoice_followup".into();
+    let result = run_result_with(&[
+        "open https://erp.example/invoices",
+        "maybe identify overdue invoice",
+        "type reminder draft",
+        "request approval from operator",
+    ]);
+    let graph = build_skill_graph(&req, &result, session());
+    assert_eq!(graph.nodes.len(), 4);
+    let low = graph
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.annotations
+                .confidence
+                .is_some_and(|confidence| confidence < LOW_CONFIDENCE_THRESHOLD)
+        })
+        .count();
+    assert_eq!(low, 1);
+}
+
+#[test]
+fn build_skill_graph_is_idempotent_for_same_recording() {
+    let req = run_request();
+    let result = run_result_with(&[
+        "navigate to https://marketplace.example/listings",
+        "click create listing",
+        "type item title",
+        "ask operator approval before publishing",
+    ]);
+    let one = build_skill_graph(&req, &result, session());
+    let two = build_skill_graph(&req, &result, session());
+    assert_eq!(one, two);
 }
 
 #[test]
