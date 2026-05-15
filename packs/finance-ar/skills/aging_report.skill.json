@@ -1,0 +1,53 @@
+{
+  "entry": "load-ledger",
+  "metadata": {
+    "name": "aging_report",
+    "version": "1.0.0",
+    "description": "Produce a customer aging report with risk buckets, evidence, and recommended next actions.",
+    "source": "finance-ar pack"
+  },
+  "variables": [
+    { "name": "ledger", "varType": "json", "scope": "graph" },
+    { "name": "report", "varType": "AgingReport", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-ledger",
+      "label": "Load open AR ledger",
+      "kind": { "type": "fetch", "target": "erp.open_receivables", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "erp", "toolName": "list_open_invoices" }
+      }
+    },
+    {
+      "id": "bucket",
+      "label": "Bucket by age",
+      "kind": {
+        "type": "transform",
+        "template": "Group invoices into current, 1-30, 31-60, 61-90, and 90+ day buckets. Include customer owner, amount, disputed status, last contact, and next recommended action."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.9 }
+    },
+    {
+      "id": "flag-risk",
+      "label": "Flag high-risk balances",
+      "kind": {
+        "type": "condition",
+        "expression": "report.total_90_plus > 0 || report.disputed_amount > 0 || report.enterprise_overdue.length > 0"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "route",
+      "label": "Route aging review",
+      "kind": { "type": "await-approval", "approverRole": "finance-lead", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-ledger", "to": "bucket", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "bucket", "to": "flag-risk", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "flag-risk", "to": "route", "cond": { "kind": "on-pattern", "pattern": "true" } }
+  ]
+}

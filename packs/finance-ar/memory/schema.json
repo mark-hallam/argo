@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "namespace": "finance-ar",
+  "collections": {
+    "customers": {
+      "description": "Customer billing profiles and collection preferences.",
+      "fields": {
+        "customer_id": "string",
+        "legal_name": "string",
+        "billing_email": "string",
+        "payment_terms": "net_15|net_30|net_45|custom",
+        "collections_tier": "standard|sensitive|enterprise",
+        "owner": "string"
+      }
+    },
+    "invoices": {
+      "description": "Invoice ledger rows used for creation, aging, and reconciliation.",
+      "fields": {
+        "invoice_id": "string",
+        "customer_id": "string",
+        "status": "draft|sent|partial|paid|overdue|disputed|void",
+        "amount_due": "number",
+        "currency": "string",
+        "due_date": "date",
+        "evidence_refs": "string[]"
+      }
+    },
+    "payments": {
+      "description": "Payment evidence from Stripe, bank deposits, and ERP exports.",
+      "fields": {
+        "payment_id": "string",
+        "customer_id": "string",
+        "amount": "number",
+        "currency": "string",
+        "received_at": "datetime",
+        "source": "stripe|bank|erp|manual",
+        "matched_invoice_ids": "string[]"
+      }
+    },
+    "collection_policy": {
+      "description": "Tenant-specific rules for reminders, escalation, and approval.",
+      "fields": {
+        "policy_id": "string",
+        "trigger": "string",
+        "action": "draft_email|escalate|hold|approval",
+        "approval_required": "boolean"
+      }
+    }
+  }
+}

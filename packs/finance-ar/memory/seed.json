@@ -1,0 +1,26 @@
+{
+  "customers": [
+    {
+      "customer_id": "cust_enterprise_alpha",
+      "legal_name": "Alpha Manufacturing Pty Ltd",
+      "billing_email": "ap@alpha.example",
+      "payment_terms": "net_30",
+      "collections_tier": "enterprise",
+      "owner": "finance_lead"
+    }
+  ],
+  "collection_policy": [
+    {
+      "policy_id": "dunning-15",
+      "trigger": "invoice overdue by 15 days and not disputed",
+      "action": "draft_email",
+      "approval_required": true
+    },
+    {
+      "policy_id": "dispute-hold",
+      "trigger": "customer disputes invoice total, PO, tax, or delivery",
+      "action": "escalate",
+      "approval_required": true
+    }
+  ]
+}

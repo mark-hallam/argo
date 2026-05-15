@@ -1,0 +1,53 @@
+{
+  "entry": "load-payment",
+  "metadata": {
+    "name": "reconcile_payment",
+    "version": "1.0.0",
+    "description": "Match received payments to open invoices and prepare reconciliation evidence.",
+    "source": "finance-ar pack"
+  },
+  "variables": [
+    { "name": "payment", "varType": "Payment", "scope": "graph" },
+    { "name": "match_result", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-payment",
+      "label": "Load payment evidence",
+      "kind": { "type": "fetch", "target": "stripe.payment", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "stripe", "toolName": "get_payment_intent" }
+      }
+    },
+    {
+      "id": "find-candidates",
+      "label": "Find open invoice candidates",
+      "kind": {
+        "type": "action",
+        "instruction": "Search open invoices by customer id, amount, currency, remittance reference, and invoice number. Return exact matches, partial matches, and unresolved deltas."
+      },
+      "annotations": { "policy": "auto", "executor": "erp" }
+    },
+    {
+      "id": "classify",
+      "label": "Classify reconciliation confidence",
+      "kind": {
+        "type": "condition",
+        "expression": "match_result.confidence >= 0.95 && match_result.unresolved_delta == 0"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "review",
+      "label": "Review non-exact match",
+      "kind": { "type": "await-approval", "approverRole": "ar-specialist", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask", "risk": "ledger_update" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-payment", "to": "find-candidates", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "find-candidates", "to": "classify", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "classify", "to": "review", "cond": { "kind": "on-pattern", "pattern": "false" } }
+  ]
+}

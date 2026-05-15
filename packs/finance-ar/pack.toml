@@ -1,0 +1,9 @@
+[pack]
+name = "finance-ar"
+version = "1.0.0"
+display_name = "Accounts Receivable Specialist"
+description = "Enterprise accounts-receivable worker pack for invoice creation, overdue collections, payment reconciliation, and customer aging reports."
+
+[[verticals]]
+id = "finance-ar"
+path = "."

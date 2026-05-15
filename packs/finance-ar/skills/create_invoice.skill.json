@@ -1,0 +1,53 @@
+{
+  "entry": "load-order",
+  "metadata": {
+    "name": "create_invoice",
+    "version": "1.0.0",
+    "description": "Create an invoice draft from approved order, contract, and customer billing data.",
+    "source": "finance-ar pack"
+  },
+  "variables": [
+    { "name": "order", "varType": "json", "scope": "graph" },
+    { "name": "invoice_draft", "varType": "json", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-order",
+      "label": "Load approved order",
+      "kind": { "type": "fetch", "target": "erp.approved_order", "method": "GET" },
+      "annotations": {
+        "policy": "auto",
+        "toolBinding": { "mcpServer": "erp", "toolName": "get_order" }
+      }
+    },
+    {
+      "id": "validate",
+      "label": "Validate billing inputs",
+      "kind": {
+        "type": "condition",
+        "expression": "order.customer_id != null && order.line_items.length > 0 && order.approved == true"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft",
+      "label": "Prepare invoice draft",
+      "kind": {
+        "type": "transform",
+        "template": "Build invoice_draft with customer_id, billing_email, terms, line_items, subtotal, tax, total, due_date, currency, source_order_id, and evidence_refs. Never invent tax or discount values."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.88 }
+    },
+    {
+      "id": "approve-send",
+      "label": "Approve invoice send",
+      "kind": { "type": "await-approval", "approverRole": "finance-lead", "timeoutSeconds": 86400 },
+      "annotations": { "policy": "ask", "risk": "financial_commitment" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-order", "to": "validate", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "validate", "to": "draft", "cond": { "kind": "on-pattern", "pattern": "true" } },
+    { "id": "e3", "from": "draft", "to": "approve-send", "cond": { "kind": "always" } }
+  ]
+}

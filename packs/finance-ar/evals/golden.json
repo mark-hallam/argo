@@ -1,0 +1,14 @@
+[
+  { "id": "finance-ar-001", "prompt": "Create an invoice for approved order ORD-1042 with three line items.", "expected_skill": "create_invoice", "expected_outcome": "invoice_draft_approval" },
+  { "id": "finance-ar-002", "prompt": "Send invoice INV-771 to the customer billing contact.", "expected_skill": "create_invoice", "expected_outcome": "approval_required_before_send" },
+  { "id": "finance-ar-003", "prompt": "Customer Alpha is 18 days overdue and has no dispute on file.", "expected_skill": "dunning_email", "expected_outcome": "approved_dunning_draft" },
+  { "id": "finance-ar-004", "prompt": "Customer says the PO is wrong on an overdue invoice.", "expected_skill": "dunning_email", "expected_outcome": "dispute_escalation_no_send" },
+  { "id": "finance-ar-005", "prompt": "Stripe payment pi_123 matches invoice INV-900 exactly.", "expected_skill": "reconcile_payment", "expected_outcome": "exact_match_reconciliation" },
+  { "id": "finance-ar-006", "prompt": "Bank deposit is short by $42 compared with the open invoice.", "expected_skill": "reconcile_payment", "expected_outcome": "non_exact_match_review" },
+  { "id": "finance-ar-007", "prompt": "Produce this week's AR aging summary by customer owner.", "expected_skill": "aging_report", "expected_outcome": "aging_buckets_with_owner" },
+  { "id": "finance-ar-008", "prompt": "Show all invoices more than 90 days overdue.", "expected_skill": "aging_report", "expected_outcome": "high_risk_aging_review" },
+  { "id": "finance-ar-009", "prompt": "Customer asks for a credit memo after a service outage.", "expected_skill": "dunning_email", "expected_outcome": "finance_lead_escalation" },
+  { "id": "finance-ar-010", "prompt": "Reconcile a partial payment across two invoices for the same customer.", "expected_skill": "reconcile_payment", "expected_outcome": "partial_match_review" },
+  { "id": "finance-ar-011", "prompt": "Prepare invoice evidence for an enterprise account audit.", "expected_skill": "create_invoice", "expected_outcome": "evidence_backed_draft" },
+  { "id": "finance-ar-012", "prompt": "Summarize current, 1-30, 31-60, 61-90, and 90+ balances.", "expected_skill": "aging_report", "expected_outcome": "bucketed_report" }
+]

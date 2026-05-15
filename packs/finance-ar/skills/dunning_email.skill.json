@@ -1,0 +1,50 @@
+{
+  "entry": "load-overdue",
+  "metadata": {
+    "name": "dunning_email",
+    "version": "1.0.0",
+    "description": "Draft a customer-appropriate overdue payment reminder with evidence and escalation controls.",
+    "source": "finance-ar pack"
+  },
+  "variables": [
+    { "name": "invoice", "varType": "Invoice", "scope": "graph" },
+    { "name": "message", "varType": "EmailDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-overdue",
+      "label": "Load overdue invoice",
+      "kind": { "type": "fetch", "target": "memory.invoices.overdue", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "check-holds",
+      "label": "Check dispute and collection holds",
+      "kind": {
+        "type": "condition",
+        "expression": "invoice.status == 'overdue' && invoice.dispute_status == null && invoice.collections_hold != true"
+      },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "draft-message",
+      "label": "Draft reminder",
+      "kind": {
+        "type": "transform",
+        "template": "Draft a concise reminder that cites invoice number, amount, due date, payment link, and account owner. Use a respectful tone, no threats, and include a reply path for disputes."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.84 }
+    },
+    {
+      "id": "approval",
+      "label": "Approve customer-visible collection message",
+      "kind": { "type": "await-approval", "approverRole": "finance-lead", "timeoutSeconds": 43200 },
+      "annotations": { "policy": "ask", "risk": "customer_visible_finance" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-overdue", "to": "check-holds", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "check-holds", "to": "draft-message", "cond": { "kind": "on-pattern", "pattern": "true" } },
+    { "id": "e3", "from": "draft-message", "to": "approval", "cond": { "kind": "always" } }
+  ]
+}
