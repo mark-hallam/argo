@@ -98,3 +98,21 @@ Acceptance criteria (in addition to the brief's original list):
 - No regression: existing global keys still dispatch correctly.
 
 **Drift-prevention:** brief adds ONE new pub variant + ONE new pub module — no parallel-name surfaces.
+
+
+## Amendment 2026-05-15 #2 (rendering scope widening — codex worker self-BLOCK feedback)
+
+Codex worker correctly self-BLOCKED noting that input-side scope alone is insufficient: the overlay renders through `state.<overlay_field>` + `render.rs`/`overlays.rs::draw_<overlay>`. The previous Amendment only opened input dispatch; visible overlay content also needs scope.
+
+Further widening:
+
+- `crates/argo-tui/src/render.rs` — narrowly: add ONE call site in the render loop that invokes the new overlay's render function when the overlay is active. **≤15 modified lines.**
+- `crates/argo-tui/src/overlays.rs` — narrowly: add ONE `pub fn draw_<feature>(state, frame, area)` function for the new overlay's visible content. **≤200 LOC for the new function** (may include sub-state struct + helpers in the same file if cohesive).
+- `crates/argo-tui/src/state.rs` (or wherever app state lives) — narrowly: add ONE field for the overlay's open/closed state + any cursor/selection sub-state. **≤30 modified lines.**
+
+These are the same load-bearing edits the original brief implied. With both amendments in place, the brief is fully claimable:
+- Input layer: `input_globals.rs` (variant + key) + `input.rs` (dispatch arm)
+- Rendering layer: `state.rs` (overlay field) + `overlays.rs` (`draw_*` fn) + `render.rs` (call site)
+- Module: NEW feature module + tests + `lib.rs` declaration
+
+No file > 500 LOC after; behavior of existing overlays preserved.
