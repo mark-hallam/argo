@@ -14,7 +14,7 @@ Operator-locked decision 2026-05-15: keep all 15 in core, update the invariant t
 Scope:
 - Update `CLAUDE.md:50` invariant text from "MCP-first integration (8 in-core tools; everything else MCP)" to something like "MCP-first integration (lean core, currently 15 in-core tools; new tools default to MCP unless they require direct AgentDeps access)".
 - Update the rationale sentence below if it references the 8-tool count.
-- If any other doc references the 8 count (search via `rg '8 in-core|8 core tools|canonical 8' docs/ CLAUDE.md`), update those too.
+- If any other OPERATIVE doc (CLAUDE.md, docs/build-plan/, docs/skycot/) references the 8 count, update those too. **Historical docs in `docs/plan/*` (the v0.2 architecture reference) are out of scope — do NOT update those; they're frozen historical record.**
 - Add a one-line decision-log note pointing at `docs/skycot/audit/2026-05-15-codex-full-architecture-audit.md` F-008 + operator decision.
 
 LOC: ~40.

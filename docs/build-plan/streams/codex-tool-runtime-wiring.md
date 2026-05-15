@@ -12,7 +12,7 @@ P2 correctness. Several in-core tools are registered with `Default::default()` i
 - `Memory::default()` → `"memory store not wired"` (`crates/argo-tool/src/tools/memory.rs:206`)
 - `DelegateTask::default()` → errors without an orchestrator (`crates/argo-tool/src/tools/delegate_task.rs:143`)
 - `SessionSearch::default()` → `"session store not wired"` (`crates/argo-tool/src/tools/session_search.rs:139`)
-- `SendMessage::default()` → unwired dispatcher (`crates/argo-tool/src/tools/send_message.rs:92`)
+- ~~`SendMessage::default()` → unwired dispatcher~~ **SCOPED OUT 2026-05-16:** codex pre-claim found there is NO production `MessageDispatcher` in argo-tool/argo-agent-runner; only `SendMessage::with_dispatcher(Arc<dyn MessageDispatcher>)` exists. Wiring SendMessage requires first BUILDING the production dispatcher (touches argo-channels + AgentDeps extension), which is out of scope for this brief. SendMessage stays unwired in this brief; a follow-up `codex-message-dispatcher-production-wiring` brief will build the dispatcher + wire SendMessage.
 
 The agents see these tools advertised (they're in `builtin_tools()` at `mod.rs:63`), try to call them, and get errors. The fix is NOT to hide them but to WIRE them: pass the runtime deps (`MemoryStore`, `OrchestratorStore`, `SessionStore`, channel dispatcher) from the agent runner's session context into the registry constructor.
 
@@ -21,8 +21,8 @@ The infrastructure already exists:
 - The agent runner has access to these stores via `AgentDeps`.
 - The MISSING piece is: the canonical builtin-tools constructor that wires ALL 4 unwired tools from the agent-runner side.
 
-Scope:
-- Add a `builtin_tools_with_runtime(deps: &AgentDeps) -> Vec<Arc<dyn Tool>>` (or equivalent — name it whatever's idiomatic) in `argo-tool/src/tools/mod.rs` that takes all 4 stores/dispatchers and wires them.
+Scope (revised 2026-05-16 — 3 tools, not 4):
+- Add a `builtin_tools_with_runtime(deps: &AgentDeps) -> Vec<Arc<dyn Tool>>` (or equivalent — name it whatever's idiomatic) in `argo-tool/src/tools/mod.rs` that takes Memory + DelegateTask + SessionSearch stores and wires them. (SendMessage stays unwired — see follow-up note above.)
 - Update the agent runner in `argo-agent-runner/src/turn.rs` to call the new constructor instead of bare `builtin_tools()`.
 - Make bare `builtin_tools()` `#[cfg(test)]`-only OR mark `#[deprecated]` with a doc-comment pointing at the new constructor.
 - Update production callers of `builtin_tools()` (run `rg 'builtin_tools\(\)' crates --type rust -l` to identify) to use the wired variant.
@@ -50,7 +50,7 @@ LOC: ~280.
 
 ## Acceptance criteria
 
-- [ ] `builtin_tools_with_runtime(deps)` (or equivalent) exists and wires all 4 currently-unwired tools.
+- [ ] `builtin_tools_with_runtime(deps)` (or equivalent) exists and wires the 3 in-scope tools (Memory + DelegateTask + SessionSearch). SendMessage remains unwired — covered by follow-up brief `codex-message-dispatcher-production-wiring`.
 - [ ] Agent runner uses the wired constructor; verify with `rg 'builtin_tools\(\)' crates --type rust` returning only test hits.
 - [ ] Integration test proves Memory/DelegateTask/SessionSearch/SendMessage dispatch SUCCEEDS (no "not wired" error) when invoked via the agent runner.
 - [ ] Bare `builtin_tools()` is `#[cfg(test)]` or `#[deprecated]`.
