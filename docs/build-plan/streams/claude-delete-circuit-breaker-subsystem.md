@@ -27,3 +27,16 @@ Delete the breaker subsystem. Revive in a future brief if a real customer needs 
 
 ## Branch
 - `claude-delete-circuit-breaker-subsystem`
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening v2 (supersedes prior lists)
+
+Codex noted breaker constructors live in unlisted `argo-provider` submodules. Widening:
+
+- `crates/argo-provider/src/anthropic/mod.rs` — narrowly: remove circuit-breaker imports + constructor calls. ≤20 modified lines.
+- `crates/argo-provider/src/bedrock/mod.rs` — narrowly: same. ≤20 modified lines.
+- `crates/argo-provider/src/openai_compat/mod.rs` — narrowly: same. ≤20 modified lines.
+- `crates/argo-provider/src/openai_responses/mod.rs` — narrowly: same. ≤20 modified lines.
+- All original may-touch entries (the circuit-breaker module files being deleted).
+
+After this brief lands, `rg circuit_breaker crates/argo-provider/` returns zero matches.

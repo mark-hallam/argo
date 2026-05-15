@@ -37,3 +37,13 @@ Specifically:
 
 ## Branch
 - `claude-delete-stubforge-orphan-code`
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening v2 (supersedes prior lists)
+
+Codex noted `spawn_forge_cron` is started from `crates/argo-cli/src/handlers/gateway/boot.rs` outside the may-touch list. Widening:
+
+- `crates/argo-cli/src/handlers/gateway/boot.rs` — narrowly: remove the `spawn_forge_cron` call + import. ≤15 modified lines.
+- All original may-touch entries (the forge orphan files being deleted).
+
+After this brief lands, `rg spawn_forge_cron crates/` returns zero matches outside the deletion sites.

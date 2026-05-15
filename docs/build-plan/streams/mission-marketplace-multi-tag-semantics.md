@@ -52,3 +52,13 @@ Codex noted current OCI marketplace code is under `crates/argo-skill/src/marketp
 - `crates/argo-skill/src/marketplace_oci.rs` — narrowly: add `MarketplaceTagPolicy` enum + timestamp-newest default. ≤80 modified lines.
 - `crates/argo-skill/src/marketplace_oci_tests.rs` (or sibling) — narrowly: 3 unit tests per policy variant. ≤80 modified lines.
 - NEW `docs/skycot/operator/marketplace-tag-policy.md` — operator doc.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening v2 (supersedes prior lists)
+
+Codex noted contradiction: acceptance required the new operator doc to be referenced from PRODUCT_ROADMAP.md or RUNBOOK.md, but those files were forbidden. Widening:
+
+- `crates/argo-skill/src/marketplace_oci.rs` — narrowly: add `MarketplaceTagPolicy` enum + timestamp-newest default. ≤80 modified lines.
+- `crates/argo-skill/src/marketplace_oci_tests.rs` (or sibling) — narrowly: 3 unit tests. ≤80 modified lines.
+- NEW `docs/skycot/operator/marketplace-tag-policy.md` — operator doc.
+- `docs/skycot/runbook/RUNBOOK.md` (if exists, else `docs/build-plan/PRODUCT_ROADMAP.md`) — narrowly: ONE line linking to the new operator doc. ≤5 modified lines.

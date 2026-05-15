@@ -100,3 +100,17 @@ Codex noted XML-DSig moved into `crates/argo-cli/src/handlers/gateway/sso_saml_x
 - `crates/argo-cli/src/handlers/gateway/sso_saml_xmlsig_tests.rs` — narrowly: add coverage tests. ≤150 modified lines.
 - `crates/argo-cli/src/handlers/gateway/sso_saml.rs` — narrowly: call into xmlsig module. ≤30 modified lines.
 - Cargo.lock — re-resolved deps as needed.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening v2 (supersedes prior lists)
+
+Codex noted: even with sso_saml_xmlsig.rs in scope, the remaining acceptance items (issuer/destination/InResponseTo/audience semantics, replay store/scrub, audit row per ACS outcome, SHA1 config gate) need either a sso_saml.rs split or a new helper. Path forward — allow EITHER approach:
+
+- `crates/argo-cli/src/handlers/gateway/sso_saml_xmlsig.rs` — narrowly: implement signature verification gaps. ≤200 modified lines.
+- `crates/argo-cli/src/handlers/gateway/sso_saml_xmlsig_tests.rs` — narrowly: coverage tests. ≤150 modified lines.
+- `crates/argo-cli/src/handlers/gateway/sso_saml.rs` (current 441 LOC — has headroom under 500) — narrowly: call into xmlsig module + emit audit row per ACS outcome + SHA1-config gate. ≤55 modified lines (keep under 500-LOC ceiling).
+- NEW `crates/argo-cli/src/handlers/gateway/sso_saml_replay_store.rs` (if needed for InResponseTo/replay scrub) — replay store impl. ≤200 LOC.
+- `crates/argo-cli/src/handlers/gateway/mod.rs` — narrowly: declare the new replay_store module if added. ≤5 modified lines.
+- `crates/argo-cli/Cargo.toml` — narrowly: any new deps. ≤5 modified lines.
+
+If worker hits the 500-LOC ceiling on sso_saml.rs, BLOCK with a follow-up note requesting a `sso_saml_split` precursor brief.

@@ -42,3 +42,15 @@ LOC: ~100.
 - Mission-claim alignment: production hardening (security; supports claim 4 multi-tenant integrity).
 - This brief is DEPENDENCY-BLOCKED until the v1 SHIP-BLOCKER lands. Codex worker adapter should self-BLOCK on claim if the dep isn't MERGED yet; that's the correct behavior.
 - Drift-prevention: test-only brief; no new pub types.
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening v2 (supersedes prior lists)
+
+Codex noted the integration test needs argo-skill / argo-identity / prompt-rendering deps that argo-store/Cargo.toml doesn't have. Relocating:
+
+- NEW `crates/argo-cli/tests/cross_tenant_skill_discovery_negative.rs` — integration test (argo-cli already has all needed deps). ≤200 LOC.
+- `scripts/smoke-skycot.sh` — narrowly: invoke as a conditional smoke step. ≤10 lines.
+
+NB: this brief is a NEGATIVE test (tenant B does NOT see tenant A's skill). Positive control: tenant A's worker DOES see its own skill.
+
+This brief still depends on `claude-skill-library-worker-load-wire` MERGED — that ship-blocker is now MERGED (#1682), so this can claim immediately.
