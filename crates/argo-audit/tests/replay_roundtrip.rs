@@ -2,6 +2,7 @@
 //! `claude-audit-replay`). Seeds 5 audit rows on one session,
 //! reads them back via `rows_for_session`, then asserts every
 //! row appears in seq order in both `pretty` and `raw` output.
+#![allow(deprecated)]
 use argo_audit::{
     filter_replay_rows, render_replay, rows_for_session, AuditKind, AuditSink, ReplayFormat,
 };

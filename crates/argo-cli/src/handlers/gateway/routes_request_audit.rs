@@ -100,12 +100,12 @@ pub(super) async fn record(
         "path": path,
         "status": status,
         "duration_ms": duration_ms,
-        "tenant_id": tenant,
+        "tenant_id": tenant.clone(),
         "source_ip": source_ip_from_req(req),
         "user_agent_truncated": user_agent_truncated(req),
         "body_sha256_hex": body_sha256_hex(req),
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant);
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, principal_id)
         .await

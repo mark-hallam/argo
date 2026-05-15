@@ -1,6 +1,6 @@
 //! `argo skill rollback` - promote a prior eligible version.
 
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_skill::{LifecycleState, Skill, SkillStore};
 use argo_types::{ArgoError, ArgoResult};
 use serde_json::json;
@@ -73,9 +73,19 @@ async fn write_audit(
         "to_version": to.frontmatter.version,
         "reason": reason,
     });
-    AuditSink::new(skills.store_arc())
+    let store = skills.store_arc();
+    let session_id = to.learned_in.or(from.learned_in);
+    let tenant_id = match session_id {
+        Some(sid) => store
+            .get_session(sid)
+            .await?
+            .map(|session| session.tenant_id.to_string())
+            .unwrap_or_else(|| SYSTEM_AUDIT_TENANT_ID.to_string()),
+        None => SYSTEM_AUDIT_TENANT_ID.to_string(),
+    };
+    AuditSink::new_with_tenant(store, tenant_id)
         .write(
-            to.learned_in.or(from.learned_in),
+            session_id,
             AuditKind::SkillRolledBack,
             payload,
             None,

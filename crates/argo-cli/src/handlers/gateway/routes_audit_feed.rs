@@ -44,6 +44,7 @@
 use super::routes_audit_feed_indexed::fetch_raw_rows;
 use super::routes_audit_feed_scope::{resolve_tenant_scope, row_in_tenant_scope};
 use super::routes_auth_principal::principal_id_for_audit;
+use super::rate_limit;
 use argo_audit::{AuditKind, AuditSink, ExportedRow};
 use argo_redact::{redact_text, RedactionPolicy};
 use argo_store::SessionStore;
@@ -416,7 +417,11 @@ async fn emit_feed_audit(
         "limit": params.limit,
         "returned": returned,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let tenant_id = params
+        .as_tenant
+        .clone()
+        .unwrap_or_else(|| rate_limit::extract_tenant(req));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id);
     if let Err(e) = sink
         .write(
             None,

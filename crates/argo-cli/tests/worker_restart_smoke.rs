@@ -15,6 +15,7 @@
 //! restarts --since` lists recent events. On Windows the
 //! classifier falls through to `OtherSignal`, so the assertion
 //! is widened there; the test does not skip.
+#![allow(deprecated)]
 
 mod common;
 

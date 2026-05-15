@@ -4,6 +4,7 @@
 //!
 //! Split out of `tests.rs` per HARD RULE 6 (500-LOC per-file
 //! ceiling).
+#![allow(deprecated)]
 
 use super::*;
 use argo_store::SessionStore;

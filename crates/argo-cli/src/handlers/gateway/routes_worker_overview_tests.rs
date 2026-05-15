@@ -1,6 +1,7 @@
 //! Tests for `routes_worker_overview` — `GET /api/v1/workers/<id>/overview` (J8).
 
 #![allow(clippy::too_many_lines)]
+#![allow(deprecated)]
 
 use super::super::routes_worker_detail::PrincipalRole;
 use super::{

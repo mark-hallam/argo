@@ -6,6 +6,7 @@
 //! (`routes.rs::dispatch_inner`); these tests target the handler.
 
 #![allow(clippy::too_many_lines)]
+#![allow(deprecated)]
 
 use super::list_response;
 use argo_audit::{AuditKind, AuditSink};

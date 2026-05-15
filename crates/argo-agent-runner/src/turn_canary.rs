@@ -8,17 +8,18 @@
 //! seeded pick lands canary-side. No canary / expired = no-op.
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;
-use argo_types::{ArgoError, ArgoResult, SessionId};
+use argo_types::{ArgoError, ArgoResult, SessionId, TenantId};
 use std::sync::Arc;
 
 pub(crate) async fn apply_canary_routing(
     store: &Arc<SessionStore>,
     skills: &argo_skill::SkillStore,
     session_id: SessionId,
+    tenant_id: TenantId,
     active: &mut [argo_skill::Skill],
 ) -> ArgoResult<()> {
     let canary = argo_skill::CanaryStore::new(Arc::clone(store));
-    let canary_audit = AuditSink::new(Arc::clone(store));
+    let canary_audit = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     let now_micros = chrono::Utc::now().timestamp_micros();
     for s in active.iter_mut() {
         let name = &s.frontmatter.name;

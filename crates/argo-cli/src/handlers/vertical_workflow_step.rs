@@ -253,7 +253,7 @@ pub(super) async fn open_audit_ctx(session_id_str: &str) -> ArgoResult<WorkflowA
             "no session with id '{session_id_str}'"
         )));
     };
-    let audit = AuditSink::new(store);
+    let audit = AuditSink::new_with_tenant(store, session.tenant_id.to_string());
     Ok(WorkflowAuditCtx {
         audit,
         session_id: sid,

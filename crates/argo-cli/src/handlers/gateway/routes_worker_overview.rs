@@ -204,7 +204,7 @@ async fn emit_audit(store: &Arc<SessionStore>, tenant: TenantId, worker: &Worker
         "tenant_id": tenant.to_string(), "worker_id": worker.id.to_string(),
         "viewer_role": viewer,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink.write(None, AuditKind::HttpRequest, payload, Some(actor.to_string())).await {
         tracing::warn!(target: "gateway::worker_overview", error = %e, actor = %actor,
             "worker.overview.viewed audit write failed");

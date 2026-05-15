@@ -7,6 +7,7 @@
 //! - Second test asserts the missing-audit-chain error path.
 //! - Third test is gated on `ANTHROPIC_API_KEY` and is the only
 //!   real-network test.
+#![allow(deprecated)]
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;

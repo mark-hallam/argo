@@ -1,6 +1,7 @@
 //! Tests for the multi-round tool-dispatch loop's max-rounds
 //! graceful-exit behaviour (#724). Split out of `turn_tests.rs`
 //! to keep both files under the 500-LOC ceiling.
+#![allow(deprecated)]
 
 use super::*;
 use argo_store::SessionStore;

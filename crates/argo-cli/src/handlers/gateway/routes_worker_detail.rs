@@ -406,7 +406,7 @@ async fn emit_audit(
         "worker_id": worker.id.to_string(),
         "viewer_role": role.as_str(),
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, Some(actor.to_string()))
         .await

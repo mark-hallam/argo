@@ -3,6 +3,7 @@
 //! tests live in `tests/audit_by_vertical.rs` (CLI binary)
 //! and `tests/audit_by_vertical_gateway.rs`.
 #![cfg(test)]
+#![allow(deprecated)]
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_store::SessionStore;

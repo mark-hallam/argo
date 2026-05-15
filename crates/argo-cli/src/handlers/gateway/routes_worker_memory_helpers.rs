@@ -221,7 +221,7 @@ pub(super) async fn emit_audit(
             map.insert(k.clone(), v.clone());
         }
     }
-    if let Err(e) = AuditSink::new(Arc::clone(store))
+    if let Err(e) = AuditSink::new_with_tenant(Arc::clone(store), ctx.tenant.to_string())
         .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
         .await
     {

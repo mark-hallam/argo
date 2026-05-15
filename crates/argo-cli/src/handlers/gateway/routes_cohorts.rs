@@ -170,7 +170,7 @@ async fn emit_list_audit(
         "tenant_id": tenant.to_string(),
         "count": count,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, Some(actor.clone()))
         .await
@@ -197,7 +197,7 @@ async fn emit_detail_audit(
         "tenant_id": tenant.to_string(),
         "cohort_id": cohort_id,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, Some(actor.clone()))
         .await

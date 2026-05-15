@@ -157,7 +157,7 @@ async fn run_with_events_and_run_id(
         "examples": examples_path,
         "n_tasks": tasks.len(),
     }));
-    let _ = AuditSink::new(Arc::clone(&store))
+    let _ = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string())
         .write(
             None,
             AuditKind::ForgeRunStart,
@@ -310,7 +310,7 @@ async fn run_with_events_and_run_id(
     let _ = store
         .finish_forge_run(run_id, last_status, final_score, completed)
         .await;
-    let _ = AuditSink::new(Arc::clone(&store))
+    let _ = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string())
         .write(
             None,
             AuditKind::ForgeRunEnd,

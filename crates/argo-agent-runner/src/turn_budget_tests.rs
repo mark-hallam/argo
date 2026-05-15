@@ -3,6 +3,7 @@
 //! pass when remaining > 0, pre-turn fail when remaining <= 0, and
 //! post-turn spend round-trip onto the running subtask row.
 #![cfg(test)]
+#![allow(deprecated)]
 
 use super::*;
 use argo_audit::AuditSink;

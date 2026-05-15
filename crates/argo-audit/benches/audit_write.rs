@@ -6,6 +6,7 @@
 //! Audit writes are on the per-turn hot path; a regression in
 //! their sustained write rate caps the agent loop's throughput.
 //!
+#![allow(deprecated)]
 //! Two cases under one group:
 //!   * `sequential` — one-at-a-time appends to a fresh sqlite
 //!     store. Baseline single-writer rate.

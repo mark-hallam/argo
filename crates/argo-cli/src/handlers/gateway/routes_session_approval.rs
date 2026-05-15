@@ -51,16 +51,16 @@ pub(super) async fn session_approve_response(
         .unwrap_or(false);
 
     // Fail loud on ghost sessions — same UX as the CLI.
-    let exists = match store.get_session(sid).await {
-        Ok(opt) => opt.is_some(),
+    let session = match store.get_session(sid).await {
+        Ok(Some(session)) => session,
+        Ok(None) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session with id '{sid_str}'\"}}"),
+            );
+        }
         Err(e) => return server_error(&format!("get_session: {e}")),
     };
-    if !exists {
-        return (
-            "404 Not Found",
-            format!("{{\"error\":\"no session with id '{sid_str}'\"}}"),
-        );
-    }
 
     let grant_id = match store
         .add_session_grant(sid, tool, "gateway", note, one_shot)
@@ -69,7 +69,7 @@ pub(super) async fn session_approve_response(
         Ok(id) => id,
         Err(e) => return server_error(&format!("add_session_grant: {e}")),
     };
-    let audit = AuditSink::new(store.clone());
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     let payload = serde_json::json!({
         "tool": tool,
         "grant_id": grant_id.to_string(),
@@ -126,11 +126,21 @@ pub(super) async fn session_revoke_approval_response(
         return bad_request("missing `tool`");
     };
 
+    let session = match store.get_session(sid).await {
+        Ok(Some(session)) => session,
+        Ok(None) => {
+            return (
+                "404 Not Found",
+                format!("{{\"error\":\"no session with id '{sid_str}'\"}}"),
+            );
+        }
+        Err(e) => return server_error(&format!("get_session: {e}")),
+    };
     let removed = match store.revoke_session_grants_for_tool(sid, tool).await {
         Ok(n) => n,
         Err(e) => return server_error(&format!("revoke_session_grants_for_tool: {e}")),
     };
-    let audit = AuditSink::new(store.clone());
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     let payload = serde_json::json!({
         "tool": tool,
         "removed": removed,

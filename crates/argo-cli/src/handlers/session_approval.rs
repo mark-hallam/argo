@@ -48,11 +48,9 @@ pub async fn approve(
     // Sanity check: the session exists. Fail loud — silent
     // grants against ghost sessions would confuse the operator
     // and accumulate dead rows.
-    if store.get_session(sid).await?.is_none() {
-        return Err(ArgoError::Provider(format!(
-            "no session with id '{session_id_str}'"
-        )));
-    }
+    let session = store.get_session(sid).await?.ok_or_else(|| {
+        ArgoError::Provider(format!("no session with id '{session_id_str}'"))
+    })?;
     let grant_id = store
         .add_session_grant(sid, tool, "cli", note, once)
         .await?;
@@ -61,7 +59,7 @@ pub async fn approve(
     // payload mirrors the rejection payload from #660 so a
     // verifier can correlate (escalation.required emitted, then
     // approval.granted with the same tool name).
-    let audit = AuditSink::new(store.clone());
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     let payload = serde_json::json!({
         "tool": tool,
         "grant_id": grant_id.to_string(),
@@ -170,8 +168,11 @@ pub async fn revoke_approval(
 ) -> ArgoResult<()> {
     let sid = parse_session_id(session_id_str)?;
     let store = open_store().await?;
+    let session = store.get_session(sid).await?.ok_or_else(|| {
+        ArgoError::Provider(format!("no session with id '{session_id_str}'"))
+    })?;
     let removed = store.revoke_session_grants_for_tool(sid, tool).await?;
-    let audit = AuditSink::new(store.clone());
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     let payload = serde_json::json!({
         "tool": tool,
         "removed": removed,

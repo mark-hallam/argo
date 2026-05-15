@@ -11,6 +11,7 @@
 //! handlers themselves.
 
 #![allow(clippy::too_many_lines)]
+#![allow(deprecated)]
 
 use super::detail_response;
 use super::super::routes_audit_screenshot::{screenshot_response, sign_screenshot_url};

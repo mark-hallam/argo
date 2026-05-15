@@ -19,7 +19,7 @@
 //!   `pending_review` (NEVER auto-active), and emits a
 //!   `skill.candidate.promoted` audit row attributed to the
 //!   originating session.
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_memory::{parse_skill_candidate, MemoryEntry, MemoryStore, SkillCandidate};
 use argo_skill::{Skill, SkillStore};
 use argo_store::feedback::Vote;
@@ -139,7 +139,12 @@ pub(super) async fn promote_candidate(
     let new_skill = skills
         .propose_for_review(&raw, learned_in, vertical_id)
         .await?;
-    let audit = AuditSink::new(Arc::clone(&store));
+    let tenant_id = store
+        .get_session(learned_in)
+        .await?
+        .map(|session| session.tenant_id.to_string())
+        .unwrap_or_else(|| SYSTEM_AUDIT_TENANT_ID.to_string());
+    let audit = AuditSink::new_with_tenant(Arc::clone(&store), tenant_id);
     let mut payload = serde_json::json!({
         "skill_id": new_skill.id.0.to_string(),
         "name": new_skill.frontmatter.name,

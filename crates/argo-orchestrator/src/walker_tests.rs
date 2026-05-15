@@ -1,6 +1,7 @@
 //! Walker tests — exercise the four scenarios from the brief:
 //! worker-step ahead → re-handoff, human-step ahead → notify,
 //! chain exhausted → audit + session.Expired, non-overdue → no-op.
+#![allow(deprecated)]
 use super::*;
 use crate::handoff::{Handoff, HandoffStatus};
 use crate::session::Session;

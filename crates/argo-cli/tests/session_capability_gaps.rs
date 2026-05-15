@@ -1,5 +1,6 @@
 //! Integration tests for `argo session capability-gaps <id>`
 //! (#685). Drives the #682 detector through the binary.
+#![allow(deprecated)]
 
 mod common;
 

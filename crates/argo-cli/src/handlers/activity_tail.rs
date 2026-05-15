@@ -100,6 +100,7 @@ fn print_rows(rows: &[super::activity_since::ActivityRow], json: bool) -> ArgoRe
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use argo_audit::{AuditKind, AuditSink};

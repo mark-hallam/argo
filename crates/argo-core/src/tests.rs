@@ -4,6 +4,7 @@
 //! > user prompt → openai-compatible call → file_read tool dispatch →
 //! > assistant final answer
 //!
+#![allow(deprecated)]
 //! Steer-channel tests live in `tests_steer.rs`; resume-on-restart
 //! tests live in `tests_resume.rs`. Both modules are loaded as
 //! children below and reuse the helpers defined here.

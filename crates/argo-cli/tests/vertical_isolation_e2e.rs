@@ -18,6 +18,7 @@
 //! | Learned skill proposal requires review before activation      | `pending_review_skill_is_invisible_until_approved` |
 //! | Active learned skill is reused by same vertical               | `active_learned_skill_is_reused_by_same_vertical` |
 //! | Denied action cannot become an active skill automatically     | `repeated_denial_records_signal_but_does_not_install_skill` |
+#![allow(deprecated)]
 
 use argo_audit::{detect_policy_denials, AuditKind, AuditSink, GapKind};
 use argo_memory::{MemoryFile, MemoryStore};

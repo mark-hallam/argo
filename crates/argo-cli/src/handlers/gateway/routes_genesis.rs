@@ -5,7 +5,7 @@
 //! reported as `null` until LLM-classifier rollout lands a cost
 //! signal. Bearer auth + tenant scoping ride the dispatch layer.
 
-use super::body_from_request;
+use super::{body_from_request, rate_limit};
 use argo_audit::{AuditKind, AuditSink};
 use argo_genesis::{
     classify_charter, dialogue_to_charter, name_to_persona_slug, plan, CharterDialogue,
@@ -330,7 +330,7 @@ async fn emit_audit(
         "cost_usd": cost_usd,
     });
     let principal_id = super::routes_auth_principal::principal_id_for_audit(req);
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), rate_limit::extract_tenant(req));
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, principal_id)
         .await

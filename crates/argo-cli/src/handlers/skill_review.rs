@@ -12,7 +12,7 @@
 //! Active | Rejected) — illegal transitions return
 //! `ArgoError::Schema` and the CLI surfaces them as exit-1.
 use crate::cli::SkillReviewCmd;
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_skill::{LifecycleState, Skill, SkillStore};
 use argo_store::feedback::{latest_vote_for_action, Vote};
 use argo_types::{ArgoError, ArgoResult, SkillId};
@@ -314,7 +314,16 @@ async fn transition(
     // session's per-session audit timeline. Skill rows have no
     // reviewed_at / reviewed_by columns today, so reviewer data
     // is kept in this append-only audit payload.
-    let audit = AuditSink::new(skills.store_arc());
+    let store = skills.store_arc();
+    let tenant_id = match pre.learned_in {
+        Some(sid) => store
+            .get_session(sid)
+            .await?
+            .map(|session| session.tenant_id.to_string())
+            .unwrap_or_else(|| SYSTEM_AUDIT_TENANT_ID.to_string()),
+        None => SYSTEM_AUDIT_TENANT_ID.to_string(),
+    };
+    let audit = AuditSink::new_with_tenant(store, tenant_id);
     let payload = serde_json::json!({
         "skill_id": skill_id.0.to_string(),
         "name": &pre.frontmatter.name,

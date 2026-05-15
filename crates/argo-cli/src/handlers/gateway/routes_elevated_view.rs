@@ -105,6 +105,7 @@ pub(super) async fn request_response(
     };
     emit_audit(
         store,
+        tenant_id,
         &principal_id,
         "elevated_view.requested",
         json!({
@@ -117,6 +118,7 @@ pub(super) async fn request_response(
     .await;
     emit_audit(
         store,
+        tenant_id,
         &principal_id,
         "elevated_view.granted",
         json!({
@@ -205,6 +207,7 @@ pub(super) async fn revoke_response(
     }
     emit_audit(
         store,
+        caller_tenant,
         &caller_principal,
         "elevated_view.revoked",
         json!({
@@ -292,6 +295,7 @@ fn grant_to_json(row: &ElevatedViewGrantRow) -> Value {
 
 async fn emit_audit(
     store: &Arc<SessionStore>,
+    tenant: TenantId,
     principal_id: &str,
     event_type: &str,
     extras: Value,
@@ -305,7 +309,7 @@ async fn emit_audit(
             head.insert(k, v);
         }
     }
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(
             None,

@@ -2,6 +2,7 @@
 //! DB-backed `CanaryStore` + the `pick_canary_for_skill` /
 //! `load_canary_body` helpers the runner's `apply_canary_routing`
 //! drives. Picker math is in `argo-skill::canary_tests`.
+#![allow(deprecated)]
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_skill::{

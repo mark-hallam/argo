@@ -372,6 +372,19 @@ async fn emit_policy_audit(
     new_policy: &str,
     operator_note: &str,
 ) {
+    let tenant = match resolve_workspace_tenant(store).await {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!(
+                target: "gateway::worker_policies",
+                error = %e,
+                worker_id = %worker_id,
+                action_type = %action_type,
+                "resolve tenant for audit failed"
+            );
+            return;
+        }
+    };
     let payload = json!({
         "endpoint": "worker.policy_changed",
         "worker_id": worker_id.to_string(),
@@ -380,7 +393,7 @@ async fn emit_policy_audit(
         "new_policy": new_policy,
         "operator_note": operator_note,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, Some(principal_id.to_string()))
         .await

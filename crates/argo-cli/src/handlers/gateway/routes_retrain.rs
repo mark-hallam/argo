@@ -18,7 +18,7 @@
 //! this file under the 500-LOC ceiling.
 use super::body_from_request;
 use super::routes_auth_principal::principal_id_for_audit;
-use argo_audit::{AuditKind, AuditSink};
+use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 use argo_identity::{IdentityStore, Worker, WorkerId};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult, TenantId};
@@ -168,6 +168,7 @@ async fn reverse_test_inner(wid: &str, req: &str, store: Option<&Arc<SessionStor
     emit_audit(store, req, json!({
         "endpoint": REVERSE_TEST_KEY,
         "retrain_id": retrain_id.to_string(),
+        "tenant_id": ctx.tenant.to_string(),
         "worker_id": ctx.worker.id.to_string(),
         "sample_size": sample_size,
         "llm_calls_used": 0,
@@ -241,7 +242,12 @@ async fn resolve_workspace_tenant(store: &SessionStore) -> ArgoResult<TenantId> 
     Ok(tenant)
 }
 async fn emit_audit(store: &Arc<SessionStore>, req: &str, payload: Value) {
-    if let Err(e) = AuditSink::new(Arc::clone(store))
+    let tenant_id = payload
+        .get("tenant_id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| SYSTEM_AUDIT_TENANT_ID.to_string());
+    if let Err(e) = AuditSink::new_with_tenant(Arc::clone(store), tenant_id)
         .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
         .await
     {
@@ -256,6 +262,7 @@ async fn emit_trust_reset(
     emit_audit(store, req, json!({
         "endpoint": TRUST_RESET_KEY,
         "retrain_id": retrain_id.to_string(),
+        "tenant_id": ctx.tenant.to_string(),
         "worker_id": ctx.worker.id.to_string(),
         "action_type": action_type,
         "phase": phase,

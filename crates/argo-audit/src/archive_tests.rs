@@ -1,5 +1,6 @@
 //! Unit tests for `crate::archive` (#228).
 #![cfg(test)]
+#![allow(deprecated)]
 
 use super::*;
 use crate::{AuditKind, AuditSink};

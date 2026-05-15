@@ -1,5 +1,6 @@
 //! Tests for `gap::detect_policy_denials` (#682).
 #![cfg(test)]
+#![allow(deprecated)]
 
 use super::*;
 use crate::{AuditKind, AuditSink};

@@ -14,15 +14,16 @@
 //! ```
 //! # async fn doc() -> argo_types::ArgoResult<()> {
 //! use std::sync::Arc;
-//! use argo_audit::{AuditKind, AuditSink};
+//! use argo_audit::{AuditKind, AuditSink, SYSTEM_AUDIT_TENANT_ID};
 //! use argo_store::SessionStore;
 //! let store = Arc::new(SessionStore::open(":memory:").await?);
 //! store.migrate().await?;
-//! let sink = AuditSink::new(store);
+//! let sink = AuditSink::new_with_tenant(store, SYSTEM_AUDIT_TENANT_ID.to_string());
 //! sink.write(None, AuditKind::TurnStart, serde_json::json!({"k": 1}), None).await?;
 //! # Ok(()) }
 //! ```
 #![warn(missing_docs)]
+#![cfg_attr(test, allow(deprecated))]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
 /// Periodic evidence archival (#228, Tier S) — tar.gz bundle +

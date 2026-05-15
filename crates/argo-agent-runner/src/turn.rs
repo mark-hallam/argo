@@ -211,7 +211,7 @@ async fn run_turn_with_events_inner(
     // matching dispatch so subsequent calls re-block.
     let session_grants = build_session_grant_state(store, session_id).await;
 
-    let audit = AuditSink::new(store.clone());
+    let audit = AuditSink::new_with_tenant(store.clone(), session.tenant_id.to_string());
     // Pre-turn budget gate (mission-delegation-budget-tree): if a
     // running subtask is bound to this session and its declared
     // budget is exhausted, abort cleanly with `BudgetExhausted`
@@ -374,7 +374,7 @@ async fn build_system_prompt_with_ab(
 ) -> ArgoResult<(Option<String>, Vec<turn_skills_runtime::PendingAbOutcome>)> {
     let skills = argo_skill::SkillStore::new(Arc::clone(store));
     let mut active = turn_helpers::load_prompt_skills(&skills, session_id, vertical_id).await?;
-    turn_canary::apply_canary_routing(store, &skills, session_id, &mut active).await?;
+    turn_canary::apply_canary_routing(store, &skills, session_id, tenant_id, &mut active).await?;
     let (active, pending) =
         turn_skills_runtime::resolve_variants_for_turn(store, invocation_id, active).await;
     turn_skills_migration::emit_pending_migration_hints(store, &active).await;

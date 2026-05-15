@@ -9,6 +9,7 @@
 
 use super::routes_audit_screenshot::{sign_screenshot_url, SCREENSHOT_URL_TTL_SECS};
 use super::routes_auth_principal::principal_id_for_audit;
+use super::rate_limit;
 use super::store_unavailable;
 use argo_audit::{AuditKind, AuditSink};
 use argo_redact::{redact_text, RedactionPolicy};
@@ -44,7 +45,8 @@ pub(super) async fn detail_response(
     let body = json!({
         "detail": build_detail(action_id, &row, &payload, &policy),
     });
-    emit_view_audit(store, req, action_id).await;
+    let tenant_id = payload_str(&payload, "tenant_id").unwrap_or_else(|| rate_limit::extract_tenant(req));
+    emit_view_audit(store, req, &tenant_id, action_id).await;
     ("200 OK", body.to_string())
 }
 
@@ -408,12 +410,12 @@ fn payload_str(p: &Value, key: &str) -> Option<String> {
     p.get(key).and_then(Value::as_str).map(str::to_string)
 }
 
-async fn emit_view_audit(store: &Arc<SessionStore>, req: &str, action_id: &str) {
+async fn emit_view_audit(store: &Arc<SessionStore>, req: &str, tenant_id: &str, action_id: &str) {
     let payload = json!({
         "endpoint": "audit.detail.viewed",
         "viewed_action_id": action_id,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant_id.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
         .await

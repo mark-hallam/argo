@@ -98,6 +98,7 @@ pub(super) async fn create_response(
     };
     emit_audit(
         store,
+        tenant_id,
         &principal_id,
         AuditKind::RetroCreated,
         json!({
@@ -175,9 +176,13 @@ pub(super) async fn finalize_response(
         Err(RetroError::Finalized) => return conflict("retro already finalized"),
         Err(RetroError::Backend(e)) => return server_error(&format!("finalize retro: {e}")),
     };
-    let principal_id = principal_id_for_audit(req).unwrap_or_else(|| "system:retro".to_string());
+    let (tenant_id, principal_id) = match resolve_tenant_principal(store, req).await {
+        Ok(pair) => pair,
+        Err(e) => return server_error(&format!("resolve tenant: {e}")),
+    };
     emit_audit(
         store,
+        tenant_id,
         &principal_id,
         AuditKind::RetroFinalized,
         json!({
@@ -351,6 +356,7 @@ fn worker_blob_to_uuid_string(blob: &[u8]) -> String {
 
 async fn emit_audit(
     store: &Arc<SessionStore>,
+    tenant: TenantId,
     principal_id: &str,
     kind: AuditKind,
     extras: Value,
@@ -363,7 +369,7 @@ async fn emit_audit(
             head.insert(k, v);
         }
     }
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(None, kind, payload, Some(principal_id.to_string()))
         .await

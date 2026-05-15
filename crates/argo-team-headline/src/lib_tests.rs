@@ -1,4 +1,5 @@
 //! End-to-end + bullet-shaping tests for `argo-team-headline`.
+#![allow(deprecated)]
 
 use std::sync::Arc;
 

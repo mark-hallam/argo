@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use super::*;
 use argo_store::SessionStore;
 use argo_types::{SessionId, TenantId, WorkspaceId};

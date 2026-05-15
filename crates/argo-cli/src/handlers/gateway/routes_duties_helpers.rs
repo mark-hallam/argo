@@ -238,10 +238,17 @@ pub(super) async fn emit_audit(
     store: &Arc<SessionStore>, req: &str, endpoint: &'static str,
     worker_id: &WorkerId, item_count: usize,
 ) {
+    let tenant = match resolve_workspace_tenant(store).await {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!(target: "gateway::duties", error = %e, endpoint = %endpoint, "resolve tenant for audit failed");
+            return;
+        }
+    };
     let payload = json!({
         "endpoint": endpoint, "worker_id": worker_id.to_string(), "items": item_count,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink.write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req)).await {
         tracing::warn!(target: "gateway::duties", endpoint = %endpoint, error = %e, "duty audit write failed");
     }

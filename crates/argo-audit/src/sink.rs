@@ -113,6 +113,7 @@ impl AuditSink {
     /// [`DEFAULT_AUDIT_TENANT_ID`] as the stamped tenant id. New code
     /// that knows its workspace tenant should prefer
     /// [`AuditSink::new_with_tenant`].
+    #[deprecated(note = "production must use new_with_tenant; new() retained for test fixtures only")]
     #[must_use]
     pub fn new(store: Arc<SessionStore>) -> Self {
         Self::new_with_tenant(store, DEFAULT_AUDIT_TENANT_ID.to_string())

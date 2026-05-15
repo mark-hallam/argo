@@ -207,6 +207,7 @@ fn render_show(row: &GatewayRequestAuditRow, _json: bool) -> ArgoResult<()> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use argo_audit::{AuditKind, AuditSink};

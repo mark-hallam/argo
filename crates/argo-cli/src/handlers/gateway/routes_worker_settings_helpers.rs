@@ -129,7 +129,7 @@ pub(super) async fn emit_audit(
             }
         }
     }
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), worker.tenant_id.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
         .await

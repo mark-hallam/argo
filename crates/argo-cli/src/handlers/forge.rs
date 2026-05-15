@@ -160,7 +160,7 @@ async fn bench(
             tasks.len() as u32,
         )
         .await?;
-    let _ = AuditSink::new(Arc::clone(&store))
+    let _ = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string())
         .write(
             None,
             AuditKind::ForgeRunStart,
@@ -195,7 +195,7 @@ async fn bench(
     let _ = store
         .finish_forge_run(run_id, status, Some(summary.mean_score), summary.n as i64)
         .await;
-    let _ = AuditSink::new(Arc::clone(&store))
+    let _ = AuditSink::new_with_tenant(Arc::clone(&store), tenant.to_string())
         .write(
             None,
             AuditKind::ForgeRunEnd,

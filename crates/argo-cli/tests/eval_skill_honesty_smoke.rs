@@ -7,6 +7,7 @@
 //! `argo` binary: the production handler needs a live provider, and
 //! the integration risk we care about is the algorithm + audit-read
 //! path. The on-disk SessionStore + audit chain are real.
+#![allow(deprecated)]
 
 use argo_audit::{AuditKind, AuditSink};
 use argo_eval::{run_honesty_test, AuditSampler, HonestyConfig, HonestyResult, SkillSample};

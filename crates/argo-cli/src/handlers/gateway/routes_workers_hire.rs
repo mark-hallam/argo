@@ -115,7 +115,7 @@ pub(super) async fn hire_response(
         remember_idempotency(tenant_id, key, &body_digest, new_id);
     }
 
-    emit_hire_audit(store, &principal_id, new_id, &problem, &answers, &draft).await;
+    emit_hire_audit(store, tenant_id, &principal_id, new_id, &problem, &answers, &draft).await;
     (
         "201 Created",
         json!({
@@ -228,6 +228,7 @@ pub(super) fn reset_idem_cache_for_tests() {
 
 async fn emit_hire_audit(
     store: &std::sync::Arc<SessionStore>,
+    tenant_id: TenantId,
     principal_id: &str,
     worker_id: WorkerId,
     problem: &str,
@@ -254,7 +255,7 @@ async fn emit_hire_audit(
                 .collect::<Vec<_>>(),
         }),
     });
-    let sink = AuditSink::new(std::sync::Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(std::sync::Arc::clone(store), tenant_id.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, Some(principal_id.to_string()))
         .await

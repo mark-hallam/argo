@@ -106,7 +106,7 @@ pub(super) async fn list_response(
         .iter()
         .map(|row| activity_row_json(row, &worker_id_str, &worker_name, &policy))
         .collect();
-    emit_view_audit(store, req, worker_id, &params, items.len()).await;
+    emit_view_audit(store, req, tenant, worker_id, &params, items.len()).await;
     let mut body = json!({ "items": items });
     if let Some(c) = next_cursor {
         body["next_cursor"] = Value::String(c);
@@ -363,6 +363,7 @@ async fn fetch_archived_at(
 async fn emit_view_audit(
     store: &Arc<SessionStore>,
     req: &str,
+    tenant: TenantId,
     worker_id: WorkerId,
     params: &ActivityParams,
     returned: usize,
@@ -383,7 +384,7 @@ async fn emit_view_audit(
         "limit": params.limit,
         "returned": returned,
     });
-    let sink = AuditSink::new(Arc::clone(store));
+    let sink = AuditSink::new_with_tenant(Arc::clone(store), tenant.to_string());
     if let Err(e) = sink
         .write(None, AuditKind::HttpRequest, payload, principal_id_for_audit(req))
         .await
