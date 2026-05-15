@@ -3,9 +3,9 @@
 //! on the cross-tenant share PoC (data model + signing) and the
 //! dashboard MVP (HTML rendering pattern).
 //!
-//! Mounted at `/marketplace/*` ahead of the bearer-token gate (same
-//! UX rationale as the dashboard MVP: browser POSTs work without a
-//! per-tab token; tenant isolation is enforced via `x-tenant-id`).
+//! Mounted at `/marketplace/*`: GET browsing is anonymous, while
+//! install POSTs carry their own bearer/JWT auth gate and derive the
+//! target tenant from that auth context, never `x-tenant-id`.
 //!
 //! - `GET  /marketplace`                    — list view with search
 //!   + vertical + executor filters.
@@ -45,8 +45,12 @@
 use super::marketplace_render::{
     render_404, render_detail, render_install_ok, render_list, url_decode, HTML_HDR, HTML_HDR_404,
 };
-use argo_skill::marketplace::{search, SearchOptions};
+use super::routes_auth::check_bearer_auth;
+use super::routes_auth_principal::principal_id_for_audit;
+use argo_audit::{AuditKind, AuditSink};
+use argo_skill::marketplace::{search, MarketplaceSkill, SearchOptions};
 use argo_store::SessionStore;
+use serde_json::json;
 use std::sync::Arc;
 
 /// Cheap pre-check used by [`super::routes::dispatch_route`] to
@@ -55,13 +59,24 @@ pub(super) fn is_marketplace(req: &str) -> bool {
     let Some(line) = req.lines().next() else {
         return false;
     };
-    let after_method = line
-        .strip_prefix("GET ")
-        .or_else(|| line.strip_prefix("POST "));
-    let Some(target) = after_method else {
+    let Some((_method, target)) = method_target(line) else {
         return false;
     };
-    let path = target.split([' ', '?']).next().unwrap_or("");
+    is_marketplace_path(split_query(target).0)
+}
+
+/// True only for anonymous marketplace browse/detail requests.
+pub(super) fn is_marketplace_get(req: &str) -> bool {
+    let Some(line) = req.lines().next() else {
+        return false;
+    };
+    let Some((method, target)) = method_target(line) else {
+        return false;
+    };
+    method == "GET" && is_marketplace_path(split_query(target).0)
+}
+
+fn is_marketplace_path(path: &str) -> bool {
     path == "/marketplace" || path.starts_with("/marketplace/")
 }
 
@@ -199,35 +214,29 @@ async fn install_action(
 ) -> (&'static str, String) {
     let id = url_decode(skill_id);
 
-    // Authn: caller's tenant comes from the `x-tenant-id` header.
-    // No header → no install (anonymous browsers cannot install).
-    let Some(principal) = header_value(req, "x-tenant-id").filter(|p| !p.is_empty()) else {
-        return (
-            "401 Unauthorized",
-            "{\"error\":\"missing x-tenant-id header\"}".to_string(),
-        );
+    let auth = match authenticated_caller(req) {
+        Ok(auth) => auth,
+        Err(resp) => return resp,
     };
-    // Authz: a target tenant on the URL or in the body must equal
-    // the principal — cross-tenant install via this endpoint is
-    // forbidden. The marketplace always operates on the caller's
-    // own tenant.
+    let Some(store) = store else {
+        return crate::handlers::gateway::store_unavailable();
+    };
+
+    // Authz: a target tenant on the URL or in the body must equal the
+    // authenticated tenant. `x-tenant-id` remains display-only for GET
+    // rendering and is never trusted for installs.
     let body = body_of(req);
     let target = query_param(query, "tenant")
         .map(url_decode)
         .or_else(|| body_tenant_id(body));
     if let Some(target) = target.as_deref() {
-        if !target.is_empty() && target != principal {
+        if !target.is_empty() && target != auth.tenant_id {
             return (
                 "403 Forbidden",
-                "{\"error\":\"tenant mismatch — cannot install into another tenant\"}"
-                    .to_string(),
+                "{\"error\":\"tenant mismatch — cannot install into another tenant\"}".to_string(),
             );
         }
     }
-
-    let Some(store) = store else {
-        return crate::handlers::gateway::store_unavailable();
-    };
 
     let entries = search("", &SearchOptions::default());
     let Some(skill) = entries.iter().find(|s| s.name == id) else {
@@ -245,14 +254,15 @@ async fn install_action(
         &skill.name,
         &skill.version,
         true,
-        Some(principal),
+        Some(&auth.tenant_id),
     )
     .await
     {
         tracing::warn!(
             target: "gateway::marketplace",
             skill = %skill.name,
-            tenant = %principal,
+            tenant = %auth.tenant_id,
+            principal = %auth.principal_id,
             error = %e,
             "marketplace install: set_shared failed"
         );
@@ -261,8 +271,96 @@ async fn install_action(
             format!("{{\"error\":\"install: {e}\"}}"),
         );
     }
+    audit_install(store, &auth, skill).await;
     (HTML_HDR, render_install_ok(&skill.name))
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AuthContext {
+    tenant_id: String,
+    principal_id: String,
+}
+
+fn authenticated_caller(req: &str) -> Result<AuthContext, (&'static str, String)> {
+    let Some(token) = bearer_token(req) else {
+        return Err((
+            "401 Unauthorized",
+            r#"{"error":"unauthorized","reason":"missing bearer token"}"#.to_string(),
+        ));
+    };
+    if let Ok(claims) = super::jwt::verify_jwt(&token, chrono::Utc::now().timestamp()) {
+        if !claims.tnt.is_empty() && !claims.sub.is_empty() {
+            return Ok(AuthContext {
+                tenant_id: claims.tnt,
+                principal_id: claims.sub,
+            });
+        }
+    }
+    if let Some(resp) = check_bearer_auth(req) {
+        return Err(resp);
+    }
+    let Some(principal_id) = principal_id_for_audit(req) else {
+        return Err((
+            "401 Unauthorized",
+            r#"{"error":"unauthorized","reason":"missing authenticated principal"}"#.to_string(),
+        ));
+    };
+    Ok(AuthContext {
+        tenant_id: configured_tenant_id(),
+        principal_id,
+    })
+}
+
+fn bearer_token(req: &str) -> Option<String> {
+    header_value(req, "Authorization")
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .filter(|t| !t.trim().is_empty())
+        .map(|t| t.trim().to_string())
+}
+
+fn configured_tenant_id() -> String {
+    let cfg = argo_config::load().unwrap_or_default();
+    let explicit = cfg.tenant.default_id.trim();
+    if !explicit.is_empty()
+        && explicit != argo_config::defaults::DEFAULT_TENANT_ID
+        && explicit != argo_config::LEGACY_AUDIT_TENANT_SENTINEL
+    {
+        return explicit.to_string();
+    }
+    std::env::current_dir()
+        .map(|cwd| argo_config::workspace_tenant_id(&cwd))
+        .unwrap_or_else(|_| argo_config::defaults::DEFAULT_TENANT_ID.to_string())
+}
+
+async fn audit_install(store: &Arc<SessionStore>, auth: &AuthContext, skill: &MarketplaceSkill) {
+    let payload = json!({
+        "event_type": "marketplace.skill_installed",
+        "skill_name": skill.name,
+        "skill_version": skill.version,
+        "tenant_id": auth.tenant_id,
+    });
+    if let Err(e) = AuditSink::new_with_tenant(Arc::clone(store), auth.tenant_id.clone())
+        .write(
+            None,
+            AuditKind::HttpRequest,
+            payload,
+            Some(auth.principal_id.clone()),
+        )
+        .await
+    {
+        tracing::warn!(
+            target: "gateway::marketplace",
+            tenant = %auth.tenant_id,
+            principal = %auth.principal_id,
+            error = %e,
+            "marketplace install: audit write failed"
+        );
+    }
+}
+
+#[cfg(test)]
+#[path = "marketplace_authz_tests.rs"]
+mod authz_tests;
 
 #[cfg(test)]
 mod tests {
@@ -360,7 +458,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn install_requires_tenant_header() {
+    async fn install_requires_authenticated_principal() {
         let (status, _body) = dispatch(
             "POST /marketplace/marketplace-listing-draft/install HTTP/1.1\r\n\r\n",
             None,
@@ -368,28 +466,5 @@ mod tests {
         .await
         .expect("install route");
         assert!(status.starts_with("401"));
-    }
-
-    #[tokio::test]
-    async fn install_rejects_cross_tenant_via_query() {
-        let (status, body) = dispatch(
-            "POST /marketplace/marketplace-listing-draft/install?tenant=beta \
-             HTTP/1.1\r\nX-Tenant-Id: alpha\r\n\r\n",
-            None,
-        )
-        .await
-        .expect("install route");
-        assert!(status.starts_with("403"));
-        assert!(body.contains("tenant mismatch"));
-    }
-
-    #[tokio::test]
-    async fn install_rejects_cross_tenant_via_body() {
-        let req = "POST /marketplace/marketplace-listing-draft/install \
-                   HTTP/1.1\r\nX-Tenant-Id: alpha\r\nContent-Type: application/json\r\n\
-                   Content-Length: 20\r\n\r\n{\"tenant_id\":\"beta\"}";
-        let (status, body) = dispatch(req, None).await.expect("install route");
-        assert!(status.starts_with("403"));
-        assert!(body.contains("tenant mismatch"));
     }
 }

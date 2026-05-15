@@ -90,11 +90,12 @@ async fn dispatch_route_inner(
             return resp;
         }
     }
-    // Skill marketplace MVP (`claude-skill-marketplace-mvp`). Same
-    // pre-bearer-gate mount as the dashboard: browser POSTs work
-    // without per-tab tokens. Tenant isolation is enforced inside
-    // the install handler via the `x-tenant-id` request header.
-    if super::marketplace::is_marketplace(req) {
+    // Skill marketplace browsing stays anonymous so prospects can
+    // inspect the catalog. Marketplace install POSTs are mutating
+    // actions, so the marketplace dispatcher handles them only after
+    // anonymous GET routing; `install_action` accepts either the
+    // configured bearer token or a verified JWT before side effects.
+    if super::marketplace::is_marketplace_get(req) {
         if let Some(resp) = super::marketplace::dispatch(req, store).await {
             return resp;
         }
@@ -113,6 +114,11 @@ async fn dispatch_route_inner(
     }
     if let Some(resp) = dispatch_get(req, store).await {
         return resp;
+    }
+    if super::marketplace::is_marketplace(req) {
+        if let Some(resp) = super::marketplace::dispatch(req, store).await {
+            return resp;
+        }
     }
     if let Some(resp) = dispatch_post(req, store).await {
         return resp;

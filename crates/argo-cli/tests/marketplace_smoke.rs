@@ -14,11 +14,48 @@ mod common;
 use common::{body_of, boot, http_get, pick_free_port};
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::sync::{Mutex, MutexGuard};
+
+const TOKEN: &str = "marketplace-test-token";
+const TENANT_B: &str = "019aff00-0000-7000-8000-000000000202";
+
+fn lock_env() -> MutexGuard<'static, ()> {
+    static M: Mutex<()> = Mutex::new(());
+    M.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+struct EnvGuard {
+    _guard: MutexGuard<'static, ()>,
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        reset_env();
+    }
+}
+
+fn configure_env() -> EnvGuard {
+    let guard = lock_env();
+    unsafe {
+        std::env::set_var("OPENAI_API_KEY", "test-key");
+        std::env::set_var("ARGO_GATEWAY_AUTH_BYPASS", "1");
+    }
+    EnvGuard { _guard: guard }
+}
+
+fn reset_env() {
+    unsafe {
+        std::env::remove_var("OPENAI_API_KEY");
+        std::env::remove_var("ARGO_GATEWAY_AUTH_BYPASS");
+        std::env::remove_var("ARGO_GATEWAY_BEARER_TOKEN");
+        std::env::remove_var("ARGO_DEFAULT_TENANT");
+    }
+}
 
 /// Raw HTTP POST with arbitrary headers. The shared `http_post`
 /// helper only sets `Content-Type: application/json`, so the smoke
-/// test rolls its own to inject `X-Tenant-Id` for the install +
-/// tenant-mismatch cases.
+/// test rolls its own to inject bearer/principal headers for
+/// mutating marketplace install calls.
 fn http_post_with_headers(port: u16, path: &str, body: &str, headers: &[(&str, &str)]) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
     let mut extra = String::new();
@@ -38,16 +75,14 @@ fn http_post_with_headers(port: u16, path: &str, body: &str, headers: &[(&str, &
 
 #[test]
 fn marketplace_browse_detail_install_smoke() {
+    let _env = configure_env();
     let port = pick_free_port();
     // budget: boot's /sessions pre-warm + list + detail + 3 install posts = 6
     let (mut child, _stderr) = boot(port, 8);
 
     // --- list view ---
     let list = http_get(port, "/marketplace");
-    assert!(
-        list.contains("HTTP/1.1 200 OK"),
-        "list status: {list}"
-    );
+    assert!(list.contains("HTTP/1.1 200 OK"), "list status: {list}");
     assert!(
         list.contains("Content-Type: text/html"),
         "list Content-Type: {list}"
@@ -96,7 +131,7 @@ fn marketplace_browse_detail_install_smoke() {
         "detail install button text: {detail_body}"
     );
 
-    // --- install: missing tenant → 401 ---
+    // --- install: missing bearer → 401 ---
     let no_auth = http_post_with_headers(
         port,
         "/marketplace/marketplace-listing-draft/install",
@@ -105,15 +140,19 @@ fn marketplace_browse_detail_install_smoke() {
     );
     assert!(
         no_auth.contains("HTTP/1.1 401"),
-        "install without tenant header is 401: {no_auth}"
+        "install without bearer is 401: {no_auth}"
     );
 
     // --- install: tenant mismatch → 403 ---
+    let auth = format!("Bearer {TOKEN}");
     let cross_tenant = http_post_with_headers(
         port,
-        "/marketplace/marketplace-listing-draft/install?tenant=beta",
+        &format!("/marketplace/marketplace-listing-draft/install?tenant={TENANT_B}"),
         "",
-        &[("X-Tenant-Id", "alpha")],
+        &[
+            ("Authorization", auth.as_str()),
+            ("X-Argo-Principal", "human:marketplace-test"),
+        ],
     );
     assert!(
         cross_tenant.contains("HTTP/1.1 403"),
@@ -129,7 +168,10 @@ fn marketplace_browse_detail_install_smoke() {
         port,
         "/marketplace/marketplace-listing-draft/install",
         "",
-        &[("X-Tenant-Id", "alpha")],
+        &[
+            ("Authorization", auth.as_str()),
+            ("X-Argo-Principal", "human:marketplace-test"),
+        ],
     );
     assert!(
         ok.contains("HTTP/1.1 200 OK"),
@@ -151,6 +193,7 @@ fn marketplace_browse_detail_install_smoke() {
 
 #[test]
 fn marketplace_unknown_skill_returns_404() {
+    let _env = configure_env();
     let port = pick_free_port();
     let (mut child, _stderr) = boot(port, 4);
     let resp = http_get(port, "/marketplace/does-not-exist");
@@ -159,10 +202,7 @@ fn marketplace_unknown_skill_returns_404() {
         "unknown skill detail is 404: {resp}"
     );
     let body = body_of(&resp);
-    assert!(
-        body.contains("No skill named"),
-        "404 body explains: {body}"
-    );
+    assert!(body.contains("No skill named"), "404 body explains: {body}");
     child.kill().ok();
     let _ = child.wait();
 }
