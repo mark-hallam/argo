@@ -38,6 +38,7 @@ mod overlays_tables;
 mod overlays_tool_errors;
 mod render;
 mod render_messages;
+pub mod search_everywhere;
 pub mod session_detail;
 mod session_detail_render;
 mod text_input;

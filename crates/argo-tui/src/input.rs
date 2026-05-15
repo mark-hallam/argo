@@ -187,7 +187,7 @@ pub(crate) async fn run(
             // E, M, O, H, B, V, D) live in input_globals so
             // downstream global-key briefs have a narrow extension
             // point instead of editing this event loop.
-            if crate::input_globals::dispatch_global_key(state, &store, &cwd, key.code).await? {
+            if crate::input_globals::dispatch_global_key(terminal, state, &store, &cwd, key).await? {
                 continue;
             }
             match key.code {

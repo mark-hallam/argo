@@ -7,8 +7,10 @@
 use crate::app::ViewerState;
 use argo_store::SessionStore;
 use argo_types::ArgoResult;
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::{backend::CrosstermBackend, Terminal};
 use std::fmt;
+use std::io::Stdout;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -25,6 +27,8 @@ pub enum GlobalKeyAction {
     ReplayOverlay,
     /// Open the dashboard overlay.
     DashboardOverlay,
+    /// Open the universal Ctrl-K search overlay.
+    SearchEverywhereOverlay,
 }
 
 /// One global keybinding entry.
@@ -32,6 +36,8 @@ pub enum GlobalKeyAction {
 pub struct GlobalKeyBinding {
     /// Key that triggers the action.
     pub key: KeyCode,
+    /// Required modifiers for the key.
+    pub modifiers: KeyModifiers,
     /// Action invoked for the key.
     pub action: GlobalKeyAction,
 }
@@ -57,10 +63,27 @@ pub fn register_global_key(
     key: KeyCode,
     action: GlobalKeyAction,
 ) -> Result<(), DuplicateGlobalKey> {
-    if registry.iter().any(|binding| binding.key == key) {
+    register_global_key_with_modifiers(registry, key, KeyModifiers::NONE, action)
+}
+
+/// Register one modified key/action pair in a caller-owned registry.
+pub fn register_global_key_with_modifiers(
+    registry: &mut Vec<GlobalKeyBinding>,
+    key: KeyCode,
+    modifiers: KeyModifiers,
+    action: GlobalKeyAction,
+) -> Result<(), DuplicateGlobalKey> {
+    if registry
+        .iter()
+        .any(|binding| binding.key == key && binding.modifiers == modifiers)
+    {
         return Err(DuplicateGlobalKey { key });
     }
-    registry.push(GlobalKeyBinding { key, action });
+    registry.push(GlobalKeyBinding {
+        key,
+        modifiers,
+        action,
+    });
     Ok(())
 }
 
@@ -86,37 +109,59 @@ pub fn default_global_keys() -> Vec<GlobalKeyBinding> {
     ] {
         let _ = register_global_key(&mut registry, key, action);
     }
+    let _ = register_global_key_with_modifiers(
+        &mut registry,
+        KeyCode::Char('k'),
+        KeyModifiers::CONTROL,
+        GlobalKeyAction::SearchEverywhereOverlay,
+    );
     registry
 }
 
 /// Look up a key in a registry.
 pub fn lookup_global_key(registry: &[GlobalKeyBinding], key: KeyCode) -> Option<GlobalKeyAction> {
+    lookup_global_key_with_modifiers(registry, key, KeyModifiers::NONE)
+}
+
+/// Look up a modified key in a registry.
+pub fn lookup_global_key_with_modifiers(
+    registry: &[GlobalKeyBinding],
+    key: KeyCode,
+    modifiers: KeyModifiers,
+) -> Option<GlobalKeyAction> {
     registry
         .iter()
-        .find(|binding| binding.key == key)
+        .find(|binding| binding.key == key && binding.modifiers == modifiers)
         .map(|binding| binding.action)
 }
 
 /// Dispatch a top-level global key. Returns `true` when consumed.
 pub async fn dispatch_global_key(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     state: &mut ViewerState,
     store: &Arc<SessionStore>,
     cwd: &Path,
-    key: KeyCode,
+    key: KeyEvent,
 ) -> ArgoResult<bool> {
-    let Some(action) = lookup_global_key(&default_global_keys(), key) else {
+    let Some(action) =
+        lookup_global_key_with_modifiers(&default_global_keys(), key.code, key.modifiers)
+    else {
         return Ok(false);
     };
     match action {
         GlobalKeyAction::HelpOverlay => state.help_overlay = true,
         GlobalKeyAction::StoreBackedOverlay => {
-            return crate::input_overlay_dispatch::try_open_overlay(state, store, cwd, key).await;
+            return crate::input_overlay_dispatch::try_open_overlay(state, store, cwd, key.code)
+                .await;
         }
         GlobalKeyAction::HStackOverlay => {
-            return Ok(crate::input_h_stack::try_open_h_stack_overlay(state, key).await);
+            return Ok(crate::input_h_stack::try_open_h_stack_overlay(state, key.code).await);
         }
         GlobalKeyAction::ReplayOverlay => crate::input_replay::open_replay_overlay(state),
         GlobalKeyAction::DashboardOverlay => crate::input_dashboard::open_dashboard_overlay(state),
+        GlobalKeyAction::SearchEverywhereOverlay => {
+            crate::search_everywhere::run_search_overlay(terminal, state, store).await?;
+        }
     }
     Ok(true)
 }
