@@ -30,19 +30,49 @@ Scope:
 - Delete `dispatch_tenant()` (force compile failure for any new caller).
 - Tests prove MCP pool keying isolates per tenant; tests prove delegate_task handoff persists the real tenant.
 
-LOC: ~400 (struct field add + 6 callsite updates + tests).
+LOC: ~600 (struct field add + ~10 production constructor updates + ~12 test constructor updates + 6 nil-tenant callsite updates + new isolation tests).
 
 ## Files you may touch
 
-- `crates/argo-tool/src/lib.rs` — add `tenant_id: TenantId` field to `ToolContext` struct. ≤25 modified lines.
-- `crates/argo-agent-runner/src/dispatch.rs` — remove `dispatch_tenant()`; replace 2 callsites with `ctx.tenant_id` (or the agent loop's `session.tenant_id`); update `McpClientPool` keying. ≤80 modified lines.
+**Struct definition + re-export:**
+- `crates/argo-tool/src/tool.rs` — add `tenant_id: TenantId` field to `ToolContext` struct (defined at `tool.rs:53`); update `ToolContext::new` signature to require `TenantId`; update internal struct-literal callers in this file. ≤50 modified lines.
+- `crates/argo-tool/src/lib.rs` — narrowly: re-export adjustment if needed (current re-export at line 42). ≤10 modified lines.
+
+**Agent runner integration (real tenant source):**
+- `crates/argo-agent-runner/src/dispatch.rs` — remove `dispatch_tenant()`; replace 2 callsites with `ctx.tenant_id`; update `McpClientPool` keying. ≤80 modified lines.
 - `crates/argo-agent-runner/src/turn.rs` — narrowly: pass `session.tenant_id` when building `ToolContext`. ≤25 modified lines.
+
+**Production constructor callsites (need real tenant plumbed in):**
+- `crates/argo-cli/src/handlers/vertical_workflow_step.rs` — pass real tenant (likely from workflow step's session). ≤20 modified lines.
+- `crates/argo-tool/src/registry.rs` — update internal `ToolContext::new` callers. ≤30 modified lines.
+- `crates/argo-tool/src/tools/process.rs` — update constructor + dispatch_tenant call if present. ≤25 modified lines.
+- `crates/argo-tool/src/tools/file_read.rs` — update constructor. ≤15 modified lines.
+- `crates/argo-tool/src/tools/file_write.rs` — update constructor. ≤15 modified lines.
+- `crates/argo-tool/src/tools/code_execute.rs` — update constructor. ≤15 modified lines.
+- `crates/argo-tool/src/tools/file_patch.rs` — update constructor. ≤15 modified lines.
+- `crates/argo-tool/src/tools/web/mod.rs` — update struct-literal callers. ≤15 modified lines.
+
+**Nil-tenant dispatch_tenant() callers (the 6 known sites):**
 - `crates/argo-tool/src/tools/delegate_task.rs` — replace `dispatch_tenant()` calls with `ctx.tenant_id`; remove the nil-tenant comment. ≤50 modified lines.
 - `crates/argo-cli/src/handlers/worker_actions_executor_browser.rs` — replace nil-tenant. ≤30 modified lines.
 - `crates/argo-cli/src/handlers/worker_actions_executor_mcp.rs` — replace nil-tenant. ≤40 modified lines.
 - `crates/argo-cli/src/handlers/mcp_tools.rs` — replace nil-tenant. ≤30 modified lines.
 - `crates/argo-cli/src/handlers/skill_ir_backfill.rs` — replace nil-tenant. ≤25 modified lines.
-- Test siblings: existing `dispatch_tests.rs` + `delegate_task_tests.rs` + new isolation test. ≤120 LOC.
+
+**Test files (pass explicit test-fixture tenant; nil is acceptable in `#[cfg(test)]`):**
+- `crates/argo-tool/src/tools/delegate_task_tests.rs` — pass test tenant. ≤30 modified lines.
+- `crates/argo-tool/src/tools/terminal_tests.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/src/tools/memory_tests.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/src/tools/clarify_tests.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/src/tools/send_message_tests.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/src/tools/todo_tests.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/src/tools/session_search_tests.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/tests/todo_clarify_integration.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/tests/process_registry_integration.rs` — pass test tenant. ≤15 modified lines.
+- `crates/argo-tool/tests/code_execute_integration.rs` — pass test tenant. ≤15 modified lines.
+- Existing `dispatch_tests.rs` + new cross-tenant isolation test sibling. ≤120 LOC.
+
+Use a single test-fixture helper like `fn test_tenant() -> TenantId { TenantId(Uuid::nil()) }` inside a shared test helper to keep test code DRY. Test-side nil tenants are acceptable; production-side nil tenants must be deleted.
 
 ## Files you must NOT touch
 
