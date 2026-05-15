@@ -42,3 +42,16 @@ LOC: ~1000. Branch: `claude-L14-skill-ir-composition`. PR title: `feat(skill-ir)
 
 - See `streams/L0-skill-canvas-track-overview.md` §L14-skill-ir-composition for the authoritative spec.
 - Mission-claim alignment: claim 4 (Skills are shared and learned).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes placeholder list)
+
+L14 composes multiple skill IRs into a parent skill (sub-skill calls). Current NodeKind has `SubSkillCall` already (per L8 #1668 ship); composition is the logic that calls into a sub-skill's IR.
+
+- NEW `crates/argo-skill/src/ir/composition.rs` — composition logic. ≤300 LOC.
+- NEW `crates/argo-skill/src/ir/composition_tests.rs` — 5+ tests. ≤200 LOC.
+- `crates/argo-skill/src/ir/mod.rs` — narrowly: `pub mod composition;`. ≤3 modified lines.
+- `crates/argo-skill/src/ir/types.rs` (488 LOC) — narrowly: ONLY if SubSkillCall variant needs extension. ≤10 modified lines. (Verify SubSkillCall is sufficient before touching types.rs.)
+- `web/components/skycot/canvas/nodes/SubSkillCallNode.tsx` (already exists per L8) — narrowly: render composition info if needed. ≤30 modified lines.
+
+If types.rs would exceed 500 LOC: BLOCK with `claude-skill-ir-types-split` precursor.

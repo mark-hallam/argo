@@ -56,3 +56,20 @@ LOC: ~200 modified (mostly relocations; behavior-preserving).
 - High-leverage: this single brief unlocks 2-3 BLOCKED rows.
 - Pure refactor; behavior must be byte-identical post-split.
 - Drift-prevention: adds NEW per-domain siblings; no parallel surface — extends existing enum dispatch.
+
+
+## Brief redesign 2026-05-15 evening — SUPERSEDES original split strategy
+
+Codex correctly identified that the original brief's "split SkillCmd enum variants across sibling modules" is internally inconsistent — Rust enum variants cannot be split across modules while preserving the centralized match dispatch.
+
+**Revised approach: per-handler-fn split, not per-enum-variant split.**
+
+Keep `SkillCmd` enum + match dispatch single-file. Split the HANDLER FUNCTIONS that the match arms call into per-domain siblings:
+
+- `crates/argo-cli/src/cli_subcommands_skill.rs` (485 LOC) — keep enum + match dispatch; each match arm calls into a sibling handler. Should drop to ~250 LOC.
+- NEW `crates/argo-cli/src/handlers/skill_lifecycle.rs` — propose/review/publish/promote/unpublish handler bodies. ≤200 LOC.
+- NEW `crates/argo-cli/src/handlers/skill_audit.rs` — explain/provenance/honesty handler bodies. ≤150 LOC.
+- NEW `crates/argo-cli/src/handlers/skill_inspect.rs` — show/list/diff/catalog handler bodies. ≤200 LOC.
+- `crates/argo-cli/src/handlers/mod.rs` — narrowly: 3 new `pub mod` declarations. ≤10 modified lines.
+
+This achieves the LOC headroom the original brief targeted (frees cli_subcommands_skill.rs from being the bottleneck) without trying to fragment the enum itself.

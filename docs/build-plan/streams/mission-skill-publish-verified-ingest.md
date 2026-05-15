@@ -89,3 +89,15 @@ This is NOT in scope: keyless verify via Sigstore Fulcio/Rekor (cosign keyless i
 - Keyless (Sigstore Fulcio) verify is INTENTIONALLY out of scope. Don't add the dep.
 - For "marketplace source" detection: piggyback on whatever existing `argo skill install` already uses to distinguish local-file from registry-pull. If unclear, document the detection logic in PR body.
 - The `--insecure-skip-verify` warning is load-bearing — make it loud (red-text or explicit "INSECURE" prefix).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes prior lists)
+
+Codex noted current `ArgoError` has `CapabilityDenied(Capability)` but no variant for signature-verification failure. Allowing addition:
+
+- `crates/argo-types/src/error.rs` — narrowly: add `SignatureVerification(String)` variant (or `IngestVerification(String)` if scope is broader). ≤15 modified lines.
+- `crates/argo-types/src/error_tests.rs` (if exists, else sibling) — narrowly: 1 test for new variant Display/Debug. ≤15 modified lines.
+- All original may-touch entries (skill ingestion logic).
+- All call sites that need to map signature-verify failures (use `rg 'SignatureVerification' crates/` after the variant is added).
+
+Drift-prevention: this is a load-bearing variant ADDITION — codex must verify no parallel name exists (`rg 'pub enum.*Verification' crates/`) before adding.

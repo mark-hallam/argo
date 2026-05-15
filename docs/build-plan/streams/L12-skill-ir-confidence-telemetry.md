@@ -41,3 +41,15 @@ LOC: ~600. Branch: `claude-L12-skill-ir-confidence`. PR title: `feat(skill-ir): 
 
 - See `streams/L0-skill-canvas-track-overview.md` §L12-skill-ir-confidence-telemetry for the authoritative spec.
 - Mission-claim alignment: claim 4 (Skills are shared and learned).
+
+
+## Files you may touch — AUTHORITATIVE 2026-05-15 evening (supersedes placeholder list)
+
+L12 adds confidence scoring to IR nodes for downstream eval/retry decisions. Current `NodeKind` enum in `argo-skill/src/ir/types.rs` has no confidence field.
+
+- `crates/argo-skill/src/ir/types.rs` (488 LOC near ceiling) — narrowly: add optional `confidence: Option<f64>` field to `SkillGraph` or per-node where load-bearing. ≤30 modified lines.
+- `crates/argo-skill/src/ir/types_tests.rs` (488 LOC — only if room; verify at claim time) — narrowly: 3+ tests for confidence round-trip. ≤80 modified lines if room.
+- `crates/argo-skill/src/ir/serde.rs` — narrowly: ensure confidence serializes with `#[serde(skip_serializing_if = "Option::is_none")]` for backward compat. ≤20 modified lines.
+- NEW `crates/argo-skill/src/ir/confidence_telemetry.rs` — telemetry helper module for reading + emitting confidence signals. ≤200 LOC.
+- `crates/argo-skill/src/ir/mod.rs` — narrowly: `pub mod confidence_telemetry;`. ≤3 modified lines.
+- If `types.rs` or `types_tests.rs` would exceed 500 LOC: BLOCK with precursor `claude-skill-ir-types-split` request.
