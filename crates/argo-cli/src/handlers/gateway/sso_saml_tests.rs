@@ -15,6 +15,7 @@ fn cfg_with_tenant(name: &str) -> SsoConfig {
             sp_entity_id: "https://sp.example.com/saml".into(),
             acs_url: format!("https://sp.example.com/auth/saml/{name}/acs"),
             idp_cert_pem: sso_saml_xmlsig::tests::TEST_CERT_PEM.into(),
+            accept_sha1_signatures: false,
         },
     );
     SsoConfig {
@@ -121,6 +122,7 @@ fn build_acs_outcome_sets_session_cookie_on_success() {
         &cfg,
         "saml-test-secret-must-be-32-chars-or-more",
         fixed_instant(),
+        Some("_request"),
     );
     assert_eq!(outcome.status, "302 Found");
     assert_eq!(outcome.location.as_deref(), Some("/app/"));
@@ -145,6 +147,7 @@ fn build_acs_outcome_rejects_unsigned_response() {
         &cfg,
         "saml-test-secret-must-be-32-chars-or-more",
         fixed_instant(),
+        Some("_request"),
     );
     assert_eq!(outcome.status, "401 Unauthorized");
     assert!(outcome.body.is_empty());

@@ -77,13 +77,24 @@ fn now() -> DateTime<Utc> {
         .with_timezone(&Utc)
 }
 
+fn tenant() -> argo_config::SsoSamlTenant {
+    argo_config::SsoSamlTenant {
+        idp_entity_id: "https://idp.example.com/saml".into(),
+        idp_sso_url: "https://idp.example.com/sso".into(),
+        sp_entity_id: "https://sp.example.com/saml".into(),
+        acs_url: "https://sp.example.com/auth/saml/default/acs".into(),
+        idp_cert_pem: TEST_CERT_PEM.into(),
+        accept_sha1_signatures: false,
+    }
+}
+
 pub(in super::super) fn signed_response(
     subject: &str,
     not_before: &str,
     not_on_or_after: &str,
 ) -> String {
     let xml = format!(
-        r##"<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_response">
+        r##"<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_response" Destination="https://sp.example.com/auth/saml/default/acs" InResponseTo="_request">
   <saml:Issuer>https://idp.example.com/saml</saml:Issuer>
   <saml:Assertion ID="_assertion">
     <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
@@ -102,7 +113,9 @@ pub(in super::super) fn signed_response(
       <ds:SignatureValue></ds:SignatureValue>
     </ds:Signature>
     <saml:Subject><saml:NameID>{subject}</saml:NameID></saml:Subject>
-    <saml:Conditions NotBefore="{not_before}" NotOnOrAfter="{not_on_or_after}"/>
+    <saml:Conditions NotBefore="{not_before}" NotOnOrAfter="{not_on_or_after}">
+      <saml:AudienceRestriction><saml:Audience>https://sp.example.com/saml</saml:Audience></saml:AudienceRestriction>
+    </saml:Conditions>
   </saml:Assertion>
 </samlp:Response>"##
     );
@@ -122,17 +135,29 @@ fn valid_xml() -> String {
 
 #[test]
 fn accepts_valid_signature() {
-    assert!(
-        verify_saml_response(&valid_xml(), TEST_CERT_PEM, now(), Duration::seconds(60)).is_ok()
-    );
+    let assertion = verify_saml_response(
+        &valid_xml(),
+        &tenant(),
+        now(),
+        Duration::seconds(60),
+        Some("_request"),
+    )
+    .unwrap();
+    assert_eq!(assertion.name_id.as_deref(), Some("alice@example.com"));
 }
 
 #[test]
 fn rejects_tampered_signed_content() {
     let xml = valid_xml().replace("alice@example.com", "mallory@example.com");
     assert_eq!(
-        verify_saml_response(&xml, TEST_CERT_PEM, now(), Duration::seconds(60)),
-        Err(SamlXmlSigError::InvalidSignature)
+        verify_saml_response(
+            &xml,
+            &tenant(),
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::SignatureRejected)
     );
 }
 
@@ -140,16 +165,30 @@ fn rejects_tampered_signed_content() {
 fn rejects_missing_signature() {
     let xml = "<samlp:Response><saml:Assertion ID=\"_a\"><saml:NameID>a</saml:NameID></saml:Assertion></samlp:Response>";
     assert_eq!(
-        verify_saml_response(xml, TEST_CERT_PEM, now(), Duration::seconds(60)),
+        verify_saml_response(
+            xml,
+            &tenant(),
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
         Err(SamlXmlSigError::MissingSignature)
     );
 }
 
 #[test]
 fn rejects_wrong_certificate() {
+    let mut t = tenant();
+    t.idp_cert_pem = WRONG_CERT_PEM.into();
     assert_eq!(
-        verify_saml_response(&valid_xml(), WRONG_CERT_PEM, now(), Duration::seconds(60)),
-        Err(SamlXmlSigError::InvalidSignature)
+        verify_saml_response(
+            &valid_xml(),
+            &t,
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::SignatureRejected)
     );
 }
 
@@ -157,8 +196,14 @@ fn rejects_wrong_certificate() {
 fn rejects_expired_not_on_or_after() {
     let xml = signed_response("a", "2026-05-12T14:00:00Z", "2026-05-12T14:58:59Z");
     assert_eq!(
-        verify_saml_response(&xml, TEST_CERT_PEM, now(), Duration::seconds(60)),
-        Err(SamlXmlSigError::ExpiredNotOnOrAfter)
+        verify_saml_response(
+            &xml,
+            &tenant(),
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::Expired)
     );
 }
 
@@ -166,22 +211,105 @@ fn rejects_expired_not_on_or_after() {
 fn rejects_future_not_before() {
     let xml = signed_response("a", "2026-05-12T15:01:01Z", "2026-05-12T16:00:00Z");
     assert_eq!(
-        verify_saml_response(&xml, TEST_CERT_PEM, now(), Duration::seconds(60)),
-        Err(SamlXmlSigError::FutureNotBefore)
+        verify_saml_response(
+            &xml,
+            &tenant(),
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::Expired)
     );
 }
 
 #[test]
 fn accepts_not_before_within_clock_skew() {
     let xml = signed_response("a", "2026-05-12T15:00:45Z", "2026-05-12T16:00:00Z");
-    assert!(verify_saml_response(&xml, TEST_CERT_PEM, now(), Duration::seconds(60)).is_ok());
+    assert!(
+        verify_saml_response(
+            &xml,
+            &tenant(),
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        )
+        .is_ok()
+    );
 }
 
 #[test]
 fn rejects_not_before_outside_clock_skew() {
     let xml = signed_response("a", "2026-05-12T15:00:45Z", "2026-05-12T16:00:00Z");
     assert_eq!(
-        verify_saml_response(&xml, TEST_CERT_PEM, now(), Duration::seconds(30)),
-        Err(SamlXmlSigError::FutureNotBefore)
+        verify_saml_response(
+            &xml,
+            &tenant(),
+            now(),
+            Duration::seconds(30),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::Expired)
+    );
+}
+
+#[test]
+fn rejects_wrong_issuer() {
+    let mut t = tenant();
+    t.idp_entity_id = "https://other.example.com/saml".into();
+    assert_eq!(
+        verify_saml_response(
+            &valid_xml(),
+            &t,
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::IssuerRejected)
+    );
+}
+
+#[test]
+fn rejects_wrong_destination() {
+    let mut t = tenant();
+    t.acs_url = "https://sp.example.com/other".into();
+    assert_eq!(
+        verify_saml_response(
+            &valid_xml(),
+            &t,
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::DestinationRejected)
+    );
+}
+
+#[test]
+fn rejects_wrong_in_response_to() {
+    assert_eq!(
+        verify_saml_response(
+            &valid_xml(),
+            &tenant(),
+            now(),
+            Duration::seconds(60),
+            Some("_other")
+        ),
+        Err(SamlXmlSigError::InResponseToRejected)
+    );
+}
+
+#[test]
+fn rejects_wrong_audience() {
+    let mut t = tenant();
+    t.sp_entity_id = "https://sp.example.com/other".into();
+    assert_eq!(
+        verify_saml_response(
+            &valid_xml(),
+            &t,
+            now(),
+            Duration::seconds(60),
+            Some("_request")
+        ),
+        Err(SamlXmlSigError::AudienceRejected)
     );
 }

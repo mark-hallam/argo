@@ -97,8 +97,8 @@ impl Default for SsoOidcTenant {
 ///
 /// v1 ships SP-initiated flow only; IdP-initiated SSO is explicitly
 /// out of scope per brief. XML signature verification of the SAML
-/// Response is deferred to a follow-up brief (the `idp_cert_pem`
-/// field is parsed but not yet consulted).
+/// Response is verified against `idp_cert_pem` before ACS claims are
+/// consumed.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SsoSamlTenant {
@@ -116,4 +116,7 @@ pub struct SsoSamlTenant {
     /// follow-up signature-verification brief; the v1 ACS handler
     /// parses the response structurally and does not consult this.
     pub idp_cert_pem: String,
+    /// Permit legacy RSA-SHA1 SAML signatures. Defaults false; only
+    /// enable for IdPs that cannot emit RSA-SHA256.
+    pub accept_sha1_signatures: bool,
 }

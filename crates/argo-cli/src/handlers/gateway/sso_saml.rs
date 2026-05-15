@@ -29,6 +29,8 @@ use tokio::net::TcpStream;
 
 use super::sso_session::{self, SessionPayload, set_cookie_header};
 
+#[path = "sso_saml_replay_store.rs"]
+mod sso_saml_replay_store;
 #[path = "sso_saml_xmlsig.rs"]
 mod sso_saml_xmlsig;
 
@@ -62,7 +64,7 @@ pub(super) async fn serve(
     };
     match (kind, method) {
         (SamlKind::Login(tenant), "GET") => handle_login(&tenant, &cfg, out).await,
-        (SamlKind::Acs(tenant), "POST") => handle_acs(req, &tenant, &cfg, out).await,
+        (SamlKind::Acs(tenant), "POST") => handle_acs(req, &tenant, &cfg, _store, out).await,
         _ => write_simple(out, "405 Method Not Allowed", r#"{"error":"bad method"}"#).await,
     }
 }
@@ -147,15 +149,22 @@ async fn handle_login(
 ) -> tokio::io::Result<()> {
     let mut rid = [0_u8; 16];
     OsRng.fill_bytes(&mut rid);
-    let redirect = match build_authn_request(tenant, cfg, rid, chrono::Utc::now()) {
+    let now = chrono::Utc::now();
+    let redirect = match build_authn_request(tenant, cfg, rid, now) {
         Ok(r) => r,
         Err(e) => {
             return write_simple(out, "400 Bad Request", &format!(r#"{{"error":"{e}"}}"#)).await;
         }
     };
+    let pending = match sso_saml_replay_store::pending_cookie(tenant, &redirect.request_id, now) {
+        Ok(c) => c,
+        Err(_) => {
+            return write_simple(out, "500 Internal Server Error", r#"{"error":"sign"}"#).await;
+        }
+    };
     let resp = format!(
-        "HTTP/1.1 302 Found\r\nLocation: {}\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n",
-        redirect.url
+        "HTTP/1.1 302 Found\r\nLocation: {}\r\n{pending}\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n",
+        redirect.url,
     );
     out.write_all(resp.as_bytes()).await?;
     out.shutdown().await
@@ -169,6 +178,9 @@ pub(super) struct AcsOutcome {
     pub body: String,
     pub location: Option<String>,
     pub set_cookie: Option<String>,
+    pub audit_outcome: &'static str,
+    pub audit_name_id: Option<String>,
+    pub audit_reason: Option<String>,
 }
 
 pub(super) fn build_acs_outcome(
@@ -177,6 +189,7 @@ pub(super) fn build_acs_outcome(
     cfg: &argo_config::SsoConfig,
     secret: &str,
     now: chrono::DateTime<chrono::Utc>,
+    in_response_to_expected: Option<&str>,
 ) -> AcsOutcome {
     let Some(tcfg) = cfg.saml.get(tenant) else {
         return err_outcome("400 Bad Request", "tenant not configured");
@@ -194,17 +207,25 @@ pub(super) fn build_acs_outcome(
         Ok(s) => s,
         Err(_) => return err_outcome("400 Bad Request", "response not utf8"),
     };
-    if sso_saml_xmlsig::verify_saml_response(xml, &tcfg.idp_cert_pem, now, saml_clock_skew())
-        .is_err()
-    {
-        return unauthorized_outcome();
+    let assertion = match sso_saml_xmlsig::verify_saml_response(
+        xml,
+        tcfg,
+        now,
+        saml_clock_skew(),
+        in_response_to_expected,
+    ) {
+        Ok(a) => a,
+        Err(e) => return unauthorized_outcome(format!("{e:?}")),
+    };
+    if assertion.used_sha1 {
+        tracing::warn!(target: "argo_cli::sso_saml", tenant, "accepted legacy SAML RSA-SHA1 signature");
     }
     let (sub, email) = match extract_name_id(xml) {
         Some(t) => t,
         None => return err_outcome("400 Bad Request", "no NameID"),
     };
     let payload = SessionPayload {
-        sub,
+        sub: sub.clone(),
         email,
         tenant: tenant.to_string(),
         mechanism: "saml".into(),
@@ -225,6 +246,13 @@ pub(super) fn build_acs_outcome(
             cfg.session_ttl_seconds,
             "/",
         )),
+        audit_outcome: if assertion.used_sha1 {
+            "verified_sha1"
+        } else {
+            "verified"
+        },
+        audit_name_id: assertion.name_id.or(Some(sub)),
+        audit_reason: None,
     }
 }
 
@@ -232,9 +260,11 @@ async fn handle_acs(
     req: &str,
     tenant: &str,
     cfg: &argo_config::SsoConfig,
+    store: Option<&Arc<SessionStore>>,
     out: &mut TcpStream,
 ) -> tokio::io::Result<()> {
     let body = super::body_from_request(req);
+    let now = chrono::Utc::now();
     let secret = match super::routes_channels::hmac_secret() {
         Ok(s) => s,
         Err(_) => {
@@ -246,7 +276,9 @@ async fn handle_acs(
             .await;
         }
     };
-    let outcome = build_acs_outcome(body, tenant, cfg, &secret, chrono::Utc::now());
+    let expected = sso_saml_replay_store::expected_request_id(req, tenant, &secret, now).ok();
+    let outcome = build_acs_outcome(body, tenant, cfg, &secret, now, expected.as_deref());
+    sso_saml_replay_store::audit_acs(store, tenant, &outcome).await;
     let mut head = format!(
         "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
         outcome.status,
@@ -259,6 +291,8 @@ async fn handle_acs(
         head.push_str(sc);
         head.push_str("\r\n");
     }
+    head.push_str(&sso_saml_replay_store::clear_pending_cookie(tenant));
+    head.push_str("\r\n");
     head.push_str("\r\n");
     head.push_str(&outcome.body);
     out.write_all(head.as_bytes()).await?;
@@ -409,12 +443,15 @@ fn saml_clock_skew() -> chrono::Duration {
     chrono::Duration::seconds(seconds)
 }
 
-fn unauthorized_outcome() -> AcsOutcome {
+fn unauthorized_outcome(reason: String) -> AcsOutcome {
     AcsOutcome {
         status: "401 Unauthorized",
         body: String::new(),
         location: None,
         set_cookie: None,
+        audit_outcome: "rejected",
+        audit_name_id: None,
+        audit_reason: Some(reason),
     }
 }
 
@@ -424,6 +461,9 @@ fn err_outcome(status: &'static str, msg: &str) -> AcsOutcome {
         body: format!(r#"{{"error":"{msg}"}}"#),
         location: None,
         set_cookie: None,
+        audit_outcome: "rejected",
+        audit_name_id: None,
+        audit_reason: Some(msg.into()),
     }
 }
 
