@@ -23,20 +23,16 @@
 
 **CRITICAL CONSTRAINT**: Some of these migrations are likely already applied to production databases. **Re-slotting is risky** — sqlx tracks applied migrations by slot number, so renaming `19__worker_fs_root.sql` to `79__worker_fs_root.sql` makes the runner think it's a NEW migration to apply.
 
-**Two implementation paths** — implementer chooses:
+**Implementation path: Path A (non-destructive) — MANDATORY** (Amendment 2026-05-15):
 
-**Path A (preferred — non-destructive):**
 - Leave existing collisions in place (they've already been applied to dev/prod databases via filesystem order).
 - Add a "canonical_order" mapping in code that the runner consults BEFORE filesystem-order.
-- Add runner-side detection that LOGS A LOUD WARNING for any future duplicate slots but doesn't reject (to preserve existing applied state).
+- Add runner-side detection that LOGS A LOUD WARNING for any future duplicate slots but does NOT reject (to preserve existing applied state).
 - Update the sqlx tracker table to record the canonical (filename, slot) pair so reapplication never happens.
 
-**Path B (destructive — only if Path A infeasible):**
-- Re-slot duplicates to 79+ in canonical order.
-- Add a one-time migration that updates the sqlx `_sqlx_migrations` tracking table to reflect the new slot numbers.
-- Add runner-side validation that REJECTS duplicates at startup.
+**Path B (destructive — DO NOT TAKE without operator approval):** ~Re-slot duplicates to 79+ in canonical order; rewrite the sqlx `_sqlx_migrations` tracker; runner-rejects-duplicates strict mode.~ This path is destructive to applied production databases and requires explicit operator sign-off. If Path A genuinely cannot satisfy the acceptance criteria, BLOCK the brief and surface the issue to the conductor; do NOT silently switch to Path B.
 
-LOC: ~500.
+LOC: ~500 (Path A only).
 
 ## Files you may touch
 
