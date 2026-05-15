@@ -25,6 +25,7 @@ LOC: ~220.
 - `crates/argo-capability/src/lib.rs` — add match arm for the new variant; update default roles. ≤80 modified lines.
 - `crates/argo-tool/src/tools/send_message.rs` — `required_capabilities` returns the new variant from args. ≤50 modified lines.
 - `crates/argo-tool/src/tools/send_message_tests.rs` — per-channel + approval test coverage. ≤60 modified lines.
+- `crates/argo-tool/tests/send_message_integration.rs` — narrowly: update test fixture so `guest` principal is granted `Capability::MessageSend{channel,recipient_scope}` alongside `ToolDispatch{send_message}`. Without this widening the test fails after the new capability is required. ≤30 modified lines.
 - `crates/argo-cli/src/handlers/worker_actions_auto_approval.rs` — narrowly: route `MessageSend` for high-risk channels through approval. ≤40 modified lines.
 
 ## Files you must NOT touch
