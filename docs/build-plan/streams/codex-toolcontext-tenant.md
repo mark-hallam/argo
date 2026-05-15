@@ -45,13 +45,18 @@ LOC: ~350 (additive constructor pattern; production callsites switch to new meth
 **Struct definition:**
 - `crates/argo-tool/src/tool.rs` — add `tenant_id: TenantId` field to `ToolContext` struct (defined at `tool.rs:53`); keep `new(...)` signature (sets `tenant_id` to nil + deprecation attribute); add `new_with_tenant(...)`. ≤60 modified lines.
 
-**Agent runner integration (real tenant source):**
+**Agent runner integration (real tenant source — `spend.tenant_id` is the canonical source per audit F-005):**
 - `crates/argo-agent-runner/src/dispatch.rs` — remove `dispatch_tenant()`; replace 2 callsites with `ctx.tenant_id`; update `McpClientPool` keying. ≤80 modified lines.
 - `crates/argo-agent-runner/src/turn.rs` — narrowly: pass `session.tenant_id` when building `ToolContext` via `new_with_tenant`. ≤30 modified lines.
+- `crates/argo-agent-runner/src/turn_helpers.rs` — narrowly: `dispatch_one` callsite where `spend.tenant_id` is in scope; construct `ToolContext` via `new_with_tenant`. ≤30 modified lines.
+- `crates/argo-agent-runner/src/helpers.rs` — narrowly: any other production `ToolContext::new` callers in this file. ≤25 modified lines.
 
-**Production constructor callsites (switch to `new_with_tenant`):**
+**Other production constructor callsites:**
 - `crates/argo-cli/src/handlers/vertical_workflow_step.rs` — pass real tenant. ≤20 modified lines.
+- `crates/argo-core/src/agent.rs` — narrowly: any production `ToolContext::new` callers. ≤20 modified lines.
 - `crates/argo-tool/src/registry.rs` — narrowly: if registry constructs production ToolContext, switch to `new_with_tenant`. ≤25 modified lines.
+
+NOTE: tool-impl files in `crates/argo-tool/src/tools/*.rs` construct `ToolContext::new` ONLY inside `mod tests` / `#[cfg(test)]` blocks (verified by inspection 2026-05-16). Those test-only constructors can keep using `new()` per the additive-constructor approach and DO NOT need touching in this brief.
 
 **Nil-tenant dispatch_tenant() callers (the 6 known sites):**
 - `crates/argo-tool/src/tools/delegate_task.rs` — replace `dispatch_tenant()` calls with `ctx.tenant_id`; remove the nil-tenant comment. ≤50 modified lines.
