@@ -155,6 +155,7 @@ mod routes_worker_policies;
 mod routes_worker_settings;
 mod routes_worker_trust_grade;
 mod routes_workers_hire;
+mod routes_wizard;
 mod routes_workspace;
 mod runs_streaming;
 mod scim_auth;

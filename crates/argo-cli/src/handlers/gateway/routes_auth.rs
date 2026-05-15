@@ -85,6 +85,11 @@ pub(super) fn is_public_get(req: &str) -> bool {
             | "/routes"
             | "/openmetrics"
     );
+    // The setup wizard is reachable before the operator has a bearer
+    // token configured; the handler itself only exposes first-run state.
+    if path.starts_with("/api/v1/wizard") {
+        return true;
+    }
     // SCIM 2.0 endpoints (`mission-scim-provisioning`) carry their own
     // bearer credential (`ARGO_SCIM_BEARER_TOKEN`); the dedicated
     // `scim_auth` gate inside the SCIM dispatcher enforces it. Treat

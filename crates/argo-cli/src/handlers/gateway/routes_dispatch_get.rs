@@ -13,6 +13,9 @@ pub(super) async fn dispatch_get(
     req: &str,
     store: Option<&Arc<SessionStore>>,
 ) -> Option<(&'static str, String)> {
+    if let Some(resp) = super::routes_wizard::dispatch_get(req).await {
+        return Some(resp);
+    }
     if let Some(resp) = super::routes_dispatch_get_api::dispatch_api_get(req, store).await {
         return Some(resp);
     }

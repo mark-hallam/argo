@@ -145,6 +145,9 @@ async fn dispatch_post_inner(
     if let Some(resp) = super::routes_scim_users::dispatch(req, store).await {
         return Some(resp);
     }
+    if let Some(resp) = super::routes_wizard::dispatch_post(req).await {
+        return Some(resp);
+    }
     if let Some(resp) = check_bearer_auth(req) {
         return Some(resp);
     }
