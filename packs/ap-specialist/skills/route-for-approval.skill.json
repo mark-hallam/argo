@@ -1,0 +1,96 @@
+{
+  "entry": "prepare",
+  "metadata": {
+    "name": "route-for-approval",
+    "version": "1.0.0",
+    "description": "Prepare an approval packet and route AP decisions to the right owner before ERP or payment action.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "approval_packet",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "approval_decision",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "prepare",
+      "label": "Prepare Approval Packet",
+      "kind": {
+        "type": "action",
+        "instruction": "Create an approval packet with invoice image reference, extracted fields, PO and receipt comparison, policy checks, exception note, recommended action, and audit evidence."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "threshold",
+      "label": "Select Approval Role",
+      "kind": {
+        "type": "condition",
+        "expression": "approval_packet.total_usd > 10000 || approval_packet.exception_type != null || approval_packet.erp_write_requested"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "request",
+      "label": "Request Approval",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "finance-manager",
+        "timeoutSeconds": 86400
+      },
+      "annotations": {
+        "policy": "ask",
+        "channel": "slack"
+      }
+    },
+    {
+      "id": "record",
+      "label": "Record Approval Result",
+      "kind": {
+        "type": "store",
+        "target": "memory://approval_history"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "prepare",
+      "to": "threshold",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "threshold",
+      "to": "request",
+      "cond": {
+        "kind": "always"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "request",
+      "to": "record",
+      "cond": {
+        "kind": "on-success"
+      }
+    }
+  ]
+}
+

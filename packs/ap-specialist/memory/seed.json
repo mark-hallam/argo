@@ -1,0 +1,129 @@
+{
+  "vendor_master": [
+    {
+      "vendorId": "ap-acme-office",
+      "name": "Acme Office Supplies",
+      "aliases": ["Acme Office", "Acme Supplies"],
+      "paymentTerms": "net_30",
+      "defaultCurrency": "USD",
+      "taxIdLast4": "1842",
+      "remittanceStatus": "verified",
+      "apOwner": "finance-ops"
+    },
+    {
+      "vendorId": "ap-northwind-freight",
+      "name": "Northwind Freight",
+      "aliases": ["Northwind Logistics"],
+      "paymentTerms": "net_45",
+      "defaultCurrency": "USD",
+      "taxIdLast4": "7710",
+      "remittanceStatus": "verified",
+      "apOwner": "supply-chain"
+    },
+    {
+      "vendorId": "ap-contoso-software",
+      "name": "Contoso Software Ltd.",
+      "aliases": ["Contoso SaaS"],
+      "paymentTerms": "net_15",
+      "defaultCurrency": "USD",
+      "taxIdLast4": "3388",
+      "remittanceStatus": "verified",
+      "apOwner": "it-procurement"
+    }
+  ],
+  "purchase_orders": [
+    {
+      "poNumber": "PO-10488",
+      "vendorId": "ap-acme-office",
+      "currency": "USD",
+      "remainingAmount": 2450.0,
+      "tolerancePct": 2.0,
+      "approverRole": "office-manager",
+      "lineItems": [
+        { "sku": "CHAIR-ERG", "description": "Ergonomic chair", "quantity": 10, "unitPrice": 245.0 }
+      ]
+    },
+    {
+      "poNumber": "PO-10517",
+      "vendorId": "ap-northwind-freight",
+      "currency": "USD",
+      "remainingAmount": 8700.0,
+      "tolerancePct": 1.0,
+      "approverRole": "logistics-lead",
+      "lineItems": [
+        { "sku": "FREIGHT-Q2", "description": "Quarterly freight services", "quantity": 1, "unitPrice": 8700.0 }
+      ]
+    },
+    {
+      "poNumber": "PO-10544",
+      "vendorId": "ap-contoso-software",
+      "currency": "USD",
+      "remainingAmount": 12000.0,
+      "tolerancePct": 0.0,
+      "approverRole": "it-owner",
+      "lineItems": [
+        { "sku": "CONTOSO-SEATS", "description": "Annual software seats", "quantity": 40, "unitPrice": 300.0 }
+      ]
+    }
+  ],
+  "goods_receipts": [
+    {
+      "receiptId": "GR-7741",
+      "poNumber": "PO-10488",
+      "sku": "CHAIR-ERG",
+      "quantityAccepted": 10,
+      "acceptedDate": "2026-05-06",
+      "receiver": "office-manager"
+    },
+    {
+      "receiptId": "GR-7790",
+      "poNumber": "PO-10517",
+      "sku": "FREIGHT-Q2",
+      "quantityAccepted": 1,
+      "acceptedDate": "2026-05-10",
+      "receiver": "logistics-lead"
+    }
+  ],
+  "ap_policies": [
+    {
+      "policyId": "three-way-match-standard",
+      "rule": "Invoice amount, PO amount, and receipt quantity must match within configured PO tolerance before ERP update."
+    },
+    {
+      "policyId": "duplicate-invoice-control",
+      "rule": "Same vendor, invoice number, and amount within 365 days requires controller approval before any ERP action."
+    },
+    {
+      "policyId": "tax-review",
+      "rule": "New tax ID, VAT mismatch, or tax amount above 1000 USD routes to tax before approval."
+    },
+    {
+      "policyId": "payment-threshold",
+      "rule": "Invoices above 10000 USD require finance-manager approval before payment release."
+    }
+  ],
+  "exception_routes": [
+    {
+      "exception": "amount_mismatch",
+      "routeTo": "buyer",
+      "approvalRole": "procurement-owner"
+    },
+    {
+      "exception": "missing_receipt",
+      "routeTo": "requester",
+      "approvalRole": "department-owner"
+    },
+    {
+      "exception": "duplicate_invoice",
+      "routeTo": "controller",
+      "approvalRole": "controller"
+    },
+    {
+      "exception": "tax_review",
+      "routeTo": "tax",
+      "approvalRole": "tax-lead"
+    }
+  ],
+  "approval_history": []
+}
+

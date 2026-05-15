@@ -1,0 +1,10 @@
+[pack]
+name = "ap-specialist"
+version = "1.0.0"
+display_name = "AP Specialist"
+description = "Enterprise accounts-payable worker pack for invoice intake, document extraction, purchase-order matching, exception routing, and ERP updates."
+
+[[verticals]]
+id = "ap-specialist"
+path = "."
+

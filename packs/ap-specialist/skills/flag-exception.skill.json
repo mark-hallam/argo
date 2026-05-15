@@ -1,0 +1,95 @@
+{
+  "entry": "classify",
+  "metadata": {
+    "name": "flag-exception",
+    "version": "1.0.0",
+    "description": "Classify AP exceptions, attach evidence, and decide the required reviewer.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "match_result",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "exception_packet",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "classify",
+      "label": "Classify Exception",
+      "kind": {
+        "type": "action",
+        "instruction": "Classify the AP exception as amount_mismatch, quantity_mismatch, missing_receipt, duplicate_invoice, vendor_master_mismatch, tax_review, payment_hold, or policy_threshold. Include exact evidence fields and recommended next reviewer."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "load-routes",
+      "label": "Load Exception Routes",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://exception_routes",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "severity",
+      "label": "Set Severity",
+      "kind": {
+        "type": "condition",
+        "expression": "exception_packet.amount_delta_usd > 500 || exception_packet.duplicate_candidate || exception_packet.tax_review_required"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "draft-note",
+      "label": "Draft Exception Note",
+      "kind": {
+        "type": "action",
+        "instruction": "Draft an internal exception note with invoice facts, PO/receipt comparison, policy basis, requested decision, and any vendor-facing language held for approval."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "classify",
+      "to": "load-routes",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "load-routes",
+      "to": "severity",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "severity",
+      "to": "draft-note",
+      "cond": {
+        "kind": "always"
+      }
+    }
+  ]
+}
+

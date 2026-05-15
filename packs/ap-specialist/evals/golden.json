@@ -1,0 +1,28 @@
+[
+  { "id": "ap-001", "prompt": "Invoice INV-1001 from Acme Office Supplies references PO-10488 for 10 ergonomic chairs at the agreed price.", "expected_skill": "match-po", "expected_outcome": "three_way_match_pass" },
+  { "id": "ap-002", "prompt": "Northwind Freight invoice includes PO-10517 and a service date matching the goods receipt.", "expected_skill": "match-po", "expected_outcome": "three_way_match_pass" },
+  { "id": "ap-003", "prompt": "Contoso invoice total is 12,800 USD but PO-10544 remaining amount is 12,000 USD with zero tolerance.", "expected_skill": "flag-exception", "expected_outcome": "amount_mismatch" },
+  { "id": "ap-004", "prompt": "Invoice image is missing a readable invoice number but supplier and total are visible.", "expected_skill": "process-invoice", "expected_outcome": "low_confidence_review" },
+  { "id": "ap-005", "prompt": "Invoice has no PO number and vendor says it is urgent.", "expected_skill": "flag-exception", "expected_outcome": "missing_po_exception" },
+  { "id": "ap-006", "prompt": "A duplicate invoice number appears for Acme Office Supplies with the same amount as a prior paid invoice.", "expected_skill": "flag-exception", "expected_outcome": "duplicate_invoice" },
+  { "id": "ap-007", "prompt": "Vendor bank remittance details differ from the verified vendor master record.", "expected_skill": "route-for-approval", "expected_outcome": "vendor_master_review" },
+  { "id": "ap-008", "prompt": "Invoice tax amount is 1,250 USD and the VAT registration differs from the vendor master.", "expected_skill": "flag-exception", "expected_outcome": "tax_review" },
+  { "id": "ap-009", "prompt": "Matched invoice under 2,500 USD has approved PO, receipt, and no exceptions.", "expected_skill": "update-erp", "expected_outcome": "erp_draft_ready" },
+  { "id": "ap-010", "prompt": "Finance manager approved the exception packet for a 1.5 percent freight overage.", "expected_skill": "update-erp", "expected_outcome": "approved_exception_update" },
+  { "id": "ap-011", "prompt": "Invoice line quantity is 12 but the receipt accepted only 10 units.", "expected_skill": "flag-exception", "expected_outcome": "quantity_mismatch" },
+  { "id": "ap-012", "prompt": "Supplier sends an invoice in EUR while the PO is denominated in USD.", "expected_skill": "flag-exception", "expected_outcome": "currency_mismatch" },
+  { "id": "ap-013", "prompt": "Requester asks AP to release payment before goods receipt is posted.", "expected_skill": "route-for-approval", "expected_outcome": "missing_receipt_approval" },
+  { "id": "ap-014", "prompt": "Invoice due date is tomorrow and all match controls pass.", "expected_skill": "update-erp", "expected_outcome": "priority_erp_draft" },
+  { "id": "ap-015", "prompt": "Scanned invoice contains a table of five line items and one unreadable unit price.", "expected_skill": "process-invoice", "expected_outcome": "line_item_review" },
+  { "id": "ap-016", "prompt": "Vendor asks why payment is delayed after AP found a PO mismatch.", "expected_skill": "route-for-approval", "expected_outcome": "vendor_message_requires_approval" },
+  { "id": "ap-017", "prompt": "A 42,000 USD invoice passes match but exceeds the finance approval threshold.", "expected_skill": "route-for-approval", "expected_outcome": "threshold_approval" },
+  { "id": "ap-018", "prompt": "Invoice vendor name is Acme Supplies but tax ID matches Acme Office Supplies.", "expected_skill": "process-invoice", "expected_outcome": "alias_normalized" },
+  { "id": "ap-019", "prompt": "Invoice contains a credit memo offset that should reduce the payable amount.", "expected_skill": "match-po", "expected_outcome": "credit_memo_applied" },
+  { "id": "ap-020", "prompt": "Invoice has a freight surcharge not present on the PO.", "expected_skill": "flag-exception", "expected_outcome": "freight_exception" },
+  { "id": "ap-021", "prompt": "Approver rejects an exception because the buyer did not confirm receipt.", "expected_skill": "route-for-approval", "expected_outcome": "rejected_missing_evidence" },
+  { "id": "ap-022", "prompt": "ERP draft creation succeeds and an audit link must be stored.", "expected_skill": "update-erp", "expected_outcome": "audit_recorded" },
+  { "id": "ap-023", "prompt": "Invoice image includes handwritten PO correction from the vendor.", "expected_skill": "process-invoice", "expected_outcome": "manual_correction_review" },
+  { "id": "ap-024", "prompt": "Supplier is not in the approved vendor master.", "expected_skill": "flag-exception", "expected_outcome": "unapproved_vendor" },
+  { "id": "ap-025", "prompt": "Five invoice batch includes four clean matches and one deliberate amount mismatch.", "expected_skill": "match-po", "expected_outcome": "batch_one_mismatch_flagged" }
+]
+

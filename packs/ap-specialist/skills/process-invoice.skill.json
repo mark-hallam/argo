@@ -1,0 +1,97 @@
+{
+  "entry": "intake",
+  "metadata": {
+    "name": "process-invoice",
+    "version": "1.0.0",
+    "description": "Ingest an invoice, extract structured AP fields, and prepare it for purchase-order matching.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "invoice_document",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "extraction_result",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "intake",
+      "label": "Collect Invoice",
+      "kind": {
+        "type": "fetch",
+        "target": "workspace://ap/inbox",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "extract",
+      "label": "Extract Invoice Fields",
+      "kind": {
+        "type": "action",
+        "instruction": "Use the document understanding extractor to read supplier, invoice number, issue date, due date, currency, tax, total, purchase order, remittance details, and line items. Return field confidence and evidence spans."
+      },
+      "annotations": {
+        "policy": "auto",
+        "executor": "document-understanding"
+      }
+    },
+    {
+      "id": "confidence",
+      "label": "Check Extraction Confidence",
+      "kind": {
+        "type": "condition",
+        "expression": "extraction_result.min_confidence < 0.85 || extraction_result.missing_required_fields.length > 0"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "review",
+      "label": "Route Low Confidence Review",
+      "kind": {
+        "type": "await-approval",
+        "approverRole": "ap-specialist",
+        "timeoutSeconds": 86400
+      },
+      "annotations": {
+        "policy": "ask"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "intake",
+      "to": "extract",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "extract",
+      "to": "confidence",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "confidence",
+      "to": "review",
+      "cond": {
+        "kind": "always"
+      }
+    }
+  ]
+}
+

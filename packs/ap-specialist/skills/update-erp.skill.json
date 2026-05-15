@@ -1,0 +1,95 @@
+{
+  "entry": "verify",
+  "metadata": {
+    "name": "update-erp",
+    "version": "1.0.0",
+    "description": "Prepare and execute approved ERP invoice updates with audit evidence and payment-control safeguards.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "erp_payload",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "erp_result",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "verify",
+      "label": "Verify Approval Gate",
+      "kind": {
+        "type": "condition",
+        "expression": "approval_decision.approved && approval_decision.scope.includes('erp_invoice_update')"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "build-payload",
+      "label": "Build ERP Payload",
+      "kind": {
+        "type": "action",
+        "instruction": "Build the ERP invoice payload for NetSuite, SAP, or Sage using approved invoice fields, PO references, cost center, tax code, due date, hold status, and audit evidence links."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "write-erp",
+      "label": "Update ERP Draft",
+      "kind": {
+        "type": "action",
+        "instruction": "Create or update the invoice record in the configured ERP as an approved AP draft. Do not release payment unless payment_release is explicitly approved."
+      },
+      "annotations": {
+        "policy": "ask",
+        "executor": "mcp"
+      }
+    },
+    {
+      "id": "audit",
+      "label": "Store Audit Evidence",
+      "kind": {
+        "type": "store",
+        "target": "workspace://ap/audit-log"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "verify",
+      "to": "build-payload",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "build-payload",
+      "to": "write-erp",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "write-erp",
+      "to": "audit",
+      "cond": {
+        "kind": "on-success"
+      }
+    }
+  ]
+}
+

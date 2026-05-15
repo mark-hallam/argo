@@ -1,0 +1,96 @@
+{
+  "entry": "load-po",
+  "metadata": {
+    "name": "match-po",
+    "version": "1.0.0",
+    "description": "Perform a three-way match between extracted invoice data, purchase order records, and goods receipts.",
+    "source": "vertical-pack"
+  },
+  "variables": [
+    {
+      "name": "invoice",
+      "varType": "json",
+      "scope": "graph"
+    },
+    {
+      "name": "match_result",
+      "varType": "json",
+      "scope": "graph"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "load-po",
+      "label": "Load Purchase Order",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://purchase_orders",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "load-receipt",
+      "label": "Load Goods Receipt",
+      "kind": {
+        "type": "fetch",
+        "target": "memory://goods_receipts",
+        "method": "GET"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "compare",
+      "label": "Compare Three-Way Match",
+      "kind": {
+        "type": "action",
+        "instruction": "Compare invoice supplier, PO number, currency, line quantities, line prices, tax, freight, and totals against the PO and goods receipt. Apply configured tolerance and emit pass, warning, or exception with evidence."
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    },
+    {
+      "id": "mismatch",
+      "label": "Detect Mismatch",
+      "kind": {
+        "type": "condition",
+        "expression": "match_result.has_amount_mismatch || match_result.has_quantity_mismatch || match_result.missing_receipt || match_result.duplicate_candidate"
+      },
+      "annotations": {
+        "policy": "auto"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "load-po",
+      "to": "load-receipt",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e2",
+      "from": "load-receipt",
+      "to": "compare",
+      "cond": {
+        "kind": "on-success"
+      }
+    },
+    {
+      "id": "e3",
+      "from": "compare",
+      "to": "mismatch",
+      "cond": {
+        "kind": "on-success"
+      }
+    }
+  ]
+}
+

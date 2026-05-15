@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "skycot.memory.schema.v1",
+  "entries": [
+    {
+      "key": "vendor_master",
+      "type": "list<object>",
+      "purpose": "Approved vendors with payment terms, tax identifiers, remittance details, duplicate-detection aliases, and AP owner."
+    },
+    {
+      "key": "purchase_orders",
+      "type": "list<object>",
+      "purpose": "Open and recently closed purchase orders with line items, tolerances, approvers, cost centers, receipt status, and remaining balances."
+    },
+    {
+      "key": "goods_receipts",
+      "type": "list<object>",
+      "purpose": "Receipt evidence keyed by PO, SKU, quantity, accepted date, receiver, and unresolved discrepancy notes."
+    },
+    {
+      "key": "ap_policies",
+      "type": "list<object>",
+      "purpose": "Three-way match tolerances, approval thresholds, duplicate controls, tax-review triggers, payment-hold rules, and ERP-write restrictions."
+    },
+    {
+      "key": "exception_routes",
+      "type": "list<object>",
+      "purpose": "Routing rules for buyer, finance, tax, procurement, vendor-management, and controller review based on exception type and spend."
+    },
+    {
+      "key": "approval_history",
+      "type": "list<object>",
+      "purpose": "Prior approval decisions, approver conditions, rejected overrides, and audit evidence used to shorten later review cycles."
+    }
+  ]
+}
+
