@@ -1,0 +1,71 @@
+{
+  "ideal_customer_profile": [
+    {
+      "segment": "mid-market saas",
+      "industries": ["software", "fintech", "security", "data infrastructure"],
+      "employee_range": "100-2000",
+      "required_signals": ["growing support load", "manual ops workflow", "multi-tool stack"],
+      "disqualifiers": ["student project", "consumer-only", "no business email"]
+    },
+    {
+      "segment": "enterprise operations",
+      "industries": ["logistics", "healthcare operations", "financial services"],
+      "employee_range": "1000+",
+      "required_signals": ["regulated workflow", "approval bottleneck", "audit requirement"],
+      "disqualifiers": ["no public contact path", "competitor employee"]
+    }
+  ],
+  "messaging_playbooks": [
+    {
+      "playbook_id": "ops-automation",
+      "persona": "operations leader",
+      "pain_point": "manual coordination across tools",
+      "proof_points": ["delegated worker duties", "approval gates", "audit trail"],
+      "blocked_claims": ["guaranteed cost savings", "replaces staff"]
+    },
+    {
+      "playbook_id": "support-scale",
+      "persona": "support leader",
+      "pain_point": "ticket volume and inconsistent handoffs",
+      "proof_points": ["triage memory", "multi-channel approvals", "knowledge-base grounding"],
+      "blocked_claims": ["fully autonomous refunds", "legal advice"]
+    }
+  ],
+  "qualification_framework": [
+    {
+      "criterion": "business pain is explicit",
+      "weight": 0.3,
+      "positive_signals": ["manual process", "queue backlog", "approval delay"],
+      "negative_signals": ["just browsing", "student research"],
+      "approval_required": false
+    },
+    {
+      "criterion": "budget or timing signal",
+      "weight": 0.25,
+      "positive_signals": ["this quarter", "budget owner", "evaluation"],
+      "negative_signals": ["maybe next year", "no project"],
+      "approval_required": false
+    },
+    {
+      "criterion": "sensitive promise requested",
+      "weight": 0.0,
+      "positive_signals": ["discount guarantee", "security commitment", "custom legal term"],
+      "negative_signals": [],
+      "approval_required": true
+    }
+  ],
+  "crm_hygiene_rules": [
+    {
+      "rule_id": "no-fabricated-fields",
+      "trigger": "missing title, company size, budget, or need",
+      "required_fields": ["source_url", "evidence_note"],
+      "blocked_update": "Do not infer missing CRM fields without evidence."
+    },
+    {
+      "rule_id": "customer-visible-approval",
+      "trigger": "email, linkedin, sms, or meeting booking",
+      "required_fields": ["draft_body", "recipient", "reason_for_contact"],
+      "blocked_update": "Do not send outbound messages without approval."
+    }
+  ]
+}

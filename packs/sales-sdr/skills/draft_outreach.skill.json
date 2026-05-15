@@ -1,0 +1,40 @@
+{
+  "entry": "load-context",
+  "metadata": {
+    "name": "draft_outreach",
+    "version": "1.0.0",
+    "description": "Draft a concise, personalized outbound message grounded in approved playbooks and enrichment evidence.",
+    "source": "mission-vertical-sales-sdr"
+  },
+  "variables": [
+    { "name": "lead", "varType": "LeadEnrichment", "scope": "graph" },
+    { "name": "draft", "varType": "OutboundDraft", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-context",
+      "label": "Load lead context",
+      "kind": { "type": "fetch", "target": "memory://messaging_playbooks", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "write-draft",
+      "label": "Write outbound draft",
+      "kind": {
+        "type": "transform",
+        "template": "Draft a 90-word maximum email or LinkedIn note. Include one evidence-backed personalization line, one pain hypothesis, one proof point, and one low-friction CTA. Do not claim guaranteed outcomes."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.84 }
+    },
+    {
+      "id": "approval",
+      "label": "Ask before outbound send",
+      "kind": { "type": "await-approval", "approverRole": "sales-manager", "timeoutSeconds": 3600 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-context", "to": "write-draft", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "write-draft", "to": "approval", "cond": { "kind": "always" } }
+  ]
+}

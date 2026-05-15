@@ -1,0 +1,44 @@
+{
+  "entry": "load-lead",
+  "metadata": {
+    "name": "enrich",
+    "version": "1.0.0",
+    "description": "Enrich a lead with firmographic, contact, buying-signal, and ICP-fit evidence before outreach.",
+    "source": "mission-vertical-sales-sdr"
+  },
+  "variables": [
+    { "name": "lead", "varType": "Lead", "scope": "graph" },
+    { "name": "enrichment", "varType": "LeadEnrichment", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-lead",
+      "label": "Load lead",
+      "kind": { "type": "fetch", "target": "crm.current_lead", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "salesforce", "toolName": "get_lead" } }
+    },
+    {
+      "id": "research-company",
+      "label": "Research company and contact",
+      "kind": { "type": "fetch", "target": "enrichment.company_and_person", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "zoominfo", "toolName": "lookup_person_company" } }
+    },
+    {
+      "id": "match-icp",
+      "label": "Score against ICP",
+      "kind": { "type": "transform", "template": "Return ICP fit, evidence URLs, missing fields, disqualifiers, and safe outreach angle. Never invent title, budget, headcount, or buying intent." },
+      "annotations": { "policy": "auto", "confidence": 0.86 }
+    },
+    {
+      "id": "evidence-check",
+      "label": "Evidence sufficient?",
+      "kind": { "type": "condition", "expression": "enrichment.evidence_urls.length >= 2 && enrichment.disqualifiers.length == 0" },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-lead", "to": "research-company", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "research-company", "to": "match-icp", "cond": { "kind": "on-success" } },
+    { "id": "e3", "from": "match-icp", "to": "evidence-check", "cond": { "kind": "always" } }
+  ]
+}

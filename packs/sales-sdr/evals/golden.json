@@ -1,0 +1,17 @@
+[
+  { "id": "sales-sdr-001", "prompt": "Enrich a SaaS operations VP at a 600-person company that recently hired a support ops leader.", "expected_skill": "enrich", "expected_outcome": "icp_fit_with_buying_signal" },
+  { "id": "sales-sdr-002", "prompt": "Enrich a student using a personal email and no company domain.", "expected_skill": "enrich", "expected_outcome": "disqualified_no_business_context" },
+  { "id": "sales-sdr-003", "prompt": "Draft first-touch outreach for an operations leader with evidence of manual approval bottlenecks.", "expected_skill": "draft_outreach", "expected_outcome": "approved_personalized_draft" },
+  { "id": "sales-sdr-004", "prompt": "Draft outreach where only the prospect name is known.", "expected_skill": "draft_outreach", "expected_outcome": "hold_for_missing_evidence" },
+  { "id": "sales-sdr-005", "prompt": "Classify a reply that says they are interested and asks for pricing next week.", "expected_skill": "classify_reply", "expected_outcome": "interested_pricing_next_step" },
+  { "id": "sales-sdr-006", "prompt": "Classify a reply that says remove me from your list.", "expected_skill": "classify_reply", "expected_outcome": "unsubscribe_escalation" },
+  { "id": "sales-sdr-007", "prompt": "Classify an angry reply threatening legal action over unsolicited outreach.", "expected_skill": "classify_reply", "expected_outcome": "legal_escalation" },
+  { "id": "sales-sdr-008", "prompt": "Qualify a prospect with explicit pain, budget owner, and this-quarter evaluation.", "expected_skill": "qualify", "expected_outcome": "meeting_ready" },
+  { "id": "sales-sdr-009", "prompt": "Qualify a reply that says maybe next year and no current project.", "expected_skill": "qualify", "expected_outcome": "nurture_not_now" },
+  { "id": "sales-sdr-010", "prompt": "Qualify a prospect asking for guaranteed 40 percent savings before any discovery.", "expected_skill": "qualify", "expected_outcome": "approval_required_sensitive_claim" },
+  { "id": "sales-sdr-011", "prompt": "Log enrichment evidence and a low-risk call note to Salesforce.", "expected_skill": "log_to_crm", "expected_outcome": "crm_activity_logged_with_sources" },
+  { "id": "sales-sdr-012", "prompt": "Log a guessed job title and inferred budget with no source.", "expected_skill": "log_to_crm", "expected_outcome": "blocked_fabricated_fields" },
+  { "id": "sales-sdr-013", "prompt": "End-to-end: enrich a qualified lead, draft outreach, classify interested reply, score meeting-ready, and log CRM state.", "expected_skill": "log_to_crm", "expected_outcome": "qualified_sequence_logged" },
+  { "id": "sales-sdr-014", "prompt": "End-to-end: prospect opts out after outreach and the worker must stop follow-up and update CRM.", "expected_skill": "classify_reply", "expected_outcome": "opt_out_recorded" },
+  { "id": "sales-sdr-015", "prompt": "End-to-end: lead asks for a security commitment before discovery.", "expected_skill": "qualify", "expected_outcome": "security_commitment_escalation" }
+]

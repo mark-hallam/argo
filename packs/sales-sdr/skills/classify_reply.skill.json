@@ -1,0 +1,40 @@
+{
+  "entry": "read-reply",
+  "metadata": {
+    "name": "classify_reply",
+    "version": "1.0.0",
+    "description": "Classify prospect replies into interested, objection, referral, unsubscribe, out-of-office, not-now, or escalation.",
+    "source": "mission-vertical-sales-sdr"
+  },
+  "variables": [
+    { "name": "reply", "varType": "ProspectReply", "scope": "graph" },
+    { "name": "classification", "varType": "ReplyClassification", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "read-reply",
+      "label": "Read reply",
+      "kind": { "type": "fetch", "target": "inbox.latest_reply", "method": "GET" },
+      "annotations": { "policy": "auto", "toolBinding": { "mcpServer": "gmail", "toolName": "get_thread" } }
+    },
+    {
+      "id": "classify",
+      "label": "Classify intent and risk",
+      "kind": {
+        "type": "transform",
+        "template": "Return intent, sentiment, requested_next_step, unsubscribe flag, compliance risk, and recommended owner. Treat opt-out, legal, security, pricing commitments, and angry replies as escalation."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.88 }
+    },
+    {
+      "id": "risk-route",
+      "label": "Escalation needed?",
+      "kind": { "type": "condition", "expression": "classification.unsubscribe == true || classification.compliance_risk != 'none'" },
+      "annotations": { "policy": "auto" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "read-reply", "to": "classify", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "classify", "to": "risk-route", "cond": { "kind": "always" } }
+  ]
+}

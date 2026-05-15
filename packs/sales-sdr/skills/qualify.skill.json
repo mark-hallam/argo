@@ -1,0 +1,47 @@
+{
+  "entry": "load-signals",
+  "metadata": {
+    "name": "qualify",
+    "version": "1.0.0",
+    "description": "Score a lead or active conversation against ICP, pain, timing, authority, and risk signals.",
+    "source": "mission-vertical-sales-sdr"
+  },
+  "variables": [
+    { "name": "signals", "varType": "QualificationSignals", "scope": "graph" },
+    { "name": "score", "varType": "QualificationScore", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "load-signals",
+      "label": "Load enrichment and reply signals",
+      "kind": { "type": "fetch", "target": "memory://qualification_framework", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "score-lead",
+      "label": "Score qualification",
+      "kind": {
+        "type": "transform",
+        "template": "Score 0-100 with evidence for fit, pain, authority, timing, budget, and next-step clarity. Mark as meeting-ready only when evidence supports it."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.87 }
+    },
+    {
+      "id": "meeting-check",
+      "label": "Meeting-ready?",
+      "kind": { "type": "condition", "expression": "score.total >= 75 && score.next_step == 'book_meeting'" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "approval",
+      "label": "Ask before booking",
+      "kind": { "type": "await-approval", "approverRole": "account-executive", "timeoutSeconds": 3600 },
+      "annotations": { "policy": "ask" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "load-signals", "to": "score-lead", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "score-lead", "to": "meeting-check", "cond": { "kind": "always" } },
+    { "id": "e3", "from": "meeting-check", "to": "approval", "cond": { "kind": "on-pattern", "pattern": "true" } }
+  ]
+}

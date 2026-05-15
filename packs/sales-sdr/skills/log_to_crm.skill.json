@@ -1,0 +1,40 @@
+{
+  "entry": "validate-update",
+  "metadata": {
+    "name": "log_to_crm",
+    "version": "1.0.0",
+    "description": "Write evidence-backed enrichment, activity, reply, and qualification updates to CRM without fabricating missing fields.",
+    "source": "mission-vertical-sales-sdr"
+  },
+  "variables": [
+    { "name": "crm_update", "varType": "CrmUpdate", "scope": "graph" },
+    { "name": "audit_note", "varType": "AuditNote", "scope": "graph" }
+  ],
+  "nodes": [
+    {
+      "id": "validate-update",
+      "label": "Validate CRM fields",
+      "kind": { "type": "fetch", "target": "memory://crm_hygiene_rules", "method": "GET" },
+      "annotations": { "policy": "auto" }
+    },
+    {
+      "id": "prepare-patch",
+      "label": "Prepare CRM patch",
+      "kind": {
+        "type": "transform",
+        "template": "Create a CRM update containing only evidence-backed fields, source URLs, activity summary, next owner, qualification score, and missing-context notes."
+      },
+      "annotations": { "policy": "auto", "confidence": 0.9 }
+    },
+    {
+      "id": "write-crm",
+      "label": "Write CRM activity",
+      "kind": { "type": "fetch", "target": "crm.lead_activity", "method": "POST" },
+      "annotations": { "policy": "ask", "toolBinding": { "mcpServer": "salesforce", "toolName": "update_lead" } }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "validate-update", "to": "prepare-patch", "cond": { "kind": "on-success" } },
+    { "id": "e2", "from": "prepare-patch", "to": "write-crm", "cond": { "kind": "on-success" } }
+  ]
+}

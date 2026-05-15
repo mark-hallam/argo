@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "namespace": "sales-sdr",
+  "collections": {
+    "ideal_customer_profile": {
+      "description": "Firmographic and buying-signal criteria used to prioritize prospects.",
+      "fields": {
+        "segment": "string",
+        "industries": "string[]",
+        "employee_range": "string",
+        "required_signals": "string[]",
+        "disqualifiers": "string[]"
+      }
+    },
+    "messaging_playbooks": {
+      "description": "Approved outbound angles by persona and pain point.",
+      "fields": {
+        "playbook_id": "string",
+        "persona": "string",
+        "pain_point": "string",
+        "proof_points": "string[]",
+        "blocked_claims": "string[]"
+      }
+    },
+    "qualification_framework": {
+      "description": "Scoring criteria and escalation rules for reply handling.",
+      "fields": {
+        "criterion": "string",
+        "weight": "number",
+        "positive_signals": "string[]",
+        "negative_signals": "string[]",
+        "approval_required": "boolean"
+      }
+    },
+    "crm_hygiene_rules": {
+      "description": "Rules for safe CRM updates and audit-friendly activity logging.",
+      "fields": {
+        "rule_id": "string",
+        "trigger": "string",
+        "required_fields": "string[]",
+        "blocked_update": "string"
+      }
+    }
+  }
+}

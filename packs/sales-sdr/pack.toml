@@ -1,0 +1,15 @@
+[pack]
+name = "sales-sdr"
+version = "1.0.0"
+display_name = "Sales SDR"
+description = "Sales development representative pack for lead enrichment, personalized outbound drafting, reply classification, qualification scoring, and CRM logging."
+
+[fetcher]
+base_url = "https://github.com/mark-hallam/skycot-packs/releases/download"
+asset_template = "{name}-{version}.tar.gz"
+tag_template = "{name}-v{version}"
+token_env = ["GH_TOKEN", "GITHUB_TOKEN"]
+
+[[verticals]]
+id = "sales-sdr"
+path = "."
