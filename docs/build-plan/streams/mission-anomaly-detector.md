@@ -15,8 +15,12 @@ LOC: ~750.
 - NEW `crates/argo-runtime/src/anomaly.rs` (NEW) — scoring engine. ≤500 LOC.
 - NEW `crates/argo-runtime/src/anomaly_tests.rs` (NEW) — synthetic anomalous trajectories. ≤200 LOC.
 - `crates/argo-cli/src/handlers/work_loop.rs` — narrowly: anomaly-check gate. ≤50 modified lines.
+- `crates/argo-cli/src/handlers/work_steps.rs` — narrowly: caller-side invocation of anomaly gate in `run_loop`. ≤30 modified lines.
 - `crates/argo-runtime/src/lib.rs` — `pub mod anomaly;`. ≤3 lines.
 - `crates/argo-config/src/sections.rs` — `[anomaly]` block. ≤25 modified lines.
+- `crates/argo-config/src/lib.rs` — narrowly: top-level `[anomaly]` block registration. ≤15 modified lines.
+
+Note: action-level anomaly detector already exists in `worker_actions_anomaly` / `argo_store::anomaly` — this brief adds a SESSION-LEVEL scoring engine with auto-pause gate (separate concern). Re-use action-level signals where appropriate.
 
 ## Files you must NOT touch
 
