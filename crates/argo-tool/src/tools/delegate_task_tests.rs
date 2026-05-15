@@ -8,7 +8,9 @@ use argo_store::SessionStore;
 use argo_types::{ArgoError, ContentBlock, Principal, TenantId};
 use std::sync::Arc;
 
-async fn wired_store_with_session(session_id: &argo_orchestrator::SessionId) -> Arc<OrchestratorStore> {
+async fn wired_store_with_session(
+    session_id: &argo_orchestrator::SessionId,
+) -> Arc<OrchestratorStore> {
     let session_store = Arc::new(SessionStore::open(":memory:").await.unwrap());
     session_store.migrate().await.unwrap();
     let store = Arc::new(OrchestratorStore::new(session_store));
@@ -17,6 +19,54 @@ async fn wired_store_with_session(session_id: &argo_orchestrator::SessionId) -> 
     session.id = session_id.clone();
     store.insert_session(&session).await.unwrap();
     store
+}
+
+async fn active_handoff(
+    store: &OrchestratorStore,
+    session_id: &argo_orchestrator::SessionId,
+    chain: Vec<String>,
+    index: usize,
+) -> Handoff {
+    let h = Handoff::new(
+        session_id.clone(),
+        WorkerId::new(),
+        EscalationStep::Worker(WorkerId::new()),
+        "caller task",
+        serde_json::json!({"escalation_chain": chain, "escalation_index": index}),
+    );
+    store
+        .insert_handoff(TenantId(uuid::Uuid::nil()), &h)
+        .await
+        .unwrap();
+    h
+}
+
+async fn emitted_handoff(
+    store: &Arc<OrchestratorStore>,
+    session_id: &argo_orchestrator::SessionId,
+    ctx: &ToolContext,
+    target: WorkerId,
+) -> Handoff {
+    let tool = DelegateTask::new(Arc::clone(store));
+    let r = tool
+        .dispatch(
+            serde_json::json!({
+                "worker_id": target.0.to_string(),
+                "task": "verify customer balance",
+            }),
+            ctx,
+        )
+        .await
+        .unwrap();
+    assert!(!r.is_error, "dispatch: {:?}", r.content);
+    let handoff_id = text_block(&r);
+    store
+        .list_handoffs_for_session(TenantId(uuid::Uuid::nil()), session_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|h| h.id.to_string() == handoff_id)
+        .unwrap()
 }
 
 fn ctx_with(session_id: argo_orchestrator::SessionId) -> ToolContext {
@@ -170,4 +220,103 @@ async fn dispatch_persists_deadline_when_provided() {
     let now = chrono::Utc::now();
     assert!(deadline > now);
     assert!(deadline <= now + chrono::Duration::seconds(120));
+}
+
+#[tokio::test]
+async fn dispatch_inherits_active_handoff_chain_with_callee_prefix() {
+    let session_id = argo_orchestrator::SessionId::new();
+    let store = wired_store_with_session(&session_id).await;
+    let caller = WorkerId::new();
+    let target = WorkerId::new();
+    let active = active_handoff(
+        &store,
+        &session_id,
+        vec![format!("worker:{caller}"), "human:ops@example.com".into()],
+        0,
+    )
+    .await;
+    let mut ctx = ctx_with(session_id.clone());
+    ctx.current_handoff_id = Some(active.id);
+
+    let emitted = emitted_handoff(&store, &session_id, &ctx, target).await;
+
+    assert_eq!(emitted.payload["escalation_index"], serde_json::json!(0));
+    assert_eq!(
+        emitted.payload["escalation_chain"],
+        serde_json::json!([
+            format!("worker:{target}"),
+            format!("worker:{caller}"),
+            "human:ops@example.com",
+        ])
+    );
+}
+
+#[tokio::test]
+async fn dispatch_inherits_active_chain_from_current_index() {
+    let session_id = argo_orchestrator::SessionId::new();
+    let store = wired_store_with_session(&session_id).await;
+    let previous = WorkerId::new();
+    let caller = WorkerId::new();
+    let target = WorkerId::new();
+    let active = active_handoff(
+        &store,
+        &session_id,
+        vec![
+            format!("worker:{previous}"),
+            format!("worker:{caller}"),
+            "human:ops@example.com".into(),
+        ],
+        1,
+    )
+    .await;
+    let mut ctx = ctx_with(session_id.clone());
+    ctx.current_handoff_id = Some(active.id);
+
+    let emitted = emitted_handoff(&store, &session_id, &ctx, target).await;
+
+    assert_eq!(
+        emitted.payload["escalation_chain"],
+        serde_json::json!([
+            format!("worker:{target}"),
+            format!("worker:{caller}"),
+            "human:ops@example.com",
+        ])
+    );
+}
+
+#[tokio::test]
+async fn dispatch_ignores_missing_active_handoff() {
+    let session_id = argo_orchestrator::SessionId::new();
+    let store = wired_store_with_session(&session_id).await;
+    let target = WorkerId::new();
+    let mut ctx = ctx_with(session_id.clone());
+    ctx.current_handoff_id = Some(argo_orchestrator::HandoffId::new());
+
+    let emitted = emitted_handoff(&store, &session_id, &ctx, target).await;
+
+    assert!(emitted.payload.get("escalation_chain").is_none());
+    assert!(emitted.payload.get("escalation_index").is_none());
+}
+
+#[tokio::test]
+async fn dispatch_chain_payload_smoke_round_trips_from_store() {
+    let session_id = argo_orchestrator::SessionId::new();
+    let store = wired_store_with_session(&session_id).await;
+    let caller = WorkerId::new();
+    let target = WorkerId::new();
+    let active = active_handoff(&store, &session_id, vec![format!("worker:{caller}")], 0).await;
+    let mut ctx = ctx_with(session_id.clone());
+    ctx.current_handoff_id = Some(active.id);
+
+    let emitted = emitted_handoff(&store, &session_id, &ctx, target).await;
+
+    let round_tripped = store
+        .find_handoff(TenantId(uuid::Uuid::nil()), &emitted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        round_tripped.payload["escalation_chain"],
+        serde_json::json!([format!("worker:{target}"), format!("worker:{caller}")])
+    );
 }

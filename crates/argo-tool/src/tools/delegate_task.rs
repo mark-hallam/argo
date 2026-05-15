@@ -9,7 +9,7 @@
 //! out of the historical "not wired" error path.
 use crate::tool::{error_text, success_text, Tool, ToolContext};
 use argo_identity::WorkerId;
-use argo_orchestrator::{EscalationStep, Handoff, OrchestratorStore};
+use argo_orchestrator::{EscalationChain, EscalationStep, Handoff, OrchestratorStore};
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilitySet, SpawnKind, ToolCallResult};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -155,7 +155,10 @@ impl Tool for DelegateTask {
             Err(e) => {
                 return Ok(error_text(
                     ctx.call_id,
-                    format!("delegate_task: invalid worker_id '{}': {e}", parsed.worker_id),
+                    format!(
+                        "delegate_task: invalid worker_id '{}': {e}",
+                        parsed.worker_id
+                    ),
                     started.elapsed().as_millis() as u64,
                 ));
             }
@@ -168,6 +171,13 @@ impl Tool for DelegateTask {
             parsed.task,
             payload,
         );
+        if let Err(e) = inherit_active_chain(store, ctx, &mut handoff, target).await {
+            return Ok(error_text(
+                ctx.call_id,
+                format!("delegate_task: inherit escalation chain failed: {e}"),
+                started.elapsed().as_millis() as u64,
+            ));
+        }
         if let Some(ms) = parsed.deadline_ms {
             handoff.deadline = Some(Utc::now() + chrono::Duration::milliseconds(ms as i64));
         }
@@ -200,6 +210,28 @@ fn build_payload(args: &Args) -> serde_json::Value {
         }
     }
     p
+}
+
+async fn inherit_active_chain(
+    store: &OrchestratorStore,
+    ctx: &ToolContext,
+    handoff: &mut Handoff,
+    callee: WorkerId,
+) -> ArgoResult<()> {
+    let Some(active_id) = ctx.current_handoff_id.as_ref() else {
+        return Ok(());
+    };
+    let Some(active) = store.find_handoff(dispatch_tenant(), active_id).await? else {
+        return Ok(());
+    };
+    let Some(active_chain) = active.active_escalation_chain() else {
+        return Ok(());
+    };
+    let mut steps = Vec::with_capacity(active_chain.len() + 1);
+    steps.push(EscalationStep::Worker(callee));
+    steps.extend_from_slice(active_chain.steps());
+    handoff.set_escalation_chain(&EscalationChain::new(steps), 0);
+    Ok(())
 }
 
 #[cfg(test)]

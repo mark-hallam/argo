@@ -10,7 +10,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::escalation::EscalationStep;
+use crate::escalation::{EscalationChain, EscalationStep};
 use crate::session::SessionId;
 use argo_types::{ArgoError, ArgoResult};
 
@@ -135,6 +135,35 @@ impl Handoff {
         }
     }
 
+    /// Return the still-active slice of this handoff's escalation
+    /// chain, if its payload carries the walker payload shape.
+    #[must_use]
+    pub fn active_escalation_chain(&self) -> Option<EscalationChain> {
+        let arr = self.payload.get("escalation_chain")?.as_array()?;
+        let current = self.payload.get("escalation_index")
+            .and_then(serde_json::Value::as_u64).map(|n| n as usize).unwrap_or(0);
+        let steps: Vec<EscalationStep> = arr
+            .iter()
+            .skip(current)
+            .filter_map(serde_json::Value::as_str)
+            .filter_map(EscalationStep::parse)
+            .collect();
+        Some(EscalationChain::new(steps))
+    }
+
+    /// Store an escalation chain using the payload shape consumed by
+    /// the handoff walker.
+    pub fn set_escalation_chain(&mut self, chain: &EscalationChain, index: usize) {
+        if !self.payload.is_object() {
+            self.payload = serde_json::json!({});
+        }
+        if let Some(obj) = self.payload.as_object_mut() {
+            obj.insert("escalation_chain".into(),
+                serde_json::json!(chain.steps().iter().map(stringify_step).collect::<Vec<_>>()));
+            obj.insert("escalation_index".into(), serde_json::json!(index));
+        }
+    }
+
     /// Mark the handoff `Acknowledged`. No-op unless `Pending`.
     pub fn acknowledge(&mut self) {
         if matches!(self.status, HandoffStatus::Pending) {
@@ -174,6 +203,13 @@ impl Handoff {
     #[must_use]
     pub fn is_overdue(&self, now: DateTime<Utc>) -> bool {
         self.deadline.is_some_and(|d| now > d)
+    }
+}
+
+fn stringify_step(step: &EscalationStep) -> String {
+    match step {
+        EscalationStep::Worker(id) => format!("worker:{id}"),
+        EscalationStep::Human(addr) => format!("human:{addr}"),
     }
 }
 
