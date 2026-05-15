@@ -25,7 +25,7 @@ const RECENT_AUDIT: u32 = 10;
 pub struct WorkerShowReport {
     pub worker: Worker,
     pub recent_sessions: Vec<SessionRow>,
-    pub recent_audit: Vec<AuditRow>,
+    pub recent_audit: Vec<WorkerShowAuditView>,
     pub duties: Vec<DutyRow>,
     pub rosters: Vec<RosterRow>,
     pub spend_ytd_usd_micros: u64,
@@ -41,7 +41,7 @@ pub struct SessionRow {
 }
 
 #[derive(Debug, Serialize)]
-pub struct AuditRow {
+pub struct WorkerShowAuditView {
     pub seq: i64,
     pub kind: String,
     pub created_at: String,
@@ -131,7 +131,12 @@ async fn assemble_report(
         load_rosters(store_for_rosters, tenant, worker_id),
         async move {
             ensure_budget_schema(store_for_spend.as_ref()).await?;
-            spend_since(store_for_spend.as_ref(), &worker_id_str_for_spend, year_start).await
+            spend_since(
+                store_for_spend.as_ref(),
+                &worker_id_str_for_spend,
+                year_start,
+            )
+            .await
         },
     );
 
@@ -220,7 +225,7 @@ async fn session_columns(store: &SessionStore) -> ArgoResult<Vec<String>> {
 async fn load_recent_audit(
     store: Arc<SessionStore>,
     worker_id: String,
-) -> ArgoResult<Vec<AuditRow>> {
+) -> ArgoResult<Vec<WorkerShowAuditView>> {
     let rows = sqlx::query(
         "SELECT seq, kind, created_at FROM audit_record \
          WHERE json_extract(payload_json, '$.worker_id') = ? \
@@ -239,7 +244,7 @@ async fn load_recent_audit(
         .into_iter()
         .map(|row| {
             let micros: i64 = row.get("created_at");
-            AuditRow {
+            WorkerShowAuditView {
                 seq: row.get("seq"),
                 kind: row.get("kind"),
                 created_at: format_micros(micros),
@@ -354,7 +359,7 @@ fn parse_worker(value: &str) -> ArgoResult<WorkerId> {
 pub(crate) fn report_for_test(
     worker: Worker,
     sessions: Vec<SessionRow>,
-    audit: Vec<AuditRow>,
+    audit: Vec<WorkerShowAuditView>,
     duties: Vec<DutyRow>,
     spend_ytd_usd_micros: u64,
     generated_at: DateTime<Utc>,

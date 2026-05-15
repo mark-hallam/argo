@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 /// One row in `browser.jsonl`. Logged after every CU step so
 /// the trail is complete even if the executor crashes mid-loop.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct AuditRow {
+pub struct CuAuditEvent {
     /// 1-indexed CU step number.
     pub step: u32,
     /// ISO-8601 UTC timestamp.
@@ -72,7 +72,7 @@ impl AuditLog {
 
     /// Persist a screenshot for step N. Returns the relative
     /// path (relative to `bundle_dir`) that gets stamped into
-    /// the `AuditRow`.
+    /// the `CuAuditEvent`.
     pub fn save_screenshot(&self, step: u32, png: &[u8]) -> Result<String, CuError> {
         let filename = format!("step-{step:03}.png");
         let path = self.bundle_dir.join(&filename);
@@ -84,7 +84,7 @@ impl AuditLog {
     }
 
     /// Append one row to `browser.jsonl`.
-    pub fn append(&self, row: &AuditRow) -> Result<(), CuError> {
+    pub fn append(&self, row: &CuAuditEvent) -> Result<(), CuError> {
         let line = serde_json::to_string(row).map_err(|e| CuError::Json {
             what: "audit.row.serialise",
             source: e,
@@ -105,7 +105,7 @@ impl AuditLog {
     /// Read every row currently in `browser.jsonl`. Used by
     /// tests + by the executor when synthesising the action
     /// trajectory for `result_json`.
-    pub fn rows(&self) -> Result<Vec<AuditRow>, CuError> {
+    pub fn rows(&self) -> Result<Vec<CuAuditEvent>, CuError> {
         let body = std::fs::read_to_string(&self.jsonl_path).map_err(|e| CuError::Io {
             what: "audit.browser_jsonl.read",
             source: e,
@@ -115,7 +115,7 @@ impl AuditLog {
             if line.trim().is_empty() {
                 continue;
             }
-            let row: AuditRow = serde_json::from_str(line).map_err(|e| CuError::Json {
+            let row: CuAuditEvent = serde_json::from_str(line).map_err(|e| CuError::Json {
                 what: "audit.row.parse",
                 source: e,
             })?;
@@ -129,8 +129,8 @@ impl AuditLog {
 mod tests {
     use super::*;
 
-    fn sample_row(step: u32, screenshot: &str) -> AuditRow {
-        AuditRow {
+    fn sample_row(step: u32, screenshot: &str) -> CuAuditEvent {
+        CuAuditEvent {
             step,
             at: "2026-05-06T12:34:56Z".into(),
             action: CuAction::Click { x: 1, y: 2 },
@@ -157,7 +157,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let log = AuditLog::create(dir.path().to_path_buf()).unwrap();
         assert!(log.bundle_dir().join("browser.jsonl").exists());
-        assert_eq!(log.rows().unwrap(), Vec::<AuditRow>::new());
+        assert_eq!(log.rows().unwrap(), Vec::<CuAuditEvent>::new());
     }
 
     #[test]

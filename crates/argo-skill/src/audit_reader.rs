@@ -3,10 +3,10 @@
 //!
 //! The aggregation in [`crate::QualityInputs::from_audit_history`]
 //! only needs a tiny slice of an audit row (`kind`, `payload`,
-//! `created_at`). Wrapping that slice in [`AuditRow`] + the
+//! `created_at`). Wrapping that slice in [`SkillAuditView`] + the
 //! [`AuditStoreReader`] trait keeps the dependency on
 //! `argo-audit` from leaking into the public `argo-skill` API and
-//! lets unit tests fake the store with a `Vec<AuditRow>`.
+//! lets unit tests fake the store with a `Vec<SkillAuditView>`.
 //!
 //! The concrete [`SessionStoreAuditReader`] adapter filters
 //! `tool_result` audit rows by the active skill's `name` (skill
@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 /// Thin DTO of one audit row consumed by quality recompute.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditRow {
+pub struct SkillAuditView {
     /// Wire label, e.g. `tool_result`.
     pub kind: String,
     /// Canonical JSON payload as written to `audit_record.payload_json`.
@@ -48,7 +48,7 @@ pub trait AuditStoreReader: Send + Sync {
         &self,
         skill_id: &SkillId,
         since: Option<DateTime<Utc>>,
-    ) -> ArgoResult<Vec<AuditRow>>;
+    ) -> ArgoResult<Vec<SkillAuditView>>;
 }
 
 /// Adapter from an audit-backed [`SessionStore`] to an
@@ -75,7 +75,7 @@ impl AuditStoreReader for SessionStoreAuditReader {
         &self,
         _skill_id: &SkillId,
         since: Option<DateTime<Utc>>,
-    ) -> ArgoResult<Vec<AuditRow>> {
+    ) -> ArgoResult<Vec<SkillAuditView>> {
         let since_micros = since.map_or(i64::MIN, |t| t.timestamp_micros());
         let rows = sqlx::query(
             "SELECT kind, payload_json, created_at FROM audit_record \
@@ -96,11 +96,10 @@ impl AuditStoreReader for SessionStoreAuditReader {
             if payload.get("tool").and_then(|t| t.as_str()) != Some(self.skill_name.as_str()) {
                 continue;
             }
-            let Some(created_at) = DateTime::<Utc>::from_timestamp_micros(created_at_micros)
-            else {
+            let Some(created_at) = DateTime::<Utc>::from_timestamp_micros(created_at_micros) else {
                 continue;
             };
-            out.push(AuditRow {
+            out.push(SkillAuditView {
                 kind,
                 payload,
                 created_at,

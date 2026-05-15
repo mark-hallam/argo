@@ -6,11 +6,9 @@
 use std::sync::Arc;
 
 use crate::anthropic::{AnthropicClient, CuStepRequest, CuStepResponse, StopReason};
-use crate::audit::{AuditLog, AuditRow};
+use crate::audit::{AuditLog, CuAuditEvent};
 use crate::budget::{BudgetTracker, BudgetVerdict};
-use crate::e2b::{
-    decode_inline_screenshot, ActionResult, CuAction, E2bClient, E2bSandbox,
-};
+use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bClient, E2bSandbox};
 use crate::executor::AnthropicClientTemplate;
 use crate::executor_loop_exit::{handle_restart, stringify_verdict, LoopExit};
 use crate::executor_types::{RunRequest, RunResult};
@@ -201,7 +199,7 @@ pub(crate) async fn run_loop(
             persist_step(screenshot_persister, req, final_step, &screenshot).await;
             let relpath = audit.save_screenshot(final_step, &screenshot)?;
             for entry in pending.drain(..) {
-                audit.append(&AuditRow {
+                audit.append(&CuAuditEvent {
                     step: entry.step,
                     at: chrono::Utc::now().to_rfc3339(),
                     action: entry.action,

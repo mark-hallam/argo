@@ -8,7 +8,7 @@
 use crate::cli::cli_cu_cmds::CuCmd;
 use crate::handlers::worker_actions::ActionRecord;
 use crate::home::{db_path, ensure_dir, resolve_home};
-use argo_executor_computer_use::audit::AuditRow;
+use argo_executor_computer_use::audit::CuAuditEvent;
 use argo_memory::{MemoryFile, MemoryStore};
 use argo_store::attached_blob::BlobRef;
 use argo_store::SessionStore;
@@ -80,8 +80,7 @@ pub(crate) async fn cmd_replay(session_id: &str, opts: ReplayOpts) -> ArgoResult
             opts.gif_fps
         )));
     }
-    let cwd = std::env::current_dir()
-        .map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
+    let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("cwd: {e}")))?;
     let (memory, workspace) = open_workspace_memory(&cwd).await?;
     let verticals_dir = crate::handlers::vertical::resolve_verticals_dir();
     let action = find_action(&memory, workspace, session_id, &verticals_dir)
@@ -109,7 +108,7 @@ pub(crate) async fn cmd_replay(session_id: &str, opts: ReplayOpts) -> ArgoResult
 
 #[derive(Debug)]
 pub struct RenderedStep {
-    pub row: AuditRow,
+    pub row: CuAuditEvent,
     pub screenshot: ScreenshotSource,
 }
 
@@ -144,7 +143,7 @@ impl TrajectoryStatus {
 pub(crate) fn build_trajectory(
     action: &ActionRecord,
     bundle: &Path,
-    rows: &[AuditRow],
+    rows: &[CuAuditEvent],
     from: Option<u32>,
     to: Option<u32>,
 ) -> ArgoResult<Trajectory> {
@@ -189,22 +188,17 @@ pub(crate) fn bundle_dir(cwd: &Path, action: &ActionRecord) -> PathBuf {
         .join(&action.action_id)
 }
 
-pub(crate) fn load_trajectory(bundle: &Path) -> ArgoResult<Vec<AuditRow>> {
+pub(crate) fn load_trajectory(bundle: &Path) -> ArgoResult<Vec<CuAuditEvent>> {
     let path = bundle.join("browser.jsonl");
-    let body = std::fs::read_to_string(&path).map_err(|e| {
-        ArgoError::Io(format!("read {}: {e}", path.display()))
-    })?;
+    let body = std::fs::read_to_string(&path)
+        .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let mut rows = Vec::new();
     for (idx, line) in body.lines().enumerate() {
         if line.trim().is_empty() {
             continue;
         }
-        let row: AuditRow = serde_json::from_str(line).map_err(|e| {
-            ArgoError::Provider(format!(
-                "parse {}:{}: {e}",
-                path.display(),
-                idx + 1
-            ))
+        let row: CuAuditEvent = serde_json::from_str(line).map_err(|e| {
+            ArgoError::Provider(format!("parse {}:{}: {e}", path.display(), idx + 1))
         })?;
         rows.push(row);
     }

@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::handlers::worker_actions::ActionRecord;
-use argo_executor_computer_use::audit::AuditRow;
+use argo_executor_computer_use::audit::CuAuditEvent;
 use argo_executor_computer_use::budget::BudgetSnapshot;
 use argo_executor_computer_use::e2b::{ActionResult, CuAction};
 use argo_identity::WorkerId;
@@ -11,8 +11,8 @@ use serde_json::json;
 use std::path::Path;
 use tempfile::TempDir;
 
-fn sample_row(step: u32) -> AuditRow {
-    AuditRow {
+fn sample_row(step: u32) -> CuAuditEvent {
+    CuAuditEvent {
         step,
         at: format!("2026-05-10T12:00:0{step}Z"),
         action: CuAction::Click {
@@ -69,7 +69,7 @@ fn write_png(path: &Path) {
     img.save(path).expect("write png");
 }
 
-fn seed_bundle(dir: &TempDir, action: &ActionRecord, rows: &[AuditRow]) {
+fn seed_bundle(dir: &TempDir, action: &ActionRecord, rows: &[CuAuditEvent]) {
     let bundle = bundle_dir(dir.path(), action);
     std::fs::create_dir_all(&bundle).unwrap();
     let mut body = String::new();
@@ -83,7 +83,7 @@ fn seed_bundle(dir: &TempDir, action: &ActionRecord, rows: &[AuditRow]) {
     }
 }
 
-fn three_step_trajectory() -> (TempDir, ActionRecord, Vec<AuditRow>) {
+fn three_step_trajectory() -> (TempDir, ActionRecord, Vec<CuAuditEvent>) {
     let dir = tempfile::tempdir().unwrap();
     let action = sample_action("act-cu-replay-1", "completed");
     let rows = vec![sample_row(1), sample_row(2), sample_row(3)];
@@ -148,8 +148,7 @@ fn blob_screenshot_renders_argo_blob_link() {
     use argo_store::attached_blob::{AttachedBlob, BlobRef};
     let blob = AttachedBlob::new(b"\x89PNG-fake".to_vec(), "image/png".into());
     let r: BlobRef = blob.as_ref();
-    let link =
-        super::screenshot_link(&ScreenshotSource::Blob(r.clone()), false).unwrap();
+    let link = super::screenshot_link(&ScreenshotSource::Blob(r.clone()), false).unwrap();
     assert!(link.starts_with("argo-blob://"), "got {link}");
     assert!(link.contains(&r.id.to_string()), "got {link}");
 }

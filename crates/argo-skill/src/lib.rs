@@ -94,7 +94,7 @@ pub use publish::{
     list_mock_skill_tags, mock_registry_root, publish_mock_skill, unpublish_mock_skill_tag,
     SkillPublishRecord, SkillPublishSource, SkillTag, SkillUnpublishRecord,
 };
-pub use audit_reader::{AuditRow, AuditStoreReader, SessionStoreAuditReader};
+pub use audit_reader::{AuditStoreReader, SessionStoreAuditReader, SkillAuditView};
 pub use quality::{compute_score, QualityInputs, QualityScore, SkillQualityStore};
 pub use regression::{detect_regression, RegressionConfig, RegressionDecision};
 pub use eval_runner::{

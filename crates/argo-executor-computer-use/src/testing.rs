@@ -24,7 +24,7 @@
 //! continue to see `argo_executor_computer_use::testing::Mock*`.
 
 use crate::anthropic::{AnthropicCall, CuStepRequest, CuStepResponse, StopReason};
-use crate::audit::{AuditLog, AuditRow};
+use crate::audit::{AuditLog, CuAuditEvent};
 use crate::budget::{BudgetTracker, BudgetVerdict};
 use crate::e2b::{decode_inline_screenshot, ActionResult, CuAction, E2bCall};
 use crate::executor::{CuOutcome, RunRequest, RunResult};
@@ -77,7 +77,7 @@ pub struct TestRun {
     /// Number of `step` calls the mock Anthropic client observed.
     pub anthropic_calls: u32,
     /// Audit rows captured into a tempdir during the run.
-    pub audit_rows: Vec<AuditRow>,
+    pub audit_rows: Vec<CuAuditEvent>,
     /// Final step count when the loop returned.
     pub steps: u32,
     /// Number of `screenshot()` HTTP calls the mock observed.
@@ -111,7 +111,7 @@ async fn drive(
     e2b: &dyn E2bCall,
     req: &RunRequest,
     profile: &Profile,
-) -> (Result<CuOutcome, CuError>, Vec<AuditRow>, u32) {
+) -> (Result<CuOutcome, CuError>, Vec<CuAuditEvent>, u32) {
     let bundle_dir = harness_bundle_dir();
     let audit = match AuditLog::create(bundle_dir.clone()) {
         Ok(a) => a,
@@ -267,7 +267,7 @@ async fn drive_loop(
                 .unwrap_or_else(|| tracker.step());
             let relpath = audit.save_screenshot(final_step, &screenshot)?;
             for (step, action, result, tokens_used) in pending.drain(..) {
-                audit.append(&AuditRow {
+                audit.append(&CuAuditEvent {
                     step,
                     at: chrono::Utc::now().to_rfc3339(),
                     action,

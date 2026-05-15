@@ -4,7 +4,7 @@
 #![cfg(test)]
 
 use super::worker_show::{
-    envelope_for_test, report_for_test, AuditRow, DutyRow, SessionRow, WorkerShowReport,
+    envelope_for_test, report_for_test, DutyRow, SessionRow, WorkerShowAuditView, WorkerShowReport,
 };
 use super::worker_show_render::render_markdown;
 use argo_identity::{MemoryScope, NotifyChannelRef, Persona, Role, Worker, WorkerId};
@@ -35,7 +35,8 @@ fn worker_with_charter(charter: Option<&str>, channels: Vec<NotifyChannelRef>) -
 }
 
 fn full_report() -> WorkerShowReport {
-    let charter = Some("# Operating principles\n\n- Always confirm before action.\n- Defer high-risk steps.");
+    let charter =
+        Some("# Operating principles\n\n- Always confirm before action.\n- Defer high-risk steps.");
     let channels = vec![
         NotifyChannelRef::new("slack", "C123"),
         NotifyChannelRef {
@@ -52,12 +53,12 @@ fn full_report() -> WorkerShowReport {
         title: Some("Refund follow-up".into()),
     }];
     let audit = vec![
-        AuditRow {
+        WorkerShowAuditView {
             seq: 42,
             kind: "auto_approval_decision".into(),
             created_at: "2026-05-08T11:25:00+00:00".into(),
         },
-        AuditRow {
+        WorkerShowAuditView {
             seq: 41,
             kind: "handoff_emitted".into(),
             created_at: "2026-05-08T11:20:00+00:00".into(),
@@ -220,8 +221,14 @@ fn json_envelope_round_trips_serde() {
     let parsed: serde_json::Value = serde_json::from_str(&body).expect("parse");
     assert_eq!(parsed["worker_show"]["spend_ytd_usd_micros"], 12_345_678);
     assert_eq!(parsed["worker_show"]["recent_audit"][0]["seq"], 42);
-    assert_eq!(parsed["worker_show"]["duties"][0]["entry_action"], "morning_check");
-    assert_eq!(parsed["worker_show"]["recent_sessions"][0]["vertical_id"], "support");
+    assert_eq!(
+        parsed["worker_show"]["duties"][0]["entry_action"],
+        "morning_check"
+    );
+    assert_eq!(
+        parsed["worker_show"]["recent_sessions"][0]["vertical_id"],
+        "support"
+    );
 }
 
 #[test]

@@ -1,7 +1,7 @@
 //! Unit tests for `crate::quality`.
 
 use super::*;
-use crate::audit_reader::{AuditRow, AuditStoreReader};
+use crate::audit_reader::{AuditStoreReader, SkillAuditView};
 use async_trait::async_trait;
 use chrono::TimeZone;
 
@@ -229,7 +229,7 @@ async fn latest_returns_none_for_unscored_skill() {
 /// returned verbatim; the caller is responsible for excluding
 /// rows older than `since` (matching the trait contract).
 struct FakeAuditReader {
-    rows: Vec<AuditRow>,
+    rows: Vec<SkillAuditView>,
 }
 
 #[async_trait]
@@ -238,7 +238,7 @@ impl AuditStoreReader for FakeAuditReader {
         &self,
         _skill_id: &SkillId,
         since: Option<DateTime<Utc>>,
-    ) -> ArgoResult<Vec<AuditRow>> {
+    ) -> ArgoResult<Vec<SkillAuditView>> {
         Ok(self
             .rows
             .iter()
@@ -251,8 +251,8 @@ impl AuditStoreReader for FakeAuditReader {
     }
 }
 
-fn tool_result(is_error: bool, duration_ms: f64, at: DateTime<Utc>) -> AuditRow {
-    AuditRow {
+fn tool_result(is_error: bool, duration_ms: f64, at: DateTime<Utc>) -> SkillAuditView {
+    SkillAuditView {
         kind: "tool_result".to_string(),
         payload: serde_json::json!({
             "tool": "demo",
@@ -318,9 +318,17 @@ async fn from_audit_p99_uses_nearest_rank() {
     // so the constructor must surface the tail latency.
     let mut rows = Vec::new();
     for i in 0..9 {
-        rows.push(tool_result(false, 50.0, at(10) + chrono::Duration::seconds(i)));
+        rows.push(tool_result(
+            false,
+            50.0,
+            at(10) + chrono::Duration::seconds(i),
+        ));
     }
-    rows.push(tool_result(false, 10_000.0, at(10) + chrono::Duration::seconds(20)));
+    rows.push(tool_result(
+        false,
+        10_000.0,
+        at(10) + chrono::Duration::seconds(20),
+    ));
     let reader = FakeAuditReader { rows };
     let inputs = QualityInputs::from_audit_history(&SkillId::new(), &reader, None)
         .await
@@ -337,14 +345,14 @@ async fn from_audit_p99_uses_nearest_rank() {
 #[tokio::test]
 async fn from_audit_skips_malformed_rows_without_error() {
     let rows = vec![
-        AuditRow {
+        SkillAuditView {
             kind: "tool_result".to_string(),
             // missing is_error + duration_ms entirely
             payload: serde_json::json!({"tool": "demo"}),
             created_at: at(10),
         },
         tool_result(false, 100.0, at(11)),
-        AuditRow {
+        SkillAuditView {
             kind: "tool_result".to_string(),
             // is_error present but duration_ms missing
             payload: serde_json::json!({"tool": "demo", "is_error": false}),
@@ -365,13 +373,13 @@ async fn from_audit_skips_malformed_rows_without_error() {
 #[tokio::test]
 async fn from_audit_ignores_non_tool_result_rows() {
     let rows = vec![
-        AuditRow {
+        SkillAuditView {
             kind: "tool_call".to_string(),
             payload: serde_json::json!({"tool": "demo", "call_id": "x"}),
             created_at: at(10),
         },
         tool_result(false, 200.0, at(11)),
-        AuditRow {
+        SkillAuditView {
             kind: "turn_start".to_string(),
             payload: serde_json::json!({}),
             created_at: at(12),

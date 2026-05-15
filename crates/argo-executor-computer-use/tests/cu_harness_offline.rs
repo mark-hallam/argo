@@ -10,7 +10,7 @@
 //! vars are wired up. `cu_smoke.rs` is intentionally unchanged.
 
 use argo_executor_computer_use::anthropic::{CuStepResponse, StopReason};
-use argo_executor_computer_use::audit::AuditRow;
+use argo_executor_computer_use::audit::CuAuditEvent;
 use argo_executor_computer_use::e2b::{ActionResult, CuAction};
 use argo_executor_computer_use::testing::{
     cu_harness_run, CannedResponse, ScriptedAction, TestScript,
@@ -106,7 +106,7 @@ async fn single_action_then_stop_success_completes() {
     assert_eq!(run.received_actions[0], CuAction::Click { x: 120, y: 240 });
     assert_eq!(run.anthropic_calls, 2);
     assert_eq!(run.audit_rows.len(), 1);
-    let only: &AuditRow = &run.audit_rows[0];
+    let only: &CuAuditEvent = &run.audit_rows[0];
     assert_eq!(only.step, 1);
     assert_eq!(only.tokens_used, 50);
 }

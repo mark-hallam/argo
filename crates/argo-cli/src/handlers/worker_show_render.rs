@@ -2,7 +2,7 @@
 //! `worker_show.rs` to keep both files comfortably under the 500-LOC
 //! file invariant - see brief `claude-worker-introspection-cli`).
 
-use super::worker_show::{AuditRow, DutyRow, SessionRow, WorkerShowReport};
+use super::worker_show::{DutyRow, SessionRow, WorkerShowAuditView, WorkerShowReport};
 use argo_identity::{NotifyChannelRef, Persona, Role};
 
 pub(crate) fn render_markdown(r: &WorkerShowReport) -> String {
@@ -30,7 +30,10 @@ fn render_persona(p: &Persona) -> String {
     if let Some(bio) = &p.bio {
         out.push_str(&format!("- Bio: {bio}\n"));
     }
-    out.push_str(&format!("- Voice preamble: {}\n\n", p.voice_profile.preamble));
+    out.push_str(&format!(
+        "- Voice preamble: {}\n\n",
+        p.voice_profile.preamble
+    ));
     out
 }
 
@@ -85,13 +88,16 @@ fn render_sessions(rows: &[SessionRow]) -> String {
     for r in rows {
         let v = r.vertical_id.as_deref().unwrap_or("-");
         let title = r.title.as_deref().unwrap_or("");
-        out.push_str(&format!("- `{}` ({}) {} {}\n", r.id, v, r.started_at, title));
+        out.push_str(&format!(
+            "- `{}` ({}) {} {}\n",
+            r.id, v, r.started_at, title
+        ));
     }
     out.push('\n');
     out
 }
 
-fn render_audit(rows: &[AuditRow]) -> String {
+fn render_audit(rows: &[WorkerShowAuditView]) -> String {
     let mut out = String::from("## Recent Audit\n\n");
     if rows.is_empty() {
         out.push_str("(none)\n\n");
