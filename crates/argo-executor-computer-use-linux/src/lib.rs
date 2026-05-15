@@ -10,16 +10,15 @@
 pub mod error;
 pub mod probe;
 pub mod session;
-pub mod wayland;
-pub mod x11;
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) mod test_support;
+pub mod wayland;
+pub mod x11;
 
 pub use error::LinuxCuError;
-pub use probe::{
-    probe, DisplayMode, ProbeReport, ProbeStatus, WaylandCapabilities,
-};
-pub use session::{Session, SessionOptions, StepLog, StepRecord};
+pub use probe::{probe, DisplayMode, ProbeReport, ProbeStatus, WaylandCapabilities};
+pub use session::{LinuxCuSession as Session, LinuxStepRecord as StepRecord};
+pub use session::{LinuxCuSession, LinuxStepRecord, SessionOptions, StepLog};
 pub use x11::input::InputResult;
 pub use x11::screenshot::Screenshot;
 pub use x11::window::WindowInfo;
@@ -87,8 +86,8 @@ impl LinuxComputerUse {
     }
 
     #[must_use]
-    pub fn session(&self, opts: SessionOptions) -> Session {
-        Session::new(*self, opts)
+    pub fn session(&self, opts: SessionOptions) -> LinuxCuSession {
+        LinuxCuSession::new(*self, opts)
     }
 }
 

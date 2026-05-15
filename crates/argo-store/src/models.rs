@@ -1,7 +1,6 @@
 //! Read-side row models and conversions.
 use argo_types::{
-    ArgoError, ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId,
-    WorkspaceId,
+    ArgoError, ProviderModel, RoutingDecision, RoutingDecisionId, SessionId, TenantId, WorkspaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -12,9 +11,8 @@ use uuid::Uuid;
 ///
 /// ```
 /// use argo_store::WorkerId;
-/// use std::str::FromStr;
-/// let id = WorkerId::from_str("00000000-0000-0000-0000-000000000001").unwrap();
-/// assert_eq!(id.to_string(), "00000000-0000-0000-0000-000000000001");
+/// let id = WorkerId::from_blob(&[0u8; 16]).unwrap();
+/// assert_eq!(id.to_string(), "00000000-0000-0000-0000-000000000000");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorkerId(
@@ -23,6 +21,19 @@ pub struct WorkerId(
 );
 
 impl WorkerId {
+    /// Generate a fresh UUIDv7 worker id.
+    #[must_use]
+    pub fn new() -> Self {
+        Self(Uuid::now_v7())
+    }
+
+    /// All-zero `WorkerId` sentinel used for platform-default rows
+    /// and legacy action rows that predate worker identity.
+    #[must_use]
+    pub fn nil() -> Self {
+        Self(Uuid::nil())
+    }
+
     /// Parse a 16-byte SQLite BLOB into a worker id.
     ///
     /// ```
@@ -40,6 +51,12 @@ impl WorkerId {
             )));
         }
         Ok(Self(uuid_from_blob(blob)))
+    }
+}
+
+impl Default for WorkerId {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -285,7 +302,10 @@ impl TryFrom<SessionHeaderRow> for SessionHeader {
                 .unwrap_or_else(Utc::now),
             ended_at: r.ended_at.and_then(DateTime::<Utc>::from_timestamp_micros),
             vertical_id: r.vertical_id,
-            worker_id: r.worker_id.map(|blob| WorkerId::from_blob(&blob)).transpose()?,
+            worker_id: r
+                .worker_id
+                .map(|blob| WorkerId::from_blob(&blob))
+                .transpose()?,
         })
     }
 }

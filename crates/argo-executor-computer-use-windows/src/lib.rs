@@ -68,7 +68,8 @@ pub mod screenshot;
 
 pub use config::{ScreenshotKind, WindowsCuConfig};
 pub use error::WindowsCuError;
-pub use executor::{StepRecord, WindowsCuExecutor, WindowsCuOutcome, WindowsCuRunRequest};
+pub use executor::WindowsStepRecord as StepRecord;
+pub use executor::{WindowsCuExecutor, WindowsCuOutcome, WindowsCuRunRequest, WindowsStepRecord};
 pub use preflight::{PreflightCheck, PreflightStatus, WindowsPreflightReport};
 
 /// Result alias for the crate.

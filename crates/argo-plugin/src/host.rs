@@ -12,7 +12,8 @@
 //! (§11.5 acceptance).
 use crate::error::{PluginError, PluginResult};
 use crate::protocol::{
-    HandshakeRequest, HandshakeResponse, JsonRpcRequest, JsonRpcResponse, PROTOCOL_VERSION,
+    HandshakeRequest, HandshakeResponse, PluginJsonRpcRequest, PluginJsonRpcResponse,
+    PROTOCOL_VERSION,
 };
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -35,7 +36,7 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// In-flight call table — keyed by request id, drained by the reader
 /// task when the response arrives or the plugin crashes.
-type PendingMap = Arc<Mutex<HashMap<u64, oneshot::Sender<PluginResult<JsonRpcResponse>>>>>;
+type PendingMap = Arc<Mutex<HashMap<u64, oneshot::Sender<PluginResult<PluginJsonRpcResponse>>>>>;
 
 /// One running plugin.
 pub struct PluginHost {
@@ -149,7 +150,7 @@ impl PluginHost {
             return Err(PluginError::Crash(reason));
         }
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        let req = JsonRpcRequest::new(id, method, params);
+        let req = PluginJsonRpcRequest::new(id, method, params);
         let (tx, rx) = oneshot::channel();
         self.pending.lock().await.insert(id, tx);
         if let Err(e) = write_one(&self.stdin, &req).await {
@@ -182,7 +183,7 @@ impl PluginHost {
         if self.shutdown_flag.swap(true, Ordering::SeqCst) {
             return Ok(());
         }
-        let req = JsonRpcRequest::new(0, "shutdown", serde_json::json!({}));
+        let req = PluginJsonRpcRequest::new(0, "shutdown", serde_json::json!({}));
         // Best-effort: ignore a write error here — the plugin may have
         // already exited (which is the normal shutdown completion path).
         let _ = write_one(&self.stdin, &req).await;
@@ -212,7 +213,7 @@ async fn read_loop(
                 if line.trim().is_empty() {
                     continue;
                 }
-                match serde_json::from_str::<JsonRpcResponse>(&line) {
+                match serde_json::from_str::<PluginJsonRpcResponse>(&line) {
                     Ok(resp) => deliver(&pending, resp).await,
                     Err(e) => {
                         tracing::warn!(error = %e, line, "plugin emitted non-response line");
@@ -229,7 +230,7 @@ async fn read_loop(
     }
 }
 
-async fn deliver(pending: &PendingMap, resp: JsonRpcResponse) {
+async fn deliver(pending: &PendingMap, resp: PluginJsonRpcResponse) {
     let Some(id) = resp.id.as_u64() else {
         tracing::warn!(?resp.id, "plugin response with non-numeric id");
         return;
@@ -248,7 +249,7 @@ async fn fail_pending(pending: &PendingMap, reason: String) {
     }
 }
 
-async fn write_one(stdin: &Arc<Mutex<ChildStdin>>, req: &JsonRpcRequest) -> PluginResult<()> {
+async fn write_one(stdin: &Arc<Mutex<ChildStdin>>, req: &PluginJsonRpcRequest) -> PluginResult<()> {
     let body = serde_json::to_string(req)
         .map_err(|e| PluginError::Decode(format!("request encode: {e}")))?;
     let mut g = stdin.lock().await;
@@ -289,7 +290,7 @@ async fn handshake(host: &PluginHost) -> PluginResult<HandshakeResponse> {
 // Allow channel-typed mpsc unused warnings — kept for the upcoming
 // plugin-→-Argo notification path (Phase 4 follow-up).
 #[allow(dead_code)]
-type NotificationTx = mpsc::Sender<JsonRpcRequest>;
+type NotificationTx = mpsc::Sender<PluginJsonRpcRequest>;
 
 mod _tests_use {
     #[allow(unused_imports)]

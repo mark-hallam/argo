@@ -25,14 +25,14 @@ impl Default for SessionOptions {
 
 /// Stateful PoC session.
 #[derive(Debug, Clone)]
-pub struct Session {
+pub struct LinuxCuSession {
     computer: LinuxComputerUse,
     opts: SessionOptions,
 }
 
 /// One logged step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StepRecord {
+pub struct LinuxStepRecord {
     /// 0-based step index.
     pub step: u32,
     /// Action label.
@@ -45,10 +45,10 @@ pub struct StepRecord {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StepLog {
     /// Steps in execution order.
-    pub steps: Vec<StepRecord>,
+    pub steps: Vec<LinuxStepRecord>,
 }
 
-impl Session {
+impl LinuxCuSession {
     /// Construct a session.
     #[must_use]
     pub fn new(computer: LinuxComputerUse, opts: SessionOptions) -> Self {
@@ -63,17 +63,17 @@ impl Session {
         let typed = self.computer.r#type("hello")?;
         let log = StepLog {
             steps: vec![
-                StepRecord {
+                LinuxStepRecord {
                     step: 0,
                     action: "screenshot".into(),
                     detail: shot.path.display().to_string(),
                 },
-                StepRecord {
+                LinuxStepRecord {
                     step: 1,
                     action: click.action,
                     detail: click.detail,
                 },
-                StepRecord {
+                LinuxStepRecord {
                     step: 2,
                     action: typed.action,
                     detail: typed.detail,
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn step_log_serializes() {
         let log = StepLog {
-            steps: vec![StepRecord {
+            steps: vec![LinuxStepRecord {
                 step: 0,
                 action: "screenshot".into(),
                 detail: "/tmp/a.png".into(),

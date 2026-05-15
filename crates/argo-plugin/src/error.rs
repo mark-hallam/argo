@@ -1,5 +1,5 @@
 //! Plugin-host error variants.
-use crate::protocol::JsonRpcError;
+use crate::protocol::PluginJsonRpcError;
 
 /// Lifecycle / transport error from the plugin subprocess.
 #[derive(Debug, thiserror::Error)]
@@ -42,8 +42,8 @@ pub enum PluginError {
     Timeout(u64),
 }
 
-impl From<JsonRpcError> for PluginError {
-    fn from(e: JsonRpcError) -> Self {
+impl From<PluginJsonRpcError> for PluginError {
+    fn from(e: PluginJsonRpcError) -> Self {
         Self::Rpc {
             code: e.code,
             message: e.message,

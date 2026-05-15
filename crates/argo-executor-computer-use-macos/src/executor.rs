@@ -60,7 +60,7 @@ pub enum MacosCuOutcome {
         /// Plain-English summary of what the loop accomplished.
         summary: String,
         /// Per-step audit-friendly trace.
-        steps: Vec<StepRecord>,
+        steps: Vec<MacosStepRecord>,
         /// Wallclock seconds the loop took.
         wallclock_seconds: u32,
     },
@@ -70,13 +70,13 @@ pub enum MacosCuOutcome {
         /// One-line operator-facing reason.
         reason: String,
         /// Steps taken so far.
-        steps: Vec<StepRecord>,
+        steps: Vec<MacosStepRecord>,
     },
 }
 
 /// One CU loop step's audit row.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StepRecord {
+pub struct MacosStepRecord {
     /// 0-indexed step number in this dispatch.
     pub step: u32,
     /// Action kind label (`click` / `type` / `key` / ...).
@@ -97,9 +97,7 @@ impl MacosCuExecutor {
     /// if `target_app` isn't in `allowed_apps` or
     /// `allowed_actions` is empty.
     pub fn new(config: MacosCuConfig) -> MacosCuResult<Self> {
-        config
-            .validate()
-            .map_err(MacosCuError::Protocol)?;
+        config.validate().map_err(MacosCuError::Protocol)?;
         Ok(Self { config })
     }
 
@@ -119,10 +117,7 @@ impl MacosCuExecutor {
     /// One CU loop tick — execute the action, capture follow-up
     /// state. Pure dispatch step; the full `run()` loop builds
     /// on top of this.
-    pub async fn execute_step(
-        &self,
-        action: &CuAction,
-    ) -> MacosCuResult<MacosActionResult> {
+    pub async fn execute_step(&self, action: &CuAction) -> MacosCuResult<MacosActionResult> {
         // Re-assert front-app focus before each step so a model
         // can't drift into an off-target app via stale state.
         assert_front_app_is(&self.config.target_app).await?;
@@ -132,10 +127,7 @@ impl MacosCuExecutor {
     /// Bring the target app to front + return its post-activate
     /// screenshot bytes. Used by the loop to seed the first
     /// Anthropic CU request.
-    pub async fn warm_up(
-        &self,
-        screenshot_dest: &std::path::Path,
-    ) -> MacosCuResult<Vec<u8>> {
+    pub async fn warm_up(&self, screenshot_dest: &std::path::Path) -> MacosCuResult<Vec<u8>> {
         activate_app(&self.config.target_app, &self.config).await?;
         capture_front_window(screenshot_dest)?;
         read_png(screenshot_dest)
@@ -147,17 +139,17 @@ impl MacosCuExecutor {
         screen_size()
     }
 
-    /// One-tick wrapper that records the step into a `StepRecord`
+    /// One-tick wrapper that records the step into a `MacosStepRecord`
     /// for audit.
     pub async fn execute_step_recorded(
         &self,
         step_idx: u32,
         action: &CuAction,
-    ) -> MacosCuResult<StepRecord> {
+    ) -> MacosCuResult<MacosStepRecord> {
         let action_kind = action_kind(action).to_string();
         let action_summary = action.summary();
         let result = self.execute_step(action).await?;
-        Ok(StepRecord {
+        Ok(MacosStepRecord {
             step: step_idx,
             action_kind,
             action_summary,
@@ -170,7 +162,7 @@ impl MacosCuExecutor {
     /// Helper used by the loop to keep the budget-exhausted path
     /// uniform with other handoff causes.
     #[must_use]
-    pub fn handoff(reason: impl Into<String>, steps: Vec<StepRecord>) -> MacosCuOutcome {
+    pub fn handoff(reason: impl Into<String>, steps: Vec<MacosStepRecord>) -> MacosCuOutcome {
         MacosCuOutcome::HumanHandoff {
             reason: reason.into(),
             steps,
@@ -182,7 +174,7 @@ impl MacosCuExecutor {
     #[must_use]
     pub fn completed(
         summary: impl Into<String>,
-        steps: Vec<StepRecord>,
+        steps: Vec<MacosStepRecord>,
         wallclock: std::time::Duration,
     ) -> MacosCuOutcome {
         MacosCuOutcome::Completed {
@@ -195,11 +187,7 @@ impl MacosCuExecutor {
     /// True if the loop has run past the wallclock or step
     /// ceilings configured.
     #[must_use]
-    pub fn budget_exhausted(
-        &self,
-        steps_so_far: u32,
-        started_at: Instant,
-    ) -> bool {
+    pub fn budget_exhausted(&self, steps_so_far: u32, started_at: Instant) -> bool {
         if steps_so_far >= self.config.max_steps {
             return true;
         }
@@ -240,11 +228,7 @@ mod tests {
 
     #[test]
     fn completed_helper_records_wallclock_in_seconds() {
-        let out = MacosCuExecutor::completed(
-            "ok",
-            vec![],
-            std::time::Duration::from_secs(42),
-        );
+        let out = MacosCuExecutor::completed("ok", vec![], std::time::Duration::from_secs(42));
         match out {
             MacosCuOutcome::Completed {
                 wallclock_seconds, ..

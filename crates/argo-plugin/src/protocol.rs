@@ -14,7 +14,7 @@ pub const PROTOCOL_VERSION: &str = "0.1.0";
 
 /// One Argo → plugin (or plugin → Argo) request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcRequest {
+pub struct PluginJsonRpcRequest {
     /// Always `"2.0"`.
     pub jsonrpc: String,
     /// Correlation id.
@@ -26,7 +26,7 @@ pub struct JsonRpcRequest {
     pub params: serde_json::Value,
 }
 
-impl JsonRpcRequest {
+impl PluginJsonRpcRequest {
     /// Build a request with the next sequential id.
     #[must_use]
     pub fn new(id: u64, method: &str, params: serde_json::Value) -> Self {
@@ -42,7 +42,7 @@ impl JsonRpcRequest {
 /// One response to a request. `result` and `error` are mutually
 /// exclusive.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcResponse {
+pub struct PluginJsonRpcResponse {
     /// Always `"2.0"`.
     pub jsonrpc: String,
     /// Echo of the request's id.
@@ -52,12 +52,12 @@ pub struct JsonRpcResponse {
     pub result: Option<serde_json::Value>,
     /// Error body — present iff `result` is `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<JsonRpcError>,
+    pub error: Option<PluginJsonRpcError>,
 }
 
-/// One error within a [`JsonRpcResponse`].
+/// One error within a [`PluginJsonRpcResponse`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcError {
+pub struct PluginJsonRpcError {
     /// JSON-RPC error code.
     pub code: i64,
     /// Human-readable message.
@@ -114,16 +114,16 @@ mod tests {
 
     #[test]
     fn request_round_trips_through_json() {
-        let r = JsonRpcRequest::new(1, "pre_tool_call", serde_json::json!({"tool": "ls"}));
+        let r = PluginJsonRpcRequest::new(1, "pre_tool_call", serde_json::json!({"tool": "ls"}));
         let s = serde_json::to_string(&r).unwrap();
-        let back: JsonRpcRequest = serde_json::from_str(&s).unwrap();
+        let back: PluginJsonRpcRequest = serde_json::from_str(&s).unwrap();
         assert_eq!(back.method, "pre_tool_call");
         assert_eq!(back.id, serde_json::json!(1));
     }
 
     #[test]
     fn response_with_result_omits_error_field() {
-        let r = JsonRpcResponse {
+        let r = PluginJsonRpcResponse {
             jsonrpc: "2.0".into(),
             id: serde_json::json!(7),
             result: Some(serde_json::json!({"action": "allow"})),

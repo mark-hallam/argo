@@ -37,8 +37,12 @@ pub mod registry;
 pub use error::{PluginError, PluginResult};
 pub use host::{PluginHost, DEFAULT_CALL_TIMEOUT};
 pub use protocol::{
-    HandshakeRequest, HandshakeResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
-    PreToolCallVerdict, PROTOCOL_VERSION,
+    HandshakeRequest, HandshakeResponse, PluginJsonRpcError, PluginJsonRpcRequest,
+    PluginJsonRpcResponse, PreToolCallVerdict, PROTOCOL_VERSION,
+};
+pub use protocol::{
+    PluginJsonRpcError as JsonRpcError, PluginJsonRpcRequest as JsonRpcRequest,
+    PluginJsonRpcResponse as JsonRpcResponse,
 };
 pub use registry::{PluginManifestEntry, PluginRegistry, PluginRegistryConfig};
 

@@ -49,7 +49,7 @@ pub const MEMORY_SCHEMA_VERSION: &str = "1";
 /// One memory entry's typed declaration.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(deny_unknown_fields)]
-pub struct MemoryEntry {
+pub struct MemorySchemaEntry {
     /// Unique key. Memory writes target this by name.
     pub key: String,
     /// Type discriminator — one of:
@@ -73,7 +73,7 @@ pub struct MemorySchema {
     /// Ordered list of typed entries. The validator rejects
     /// duplicates by `key` so the CLI can resolve unambiguously.
     #[serde(default, rename = "entry")]
-    pub entries: Vec<MemoryEntry>,
+    pub entries: Vec<MemorySchemaEntry>,
 }
 
 /// Parse a memory-schema TOML body.
@@ -120,13 +120,7 @@ pub fn validate_memory_schema(s: &MemorySchema) -> ArgoResult<()> {
 fn is_supported_type(t: &str) -> bool {
     matches!(
         t,
-        "list-of-objects"
-            | "list-of-strings"
-            | "string"
-            | "object"
-            | "int"
-            | "float"
-            | "bool"
+        "list-of-objects" | "list-of-strings" | "string" | "object" | "int" | "float" | "bool"
     )
 }
 

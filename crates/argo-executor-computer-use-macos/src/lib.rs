@@ -61,7 +61,8 @@ pub mod screenshot;
 
 pub use config::MacosCuConfig;
 pub use error::MacosCuError;
-pub use executor::{MacosCuExecutor, MacosCuOutcome, MacosCuRunRequest};
+pub use executor::MacosStepRecord as StepRecord;
+pub use executor::{MacosCuExecutor, MacosCuOutcome, MacosCuRunRequest, MacosStepRecord};
 pub use preflight::{PermissionKind, PermissionReport, PermissionStatus};
 
 /// Result alias for the crate.

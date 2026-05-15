@@ -58,7 +58,7 @@ pub enum WindowsCuOutcome {
         /// Plain-English summary of what the loop accomplished.
         summary: String,
         /// Per-step audit-friendly trace.
-        steps: Vec<StepRecord>,
+        steps: Vec<WindowsStepRecord>,
         /// Wallclock seconds the loop took.
         wallclock_seconds: u32,
     },
@@ -68,13 +68,13 @@ pub enum WindowsCuOutcome {
         /// One-line operator-facing reason.
         reason: String,
         /// Steps taken so far.
-        steps: Vec<StepRecord>,
+        steps: Vec<WindowsStepRecord>,
     },
 }
 
 /// One CU loop step's audit row.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StepRecord {
+pub struct WindowsStepRecord {
     /// 0-indexed step number in this dispatch.
     pub step: u32,
     /// Action kind label (`click` / `type` / `key` / ...).
@@ -124,10 +124,7 @@ impl WindowsCuExecutor {
     /// One CU loop tick — execute the action, capture the
     /// follow-up result. The full `run()` loop builds on top of
     /// this.
-    pub async fn execute_step(
-        &self,
-        action: &CuAction,
-    ) -> WindowsCuResult<WindowsActionResult> {
+    pub async fn execute_step(&self, action: &CuAction) -> WindowsCuResult<WindowsActionResult> {
         post(action, &self.config).await
     }
 
@@ -141,16 +138,16 @@ impl WindowsCuExecutor {
         capture_all_monitors(audit_dir)
     }
 
-    /// Record one step into a `StepRecord` for audit.
+    /// Record one step into a `WindowsStepRecord` for audit.
     pub async fn execute_step_recorded(
         &self,
         step_idx: u32,
         action: &CuAction,
-    ) -> WindowsCuResult<StepRecord> {
+    ) -> WindowsCuResult<WindowsStepRecord> {
         let kind = action_kind(action).to_string();
         let summary = action.summary();
         let result = self.execute_step(action).await?;
-        Ok(StepRecord {
+        Ok(WindowsStepRecord {
             step: step_idx,
             action_kind: kind,
             action_summary: summary,
@@ -161,7 +158,7 @@ impl WindowsCuExecutor {
 
     /// Force-emit a `HumanHandoff` outcome for a budget breach.
     #[must_use]
-    pub fn handoff(reason: impl Into<String>, steps: Vec<StepRecord>) -> WindowsCuOutcome {
+    pub fn handoff(reason: impl Into<String>, steps: Vec<WindowsStepRecord>) -> WindowsCuOutcome {
         WindowsCuOutcome::HumanHandoff {
             reason: reason.into(),
             steps,
@@ -173,7 +170,7 @@ impl WindowsCuExecutor {
     #[must_use]
     pub fn completed(
         summary: impl Into<String>,
-        steps: Vec<StepRecord>,
+        steps: Vec<WindowsStepRecord>,
         wallclock: std::time::Duration,
     ) -> WindowsCuOutcome {
         WindowsCuOutcome::Completed {
@@ -253,11 +250,7 @@ mod tests {
 
     #[test]
     fn completed_helper_records_wallclock_in_seconds() {
-        let out = WindowsCuExecutor::completed(
-            "ok",
-            vec![],
-            std::time::Duration::from_secs(42),
-        );
+        let out = WindowsCuExecutor::completed("ok", vec![], std::time::Duration::from_secs(42));
         match out {
             WindowsCuOutcome::Completed {
                 wallclock_seconds, ..

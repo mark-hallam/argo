@@ -1,10 +1,10 @@
 use crate::CircuitState;
+pub use argo_store::WorkerId;
 use argo_types::TenantId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
-use uuid::Uuid;
 
 #[path = "memory_compose.rs"]
 mod memory_compose;
@@ -13,44 +13,6 @@ mod memory_compose;
 mod types_role;
 
 pub use types_role::{Duty, Formality, Persona, Role, Tone, VoiceProfile};
-
-/// Stable worker identity.
-///
-/// ```
-/// use argo_identity::WorkerId;
-/// let id = WorkerId::new();
-/// assert_eq!(id.0.get_version_num(), 7);
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct WorkerId(pub Uuid);
-
-impl WorkerId {
-    /// Generate a fresh UUIDv7 worker id.
-    #[must_use]
-    pub fn new() -> Self {
-        Self(Uuid::now_v7())
-    }
-}
-
-impl Default for WorkerId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl fmt::Display for WorkerId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.0, f)
-    }
-}
-
-impl FromStr for WorkerId {
-    type Err = uuid::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Uuid::parse_str(s).map(Self)
-    }
-}
 
 /// Memory namespace scope for a worker.
 ///
@@ -435,10 +397,7 @@ impl Worker {
     /// assert_eq!(resolved.daily_budget_usd_micros, Some(50_000));
     /// ```
     #[must_use]
-    pub fn resolved_policy(
-        &self,
-        workspace_default: &AutoApprovalPolicy,
-    ) -> AutoApprovalPolicy {
+    pub fn resolved_policy(&self, workspace_default: &AutoApprovalPolicy) -> AutoApprovalPolicy {
         self.resolved_policy_with_rosters(&[], workspace_default)
     }
 

@@ -28,7 +28,9 @@ use crate::CuError;
 use argo_skill::SkillStore;
 use std::sync::Arc;
 
-pub use crate::executor_types::{CuOutcome, RunRequest, RunResult};
+pub use crate::executor_types::{
+    ComputerUseRunRequest as RunRequest, ComputerUseRunResult as RunResult, CuOutcome,
+};
 
 const CONSERVATIVE_TOKENS_PER_DOLLAR: u32 = 100_000;
 

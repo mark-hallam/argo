@@ -54,8 +54,9 @@ pub use embedding::{EmbeddingProvider, Voyage3EmbeddingProvider};
 pub use entry::{MemoryEntry, MemoryFile, PrincipalOverride};
 pub use layers::{LayeredMemoryEntry, MemoryLayer, ScoredMemoryEntry};
 pub use shared_team::{shared_team, SharedEntry, SharedTeamNs};
+pub use skill_candidate::MemorySkillCandidate as SkillCandidate;
 pub use skill_candidate::{
-    parse_skill_candidate, SkillCandidate, SCHEMA_KEY_LEARNED_SKILL_CANDIDATE,
+    parse_skill_candidate, MemorySkillCandidate, SCHEMA_KEY_LEARNED_SKILL_CANDIDATE,
 };
 pub use store::MemoryStore;
 pub use summary::{

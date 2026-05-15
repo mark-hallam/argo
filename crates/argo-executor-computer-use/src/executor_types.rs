@@ -12,7 +12,7 @@ use std::path::PathBuf;
 /// Public input to `ComputerUseExecutor::run`. Carries everything
 /// the executor needs to fully drive one CU dispatch.
 #[derive(Debug, Clone)]
-pub struct RunRequest {
+pub struct ComputerUseRunRequest {
     pub action_id: String,
     pub job_id: String,
     pub tenant_id: String,
@@ -38,7 +38,7 @@ pub struct RunRequest {
     pub session_id: Option<SessionId>,
 }
 
-impl RunRequest {
+impl ComputerUseRunRequest {
     /// Demo helper — populates required fields with placeholder
     /// values. Used in the lib.rs doctest; not for production.
     #[must_use]
@@ -64,7 +64,7 @@ impl RunRequest {
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum CuOutcome {
     Completed {
-        result: RunResult,
+        result: ComputerUseRunResult,
         bundle_dir: PathBuf,
         budget: BudgetSnapshot,
     },
@@ -78,11 +78,14 @@ pub enum CuOutcome {
 /// Successful-completion result. Shipped as the `result_json`
 /// stamped into the auto-completed action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RunResult {
+pub struct ComputerUseRunResult {
     pub final_text: Option<String>,
     pub actions_taken: Vec<String>,
     pub tokens_used: u32,
 }
+
+pub(crate) use ComputerUseRunRequest as RunRequest;
+pub(crate) use ComputerUseRunResult as RunResult;
 
 pub(crate) fn default_bundle_dir(req: &RunRequest) -> PathBuf {
     PathBuf::from(".skycot")

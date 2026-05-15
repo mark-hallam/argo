@@ -29,7 +29,7 @@ pub const SCHEMA_KEY_LEARNED_SKILL_CANDIDATE: &str = "learned_skill_candidates";
 /// Parsed view of a memory-backed skill candidate. Returned by
 /// [`parse_skill_candidate`]. Pure data — no I/O.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SkillCandidate {
+pub struct MemorySkillCandidate {
     /// Required. Snake-case skill name the operator will review.
     pub skill_name: String,
     /// Optional one-paragraph problem description.
@@ -58,7 +58,7 @@ pub struct SkillCandidate {
 /// candidate shape over time; the read side ignores what it
 /// doesn't recognise so old + new shapes coexist.
 #[must_use]
-pub fn parse_skill_candidate(body: &str) -> Option<SkillCandidate> {
+pub fn parse_skill_candidate(body: &str) -> Option<MemorySkillCandidate> {
     let v: Value = serde_json::from_str(body).ok()?;
     let obj = v.as_object()?;
     let schema_key = obj.get("schema_key")?.as_str()?;
@@ -69,9 +69,12 @@ pub fn parse_skill_candidate(body: &str) -> Option<SkillCandidate> {
     if skill_name.trim().is_empty() {
         return None;
     }
-    Some(SkillCandidate {
+    Some(MemorySkillCandidate {
         skill_name: skill_name.to_string(),
-        problem: obj.get("problem").and_then(|v| v.as_str()).map(String::from),
+        problem: obj
+            .get("problem")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         reusable_pattern: obj
             .get("reusable_pattern")
             .and_then(|v| v.as_str())

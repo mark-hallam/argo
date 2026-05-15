@@ -186,7 +186,7 @@ impl MemoryStore {
         &self,
         workspace_id: argo_types::WorkspaceId,
         vertical_id: &str,
-    ) -> argo_types::ArgoResult<Vec<(MemoryEntry, crate::SkillCandidate)>> {
+    ) -> argo_types::ArgoResult<Vec<(MemoryEntry, crate::MemorySkillCandidate)>> {
         let rows = self
             .list_for_vertical(workspace_id, MemoryFile::Memory, vertical_id)
             .await?;
