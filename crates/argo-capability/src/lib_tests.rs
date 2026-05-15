@@ -26,6 +26,28 @@ fn defaults_grant_owner_full_dispatch() {
 }
 
 #[test]
+fn workspace_defaults_scope_user_filesystem_caps() {
+    let roles = default_roles_for_workspace(std::path::Path::new("/tmp/ws"));
+    let user = roles
+        .iter()
+        .find(|role| role.name == "user")
+        .expect("user role exists");
+    let globs: Vec<&str> = user
+        .capabilities
+        .0
+        .iter()
+        .filter_map(|cap| match cap {
+            Capability::FsRead { path_glob } | Capability::FsWrite { path_glob } => {
+                Some(path_glob.as_str())
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(globs, vec!["/tmp/ws/**", "/tmp/ws/**"]);
+}
+
+#[test]
 fn guest_cannot_terminal() {
     let e = CapabilityEngine::with_defaults();
     let g = local("guest1");

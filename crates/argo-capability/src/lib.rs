@@ -10,6 +10,7 @@
 use argo_types::{ArgoError, ArgoResult, Capability, CapabilityRole, CapabilitySet, Principal};
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Capability name for the cross-tenant audit-feed override probe
 /// (Stream `mission-enterprise-cross-tenant-audit`). When a request
@@ -17,7 +18,7 @@ use std::collections::HashMap;
 /// checks this capability against the requesting principal before
 /// honoring the override; without it the param is silently ignored
 /// (no 4xx — refusing with a status code would leak the existence of
-/// the tenant). NOT granted by any role in [`default_roles`] —
+/// the tenant). NOT granted by any role in [`default_roles_for_workspace`] —
 /// operators wire it explicitly via [`CapabilityEngine::add_role`]
 /// (per-role) or [`CapabilityEngine::grant_dynamic`] (per-principal).
 ///
@@ -88,9 +89,17 @@ impl CapabilityEngine {
     /// (owner / admin / user / guest) per build plan §10.2.
     #[must_use]
     pub fn with_defaults() -> Self {
+        let workspace_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self::with_workspace_defaults(&workspace_root)
+    }
+
+    /// Build an engine pre-populated with default role presets whose
+    /// `user` filesystem caps are confined to `workspace_root`.
+    #[must_use]
+    pub fn with_workspace_defaults(workspace_root: &Path) -> Self {
         let e = Self::new();
-        for r in default_roles() {
-            // safe: default_roles produces unique names by construction
+        for r in default_roles_for_workspace(workspace_root) {
+            // safe: default role presets produce unique names by construction
             let _ = e.add_role(r);
         }
         e
@@ -220,8 +229,19 @@ fn would_create_cycle(roles: &HashMap<String, CapabilityRole>, new_role: &Capabi
 
 /// Default role presets shipped by `argo init` (build plan §10.2).
 #[must_use]
+#[cfg(test)]
 pub fn default_roles() -> Vec<CapabilityRole> {
+    default_roles_for_workspace(Path::new("."))
+}
+
+/// Default role presets scoped to a workspace root.
+///
+/// The `owner` and `admin` roles intentionally retain full filesystem
+/// globs. The default `user` role is confined to `workspace_root/**`.
+#[must_use]
+pub fn default_roles_for_workspace(workspace_root: &Path) -> Vec<CapabilityRole> {
     use argo_types::SpawnKind;
+    let workspace_glob = workspace_root.join("**").to_string_lossy().into_owned();
     vec![
         CapabilityRole {
             name: "owner".into(),
@@ -286,13 +306,11 @@ pub fn default_roles() -> Vec<CapabilityRole> {
             name: "user".into(),
             inherits_from: None,
             capabilities: CapabilitySet(vec![
-                // FsRead/Write to workspace are interpolated by the config layer
-                // ({workspace}/**); we ship a permissive **placeholder** here.
                 Capability::FsRead {
-                    path_glob: "**".into(),
+                    path_glob: workspace_glob.clone(),
                 },
                 Capability::FsWrite {
-                    path_glob: "**".into(),
+                    path_glob: workspace_glob,
                 },
                 Capability::ToolDispatch {
                     tool_name_glob: "web_*".into(),

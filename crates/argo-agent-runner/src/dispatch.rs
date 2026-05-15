@@ -100,7 +100,7 @@ pub(crate) fn build_dispatch_ctx(
     }
     reg.set_mcp_pool(Arc::new(McpConnectionPool::default()));
     register_manifest_mcp_servers(&mut reg);
-    let engine = CapabilityEngine::with_defaults();
+    let engine = CapabilityEngine::with_workspace_defaults(cwd);
     let os_user = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "argo".into());

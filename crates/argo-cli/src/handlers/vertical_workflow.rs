@@ -221,7 +221,7 @@ fn build_local_dispatch_ctx(
     for t in builtin_tools(cwd.to_path_buf()) {
         reg.register(t);
     }
-    let engine = CapabilityEngine::with_defaults();
+    let engine = CapabilityEngine::with_workspace_defaults(cwd);
     let os_user = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "argo".into());
