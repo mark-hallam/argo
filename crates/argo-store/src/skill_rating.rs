@@ -223,6 +223,40 @@ pub async fn list_for_publisher(
     rows.into_iter().map(decode_summary).collect()
 }
 
+/// Rating summaries eligible for a learning cron pass since
+/// `since_micros`. When `rater_tenant` is set, only that tenant's
+/// ratings contribute, preserving tenant isolation for per-worker
+/// learning ticks.
+pub async fn learning_candidates_since(
+    pool: &Pool<Sqlite>,
+    since_micros: i64,
+    rater_tenant: Option<TenantId>,
+    min_ratings: u32,
+    min_score: f32,
+) -> ArgoResult<Vec<RatingSummary>> {
+    let tenant_blob = rater_tenant.map(|t| t.0.as_bytes().to_vec());
+    let rows = sqlx::query(
+        "SELECT skill_id, skill_version, publisher_tenant, \
+            SUM(CASE WHEN vote = 'up'   THEN 1 ELSE 0 END) AS up_count, \
+            SUM(CASE WHEN vote = 'down' THEN 1 ELSE 0 END) AS down_count \
+         FROM skill_rating \
+         WHERE rated_at >= ? AND (? IS NULL OR rater_tenant_id = ?) \
+         GROUP BY skill_id, skill_version, publisher_tenant \
+         HAVING (up_count + down_count) >= ? \
+            AND (CAST(up_count AS REAL) / CAST((up_count + down_count) AS REAL)) >= ? \
+         ORDER BY (up_count + down_count) DESC, skill_version ASC",
+    )
+    .bind(since_micros)
+    .bind(tenant_blob.as_deref())
+    .bind(tenant_blob.as_deref())
+    .bind(i64::from(min_ratings))
+    .bind(f64::from(min_score))
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ArgoError::Provider(format!("skill_rating learning candidates: {e}")))?;
+    rows.into_iter().map(decode_summary).collect()
+}
+
 /// Most-recent `limit` raw rating rows for one (`skill_id`,
 /// `version`). Newest first; comments included verbatim.
 pub async fn recent_ratings(

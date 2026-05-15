@@ -37,6 +37,7 @@ pub mod ir;
 pub mod learn;
 pub mod library;
 pub mod marketplace;
+pub mod per_worker_learning_cron;
 pub mod publish;
 mod parse;
 pub mod quality;
@@ -90,6 +91,10 @@ pub use dreams_distillation::{
 };
 pub use library::{LayeredLookup, LayeredSkill, SkillLayer};
 pub use marketplace::{parse_trust_grade, search, MarketplaceSkill, SearchOptions, DEFAULT_SEARCH_LIMIT};
+pub use per_worker_learning_cron::{
+    per_worker_learning_tick, per_worker_learning_tick_with_config,
+    spawn_per_worker_learning_cron, PerWorkerLearningConfig, PerWorkerLearningReport,
+};
 pub use parse::{parse_skill_md, FRONTMATTER_DELIM};
 pub use publish::{
     list_mock_skill_tags, mock_registry_root, publish_mock_skill, unpublish_mock_skill_tag,
