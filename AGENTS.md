@@ -28,7 +28,32 @@ Open `docs/build-plan/BUILD_STATUS.md`. Find the first row whose
 `status` is `TODO`. Read the brief at
 `docs/build-plan/streams/<brief-id>.md`. Follow it exactly.
 
-If no `TODO` row matches your owner, you are done — exit cleanly.
+If no `TODO` row matches your owner, you are done — exit cleanly
+(run the disk-cleanup sequence below first).
+
+## Clean up disk BEFORE exit (mandatory)
+
+Every session leaves a per-brief worktree at `/tmp/<brief-id>/`
+and a cargo target dir at `/tmp/<brief-id>-target/` (often many GB).
+These accumulate fast across sessions.
+
+**Before exiting** (after PR push, on quota cap, or on no-work-available),
+run this sequence from the main repo directory:
+
+```bash
+cd ~/code/argo-codex   # main repo, NOT the worktree
+git worktree remove --force /tmp/${BRIEF_ID}   # skip if branch unpushed
+rm -rf /tmp/${BRIEF_ID}-target                  # always safe
+git worktree prune                              # tidy references
+```
+
+For multi-brief sessions: repeat for EACH brief's worktree + target dir.
+NEVER `rm -rf` the worktree directory directly — use `git worktree remove`
+so git's internal state stays consistent. NEVER touch `~/.cargo/registry/`
+— that's the cross-session cache.
+
+Full cleanup protocol: [`docs/build-plan/PROTOCOL_WORKER_PROMPT_CODEX.md`](docs/build-plan/PROTOCOL_WORKER_PROMPT_CODEX.md)
+section "Disk cleanup BEFORE exit."
 
 ## Three rules that override everything
 

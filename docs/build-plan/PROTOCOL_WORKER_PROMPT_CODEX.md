@@ -132,3 +132,69 @@ cleanly. Do NOT leave a half-finished worktree with no PR — that's
 the failure mode that prompted the 2026-05-09 offline period and
 required the post-cap recovery sweep. Always push first; the
 operator can pick up the conductor side.
+
+## Disk cleanup BEFORE exit (mandatory)
+
+Every codex session creates per-brief artifacts on disk that
+accumulate fast if not cleaned up:
+
+- **Per-brief worktree** at `/tmp/<brief-id>/` or
+  `/private/tmp/<brief-id>/` (created by `claim-with-retry.sh`).
+- **Per-brief cargo target dir** at `/tmp/<brief-id>-target/` (set
+  via `CARGO_TARGET_DIR=...`; can grow to many GB per brief).
+- **Cached cargo registry** at `~/.cargo/registry/` (shared; do
+  NOT touch — this is the only persistence between runs).
+
+Before exiting (after PR push, or on quota cap, or on
+no-claimable-work) run THIS cleanup sequence from the **main
+repo directory** (NOT from inside the worktree you're cleaning):
+
+```bash
+# 1. Identify the worktree + target dir from this session
+WORKTREE_PATH="/tmp/${BRIEF_ID}"        # adapt to /private/tmp if needed
+TARGET_DIR="/tmp/${BRIEF_ID}-target"
+
+# 2. Move OUT of the worktree before removing it
+cd ~/code/argo-codex      # main repo
+
+# 3. Remove the git worktree registration (only if the branch is
+#    already pushed + PR is open; otherwise SKIP — operator handles)
+git worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
+
+# 4. Delete the per-brief cargo target dir (always safe; just cache)
+rm -rf "$TARGET_DIR"
+
+# 5. Prune any lingering worktree references
+git worktree prune
+
+# 6. Report freed space
+df -h /tmp | tail -1
+```
+
+**Hard rules:**
+
+- Always `cd` out of the worktree before `git worktree remove`.
+- NEVER `rm -rf` the worktree directory directly — use
+  `git worktree remove` so git's internal state stays consistent.
+- NEVER delete `~/.cargo/registry/` — that's the cross-session
+  cache and re-downloading it costs many minutes per restart.
+- If `git worktree remove` fails (e.g., branch checked out
+  elsewhere), report it in your exit summary; do not force-delete.
+- If your session ran multiple briefs, run the cleanup for EACH
+  brief's worktree + target dir before exiting.
+
+**Post-mortem sweep (operator-triggered, not worker):**
+
+If `git worktree list` in the main repo shows entries marked
+`prunable` or referencing already-MERGED PRs, those are leftovers
+from prior sessions that bypassed this cleanup. Operator can sweep
+with:
+
+```bash
+cd ~/code/argo-codex
+git worktree list --porcelain | grep -E "^prunable|^locked false$" -B 1
+git worktree prune --verbose
+# For each MERGED-PR leftover:
+git worktree remove --force /private/tmp/<old-brief-id>
+rm -rf /tmp/<old-brief-id>-target
+```
