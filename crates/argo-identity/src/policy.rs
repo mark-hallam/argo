@@ -169,6 +169,21 @@ impl PolicyQuietHours {
         })?;
         Ok((start, end))
     }
+
+    /// True when `now` falls inside the configured window. Wraps
+    /// past midnight when `end < start` (e.g. `start=18:00
+    /// end=09:00` matches 23:00 *and* 03:00). The check is
+    /// half-open on `end` (matching the [`crate::auto_approval`]
+    /// window semantics) so a window of `09:00–17:00` excludes
+    /// exactly `17:00:00`.
+    pub fn is_active_at(&self, now: NaiveTime) -> Result<bool, PolicyError> {
+        let (start, end) = self.parse_times()?;
+        if start <= end {
+            Ok(now >= start && now < end)
+        } else {
+            Ok(now >= start || now < end)
+        }
+    }
 }
 
 /// What the gate should do when an action fires inside a
