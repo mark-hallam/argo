@@ -6,6 +6,15 @@ use crate::defaults;
 use serde::{Deserialize, Serialize};
 
 /// `[telemetry]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TelemetryConfig;
+///
+/// let cfg = TelemetryConfig::default();
+/// assert_eq!(cfg.exporter, "stdout");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TelemetryConfig {
@@ -47,6 +56,15 @@ impl Default for TelemetryConfig {
 /// drops the OLDEST event (newest events matter more for "what's
 /// happening now"), no on-disk spool, no compression. Operators with
 /// no-loss / high-volume requirements should use the sidecar recipes.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TelemetryConfig;
+///
+/// let cfg = TelemetryConfig::default();
+/// assert!(!cfg.log_shipping.enabled);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TelemetryLogShippingConfig {
@@ -105,6 +123,15 @@ impl Default for TelemetryLogShippingConfig {
 /// but-not-scrubbed). Operators with a structured log pipeline that
 /// can dedupe by content opt in; everyone else stays on the scrubber-
 /// only path. A follow-up brief unifies the two into one Layer.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TelemetryConfig;
+///
+/// let cfg = TelemetryConfig::default();
+/// assert_eq!(cfg.context.emit_anon_tenant_as, "anon");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TelemetryContextConfig {

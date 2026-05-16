@@ -31,6 +31,18 @@ pub const DEFAULT_HALF_OPEN_PROBE_INTERVAL_MS: u64 = 30_000;
 ///
 /// Both fields are optional; missing values resolve to the
 /// `argo_provider::circuit::BreakerConfig::default()` constants.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::BreakerSection;
+///
+/// let breaker = BreakerSection {
+///     failure_threshold: Some(3),
+///     ..Default::default()
+/// };
+/// assert_eq!(breaker.resolved_failure_threshold(), 3);
+/// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BreakerSection {
     /// Consecutive HTTP-5xx / network failures that trip the
@@ -62,6 +74,17 @@ impl BreakerSection {
 /// child is wired for now; future per-provider knobs (retries,
 /// custom timeouts, …) belong here so the parser surface grows
 /// additively.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::{BreakerSection, ProviderEntry};
+///
+/// let entry = ProviderEntry {
+///     breaker: Some(BreakerSection::default()),
+/// };
+/// assert!(entry.breaker.is_some());
+/// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderEntry {
     /// Optional breaker overrides.
@@ -80,6 +103,15 @@ impl ProviderEntry {
 /// Top-level `[provider.<name>]` registry parsed off an `argo.toml`
 /// body. The map key is the provider id (e.g. `"anthropic"`, matching
 /// `manifests/providers/anthropic.toml`'s `[provider].id`).
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::ProvidersConfig;
+///
+/// let cfg = ProvidersConfig::default();
+/// assert!(cfg.entry_or_default("anthropic").breaker.is_none());
+/// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProvidersConfig {

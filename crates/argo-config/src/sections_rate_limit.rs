@@ -5,6 +5,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// `[gateway.rate_limit]` parent.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayRateLimitConfig;
+///
+/// let cfg = GatewayRateLimitConfig::default();
+/// assert!(cfg.ip.enabled);
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayRateLimitConfig {
@@ -17,6 +26,15 @@ pub struct GatewayRateLimitConfig {
 }
 
 /// `[gateway.rate_limit.ip]` — per-source-IP token-bucket defaults.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayRateLimitIpConfig;
+///
+/// let cfg = GatewayRateLimitIpConfig::default();
+/// assert_eq!(cfg.capacity, 120);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayRateLimitIpConfig {
@@ -44,6 +62,15 @@ impl Default for GatewayRateLimitIpConfig {
 }
 
 /// `[gateway.rate_limit.route]` — per-route token-bucket defaults.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayRateLimitRouteConfig;
+///
+/// let cfg = GatewayRateLimitRouteConfig::default();
+/// assert_eq!(cfg.overrides.get("forge.run"), Some(&10));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayRateLimitRouteConfig {
@@ -70,6 +97,15 @@ impl Default for GatewayRateLimitRouteConfig {
 /// `mission-per-tenant-rate-limiting`, MISSION_BACKLOG Section 1
 /// #21). Per-tenant overrides live in the `tenant_rate_limit` table
 /// and take precedence over this config block.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayRateLimitTenantConfig;
+///
+/// let cfg = GatewayRateLimitTenantConfig::default();
+/// assert!(cfg.requests_per_minute > 0);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayRateLimitTenantConfig {

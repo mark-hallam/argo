@@ -9,6 +9,15 @@ use serde::{Deserialize, Serialize};
 /// Today `[channels.teams]`, `[channels.matrix]`, `[channels.voice]`;
 /// sibling blocks land here as other channels (slack, discord,
 /// whatsapp, etc.) move off env-only configuration.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::ChannelsConfig;
+///
+/// let cfg = ChannelsConfig::default();
+/// assert!(!cfg.teams.enabled);
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChannelsConfig {
@@ -23,6 +32,15 @@ pub struct ChannelsConfig {
 }
 
 /// `[channels.webinbox]` — browser inbox defaults.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::WebInboxTomlConfig;
+///
+/// let cfg = WebInboxTomlConfig::default();
+/// assert!(cfg.tenant_id.is_none());
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct WebInboxTomlConfig {
@@ -37,6 +55,15 @@ pub struct WebInboxTomlConfig {
 /// `client_secret_env` (default `ARGO_TEAMS_CLIENT_SECRET`) so the
 /// TOML never carries plaintext credentials and operators can rotate
 /// without restart-and-edit-config.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TeamsTomlConfig;
+///
+/// let cfg = TeamsTomlConfig::default();
+/// assert_eq!(cfg.client_secret_env, "ARGO_TEAMS_CLIENT_SECRET");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TeamsTomlConfig {
@@ -77,6 +104,15 @@ impl Default for TeamsTomlConfig {
 /// `access_token_env` (default `ARGO_MATRIX_ACCESS_TOKEN`). End-to-
 /// end encryption (Olm/Megolm) is out of scope for v1; see the
 /// follow-up brief for the encrypted path.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::MatrixTomlConfig;
+///
+/// let cfg = MatrixTomlConfig::default();
+/// assert_eq!(cfg.access_token_env, "ARGO_MATRIX_ACCESS_TOKEN");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MatrixTomlConfig {
@@ -117,6 +153,15 @@ impl Default for MatrixTomlConfig {
 /// exists so the auto-approval gate (and future config-driven
 /// channel registry) can discover that voice is enabled and which
 /// env var to consult.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::VoiceTomlConfig;
+///
+/// let cfg = VoiceTomlConfig::default();
+/// assert_eq!(cfg.provider, "twilio");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct VoiceTomlConfig {

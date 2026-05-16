@@ -8,6 +8,15 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// `[core]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::CoreConfig;
+///
+/// let cfg = CoreConfig::default();
+/// assert_eq!(cfg.profile, "default");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CoreConfig {
@@ -38,6 +47,15 @@ impl CoreConfig {
 }
 
 /// `[tenant]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::TenantConfig;
+///
+/// let cfg = TenantConfig::default();
+/// assert_eq!(cfg.mode, "single");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TenantConfig {
@@ -60,6 +78,15 @@ impl Default for TenantConfig {
 }
 
 /// `[loop]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::LoopConfig;
+///
+/// let cfg = LoopConfig::default();
+/// assert_eq!(cfg.on_restart, "prompt_user");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LoopConfig {
@@ -89,6 +116,15 @@ impl LoopConfig {
 }
 
 /// `[plugin]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::PluginConfig;
+///
+/// let cfg = PluginConfig::default();
+/// assert!(cfg.auto_load.is_empty());
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PluginConfig {

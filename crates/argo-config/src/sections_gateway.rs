@@ -10,6 +10,15 @@ use std::net::IpAddr;
 
 /// `[gateway]` (top-level shape; nested adapter configs are
 /// deserialized into raw values for the gateway crate to interpret).
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayConfig;
+///
+/// let cfg = GatewayConfig::default();
+/// assert_eq!(cfg.host, "127.0.0.1");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayConfig {
@@ -68,6 +77,15 @@ impl Default for GatewayConfig {
 }
 
 /// `[gateway.security_headers]` — browser header rollout knobs.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewaySecurityHeadersConfig;
+///
+/// let cfg = GatewaySecurityHeadersConfig::default();
+/// assert!(!cfg.csp_report_only);
+/// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewaySecurityHeadersConfig {
@@ -77,6 +95,15 @@ pub struct GatewaySecurityHeadersConfig {
 }
 
 /// `[gateway.request_audit]` — per-request audit table capture.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayRequestAuditConfig;
+///
+/// let cfg = GatewayRequestAuditConfig::default();
+/// assert!(cfg.body_hash_for_methods.contains(&"POST".to_string()));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayRequestAuditConfig {
@@ -112,6 +139,15 @@ impl Default for GatewayRequestAuditConfig {
 /// flipping `expected_proxy = true` is the formal acknowledgment that
 /// allows a non-loopback bind to boot, and `trusted_proxies` scopes
 /// `X-Forwarded-For` honoring to specific peer IPs.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::GatewayBehindProxyConfig;
+///
+/// let cfg = GatewayBehindProxyConfig::default();
+/// assert!(!cfg.expected_proxy);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GatewayBehindProxyConfig {

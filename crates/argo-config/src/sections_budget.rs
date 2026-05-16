@@ -7,6 +7,15 @@ use argo_types::CostCeilings;
 use serde::{Deserialize, Serialize};
 
 /// `[budget]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::BudgetConfig;
+///
+/// let cfg = BudgetConfig::default();
+/// assert_eq!(cfg.default_iterations, 60);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BudgetConfig {
@@ -78,6 +87,15 @@ fn nonzero(v: u64) -> Option<u64> {
 }
 
 /// `[delegate]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::DelegateConfig;
+///
+/// let cfg = DelegateConfig::default();
+/// assert_eq!(cfg.max_spawn_depth, 1);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DelegateConfig {
@@ -106,6 +124,15 @@ impl Default for DelegateConfig {
 }
 
 /// `[parallel]`.
+///
+/// # Examples
+///
+/// ```rust
+/// use argo_config::ParallelConfig;
+///
+/// let cfg = ParallelConfig::default();
+/// assert!(cfg.destructive_command_serial);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ParallelConfig {
