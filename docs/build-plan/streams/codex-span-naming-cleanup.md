@@ -5,7 +5,7 @@
 
 ## Scope
 
-P2. The re-activated `ci.yml` runs `scripts/check-span-naming.sh` which fails on raw `tracing::info_span!("...")` literals — convention is to use named constants from `argo-telemetry::span_names` for greppability.
+P2. The re-activated `ci.yml` runs `scripts/check-span-naming.sh` which fails on raw `tracing::info_span!("...")` literals — convention is to use named constants from `argo_telemetry::spans` for greppability.
 
 Fix all callsites.
 
@@ -14,7 +14,7 @@ LOC: ~150 (mechanical).
 ## Files you may touch
 
 - Files surfaced by `bash scripts/check-span-naming.sh 2>&1 | grep ':'` — typically in `work_loop.rs`, gateway route files, agent-runner.
-- `crates/argo-telemetry/src/span_names.rs` (extend) — add any missing constant names.
+- `crates/argo-telemetry/src/lib.rs` (extend the `spans` module) — add any missing constant names. Live module is `lib.rs::spans`, NOT a separate `span_names.rs` file.
 
 ## Acceptance criteria
 

@@ -35,7 +35,7 @@ LOC: ~250.
 - `crates/argo-identity/src/lib.rs` — `pub mod tier;` + re-export. ≤10 modified lines.
 - `crates/argo-store/migrations/<next>__tenant_tier.sql` (NEW) — additive: add `tier TEXT NOT NULL DEFAULT 'free'` to tenant table. ≤10 LOC.
 - `crates/argo-store/migrations/<next>__tenant_usage.sql` (NEW) — additive: usage counter table. ≤20 LOC.
-- `crates/argo-store/src/tenant.rs` — narrowly: extend with tier accessor. ≤30 modified lines.
+- `crates/argo-store/src/tenant_query.rs` — narrowly: extend with tier accessor (live tenant accessors live here; the prior `tenant.rs` reference was stale). ≤30 modified lines.
 - `crates/argo-cli/src/handlers/gateway/usage_endpoint.rs` (NEW) — `GET /api/v1/tenant/usage`. ≤80 LOC.
 - `crates/argo-cli/src/handlers/gateway/routes.rs` — narrowly: mount route. ≤10 modified lines.
 - Test sibling. ≤80 LOC.

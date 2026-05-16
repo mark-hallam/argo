@@ -20,8 +20,8 @@ LOC: ~150 (mostly docs + bot config).
 - `docs/skycot/community/discord-setup.md` (NEW) — operator runbook for setting up the server. ≤120 LOC.
 - `docs/skycot/community/welcome-message.md` (NEW). ≤50 LOC.
 - `docs/skycot/community/moderation-rules.md` (NEW). ≤80 LOC.
-- `marketing/components/SocialLinks.tsx` — narrowly: ensure Discord link configured. ≤15 modified lines.
-- `web/components/ui/Footer.tsx` — narrowly: same. ≤10 modified lines.
+- `marketing/components/SocialLinks.tsx` (depends on `claude-marketing-site-skycot-com` MERGED; that brief creates the file) — narrowly: ensure Discord link configured. ≤15 modified lines.
+- `web/components/ui/Footer.tsx` (depends on `claude-design-system-component-extension` MERGED; that brief creates the file) — narrowly: same. ≤10 modified lines.
 
 ## Acceptance criteria
 

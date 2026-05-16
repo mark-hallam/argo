@@ -32,7 +32,7 @@ LOC: ~400.
 - `deploy/flyio/secrets.example.sh` (NEW) — secret-seeding template. ≤40 LOC.
 - `deploy/flyio/post-deploy-smoke.sh` (NEW) — smoke check post-deploy. ≤50 LOC.
 - `.github/workflows/deploy-prod.yml.disabled` (NEW — operator renames to active when ready). ≤60 LOC.
-- `crates/argo-cli/src/handlers/gateway/health.rs` — narrowly: ensure `/health` returns 200 OK with version. ≤30 modified lines (likely already exists).
+- `crates/argo-cli/src/handlers/gateway/routes_health.rs` — narrowly: ensure `/health` returns 200 OK with version. Live module is `routes_health.rs`, NOT `health.rs`. Likely already correct on main; verify only. ≤30 modified lines.
 
 ## Files you must NOT touch
 

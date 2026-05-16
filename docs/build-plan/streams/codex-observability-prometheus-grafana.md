@@ -37,8 +37,8 @@ LOC: ~800.
 
 ## Files you may touch
 
-- `crates/argo-cli/src/handlers/gateway/metrics_route.rs` — narrowly: ensure `/metrics` returns Prometheus-format. ≤80 modified lines.
-- `crates/argo-telemetry/src/prometheus_exporter.rs` — extend with new metric kinds. ≤200 modified lines.
+- `crates/argo-cli/src/handlers/gateway/metrics.rs` — narrowly: ensure `/metrics` returns Prometheus-format. The prior `metrics_route.rs` reference was stale; live module is `metrics.rs` (plus `metrics_actions.rs`, `metrics_json.rs`, `metrics_text.rs`, `routes_openmetrics.rs`). ≤80 modified lines.
+- `crates/argo-telemetry/src/prometheus_registry.rs` — extend with new metric kinds (live module is `prometheus_registry.rs`, not `prometheus_exporter.rs`). ≤200 modified lines.
 - `deploy/grafana/dashboards/skycot-overview.json` (NEW). ≤200 LOC.
 - `deploy/grafana/dashboards/provider-spend.json` (NEW). ≤120 LOC.
 - `deploy/grafana/dashboards/action-dispatch.json` (NEW). ≤120 LOC.

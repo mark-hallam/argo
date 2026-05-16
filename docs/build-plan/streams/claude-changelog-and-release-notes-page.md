@@ -22,7 +22,7 @@ LOC: ~250.
 - `docs/skycot/changelog/v1.0.0.mdx` (NEW) — v1.0 release notes covering what shipped this weekend. ≤300 LOC.
 - `docs/skycot/changelog/index.md` (NEW) — changelog index for source-of-truth. ≤50 LOC.
 - `docs/skycot/roadmap.md` (NEW) — v1.1-v2.2 roadmap excerpt with explicit "subject to change" framing. ≤120 LOC.
-- `marketing/app/changelog/page.tsx` — read changelog MDX, render. Already created in `claude-marketing-site-skycot-com`, this brief HYDRATES it. ≤150 modified lines.
+- `marketing/app/changelog/page.tsx` (depends on `claude-marketing-site-skycot-com` MERGED; that brief creates the file) — read changelog MDX, render. This brief HYDRATES it. ≤150 modified lines.
 - `marketing/app/roadmap/page.tsx` (NEW) — render roadmap. ≤100 LOC.
 
 ## Acceptance criteria
