@@ -3,12 +3,13 @@
 import * as RToast from "@radix-ui/react-toast";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
+import { motion as fm } from "motion/react";
 import { forwardRef, type ReactNode } from "react";
+import { useMotion } from "@/lib/motion/provider";
 import { cn } from "@/lib/utils";
 
 const toastVariants = cva(
   "group pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-[var(--radius-md)] border p-4 pr-6 shadow-lg " +
-    "data-[state=open]:animate-in data-[state=closed]:animate-out " +
     "data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)]",
   {
     variants: {
@@ -49,24 +50,34 @@ export interface ToastProps
 }
 
 export const Toast = forwardRef<React.ElementRef<typeof RToast.Root>, ToastProps>(
-  ({ className, tone, title, description, action, ...props }, ref) => (
-    <RToast.Root ref={ref} className={cn(toastVariants({ tone }), className)} {...props}>
-      <div className="flex-1 space-y-1">
-        {title ? (
-          <RToast.Title className="text-sm font-semibold leading-tight">{title}</RToast.Title>
-        ) : null}
-        {description ? (
-          <RToast.Description className="text-xs text-current/80">{description}</RToast.Description>
-        ) : null}
-      </div>
-      {action ? <RToast.Action altText="action">{action}</RToast.Action> : null}
-      <RToast.Close
-        className="absolute right-2 top-2 rounded-[var(--radius-sm)] p-1 text-current/60 hover:text-current"
-        aria-label="Dismiss"
-      >
-        <X className="size-4" />
-      </RToast.Close>
-    </RToast.Root>
-  ),
+  ({ className, tone, title, description, action, ...props }, ref) => {
+    const m = useMotion();
+    return (
+      <RToast.Root ref={ref} className={cn(toastVariants({ tone }), className)} {...props} asChild>
+        <fm.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12 }}
+          transition={m.fadeUp.transition}
+        >
+          <div className="flex-1 space-y-1">
+            {title ? (
+              <RToast.Title className="text-sm font-semibold leading-tight">{title}</RToast.Title>
+            ) : null}
+            {description ? (
+              <RToast.Description className="text-xs text-current/80">{description}</RToast.Description>
+            ) : null}
+          </div>
+          {action ? <RToast.Action altText="action">{action}</RToast.Action> : null}
+          <RToast.Close
+            className="absolute right-2 top-2 rounded-[var(--radius-sm)] p-1 text-current/60 hover:text-current"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </RToast.Close>
+        </fm.div>
+      </RToast.Root>
+    );
+  },
 );
 Toast.displayName = "Toast";

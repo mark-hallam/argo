@@ -1,4 +1,8 @@
+"use client";
+
+import { AnimatePresence, motion as fm, type Variants } from "motion/react";
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { useMotion } from "@/lib/motion/provider";
 import { cn } from "@/lib/utils";
 
 export interface AuditTimelineRow {
@@ -9,7 +13,7 @@ export interface AuditTimelineRow {
   tone?: "default" | "success" | "warning" | "error" | "info";
 }
 
-export interface AuditTimelineProps extends HTMLAttributes<HTMLOListElement> {
+export interface AuditTimelineProps extends Omit<HTMLAttributes<HTMLOListElement>, "onAnimationStart" | "onDragStart" | "onDragEnd" | "onDrag" | "onAnimationEnd" | "onAnimationIteration"> {
   rows: AuditTimelineRow[];
   emptyMessage?: ReactNode;
 }
@@ -31,15 +35,35 @@ export const AuditTimeline = forwardRef<HTMLOListElement, AuditTimelineProps>(
         </p>
       );
     }
+    const m = useMotion();
+    const listVariants: Variants = {
+      initial: {},
+      animate: { transition: m.staggerChildren.animate?.transition },
+    };
+    const rowVariants: Variants = {
+      initial: m.fadeUp.initial ?? {},
+      animate: m.fadeUp.animate ?? {},
+    };
     return (
-      <ol
+      <fm.ol
         ref={ref}
         data-testid="audit-timeline"
+        initial="initial"
+        animate="animate"
+        variants={listVariants}
         className={cn("relative flex flex-col gap-4 border-l border-[var(--border)] pl-4", className)}
         {...props}
       >
+        <AnimatePresence initial={false}>
         {rows.map((row) => (
-          <li key={row.id} className="relative" data-testid="audit-timeline-row">
+          <fm.li
+            key={row.id}
+            className="relative"
+            data-testid="audit-timeline-row"
+            variants={rowVariants}
+            exit={m.fadeUp.exit}
+            transition={m.fadeUp.transition}
+          >
             <span
               aria-hidden
               className={cn(
@@ -63,9 +87,10 @@ export const AuditTimeline = forwardRef<HTMLOListElement, AuditTimelineProps>(
                 </div>
               ) : null}
             </div>
-          </li>
+          </fm.li>
         ))}
-      </ol>
+        </AnimatePresence>
+      </fm.ol>
     );
   },
 );

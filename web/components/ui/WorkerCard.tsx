@@ -1,9 +1,14 @@
+"use client";
+
+import { motion as fm, type Variants } from "motion/react";
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { Avatar, type WorkerStatus } from "@/components/ui/Avatar";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { MotionList } from "@/lib/motion/primitives";
+import { useMotion } from "@/lib/motion/provider";
 import { cn } from "@/lib/utils";
 
-export interface WorkerCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "role"> {
+export interface WorkerCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "role" | "onAnimationStart" | "onDragStart" | "onDragEnd" | "onDrag" | "onAnimationEnd" | "onAnimationIteration"> {
   name: string;
   role: ReactNode;
   status: WorkerStatus;
@@ -20,11 +25,21 @@ const statusToneByStatus: Record<WorkerStatus, "success" | "info" | "warning" | 
 };
 
 export const WorkerCard = forwardRef<HTMLDivElement, WorkerCardProps>(
-  ({ className, name, role, status, avatarSrc, duties, footer, ...props }, ref) => (
-    <div
+  ({ className, name, role, status, avatarSrc, duties, footer, ...props }, ref) => {
+    const m = useMotion();
+    const variants: Variants = {
+      initial: m.fadeUp.initial ?? {},
+      animate: m.fadeUp.animate ?? {},
+    };
+    return (
+    <fm.div
       ref={ref}
       data-testid="worker-card"
       data-status={status}
+      variants={variants}
+      initial="initial"
+      animate="animate"
+      transition={m.fadeUp.transition}
       className={cn(
         "flex flex-col gap-3 p-5 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] text-[var(--card-foreground)] shadow-sm",
         className,
@@ -52,7 +67,29 @@ export const WorkerCard = forwardRef<HTMLDivElement, WorkerCardProps>(
         </ul>
       ) : null}
       {footer ? <div className="pt-1">{footer}</div> : null}
-    </div>
-  ),
+    </fm.div>
+    );
+  },
 );
 WorkerCard.displayName = "WorkerCard";
+
+/**
+ * Stagger wrapper for a grid/list of `WorkerCard`s. Each child fades
+ * up sequentially using the brand motion vocabulary. Drop in where
+ * the consumer previously rendered a plain `<div>` or `<ul>`.
+ */
+export function WorkerCardList({
+  children,
+  className,
+  as,
+}: {
+  children: ReactNode;
+  className?: string;
+  as?: "div" | "ul" | "ol";
+}) {
+  return (
+    <MotionList as={as} className={className}>
+      {children}
+    </MotionList>
+  );
+}

@@ -1,13 +1,15 @@
 "use client";
 
+import { motion as fm } from "motion/react";
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { useMotion } from "@/lib/motion/provider";
 import { cn } from "@/lib/utils";
 
 export type ApprovalState = "pending" | "approved" | "denied";
 
-export interface ApprovalCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
+export interface ApprovalCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "title" | "onAnimationStart" | "onDragStart" | "onDragEnd" | "onDrag" | "onAnimationEnd" | "onAnimationIteration"> {
   title: ReactNode;
   summary?: ReactNode;
   requestedBy?: ReactNode;
@@ -37,11 +39,23 @@ export const ApprovalCard = forwardRef<HTMLDivElement, ApprovalCardProps>(
     ref,
   ) => {
     const finalized = state !== "pending";
+    const m = useMotion();
+    const pulseAnimate = m.successPulse.animate ?? {};
+    const animate = finalized
+      ? {
+          ...(m.scaleIn.animate ?? {}),
+          scale: (pulseAnimate as { scale?: number | number[] }).scale ?? 1,
+          transition: (pulseAnimate as { transition?: object }).transition,
+        }
+      : (m.scaleIn.animate ?? {});
     return (
-      <div
+      <fm.div
         ref={ref}
         data-testid="approval-card"
         data-state={state}
+        initial={m.scaleIn.initial}
+        animate={animate}
+        transition={m.scaleIn.transition}
         className={cn(
           "flex flex-col gap-4 p-5 rounded-[var(--radius-lg)] border bg-[var(--card)] text-[var(--card-foreground)] shadow-sm",
           state === "approved" && "border-[var(--success)]/40",
@@ -95,7 +109,7 @@ export const ApprovalCard = forwardRef<HTMLDivElement, ApprovalCardProps>(
             </Button>
           </div>
         ) : null}
-      </div>
+      </fm.div>
     );
   },
 );

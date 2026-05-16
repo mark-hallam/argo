@@ -1,8 +1,10 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { AnimatePresence, motion as fm } from "motion/react";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { Button, type ButtonProps } from "@/components/ui/Button";
+import { useMotion } from "@/lib/motion/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,25 +56,33 @@ export function AlertDialog({
   onConfirm,
   onCancel,
 }: AlertDialogProps) {
+  const m = useMotion();
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          className={cn(
-            "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          )}
-        />
-        <DialogPrimitive.Content
-          role="alertdialog"
-          aria-modal="true"
-          className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2",
-            "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg",
-            "focus:outline-none",
-          )}
-          data-testid="alert-dialog"
-        >
+      <AnimatePresence>
+        {open ? (
+          <DialogPrimitive.Portal forceMount>
+            <DialogPrimitive.Overlay asChild>
+              <fm.div
+                className={cn("fixed inset-0 z-40 bg-black/40 backdrop-blur-sm")}
+                {...m.fadeIn}
+              />
+            </DialogPrimitive.Overlay>
+            <DialogPrimitive.Content asChild>
+              <fm.div
+                role="alertdialog"
+                aria-modal="true"
+                className={cn(
+                  "fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2",
+                  "rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-6 shadow-lg",
+                  "focus:outline-none",
+                )}
+                data-testid="alert-dialog"
+                initial={m.springModal.initial}
+                animate={m.springModal.animate}
+                exit={m.springModal.exit}
+                transition={m.springModal.transition}
+              >
           <DialogPrimitive.Title className="text-base font-semibold text-[var(--foreground)]">
             {title}
           </DialogPrimitive.Title>
@@ -103,8 +113,11 @@ export function AlertDialog({
               {confirmLabel}
             </Button>
           </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
+              </fm.div>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        ) : null}
+      </AnimatePresence>
     </DialogPrimitive.Root>
   );
 }
