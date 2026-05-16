@@ -168,7 +168,7 @@ describe("AuditPage", () => {
     );
     render(<AuditPage />);
     const empty = screen.getByTestId("audit-empty-pristine");
-    expect(within(empty).getByText(/Nothing's happened yet\./)).toBeInTheDocument();
+    expect(within(empty).getByText(/Quiet day/)).toBeInTheDocument();
   });
 
   it("renders the filtered empty state when filters narrow to zero rows", () => {

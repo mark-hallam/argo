@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { EvalsIllustration } from "@/components/empty-state/illustrations/EvalsIllustration";
 import { EvalFixtureTable } from "@/components/skycot/eval/EvalFixtureTable";
 import { EvalRunHistory } from "@/components/skycot/eval/EvalRunHistory";
 import { RegressionBanner } from "@/components/skycot/eval/RegressionBanner";
@@ -36,7 +38,7 @@ export default function WorkerEvalsPage() {
     );
   }
 
-  if (evalsQuery.isError || !evalsQuery.data || !selectedRun) {
+  if (evalsQuery.isError || !evalsQuery.data) {
     return (
       <div
         data-testid="worker-evals-error"
@@ -51,6 +53,26 @@ export default function WorkerEvalsPage() {
   }
 
   const workerName = workerQuery.data?.name ?? "This worker";
+
+  if (evalsQuery.data.history.length === 0 || !selectedRun) {
+    return (
+      <div data-testid="worker-evals-page" className="space-y-4">
+        <header className="space-y-1">
+          <p className="text-sm text-[var(--muted-foreground)]">{workerName}</p>
+          <h1 className="text-2xl font-semibold tracking-normal text-[var(--foreground)]">
+            Eval results
+          </h1>
+        </header>
+        <EmptyState
+          data-testid="worker-evals-empty"
+          illustration={EvalsIllustration}
+          headline="No evals run"
+          body={`Run an eval set to grade ${workerName}'s work against expected outcomes.`}
+          cta={{ label: "Run an eval", href: `/workers/${workerId}/evals/new` }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div data-testid="worker-evals-page" className="space-y-4">

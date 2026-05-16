@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import { CohortCard } from "@/components/skycot/CohortCard";
 import { CohortDetailDrawer } from "@/components/skycot/CohortDetailDrawer";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { CohortsIllustration } from "@/components/empty-state/illustrations/CohortsIllustration";
 import { useCohorts } from "@/lib/hooks/use-cohorts";
 
 export default function CohortsPage() {
@@ -46,7 +48,13 @@ export default function CohortsPage() {
         {cohortsQuery.isPending ? (
           <LoadingGrid />
         ) : cohorts.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            data-testid="cohorts-empty"
+            illustration={CohortsIllustration}
+            headline="No cohorts"
+            body="Group similar tasks into a cohort to share context across workers."
+            cta={{ label: "Create cohort", href: "/cohorts/new" }}
+          />
         ) : (
           <div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
@@ -87,19 +95,3 @@ function LoadingGrid() {
   );
 }
 
-function EmptyState() {
-  return (
-    <div
-      data-testid="cohorts-empty"
-      className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] py-16 px-6 text-center space-y-2"
-    >
-      <h2 className="text-base font-semibold text-[var(--foreground)]">
-        No cohorts yet
-      </h2>
-      <p className="text-sm text-[var(--muted-foreground)]">
-        Cohorts appear once you have workers in a vertical sharing a trust
-        grade. Hire a teammate or assign skills to existing ones.
-      </p>
-    </div>
-  );
-}

@@ -20,6 +20,8 @@ import {
   VoiceProfileSummary,
   VoiceProfileSummarySkeleton,
 } from "@/components/skycot/worker/VoiceProfileSummary";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { MemoryIllustration } from "@/components/empty-state/illustrations/MemoryIllustration";
 import {
   useWorkerMemory,
   useWorkerMemoryActions,
@@ -142,6 +144,27 @@ export default function WorkerMemoryPage() {
   }
 
   const memory = memoryQuery.data.memory;
+  const isEmpty =
+    memory.facts.length === 0 &&
+    memory.activeConversations.length === 0 &&
+    memory.recentDecisions.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div
+        role="tabpanel"
+        aria-label="Memory tab"
+        data-testid="worker-tab-panel-memory"
+      >
+        <EmptyState
+          data-testid="worker-memory-empty"
+          illustration={MemoryIllustration}
+          headline="Memory is quiet"
+          body={`When ${workerName} remembers facts or decisions, they appear here.`}
+        />
+      </div>
+    );
+  }
 
   return (
     <div

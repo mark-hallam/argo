@@ -4,6 +4,8 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Loader2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { AuditIllustration } from "@/components/empty-state/illustrations/AuditIllustration";
 import { cn } from "@/lib/utils";
 import { AuditDayGroup } from "@/components/skycot/audit/AuditDayGroup";
 import { AuditFilterChipRail } from "@/components/skycot/audit/AuditFilterChipRail";
@@ -225,7 +227,7 @@ function AuditPageContent() {
             onRetry={() => feed.refetch()}
           />
         ) : rows.length === 0 ? (
-          <EmptyState
+          <AuditEmpty
             isPristine={isPristine}
             filters={multiFilters}
             onClearAll={onClearAllFilters}
@@ -389,7 +391,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-function EmptyState({
+function AuditEmpty({
   isPristine,
   filters,
   onClearAll,
@@ -400,34 +402,22 @@ function EmptyState({
 }) {
   if (isPristine) {
     return (
-      <div
+      <EmptyState
         data-testid="audit-empty-pristine"
-        className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] py-12 px-6 text-center space-y-2"
-      >
-        <p className="text-sm font-medium text-[var(--foreground)]">Nothing&apos;s happened yet.</p>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          Once your workers start acting, you&apos;ll see their activity here.
-        </p>
-      </div>
+        illustration={AuditIllustration}
+        headline="Quiet day"
+        body="Worker actions and approvals will appear here as they happen. Plenty of room for activity."
+      />
     );
   }
-  const detail = filteredEmptyDetail(filters);
   return (
-    <div
+    <EmptyState
       data-testid="audit-empty-filtered"
-      className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] py-12 px-6 text-center space-y-3"
-    >
-      <p className="text-sm font-medium text-[var(--foreground)]">No actions match</p>
-      <p className="text-sm text-[var(--muted-foreground)]">{detail}</p>
-      <button
-        type="button"
-        onClick={onClearAll}
-        data-testid="audit-empty-clear-filters"
-        className="text-sm font-medium text-[var(--primary)] underline-offset-4 hover:underline"
-      >
-        Clear filters
-      </button>
-    </div>
+      variant="compact"
+      headline="No actions match"
+      body={filteredEmptyDetail(filters)}
+      cta={{ label: "Clear filters", onClick: onClearAll }}
+    />
   );
 }
 
