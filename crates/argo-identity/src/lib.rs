@@ -38,8 +38,14 @@ mod store_skill_tests;
 mod store_skills;
 mod store_sql;
 mod store_trust_grade;
+pub mod tenant;
+pub mod tenant_store;
 pub mod tier;
 mod types;
+pub mod user;
+pub mod user_store;
+pub mod user_tenant;
+pub mod user_tenant_store;
 #[cfg(test)]
 mod voice_profile_tests;
 pub mod worker_budget;
@@ -55,7 +61,10 @@ pub use roster_policy_override::RosterPolicyOverride;
 pub use roster_store::RosterAssignment;
 pub use store::IdentityStore;
 pub use store_hire::{ApprovalPolicyChoice, HireDraft, HireDutyDraft};
+pub use tenant::{Tenant, TenantStatus};
 pub use tier::{AllowDecision, Tier, TierConfig, TierLimits};
+pub use user::{UserAccount, UserId, UserStatus};
+pub use user_tenant::{UserTenant, UserTenantRole};
 pub use types::{
     AutoApprovalPolicy, Duty, Formality, MemoryNs, MemoryScope, NotifyChannelRef, Persona, Role,
     Tone, VoiceProfile, Worker, WorkerId, WorkerLevel, MAX_CHARTER_BYTES, MAX_KPIS_BYTES,

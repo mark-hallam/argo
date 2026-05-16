@@ -20,6 +20,9 @@ const ENSURE_TIER_COLUMN_SQL: &str =
     include_str!("../migrations/104__tenant_tier.sql");
 const ENSURE_TENANT_USAGE_SQL: &str =
     include_str!("../migrations/105__tenant_usage.sql");
+const ENSURE_TENANT_TABLE_SQL: &str = include_str!("../migrations/106__tenant.sql");
+const ENSURE_USER_ACCOUNT_SQL: &str = include_str!("../migrations/107__user_account.sql");
+const ENSURE_USER_TENANT_SQL: &str = include_str!("../migrations/108__user_tenant.sql");
 
 pub(crate) const BLOB_TENANT_TABLES: &[&str] = &[
     "agent",
@@ -436,4 +439,24 @@ pub async fn increment_tenant_usage(
     .await
     .map_err(|e| ArgoError::Provider(format!("tenant_usage write: {e}")))?;
     Ok(next)
+}
+
+/// mission-tenant-substrate-tables — lazily bootstrap the substrate
+/// tables (`tenant`, `user_account`, `user_tenant`). Mirrors
+/// `ensure_pricing_schema`'s `IF NOT EXISTS` pattern; the versioned
+/// migration runner caps at slot 69, so slots 106–108 are applied here
+/// the first time any substrate query runs.
+pub async fn ensure_tenant_substrate_schema(store: &SessionStore) -> ArgoResult<()> {
+    for (label, sql) in [
+        ("tenant", ENSURE_TENANT_TABLE_SQL),
+        ("user_account", ENSURE_USER_ACCOUNT_SQL),
+        ("user_tenant", ENSURE_USER_TENANT_SQL),
+    ] {
+        for stmt in split_sql_statements(sql) {
+            sqlx::query(&stmt).execute(store.pool()).await.map_err(|e| {
+                ArgoError::Provider(format!("ensure_tenant_substrate_schema {label}: {e}"))
+            })?;
+        }
+    }
+    Ok(())
 }
