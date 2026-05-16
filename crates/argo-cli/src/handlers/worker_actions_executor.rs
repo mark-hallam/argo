@@ -13,7 +13,7 @@
 //! <id>` when finished.
 //!
 //! Stream A adds three placeholder impls (`McpExecutor`,
-//! `ComputerUseExecutor`, `ApiExecutor` in
+//! `ComputerUseExecutorAdapter`, `ApiExecutor` in
 //! `worker_actions_executor_stubs`) that return clean
 //! not-yet-implemented errors pointing at the brief that swaps
 //! each stub for a real impl. As Streams B / C / H land, those
@@ -34,7 +34,7 @@ use super::worker_actions_executor_document::DocumentExecutor;
 use super::worker_actions_executor_document_csv::DocumentCsvExecutor;
 use super::worker_actions_executor_document_gsuite::DocumentGsuiteExecutor;
 use super::worker_actions_executor_stubs::{
-    ApiExecutor, BrowserExecutor, ComputerUseExecutor, FilesystemExecutor, McpExecutor,
+    ApiExecutor, BrowserExecutor, ComputerUseExecutorAdapter, FilesystemExecutor, McpExecutor,
 };
 use super::worker_actions_executor_timing::TimedExecutor;
 use argo_types::{ArgoError, ArgoResult};
@@ -213,7 +213,7 @@ pub(crate) struct Preflight {
 
 /// Executor abstraction. Today's fully-wired impl is
 /// `HumanExecutor`; the three placeholder impls (`McpExecutor`,
-/// `ComputerUseExecutor`, `ApiExecutor`) live in
+/// `ComputerUseExecutorAdapter`, `ApiExecutor`) live in
 /// `worker_actions_executor_stubs.rs` and return a clean
 /// not-yet-implemented error from `dispatch()` until Streams B /
 /// C / H wire each.
@@ -266,7 +266,9 @@ pub(crate) fn resolve_executor(
                 .unwrap_or_default();
             Box::new(McpExecutor::with_manifest(decl.clone(), servers))
         }
-        ExecutorKind::ComputerUse => Box::new(ComputerUseExecutor::with_declaration(decl.clone())),
+        ExecutorKind::ComputerUse => {
+            Box::new(ComputerUseExecutorAdapter::with_declaration(decl.clone()))
+        }
         ExecutorKind::ComputerUseMacOS => {
             Box::new(ComputerUseMacOSExecutor::with_declaration(decl.clone()))
         }

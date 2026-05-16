@@ -7,7 +7,9 @@
 //! - `McpExecutor` → real impl as of
 //!   `mission-wire-mcp-action-executor`; delegates to the per-server
 //!   pool in `worker_actions_executor_mcp`.
-//! - `ComputerUseExecutor` → real impl, delegates to
+//! - `ComputerUseExecutorAdapter` → wraps the real impl in
+//!   `argo-executor-computer-use` and adapts it to the CLI's
+//!   sync `Executor` trait; delegates to
 //!   `argo-executor-computer-use` (Stream B). Falls back to a
 //!   clear error when `E2B_API_KEY` / `ANTHROPIC_API_KEY`
 //!   aren't set so unconfigured workspaces surface the gap
@@ -75,11 +77,11 @@ impl Executor for McpExecutor {
 /// `#B-computer-use-executor`. Carries the action's manifest
 /// declaration so dispatch can read `profile`, `budget_usd`, and
 /// the per-action description into the system prompt.
-pub(crate) struct ComputerUseExecutor {
+pub(crate) struct ComputerUseExecutorAdapter {
     declaration: Option<ActionDeclaration>,
 }
 
-impl ComputerUseExecutor {
+impl ComputerUseExecutorAdapter {
     /// Constructor used by `resolve_executor` in Stream A —
     /// passes through the action's manifest declaration so we
     /// can read profile + budget + description.
@@ -90,13 +92,13 @@ impl ComputerUseExecutor {
     }
 }
 
-impl Executor for ComputerUseExecutor {
+impl Executor for ComputerUseExecutorAdapter {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::ComputerUse
     }
 
     fn dispatch(&self, action: &ActionRecord, cwd: &Path) -> ArgoResult<ActionOutcome> {
-        // Build a CuConfig + ComputerUseExecutor from env. If
+        // Build a CuConfig + CuExecutorImpl from env. If
         // the keys aren't set, the operator sees a clear error
         // pointing at the env vars rather than a generic
         // network failure later.
@@ -118,7 +120,7 @@ impl Executor for ComputerUseExecutor {
 
         let decl = self.declaration.as_ref().ok_or_else(|| {
             ArgoError::Provider(
-                "ComputerUseExecutor needs an ActionDeclaration; \
+                "ComputerUseExecutorAdapter needs an ActionDeclaration; \
                  dispatch was called from a path that didn't carry one"
                     .into(),
             )

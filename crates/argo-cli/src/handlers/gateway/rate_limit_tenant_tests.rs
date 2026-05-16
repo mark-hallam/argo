@@ -19,14 +19,17 @@
 //!  14. `with_config` with `requests_per_minute = 0` disables the limiter
 //!  15. `is_public_get` allowlist bypasses `check_request`
 
-use super::{capacity_for, Bucket, CheckResult, TenantRateLimiter, EVICT_AGE_SECS, MAX_ENTRIES};
+use super::{
+    capacity_for, RateLimitTenantBucket, RateLimitTenantCheckResult, TenantRateLimiter,
+    EVICT_AGE_SECS, MAX_ENTRIES,
+};
 use argo_config::GatewayRateLimitTenantConfig;
 use std::time::{Duration, Instant};
 
 #[test]
 fn first_request_from_new_tenant_is_allowed() {
     let limiter = TenantRateLimiter::new(5, true);
-    assert_eq!(limiter.check("acme"), CheckResult::Allow);
+    assert_eq!(limiter.check("acme"), RateLimitTenantCheckResult::Allow);
 }
 
 #[test]
@@ -36,7 +39,7 @@ fn burst_up_to_capacity_is_allowed() {
     for i in 0..3 {
         assert_eq!(
             limiter.check_with_now("acme", now),
-            CheckResult::Allow,
+            RateLimitTenantCheckResult::Allow,
             "request {i} should be allowed within capacity"
         );
     }
@@ -46,12 +49,18 @@ fn burst_up_to_capacity_is_allowed() {
 fn exceeding_capacity_returns_deny_with_retry_after() {
     let limiter = TenantRateLimiter::new(2, true);
     let now = Instant::now();
-    assert_eq!(limiter.check_with_now("acme", now), CheckResult::Allow);
-    assert_eq!(limiter.check_with_now("acme", now), CheckResult::Allow);
+    assert_eq!(
+        limiter.check_with_now("acme", now),
+        RateLimitTenantCheckResult::Allow
+    );
+    assert_eq!(
+        limiter.check_with_now("acme", now),
+        RateLimitTenantCheckResult::Allow
+    );
     match limiter.check_with_now("acme", now) {
         // refill = 2/60 tokens/sec ⇒ 1 token in 30s exactly.
-        CheckResult::Deny { retry_after_secs } => assert_eq!(retry_after_secs, 30),
-        CheckResult::Allow => panic!("third request should be denied"),
+        RateLimitTenantCheckResult::Deny { retry_after_secs } => assert_eq!(retry_after_secs, 30),
+        RateLimitTenantCheckResult::Allow => panic!("third request should be denied"),
     }
 }
 
@@ -61,11 +70,17 @@ fn refill_after_wait_allows_again() {
     let limiter = TenantRateLimiter::new(60, true);
     let t0 = Instant::now();
     for _ in 0..60 {
-        assert_eq!(limiter.check_with_now("acme", t0), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("acme", t0),
+            RateLimitTenantCheckResult::Allow
+        );
     }
     matches_deny(limiter.check_with_now("acme", t0));
     let t1 = t0 + Duration::from_secs(2);
-    assert_eq!(limiter.check_with_now("acme", t1), CheckResult::Allow);
+    assert_eq!(
+        limiter.check_with_now("acme", t1),
+        RateLimitTenantCheckResult::Allow
+    );
 }
 
 #[test]
@@ -74,8 +89,14 @@ fn two_tenant_isolation_no_cross_drain() {
     // if they shared a bucket. This is the brief's required test.
     let limiter = TenantRateLimiter::new(1, true);
     let now = Instant::now();
-    assert_eq!(limiter.check_with_now("tenant-a", now), CheckResult::Allow);
-    assert_eq!(limiter.check_with_now("tenant-b", now), CheckResult::Allow);
+    assert_eq!(
+        limiter.check_with_now("tenant-a", now),
+        RateLimitTenantCheckResult::Allow
+    );
+    assert_eq!(
+        limiter.check_with_now("tenant-b", now),
+        RateLimitTenantCheckResult::Allow
+    );
     matches_deny(limiter.check_with_now("tenant-a", now));
     matches_deny(limiter.check_with_now("tenant-b", now));
     assert_eq!(limiter.bucket_count(), 2);
@@ -99,13 +120,16 @@ fn disabled_limiter_short_circuits_to_allow() {
     let limiter = TenantRateLimiter::new(1, false);
     let now = Instant::now();
     for _ in 0..50 {
-        assert_eq!(limiter.check_with_now("acme", now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("acme", now),
+            RateLimitTenantCheckResult::Allow
+        );
     }
 }
 
 #[test]
 fn bucket_caps_tokens_at_capacity() {
-    let mut bucket = Bucket::new(2, Instant::now());
+    let mut bucket = RateLimitTenantBucket::new(2, Instant::now());
     let later = Instant::now() + Duration::from_secs(120);
     assert!(bucket.take(later, 2, 5.0));
     assert!(bucket.take(later, 2, 5.0));
@@ -120,7 +144,10 @@ fn config_override_and_zero_disable() {
     });
     let now = Instant::now();
     for _ in 0..10 {
-        assert_eq!(limiter.check_with_now("t", now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("t", now),
+            RateLimitTenantCheckResult::Allow
+        );
     }
     matches_deny(limiter.check_with_now("t", now));
 
@@ -129,7 +156,10 @@ fn config_override_and_zero_disable() {
         burst_multiplier: 1.0,
     });
     for _ in 0..200 {
-        assert_eq!(limiter.check_with_now("t", now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("t", now),
+            RateLimitTenantCheckResult::Allow
+        );
     }
 }
 
@@ -140,8 +170,12 @@ fn denied_request_body_carries_documented_shape() {
     // gateway clients.
     let limiter = TenantRateLimiter::new(1, true);
     let now = Instant::now();
-    assert_eq!(limiter.check_with_now("acme", now), CheckResult::Allow);
-    let CheckResult::Deny { retry_after_secs } = limiter.check_with_now("acme", now) else {
+    assert_eq!(
+        limiter.check_with_now("acme", now),
+        RateLimitTenantCheckResult::Allow
+    );
+    let RateLimitTenantCheckResult::Deny { retry_after_secs } = limiter.check_with_now("acme", now)
+    else {
         panic!("expected Deny");
     };
     let body = format!(
@@ -164,10 +198,10 @@ fn check_request_bypasses_when_auth_bypass_set() {
     std::env::remove_var("ARGO_GATEWAY_AUTH_BYPASS");
 }
 
-fn matches_deny(r: CheckResult) {
+fn matches_deny(r: RateLimitTenantCheckResult) {
     match r {
-        CheckResult::Deny { retry_after_secs } => assert!(retry_after_secs >= 1),
-        CheckResult::Allow => panic!("expected Deny, got Allow"),
+        RateLimitTenantCheckResult::Deny { retry_after_secs } => assert!(retry_after_secs >= 1),
+        RateLimitTenantCheckResult::Allow => panic!("expected Deny, got Allow"),
     }
 }
 
@@ -194,7 +228,7 @@ fn with_config_applies_burst_multiplier() {
     for i in 0..1200 {
         assert_eq!(
             limiter.check_with_now("acme", now),
-            CheckResult::Allow,
+            RateLimitTenantCheckResult::Allow,
             "request {i} should be allowed inside the burst envelope"
         );
     }
@@ -217,13 +251,19 @@ fn installed_override_supersedes_config_default() {
     let now = Instant::now();
     // `regular` drains at 5; the 6th request is denied.
     for _ in 0..5 {
-        assert_eq!(limiter.check_with_now("regular", now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("regular", now),
+            RateLimitTenantCheckResult::Allow
+        );
     }
     matches_deny(limiter.check_with_now("regular", now));
     // `vip` keeps going past the config default, all the way up to
     // 120 (the override cap).
     for _ in 0..120 {
-        assert_eq!(limiter.check_with_now("vip", now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("vip", now),
+            RateLimitTenantCheckResult::Allow
+        );
     }
     matches_deny(limiter.check_with_now("vip", now));
 }
@@ -256,7 +296,10 @@ fn with_config_zero_rpm_disables_limiter() {
     let limiter = TenantRateLimiter::with_config(&cfg);
     let now = Instant::now();
     for _ in 0..10_000 {
-        assert_eq!(limiter.check_with_now("acme", now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now("acme", now),
+            RateLimitTenantCheckResult::Allow
+        );
     }
 }
 

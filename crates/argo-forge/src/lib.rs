@@ -36,7 +36,7 @@ pub use cost::{
 };
 pub use cron::{spawn_forge_cron, ForgeCronConfig};
 pub use feedback_eval::{
-    ingest_operator_feedback, weighted_loss_score, CaseKind, ExpectedOutcome, FeedbackEvalCase,
+    ingest_operator_feedback, weighted_loss_score, CaseKind, ForgeExpectedOutcome, FeedbackEvalCase,
     ScoredCase,
 };
 pub use forge::{

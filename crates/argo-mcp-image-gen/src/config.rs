@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Which backend the server should dispatch to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BackendKind {
+pub enum ImageGenBackendKind {
     /// `OpenAiCompatibleBackend` targeting DALL-E 3.
     Openai,
     /// `OpenAiCompatibleBackend` targeting a Stable-Diffusion-class
@@ -20,7 +20,7 @@ pub enum BackendKind {
 #[serde(default)]
 pub struct ImageGenConfig {
     /// Backend dispatch.
-    pub backend: BackendKind,
+    pub backend: ImageGenBackendKind,
     /// Base URL for openai-compat endpoints (ignored by `stub`).
     pub api_base: String,
     /// Default model when the caller omits `model`.
@@ -32,7 +32,7 @@ pub struct ImageGenConfig {
 impl Default for ImageGenConfig {
     fn default() -> Self {
         Self {
-            backend: BackendKind::Stub,
+            backend: ImageGenBackendKind::Stub,
             api_base: "https://api.openai.com/v1".into(),
             model_default: "dall-e-3".into(),
             size_default: "1024x1024".into(),
@@ -79,7 +79,7 @@ mod tests {
             size_default = "1024x1024"
         "#;
         let c = ImageGenConfig::from_toml_str(toml).unwrap();
-        assert!(matches!(c.backend, BackendKind::Openai));
+        assert!(matches!(c.backend, ImageGenBackendKind::Openai));
         assert_eq!(c.api_base, "https://api.example.com/v1");
     }
 
@@ -99,6 +99,6 @@ mod tests {
             size_default = "1024x1024"
         "#;
         let c = ImageGenConfig::from_toml_str(toml).unwrap();
-        assert!(matches!(c.backend, BackendKind::StableDiffusion));
+        assert!(matches!(c.backend, ImageGenBackendKind::StableDiffusion));
     }
 }

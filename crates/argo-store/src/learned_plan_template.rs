@@ -69,7 +69,7 @@ const LEARNED_PLAN_TEMPLATE_SCHEMA: &str =
 /// lower-case string in the `trust_grade` column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TrustGrade {
+pub enum LearnedPlanGrade {
     /// Distilled by Dreams; awaits operator approval.
     Pending,
     /// Operator-approved via `argo plan template promote`.
@@ -78,7 +78,7 @@ pub enum TrustGrade {
     Rejected,
 }
 
-impl TrustGrade {
+impl LearnedPlanGrade {
     /// Lower-case label used in the `trust_grade` column.
     #[must_use]
     pub fn as_str(self) -> &'static str {
@@ -90,7 +90,7 @@ impl TrustGrade {
     }
 
     /// Parse the column label. Unknown values fall back to
-    /// [`TrustGrade::Pending`] so a forward-rolled DB doesn't
+    /// [`LearnedPlanGrade::Pending`] so a forward-rolled DB doesn't
     /// crash older readers.
     #[must_use]
     pub fn from_str_lossy(s: &str) -> Self {
@@ -118,7 +118,7 @@ pub struct LearnedPlanTemplateRow {
     /// Workflow YAML body the Dreams call returned.
     pub yaml: String,
     /// Lifecycle state.
-    pub trust_grade: TrustGrade,
+    pub trust_grade: LearnedPlanGrade,
     /// Cohort size at distillation time.
     pub cohort_size: i64,
     /// Created-at micros since epoch.
@@ -164,7 +164,7 @@ pub struct NewLearnedPlanTemplate<'a> {
 #[derive(Debug, Default, Clone)]
 pub struct LearnedPlanTemplateFilters {
     /// Restrict to one lifecycle state.
-    pub trust_grade: Option<TrustGrade>,
+    pub trust_grade: Option<LearnedPlanGrade>,
 }
 
 /// Ensure the schema is in place. Idempotent — safe to call from
@@ -211,10 +211,14 @@ pub async fn insert(pool: &SqlitePool, new: &NewLearnedPlanTemplate<'_>) -> Argo
 
 /// Promote a row — marks it as `promoted`, stamps `promoted_at`,
 /// then asks `sink` to mirror the row into the skill catalog so it
-/// participates in the `argo-skill::trust::TrustGrade` ladder.
+/// participates in the `argo-skill::trust::LearnedPlanGrade` ladder.
 /// Errors on unknown id; sink errors propagate.
-pub async fn promote(pool: &SqlitePool, id: &str, sink: &dyn SkillIngestSink) -> ArgoResult<()> {
-    set_grade(pool, id, TrustGrade::Promoted).await?;
+pub async fn promote(
+    pool: &SqlitePool,
+    id: &str,
+    sink: &dyn SkillIngestSink,
+) -> ArgoResult<()> {
+    set_grade(pool, id, LearnedPlanGrade::Promoted).await?;
     let row = get(pool, id).await?.ok_or_else(|| {
         ArgoError::Provider(format!(
             "learned_plan_template promote: missing row after set_grade for '{id}'"
@@ -227,8 +231,12 @@ pub async fn promote(pool: &SqlitePool, id: &str, sink: &dyn SkillIngestSink) ->
 /// picks it up, then asks `sink` to demote the corresponding skill
 /// row (if one was previously ingested). Errors on unknown id;
 /// sink errors propagate.
-pub async fn reject(pool: &SqlitePool, id: &str, sink: &dyn SkillIngestSink) -> ArgoResult<()> {
-    set_grade(pool, id, TrustGrade::Rejected).await?;
+pub async fn reject(
+    pool: &SqlitePool,
+    id: &str,
+    sink: &dyn SkillIngestSink,
+) -> ArgoResult<()> {
+    set_grade(pool, id, LearnedPlanGrade::Rejected).await?;
     let row = get(pool, id).await?.ok_or_else(|| {
         ArgoError::Provider(format!(
             "learned_plan_template reject: missing row after set_grade for '{id}'"
@@ -237,10 +245,11 @@ pub async fn reject(pool: &SqlitePool, id: &str, sink: &dyn SkillIngestSink) -> 
     sink.demote_from_template(&row).await
 }
 
-async fn set_grade(pool: &SqlitePool, id: &str, grade: TrustGrade) -> ArgoResult<()> {
+async fn set_grade(pool: &SqlitePool, id: &str, grade: LearnedPlanGrade) -> ArgoResult<()> {
     ensure_schema(pool).await?;
     let now = Utc::now().timestamp_micros();
-    let promoted_stamp = matches!(grade, TrustGrade::Promoted).then_some(now);
+    let promoted_stamp =
+        matches!(grade, LearnedPlanGrade::Promoted).then_some(now);
     let rows = sqlx::query(
         "UPDATE learned_plan_template \
          SET trust_grade = ?, \
@@ -304,7 +313,7 @@ pub async fn list_promoted(pool: &SqlitePool) -> ArgoResult<Vec<LearnedPlanTempl
     list(
         pool,
         &LearnedPlanTemplateFilters {
-            trust_grade: Some(TrustGrade::Promoted),
+            trust_grade: Some(LearnedPlanGrade::Promoted),
         },
         u32::MAX,
     )
@@ -340,7 +349,7 @@ fn into_row(t: RowTuple) -> LearnedPlanTemplateRow {
         parent_goal: t.3,
         keywords_csv: t.4,
         yaml: t.5,
-        trust_grade: TrustGrade::from_str_lossy(&t.6),
+        trust_grade: LearnedPlanGrade::from_str_lossy(&t.6),
         cohort_size: t.7,
         created_at: t.8,
         promoted_at: t.9,

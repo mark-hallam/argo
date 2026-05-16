@@ -65,14 +65,14 @@ const MAX_SKILL_RUNS: usize = 1000;
 /// * `Down` → `Fail` (operator rejected → loss-function target = bad).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ExpectedOutcome {
+pub enum ForgeExpectedOutcome {
     /// Operator approved the action — candidate should reproduce.
     Pass,
     /// Operator rejected the action — candidate should NOT reproduce.
     Fail,
 }
 
-impl ExpectedOutcome {
+impl ForgeExpectedOutcome {
     /// Map an `argo-store::feedback::Vote` to the expected outcome.
     #[must_use]
     pub fn from_vote(vote: Vote) -> Self {
@@ -98,7 +98,7 @@ pub struct FeedbackEvalCase {
     /// the `worker_action` memory body via `invocation_id`.
     pub action_summary: String,
     /// `Pass` for Up votes, `Fail` for Down votes.
-    pub expected: ExpectedOutcome,
+    pub expected: ForgeExpectedOutcome,
     /// Provenance tag — always `"operator_feedback"` for cases
     /// produced by this module. Stable string so downstream JSON
     /// consumers can filter cases by origin.
@@ -108,7 +108,7 @@ pub struct FeedbackEvalCase {
 impl FeedbackEvalCase {
     /// Convenience constructor used by [`ingest_operator_feedback`].
     #[must_use]
-    pub fn new(invocation_id: String, action_summary: String, expected: ExpectedOutcome) -> Self {
+    pub fn new(invocation_id: String, action_summary: String, expected: ForgeExpectedOutcome) -> Self {
         Self {
             invocation_id,
             action_summary,
@@ -191,7 +191,7 @@ pub async fn ingest_operator_feedback(
         cases.push(FeedbackEvalCase::new(
             row.action_id,
             row.comment,
-            ExpectedOutcome::from_vote(row.vote),
+            ForgeExpectedOutcome::from_vote(row.vote),
         ));
     }
 

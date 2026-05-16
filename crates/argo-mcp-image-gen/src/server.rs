@@ -27,19 +27,19 @@ pub struct ImageGenMcpServer {
     model_default: String,
     size_default: String,
     require_confirm: bool,
-    audit: Arc<Mutex<AuditSink>>,
+    audit: Arc<Mutex<ImageGenAuditSink>>,
 }
 
 /// Path-based NDJSON audit sink. Each row is one JSON object on its
-/// own line. Tests use [`AuditSink::in_memory`] to assert content.
-pub enum AuditSink {
+/// own line. Tests use [`ImageGenAuditSink::in_memory`] to assert content.
+pub enum ImageGenAuditSink {
     /// Append `{}\n` rows to this path.
     File(PathBuf),
-    /// In-memory buffer; tests read [`AuditSink::buffer`].
+    /// In-memory buffer; tests read [`ImageGenAuditSink::buffer`].
     Memory(Vec<serde_json::Value>),
 }
 
-impl AuditSink {
+impl ImageGenAuditSink {
     /// In-memory sink for tests.
     #[must_use]
     pub fn in_memory() -> Self {
@@ -87,7 +87,7 @@ impl ImageGenMcpServer {
         model_default: impl Into<String>,
         size_default: impl Into<String>,
         require_confirm: bool,
-        audit: AuditSink,
+        audit: ImageGenAuditSink,
     ) -> Self {
         Self {
             backend,
@@ -100,7 +100,7 @@ impl ImageGenMcpServer {
 
     /// Borrow the audit sink (for test assertions).
     #[must_use]
-    pub fn audit(&self) -> Arc<Mutex<AuditSink>> {
+    pub fn audit(&self) -> Arc<Mutex<ImageGenAuditSink>> {
         self.audit.clone()
     }
 

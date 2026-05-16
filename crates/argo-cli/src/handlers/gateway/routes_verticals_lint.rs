@@ -17,7 +17,7 @@
 //!   ]
 //! }
 //! ```
-use crate::handlers::vertical_lint::{lint_loaded, Severity};
+use crate::handlers::vertical_lint::{lint_loaded, VerticalLintSeverity};
 
 pub(super) async fn vertical_lint_response(id: &str) -> (&'static str, String) {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
@@ -40,7 +40,7 @@ pub(super) async fn vertical_lint_response(id: &str) -> (&'static str, String) {
         );
     };
     let findings = lint_loaded(loaded);
-    let any_error = findings.iter().any(|f| f.severity == Severity::Error);
+    let any_error = findings.iter().any(|f| f.severity == VerticalLintSeverity::Error);
     let arr: Vec<serde_json::Value> = findings
         .iter()
         .map(|f| {

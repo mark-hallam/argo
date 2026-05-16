@@ -14,7 +14,7 @@ use argo_skill::ingest_learned::{demote_learned_template, from_learned_plan_temp
 use argo_skill::trust::TrustGrade;
 use argo_skill::SkillStore;
 use argo_store::learned_plan_template::{
-    get, promote, LearnedPlanTemplateRow, SkillIngestSink, TrustGrade as LifecycleTrustGrade,
+    get, promote, LearnedPlanGrade as LifecycleTrustGrade, LearnedPlanTemplateRow, SkillIngestSink,
 };
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};

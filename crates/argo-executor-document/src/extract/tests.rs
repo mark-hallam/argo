@@ -2,7 +2,9 @@ use super::*;
 use crate::extract::claude_vision::{
     anthropic_text_response, ClaudeVisionProvider, ClaudeVisionTransport,
 };
-use crate::extract::provider::{ExtractionError, ProviderRequest, ProviderResponse};
+use crate::extract::provider::{
+    ExtractionError, ExtractionProviderRequest, ExtractionProviderResponse,
+};
 use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -10,12 +12,12 @@ use std::rc::Rc;
 
 #[derive(Default)]
 struct ScriptedProvider {
-    responses: RefCell<Vec<ProviderResponse>>,
+    responses: RefCell<Vec<ExtractionProviderResponse>>,
     corrections: RefCell<Vec<Option<String>>>,
 }
 
 impl ScriptedProvider {
-    fn new(responses: Vec<ProviderResponse>) -> Self {
+    fn new(responses: Vec<ExtractionProviderResponse>) -> Self {
         Self {
             responses: RefCell::new(responses.into_iter().rev().collect()),
             corrections: RefCell::new(Vec::new()),
@@ -32,7 +34,10 @@ impl provider::ExtractionProvider for ScriptedProvider {
         "test-model"
     }
 
-    fn extract(&self, request: &ProviderRequest) -> Result<ProviderResponse, ExtractionError> {
+    fn extract(
+        &self,
+        request: &ExtractionProviderRequest,
+    ) -> Result<ExtractionProviderResponse, ExtractionError> {
         self.corrections
             .borrow_mut()
             .push(request.correction.clone());
@@ -67,8 +72,8 @@ fn document() -> provider::DocumentInput {
     }
 }
 
-fn response(fields: Vec<(&str, Value, Option<f32>)>) -> ProviderResponse {
-    ProviderResponse {
+fn response(fields: Vec<(&str, Value, Option<f32>)>) -> ExtractionProviderResponse {
+    ExtractionProviderResponse {
         fields: fields
             .into_iter()
             .map(|(name, value, confidence)| {

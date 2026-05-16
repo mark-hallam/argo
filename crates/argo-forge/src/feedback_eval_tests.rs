@@ -1,7 +1,7 @@
 //! Unit tests for [`super::feedback_eval`].
 #![cfg(test)]
 use super::{
-    ingest_operator_feedback, weighted_loss_score, CaseKind, ExpectedOutcome, FeedbackEvalCase,
+    ingest_operator_feedback, weighted_loss_score, CaseKind, ForgeExpectedOutcome, FeedbackEvalCase,
     ScoredCase,
 };
 use crate::config::FEEDBACK_CASE_WEIGHT;
@@ -86,8 +86,8 @@ async fn mixed_votes_roundtrip_to_pass_and_fail_cases() {
         .collect();
     let up = by_id["act-1"];
     let down = by_id["act-2"];
-    assert_eq!(up.expected, ExpectedOutcome::Pass);
-    assert_eq!(down.expected, ExpectedOutcome::Fail);
+    assert_eq!(up.expected, ForgeExpectedOutcome::Pass);
+    assert_eq!(down.expected, ForgeExpectedOutcome::Fail);
     assert_eq!(up.action_summary, "loved it");
     assert_eq!(down.action_summary, "wrong tone");
     assert_eq!(up.source, "operator_feedback");

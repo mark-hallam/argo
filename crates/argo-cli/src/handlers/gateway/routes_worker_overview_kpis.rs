@@ -20,7 +20,7 @@ const KPI_WINDOW_DAYS: i64 = 14;
 const RECENT_LIMIT: usize = 5;
 
 #[derive(Debug, Clone)]
-pub(super) struct AuditRow {
+pub(super) struct KpiAuditRow {
     pub id: String,
     pub kind: String,
     pub created_at: DateTime<Utc>,
@@ -31,7 +31,7 @@ pub(super) async fn fetch_audit_rows(
     store: &SessionStore,
     worker_id: WorkerId,
     now: DateTime<Utc>,
-) -> ArgoResult<Vec<AuditRow>> {
+) -> ArgoResult<Vec<KpiAuditRow>> {
     let since = (now - Duration::days(KPI_WINDOW_DAYS)).timestamp_micros();
     let rows = sqlx::query(
         "SELECT a.id, a.kind, a.payload_json, a.created_at \
@@ -54,7 +54,7 @@ pub(super) async fn fetch_audit_rows(
             let kind: String = row.try_get("kind").unwrap_or_default();
             let payload_json: String = row.try_get("payload_json").unwrap_or_default();
             let created_micros: i64 = row.try_get("created_at").unwrap_or(0);
-            AuditRow {
+            KpiAuditRow {
                 id,
                 kind,
                 created_at: micros_to_utc(created_micros),
@@ -134,7 +134,7 @@ fn row_matches(source: SourceKind, kind: &str) -> bool {
 }
 
 fn sparkline_for(
-    audit: &[AuditRow],
+    audit: &[KpiAuditRow],
     source: SourceKind,
     today: NaiveDate,
 ) -> [i64; SPARKLINE_DAYS] {
@@ -152,7 +152,7 @@ fn sparkline_for(
     bucket
 }
 
-fn prev_window_count(audit: &[AuditRow], source: SourceKind, now: DateTime<Utc>) -> i64 {
+fn prev_window_count(audit: &[KpiAuditRow], source: SourceKind, now: DateTime<Utc>) -> i64 {
     let prev_start = now - Duration::days(KPI_WINDOW_DAYS);
     let prev_end = now - Duration::days(SPARKLINE_DAYS as i64);
     audit
@@ -183,7 +183,7 @@ pub(super) fn trend_for(curr: f64, prev: f64) -> (&'static str, f64) {
 
 pub(super) fn compute_kpis(
     vertical_id: &str,
-    audit: &[AuditRow],
+    audit: &[KpiAuditRow],
     now: DateTime<Utc>,
 ) -> Vec<Value> {
     let today = now.date_naive();
@@ -211,7 +211,7 @@ pub(super) fn compute_kpis(
         .collect()
 }
 
-pub(super) fn recent_activity_rows(audit: &[AuditRow]) -> Vec<Value> {
+pub(super) fn recent_activity_rows(audit: &[KpiAuditRow]) -> Vec<Value> {
     audit
         .iter()
         .take(RECENT_LIMIT)

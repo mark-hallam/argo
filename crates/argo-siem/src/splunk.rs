@@ -4,7 +4,7 @@
 //! event per line. Auth: `Authorization: Splunk <token>` (wrapped in
 //! [`SecretString`] so `Debug` / `tracing` never see it). Batch
 //! limit: 500 events / request, well under HEC's default 1 MiB cap.
-use crate::sink::{classify_response, AuditEvent, SecretString, SiemSink, SinkError};
+use crate::sink::{classify_response, SiemEvent, SecretString, SiemSink, SinkError};
 use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::time::Duration;
@@ -89,7 +89,7 @@ impl SplunkHecSink {
     /// object per line, no array wrapper). Public for unit-test
     /// inspection.
     #[must_use]
-    pub fn encode_batch(&self, events: &[AuditEvent]) -> String {
+    pub fn encode_batch(&self, events: &[SiemEvent]) -> String {
         let mut buf = String::with_capacity(events.len() * 256);
         for ev in events {
             let envelope = serde_json::json!({
@@ -127,7 +127,7 @@ impl SiemSink for SplunkHecSink {
         MAX_BATCH
     }
 
-    async fn ship(&self, events: Vec<AuditEvent>) -> Result<(), SinkError> {
+    async fn ship(&self, events: Vec<SiemEvent>) -> Result<(), SinkError> {
         if events.is_empty() {
             return Ok(());
         }

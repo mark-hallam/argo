@@ -67,7 +67,7 @@
 //!
 //! ```ignore
 //! let limiter = TenantRateLimiter::new(60, true);
-//! assert_eq!(limiter.check("acme"), CheckResult::Allow);
+//! assert_eq!(limiter.check("acme"), RateLimitTenantCheckResult::Allow);
 //! ```
 
 use argo_config::GatewayRateLimitTenantConfig;
@@ -88,12 +88,12 @@ pub(super) const EVICT_AGE_SECS: u64 = 5 * 60;
 /// per-acquire so a tenant's override can take effect without
 /// rebuilding the bucket map.
 #[derive(Debug)]
-pub(super) struct Bucket {
+pub(super) struct RateLimitTenantBucket {
     tokens: f64,
     last_refill: Instant,
 }
 
-impl Bucket {
+impl RateLimitTenantBucket {
     fn new(capacity: u32, now: Instant) -> Self {
         Self {
             tokens: f64::from(capacity),
@@ -120,16 +120,16 @@ impl Bucket {
 
 /// Outcome of a rate-limit check.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(super) enum CheckResult {
+pub(super) enum RateLimitTenantCheckResult {
     /// Token consumed; request may proceed.
     Allow,
-    /// Bucket empty; reject with this `Retry-After` value (seconds).
+    /// RateLimitTenantBucket empty; reject with this `Retry-After` value (seconds).
     Deny { retry_after_secs: u32 },
 }
 
 /// In-memory per-tenant token-bucket store. Cheap to clone (`Arc`-backed).
 pub struct TenantRateLimiter {
-    buckets: Arc<DashMap<String, Bucket>>,
+    buckets: Arc<DashMap<String, RateLimitTenantBucket>>,
     default_per_min: u32,
     burst_multiplier: f64,
     overrides: Arc<DashMap<String, u32>>,
@@ -200,14 +200,14 @@ impl TenantRateLimiter {
     }
 
     /// Try to consume one token for `tenant` at the current wall-clock.
-    pub(super) fn check(&self, tenant: &str) -> CheckResult {
+    pub(super) fn check(&self, tenant: &str) -> RateLimitTenantCheckResult {
         self.check_with_now(tenant, Instant::now())
     }
 
     /// Test-friendly variant that takes an explicit `Instant`.
-    pub(super) fn check_with_now(&self, tenant: &str, now: Instant) -> CheckResult {
+    pub(super) fn check_with_now(&self, tenant: &str, now: Instant) -> RateLimitTenantCheckResult {
         if !self.enabled {
-            return CheckResult::Allow;
+            return RateLimitTenantCheckResult::Allow;
         }
         let per_min = self.rpm_for(tenant).max(1);
         let cap = capacity_for(per_min, self.burst_multiplier);
@@ -216,14 +216,14 @@ impl TenantRateLimiter {
             let mut entry = self
                 .buckets
                 .entry(tenant.to_string())
-                .or_insert_with(|| Bucket::new(cap, now));
+                .or_insert_with(|| RateLimitTenantBucket::new(cap, now));
             entry.take(now, cap, refill)
         };
         if !allowed && self.buckets.len() > MAX_ENTRIES {
             self.evict_old(now);
         }
         if allowed {
-            CheckResult::Allow
+            RateLimitTenantCheckResult::Allow
         } else {
             // Time until one token refills, rounded up. Always at
             // least 1.
@@ -233,7 +233,7 @@ impl TenantRateLimiter {
             } else {
                 (secs as u32).max(1)
             };
-            CheckResult::Deny {
+            RateLimitTenantCheckResult::Deny {
                 retry_after_secs: retry,
             }
         }
@@ -254,7 +254,7 @@ impl TenantRateLimiter {
     }
 }
 
-/// Bucket capacity given an rpm and burst multiplier. Saturates at
+/// RateLimitTenantBucket capacity given an rpm and burst multiplier. Saturates at
 /// `u32::MAX` and floors at `1` so a tenant always has at least one
 /// token to spend.
 fn capacity_for(per_min: u32, burst_multiplier: f64) -> u32 {
@@ -348,8 +348,8 @@ pub(super) fn check_request(req: &str) -> Option<(&'static str, String)> {
     let limiter = global();
     let tenant = super::rate_limit::extract_tenant(req);
     match limiter.check(&tenant) {
-        CheckResult::Allow => None,
-        CheckResult::Deny { retry_after_secs } => {
+        RateLimitTenantCheckResult::Allow => None,
+        RateLimitTenantCheckResult::Deny { retry_after_secs } => {
             // tracing::warn! is also the counter source — the
             // `gateway::rate_limit_tenant` target tag + `tenant`
             // dimension is what downstream exporters (otel,

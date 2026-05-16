@@ -61,7 +61,7 @@ async fn report_filters_by_since_and_breaks_down_by_day() {
     assert_eq!(report.row_count, 1);
     assert_eq!(
         report.breakdown_rows,
-        vec![BreakdownRow {
+        vec![CostBreakdownRow {
             key: "2026-05-02".to_string(),
             usd_micros: 2_000_000,
             row_count: 1,

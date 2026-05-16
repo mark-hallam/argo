@@ -63,12 +63,12 @@ pub struct RetryAfter {
 }
 
 #[derive(Debug)]
-pub(super) struct Bucket {
+pub(super) struct RateLimitBucket {
     tokens: f64,
     last_seen: Instant,
 }
 
-impl Bucket {
+impl RateLimitBucket {
     fn new(max_tokens: u32, now: Instant) -> Self {
         Self {
             tokens: f64::from(max_tokens),
@@ -100,9 +100,9 @@ impl Bucket {
     }
 }
 
-/// In-memory `(route, tenant) → Bucket` store. Cheap to clone (`Arc`).
+/// In-memory `(route, tenant) → RateLimitBucket` store. Cheap to clone (`Arc`).
 pub struct RateLimiter {
-    buckets: DashMap<(String, String), Bucket>,
+    buckets: DashMap<(String, String), RateLimitBucket>,
     default_rpm: u32,
     overrides: HashMap<String, u32>,
 }
@@ -147,7 +147,7 @@ impl RateLimiter {
         let mut entry = self
             .buckets
             .entry(key)
-            .or_insert_with(|| Bucket::new(rpm, now));
+            .or_insert_with(|| RateLimitBucket::new(rpm, now));
         entry.try_take(now, rpm)
     }
 

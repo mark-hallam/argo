@@ -52,19 +52,19 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
     let eval_report = super::vertical_eval::collect_eval_report(loaded);
 
     // 3. Lint
-    use super::vertical_lint::{lint_loaded, Severity};
+    use super::vertical_lint::{lint_loaded, VerticalLintSeverity};
     let lint_findings = lint_loaded(loaded);
     let lint_error_count = lint_findings
         .iter()
-        .filter(|f| f.severity == Severity::Error)
+        .filter(|f| f.severity == VerticalLintSeverity::Error)
         .count();
     let lint_warn_count = lint_findings
         .iter()
-        .filter(|f| f.severity == Severity::Warn)
+        .filter(|f| f.severity == VerticalLintSeverity::Warn)
         .count();
     let lint_info_count = lint_findings
         .iter()
-        .filter(|f| f.severity == Severity::Info)
+        .filter(|f| f.severity == VerticalLintSeverity::Info)
         .count();
     let lint_ok = lint_error_count == 0;
 

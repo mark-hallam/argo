@@ -16,17 +16,19 @@
 //!    without error — full-fidelity transcription verification is
 //!    a manual operator check (no model is bundled in the repo).
 
-use argo_voice_tui::{run_one_tick, MockRecognizer, PendingApproval, RunnerConfig, TickOutcome};
+use argo_voice_tui::{
+    run_one_tick, MockRecognizer, RunnerConfig, TickOutcome, VoicePendingApproval,
+};
 
-fn fixture() -> Vec<PendingApproval> {
+fn fixture() -> Vec<VoicePendingApproval> {
     vec![
-        PendingApproval {
+        VoicePendingApproval {
             token: "tok-maya".into(),
             worker_name: "Maya".into(),
             action_summary: "send invoice reminder".into(),
             spend_usd: None,
         },
-        PendingApproval {
+        VoicePendingApproval {
             token: "tok-maria".into(),
             worker_name: "Maria Hernandez".into(),
             action_summary: "log payment receipt".into(),

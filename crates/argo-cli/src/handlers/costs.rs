@@ -144,7 +144,7 @@ fn apply_cap(cwd: &std::path::Path, scope: &str, micros: u64, usd: f64) -> ArgoR
 }
 
 #[derive(Default)]
-pub(super) struct GlobalSpend {
+pub(super) struct CostsGlobalSpend {
     pub(super) today: u64,
     pub(super) this_month: u64,
     pub(super) all_time: u64,
@@ -181,13 +181,13 @@ async fn total(cwd: &std::path::Path, json: bool) -> ArgoResult<()> {
 /// `SessionStore::load_global_spend` — the SQL lives in
 /// `argo-store::spend` so the TUI cost overlay can call it
 /// without re-implementing the queries.
-pub(super) async fn load_global_spend(cwd: &std::path::Path) -> ArgoResult<GlobalSpend> {
+pub(super) async fn load_global_spend(cwd: &std::path::Path) -> ArgoResult<CostsGlobalSpend> {
     let home = resolve_home(cwd)?;
     ensure_dir(&home)?;
     let store = SessionStore::open(&db_path(&home)).await?;
     store.migrate().await?;
     let snap = store.load_global_spend().await?;
-    Ok(GlobalSpend {
+    Ok(CostsGlobalSpend {
         today: snap.today,
         this_month: snap.this_month,
         all_time: snap.all_time,

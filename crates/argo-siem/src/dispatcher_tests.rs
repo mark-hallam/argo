@@ -3,7 +3,7 @@
 //! the dispatcher with a counting / failing mock sink to verify
 //! cursor + retry semantics.
 use super::*;
-use crate::sink::{AuditEvent, SiemSink, SinkError};
+use crate::sink::{SiemEvent, SiemSink, SinkError};
 use argo_store::SessionStore;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -17,7 +17,7 @@ struct MockSink {
     backend: &'static str,
     endpoint: String,
     max_batch: usize,
-    shipped: Mutex<Vec<Vec<AuditEvent>>>,
+    shipped: Mutex<Vec<Vec<SiemEvent>>>,
     script: Mutex<Vec<Result<(), SinkError>>>,
     calls: AtomicU64,
 }
@@ -43,7 +43,7 @@ impl MockSink {
         self.calls.load(Ordering::SeqCst)
     }
 
-    fn shipped(&self) -> Vec<Vec<AuditEvent>> {
+    fn shipped(&self) -> Vec<Vec<SiemEvent>> {
         self.shipped.lock().unwrap().clone()
     }
 }
@@ -59,7 +59,7 @@ impl SiemSink for MockSink {
     fn max_batch(&self) -> usize {
         self.max_batch
     }
-    async fn ship(&self, events: Vec<AuditEvent>) -> Result<(), SinkError> {
+    async fn ship(&self, events: Vec<SiemEvent>) -> Result<(), SinkError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         let outcome = self.script.lock().unwrap().pop().unwrap_or(Ok(()));
         if outcome.is_ok() {

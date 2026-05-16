@@ -9,7 +9,7 @@
 //! `CREATE TABLE IF NOT EXISTS` at startup so the dispatcher works
 //! on any DB with the base `audit_record` migration, without a
 //! coupled `argo-store` migration register entry.
-use crate::sink::{AuditEvent, SiemSink, SinkError};
+use crate::sink::{SiemEvent, SiemSink, SinkError};
 use argo_store::SessionStore;
 use sqlx::Row;
 use std::sync::Arc;
@@ -116,7 +116,7 @@ impl SiemDispatcher {
         &self,
         after_seq: i64,
         limit: usize,
-    ) -> Result<Vec<AuditEvent>, sqlx::Error> {
+    ) -> Result<Vec<SiemEvent>, sqlx::Error> {
         let rows = sqlx::query(
             "SELECT seq, id, session_id, kind, payload_json, created_at \
              FROM audit_record \
@@ -137,7 +137,7 @@ impl SiemDispatcher {
             let payload_json: String = r.try_get("payload_json")?;
             let created_at: i64 = r.try_get("created_at")?;
             let payload = serde_json::from_str(&payload_json).unwrap_or(serde_json::Value::Null);
-            out.push(AuditEvent {
+            out.push(SiemEvent {
                 seq,
                 id: hex::encode(&id_bytes),
                 session_id: session_bytes.map(hex::encode),
@@ -194,7 +194,7 @@ impl SiemDispatcher {
         }
     }
 
-    async fn ship_with_retries(&self, events: Vec<AuditEvent>) -> Result<(), SinkError> {
+    async fn ship_with_retries(&self, events: Vec<SiemEvent>) -> Result<(), SinkError> {
         let mut delay = INITIAL_BACKOFF;
         let mut attempt: u32 = 0;
         loop {

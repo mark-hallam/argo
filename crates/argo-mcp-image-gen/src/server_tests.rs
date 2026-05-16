@@ -1,5 +1,5 @@
 //! 6 unit tests for [`ImageGenMcpServer`]. All use [`StubBackend`]
-//! plus an in-memory [`AuditSink`], except `openai_compat_*` which
+//! plus an in-memory [`ImageGenAuditSink`], except `openai_compat_*` which
 //! stands up a one-shot TCP listener mimicking an openai endpoint.
 
 use super::*;
@@ -14,7 +14,7 @@ fn build(require_confirm: bool) -> ImageGenMcpServer {
         "dall-e-3",
         "1024x1024",
         require_confirm,
-        AuditSink::in_memory(),
+        ImageGenAuditSink::in_memory(),
     )
 }
 

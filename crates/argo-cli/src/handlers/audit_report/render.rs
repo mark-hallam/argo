@@ -1,5 +1,5 @@
 use super::{
-    ChainVerdict, ChannelBreakdown, NormalizedReport, PendingApproval, ReportData, SpenderRow,
+    AuditPendingApproval, ChainVerdict, ChannelBreakdown, NormalizedReport, ReportData, SpenderRow,
     SummaryStats,
 };
 
@@ -114,7 +114,7 @@ fn push_spenders_md(out: &mut String, rows: &[SpenderRow]) {
     out.push('\n');
 }
 
-fn push_pending_md(out: &mut String, rows: &[PendingApproval]) {
+fn push_pending_md(out: &mut String, rows: &[AuditPendingApproval]) {
     out.push_str("## Pending-approval queue snapshot\n\n");
     out.push_str(
         "| action | worker | type | risk | created_at |\n| --- | --- | --- | --- | --- |\n",

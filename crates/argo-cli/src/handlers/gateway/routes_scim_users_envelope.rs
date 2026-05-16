@@ -26,7 +26,7 @@ const DEFAULT_COUNT: i64 = 100;
 const MAX_COUNT: i64 = 1000;
 
 /// Parsed `?filter=…&startIndex=…&count=…` triple.
-pub(super) struct ListQuery {
+pub(super) struct ScimListQuery {
     pub filter_user_name: Option<String>,
     pub start_index: i64,
     pub count: i64,
@@ -34,15 +34,15 @@ pub(super) struct ListQuery {
 
 /// Parse the request path's query string. Only `userName eq "..."`
 /// is recognised as a filter; unknown keys are ignored.
-pub(super) fn parse_list_query(path: &str) -> Result<ListQuery, String> {
+pub(super) fn parse_list_query(path: &str) -> Result<ScimListQuery, String> {
     let Some((_, qs)) = path.split_once('?') else {
-        return Ok(ListQuery {
+        return Ok(ScimListQuery {
             filter_user_name: None,
             start_index: 1,
             count: DEFAULT_COUNT,
         });
     };
-    let mut out = ListQuery {
+    let mut out = ScimListQuery {
         filter_user_name: None,
         start_index: 1,
         count: DEFAULT_COUNT,

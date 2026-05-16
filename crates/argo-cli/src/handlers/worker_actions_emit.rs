@@ -249,7 +249,7 @@ fn forbidden_record(
 /// text. Pre-classification — the OS hasn't yet decided whether
 /// to allow / gate / forbid it.
 #[derive(Debug, Clone)]
-pub(crate) struct ProposedAction {
+pub(crate) struct EmittedProposedAction {
     pub action_type: String,
     pub payload: Value,
     pub item_id: Option<String>,
@@ -276,7 +276,7 @@ pub(crate) struct ProposedAction {
 /// skipped (so a stray fence in prose can't crash the
 /// extractor). At least `action_type` + `payload` are required;
 /// other fields default sensibly.
-pub(crate) fn extract_action_proposals(text: &str) -> Vec<ProposedAction> {
+pub(crate) fn extract_action_proposals(text: &str) -> Vec<EmittedProposedAction> {
     let mut out = Vec::new();
     let needle = "```action";
     let bytes = text.as_bytes();
@@ -325,7 +325,7 @@ fn find_close_fence(s: &str) -> Option<usize> {
     None
 }
 
-fn parse_action_body(body: &str) -> Option<ProposedAction> {
+fn parse_action_body(body: &str) -> Option<EmittedProposedAction> {
     let v: Value = serde_json::from_str(body.trim()).ok()?;
     let action_type = v.get("action_type")?.as_str()?.to_string();
     let payload = v.get("payload").cloned().unwrap_or(Value::Null);
@@ -343,7 +343,7 @@ fn parse_action_body(body: &str) -> Option<ProposedAction> {
     if action_type.trim().is_empty() {
         return None;
     }
-    Some(ProposedAction {
+    Some(EmittedProposedAction {
         action_type,
         payload,
         item_id,

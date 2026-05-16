@@ -67,7 +67,7 @@ fn lint_warns_when_template_references_unknown_top_level_key() {
         .iter()
         .find(|f| f.code == "actions.template.unknown_key")
         .expect("expected unknown_key finding");
-    assert_eq!(f.severity, Severity::Warn);
+    assert_eq!(f.severity, VerticalLintSeverity::Warn);
     assert!(f.message.contains("stepz"), "got: {}", f.message);
     assert!(f.message.contains("verify_price"), "got: {}", f.message);
     assert!(f.message.contains("default"), "got: {}", f.message);
@@ -157,7 +157,7 @@ fn lint_warns_on_unknown_tool_in_allowed_list() {
         .iter()
         .find(|f| f.code == "tools.allowed.unknown_name")
         .expect("expected tools.allowed.unknown_name finding");
-    assert_eq!(f.severity, Severity::Warn);
+    assert_eq!(f.severity, VerticalLintSeverity::Warn);
     assert!(f.message.contains("file_reed_typo"), "got: {}", f.message);
 }
 
@@ -175,7 +175,7 @@ fn lint_warns_on_unknown_tool_in_denied_list() {
         .iter()
         .find(|f| f.code == "tools.denied.unknown_name")
         .expect("expected tools.denied.unknown_name finding");
-    assert_eq!(f.severity, Severity::Warn);
+    assert_eq!(f.severity, VerticalLintSeverity::Warn);
     assert!(f.message.contains("bogus_tool"));
 }
 
@@ -196,7 +196,7 @@ fn lint_warns_on_orphan_escalation_tool() {
         .iter()
         .find(|f| f.code == "escalation.orphan_tool")
         .expect("expected escalation.orphan_tool finding");
-    assert_eq!(f.severity, Severity::Warn);
+    assert_eq!(f.severity, VerticalLintSeverity::Warn);
     assert!(f.message.contains("delegate_task"));
 }
 
@@ -258,7 +258,7 @@ fn lint_emits_info_on_empty_skill_bundle() {
         .iter()
         .find(|f| f.code == "skills.bundle_empty")
         .expect("expected skills.bundle_empty finding");
-    assert_eq!(f.severity, Severity::Info);
+    assert_eq!(f.severity, VerticalLintSeverity::Info);
 }
 
 #[test]
@@ -275,7 +275,7 @@ fn lint_emits_info_on_empty_evaluation_suites() {
         .iter()
         .find(|f| f.code == "evaluation.no_suites")
         .expect("expected evaluation.no_suites finding");
-    assert_eq!(f.severity, Severity::Info);
+    assert_eq!(f.severity, VerticalLintSeverity::Info);
 }
 
 #[test]
@@ -297,5 +297,5 @@ fn lint_emits_info_on_memory_schema_with_zero_entries() {
         .iter()
         .find(|f| f.code == "memory.schema_no_entries")
         .expect("expected memory.schema_no_entries finding");
-    assert_eq!(f.severity, Severity::Info);
+    assert_eq!(f.severity, VerticalLintSeverity::Info);
 }

@@ -6,7 +6,7 @@
 
 use argo_mcp::run_loop;
 use argo_mcp_image_gen::{
-    AuditSink, BackendKind, ImageBackend, ImageGenConfig, ImageGenMcpServer,
+    ImageGenAuditSink, ImageGenBackendKind, ImageBackend, ImageGenConfig, ImageGenMcpServer,
     OpenAiCompatibleBackend, StubBackend,
 };
 use std::io::{self, BufReader};
@@ -31,11 +31,11 @@ async fn main() -> Result<(), String> {
         .map_err(|e| format!("read {}: {e}", config_path.display()))?;
     let cfg = ImageGenConfig::from_toml_str(&text)?;
     let backend: Arc<dyn ImageBackend> = match cfg.backend {
-        BackendKind::Openai | BackendKind::StableDiffusion => {
+        ImageGenBackendKind::Openai | ImageGenBackendKind::StableDiffusion => {
             let key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
             Arc::new(OpenAiCompatibleBackend::new(cfg.api_base.clone(), key)?)
         }
-        BackendKind::Stub => Arc::new(StubBackend),
+        ImageGenBackendKind::Stub => Arc::new(StubBackend),
     };
     let audit_path = std::env::var("ARGO_HOME")
         .map(|h| PathBuf::from(h).join("audit/image_gen.ndjson"))
@@ -50,7 +50,7 @@ async fn main() -> Result<(), String> {
         cfg.model_default,
         cfg.size_default,
         require_confirm,
-        AuditSink::File(audit_path),
+        ImageGenAuditSink::File(audit_path),
     );
     let stdin = io::stdin();
     let stdout = io::stdout();

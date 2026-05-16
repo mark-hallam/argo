@@ -1,4 +1,4 @@
-//! Principal parsing for authenticated gateway requests.
+//! GatewayPrincipal parsing for authenticated gateway requests.
 //!
 //! Bearer auth proves the caller knows the token; this module carries
 //! optional caller identity into gateway audit payloads without changing
@@ -11,14 +11,14 @@ const HEADER: &str = "X-Argo-Principal";
 const MAX_PRINCIPAL_LEN: usize = 256;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum Principal {
+pub(super) enum GatewayPrincipal {
     Worker(Uuid),
     Human(String),
     System(String),
     Anonymous,
 }
 
-impl Principal {
+impl GatewayPrincipal {
     fn as_payload_value(&self) -> String {
         match self {
             Self::Worker(id) => format!("worker:{id}"),
@@ -40,9 +40,9 @@ impl Principal {
     }
 }
 
-pub(super) fn parse_principal_header(req: &str) -> Result<Principal, &'static str> {
+pub(super) fn parse_principal_header(req: &str) -> Result<GatewayPrincipal, &'static str> {
     let Some(raw) = principal_header_value(req) else {
-        return Ok(Principal::Anonymous);
+        return Ok(GatewayPrincipal::Anonymous);
     };
     if raw.is_empty() || raw.len() > MAX_PRINCIPAL_LEN {
         return Err("bad principal");
@@ -55,10 +55,10 @@ pub(super) fn parse_principal_header(req: &str) -> Result<Principal, &'static st
     }
     match kind {
         "worker" => Uuid::parse_str(value)
-            .map(Principal::Worker)
+            .map(GatewayPrincipal::Worker)
             .map_err(|_| "bad principal"),
-        "human" => Ok(Principal::Human(value.to_string())),
-        "system" => Ok(Principal::System(value.to_string())),
+        "human" => Ok(GatewayPrincipal::Human(value.to_string())),
+        "system" => Ok(GatewayPrincipal::System(value.to_string())),
         _ => Err("bad principal"),
     }
 }
@@ -100,7 +100,7 @@ fn is_safe_principal_value(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_principal_header, principal_payload, Principal};
+    use super::{parse_principal_header, principal_payload, GatewayPrincipal};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -118,7 +118,7 @@ mod tests {
         let id = Uuid::parse_str("018f55b7-89ab-7cde-8123-456789abcdef").unwrap();
         assert_eq!(
             parse_principal_header(&req(Some(&format!("worker:{id}")))).unwrap(),
-            Principal::Worker(id)
+            GatewayPrincipal::Worker(id)
         );
     }
 
@@ -126,7 +126,7 @@ mod tests {
     fn human_principal_parses() {
         assert_eq!(
             parse_principal_header(&req(Some("human:mark@example.com"))).unwrap(),
-            Principal::Human("mark@example.com".to_string())
+            GatewayPrincipal::Human("mark@example.com".to_string())
         );
     }
 
@@ -134,7 +134,7 @@ mod tests {
     fn system_principal_parses() {
         assert_eq!(
             parse_principal_header(&req(Some("system:scheduler-1"))).unwrap(),
-            Principal::System("scheduler-1".to_string())
+            GatewayPrincipal::System("scheduler-1".to_string())
         );
     }
 
@@ -142,7 +142,7 @@ mod tests {
     fn missing_principal_is_anonymous() {
         assert_eq!(
             parse_principal_header(&req(None)).unwrap(),
-            Principal::Anonymous
+            GatewayPrincipal::Anonymous
         );
     }
 

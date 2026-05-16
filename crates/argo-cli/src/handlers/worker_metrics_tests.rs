@@ -30,7 +30,7 @@ fn approval_rate_uses_granted_plus_revoked_only() {
         row(AuditKind::ApprovalConsumed, ts(2026, 5, 8)),
         row(AuditKind::ApprovalConsumed, ts(2026, 5, 9)),
     ];
-    let s = Summary::from_rows(rows.iter());
+    let s = WorkerMetricsSummary::from_rows(rows.iter());
     assert_eq!(s.granted, 3);
     assert_eq!(s.revoked, 1);
     assert_eq!(s.consumed, 5);
@@ -49,13 +49,13 @@ fn consumed_rate_is_consumed_over_granted() {
         row(AuditKind::ApprovalConsumed, ts(2026, 5, 5)),
         row(AuditKind::ApprovalConsumed, ts(2026, 5, 6)),
     ];
-    let s = Summary::from_rows(rows.iter());
+    let s = WorkerMetricsSummary::from_rows(rows.iter());
     assert_eq!(s.consumed_rate.unwrap(), 0.5);
 }
 
 #[test]
 fn empty_window_returns_null_rates_not_div_by_zero() {
-    let s = Summary::from_rows(std::iter::empty::<&DecisionRow>());
+    let s = WorkerMetricsSummary::from_rows(std::iter::empty::<&DecisionRow>());
     assert_eq!(s.total, 0);
     assert_eq!(s.granted, 0);
     assert_eq!(s.revoked, 0);
@@ -70,7 +70,7 @@ fn only_consumed_yields_null_approval_rate_but_zero_consumed_rate_div() {
     // is also null because the denominator (granted) is zero — the
     // store must not pretend a rate of 1.0 from consumed-without-grant.
     let rows = [row(AuditKind::ApprovalConsumed, ts(2026, 5, 1))];
-    let s = Summary::from_rows(rows.iter());
+    let s = WorkerMetricsSummary::from_rows(rows.iter());
     assert!(s.approval_rate.is_none());
     assert!(s.consumed_rate.is_none());
     assert_eq!(s.total, 1);
@@ -78,21 +78,21 @@ fn only_consumed_yields_null_approval_rate_but_zero_consumed_rate_div() {
 
 #[test]
 fn bucket_key_day_is_yyyy_mm_dd() {
-    assert_eq!(bucket_key(ts(2026, 5, 9), Bucket::Day), "2026-05-09");
+    assert_eq!(bucket_key(ts(2026, 5, 9), MetricsBucket::Day), "2026-05-09");
 }
 
 #[test]
 fn bucket_key_week_is_iso_year_week() {
     // 2026-05-09 is a Saturday; ISO week 19.
-    assert_eq!(bucket_key(ts(2026, 5, 9), Bucket::Week), "2026-W19");
+    assert_eq!(bucket_key(ts(2026, 5, 9), MetricsBucket::Week), "2026-W19");
     // Year boundary: 2025-12-29 belongs to ISO 2026-W01.
-    assert_eq!(bucket_key(ts(2025, 12, 29), Bucket::Week), "2026-W01");
+    assert_eq!(bucket_key(ts(2025, 12, 29), MetricsBucket::Week), "2026-W01");
 }
 
 #[test]
 fn bucket_key_month_is_yyyy_mm() {
-    assert_eq!(bucket_key(ts(2026, 5, 9), Bucket::Month), "2026-05");
-    assert_eq!(bucket_key(ts(2026, 12, 31), Bucket::Month), "2026-12");
+    assert_eq!(bucket_key(ts(2026, 5, 9), MetricsBucket::Month), "2026-05");
+    assert_eq!(bucket_key(ts(2026, 12, 31), MetricsBucket::Month), "2026-12");
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn bucketize_produces_one_row_per_iso_week() {
         row(AuditKind::ApprovalRevoked, ts(2026, 5, 7)), // W19
         row(AuditKind::ApprovalGranted, ts(2026, 5, 12)), // W20
     ];
-    let buckets = bucketize(&rows, Bucket::Week);
+    let buckets = bucketize(&rows, MetricsBucket::Week);
     assert_eq!(buckets.len(), 2);
     assert_eq!(buckets[0].bucket, "2026-W19");
     assert_eq!(buckets[0].summary.total, 2);
@@ -133,17 +133,17 @@ fn parse_since_rejects_bad_input() {
 
 #[test]
 fn bucket_parse_accepts_all_four_modes() {
-    assert_eq!(Bucket::parse("none").unwrap(), Bucket::None);
-    assert_eq!(Bucket::parse("day").unwrap(), Bucket::Day);
-    assert_eq!(Bucket::parse("week").unwrap(), Bucket::Week);
-    assert_eq!(Bucket::parse("month").unwrap(), Bucket::Month);
-    assert!(Bucket::parse("hour").is_err());
+    assert_eq!(MetricsBucket::parse("none").unwrap(), MetricsBucket::None);
+    assert_eq!(MetricsBucket::parse("day").unwrap(), MetricsBucket::Day);
+    assert_eq!(MetricsBucket::parse("week").unwrap(), MetricsBucket::Week);
+    assert_eq!(MetricsBucket::parse("month").unwrap(), MetricsBucket::Month);
+    assert!(MetricsBucket::parse("hour").is_err());
 }
 
 #[test]
 fn build_report_with_bucket_none_omits_bucket_rows() {
     let rows = [row(AuditKind::ApprovalGranted, ts(2026, 5, 9))];
-    let r = build_report("w-1", None, Bucket::None, &rows);
+    let r = build_report("w-1", None, MetricsBucket::None, &rows);
     assert_eq!(r.bucket, "none");
     assert!(r.buckets.is_empty());
     assert_eq!(r.summary.granted, 1);
@@ -156,7 +156,7 @@ fn render_markdown_snapshot_contains_table_for_weekly_bucket() {
         row(AuditKind::ApprovalRevoked, ts(2026, 5, 7)),
         row(AuditKind::ApprovalConsumed, ts(2026, 5, 8)),
     ];
-    let report = build_report("w-snap", None, Bucket::Week, &rows);
+    let report = build_report("w-snap", None, MetricsBucket::Week, &rows);
     let md = render_markdown(&report);
     // Heading + summary line + per-bucket table — locked surface
     // for downstream consumers.

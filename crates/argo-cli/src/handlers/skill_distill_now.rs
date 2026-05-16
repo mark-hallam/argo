@@ -38,7 +38,7 @@ pub const DEFAULT_COST_USD_MICROS: i64 = 750_000;
 
 /// Per-cohort summary returned in the JSON envelope.
 #[derive(Debug, Serialize)]
-pub struct CohortSummary {
+pub struct DistillCohortSummary {
     /// Vertical the cohort belongs to.
     pub vertical_id: String,
     /// Action kind shared by every member.
@@ -93,10 +93,10 @@ pub async fn run(
     let cap = DailyCapTracker::new(state_root, worker);
     let today = Utc::now().date_naive();
 
-    let mut summaries: Vec<CohortSummary> = Vec::new();
+    let mut summaries: Vec<DistillCohortSummary> = Vec::new();
     for cohort in &cohorts {
         match try_distill(cohort, caller, &cap, today).await {
-            Ok(result) => summaries.push(CohortSummary {
+            Ok(result) => summaries.push(DistillCohortSummary {
                 vertical_id: cohort.vertical_id.clone(),
                 action_type: cohort.action_type.clone(),
                 size: cohort.members.len(),
@@ -104,7 +104,7 @@ pub async fn run(
                 skipped_reason: None,
                 cost_micros: Some(result.cost_micros),
             }),
-            Err(reason) => summaries.push(CohortSummary {
+            Err(reason) => summaries.push(DistillCohortSummary {
                 vertical_id: cohort.vertical_id.clone(),
                 action_type: cohort.action_type.clone(),
                 size: cohort.members.len(),
@@ -294,7 +294,7 @@ pub async fn run_cli(worker: &str, json: bool) -> ArgoResult<()> {
                     "cohorts_total": 0,
                     "distilled": 0,
                     "skipped": 0,
-                    "details": Vec::<CohortSummary>::new(),
+                    "details": Vec::<DistillCohortSummary>::new(),
                 })
             );
         } else {

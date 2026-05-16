@@ -72,7 +72,7 @@ pub(crate) fn judge_timeout() -> Duration {
 /// Internal to this module — translated into [`PromoteDecision`]
 /// by [`evaluate_promote_gates`].
 #[derive(Debug, PartialEq)]
-pub(crate) enum JudgeOutcome {
+pub(crate) enum ForgeJudgeOutcome {
     Allow,
     Reject(String),
     Unavailable(String),
@@ -106,23 +106,23 @@ impl PromoteDecision {
     }
 }
 
-/// Map a [`JudgeVerdict`] to a [`JudgeOutcome`] using the same
+/// Map a [`JudgeVerdict`] to a [`ForgeJudgeOutcome`] using the same
 /// rule as the skill-creation wire (`Success` always passes;
 /// `Partial` passes only in lenient mode i.e. floor < 0.5;
 /// `Failure` always rejects). The default floor `0.7` rejects
 /// `Partial`.
-pub(crate) fn classify_verdict(verdict: &JudgeVerdict, floor: f64) -> JudgeOutcome {
+pub(crate) fn classify_verdict(verdict: &JudgeVerdict, floor: f64) -> ForgeJudgeOutcome {
     match verdict {
-        JudgeVerdict::Success => JudgeOutcome::Allow,
+        JudgeVerdict::Success => ForgeJudgeOutcome::Allow,
         JudgeVerdict::Partial { reason } => {
             if floor < 0.5 {
-                JudgeOutcome::Allow
+                ForgeJudgeOutcome::Allow
             } else {
-                JudgeOutcome::Reject(format!("judge_low_confidence: partial: {reason}"))
+                ForgeJudgeOutcome::Reject(format!("judge_low_confidence: partial: {reason}"))
             }
         }
         JudgeVerdict::Failure { reason } => {
-            JudgeOutcome::Reject(format!("judge_low_confidence: failure: {reason}"))
+            ForgeJudgeOutcome::Reject(format!("judge_low_confidence: failure: {reason}"))
         }
     }
 }
@@ -136,7 +136,7 @@ pub(crate) async fn adjudicate_with_timeout(
     skill_name: &str,
     baseline_version: &str,
     candidate_body: &str,
-) -> JudgeOutcome {
+) -> ForgeJudgeOutcome {
     let subject = JudgeSubject::SkillRefine {
         name: skill_name.to_string(),
         version_from: baseline_version.to_string(),
@@ -157,8 +157,8 @@ pub(crate) async fn adjudicate_with_timeout(
     let timeout = judge_timeout();
     match tokio::time::timeout(timeout, fut).await {
         Ok(Ok(record)) => classify_verdict(&record.verdict, judge_floor()),
-        Ok(Err(e)) => JudgeOutcome::Unavailable(format!("judge transport error: {e}")),
-        Err(_) => JudgeOutcome::Unavailable(format!("judge timeout after {timeout:?}")),
+        Ok(Err(e)) => ForgeJudgeOutcome::Unavailable(format!("judge transport error: {e}")),
+        Err(_) => ForgeJudgeOutcome::Unavailable(format!("judge timeout after {timeout:?}")),
     }
 }
 
@@ -189,9 +189,9 @@ pub(crate) async fn evaluate_promote_gates(
     };
     match adjudicate_with_timeout(j, session_id, skill_name, baseline_version, candidate_body).await
     {
-        JudgeOutcome::Allow => PromoteDecision::Allow,
-        JudgeOutcome::Reject(reason) => PromoteDecision::JudgeBlocked { reason },
-        JudgeOutcome::Unavailable(reason) => PromoteDecision::JudgeUnavailable { reason },
+        ForgeJudgeOutcome::Allow => PromoteDecision::Allow,
+        ForgeJudgeOutcome::Reject(reason) => PromoteDecision::JudgeBlocked { reason },
+        ForgeJudgeOutcome::Unavailable(reason) => PromoteDecision::JudgeUnavailable { reason },
     }
 }
 

@@ -43,10 +43,10 @@ pub const DEFAULT_PLANNER_BIAS_REQUIRE_RECENT_WITHIN_DAYS: u32 = 30;
 /// drift-fix amendment 2026-05-13): v1 gates on
 /// `LearnedPlanTemplate.trust_grade == Promoted` only. The
 /// `Pending / Promoted / Rejected` lifecycle (see
-/// `argo_store::learned_plan_template::TrustGrade`) does not yet
+/// `argo_store::learned_plan_template::LearnedPlanGrade`) does not yet
 /// expose finer-grained tiers, so a `min_trust_grade` knob is a
 /// follow-up brief. The brief's earlier `Bronze/Silver/Gold`
-/// vocabulary referred to the older skill TrustGrade ladder and
+/// vocabulary referred to the older skill LearnedPlanGrade ladder and
 /// is misaligned with the live `LearnedPlanTemplate` lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

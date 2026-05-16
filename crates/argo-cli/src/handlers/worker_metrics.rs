@@ -26,16 +26,16 @@ use serde::Serialize;
 use sqlx::{Pool, Sqlite};
 use std::str::FromStr;
 
-/// Bucket granularity for the time-series rollup.
+/// MetricsBucket granularity for the time-series rollup.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Bucket {
+pub(crate) enum MetricsBucket {
     None,
     Day,
     Week,
     Month,
 }
 
-impl Bucket {
+impl MetricsBucket {
     pub(crate) fn parse(s: &str) -> ArgoResult<Self> {
         match s {
             "none" => Ok(Self::None),
@@ -89,7 +89,7 @@ pub(crate) struct DecisionRow {
 /// kinds, not the brief's stale `approve / deny / timeout / defer`
 /// outcome model.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub(crate) struct Summary {
+pub(crate) struct WorkerMetricsSummary {
     pub granted: u64,
     pub revoked: u64,
     pub consumed: u64,
@@ -101,7 +101,7 @@ pub(crate) struct Summary {
     pub consumed_rate: Option<f64>,
 }
 
-impl Summary {
+impl WorkerMetricsSummary {
     pub(crate) fn from_rows<'a, I: IntoIterator<Item = &'a DecisionRow>>(rows: I) -> Self {
         let mut s = Self {
             granted: 0,
@@ -139,7 +139,7 @@ impl Summary {
 pub(crate) struct BucketRow {
     pub bucket: String,
     #[serde(flatten)]
-    pub summary: Summary,
+    pub summary: WorkerMetricsSummary,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -147,7 +147,7 @@ pub(crate) struct Report {
     pub worker_id: String,
     pub since_micros: Option<i64>,
     pub bucket: String,
-    pub summary: Summary,
+    pub summary: WorkerMetricsSummary,
     pub buckets: Vec<BucketRow>,
 }
 
@@ -160,7 +160,7 @@ pub async fn run(
 ) -> ArgoResult<()> {
     let parsed_worker = WorkerId::from_str(worker_id)
         .map_err(|e| ArgoError::Schema(format!("invalid worker_id '{worker_id}': {e}")))?;
-    let bucket = Bucket::parse(bucket)?;
+    let bucket = MetricsBucket::parse(bucket)?;
     let format = Format::parse(format)?;
     let since_micros = since.map(parse_since).transpose()?;
     let pool = open_pool().await?;
@@ -230,12 +230,12 @@ pub(crate) async fn fetch_decisions(
 pub(crate) fn build_report(
     worker_id: &str,
     since_micros: Option<i64>,
-    bucket: Bucket,
+    bucket: MetricsBucket,
     rows: &[DecisionRow],
 ) -> Report {
-    let summary = Summary::from_rows(rows);
+    let summary = WorkerMetricsSummary::from_rows(rows);
     let buckets = match bucket {
-        Bucket::None => Vec::new(),
+        MetricsBucket::None => Vec::new(),
         b => bucketize(rows, b),
     };
     Report {
@@ -247,7 +247,7 @@ pub(crate) fn build_report(
     }
 }
 
-pub(crate) fn bucketize(rows: &[DecisionRow], bucket: Bucket) -> Vec<BucketRow> {
+pub(crate) fn bucketize(rows: &[DecisionRow], bucket: MetricsBucket) -> Vec<BucketRow> {
     use std::collections::BTreeMap;
     let mut by_bucket: BTreeMap<String, Vec<DecisionRow>> = BTreeMap::new();
     for row in rows {
@@ -258,7 +258,7 @@ pub(crate) fn bucketize(rows: &[DecisionRow], bucket: Bucket) -> Vec<BucketRow> 
         .into_iter()
         .map(|(bucket, rows)| BucketRow {
             bucket,
-            summary: Summary::from_rows(rows.iter()),
+            summary: WorkerMetricsSummary::from_rows(rows.iter()),
         })
         .collect()
 }
@@ -266,15 +266,15 @@ pub(crate) fn bucketize(rows: &[DecisionRow], bucket: Bucket) -> Vec<BucketRow> 
 /// Produce a stable bucket key for a decision timestamp. ISO-week
 /// keys use the `YYYY-Www` convention so they sort lexically and
 /// match the brief's `strftime('%Y-%W', ...)` shape.
-pub(crate) fn bucket_key(ts: DateTime<Utc>, bucket: Bucket) -> String {
+pub(crate) fn bucket_key(ts: DateTime<Utc>, bucket: MetricsBucket) -> String {
     match bucket {
-        Bucket::None => String::new(),
-        Bucket::Day => ts.format("%Y-%m-%d").to_string(),
-        Bucket::Week => {
+        MetricsBucket::None => String::new(),
+        MetricsBucket::Day => ts.format("%Y-%m-%d").to_string(),
+        MetricsBucket::Week => {
             let iso = ts.iso_week();
             format!("{:04}-W{:02}", iso.year(), iso.week())
         }
-        Bucket::Month => ts.format("%Y-%m").to_string(),
+        MetricsBucket::Month => ts.format("%Y-%m").to_string(),
     }
 }
 

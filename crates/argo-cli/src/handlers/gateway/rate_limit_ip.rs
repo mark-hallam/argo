@@ -30,7 +30,7 @@
 //! use std::net::{IpAddr, Ipv4Addr};
 //! let limiter = IpRateLimiter::new(2, 1.0, true, false);
 //! let ip: IpAddr = Ipv4Addr::LOCALHOST.into();
-//! assert!(matches!(limiter.check(ip), CheckResult::Allow));
+//! assert!(matches!(limiter.check(ip), RateLimitIpCheckResult::Allow));
 //! ```
 
 use argo_config::GatewayRateLimitIpConfig;
@@ -53,12 +53,12 @@ pub(super) const EVICT_AGE_SECS: u64 = 5 * 60;
 /// One IP's token bucket. `tokens` is fractional so the refill rate
 /// can be sub-1 tokens per second without integer drift.
 #[derive(Debug)]
-pub(super) struct Bucket {
+pub(super) struct RateLimitIpBucket {
     tokens: f64,
     last_refill: Instant,
 }
 
-impl Bucket {
+impl RateLimitIpBucket {
     fn new(capacity: u32, now: Instant) -> Self {
         Self {
             tokens: f64::from(capacity),
@@ -85,16 +85,16 @@ impl Bucket {
 
 /// Outcome of a rate-limit check.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(super) enum CheckResult {
+pub(super) enum RateLimitIpCheckResult {
     /// Token consumed; request may proceed.
     Allow,
-    /// Bucket empty; reject with this `Retry-After` value (seconds).
+    /// RateLimitIpBucket empty; reject with this `Retry-After` value (seconds).
     Deny { retry_after_secs: u32 },
 }
 
 /// In-memory per-IP token-bucket store. Cheap to clone (`Arc`-backed).
 pub struct IpRateLimiter {
-    buckets: Arc<DashMap<IpAddr, Bucket>>,
+    buckets: Arc<DashMap<IpAddr, RateLimitIpBucket>>,
     cap: u32,
     refill: f64,
     enabled: bool,
@@ -130,28 +130,28 @@ impl IpRateLimiter {
     }
 
     /// Try to consume one token for `ip` at the current wall-clock.
-    pub(super) fn check(&self, ip: IpAddr) -> CheckResult {
+    pub(super) fn check(&self, ip: IpAddr) -> RateLimitIpCheckResult {
         self.check_with_now(ip, Instant::now())
     }
 
     /// Test-friendly variant that takes an explicit `Instant`. Public
     /// to the parent module for unit-test reuse.
-    pub(super) fn check_with_now(&self, ip: IpAddr, now: Instant) -> CheckResult {
+    pub(super) fn check_with_now(&self, ip: IpAddr, now: Instant) -> RateLimitIpCheckResult {
         if !self.enabled {
-            return CheckResult::Allow;
+            return RateLimitIpCheckResult::Allow;
         }
         let allowed = {
             let mut entry = self
                 .buckets
                 .entry(ip)
-                .or_insert_with(|| Bucket::new(self.cap, now));
+                .or_insert_with(|| RateLimitIpBucket::new(self.cap, now));
             entry.take(now, self.cap, self.refill)
         };
         if !allowed && self.buckets.len() > MAX_ENTRIES {
             self.evict_old(now);
         }
         if allowed {
-            CheckResult::Allow
+            RateLimitIpCheckResult::Allow
         } else {
             // Time until one token refills, rounded up. Always at least 1.
             let secs = (1.0 / self.refill).ceil();
@@ -162,7 +162,7 @@ impl IpRateLimiter {
             } else {
                 (secs as u32).max(1)
             };
-            CheckResult::Deny {
+            RateLimitIpCheckResult::Deny {
                 retry_after_secs: retry,
             }
         }

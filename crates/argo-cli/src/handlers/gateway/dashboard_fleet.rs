@@ -64,7 +64,7 @@ pub(super) async fn handle(store: Option<&Arc<SessionStore>>) -> (&'static str, 
 
 /// One row of the fleet view: a worker plus its recent activity.
 #[derive(Debug, Clone)]
-pub(super) struct WorkerSnapshot {
+pub(super) struct DashboardWorkerSnapshot {
     pub(super) worker_id: String,
     pub(super) status: WorkerStatus,
     pub(super) last_kind: String,
@@ -112,7 +112,7 @@ impl WorkerStatus {
 /// enough to cover ~50 active workers × 10 actions each before
 /// deeper history would be wanted; the page caps the displayed
 /// recent list at 5 per worker anyway.
-pub(super) async fn query_fleet(store: &SessionStore) -> Vec<WorkerSnapshot> {
+pub(super) async fn query_fleet(store: &SessionStore) -> Vec<DashboardWorkerSnapshot> {
     let rows: Vec<(String, String, Vec<u8>, i64)> = sqlx::query_as(
         "SELECT json_extract(payload_json, '$.worker_id'), kind, id, created_at \
          FROM audit_record \
@@ -125,7 +125,9 @@ pub(super) async fn query_fleet(store: &SessionStore) -> Vec<WorkerSnapshot> {
     group_rows_into_snapshots(rows)
 }
 
-fn group_rows_into_snapshots(rows: Vec<(String, String, Vec<u8>, i64)>) -> Vec<WorkerSnapshot> {
+fn group_rows_into_snapshots(
+    rows: Vec<(String, String, Vec<u8>, i64)>,
+) -> Vec<DashboardWorkerSnapshot> {
     let mut by_worker: std::collections::BTreeMap<String, Vec<RecentAction>> =
         std::collections::BTreeMap::new();
     for (worker_id, kind, id_bytes, created_at) in rows {
@@ -139,7 +141,7 @@ fn group_rows_into_snapshots(rows: Vec<(String, String, Vec<u8>, i64)>) -> Vec<W
             at_micros: created_at,
         });
     }
-    let mut out: Vec<WorkerSnapshot> = by_worker
+    let mut out: Vec<DashboardWorkerSnapshot> = by_worker
         .into_iter()
         .map(|(worker_id, mut actions)| {
             actions.sort_by_key(|a| std::cmp::Reverse(a.at_micros));
@@ -149,7 +151,7 @@ fn group_rows_into_snapshots(rows: Vec<(String, String, Vec<u8>, i64)>) -> Vec<W
                 .unwrap_or_default();
             let status = classify_status(&last_kind);
             actions.truncate(5);
-            WorkerSnapshot {
+            DashboardWorkerSnapshot {
                 worker_id,
                 status,
                 last_kind,
@@ -175,7 +177,7 @@ fn classify_status(last_kind: &str) -> WorkerStatus {
     }
 }
 
-pub(super) fn render_fleet(workers: &[WorkerSnapshot]) -> String {
+pub(super) fn render_fleet(workers: &[DashboardWorkerSnapshot]) -> String {
     let body = if workers.is_empty() {
         "<p class=\"fleet-empty\">No workers have reported activity yet.</p>".to_string()
     } else {
@@ -185,7 +187,7 @@ pub(super) fn render_fleet(workers: &[WorkerSnapshot]) -> String {
     render_layout(&body)
 }
 
-fn render_worker_card(w: &WorkerSnapshot) -> String {
+fn render_worker_card(w: &DashboardWorkerSnapshot) -> String {
     let last_at = format_ts(w.last_at_micros);
     let recent = if w.recent.is_empty() {
         "<li class=\"fleet-recent-empty\">no activity</li>".to_string()

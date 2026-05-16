@@ -30,7 +30,7 @@ pub(super) struct SpenderRow {
 }
 
 #[derive(Debug, serde::Serialize)]
-pub(super) struct PendingApproval {
+pub(super) struct AuditPendingApproval {
     pub(super) action_id: String,
     pub(super) worker_id: String,
     pub(super) action_type: String,
@@ -106,7 +106,7 @@ pub(super) async fn top_spenders(store: &SessionStore) -> ArgoResult<Vec<Spender
         .collect())
 }
 
-pub(super) async fn pending_approvals(store: &SessionStore) -> ArgoResult<Vec<PendingApproval>> {
+pub(super) async fn pending_approvals(store: &SessionStore) -> ArgoResult<Vec<AuditPendingApproval>> {
     let bodies: Vec<(String,)> = sqlx::query_as(
         "SELECT body FROM memory_entry \
          WHERE file = 'MEMORY.md' AND superseded_by IS NULL ORDER BY learned_at DESC",
@@ -132,7 +132,7 @@ pub(super) async fn pending_approvals(store: &SessionStore) -> ArgoResult<Vec<Pe
     let mut rows: Vec<_> = latest
         .into_values()
         .filter(|rec| rec.state == "pending" && rec.requires_approval)
-        .map(|rec| PendingApproval {
+        .map(|rec| AuditPendingApproval {
             action_id: rec.action_id,
             worker_id: rec.worker_id.to_string(),
             action_type: rec.action_type,

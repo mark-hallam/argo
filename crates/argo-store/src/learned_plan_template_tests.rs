@@ -38,7 +38,7 @@ async fn insert_and_get_round_trip() {
     assert_eq!(row.parent_goal, "promote our blog post");
     assert_eq!(row.keywords_csv, "promote,launch,announce");
     assert_eq!(row.cohort_size, 3);
-    assert_eq!(row.trust_grade, TrustGrade::Pending);
+    assert_eq!(row.trust_grade, LearnedPlanGrade::Pending);
     assert!(row.promoted_at.is_none());
 }
 
@@ -58,7 +58,7 @@ async fn promote_marks_row_and_stamps_timestamp() {
         .await
         .expect("promote");
     let row = get(&pool, &id).await.unwrap().unwrap();
-    assert_eq!(row.trust_grade, TrustGrade::Promoted);
+    assert_eq!(row.trust_grade, LearnedPlanGrade::Promoted);
     assert!(row.promoted_at.is_some());
 }
 
@@ -70,7 +70,7 @@ async fn reject_marks_row_without_promoted_at() {
         .await
         .expect("reject");
     let row = get(&pool, &id).await.unwrap().unwrap();
-    assert_eq!(row.trust_grade, TrustGrade::Rejected);
+    assert_eq!(row.trust_grade, LearnedPlanGrade::Rejected);
     assert!(row.promoted_at.is_none());
 }
 
@@ -96,7 +96,7 @@ async fn list_filters_by_trust_grade() {
     let pending = list(
         &pool,
         &LearnedPlanTemplateFilters {
-            trust_grade: Some(TrustGrade::Pending),
+            trust_grade: Some(LearnedPlanGrade::Pending),
         },
         10,
     )
@@ -108,7 +108,7 @@ async fn list_filters_by_trust_grade() {
     let promoted = list(
         &pool,
         &LearnedPlanTemplateFilters {
-            trust_grade: Some(TrustGrade::Promoted),
+            trust_grade: Some(LearnedPlanGrade::Promoted),
         },
         10,
     )
@@ -136,16 +136,16 @@ async fn list_promoted_helper_returns_only_promoted() {
 
 #[tokio::test]
 async fn trust_grade_string_round_trip() {
-    assert_eq!(TrustGrade::Pending.as_str(), "pending");
-    assert_eq!(TrustGrade::Promoted.as_str(), "promoted");
-    assert_eq!(TrustGrade::Rejected.as_str(), "rejected");
-    assert_eq!(TrustGrade::from_str_lossy("pending"), TrustGrade::Pending);
-    assert_eq!(TrustGrade::from_str_lossy("promoted"), TrustGrade::Promoted);
-    assert_eq!(TrustGrade::from_str_lossy("rejected"), TrustGrade::Rejected);
+    assert_eq!(LearnedPlanGrade::Pending.as_str(), "pending");
+    assert_eq!(LearnedPlanGrade::Promoted.as_str(), "promoted");
+    assert_eq!(LearnedPlanGrade::Rejected.as_str(), "rejected");
+    assert_eq!(LearnedPlanGrade::from_str_lossy("pending"), LearnedPlanGrade::Pending);
+    assert_eq!(LearnedPlanGrade::from_str_lossy("promoted"), LearnedPlanGrade::Promoted);
+    assert_eq!(LearnedPlanGrade::from_str_lossy("rejected"), LearnedPlanGrade::Rejected);
     // Unknown / forward-rolled values fall back to Pending.
     assert_eq!(
-        TrustGrade::from_str_lossy("future-grade"),
-        TrustGrade::Pending
+        LearnedPlanGrade::from_str_lossy("future-grade"),
+        LearnedPlanGrade::Pending
     );
 }
 
@@ -180,7 +180,7 @@ async fn promote_invokes_sink_with_post_flip_row() {
     let ingested = sink.ingested.lock().unwrap();
     assert_eq!(ingested.len(), 1, "sink should see exactly one ingest");
     assert_eq!(ingested[0].id, id);
-    assert_eq!(ingested[0].trust_grade, TrustGrade::Promoted);
+    assert_eq!(ingested[0].trust_grade, LearnedPlanGrade::Promoted);
     assert!(
         ingested[0].promoted_at.is_some(),
         "row passed to sink should already carry promoted_at"
@@ -197,7 +197,7 @@ async fn reject_invokes_demote_with_rejected_row() {
     let demoted = sink.demoted.lock().unwrap();
     assert_eq!(demoted.len(), 1, "sink should see exactly one demote");
     assert_eq!(demoted[0].id, id);
-    assert_eq!(demoted[0].trust_grade, TrustGrade::Rejected);
+    assert_eq!(demoted[0].trust_grade, LearnedPlanGrade::Rejected);
     assert!(sink.ingested.lock().unwrap().is_empty());
 }
 
@@ -231,5 +231,5 @@ async fn sink_error_propagates_after_grade_flip() {
     // have flipped — sink errors don't roll back the grade write
     // (caller can retry the sink via re-promote).
     let row = get(&pool, &id).await.unwrap().unwrap();
-    assert_eq!(row.trust_grade, TrustGrade::Promoted);
+    assert_eq!(row.trust_grade, LearnedPlanGrade::Promoted);
 }

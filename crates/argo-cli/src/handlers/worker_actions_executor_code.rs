@@ -104,12 +104,12 @@ pub(crate) struct CodeRequest {
 pub(crate) struct ResolvedConfig {
     pub timeout: Duration,
     pub memory_mib: u64,
-    pub backend: BackendKind,
+    pub backend: CodeExecBackendKind,
 }
 
 /// Which sandbox backend the executor will use this dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BackendKind {
+pub(crate) enum CodeExecBackendKind {
     /// Real Firecracker microVM via the E2B managed service. v1
     /// returns a "not yet wired" error when this is selected — the
     /// `exec` HTTP client lands in a follow-up.
@@ -134,9 +134,9 @@ impl ResolvedConfig {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(DEFAULT_MEMORY_MIB);
         let backend = if argo_config::cred::get(ENV_E2B_TOKEN).is_ok() {
-            BackendKind::E2b
+            CodeExecBackendKind::E2b
         } else {
-            BackendKind::Local
+            CodeExecBackendKind::Local
         };
         Self {
             timeout: Duration::from_secs(timeout_secs),
@@ -165,7 +165,7 @@ impl Executor for CodeExecutor {
         let cfg = ResolvedConfig::from_env(&req);
         // v1 refuses opt-ins the LocalSandbox can't honor.
         guard_opt_ins(&req, cfg.backend)?;
-        if cfg.backend == BackendKind::E2b {
+        if cfg.backend == CodeExecBackendKind::E2b {
             return Err(ArgoError::Provider(
                 "code-execution executor: E2B backend requested but the \
                  E2B exec HTTP client is not yet wired (v1.x follow-up). \
@@ -218,8 +218,8 @@ pub(crate) fn parse_request(payload: &serde_json::Value) -> ArgoResult<CodeReque
 /// enforces network + pkg-install boundaries; LocalSandbox shells
 /// straight into the parent namespace, so a script-level `pip
 /// install` would silently succeed.
-pub(crate) fn guard_opt_ins(req: &CodeRequest, backend: BackendKind) -> ArgoResult<()> {
-    if backend == BackendKind::Local {
+pub(crate) fn guard_opt_ins(req: &CodeRequest, backend: CodeExecBackendKind) -> ArgoResult<()> {
+    if backend == CodeExecBackendKind::Local {
         if req.allow_network {
             return Err(ArgoError::Provider(
                 "code-execution: allow_network = true is not safe under \

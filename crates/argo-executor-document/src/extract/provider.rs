@@ -33,7 +33,7 @@ pub struct DocumentInput {
 
 /// Request sent to an extraction provider.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProviderRequest {
+pub struct ExtractionProviderRequest {
     /// Operator-provided extraction schema.
     pub schema: ExtractionSchema,
     /// Document bytes to inspect.
@@ -64,7 +64,7 @@ pub struct ProviderUsage {
 
 /// Provider response before schema validation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ProviderResponse {
+pub struct ExtractionProviderResponse {
     /// Fields keyed by schema field name.
     pub fields: BTreeMap<String, FieldCandidate>,
     /// Provider usage/cost metadata.
@@ -78,5 +78,8 @@ pub trait ExtractionProvider {
     /// Model identifier for audit records.
     fn model(&self) -> &str;
     /// Extract fields from the document in one provider call.
-    fn extract(&self, request: &ProviderRequest) -> Result<ProviderResponse, ExtractionError>;
+    fn extract(
+        &self,
+        request: &ExtractionProviderRequest,
+    ) -> Result<ExtractionProviderResponse, ExtractionError>;
 }

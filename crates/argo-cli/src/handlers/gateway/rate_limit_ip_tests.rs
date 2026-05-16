@@ -11,8 +11,8 @@
 //!   7. `enabled = false` short-circuits to Allow even at capacity 0
 
 use super::{
-    extract_ip, parse_first_xff_hop, rate_limited_response_bytes, Bucket, CheckResult,
-    IpRateLimiter, EVICT_AGE_SECS, MAX_ENTRIES,
+    extract_ip, parse_first_xff_hop, rate_limited_response_bytes, IpRateLimiter, RateLimitIpBucket,
+    RateLimitIpCheckResult, EVICT_AGE_SECS, MAX_ENTRIES,
 };
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, Instant};
@@ -24,7 +24,10 @@ fn ip(a: u8, b: u8, c: u8, d: u8) -> IpAddr {
 #[test]
 fn first_request_from_new_ip_is_allowed() {
     let limiter = IpRateLimiter::new(5, 1.0, true, false);
-    assert_eq!(limiter.check(ip(10, 0, 0, 1)), CheckResult::Allow);
+    assert_eq!(
+        limiter.check(ip(10, 0, 0, 1)),
+        RateLimitIpCheckResult::Allow
+    );
 }
 
 #[test]
@@ -35,7 +38,7 @@ fn burst_up_to_capacity_is_allowed() {
     for i in 0..3 {
         assert_eq!(
             limiter.check_with_now(src, now),
-            CheckResult::Allow,
+            RateLimitIpCheckResult::Allow,
             "request {i} should be allowed within capacity"
         );
     }
@@ -46,14 +49,20 @@ fn exceeding_capacity_returns_deny_with_retry_after() {
     let limiter = IpRateLimiter::new(2, 0.5, true, false);
     let now = Instant::now();
     let src = ip(10, 0, 0, 3);
-    assert_eq!(limiter.check_with_now(src, now), CheckResult::Allow);
-    assert_eq!(limiter.check_with_now(src, now), CheckResult::Allow);
+    assert_eq!(
+        limiter.check_with_now(src, now),
+        RateLimitIpCheckResult::Allow
+    );
+    assert_eq!(
+        limiter.check_with_now(src, now),
+        RateLimitIpCheckResult::Allow
+    );
     match limiter.check_with_now(src, now) {
-        CheckResult::Deny { retry_after_secs } => {
+        RateLimitIpCheckResult::Deny { retry_after_secs } => {
             // 1 / 0.5 = 2s exactly.
             assert_eq!(retry_after_secs, 2, "retry_after should round up to 2s");
         }
-        CheckResult::Allow => panic!("third request should be denied"),
+        RateLimitIpCheckResult::Allow => panic!("third request should be denied"),
     }
 
     // Body shape sanity-check.
@@ -70,13 +79,19 @@ fn refill_after_wait_allows_again() {
     let limiter = IpRateLimiter::new(1, 1.0, true, false);
     let t0 = Instant::now();
     let src = ip(10, 0, 0, 4);
-    assert_eq!(limiter.check_with_now(src, t0), CheckResult::Allow);
-    // Bucket empty.
+    assert_eq!(
+        limiter.check_with_now(src, t0),
+        RateLimitIpCheckResult::Allow
+    );
+    // RateLimitIpBucket empty.
     matches_deny(limiter.check_with_now(src, t0));
     // Two seconds later — at 1 token/sec, we should be back over the
     // 1-token threshold.
     let t1 = t0 + Duration::from_secs(2);
-    assert_eq!(limiter.check_with_now(src, t1), CheckResult::Allow);
+    assert_eq!(
+        limiter.check_with_now(src, t1),
+        RateLimitIpCheckResult::Allow
+    );
 }
 
 #[test]
@@ -86,8 +101,14 @@ fn different_ips_have_separate_buckets() {
     let a = ip(10, 0, 0, 5);
     let b = ip(10, 0, 0, 6);
     // First request on each IP succeeds despite capacity 1.
-    assert_eq!(limiter.check_with_now(a, now), CheckResult::Allow);
-    assert_eq!(limiter.check_with_now(b, now), CheckResult::Allow);
+    assert_eq!(
+        limiter.check_with_now(a, now),
+        RateLimitIpCheckResult::Allow
+    );
+    assert_eq!(
+        limiter.check_with_now(b, now),
+        RateLimitIpCheckResult::Allow
+    );
     // Second request on either IP is denied (bucket empty).
     matches_deny(limiter.check_with_now(a, now));
     matches_deny(limiter.check_with_now(b, now));
@@ -118,7 +139,10 @@ fn disabled_limiter_short_circuits_to_allow() {
     let now = Instant::now();
     let src = ip(10, 0, 0, 10);
     for _ in 0..50 {
-        assert_eq!(limiter.check_with_now(src, now), CheckResult::Allow);
+        assert_eq!(
+            limiter.check_with_now(src, now),
+            RateLimitIpCheckResult::Allow
+        );
     }
 }
 
@@ -156,7 +180,7 @@ fn parse_first_xff_hop_is_case_insensitive_and_handles_ipv6() {
 
 #[test]
 fn bucket_caps_tokens_at_capacity() {
-    let mut bucket = Bucket::new(2, Instant::now());
+    let mut bucket = RateLimitIpBucket::new(2, Instant::now());
     let later = Instant::now() + Duration::from_secs(60);
     // Even after a long idle, take() shouldn't accumulate above cap.
     assert!(bucket.take(later, 2, 5.0));
@@ -166,9 +190,9 @@ fn bucket_caps_tokens_at_capacity() {
     assert!(!bucket.take(later, 2, 5.0));
 }
 
-fn matches_deny(r: CheckResult) {
+fn matches_deny(r: RateLimitIpCheckResult) {
     match r {
-        CheckResult::Deny { retry_after_secs } => assert!(retry_after_secs >= 1),
-        CheckResult::Allow => panic!("expected Deny, got Allow"),
+        RateLimitIpCheckResult::Deny { retry_after_secs } => assert!(retry_after_secs >= 1),
+        RateLimitIpCheckResult::Allow => panic!("expected Deny, got Allow"),
     }
 }

@@ -70,7 +70,7 @@ pub const KNOWN_EXECUTOR_KINDS: &[&str] = &[
 /// crate; [`validate_strict`] folds the vec into a single
 /// `ArgoError::Schema` for the parse path.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ValidationError {
+pub struct ManifestValidationError {
     /// TOML-style dotted path to the offending field.
     pub path: String,
     /// Human-readable reason. Surfaced in the aggregated error.
@@ -80,7 +80,7 @@ pub struct ValidationError {
     pub line: Option<usize>,
 }
 
-impl std::fmt::Display for ValidationError {
+impl std::fmt::Display for ManifestValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.line {
             Some(line) => write!(f, "{} (line {}): {}", self.path, line, self.message),
@@ -110,7 +110,7 @@ impl std::fmt::Display for ValidationError {
 /// validate_strict(&m).expect("minimal manifest passes strict mode");
 /// ```
 pub fn validate_strict(manifest: &VerticalManifest) -> ArgoResult<()> {
-    let mut errors: Vec<ValidationError> = Vec::new();
+    let mut errors: Vec<ManifestValidationError> = Vec::new();
 
     check_actions(manifest, &mut errors);
     check_provider(manifest, &mut errors);
@@ -127,7 +127,7 @@ pub fn validate_strict(manifest: &VerticalManifest) -> ArgoResult<()> {
     Err(ArgoError::Schema(joined))
 }
 
-fn check_actions(manifest: &VerticalManifest, errors: &mut Vec<ValidationError>) {
+fn check_actions(manifest: &VerticalManifest, errors: &mut Vec<ManifestValidationError>) {
     let Some(actions) = manifest.actions.as_ref() else {
         return;
     };
@@ -141,11 +141,15 @@ fn check_actions(manifest: &VerticalManifest, errors: &mut Vec<ValidationError>)
     }
 }
 
-fn check_executor_kind(action: &str, decl: &ActionDeclaration, errors: &mut Vec<ValidationError>) {
+fn check_executor_kind(
+    action: &str,
+    decl: &ActionDeclaration,
+    errors: &mut Vec<ManifestValidationError>,
+) {
     let kind = decl.executor.kind_str();
     let path = format!("actions.{action}.executor.kind");
     if kind.is_empty() {
-        errors.push(ValidationError {
+        errors.push(ManifestValidationError {
             path,
             message: "executor kind must not be empty".to_string(),
             line: None,
@@ -153,7 +157,7 @@ fn check_executor_kind(action: &str, decl: &ActionDeclaration, errors: &mut Vec<
         return;
     }
     if !KNOWN_EXECUTOR_KINDS.contains(&kind) {
-        errors.push(ValidationError {
+        errors.push(ManifestValidationError {
             path,
             message: format!(
                 "unknown executor kind '{kind}' — valid: {}",
@@ -167,13 +171,13 @@ fn check_executor_kind(action: &str, decl: &ActionDeclaration, errors: &mut Vec<
 fn check_executor_binding_shape(
     action: &str,
     decl: &ActionDeclaration,
-    errors: &mut Vec<ValidationError>,
+    errors: &mut Vec<ManifestValidationError>,
 ) {
     let ExecutorDeclaration::Tagged(t) = &decl.executor else {
         return;
     };
-    let push_missing = |errs: &mut Vec<ValidationError>, field: &str, kind: &str| {
-        errs.push(ValidationError {
+    let push_missing = |errs: &mut Vec<ManifestValidationError>, field: &str, kind: &str| {
+        errs.push(ManifestValidationError {
             path: format!("actions.{action}.executor.{field}"),
             message: format!("kind = \"{kind}\" requires a non-empty '{field}' field"),
             line: None,
@@ -205,11 +209,11 @@ fn check_on_complete_emit(
     base: &str,
     decl: &ActionDeclaration,
     declared: &BTreeSet<&str>,
-    errors: &mut Vec<ValidationError>,
+    errors: &mut Vec<ManifestValidationError>,
 ) {
     for (i, target) in decl.on_complete_emit.iter().enumerate() {
         if !declared.contains(target.as_str()) {
-            errors.push(ValidationError {
+            errors.push(ManifestValidationError {
                 path: format!("{base}.on_complete_emit[{i}]"),
                 message: format!(
                     "references undeclared action '{target}' — every entry must name an action declared in [actions]"
@@ -220,7 +224,7 @@ fn check_on_complete_emit(
     }
 }
 
-fn check_provider(manifest: &VerticalManifest, errors: &mut Vec<ValidationError>) {
+fn check_provider(manifest: &VerticalManifest, errors: &mut Vec<ManifestValidationError>) {
     let Some(prov) = manifest.provider.as_ref() else {
         return;
     };
@@ -230,7 +234,7 @@ fn check_provider(manifest: &VerticalManifest, errors: &mut Vec<ValidationError>
     }
 }
 
-fn check_model_id(path: &str, model_id: &str, errors: &mut Vec<ValidationError>) {
+fn check_model_id(path: &str, model_id: &str, errors: &mut Vec<ManifestValidationError>) {
     // Strict mode only catches the degenerate empty case here.
     // The richer `provider/model` shape check is a deliberate
     // follow-up: existing fixtures (e.g. `verticals/sales-follow-up`)
@@ -240,7 +244,7 @@ fn check_model_id(path: &str, model_id: &str, errors: &mut Vec<ValidationError>)
     // fixtures land a fix would block the strict-mode pass on
     // valid-today manifests.
     if model_id.trim().is_empty() {
-        errors.push(ValidationError {
+        errors.push(ManifestValidationError {
             path: path.to_string(),
             message: "must not be empty".to_string(),
             line: None,
@@ -248,18 +252,18 @@ fn check_model_id(path: &str, model_id: &str, errors: &mut Vec<ValidationError>)
     }
 }
 
-fn check_kpis(kpis: &[KpiDefinition], errors: &mut Vec<ValidationError>) {
+fn check_kpis(kpis: &[KpiDefinition], errors: &mut Vec<ManifestValidationError>) {
     let mut seen: BTreeSet<&str> = BTreeSet::new();
     for (i, kpi) in kpis.iter().enumerate() {
         let base = format!("kpi[{i}]");
         if kpi.name.trim().is_empty() {
-            errors.push(ValidationError {
+            errors.push(ManifestValidationError {
                 path: format!("{base}.name"),
                 message: "must not be empty".to_string(),
                 line: None,
             });
         } else if !seen.insert(kpi.name.as_str()) {
-            errors.push(ValidationError {
+            errors.push(ManifestValidationError {
                 path: format!("{base}.name"),
                 message: format!(
                     "duplicate KPI name '{}' — each KPI name must be unique within a manifest",
@@ -269,7 +273,7 @@ fn check_kpis(kpis: &[KpiDefinition], errors: &mut Vec<ValidationError>) {
             });
         }
         if !kpi.threshold.is_finite() {
-            errors.push(ValidationError {
+            errors.push(ManifestValidationError {
                 path: format!("{base}.threshold"),
                 message: format!(
                     "threshold must be finite (got {}) — NaN / ±inf cannot be compared",
@@ -280,7 +284,7 @@ fn check_kpis(kpis: &[KpiDefinition], errors: &mut Vec<ValidationError>) {
         }
         if let Some(desc) = kpi.description.as_ref() {
             if desc.chars().count() > KPI_DESCRIPTION_MAX {
-                errors.push(ValidationError {
+                errors.push(ManifestValidationError {
                     path: format!("{base}.description"),
                     message: format!(
                         "description must be ≤ {KPI_DESCRIPTION_MAX} chars (got {})",

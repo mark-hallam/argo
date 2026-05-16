@@ -1,11 +1,11 @@
 //! Unit tests for [`crate::splunk`].
 use super::*;
-use crate::sink::{AuditEvent, SiemSink, SinkError};
+use crate::sink::{SiemEvent, SiemSink, SinkError};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn ev(seq: i64) -> AuditEvent {
-    AuditEvent {
+fn ev(seq: i64) -> SiemEvent {
+    SiemEvent {
         seq,
         id: format!("id-{seq}"),
         session_id: Some("sess".to_string()),

@@ -254,7 +254,7 @@ fn multiple_errors_aggregated_into_one_message() {
 
 #[test]
 fn validation_error_display_includes_path_and_message() {
-    let e = ValidationError {
+    let e = ManifestValidationError {
         path: "actions.foo.executor.kind".to_string(),
         message: "boom".to_string(),
         line: None,
@@ -264,7 +264,7 @@ fn validation_error_display_includes_path_and_message() {
 
 #[test]
 fn validation_error_display_with_line() {
-    let e = ValidationError {
+    let e = ManifestValidationError {
         path: "actions.foo.executor.kind".to_string(),
         message: "boom".to_string(),
         line: Some(42),

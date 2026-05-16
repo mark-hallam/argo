@@ -4,7 +4,7 @@
 //! [`super::ws_upgrade::publish_inbox_event`] for HTML-inbox
 //! compatibility. This module adds:
 //!
-//! 1. A typed [`WebInboxEvent`] vocabulary (`approval.{created,decided,
+//! 1. A typed [`WsInboxEventRow`] vocabulary (`approval.{created,decided,
 //!    undone,expired}`).
 //! 2. A per-tenant tokio `broadcast` channel registry so cross-tenant
 //!    events stay isolated even on a shared-process gateway.
@@ -43,7 +43,7 @@ pub(super) const PROTOCOL_VERSION: &str = "1.0";
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 #[allow(clippy::enum_variant_names)]
-pub(super) enum WebInboxEvent {
+pub(super) enum WsInboxEventRow {
     /// New approval entered the inbox.
     #[serde(rename = "approval.created")]
     ApprovalCreated {
@@ -93,7 +93,7 @@ pub(super) fn hello_frame() -> String {
 /// Envelope a structured event for the wire — adds `seq` + `ts`. The
 /// inner event keeps its `type` discriminant, and the `payload` /
 /// `decision` fields land alongside it (flat shape per brief).
-pub(super) fn envelope(seq: u64, event: &WebInboxEvent) -> String {
+pub(super) fn envelope(seq: u64, event: &WsInboxEventRow) -> String {
     let body = serde_json::to_value(event).unwrap_or_else(|_| json!({}));
     let mut obj = body.as_object().cloned().unwrap_or_default();
     obj.insert("seq".into(), json!(seq));
@@ -116,7 +116,7 @@ pub(super) fn envelope(seq: u64, event: &WebInboxEvent) -> String {
 /// Functionally equivalent for client-side ordering; per-connection
 /// seq lands with the replay-cursor brief
 /// (`mission-enterprise-ws-replay-cursor`).
-pub(super) fn publish_event(tenant_id: &str, event: WebInboxEvent) {
+pub(super) fn publish_event(tenant_id: &str, event: WsInboxEventRow) {
     let seq = next_seq(tenant_id);
     let frame = envelope(seq, &event);
     let guard = registry().lock().unwrap_or_else(|e| e.into_inner());
@@ -259,7 +259,7 @@ fn ensure_channel_hook() {
                 full,
             } => publish_event(
                 &tenant_id,
-                WebInboxEvent::ApprovalCreated {
+                WsInboxEventRow::ApprovalCreated {
                     payload: created_payload(&row, full.as_deref()),
                 },
             ),
@@ -269,20 +269,20 @@ fn ensure_channel_hook() {
                 decision,
             } => publish_event(
                 &tenant_id,
-                WebInboxEvent::ApprovalDecided {
+                WsInboxEventRow::ApprovalDecided {
                     payload: row_payload(&row),
                     decision,
                 },
             ),
             ChannelEvent::ApprovalUndone { tenant_id, row } => publish_event(
                 &tenant_id,
-                WebInboxEvent::ApprovalUndone {
+                WsInboxEventRow::ApprovalUndone {
                     payload: row_payload(&row),
                 },
             ),
             ChannelEvent::ApprovalExpired { tenant_id, row } => publish_event(
                 &tenant_id,
-                WebInboxEvent::ApprovalExpired {
+                WsInboxEventRow::ApprovalExpired {
                     payload: row_payload(&row),
                 },
             ),

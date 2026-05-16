@@ -5,7 +5,7 @@
 
 use argo_mcp::run_loop;
 use argo_mcp_image_gen::{
-    AuditSink, BackendKind, ImageBackend, ImageGenConfig, ImageGenMcpServer,
+    ImageBackend, ImageGenAuditSink, ImageGenBackendKind, ImageGenConfig, ImageGenMcpServer,
     OpenAiCompatibleBackend, StubBackend,
 };
 use argo_types::{ArgoError, ArgoResult};
@@ -28,14 +28,14 @@ pub async fn run(args: Args) -> ArgoResult<()> {
         .map_err(|e| ArgoError::Io(format!("read {}: {e}", path.display())))?;
     let cfg = ImageGenConfig::from_toml_str(&text).map_err(ArgoError::Provider)?;
     let backend: Arc<dyn ImageBackend> = match cfg.backend {
-        BackendKind::Openai | BackendKind::StableDiffusion => {
+        ImageGenBackendKind::Openai | ImageGenBackendKind::StableDiffusion => {
             let key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
             Arc::new(
                 OpenAiCompatibleBackend::new(cfg.api_base.clone(), key)
                     .map_err(ArgoError::Provider)?,
             )
         }
-        BackendKind::Stub => Arc::new(StubBackend),
+        ImageGenBackendKind::Stub => Arc::new(StubBackend),
     };
     let audit_path = std::env::var_os("HOME")
         .map(|h| PathBuf::from(h).join(".argo/audit/image_gen.ndjson"))
@@ -45,7 +45,7 @@ pub async fn run(args: Args) -> ArgoResult<()> {
         cfg.model_default,
         cfg.size_default,
         args.require_confirm,
-        AuditSink::File(audit_path),
+        ImageGenAuditSink::File(audit_path),
     );
     let stdin = io::stdin();
     let stdout = io::stdout();

@@ -23,7 +23,7 @@ pub struct SpendSeries {
 
 /// Optional budget ceilings used for headroom labels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct BudgetSnapshot {
+pub struct TuiBudgetSnapshot {
     /// Optional daily spend ceiling, in USD micros.
     pub today_limit: Option<u64>,
     /// Optional weekly spend ceiling, in USD micros.
@@ -66,7 +66,7 @@ pub struct SpendMonitor {
     /// Current month by day.
     pub month: SpendSeries,
     /// Optional budget ceilings.
-    pub budget: BudgetSnapshot,
+    pub budget: TuiBudgetSnapshot,
 }
 
 impl SpendMonitor {
@@ -77,7 +77,7 @@ impl SpendMonitor {
             today: SpendSeries::from_total("today by hour", 24, spend.today),
             week: SpendSeries::from_total("week by day", 7, spend.today),
             month: SpendSeries::from_total("month by day", 30, spend.this_month),
-            budget: BudgetSnapshot::default(),
+            budget: TuiBudgetSnapshot::default(),
         }
     }
 
@@ -145,7 +145,7 @@ impl SpendSeries {
     }
 }
 
-impl BudgetSnapshot {
+impl TuiBudgetSnapshot {
     /// Return the utilization band for `spent` against `limit`.
     #[must_use]
     pub fn band(spent: u64, limit: Option<u64>) -> BudgetBand {
@@ -197,7 +197,7 @@ fn render_series(frame: &mut Frame<'_>, area: Rect, series: &SpendSeries, limit:
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1)])
         .split(area);
-    let band = BudgetSnapshot::band(series.total, limit);
+    let band = TuiBudgetSnapshot::band(series.total, limit);
     let (label, color) = budget_label(series.total, limit, band);
     let header = Line::from(vec![
         Span::styled(series.label, Style::default().add_modifier(Modifier::BOLD)),

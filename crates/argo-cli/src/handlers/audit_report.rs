@@ -9,7 +9,7 @@ use render::{json_envelope, render_html, render_markdown};
 
 pub(super) use super::audit_report_aggregate::{
     channel_breakdown, pending_approvals, summarize_rows, top_spenders, ChainVerdict,
-    ChannelBreakdown, PendingApproval, SpenderRow, SummaryStats,
+    ChannelBreakdown, AuditPendingApproval, SpenderRow, SummaryStats,
 };
 
 pub struct ReportArgs {
@@ -49,7 +49,7 @@ struct ReportData {
     summary: SummaryStats,
     channels: Vec<ChannelBreakdown>,
     spenders: Vec<SpenderRow>,
-    pending: Vec<PendingApproval>,
+    pending: Vec<AuditPendingApproval>,
     chain: ChainVerdict,
     flakes: Vec<&'static str>,
 }
@@ -306,7 +306,7 @@ mod tests {
                 charges: 1,
                 usd_micros: 1_250_000,
             }],
-            pending: vec![PendingApproval {
+            pending: vec![AuditPendingApproval {
                 action_id: "act-1".into(),
                 worker_id: "worker-a".into(),
                 action_type: "approve_listing".into(),

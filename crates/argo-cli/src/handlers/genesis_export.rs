@@ -21,7 +21,7 @@ pub struct GenesisExportArgs {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct BundleManifest {
+pub(crate) struct VerticalBundleManifest {
     pub(crate) schema_version: u16,
     pub(crate) vertical_id: String,
     pub(crate) vertical_name: String,
@@ -120,8 +120,8 @@ fn output_path(vertical: &str, output: Option<&Path>, manifest_only: bool) -> Pa
     }
 }
 
-fn build_manifest(loaded: &LoadedVertical, entries: &[BundleEntry]) -> BundleManifest {
-    BundleManifest {
+fn build_manifest(loaded: &LoadedVertical, entries: &[BundleEntry]) -> VerticalBundleManifest {
+    VerticalBundleManifest {
         schema_version: 1,
         vertical_id: loaded.manifest.vertical.id.clone(),
         vertical_name: loaded.manifest.vertical.name.clone(),

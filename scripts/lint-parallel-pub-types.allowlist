@@ -7,3 +7,45 @@
 # pair lines only if all three pairs are intentional.
 
 RetryPolicy argo-mcp-connector-shared argo-vertical  # runtime connector retry vs declarative vertical manifest retry
+
+# codex-type-canonicalization-wave-3 — justified-different-concept duplicates.
+# Each pair below is intentional; see brief notes for rationale.
+
+# StopReason — three different stop-state vocabularies that happen to share a
+# name. argo-cli/work_loop is the worker-loop's TaskComplete/ApprovalRequired/
+# NeedInfo/MaxSteps state. argo-executor-computer-use is the CU loop's
+# Success/Failure signal. argo-provider is the LLM transport's
+# EndTurn/ToolUse/MaxTokens/ContentFilter. Domains are unrelated; merging
+# would conflate orthogonal vocabularies.
+StopReason argo-cli argo-executor-computer-use
+StopReason argo-cli argo-provider
+StopReason argo-executor-computer-use argo-provider
+
+# ToolSchema — argo-provider holds the wire-shape projected to LLM providers
+# (JSON Schema with provider-side fields); argo-tool holds the tool-registry's
+# internal schema record. Same fields today but different boundaries; callers
+# already alias one to avoid ambiguity (see ProviderToolSchema in
+# argo-agent-runner/src/dispatch.rs).
+ToolSchema argo-provider argo-tool
+
+# Workflow — argo-vertical is the declarative manifest schema (TOML
+# deserialisation target with `schema_version`, `[[step]]` arrays).
+# argo-workflow is the runtime DAG (`tasks`, `edges`, topo-sort target).
+# Different shapes, different lifecycles; the vertical manifest compiles
+# INTO the DAG, they are not interchangeable.
+Workflow argo-vertical argo-workflow
+
+# WorkerResourceConfig — argo-config exposes the operator-facing
+# `[worker.resource_cage]` TOML section; argo-runtime exposes the cgroup-v2
+# `WorkerResourceCage::install_on` input. Fields are intentionally mirrored
+# so operators can override defaults via TOML. A future refactor moves both
+# behind a single argo-types definition; tracked in the build-plan, not in
+# this brief.
+WorkerResourceConfig argo-config argo-runtime
+
+# PrincipalOverride — argo-memory's flag (`UserProtected` lock override) and
+# argo-skill's flag mirror each other deliberately so the two stores honour
+# the same Agent/Force vocabulary without cross-crate dependency. Folding
+# would require adding a dep; the doc comment in argo-skill explicitly
+# notes the mirror.
+PrincipalOverride argo-memory argo-skill

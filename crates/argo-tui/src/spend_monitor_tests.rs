@@ -57,11 +57,11 @@ fn series_uses_fixed_point_counts_and_keeps_outlier() {
 
 #[test]
 fn budget_bands_follow_thresholds() {
-    assert_eq!(BudgetSnapshot::band(49, Some(100)), BudgetBand::Green);
-    assert_eq!(BudgetSnapshot::band(50, Some(100)), BudgetBand::Amber);
-    assert_eq!(BudgetSnapshot::band(80, Some(100)), BudgetBand::Amber);
-    assert_eq!(BudgetSnapshot::band(81, Some(100)), BudgetBand::Red);
-    assert_eq!(BudgetSnapshot::band(10, None), BudgetBand::Unset);
+    assert_eq!(TuiBudgetSnapshot::band(49, Some(100)), BudgetBand::Green);
+    assert_eq!(TuiBudgetSnapshot::band(50, Some(100)), BudgetBand::Amber);
+    assert_eq!(TuiBudgetSnapshot::band(80, Some(100)), BudgetBand::Amber);
+    assert_eq!(TuiBudgetSnapshot::band(81, Some(100)), BudgetBand::Red);
+    assert_eq!(TuiBudgetSnapshot::band(10, None), BudgetBand::Unset);
 }
 
 #[test]

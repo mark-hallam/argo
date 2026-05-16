@@ -11,7 +11,7 @@ pub mod schema;
 pub mod tables;
 
 use crate::extract::provider::{
-    DocumentInput, ExtractionError, ExtractionProvider, FieldCandidate, ProviderRequest,
+    DocumentInput, ExtractionError, ExtractionProvider, ExtractionProviderRequest, FieldCandidate,
     ProviderUsage,
 };
 use crate::extract::schema::{ExtractionSchema, SchemaViolation};
@@ -86,8 +86,8 @@ fn call_provider<P: ExtractionProvider>(
     provider: &P,
     request: &DocumentExtractionRequest,
     correction: Option<String>,
-) -> Result<crate::extract::provider::ProviderResponse, ExtractionError> {
-    provider.extract(&ProviderRequest {
+) -> Result<crate::extract::provider::ExtractionProviderResponse, ExtractionError> {
+    provider.extract(&ExtractionProviderRequest {
         schema: request.schema.clone(),
         document: request.document.clone(),
         correction,
@@ -102,7 +102,7 @@ struct ValidationFailure {
 fn validate_response<P: ExtractionProvider>(
     provider: &P,
     request: &DocumentExtractionRequest,
-    response: crate::extract::provider::ProviderResponse,
+    response: crate::extract::provider::ExtractionProviderResponse,
     attempts: u8,
 ) -> Result<ExtractionOutcome, ValidationFailure> {
     let values = response

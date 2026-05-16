@@ -1,8 +1,8 @@
 //! Anthropic Claude vision adapter for document extraction.
 
 use crate::extract::provider::{
-    ExtractionError, ExtractionProvider, FieldCandidate, ProviderRequest, ProviderResponse,
-    ProviderUsage,
+    ExtractionError, ExtractionProvider, ExtractionProviderRequest, ExtractionProviderResponse,
+    FieldCandidate, ProviderUsage,
 };
 use base64::Engine;
 use serde_json::{json, Value};
@@ -32,7 +32,7 @@ impl<T> ClaudeVisionProvider<T> {
 
 impl<T: ClaudeVisionTransport> ClaudeVisionProvider<T> {
     /// Build the one-call Anthropic Messages payload for a document.
-    pub fn build_messages_payload(&self, request: &ProviderRequest) -> Value {
+    pub fn build_messages_payload(&self, request: &ExtractionProviderRequest) -> Value {
         let encoded = base64::engine::general_purpose::STANDARD.encode(&request.document.bytes);
         let correction = request
             .correction
@@ -70,7 +70,7 @@ impl<T: ClaudeVisionTransport> ClaudeVisionProvider<T> {
     fn parse_messages_response(
         &self,
         response: Value,
-    ) -> Result<ProviderResponse, ExtractionError> {
+    ) -> Result<ExtractionProviderResponse, ExtractionError> {
         let usage = parse_usage(&response);
         let text = response
             .get("content")
@@ -98,7 +98,10 @@ impl<T: ClaudeVisionTransport> ExtractionProvider for ClaudeVisionProvider<T> {
         &self.model
     }
 
-    fn extract(&self, request: &ProviderRequest) -> Result<ProviderResponse, ExtractionError> {
+    fn extract(
+        &self,
+        request: &ExtractionProviderRequest,
+    ) -> Result<ExtractionProviderResponse, ExtractionError> {
         let payload = self.build_messages_payload(request);
         let response = self.transport.post_messages(payload)?;
         self.parse_messages_response(response)
@@ -130,7 +133,7 @@ fn estimate_claude_cost(input_tokens: u32, output_tokens: u32) -> f64 {
 fn parse_provider_body(
     body: Value,
     usage: ProviderUsage,
-) -> Result<ProviderResponse, ExtractionError> {
+) -> Result<ExtractionProviderResponse, ExtractionError> {
     let fields_obj = body
         .get("fields")
         .and_then(Value::as_object)
@@ -144,7 +147,7 @@ fn parse_provider_body(
             .map(|v| v as f32);
         fields.insert(name.clone(), FieldCandidate { value, confidence });
     }
-    Ok(ProviderResponse { fields, usage })
+    Ok(ExtractionProviderResponse { fields, usage })
 }
 
 #[cfg(test)]

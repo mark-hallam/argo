@@ -8,7 +8,7 @@ pub const SCHEMA_PATH: &str = "memory/schema.toml";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeneratedMemorySchema {
     pub namespaces: Vec<MemoryNamespace>,
-    pub layers: Vec<MemoryLayer>,
+    pub layers: Vec<MemoryLayerSpec>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub enum NamespaceScope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MemoryLayer {
+pub struct MemoryLayerSpec {
     pub name: String,
     pub namespaces: Vec<String>,
     pub retrieval_policy: String,
@@ -70,7 +70,7 @@ pub fn generate(
             summary: "Company policy, compliance constraints, and durable org-wide rules.".into(),
         });
     }
-    let layer = MemoryLayer {
+    let layer = MemoryLayerSpec {
         name: "default".into(),
         namespaces: namespaces.iter().map(|ns| ns.id.clone()).collect(),
         retrieval_policy: "recent_first_top_8".into(),
@@ -119,7 +119,7 @@ pub fn write_schema_file(
     })
 }
 
-fn entry_purpose(namespace: &MemoryNamespace, layers: &[MemoryLayer]) -> String {
+fn entry_purpose(namespace: &MemoryNamespace, layers: &[MemoryLayerSpec]) -> String {
     let layer_names: Vec<&str> = layers
         .iter()
         .filter(|layer| layer.namespaces.iter().any(|id| id == &namespace.id))

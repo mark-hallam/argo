@@ -4,7 +4,7 @@
 //! the EU host via `[siem].endpoint`). Auth: `DD-API-KEY` header.
 //! Batch limit: 1000 events / request (matches the v2 intake's
 //! 5 MiB / 1000-event cap).
-use crate::sink::{classify_response, AuditEvent, SecretString, SiemSink, SinkError};
+use crate::sink::{classify_response, SiemEvent, SecretString, SiemSink, SinkError};
 use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::time::Duration;
@@ -80,7 +80,7 @@ impl DatadogLogsSink {
     /// Serialize a batch to a JSON array body. Public for unit-test
     /// inspection.
     #[must_use]
-    pub fn encode_batch(&self, events: &[AuditEvent]) -> String {
+    pub fn encode_batch(&self, events: &[SiemEvent]) -> String {
         let arr: Vec<serde_json::Value> = events
             .iter()
             .map(|ev| {
@@ -116,7 +116,7 @@ impl SiemSink for DatadogLogsSink {
         MAX_BATCH
     }
 
-    async fn ship(&self, events: Vec<AuditEvent>) -> Result<(), SinkError> {
+    async fn ship(&self, events: Vec<SiemEvent>) -> Result<(), SinkError> {
         if events.is_empty() {
             return Ok(());
         }

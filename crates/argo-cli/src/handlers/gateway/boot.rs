@@ -26,7 +26,7 @@ use super::boot_spawns::{
 };
 use super::ip_allowlist::{self, AllowResult, IpAllowlist};
 use super::lifecycle::{pid_is_alive, signal_term, PidGuard};
-use super::rate_limit_ip::{self, rate_limited_response_bytes, CheckResult, IpRateLimiter};
+use super::rate_limit_ip::{self, rate_limited_response_bytes, RateLimitIpCheckResult, IpRateLimiter};
 use super::shutdown::{self, ShutdownController};
 use super::start_banner::print_banner;
 use super::start_banner_config::load_layered;
@@ -331,7 +331,7 @@ pub(super) async fn start(
                     let bytes = ip_allowlist::deny_response_bytes();
                     let _ = stream.write_all(&bytes).await;
                     let _ = stream.shutdown().await;
-                } else if let CheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
+                } else if let RateLimitIpCheckResult::Deny { retry_after_secs } = ip_limiter.check(src_ip) {
                     tracing::warn!(
                         target: "gateway::rate_limit_ip",
                         ip = %src_ip,

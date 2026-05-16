@@ -19,7 +19,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use argo_voice_tui::{run_one_tick, MockRecognizer, PendingApproval, RunnerConfig, TickOutcome};
+use argo_voice_tui::{
+    run_one_tick, MockRecognizer, RunnerConfig, TickOutcome, VoicePendingApproval,
+};
 
 #[derive(Debug, Deserialize)]
 struct MockScript {
@@ -39,7 +41,7 @@ struct PendingApprovalInput {
     spend_usd: Option<f64>,
 }
 
-impl From<PendingApprovalInput> for PendingApproval {
+impl From<PendingApprovalInput> for VoicePendingApproval {
     fn from(p: PendingApprovalInput) -> Self {
         Self {
             token: p.token,
@@ -117,7 +119,7 @@ fn run_mock(path: &str, json: bool) -> i32 {
             return 1;
         }
     };
-    let pending: Vec<PendingApproval> = script.pending.into_iter().map(Into::into).collect();
+    let pending: Vec<VoicePendingApproval> = script.pending.into_iter().map(Into::into).collect();
     let mut recognizer = MockRecognizer::new(script.script);
     let cfg = RunnerConfig::default();
     let mut focus = script.focus_index;
@@ -197,7 +199,7 @@ fn run_live_whisper(json: bool) -> i32 {
             return 1;
         }
     };
-    let pending: Vec<PendingApproval> = Vec::new();
+    let pending: Vec<VoicePendingApproval> = Vec::new();
     let cfg = RunnerConfig::default();
     eprintln!(
         "argo voice: listening (input={}). Say `Argo approve <name>` / `Argo \

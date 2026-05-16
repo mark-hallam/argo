@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 /// Outcome of one replay run, suitable for both CLI summaries and
 /// JSON serialization (e.g. the gateway's HTTP response).
-pub(crate) struct ReplayResult {
+pub(crate) struct SessionReplayResult {
     pub source_id: SessionId,
     pub new_id: SessionId,
     pub provider: String,
@@ -25,7 +25,7 @@ pub(crate) async fn replay_core(
     raw: &str,
     model: Option<&str>,
     provider: Option<&str>,
-) -> ArgoResult<ReplayResult> {
+) -> ArgoResult<SessionReplayResult> {
     replay_core_with_events(raw, model, provider, None).await
 }
 
@@ -36,7 +36,7 @@ pub(crate) async fn replay_core_with_events(
     model: Option<&str>,
     provider: Option<&str>,
     events: Option<&argo_agent_runner::RunEventSink>,
-) -> ArgoResult<ReplayResult> {
+) -> ArgoResult<SessionReplayResult> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let home = resolve_home(&cwd)?;
     ensure_dir(&home)?;
@@ -100,7 +100,7 @@ pub(crate) async fn replay_core_with_events(
         .await?;
         final_text = result.text;
     }
-    Ok(ReplayResult {
+    Ok(SessionReplayResult {
         source_id: source.id,
         new_id,
         provider: target_provider,

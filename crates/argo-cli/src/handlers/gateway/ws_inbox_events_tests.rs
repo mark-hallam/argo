@@ -59,7 +59,7 @@ fn hello_frame_carries_protocol_and_capabilities() {
 
 #[test]
 fn envelope_adds_seq_and_ts_and_preserves_type() {
-    let event = WebInboxEvent::ApprovalCreated {
+    let event = WsInboxEventRow::ApprovalCreated {
         payload: json!({"id": "act-1"}),
     };
     let body = envelope(7, &event);
@@ -79,7 +79,9 @@ async fn per_tenant_seq_monotonically_increases() {
     for _ in 0..3 {
         publish_event(
             "tenant-seq-mono",
-            WebInboxEvent::ApprovalCreated { payload: json!({}) },
+            WsInboxEventRow::ApprovalCreated {
+                payload: json!({}),
+            },
         );
     }
     let f1: Value = serde_json::from_str(&rx.recv().await.unwrap()).unwrap();
@@ -93,7 +95,7 @@ async fn per_tenant_seq_monotonically_increases() {
 
 #[test]
 fn decided_envelope_carries_decision_alongside_payload() {
-    let event = WebInboxEvent::ApprovalDecided {
+    let event = WsInboxEventRow::ApprovalDecided {
         payload: json!({"id": "act-1"}),
         decision: "approve".into(),
     };
@@ -111,13 +113,13 @@ async fn per_tenant_isolation_no_cross_leak() {
     let mut rx_b = subscribe_tenant("tenant-iso-b");
     publish_event(
         "tenant-iso-a",
-        WebInboxEvent::ApprovalCreated {
+        WsInboxEventRow::ApprovalCreated {
             payload: json!({"id": "act-A"}),
         },
     );
     publish_event(
         "tenant-iso-b",
-        WebInboxEvent::ApprovalCreated {
+        WsInboxEventRow::ApprovalCreated {
             payload: json!({"id": "act-B"}),
         },
     );
@@ -143,7 +145,7 @@ async fn publish_with_no_subscriber_is_noop() {
     // Tenant has no subscriber yet — publish should silently drop.
     publish_event(
         "tenant-orphan",
-        WebInboxEvent::ApprovalCreated {
+        WsInboxEventRow::ApprovalCreated {
             payload: json!({"id": "x"}),
         },
     );
@@ -268,13 +270,13 @@ async fn jwt_auth_subscribes_only_to_claim_tenant() {
     let mut rx = subscribe_tenant(&tenant);
     publish_event(
         "tenant-jwt-other",
-        WebInboxEvent::ApprovalCreated {
+        WsInboxEventRow::ApprovalCreated {
             payload: json!({"id": "blocked"}),
         },
     );
     publish_event(
         &tenant,
-        WebInboxEvent::ApprovalCreated {
+        WsInboxEventRow::ApprovalCreated {
             payload: json!({"id": "allowed"}),
         },
     );
@@ -419,7 +421,7 @@ async fn enriched_payload_does_not_cross_tenant() {
 
 #[test]
 fn channel_event_variants_route_through_publish() {
-    // Verifies each ChannelEvent variant is mapped to its WebInboxEvent
+    // Verifies each ChannelEvent variant is mapped to its WsInboxEventRow
     // counterpart at the publish layer. We exercise the publish helper
     // directly (since the hook is the same shape) and check the wire
     // type discriminants.
@@ -457,20 +459,22 @@ fn channel_event_variants_route_through_publish() {
         ),
     ] {
         let event = match channel_evt {
-            ChannelEvent::ApprovalCreated { row, full, .. } => WebInboxEvent::ApprovalCreated {
+            ChannelEvent::ApprovalCreated { row, full, .. } => WsInboxEventRow::ApprovalCreated {
                 payload: full
                     .as_deref()
                     .and_then(|f| serde_json::to_value(f).ok())
                     .unwrap_or_else(|| serde_json::to_value(&row).unwrap_or(json!({}))),
             },
-            ChannelEvent::ApprovalDecided { row, decision, .. } => WebInboxEvent::ApprovalDecided {
+            ChannelEvent::ApprovalDecided { row, decision, .. } => {
+                WsInboxEventRow::ApprovalDecided {
+                    payload: serde_json::to_value(&row).unwrap_or(json!({})),
+                    decision,
+                }
+            }
+            ChannelEvent::ApprovalUndone { row, .. } => WsInboxEventRow::ApprovalUndone {
                 payload: serde_json::to_value(&row).unwrap_or(json!({})),
-                decision,
             },
-            ChannelEvent::ApprovalUndone { row, .. } => WebInboxEvent::ApprovalUndone {
-                payload: serde_json::to_value(&row).unwrap_or(json!({})),
-            },
-            ChannelEvent::ApprovalExpired { row, .. } => WebInboxEvent::ApprovalExpired {
+            ChannelEvent::ApprovalExpired { row, .. } => WsInboxEventRow::ApprovalExpired {
                 payload: serde_json::to_value(&row).unwrap_or(json!({})),
             },
         };

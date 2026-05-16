@@ -1,4 +1,4 @@
-//! [`SiemSink`] trait + canonical [`AuditEvent`] shape. Each sink
+//! [`SiemSink`] trait + canonical [`SiemEvent`] shape. Each sink
 //! accepts the same JSON projection; operators map fields to their
 //! SIEM-side schema (sourcetype / ECS / facets) externally. New
 //! sinks only have to implement [`SiemSink::ship`].
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 /// is what SIEMs dedupe on when receiving a re-shipped batch after
 /// a crash.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditEvent {
+pub struct SiemEvent {
     /// `audit_record.seq`.
     pub seq: i64,
     /// `audit_record.id` hex-encoded.
@@ -58,7 +58,7 @@ pub trait SiemSink: Send + Sync {
     /// Ship one batch. Implementors MUST return
     /// [`SinkError::Transient`] for any network failure / timeout /
     /// 5xx so the dispatcher retries with backoff.
-    async fn ship(&self, events: Vec<AuditEvent>) -> Result<(), SinkError>;
+    async fn ship(&self, events: Vec<SiemEvent>) -> Result<(), SinkError>;
 }
 
 /// Credential wrapper whose `Debug` impl prints `<redacted>`. Use

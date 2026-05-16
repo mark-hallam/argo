@@ -78,7 +78,7 @@ fn guard_opt_ins_refuses_network_under_local_backend() {
         "allow_network": true,
     }))
     .unwrap();
-    let err = guard_opt_ins(&req, BackendKind::Local).expect_err("must refuse");
+    let err = guard_opt_ins(&req, CodeExecBackendKind::Local).expect_err("must refuse");
     assert!(err.to_string().contains("allow_network"), "got: {err}");
 }
 
@@ -90,7 +90,7 @@ fn guard_opt_ins_refuses_pkg_install_under_local_backend() {
         "allow_pkg_install": true,
     }))
     .unwrap();
-    let err = guard_opt_ins(&req, BackendKind::Local).expect_err("must refuse");
+    let err = guard_opt_ins(&req, CodeExecBackendKind::Local).expect_err("must refuse");
     assert!(err.to_string().contains("allow_pkg_install"), "got: {err}");
 }
 

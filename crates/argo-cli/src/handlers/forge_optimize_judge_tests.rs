@@ -57,8 +57,8 @@ fn classify_verdict_strict_floor_rejects_partial() {
         reason: "ambiguous".into(),
     };
     let outcome = classify_verdict(&v, 0.7);
-    assert!(matches!(outcome, JudgeOutcome::Reject(_)));
-    let JudgeOutcome::Reject(msg) = outcome else {
+    assert!(matches!(outcome, ForgeJudgeOutcome::Reject(_)));
+    let ForgeJudgeOutcome::Reject(msg) = outcome else {
         unreachable!()
     };
     assert!(msg.contains("partial"), "msg={msg}");
@@ -71,7 +71,7 @@ fn classify_verdict_lenient_floor_accepts_partial() {
     // rejects regardless of floor.
     assert_eq!(
         classify_verdict(&JudgeVerdict::Partial { reason: "x".into() }, 0.4),
-        JudgeOutcome::Allow,
+        ForgeJudgeOutcome::Allow,
     );
     assert!(matches!(
         classify_verdict(
@@ -80,7 +80,7 @@ fn classify_verdict_lenient_floor_accepts_partial() {
             },
             0.0
         ),
-        JudgeOutcome::Reject(_),
+        ForgeJudgeOutcome::Reject(_),
     ));
 }
 

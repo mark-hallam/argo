@@ -1,7 +1,7 @@
 //! `argo plan template list` — enumerate Dreams-distilled
 //! plan templates. Filter by `--grade` (pending / promoted /
 //! rejected) or pass `--all`.
-use argo_store::learned_plan_template::{list, LearnedPlanTemplateFilters, TrustGrade};
+use argo_store::learned_plan_template::{list, LearnedPlanGrade, LearnedPlanTemplateFilters};
 use argo_store::SessionStore;
 use argo_types::{ArgoError, ArgoResult};
 
@@ -60,11 +60,11 @@ pub async fn run(grade: Option<&str>, limit: u32, json: bool) -> ArgoResult<()> 
     Ok(())
 }
 
-fn parse_grade(label: &str) -> ArgoResult<TrustGrade> {
+fn parse_grade(label: &str) -> ArgoResult<LearnedPlanGrade> {
     match label {
-        "pending" => Ok(TrustGrade::Pending),
-        "promoted" => Ok(TrustGrade::Promoted),
-        "rejected" => Ok(TrustGrade::Rejected),
+        "pending" => Ok(LearnedPlanGrade::Pending),
+        "promoted" => Ok(LearnedPlanGrade::Promoted),
+        "rejected" => Ok(LearnedPlanGrade::Rejected),
         other => Err(ArgoError::Provider(format!(
             "unknown --grade '{other}' (expected: pending, promoted, rejected)"
         ))),

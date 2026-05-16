@@ -1,6 +1,6 @@
 use super::provider::{
-    DocumentInput, ExtractionError, FieldCandidate, ProviderRequest, ProviderResponse,
-    ProviderUsage,
+    DocumentInput, ExtractionError, ExtractionProviderRequest, ExtractionProviderResponse,
+    FieldCandidate, ProviderUsage,
 };
 use super::tables::{extract_tables, row_accuracy, TableExtractionRequest};
 use serde_json::{json, Value};
@@ -8,12 +8,12 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 struct ScriptedProvider {
-    responses: RefCell<Vec<ProviderResponse>>,
-    requests: RefCell<Vec<ProviderRequest>>,
+    responses: RefCell<Vec<ExtractionProviderResponse>>,
+    requests: RefCell<Vec<ExtractionProviderRequest>>,
 }
 
 impl ScriptedProvider {
-    fn new(response: ProviderResponse) -> Self {
+    fn new(response: ExtractionProviderResponse) -> Self {
         Self {
             responses: RefCell::new(vec![response]),
             requests: RefCell::new(Vec::new()),
@@ -30,7 +30,10 @@ impl super::provider::ExtractionProvider for ScriptedProvider {
         "fixture-model"
     }
 
-    fn extract(&self, request: &ProviderRequest) -> Result<ProviderResponse, ExtractionError> {
+    fn extract(
+        &self,
+        request: &ExtractionProviderRequest,
+    ) -> Result<ExtractionProviderResponse, ExtractionError> {
         self.requests.borrow_mut().push(request.clone());
         self.responses
             .borrow_mut()
@@ -39,8 +42,8 @@ impl super::provider::ExtractionProvider for ScriptedProvider {
     }
 }
 
-fn response(tables: Value) -> ProviderResponse {
-    ProviderResponse {
+fn response(tables: Value) -> ExtractionProviderResponse {
+    ExtractionProviderResponse {
         fields: BTreeMap::from([(
             "tables".into(),
             FieldCandidate {

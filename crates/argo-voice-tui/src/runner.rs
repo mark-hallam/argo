@@ -21,7 +21,7 @@ use crate::wake_word::strip_wake_word;
 /// and (eventually) hand the token back to the CLI handler so it
 /// can call the HTTP decision route.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PendingApproval {
+pub struct VoicePendingApproval {
     /// Approval token (HMAC-signed, used in the decision URL).
     pub token: String,
     /// Display name of the worker (used for fuzzy matching).
@@ -89,7 +89,7 @@ pub enum TickOutcome {
 /// `deny` without naming a worker.
 pub fn run_one_tick(
     recognizer: &mut dyn Recognizer,
-    pending: &[PendingApproval],
+    pending: &[VoicePendingApproval],
     current_focus_index: usize,
     cfg: &RunnerConfig,
 ) -> TickOutcome {
@@ -148,7 +148,7 @@ pub fn run_one_tick(
 
 fn decide_current(
     verb: &str,
-    pending: &[PendingApproval],
+    pending: &[VoicePendingApproval],
     idx: usize,
     recognizer: &mut dyn Recognizer,
 ) -> TickOutcome {
@@ -160,7 +160,7 @@ fn decide_current(
 
 fn decide_specific(
     verb: &str,
-    pending: &[PendingApproval],
+    pending: &[VoicePendingApproval],
     name: &str,
     cfg: &RunnerConfig,
     recognizer: &mut dyn Recognizer,
@@ -175,7 +175,11 @@ fn decide_specific(
     confirm_then(verb, p, recognizer)
 }
 
-fn confirm_then(verb: &str, p: &PendingApproval, recognizer: &mut dyn Recognizer) -> TickOutcome {
+fn confirm_then(
+    verb: &str,
+    p: &VoicePendingApproval,
+    recognizer: &mut dyn Recognizer,
+) -> TickOutcome {
     let prompt = format_confirmation(verb, &p.worker_name, &p.action_summary, p.spend_usd);
     tracing::info!(target: "argo_voice_tui::runner", confirmation = %prompt);
     let response = match recognizer.transcribe_next() {
@@ -203,15 +207,15 @@ mod tests {
     use super::*;
     use crate::recognizer::MockRecognizer;
 
-    fn pending_fixture() -> Vec<PendingApproval> {
+    fn pending_fixture() -> Vec<VoicePendingApproval> {
         vec![
-            PendingApproval {
+            VoicePendingApproval {
                 token: "tok-maya".into(),
                 worker_name: "Maya".into(),
                 action_summary: "send invoice reminder".into(),
                 spend_usd: Some(0.0),
             },
-            PendingApproval {
+            VoicePendingApproval {
                 token: "tok-maria".into(),
                 worker_name: "Maria Hernandez".into(),
                 action_summary: "log payment receipt".into(),

@@ -16,11 +16,11 @@
 
 use super::{
     classify_status, group_rows_into_snapshots, handle, is_fleet, render_fleet, RecentAction,
-    WorkerSnapshot, WorkerStatus,
+    DashboardWorkerSnapshot, WorkerStatus,
 };
 
-fn snapshot(worker_id: &str, status: WorkerStatus, kind: &str) -> WorkerSnapshot {
-    WorkerSnapshot {
+fn snapshot(worker_id: &str, status: WorkerStatus, kind: &str) -> DashboardWorkerSnapshot {
+    DashboardWorkerSnapshot {
         worker_id: worker_id.into(),
         status,
         last_kind: kind.into(),
@@ -70,7 +70,7 @@ fn renders_workers_with_status() {
 
 #[test]
 fn escapes_html_in_action_text() {
-    let workers = vec![WorkerSnapshot {
+    let workers = vec![DashboardWorkerSnapshot {
         worker_id: "<script>alert('xss')</script>".into(),
         status: WorkerStatus::Running,
         last_kind: "<img onerror=x>".into(),

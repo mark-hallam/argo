@@ -6,7 +6,7 @@
 //! header value (`Basic …` / `ApiKey …`); empty → no auth header.
 //! Batch limit: 1000 events / request (well under Elastic's ~5 MiB
 //! `_bulk` recommendation for audit-shaped rows).
-use crate::sink::{classify_response, AuditEvent, SecretString, SiemSink, SinkError};
+use crate::sink::{classify_response, SiemEvent, SecretString, SiemSink, SinkError};
 use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::time::Duration;
@@ -91,7 +91,7 @@ impl ElasticSink {
     /// Serialize a batch to the alternating index-action / document
     /// NDJSON shape. Public for unit-test inspection.
     #[must_use]
-    pub fn encode_batch(&self, events: &[AuditEvent]) -> String {
+    pub fn encode_batch(&self, events: &[SiemEvent]) -> String {
         let action = serde_json::json!({ "index": { "_index": &self.index } }).to_string();
         let mut buf = String::with_capacity(events.len() * 256);
         for ev in events {
@@ -128,7 +128,7 @@ impl SiemSink for ElasticSink {
         MAX_BATCH
     }
 
-    async fn ship(&self, events: Vec<AuditEvent>) -> Result<(), SinkError> {
+    async fn ship(&self, events: Vec<SiemEvent>) -> Result<(), SinkError> {
         if events.is_empty() {
             return Ok(());
         }

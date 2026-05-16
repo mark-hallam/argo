@@ -23,7 +23,7 @@ pub(crate) struct WorkerCostsReport {
     pub total_usd: f64,
     pub row_count: usize,
     pub breakdown: Option<String>,
-    pub breakdown_rows: Vec<BreakdownRow>,
+    pub breakdown_rows: Vec<CostBreakdownRow>,
     pub recent_charges: Vec<WorkerChargeRow>,
 }
 
@@ -39,7 +39,7 @@ pub(crate) struct WorkerChargeRow {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub(crate) struct BreakdownRow {
+pub(crate) struct CostBreakdownRow {
     pub key: String,
     pub usd_micros: u64,
     pub row_count: usize,
@@ -163,7 +163,7 @@ async fn query_rows(
 fn build_breakdown(
     rows: &[WorkerChargeRow],
     breakdown: Option<WorkerCostsBreakdown>,
-) -> Vec<BreakdownRow> {
+) -> Vec<CostBreakdownRow> {
     let Some(breakdown) = breakdown else {
         return Vec::new();
     };
@@ -179,7 +179,7 @@ fn build_breakdown(
     }
     grouped
         .into_iter()
-        .map(|(key, (usd_micros, row_count))| BreakdownRow {
+        .map(|(key, (usd_micros, row_count))| CostBreakdownRow {
             key,
             usd_micros,
             row_count,

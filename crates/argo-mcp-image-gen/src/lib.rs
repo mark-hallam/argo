@@ -29,14 +29,14 @@
 //! # Example
 //!
 //! ```
-//! use argo_mcp_image_gen::{AuditSink, ImageGenMcpServer, StubBackend};
+//! use argo_mcp_image_gen::{ImageGenAuditSink, ImageGenMcpServer, StubBackend};
 //! use std::sync::Arc;
 //! let server = ImageGenMcpServer::new(
 //!     Arc::new(StubBackend),
 //!     "dall-e-3",
 //!     "1024x1024",
 //!     false,
-//!     AuditSink::in_memory(),
+//!     ImageGenAuditSink::in_memory(),
 //! );
 //! assert_eq!(argo_mcp::McpServerService::list_tools(&server).len(), 2);
 //! ```
@@ -50,5 +50,5 @@ pub mod server;
 pub use backend::{
     estimate_cost_cents, ImageBackend, ImageResult, OpenAiCompatibleBackend, StubBackend,
 };
-pub use config::{BackendKind, ImageGenConfig};
-pub use server::{AuditSink, ImageGenMcpServer, APPROVAL_THRESHOLD_CENTS};
+pub use config::{ImageGenBackendKind, ImageGenConfig};
+pub use server::{ImageGenAuditSink, ImageGenMcpServer, APPROVAL_THRESHOLD_CENTS};

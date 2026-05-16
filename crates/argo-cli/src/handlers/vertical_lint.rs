@@ -10,7 +10,7 @@
 //! / eval suites, and other declarative mistakes a CI gate should
 //! flag.
 //!
-//! Severity levels:
+//! VerticalLintSeverity levels:
 //!
 //! - `error` — exit code 1; almost-certainly broken
 //! - `warn`  — exit code 0; suspicious / likely-mistake
@@ -26,19 +26,19 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Finding {
-    pub(crate) severity: Severity,
+    pub(crate) severity: VerticalLintSeverity,
     pub(crate) code: &'static str,
     pub(crate) message: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Severity {
+pub(crate) enum VerticalLintSeverity {
     Error,
     Warn,
     Info,
 }
 
-impl Severity {
+impl VerticalLintSeverity {
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Error => "error",
@@ -70,7 +70,7 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
                 })
             })
             .collect();
-        let any_error = findings.iter().any(|f| f.severity == Severity::Error);
+        let any_error = findings.iter().any(|f| f.severity == VerticalLintSeverity::Error);
         println!(
             "{}",
             serde_json::to_string(&serde_json::json!({
@@ -88,12 +88,12 @@ pub async fn run(id: &str, json: bool) -> ArgoResult<()> {
             println!("  [{}] {} — {}", f.severity.label(), f.code, f.message);
         }
     }
-    if findings.iter().any(|f| f.severity == Severity::Error) {
+    if findings.iter().any(|f| f.severity == VerticalLintSeverity::Error) {
         return Err(ArgoError::Provider(format!(
             "vertical '{id}' lint failed: {} error finding(s)",
             findings
                 .iter()
-                .filter(|f| f.severity == Severity::Error)
+                .filter(|f| f.severity == VerticalLintSeverity::Error)
                 .count()
         )));
     }
@@ -115,7 +115,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
         for t in &tools.allowed {
             if !known_tools.contains(t.as_str()) {
                 out.push(Finding {
-                    severity: Severity::Warn,
+                    severity: VerticalLintSeverity::Warn,
                     code: "tools.allowed.unknown_name",
                     message: format!(
                         "tool '{t}' in [tools].allowed is not a known built-in tool — typo? known: {}",
@@ -127,7 +127,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
         for t in &tools.denied {
             if !known_tools.contains(t.as_str()) {
                 out.push(Finding {
-                    severity: Severity::Warn,
+                    severity: VerticalLintSeverity::Warn,
                     code: "tools.denied.unknown_name",
                     message: format!(
                         "tool '{t}' in [tools].denied is not a known built-in tool — typo?"
@@ -157,7 +157,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
             // but more likely a forgotten cleanup.
             if !allowed.contains(t.as_str()) && !denied.contains(t.as_str()) {
                 out.push(Finding {
-                    severity: Severity::Warn,
+                    severity: VerticalLintSeverity::Warn,
                     code: "escalation.orphan_tool",
                     message: format!(
                         "tool '{t}' in [escalation].human_approval_required is in neither [tools].allowed nor [tools].denied — gate may be dead code"
@@ -166,7 +166,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
             }
             if !known_tools.contains(t.as_str()) {
                 out.push(Finding {
-                    severity: Severity::Warn,
+                    severity: VerticalLintSeverity::Warn,
                     code: "escalation.unknown_tool",
                     message: format!(
                         "tool '{t}' in [escalation].human_approval_required is not a known built-in tool — typo?"
@@ -194,7 +194,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
             .unwrap_or(0);
         if count == 0 {
             out.push(Finding {
-                severity: Severity::Info,
+                severity: VerticalLintSeverity::Info,
                 code: "skills.bundle_empty",
                 message: format!(
                     "[skills].bundle = '{}' contains no `*.skill.md` files",
@@ -207,7 +207,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
     if let Some(eval) = &m.evaluation {
         if eval.suites.is_empty() {
             out.push(Finding {
-                severity: Severity::Info,
+                severity: VerticalLintSeverity::Info,
                 code: "evaluation.no_suites",
                 message: "[evaluation] is declared but [evaluation].suites is empty".into(),
             });
@@ -227,7 +227,7 @@ pub(crate) fn lint_loaded(loaded: &argo_vertical::LoadedVertical) -> Vec<Finding
                 if let Ok(s) = argo_vertical::parse_memory_schema(&src) {
                     if s.entries.is_empty() {
                         out.push(Finding {
-                            severity: Severity::Info,
+                            severity: VerticalLintSeverity::Info,
                             code: "memory.schema_no_entries",
                             message: format!(
                                 "[memory].schema = '{schema_rel}' declares zero typed entries"
@@ -299,7 +299,7 @@ fn scan_template(action_name: &str, where_: &str, body: &str, out: &mut Vec<Find
         let key = body[open + 2..close].trim();
         if !key.is_empty() && !is_known_template_key(key) {
             out.push(Finding {
-                severity: Severity::Warn,
+                severity: VerticalLintSeverity::Warn,
                 code: "actions.template.unknown_key",
                 message: format!(
                     "[actions.{action_name}] {where_} template references unknown key '{{{{ {key} }}}}' — known top-level: {} (or `payload.<dotted.path>`)",

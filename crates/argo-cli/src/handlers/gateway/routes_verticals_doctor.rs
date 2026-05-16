@@ -18,7 +18,7 @@
 //! aggregate `passed | skipped | failed` semantics.
 use crate::handlers::vertical_doctor::{collect_scored_outcomes, ScoredStatus};
 use crate::handlers::vertical_eval::collect_eval_report;
-use crate::handlers::vertical_lint::{lint_loaded, Severity};
+use crate::handlers::vertical_lint::{lint_loaded, VerticalLintSeverity};
 
 pub(super) async fn vertical_doctor_response(id: &str) -> (&'static str, String) {
     let dir = crate::handlers::vertical::resolve_verticals_dir();
@@ -51,15 +51,15 @@ pub(super) async fn vertical_doctor_response(id: &str) -> (&'static str, String)
     let lint_findings = lint_loaded(loaded);
     let lint_error_count = lint_findings
         .iter()
-        .filter(|f| f.severity == Severity::Error)
+        .filter(|f| f.severity == VerticalLintSeverity::Error)
         .count();
     let lint_warn_count = lint_findings
         .iter()
-        .filter(|f| f.severity == Severity::Warn)
+        .filter(|f| f.severity == VerticalLintSeverity::Warn)
         .count();
     let lint_info_count = lint_findings
         .iter()
-        .filter(|f| f.severity == Severity::Info)
+        .filter(|f| f.severity == VerticalLintSeverity::Info)
         .count();
     let lint_ok = lint_error_count == 0;
 

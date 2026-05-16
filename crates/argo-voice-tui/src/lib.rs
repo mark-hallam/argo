@@ -54,5 +54,5 @@ pub use fuzzy::{best_match, edit_distance};
 pub use grammar::{tokens, Phrase};
 pub use intent::{classify, Intent};
 pub use recognizer::{MockRecognizer, Recognizer, RecognizerError};
-pub use runner::{run_one_tick, PendingApproval, RunnerConfig, TickOutcome};
+pub use runner::{run_one_tick, RunnerConfig, TickOutcome, VoicePendingApproval};
 pub use wake_word::strip_wake_word;

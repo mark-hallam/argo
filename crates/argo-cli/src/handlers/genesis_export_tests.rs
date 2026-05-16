@@ -75,7 +75,7 @@ fn bundle_manifest_has_sha256_and_size_for_every_payload() {
     export_loaded(&loaded, &out, true, false, false).unwrap();
     let files = unpack(&out);
     let raw = std::str::from_utf8(files.get(BUNDLE_MANIFEST).unwrap()).unwrap();
-    let manifest: BundleManifest = toml::from_str(raw).unwrap();
+    let manifest: VerticalBundleManifest = toml::from_str(raw).unwrap();
 
     for file in manifest.files {
         let bytes = files.get(&file.path).unwrap();
@@ -93,7 +93,7 @@ fn manifest_only_writes_bundle_toml_only() {
     export_loaded(&loaded, &out, true, true, false).unwrap();
 
     assert!(out.exists());
-    assert!(toml::from_str::<BundleManifest>(&fs::read_to_string(&out).unwrap()).is_ok());
+    assert!(toml::from_str::<VerticalBundleManifest>(&fs::read_to_string(&out).unwrap()).is_ok());
     assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
 }
 
