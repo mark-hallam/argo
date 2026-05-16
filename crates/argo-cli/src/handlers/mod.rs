@@ -51,6 +51,9 @@ pub mod chat;
 pub mod classify_list;
 pub mod classify_rules;
 pub mod classify_set;
+pub mod completions;
+#[cfg(test)]
+mod completions_tests;
 pub mod compliance_delete;
 pub mod compliance_export;
 pub mod compliance_soc2;

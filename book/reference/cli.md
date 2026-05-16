@@ -92,6 +92,7 @@ Commands:
   gateway           
   mcp               
   plugin            
+  packs             Install and manage vertical template packs
   provider          
   model             
   skill             
@@ -121,14 +122,18 @@ Commands:
   handoff-stats     Aggregate metrics over the orchestrator's `handoff` table (Stream `codex-handoff-stats-cli`). Markdown report by default; `--histogram` switches to an ASCII volume readout
   workflow          Declarative DAG workflows across multiple workers (Stream `claude-workflow-dag`). YAML schema describing tasks + edges; runs each task as a Session with output binding from upstream tasks
   trajectory        Export action trajectories for fine-tuning data pipelines (claude-trajectory-training-export)
+  training          Export successful action trajectories as fine-tuning JSONL
   action            Action debugging tools that do not mutate the action ledger
   activity          
+  errors            Error-rate dashboards backed by canonical audit rows
+  sla               Availability/SLA dashboards backed by canonical audit rows
   audit             
   vertical          Vertical-template discovery surface (#650). Read-only — `list`, `show`, `validate`. Install / eval / run land in later PRs
   genesis           Charter → vertical generator (#G-genesis). Operator describes a role in plain English; Genesis emits a complete `verticals/<id>/` tree with safety judge guarantees on every action
   messages          Workspace-wide message rollups. Mirrors the gateway's `/messages/*` family
   workspace         
   db                
+  storage           
   costs             
   budget            
   session           
@@ -164,6 +169,7 @@ Commands:
   latency           Show per-executor-kind action latency percentiles (Stream `claude-latency-percentiles-tracking`). Reads the `latency_buckets` table populated by the dispatch wrapper and prints `kind | n | p50 | p95 | p99 | max` as a markdown table (default) or as JSON
   update            Placeholder for an in-place upgrade command. Not yet wired in this build — see `argo self-update` for the working signed-release upgrade flow
   wizard            End-to-end operator setup wizard (Mission `mission-operator-onboarding-wizard`). `argo wizard onboard` replaces the five-command first-time bootstrap (detect → provider key → operator identity → vertical → first worker) with a single guided flow
+  completions       Print a shell completion script for `argo` to stdout (Stream `mission-cli-shell-completions`). Pipe to the shell's completion-loader path:
   security          Coordinated security operations. Subcommands: - `audit` — vuln-scan wrapper around `cargo audit` + `cargo deny check advisories` (Mission `mission-vuln-management-workflow`). See `docs/skycot/security/vuln-management.md`. - `rotate-keys` — key-rotation coordinator across DB encryption / credentials master / gateway bearer / channel HMAC / per-connector OAuth (Mission `mission-automated-key-rotation`). See the "Key rotation" section of `docs/skycot/RUNBOOK.md`
   help              Print this message or the help of the given subcommand(s)
 
@@ -190,8 +196,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo action history`
@@ -210,7 +215,6 @@ Options:
       --include-skill  
       --json           
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo action recent`
@@ -226,7 +230,6 @@ Options:
       --limit <LIMIT>    [default: 50]
       --json             
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo action replay`
@@ -244,7 +247,6 @@ Options:
       --dry-run                  Print the resolved replay plan without executing or writing a bundle
       --bundle-dir <BUNDLE_DIR>  Exact replay bundle directory to write. Defaults to a sibling replay timestamp dir
   -h, --help                     Print help
-  -V, --version                  Print version
 ```
 
 #### `argo action timeline`
@@ -262,7 +264,6 @@ Options:
       --bucket-mins <BUCKET_MINS>  [default: 5]
       --json                       
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ### `argo activity`
@@ -276,8 +277,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo activity since`
@@ -296,7 +296,6 @@ Options:
       --worker <WORKER>  Filter to one worker id
       --json             Emit newline-delimited JSON activity envelopes
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo activity tail`
@@ -312,7 +311,6 @@ Options:
       --since <SINCE>    Backfill rows from a recent duration before tailing (examples: 30s, 5m, 1h, 1d)
       --json             Emit newline-delimited JSON activity envelopes
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo agents`
@@ -327,8 +325,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo agents create`
@@ -346,7 +343,6 @@ Options:
       --toolset <TOOLSET>                    `default_toolset` field. Defaults to "default"
       --memory-namespace <MEMORY_NAMESPACE>  `memory_namespace` field. Defaults to the agent name
   -h, --help                                 Print help
-  -V, --version                              Print version
 
 Examples:
   argo agents create research-bot
@@ -364,8 +360,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo agents delete research-bot
@@ -382,7 +377,6 @@ Options:
       --json             Output as a JSON array for scripting. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo agents list
@@ -404,8 +398,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo approval export`
@@ -426,7 +419,6 @@ Options:
       --out <OUT>                  Output path, or `-` for stdout [default: -]
       --force                      Allow overwriting an existing output file
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo approval history`
@@ -445,7 +437,6 @@ Options:
       --limit <LIMIT>              Maximum rows to return; clamped to 1000 [default: 50]
       --format <FORMAT>            Output format: table, json (NDJSON), or markdown [default: table]
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo approval policy`
@@ -462,8 +453,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo approval policy init`
@@ -477,10 +467,9 @@ Arguments:
   <NAME>  Bundled template name (must match `policy list`)
 
 Options:
-      --force    Overwrite an existing local file
-      --json     Emit `{name, path, bytes}` as JSON instead of a status line
-  -h, --help     Print help
-  -V, --version  Print version
+      --force  Overwrite an existing local file
+      --json   Emit `{name, path, bytes}` as JSON instead of a status line
+  -h, --help   Print help
 ```
 
 ##### `argo approval policy list`
@@ -491,9 +480,8 @@ List bundled + repo-local approval policy templates
 Usage: argo approval policy list [OPTIONS]
 
 Options:
-      --json     Emit `{bundled, local, local_dir}` as JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit `{bundled, local, local_dir}` as JSON
+  -h, --help  Print help
 ```
 
 ##### `argo approval policy show`
@@ -507,9 +495,8 @@ Arguments:
   <NAME>  Template name (bundled, or stem of a local `.skycot/approval-policies/<name>.toml` file)
 
 Options:
-      --json     Emit `{name, policy, toml}` as JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit `{name, policy, toml}` as JSON
+  -h, --help  Print help
 ```
 
 ### `argo audit`
@@ -521,6 +508,7 @@ Commands:
   show            Show the kind histogram + (optionally) the last `--tail N` rows. Pass `--session <id>` to print every audit row for one session in `seq` order instead of the global histogram view
   query           Query audit rows with H-stack filters. Filters compose with each other and with `--since`, `--until`, and `--limit`
   verify          Verify the hash chain. Pass `--session <id>` to check one session only (fast on huge logs)
+  verify-chain    Verify the full audit chain and print an operator summary
   export          Export audit rows for compliance review
   report          Render a human-readable compliance summary report
   breaks          Print just the chain-break rows (`{seq, kind, reason}`). Mirrors `GET /audit/breaks` (#406). One row per line in the default view, or a single JSON array with `--json`
@@ -539,8 +527,7 @@ Commands:
   help            Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo audit archive`
@@ -563,8 +550,6 @@ Options:
           Emit a JSON summary instead of human text
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo audit breaks`
@@ -575,9 +560,8 @@ Print just the chain-break rows (`{seq, kind, reason}`). Mirrors `GET /audit/bre
 Usage: argo audit breaks [OPTIONS]
 
 Options:
-      --json     Output as a single JSON array
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON array
+  -h, --help  Print help
 ```
 
 #### `argo audit by-day`
@@ -591,7 +575,6 @@ Options:
       --days <DAYS>  Lookback window in days (default 30, cap 365) [default: 30]
       --json         Output as a single JSON object (`{by_day}`)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo audit by-day-by-kind`
@@ -605,7 +588,6 @@ Options:
       --days <DAYS>  Lookback window in days (default 30, cap 365) [default: 30]
       --json         Output as a single JSON object (`{by_day_by_kind}`)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo audit by-kind`
@@ -619,7 +601,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to rows created within this many recent minutes
       --json                           Output as a single JSON object (`{by_kind}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit by-session`
@@ -634,7 +615,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to rows created within this many recent minutes
       --json                           Output as a single JSON object (`{by_session}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit by-tool`
@@ -648,7 +628,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to rows created within this many recent minutes
       --json                           Output as a single JSON object (`{by_tool}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit by-vertical`
@@ -662,7 +641,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit count`
@@ -678,7 +656,6 @@ Options:
       --session <SESSION>              Filter to rows on one session (uuid)
       --json                           Output as a single JSON object
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit export`
@@ -700,7 +677,6 @@ Options:
       --gdpr-redact-emails             Replace emails in payloads with deterministic placeholders
       --json                           Emit a JSON summary envelope instead of records
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit list-archives`
@@ -714,7 +690,6 @@ Options:
       --archive-dir <ARCHIVE_DIR>  
       --json                       
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo audit query`
@@ -734,7 +709,6 @@ Options:
       --limit <LIMIT>        Maximum rows to return [default: 100]
       --json                 Output as a single JSON object with query envelope
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo audit replay`
@@ -752,7 +726,6 @@ Options:
       --until <UNTIL>        Upper bound (inclusive) on `created_at` as RFC-3339
       --format <FORMAT>      Output format: `pretty` (default) or `raw` (NDJSON) [default: pretty]
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo audit report`
@@ -771,7 +744,6 @@ Options:
       --tenant <TENANT>        Filter by tenant id
       --json                   Emit a JSON summary envelope
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo audit show`
@@ -790,7 +762,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to rows created within this many recent minutes. Applies to both the tail view and `--session`
       --watch                          `tail -f` style: poll for new rows every 250ms and print them as they arrive. Combine with `--session <id>` to watch one session live; Ctrl-C to exit
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit tool-errors`
@@ -804,7 +775,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to rows created within this many recent minutes
       --json                           Output as a single JSON object (`{tool_errors}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo audit verify`
@@ -821,7 +791,6 @@ Options:
       --json               Output as a single JSON object (ok / rows / breaks). Equivalent to `--format json`
       --format <FORMAT>    Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo audit verify-archive`
@@ -838,7 +807,18 @@ Options:
       --archive-dir <ARCHIVE_DIR>  
       --json                       
   -h, --help                       Print help
-  -V, --version                    Print version
+```
+
+#### `argo audit verify-chain`
+
+```text
+Verify the full audit chain and print an operator summary
+
+Usage: argo audit verify-chain [OPTIONS]
+
+Options:
+      --json  Emit a single JSON object instead of the text report
+  -h, --help  Print help
 ```
 
 ### `argo backup`
@@ -855,8 +835,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo backup create`
@@ -871,7 +850,6 @@ Options:
       --include-credentials  Include .argo/credentials.toml in the archive
       --json                 Emit a JSON envelope
   -h, --help                 Print help
-  -V, --version              Print version
 
 Examples:
   argo backup create
@@ -887,9 +865,8 @@ List backups under .argo/backups
 Usage: argo backup list [OPTIONS]
 
 Options:
-      --json     Emit a JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a JSON envelope
+  -h, --help  Print help
 
 Examples:
   argo backup list
@@ -907,9 +884,8 @@ Arguments:
   <PATH>  
 
 Options:
-      --json     Emit a JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a JSON envelope
+  -h, --help  Print help
 
 Examples:
   argo backup verify .argo/backups/2026-05-13.tar.gz
@@ -932,8 +908,7 @@ Commands:
   help          Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo budget alerts`
@@ -949,8 +924,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo budget alerts list`
@@ -985,9 +959,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 ##### `argo budget alerts test`
@@ -1002,7 +973,6 @@ Options:
       --threshold <THRESHOLD>  Threshold to test
       --json                   Emit a JSON envelope
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo budget anomalies`
@@ -1037,9 +1007,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo budget anomaly-tick`
@@ -1050,9 +1017,8 @@ Run one anomaly-detection tick: walk every active worker, fold the previous-hour
 Usage: argo budget anomaly-tick [OPTIONS]
 
 Options:
-      --json     Emit the per-worker decisions as JSON instead of the human summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit the per-worker decisions as JSON instead of the human summary
+  -h, --help  Print help
 ```
 
 #### `argo budget by-skill`
@@ -1072,7 +1038,6 @@ Options:
       --vertical <VERTICAL>  
       --json                 
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo budget recent`
@@ -1105,9 +1070,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo budget show`
@@ -1135,9 +1097,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo budget watch`
@@ -1152,7 +1111,6 @@ Options:
       --once             Run a single pass instead of looping forever
       --json             Emit JSON tick summaries
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo chat`
@@ -1176,8 +1134,6 @@ Options:
           Override `MAX_TOOL_ROUNDS` (default 8). Useful when debugging — set to 1 to fail fast on the first tool call, set higher for legitimately long planning chains
   -h, --help
           Print help
-  -V, --version
-          Print version
 
 Examples:
   export ANTHROPIC_API_KEY=sk-ant-...
@@ -1199,8 +1155,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo classify list`
@@ -1218,7 +1173,6 @@ Options:
       --limit <LIMIT>    Cap the number of rows printed. Default 100 [default: 100]
       --json             Output as a single JSON array
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo classify rules`
@@ -1229,9 +1183,8 @@ Print the configured per-class handling rules (`retention_days`, `redact_in_expo
 Usage: argo classify rules [OPTIONS]
 
 Options:
-      --json     Output as a single JSON object keyed by class
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object keyed by class
+  -h, --help  Print help
 ```
 
 #### `argo classify set`
@@ -1249,7 +1202,26 @@ Options:
       --by <BY>  Optional actor that owns this tag (worker id, operator handle, automation rule). Stored in `tagged_by`
       --json     Output as a single JSON object
   -h, --help     Print help
-  -V, --version  Print version
+```
+
+### `argo completions`
+
+```text
+Print a shell completion script for `argo` to stdout (Stream `mission-cli-shell-completions`). Pipe to the shell's completion-loader path:
+
+```text argo completions bash > /usr/local/etc/bash_completion.d/argo argo completions zsh  > "${fpath[1]}/_argo" argo completions fish > ~/.config/fish/completions/argo.fish ```
+
+Usage: argo completions <SHELL>
+
+Arguments:
+  <SHELL>
+          Target shell — `bash`, `zsh`, `fish`, `powershell`, or `elvish`. Validated by `clap_complete::Shell`
+          
+          [possible values: bash, elvish, fish, powershell, zsh]
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### `argo compliance`
@@ -1261,13 +1233,12 @@ Usage: argo compliance <COMMAND>
 
 Commands:
   soc2    SOC2 Common Criteria 6.x audit-trail report. Groups events in `[--from, --to)` by control category (Access, ChangeMgmt, DataMgmt, Security, Other)
-  export  Emit every tenant-scoped row across the database for GDPR right-to-access. Output is a single JSON envelope
+  export  Emit tenant-scoped compliance data with filters and an integrity stamp
   delete  Cascade-delete every tenant-scoped row for GDPR right-to- erasure. Audit rows are tombstoned in place (PII fields replaced with `<erased>`, hash chain re-stitched). The whole operation is a single transaction; `--dry-run` rolls it back
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo compliance delete`
@@ -1283,22 +1254,23 @@ Options:
       --dry-run            Report per-table row counts that *would* be deleted, then rollback. No data is modified
       --json               Emit the summary as a single JSON object instead of text
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo compliance export`
 
 ```text
-Emit every tenant-scoped row across the database for GDPR right-to-access. Output is a single JSON envelope
+Emit tenant-scoped compliance data with filters and an integrity stamp
 
 Usage: argo compliance export [OPTIONS] --tenant <TENANT>
 
 Options:
-      --tenant <TENANT>  Tenant id (UUID) whose data should be exported
-      --format <FORMAT>  Output shape. Currently the only accepted value is `gdpr` [default: gdpr]
-      --out <OUT>        Write the JSON envelope to this path. Defaults to stdout
-  -h, --help             Print help
-  -V, --version          Print version
+      --tenant <TENANT>          Tenant id (UUID) whose data should be exported
+      --format <FORMAT>          Output shape: `json`, `csv`, or `pdf`. `gdpr` remains a backwards-compatible alias for `json` [default: json]
+      --start-date <START_DATE>  Include rows created on or after this RFC3339 date/time
+      --end-date <END_DATE>      Include rows created on or before this RFC3339 date/time
+      --session-id <SESSION_ID>  Restrict rows to this session id
+      --out <OUT>                Write the JSON envelope to this path. Defaults to stdout
+  -h, --help                     Print help
 ```
 
 #### `argo compliance soc2`
@@ -1316,7 +1288,6 @@ Options:
       --tenant <TENANT>  Optional tenant id filter
       --format <FORMAT>  Output format: `markdown` (default), `json`, or `csv` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo connector`
@@ -1336,8 +1307,7 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo connector authorize`
@@ -1359,7 +1329,6 @@ Options:
       --no-browser                     Do not launch the browser; print the authorization URL instead
       --json                           Emit a JSON envelope
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo connector list`
@@ -1373,7 +1342,6 @@ Options:
       --installed-only  Only show connectors with manifests/connectors/<kind>.toml present
       --json            Emit a JSON envelope
   -h, --help            Print help
-  -V, --version         Print version
 ```
 
 #### `argo connector list-status`
@@ -1384,9 +1352,8 @@ Show authorization status for every known connector
 Usage: argo connector list-status [OPTIONS]
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo connector revoke`
@@ -1400,9 +1367,8 @@ Arguments:
   <KIND>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo connector show`
@@ -1416,9 +1382,8 @@ Arguments:
   <KIND>  
 
 Options:
-      --json     Emit a JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a JSON envelope
+  -h, --help  Print help
 ```
 
 #### `argo connector test`
@@ -1432,9 +1397,8 @@ Arguments:
   <KIND>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 ### `argo contract`
@@ -1451,8 +1415,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo contract apply`
@@ -1471,7 +1434,6 @@ Options:
       --dry-run          Print the planned mutations without persisting anything
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo contract show`
@@ -1488,7 +1450,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace owns the row
       --json             Emit JSON instead of TOML
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo contract validate`
@@ -1502,9 +1463,8 @@ Arguments:
   <FILE>  Path to the `<role>.contract.toml` file
 
 Options:
-      --json     Emit JSON instead of a human-readable summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable summary
+  -h, --help  Print help
 ```
 
 ### `argo costs`
@@ -1528,8 +1488,7 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo costs alert`
@@ -1543,7 +1502,6 @@ Options:
       --threshold-usd <THRESHOLD_USD>  USD threshold; sessions with `SUM(amount_usd_micros)` > `threshold * 1e6` are reported [default: 1]
       --json                           Output as NDJSON (one row per offending session)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo costs anomalies`
@@ -1559,7 +1517,6 @@ Options:
       --format <FORMAT>  Output format [default: markdown] [possible values: markdown, json]
       --tenant <TENANT>  Filter to one tenant id via the worker table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo costs by-day`
@@ -1573,7 +1530,6 @@ Options:
       --days <DAYS>  Lookback window in days (default 30, cap 365) [default: 30]
       --json         Output as a single JSON object (`{by_day}`)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo costs by-model`
@@ -1584,9 +1540,8 @@ Top-50 spend buckets grouped by `(provider, model)`. Mirrors the gateway's `GET 
 Usage: argo costs by-model [OPTIONS]
 
 Options:
-      --json     Output as a single JSON object (`{by_model}`)
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object (`{by_model}`)
+  -h, --help  Print help
 ```
 
 #### `argo costs by-provider`
@@ -1597,9 +1552,8 @@ Top-50 spend buckets grouped by provider only (no model split). Mirrors the gate
 Usage: argo costs by-provider [OPTIONS]
 
 Options:
-      --json     Output as a single JSON object (`{by_provider}`)
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object (`{by_provider}`)
+  -h, --help  Print help
 ```
 
 #### `argo costs by-session`
@@ -1610,9 +1564,8 @@ Top-50 spend buckets grouped by `session_id`. Mirrors the gateway's `GET /costs/
 Usage: argo costs by-session [OPTIONS]
 
 Options:
-      --json     Output as a single JSON object (`{by_session}`)
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object (`{by_session}`)
+  -h, --help  Print help
 ```
 
 #### `argo costs cap`
@@ -1631,7 +1584,6 @@ Options:
       --month    
       --reset    Remove the cap field instead of setting it
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo costs export`
@@ -1645,7 +1597,6 @@ Options:
       --out <OUT>                      
       --since-minutes <SINCE_MINUTES>  Filter to rows charged within this many recent minutes
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo costs forecast`
@@ -1682,9 +1633,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo costs recent`
@@ -1699,7 +1647,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to charges within this many recent minutes
       --json                           Output as a JSON array
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo costs show`
@@ -1715,7 +1662,6 @@ Options:
       --by-session       Group spend by `session_id` and print the top spenders instead of the default ceilings view
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo costs total`
@@ -1726,9 +1672,8 @@ Print just the today / month-to-date / all-time spend roll-up, nothing else. Mir
 Usage: argo costs total [OPTIONS]
 
 Options:
-      --json     Output as a single JSON object (`{today, this_month, all_time}` in usd_micros) for scripting
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object (`{today, this_month, all_time}` in usd_micros) for scripting
+  -h, --help  Print help
 ```
 
 ### `argo cred`
@@ -1751,8 +1696,7 @@ Commands:
   help                Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cred backend`
@@ -1766,8 +1710,7 @@ Arguments:
   <BACKEND>  One of: `file`, `keyring`, `auto`
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cred clear`
@@ -1781,8 +1724,7 @@ Arguments:
   <KEY>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo cred clear OPENAI_API_KEY
@@ -1796,8 +1738,7 @@ Remove every stored credential
 Usage: argo cred clear-all
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo cred clear-all
@@ -1814,7 +1755,6 @@ Options:
       --path <PATH>  Override the credentials file path (defaults to `<workspace>/.argo/credentials.toml`)
       --json         Emit a JSON report instead of human-readable output
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo cred export`
@@ -1827,7 +1767,6 @@ Usage: argo cred export --shell <SHELL>
 Options:
       --shell <SHELL>  
   -h, --help           Print help
-  -V, --version        Print version
 
 Examples:
   eval "$(argo cred export --shell bash)"
@@ -1844,7 +1783,6 @@ Usage: argo cred import --shell <SHELL>
 Options:
       --shell <SHELL>  
   -h, --help           Print help
-  -V, --version        Print version
 
 Examples:
   argo cred import --shell bash
@@ -1858,9 +1796,8 @@ List stored credential keys; values are masked by default
 Usage: argo cred list [OPTIONS]
 
 Options:
-      --reveal   
-  -h, --help     Print help
-  -V, --version  Print version
+      --reveal  
+  -h, --help    Print help
 
 Examples:
   argo cred list
@@ -1878,7 +1815,6 @@ Options:
       --dry-run                List entries that would be migrated without modifying any state
       --from-file <FROM_FILE>  Override the source credentials file (defaults to `<workspace>/.argo/credentials.toml`)
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo cred set`
@@ -1893,8 +1829,7 @@ Arguments:
   [VALUE]  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo cred set ANTHROPIC_API_KEY
@@ -1918,8 +1853,7 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cron create`
@@ -1937,8 +1871,7 @@ Arguments:
   <CHAT>      
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cron daemon`
@@ -1952,7 +1885,6 @@ Options:
       --interval-secs <INTERVAL_SECS>  Interval between ticks (seconds). Default 60s [default: 60]
       --max-ticks <MAX_TICKS>          Stop after N ticks (mainly for tests / manual checks). Omit to run until SIGINT
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo cron delete`
@@ -1966,8 +1898,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cron edit`
@@ -1979,8 +1910,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cron init-system`
@@ -1994,7 +1924,6 @@ Options:
       --dry-run  Preview what would be written without touching disk
       --force    Overwrite existing job files in `cron/jobs/`
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo cron list`
@@ -2008,7 +1937,6 @@ Options:
       --json             Output as JSON (one object per job) for scripting. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo cron tick`
@@ -2021,7 +1949,6 @@ Usage: argo cron tick [OPTIONS]
 Options:
       --dry-run  
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo cron trigger`
@@ -2035,8 +1962,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo cu`
@@ -2051,8 +1977,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo cu replay`
@@ -2074,7 +1999,6 @@ Options:
       --inline             Embed screenshots as `data:image/png;base64,...` URLs rather than `file://` paths. Useful when the markdown will be shipped to a host that doesn't see the bundle directory
       --format <FORMAT>    `markdown` (default) or `json`. JSON emits NDJSON, one-step-per-line, mirroring `session replay --stream` [default: markdown]
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ### `argo daemon`
@@ -2090,8 +2014,7 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo daemon install`
@@ -2107,7 +2030,6 @@ Options:
       --bin <BIN>                 Override the path to the `argo` binary written into the plist's ProgramArguments. Defaults to the running binary's path (`std::env::current_exe()`)
       --launch-agents-dir <PATH>  Override the LaunchAgents directory. Defaults to `$HOME/Library/LaunchAgents`. Tests use this to point at a TempDir
   -h, --help                      Print help
-  -V, --version                   Print version
 
 Examples:
   argo daemon install
@@ -2127,7 +2049,6 @@ Options:
       --dry-run                   
       --launch-agents-dir <PATH>  
   -h, --help                      Print help
-  -V, --version                   Print version
 
 Examples:
   argo daemon uninstall
@@ -2151,8 +2072,7 @@ Commands:
   help          Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo db integrity`
@@ -2163,9 +2083,8 @@ Run SQLite `PRAGMA integrity_check` against the workspace store. Prints "ok" whe
 Usage: argo db integrity [OPTIONS]
 
 Options:
-      --json     Output as `{ok, check}` JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as `{ok, check}` JSON
+  -h, --help  Print help
 ```
 
 #### `argo db migrate-down`
@@ -2178,7 +2097,6 @@ Usage: argo db migrate-down --to <TO>
 Options:
       --to <TO>  
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo db migrate-up`
@@ -2189,8 +2107,7 @@ Migrate up to latest
 Usage: argo db migrate-up
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo db prune`
@@ -2204,7 +2121,6 @@ Options:
       --older-than-days <OLDER_THAN_DAYS>  [default: 90]
       --force                              
   -h, --help                               Print help
-  -V, --version                            Print version
 ```
 
 #### `argo db rekey`
@@ -2221,8 +2137,6 @@ Options:
           JSON output for scripting
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo db status`
@@ -2236,7 +2150,6 @@ Options:
       --json             Output as a single JSON object. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo db vacuum`
@@ -2247,8 +2160,7 @@ Run SQLite `VACUUM` to reclaim file-space after a prune
 Usage: argo db vacuum
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo db version`
@@ -2259,9 +2171,8 @@ Print the current SQLite schema migration version. Same number `db status` repor
 Usage: argo db version [OPTIONS]
 
 Options:
-      --json     Output as a single JSON object `{version}`
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object `{version}`
+  -h, --help  Print help
 ```
 
 ### `argo doctor`
@@ -2282,13 +2193,14 @@ Commands:
 
 Options:
       --json             Emit a single JSON object with all the checks. Default is the human-readable text report. Equivalent to `--format json`
+      --summary          Emit a one-line health summary. With `--json`, emits a compact summary envelope instead of the full report
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo doctor
   argo doctor --json
+  argo doctor --summary
 ```
 
 #### `argo doctor approvals`
@@ -2302,7 +2214,6 @@ Options:
       --since <SINCE>  Look-back window. Supports bare seconds plus `s`, `m`, and `h` suffixes [default: 24h]
       --json           Emit a JSON array instead of text
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo doctor fix`
@@ -2317,7 +2228,6 @@ Options:
       --issue <ISSUE>  Run only one fix id
       --json           Emit a JSON envelope with fix results
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo doctor install-hooks`
@@ -2328,10 +2238,9 @@ Copy the canonical pre-commit secret-scan hook into `.git/hooks/pre-commit`. Ref
 Usage: argo doctor install-hooks [OPTIONS]
 
 Options:
-      --force    Overwrite the existing `.git/hooks/pre-commit` even if the operator has a custom hook there
-      --json     Emit a JSON envelope describing the install outcome
-  -h, --help     Print help
-  -V, --version  Print version
+      --force  Overwrite the existing `.git/hooks/pre-commit` even if the operator has a custom hook there
+      --json   Emit a JSON envelope describing the install outcome
+  -h, --help   Print help
 ```
 
 #### `argo doctor throttles`
@@ -2342,9 +2251,8 @@ List the in-process per-action-type throttle buckets (`mission-per-action-type-t
 Usage: argo doctor throttles [OPTIONS]
 
 Options:
-      --json     Emit a single JSON object instead of the text report
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a single JSON object instead of the text report
+  -h, --help  Print help
 ```
 
 #### `argo doctor wal-stats`
@@ -2355,9 +2263,8 @@ Inspect SQLite WAL state — checkpoints the WAL (PASSIVE) and reports pragma re
 Usage: argo doctor wal-stats [OPTIONS]
 
 Options:
-      --json     Emit a single JSON object instead of the text report
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a single JSON object instead of the text report
+  -h, --help  Print help
 ```
 
 #### `argo doctor watch`
@@ -2371,7 +2278,6 @@ Options:
       --interval <INTERVAL>  Poll interval. Supports bare seconds plus `ms`, `s`, and `m` suffixes [default: 30s]
       --clear                Clear the terminal before each cycle for a live dashboard redraw
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 ### `argo duty`
@@ -2390,8 +2296,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo duty fire-now`
@@ -2405,9 +2310,8 @@ Arguments:
   <ID>  Duty id (uuid)
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 #### `argo duty list`
@@ -2421,7 +2325,6 @@ Options:
       --tenant <TENANT>  Tenant id (uuid)
       --json             Emit JSON instead of the human table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo duty pause`
@@ -2438,7 +2341,6 @@ Options:
       --until <UNTIL>  Resume-at instant (RFC 3339, UTC)
       --json           Emit JSON
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo duty resume`
@@ -2452,9 +2354,8 @@ Arguments:
   <ID>  Duty id (uuid)
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 #### `argo duty show`
@@ -2468,9 +2369,38 @@ Arguments:
   <ID>  Duty id (uuid)
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
+```
+
+### `argo errors`
+
+```text
+Error-rate dashboards backed by canonical audit rows
+
+Usage: argo errors <COMMAND>
+
+Commands:
+  dashboard  Show HTTP 5xx rate from `audit_record` request rows
+  help       Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo errors dashboard`
+
+```text
+Show HTTP 5xx rate from `audit_record` request rows
+
+Usage: argo errors dashboard [OPTIONS]
+
+Options:
+      --window <WINDOW>  Time window to inspect, e.g. `30m`, `1h`, or `7d` [default: 1h]
+      --tenant <TENANT>  Optional tenant id filter
+      --route <ROUTE>    Optional route/path filter. A trailing `*` is treated as a prefix
+      --json             Emit a JSON envelope instead of a table
+  -h, --help             Print help
 ```
 
 ### `argo eval`
@@ -2490,8 +2420,7 @@ Commands:
   help           Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo eval compare`
@@ -2511,7 +2440,6 @@ Options:
       --show-improvements  Show only fixtures better than run A in markdown output
       --json               Output as a single JSON object
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo eval list`
@@ -2526,7 +2454,6 @@ Options:
       --limit <LIMIT>        Maximum number of runs to return [default: 20]
       --json                 Output as a single JSON object
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo eval run`
@@ -2543,7 +2470,6 @@ Options:
       --stream <STREAM>      Streaming output mode (Stream `claude-eval-streaming`): `off` (batch — historical default), `simple` (default — one line per fixture as it completes), `verbose` (NDJSON per fixture for piping). Combine with `--json` to skip per-fixture lines and emit only the JSON envelope at the end [default: simple]
       --json                 Output as a single JSON object
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo eval show`
@@ -2557,9 +2483,8 @@ Arguments:
   <RUN>  Eval run id or path to an eval run JSON file
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo eval skill-honesty`
@@ -2578,7 +2503,6 @@ Options:
       --model <MODEL>        Judge model id (e.g. `claude-sonnet-4-6`) [default: claude-sonnet-4-6]
       --json                 Output as a single JSON object
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo eval validate`
@@ -2592,9 +2516,8 @@ Arguments:
   <TARGET>  Either a path to a JSONL fixtures file, or the id of a vertical loadable from `$ARGO_VERTICALS_DIR`/`./verticals`
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 ### `argo feedback`
@@ -2611,8 +2534,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo feedback down`
@@ -2631,7 +2553,6 @@ Options:
       --skill <SKILL>      Skill name this action invoked (Stream `mission-skill-ratings-publisher`). When provided and the underlying skill is marketplace-installed, the vote is ALSO recorded as a publisher-side `skill_rating` row alongside the local `operator_feedback` row
       --json               Output as a single JSON object
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo feedback list`
@@ -2647,7 +2568,6 @@ Options:
       --limit <LIMIT>    Cap the number of rows printed. Default 50 [default: 50]
       --json             Output as a single JSON array
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo feedback up`
@@ -2666,7 +2586,6 @@ Options:
       --skill <SKILL>      Skill name this action invoked (Stream `mission-skill-ratings-publisher`). When provided and the underlying skill is marketplace-installed, the vote is ALSO recorded as a publisher-side `skill_rating` row alongside the local `operator_feedback` row
       --json               Output as a single JSON object
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ### `argo forge`
@@ -2685,8 +2604,7 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo forge bench`
@@ -2704,7 +2622,6 @@ Options:
       --provider <PROVIDER>  Provider id (matches `manifests/providers/<id>.toml`). Defaults to `anthropic` [default: anthropic]
       --model <MODEL>        Model id (matches an entry in the manifest's `[[models]]` list). Defaults to `claude-3-5-sonnet-20241022` [default: claude-3-5-sonnet-20241022]
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo forge cost-report`
@@ -2719,7 +2636,6 @@ Options:
       --since <SINCE>  Start of the time window (inclusive lower bound on `started_at`). Accepts RFC-3339 (`2026-05-01T00:00:00Z`) or `YYYY-MM-DD`. Omit for "all time"
       --json           Output as a single JSON envelope `{rows:[…], totals}` for scripting
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo forge daemon`
@@ -2738,8 +2654,6 @@ Options:
           Stop after this many ticks (test/CI hook). Default runs forever
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo forge enqueue`
@@ -2758,7 +2672,6 @@ Options:
       --budget <BUDGET>          [default: 5]
       --json                     Output the new run id as JSON instead of plain text
   -h, --help                     Print help
-  -V, --version                  Print version
 ```
 
 #### `argo forge optimize`
@@ -2775,7 +2688,6 @@ Options:
       --budget <BUDGET>          [default: 5]
       --stream                   Emit progress as newline-delimited JSON on stdout instead of the human-readable table. Each line is either `{"event":"start", run_id, ...}`, `{"event":"iter", iter, version, mean_score, …}`, or `{"event":"done", best_score, best_version, status}`. Lets the TUI / watch scripts / gateway consume forge progress without parsing the table
   -h, --help                     Print help
-  -V, --version                  Print version
 ```
 
 #### `argo forge promote`
@@ -2789,7 +2701,6 @@ Arguments:
 Options:
       --version <VERSION>  
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo forge runs`
@@ -2813,8 +2724,7 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs abort`
@@ -2826,8 +2736,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs abort-all`
@@ -2838,8 +2747,7 @@ Flip every running forge run to `aborted`. Operator emergency-stop / fresh-slate
 Usage: argo forge runs abort-all
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs audit`
@@ -2853,9 +2761,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     Output as a single JSON object {run_id, rows:[…]}
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object {run_id, rows:[…]}
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs by-day`
@@ -2869,7 +2776,6 @@ Options:
       --days <DAYS>  Lookback window in days (default 30, cap 365) [default: 30]
       --json         Output as a single JSON object (`{by_day}`)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 ##### `argo forge runs by-skill`
@@ -2883,7 +2789,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to runs started within this many recent minutes
       --json                           Output as a single JSON object (`{by_skill}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 ##### `argo forge runs by-status`
@@ -2897,7 +2802,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to runs started within this many recent minutes
       --json                           Output as a single JSON object (`{by_status}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 ##### `argo forge runs count`
@@ -2912,7 +2816,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to runs started within this many recent minutes. Mirrors the gateway's `?since-minutes=N`
       --json                           Output as a single JSON object {count, status?}
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 ##### `argo forge runs list`
@@ -2949,8 +2852,6 @@ Options:
           Sort order: `started-at` (default, descending), `score` (final_score descending; NULLs sink to the bottom), or `spend` (spend_usd_micros descending) [default: started-at]
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 ##### `argo forge runs payload`
@@ -2964,9 +2865,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     Output as a single JSON object {run_id, payload}
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object {run_id, payload}
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs requeue`
@@ -2980,9 +2880,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     Output as a single JSON object {requeued, source_id, run_id}
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object {requeued, source_id, run_id}
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs show`
@@ -2994,8 +2893,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo forge runs sweep`
@@ -3010,8 +2908,6 @@ Options:
           Cutoff in minutes. Default 60 — runs older than this that are still in `running` get flipped to `failed` [default: 60]
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 ### `argo gateway`
@@ -3029,8 +2925,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo gateway audit`
@@ -3046,8 +2941,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo gateway audit list`
@@ -3064,7 +2958,6 @@ Options:
       --json                   Output a JSON envelope
       --limit <LIMIT>          Maximum rows to return (1..1000) [default: 100]
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 ##### `argo gateway audit show`
@@ -3078,9 +2971,8 @@ Arguments:
   <REQUEST_ID>  UUID request id
 
 Options:
-      --json     Output as JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as JSON
+  -h, --help  Print help
 ```
 
 #### `argo gateway probe`
@@ -3098,7 +2990,6 @@ Options:
       --port <PORT>  Bind port (default 7400) [default: 7400]
       --json         Output as a JSON object instead of human text
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo gateway routes`
@@ -3115,7 +3006,6 @@ Options:
       --grep <GREP>      Case-insensitive substring filter on both path and description
       --limit <LIMIT>    Truncate the output to the first N rows after filters
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo gateway start`
@@ -3126,13 +3016,14 @@ Bind a TCP listener and serve the JSON HTTP gateway. The first cut answers `GET 
 Usage: argo gateway start [OPTIONS]
 
 Options:
-      --bind <BIND>                  [default: 127.0.0.1]
-      --port <PORT>                  [default: 7400]
-      --max-requests <MAX_REQUESTS>  Stop after N requests (mainly for tests; omit to run until SIGINT / SIGTERM)
-      --quiet                        Suppress the boot-time route catalog banner. Top of the precedence chain — overrides `ARGO_BANNER_*` env vars and any `[startup_banner]` TOML section
-      --insecure-bind                Opt in to binding a non-loopback address (e.g. `0.0.0.0`). By default the gateway refuses to bind anything outside `127.0.0.1` / `::1` / loopback ranges because it ships without TLS — operators who terminate TLS upstream (k8s service mesh, nginx, Caddy) pass this flag to acknowledge the reverse-proxy deployment. See `docs/skycot/SECURITY.md`
-  -h, --help                         Print help
-  -V, --version                      Print version
+      --bind <BIND>                   [default: 127.0.0.1]
+      --port <PORT>                   [default: 7400]
+      --max-requests <MAX_REQUESTS>   Stop after N requests (mainly for tests; omit to run until SIGINT / SIGTERM)
+      --quiet                         Suppress the boot-time route catalog banner. Top of the precedence chain — overrides `ARGO_BANNER_*` env vars and any `[startup_banner]` TOML section
+      --bind-non-loopback             Opt in to binding a non-loopback address for dev/recovery
+      --accept-insecure-bind-warning  Required with `--bind-non-loopback`; records operator acceptance of the plaintext bind warning
+      --insecure-bind                 Deprecated old escape hatch. Use `--bind-non-loopback` plus `--accept-insecure-bind-warning` instead
+  -h, --help                          Print help
 ```
 
 #### `argo gateway status`
@@ -3143,9 +3034,8 @@ One-line status: running PID + listening address
 Usage: argo gateway status [OPTIONS]
 
 Options:
-      --json     Output as a JSON object `{running, pid?, addr?}`
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a JSON object `{running, pid?, addr?}`
+  -h, --help  Print help
 ```
 
 #### `argo gateway stop`
@@ -3154,8 +3044,7 @@ Options:
 Usage: argo gateway stop
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo genesis`
@@ -3180,8 +3069,7 @@ Commands:
   help                  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo genesis create`
@@ -3199,7 +3087,6 @@ Options:
       --refine             Stream `claude-genesis-llm-refinement` — opt-in LLM refinement pass on top of the deterministic pipeline. Requires `ANTHROPIC_API_KEY`. The safety judge re-runs on every action the model proposes; refinement failures fall back silently to the deterministic output with a `tracing::warn!`
       --allow-broad-role   Mission `mission-genesis-non-archetype-roles`. When set, charters whose LLM-classifier confidence falls below the 0.6 broad-role threshold route to LLM-driven broader generation instead of forcing the closest archetype. Without this flag (the default), low-confidence charters surface an explicit error so cautious operators don't silently switch generation paths
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo genesis export`
@@ -3222,8 +3109,6 @@ Options:
           Overwrite an existing output file
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo genesis from-job-description`
@@ -3245,9 +3130,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo genesis from-vertical`
@@ -3278,9 +3160,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo genesis import`
@@ -3297,7 +3176,6 @@ Options:
       --output <OUTPUT>  Parent directory for the scaffold. The vertical lands at `<output>/<name>/` [default: verticals]
       --json             Emit a single JSON envelope summarising the import instead of human-readable lines
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo genesis interactive`
@@ -3313,7 +3191,6 @@ Options:
       --json                    Emit a single JSON envelope summarising the dialogue and resulting vertical instead of the human-readable post-create report
       --refine                  Run the LLM refinement pass on the rendered charter. Same contract as `argo genesis create --refine`: requires `ANTHROPIC_API_KEY` and falls back silently to the deterministic plan on transient API failures
   -h, --help                    Print help
-  -V, --version                 Print version
 ```
 
 #### `argo genesis list-archetypes`
@@ -3324,9 +3201,8 @@ List the built-in Genesis archetypes operators can start from
 Usage: argo genesis list-archetypes [OPTIONS]
 
 Options:
-      --json     Emit a single JSON object instead of a table
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a single JSON object instead of a table
+  -h, --help  Print help
 ```
 
 #### `argo genesis refine`
@@ -3354,8 +3230,6 @@ Options:
           After the refinement pass, print the list of action_types newly added to the manifest's vocabulary during this run (#60 mission load-bearing wire). Empty list when no vocabulary grew
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo genesis revise`
@@ -3372,7 +3246,6 @@ Options:
       --dry-run              Print the diff and exit without writing to disk
       --json                 Emit a JSON envelope instead of human-readable lines
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo genesis show-archetype`
@@ -3386,9 +3259,8 @@ Arguments:
   <NAME>  Archetype label or slug, e.g. `Marketing Intern` or `marketing_intern`
 
 Options:
-      --json     Emit a single JSON object instead of text
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a single JSON object instead of text
+  -h, --help  Print help
 ```
 
 #### `argo genesis suggest`
@@ -3402,7 +3274,6 @@ Options:
       --charter <CHARTER>  Plain-English role charter to classify
       --json               Emit a single JSON object instead of a table
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ### `argo handoff`
@@ -3417,8 +3288,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo handoff cancel`
@@ -3434,7 +3304,6 @@ Options:
       --note <NOTE>      
       --json             
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo handoff list`
@@ -3450,7 +3319,6 @@ Options:
       --limit <LIMIT>      [default: 25]
       --json               
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo handoff show`
@@ -3465,7 +3333,6 @@ Options:
       --tenant <TENANT>  
       --json             
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo handoff-auctions`
@@ -3482,8 +3349,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo handoff-auctions cancel`
@@ -3497,9 +3363,8 @@ Arguments:
   <ID>  Auction id
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 #### `argo handoff-auctions list`
@@ -3514,7 +3379,6 @@ Options:
       --limit <LIMIT>    Cap the number of rows printed. Default 100 [default: 100]
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo handoff-auctions show`
@@ -3528,9 +3392,8 @@ Arguments:
   <ID>  Auction id
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ### `argo handoff-policy`
@@ -3546,8 +3409,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo handoff-policy show`
@@ -3561,7 +3423,6 @@ Options:
       --explain <action>  Trace the matched rule for this action kind
       --json              Emit JSON
   -h, --help              Print help
-  -V, --version           Print version
 ```
 
 #### `argo handoff-policy validate`
@@ -3575,9 +3436,8 @@ Arguments:
   [PATH]  Path to the policy file (defaults to `.skycot/handoff-policy.toml`)
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ### `argo handoff-rules`
@@ -3596,8 +3456,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo handoff-rules add`
@@ -3614,7 +3473,6 @@ Options:
       --tenant <TENANT>  Tenant id
       --json             Emit JSON instead of the human-friendly recap
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo handoff-rules list`
@@ -3628,7 +3486,6 @@ Options:
       --tenant <TENANT>  Tenant id
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo handoff-rules remove`
@@ -3645,7 +3502,6 @@ Options:
       --tenant <TENANT>  Tenant id
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo handoff-rules show`
@@ -3662,7 +3518,6 @@ Options:
       --tenant <TENANT>  Tenant id
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo handoff-rules test`
@@ -3683,8 +3538,6 @@ Options:
           Emit JSON
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 ### `argo handoff-stats`
@@ -3702,7 +3555,6 @@ Options:
       --bucket-mins <BUCKET_MINS>  Bucket size in minutes for `--histogram`. Default 60 (a 24-bucket day at the default `--since 1d`). Clamped to `>= 1` [default: 60]
       --json                       Emit a JSON envelope instead of the markdown rendering
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ### `argo health`
@@ -3716,7 +3568,6 @@ Options:
       --json             Output a single JSON object with per-check status. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo health
@@ -3733,8 +3584,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo import hermes`
@@ -3746,8 +3596,7 @@ Arguments:
   <PATH>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo incident`
@@ -3763,8 +3612,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo incident bundle`
@@ -3779,7 +3627,6 @@ Options:
       --output <OUTPUT>      Output path. Default `incident-<utc-ts>.tar.gz` in cwd
       --log-tail <LOG_TAIL>  Path to recent stderr log tail; without it the section records "no log path provided"
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo incident new`
@@ -3794,7 +3641,6 @@ Options:
       --out-dir <OUT_DIR>  Override the default `docs/skycot/incidents/` output dir [default: docs/skycot/incidents]
       --force              Overwrite an existing postmortem at the same path
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ### `argo judge`
@@ -3809,8 +3655,7 @@ Commands:
   help               Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo judge eval-disagreement`
@@ -3827,7 +3672,6 @@ Options:
       --json                     Emit a structured JSON envelope instead of a text summary
       --bail-below <BAIL_BELOW>  Exit non-zero if the overall agreement rate is strictly below this value. Range `[0.0, 1.0]`. Default `0.85` [default: 0.85]
   -h, --help                     Print help
-  -V, --version                  Print version
 ```
 
 #### `argo judge override`
@@ -3841,7 +3685,6 @@ Arguments:
 Options:
       --to <TO>  
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo judge verdict`
@@ -3853,8 +3696,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo latency`
@@ -3867,7 +3709,6 @@ Usage: argo latency [OPTIONS]
 Options:
       --format <FORMAT>  Output format: `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo latency
@@ -3887,8 +3728,7 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo mcp image-gen`
@@ -3902,7 +3742,6 @@ Options:
       --config <CONFIG>  Path to `argo.toml`. Defaults to `./argo.toml` [default: argo.toml]
       --require-confirm  Short-circuit calls with a cost estimate ≥ 20¢
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo mcp registry`
@@ -3919,8 +3758,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo mcp registry add`
@@ -3940,7 +3778,6 @@ Options:
       --tenant <TENANT>            Tenant id. Defaults to the current workspace tenant
       --json                       Emit a JSON envelope
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ##### `argo mcp registry list`
@@ -3955,7 +3792,6 @@ Options:
       --format <FORMAT>  Output format: `markdown` (default) or `json` (NDJSON) [default: markdown]
       --json             Emit NDJSON; equivalent to `--format json`
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo mcp registry remove`
@@ -3973,7 +3809,6 @@ Options:
       --force            Remove even when active actions reference this server
       --json             Emit a JSON envelope
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo mcp serve`
@@ -3984,8 +3819,7 @@ Serve the workspace store as an MCP server over stdio
 Usage: argo mcp serve
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo mcp tools`
@@ -4005,7 +3839,6 @@ Options:
       --filter <FILTER>      Regex narrowing the tool list by name
       --schema-only          Omit descriptions for terse output
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 ### `argo memory`
@@ -4029,8 +3862,7 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo memory append`
@@ -4048,7 +3880,6 @@ Options:
       --vertical <VERTICAL>  
       --session <SESSION>    
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo memory count`
@@ -4063,7 +3894,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to entries learned within this many recent minutes. Mirrors the gateway's `?since-minutes=N`
       --json                           Output as a single JSON object
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo memory dream-now`
@@ -4080,7 +3910,6 @@ Options:
       --scope <SCOPE>  Memory scope (worker_self|role|shared_team). Defaults to `worker_self` [default: worker_self]
       --json           Emit a single JSON object instead of human-readable text
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo memory edit`
@@ -4092,8 +3921,7 @@ Arguments:
   <ENTRY>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo memory forget`
@@ -4105,8 +3933,7 @@ Arguments:
   <ENTRY>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo memory list`
@@ -4125,7 +3952,6 @@ Options:
       --body-contains <BODY_CONTAINS>  Case-insensitive substring filter on the entry body. Mirrors the gateway's `?body-contains=…`
       --vertical <VERTICAL>            Scope to a vertical's namespace (#680, Rule 7). Returns ONLY entries with `vertical_id = <id>` — excludes legacy workspace-global rows. Without this flag the legacy list-all behaviour is preserved
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo memory lock`
@@ -4137,8 +3963,7 @@ Arguments:
   <ENTRY>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo memory revert`
@@ -4150,8 +3975,7 @@ Arguments:
   <ENTRY>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo memory shared-team`
@@ -4168,8 +3992,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo memory shared-team grep`
@@ -4184,7 +4007,6 @@ Options:
       --pattern <PATTERN>  Regex pattern to match against entry content
       --json               Emit JSON instead of a human-readable table
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ##### `argo memory shared-team list`
@@ -4199,7 +4021,6 @@ Options:
       --limit <LIMIT>    Maximum number of newest rows to return
       --json             Emit JSON instead of a human-readable table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo memory shared-team write`
@@ -4215,7 +4036,6 @@ Options:
       --content <CONTENT>  Entry content
       --json               Emit JSON instead of a human-readable acknowledgement
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo memory unlock`
@@ -4227,8 +4047,7 @@ Arguments:
   <ENTRY>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo memory verify`
@@ -4242,9 +4061,8 @@ Arguments:
   [ENTRY]  
 
 Options:
-      --all      Verify every active memory entry instead of one named entry
-  -h, --help     Print help
-  -V, --version  Print version
+      --all   Verify every active memory entry instead of one named entry
+  -h, --help  Print help
 ```
 
 #### `argo memory view`
@@ -4256,9 +4074,8 @@ Arguments:
   <ENTRY>  
 
 Options:
-      --json     Output the entry as a single JSON object (incl. body)
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output the entry as a single JSON object (incl. body)
+  -h, --help  Print help
 ```
 
 ### `argo messages`
@@ -4277,8 +4094,7 @@ Commands:
   help            Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo messages by-day`
@@ -4292,7 +4108,6 @@ Options:
       --days <DAYS>  Lookback window in days (default 30, cap 365) [default: 30]
       --json         Output as a single JSON object (`{by_day}`)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo messages by-day-by-role`
@@ -4306,7 +4121,6 @@ Options:
       --days <DAYS>  Lookback window in days (default 30, cap 365) [default: 30]
       --json         Output as a single JSON object (`{by_day_by_role}`)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo messages by-role`
@@ -4320,7 +4134,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to messages within this many recent minutes
       --json                           Output as a single JSON object (`{by_role}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo messages by-session`
@@ -4335,7 +4148,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to messages within this many recent minutes
       --json                           Output as a single JSON object (`{by_session}`)
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo messages recent`
@@ -4351,7 +4163,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  Filter to messages within this many recent minutes
       --json                           Output as a JSON array
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 ### `argo model`
@@ -4366,8 +4177,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo model list`
@@ -4379,7 +4189,6 @@ Options:
       --json             Output as JSON. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo model set`
@@ -4391,8 +4200,7 @@ Arguments:
   <MODEL>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo model test`
@@ -4404,8 +4212,7 @@ Arguments:
   <MODEL>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo new`
@@ -4421,7 +4228,6 @@ Options:
       --title <TITLE>        Optional human-readable title
       --vertical <VERTICAL>  Bind the new session to a vertical-template id (#651). The vertical must be discoverable via `argo vertical list`
   -h, --help                 Print help
-  -V, --version              Print version
 
 Examples:
   argo new --provider anthropic --model claude-sonnet-4-6
@@ -4441,7 +4247,6 @@ Options:
       --json             Emit `{stages, any_fail, count}` as JSON instead of the pretty checklist
       --config <PATH>    Override the default `<workspace>/.argo/onboarding.toml` path used by `--non-interactive`
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo onboard
@@ -4461,8 +4266,7 @@ Commands:
   help            Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo operator risk-overrides`
@@ -4480,8 +4284,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo operator risk-overrides delete`
@@ -4499,7 +4302,6 @@ Options:
       --vertical <VERTICAL>  Restrict the delete to a single vertical scope. Omit to clear the all-verticals row
       --json                 Emit JSON
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 ##### `argo operator risk-overrides get`
@@ -4513,9 +4315,8 @@ Arguments:
   <OPERATOR_ID>  Operator id
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ##### `argo operator risk-overrides list`
@@ -4526,9 +4327,8 @@ List every override across every operator
 Usage: argo operator risk-overrides list [OPTIONS]
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ##### `argo operator risk-overrides set`
@@ -4565,9 +4365,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 ### `argo org`
@@ -4585,8 +4382,7 @@ Commands:
   help        Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo org ingest`
@@ -4600,9 +4396,8 @@ Arguments:
   <PATH>  Path to a YAML file whose top-level keys are `tenant`, `org`, `units`, and `members`
 
 Options:
-      --json     Emit JSON summary instead of a one-line text recap
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON summary instead of a one-line text recap
+  -h, --help  Print help
 ```
 
 #### `argo org member`
@@ -4619,7 +4414,6 @@ Options:
       --tenant <TENANT>  Tenant id whose org chart should be queried
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo org reports-to`
@@ -4636,7 +4430,6 @@ Options:
       --tenant <TENANT>  Tenant id
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo org tree`
@@ -4650,7 +4443,105 @@ Options:
       --tenant <TENANT>  Tenant id whose org chart should be rendered
       --json             Emit JSON (one object per unit/member) instead of the ASCII tree
   -h, --help             Print help
-  -V, --version          Print version
+```
+
+### `argo packs`
+
+```text
+Install and manage vertical template packs
+
+Usage: argo packs <COMMAND>
+
+Commands:
+  install   Install a pack release tarball into the local cache
+  list      List cached packs
+  update    Refresh one cached pack version
+  dev-link  Point a pack name at a local checkout
+  remove    Remove a dev-link and cached pack versions
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo packs dev-link`
+
+```text
+Point a pack name at a local checkout
+
+Usage: argo packs dev-link [OPTIONS] <NAME> <PATH>
+
+Arguments:
+  <NAME>  
+  <PATH>  
+
+Options:
+      --json  
+  -h, --help  Print help
+```
+
+#### `argo packs install`
+
+```text
+Install a pack release tarball into the local cache
+
+Usage: argo packs install [OPTIONS] --version <VERSION> <NAME>
+
+Arguments:
+  <NAME>  
+
+Options:
+      --version <VERSION>    
+      --base-url <BASE_URL>  
+      --force                
+      --json                 
+  -h, --help                 Print help
+```
+
+#### `argo packs list`
+
+```text
+List cached packs
+
+Usage: argo packs list [OPTIONS]
+
+Options:
+      --json  
+  -h, --help  Print help
+```
+
+#### `argo packs remove`
+
+```text
+Remove a dev-link and cached pack versions
+
+Usage: argo packs remove [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  
+
+Options:
+      --version <VERSION>  
+      --yes                
+      --json               
+  -h, --help               Print help
+```
+
+#### `argo packs update`
+
+```text
+Refresh one cached pack version
+
+Usage: argo packs update [OPTIONS] --version <VERSION> <NAME>
+
+Arguments:
+  <NAME>  
+
+Options:
+      --version <VERSION>    
+      --base-url <BASE_URL>  
+      --json                 
+  -h, --help                 Print help
 ```
 
 ### `argo persona`
@@ -4667,8 +4558,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo persona edit`
@@ -4696,9 +4586,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo persona history`
@@ -4715,7 +4602,6 @@ Options:
       --limit <LIMIT>  Maximum revisions to display. Defaults to 50 [default: 50]
       --json           Emit a JSON array instead of the human-readable table
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo persona revert`
@@ -4729,10 +4615,9 @@ Arguments:
   <REV_ID>  Revision id (UUID) whose `old_value` becomes the new live persona value
 
 Options:
-      --yes      Skip the interactive confirmation prompt
-      --json     Emit `{ok, rev_id, new_rev_id}` JSON instead of the human-readable confirmation line
-  -h, --help     Print help
-  -V, --version  Print version
+      --yes   Skip the interactive confirmation prompt
+      --json  Emit `{ok, rev_id, new_rev_id}` JSON instead of the human-readable confirmation line
+  -h, --help  Print help
 ```
 
 ### `argo plan`
@@ -4750,8 +4635,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo plan execute`
@@ -4768,7 +4652,6 @@ Options:
       --dry-run  Validate + topo-sort only, do not run any tasks
       --json     Output as a single JSON object
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo plan generate`
@@ -4788,7 +4671,6 @@ Options:
       --output <OUTPUT>      Path to write the YAML. Default: stdout
       --json                 Output the JSON envelope (`{reasoning, workflow_yaml, planner_kind, template_name}`) instead of bare YAML
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo plan show`
@@ -4802,9 +4684,8 @@ Arguments:
   <TARGET>  File path or run id
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo plan template`
@@ -4821,8 +4702,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo plan template list`
@@ -4837,7 +4717,6 @@ Options:
       --limit <LIMIT>  Cap on rows returned (default 50, hard ceiling 500) [default: 50]
       --json           Output as a single JSON object
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 ##### `argo plan template promote`
@@ -4851,9 +4730,8 @@ Arguments:
   <ID>  Template id
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 ##### `argo plan template show`
@@ -4867,9 +4745,8 @@ Arguments:
   <ID>  Template id
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 ### `argo plugin`
@@ -4887,8 +4764,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo plugin disable`
@@ -4900,8 +4776,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo plugin enable`
@@ -4913,8 +4788,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo plugin install`
@@ -4926,8 +4800,7 @@ Arguments:
   <SOURCE>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo plugin list`
@@ -4941,7 +4814,6 @@ Options:
       --json             Output as a JSON array of strings for scripting. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo plugin remove`
@@ -4953,8 +4825,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo plugin run`
@@ -4966,8 +4837,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo policy`
@@ -4985,8 +4855,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo policy apply`
@@ -5000,9 +4869,8 @@ Arguments:
   <PATH>  Path to the source YAML file
 
 Options:
-      --json     Emit JSON instead of the human-readable confirmation
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of the human-readable confirmation
+  -h, --help  Print help
 ```
 
 #### `argo policy list`
@@ -5016,7 +4884,6 @@ Options:
       --dir <DIR>  Show files in the given directory instead of the registered set. Useful for previewing a folder before `argo policy apply`
       --json       Emit a JSON array instead of the human-readable table
   -h, --help       Print help
-  -V, --version    Print version
 ```
 
 #### `argo policy show`
@@ -5030,9 +4897,8 @@ Arguments:
   <PATH>  Path to a YAML file. Reads + parses + validates, then prints the structured result
 
 Options:
-      --json     Emit a single JSON object instead of YAML pretty-print
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a single JSON object instead of YAML pretty-print
+  -h, --help  Print help
 ```
 
 #### `argo policy validate`
@@ -5046,9 +4912,8 @@ Arguments:
   <PATH>  Path to a YAML file on disk
 
 Options:
-      --json     Emit `{ok, name, errors}` as JSON instead of text
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit `{ok, name, errors}` as JSON instead of text
+  -h, --help  Print help
 ```
 
 ### `argo provider`
@@ -5063,25 +4928,10 @@ Commands:
   validate-all  Validate every manifest under `manifests/providers/`. Exits non-zero if any fails parsing — wire into CI to catch drift early
   test          
   cache-stats   Print prompt-cache hit-rate metrics aggregated per provider+model (mission-prompt-cache-hit-rate-observability). Numbers come from the in-process counters incremented on every Anthropic response; the gateway also exposes them under the standard `/metrics` endpoint
-  breakers      List per-provider circuit-breaker config + state. Reads `[provider.<id>.breaker]` from `argo.toml` and the configured providers from `manifests/providers/`; missing blocks fall back to `BreakerConfig::default()`
   help          Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
-```
-
-#### `argo provider breakers`
-
-```text
-List per-provider circuit-breaker config + state. Reads `[provider.<id>.breaker]` from `argo.toml` and the configured providers from `manifests/providers/`; missing blocks fall back to `BreakerConfig::default()`
-
-Usage: argo provider breakers [OPTIONS]
-
-Options:
-      --json     Emit a JSON envelope `{version, providers: [...]}` instead of human-readable text
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo provider cache-stats`
@@ -5096,7 +4946,6 @@ Options:
       --model <MODEL>        Filter to one model id (e.g. `claude-opus-4-7`)
       --json                 Emit a JSON array instead of human-readable text
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo provider list`
@@ -5110,7 +4959,6 @@ Options:
       --json             Output as a JSON array of `{id, family, base_url}` rows. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo provider show`
@@ -5124,9 +4972,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     Output the parsed manifest as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output the parsed manifest as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo provider test`
@@ -5138,8 +4985,7 @@ Arguments:
   <PROVIDER>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo provider validate`
@@ -5151,8 +4997,7 @@ Arguments:
   <MANIFEST>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo provider validate-all`
@@ -5163,8 +5008,7 @@ Validate every manifest under `manifests/providers/`. Exits non-zero if any fail
 Usage: argo provider validate-all
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo recover`
@@ -5178,9 +5022,8 @@ Arguments:
   <SESSION_ID>  Session id (UUID) whose chain to analyze
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 
 Examples:
   argo recover 01J9XYZ...
@@ -5201,8 +5044,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo recover-cache clear`
@@ -5221,7 +5063,6 @@ Options:
       --confirm <CONFIRM>        Typed confirmation token. Required for `--all`
       --json                     Emit JSON envelope
   -h, --help                     Print help
-  -V, --version                  Print version
 ```
 
 #### `argo recover-cache list`
@@ -5236,7 +5077,6 @@ Options:
       --limit <LIMIT>  Maximum number of rows to return (default: 25, max: 1000)
       --json           Emit JSON envelope
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo recover-cache show`
@@ -5250,9 +5090,8 @@ Arguments:
   <SESSION_ID>  Session id (UUID) whose cached suggestions to print
 
 Options:
-      --json     Emit JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON envelope
+  -h, --help  Print help
 ```
 
 ### `argo restore`
@@ -5270,7 +5109,6 @@ Options:
       --dry-run      List files without extracting them
       --json         Emit a JSON envelope
   -h, --help         Print help
-  -V, --version      Print version
 
 Examples:
   argo restore .argo/backups/2026-05-13.tar.gz
@@ -5288,8 +5126,7 @@ Arguments:
   <ID>  Session id (full UUID)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo resume 01J9XYZ...
@@ -5311,8 +5148,7 @@ Commands:
   help           Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo roster add-member`
@@ -5330,7 +5166,6 @@ Options:
       --tenant <TENANT>  Tenant id this roster belongs to
       --json             Emit JSON instead of the human-friendly confirmation
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo roster create`
@@ -5356,8 +5191,6 @@ Options:
           Emit JSON instead of the human-friendly recap
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo roster list`
@@ -5371,7 +5204,6 @@ Options:
       --tenant <TENANT>  Tenant id to filter by
       --json             Emit JSON instead of the table view
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo roster remove-member`
@@ -5389,7 +5221,6 @@ Options:
       --tenant <TENANT>  Tenant id this roster belongs to
       --json             Emit JSON instead of the human-friendly confirmation
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo roster show`
@@ -5406,7 +5237,6 @@ Options:
       --tenant <TENANT>  Tenant id this roster belongs to
       --json             Emit JSON instead of the multi-line view
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo route`
@@ -5420,8 +5250,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo route bench`
@@ -5430,8 +5259,7 @@ Options:
 Usage: argo route bench
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo route inspect`
@@ -5443,8 +5271,7 @@ Arguments:
   <SESSION_ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ### `argo sandbox`
@@ -5459,8 +5286,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo sandbox e2b`
@@ -5476,8 +5302,7 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo sandbox e2b list`
@@ -5488,8 +5313,7 @@ JSON-line list of all sandboxes the configured E2B API key owns
 Usage: argo sandbox e2b list
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo sandbox e2b reap-idle`
@@ -5503,7 +5327,6 @@ Options:
       --max-age <MAX_AGE>  Idle-time threshold in seconds. Default 600 (10 minutes) [default: 600]
       --dry-run            List the would-be-reaped sandboxes without closing them
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ### `argo security`
@@ -5520,8 +5343,7 @@ Commands:
   help          Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo security audit`
@@ -5538,8 +5360,6 @@ Options:
           Emit single-line compact JSON instead of pretty-printed. Useful for piping into `jq` / ops dashboards
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo security rotate-keys`
@@ -5557,8 +5377,7 @@ Commands:
   help           Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo security rotate-keys audit-key-age`
@@ -5572,7 +5391,6 @@ Options:
       --threshold <THRESHOLD>  Age threshold in days. Keys older than this exit non-zero [default: 90]
       --json                   Emit a single JSON envelope (`{stale, fresh, threshold_days}`) instead of human-readable status
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 ##### `argo security rotate-keys commit`
@@ -5594,8 +5412,6 @@ Options:
           Emit a single JSON envelope instead of human-readable status
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 ##### `argo security rotate-keys list`
@@ -5609,7 +5425,6 @@ Options:
       --json             Equivalent to `--format json`
       --format <FORMAT>  Output format: `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo security rotate-keys plan`
@@ -5623,9 +5438,8 @@ Arguments:
   <KEY_NAME>  Registered key name. Use `list` to enumerate
 
 Options:
-      --json     Equivalent to `--format json`
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Equivalent to `--format json`
+  -h, --help  Print help
 ```
 
 #### `argo security scan-secrets`
@@ -5642,7 +5456,6 @@ Options:
       --allowlist <ALLOWLIST>  Path to the operator allowlist. Defaults to `.skycot/secret-scan-allowlist.toml`. Missing file is OK (treated as empty allowlist); malformed TOML is fatal
       --json                   Emit findings as one JSON array on stdout. Default is a human-readable `file:line: [id] human -> redacted` per match
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 ### `argo self-update`
@@ -5658,7 +5471,6 @@ Options:
       --force              Skip the "already on latest" short-circuit and reinstall. Never bypasses signature verification
       --json               Emit a JSON envelope instead of human-readable status
   -h, --help               Print help
-  -V, --version            Print version
 
 Examples:
   argo self-update --check
@@ -5711,8 +5523,7 @@ Commands:
   help              Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session approve`
@@ -5729,7 +5540,6 @@ Options:
       --once         
       --json         
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo session attach-skill`
@@ -5742,8 +5552,7 @@ Arguments:
   <SKILL>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session audit-by-kind`
@@ -5758,7 +5567,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session audit-by-tool`
@@ -5773,7 +5581,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session bisect`
@@ -5786,8 +5593,7 @@ Arguments:
   <HYPOTHESIS>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session branch`
@@ -5801,7 +5607,6 @@ Arguments:
 Options:
       --through-seq <THROUGH_SEQ>  
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo session by-day`
@@ -5813,7 +5618,6 @@ Options:
       --days <DAYS>  [default: 30]
       --json         
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo session by-model`
@@ -5825,7 +5629,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session by-provider`
@@ -5837,7 +5640,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session capability-gaps`
@@ -5853,7 +5655,6 @@ Options:
       --threshold <THRESHOLD>          [default: 3]
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session clear-skills`
@@ -5865,8 +5666,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session clone`
@@ -5878,8 +5678,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session count`
@@ -5898,7 +5697,6 @@ Options:
       --spent-max <SPENT_MAX>                    
       --json                                     
   -h, --help                                     Print help
-  -V, --version                                  Print version
 ```
 
 #### `argo session delete`
@@ -5912,9 +5710,8 @@ Arguments:
   <ID>  
 
 Options:
-      --force    
-  -h, --help     Print help
-  -V, --version  Print version
+      --force  
+  -h, --help   Print help
 
 Examples:
   argo session delete 01J9XYZ...
@@ -5931,8 +5728,7 @@ Arguments:
   <SKILL>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session diff`
@@ -5948,7 +5744,6 @@ Options:
       --json             
       --format <FORMAT>  [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo session end`
@@ -5960,8 +5755,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session end-all`
@@ -5972,7 +5766,6 @@ Usage: argo session end-all [OPTIONS]
 Options:
       --older-than-minutes <OLDER_THAN_MINUTES>  
   -h, --help                                     Print help
-  -V, --version                                  Print version
 ```
 
 #### `argo session export`
@@ -5988,7 +5781,6 @@ Options:
       --include-audit    
       --format <FORMAT>  [default: jsonl]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo session list`
@@ -6014,7 +5806,6 @@ Options:
       --sort-by <SORT_BY>                        [default: started-at]
       --vertical <VERTICAL>                      
   -h, --help                                     Print help
-  -V, --version                                  Print version
 
 Examples:
   argo session list
@@ -6031,9 +5822,8 @@ Arguments:
   <SESSION_ID>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo session messages`
@@ -6057,7 +5847,6 @@ Options:
       --seq-max <SEQ_MAX>                    
       --content-contains <CONTENT_CONTAINS>  
   -h, --help                                 Print help
-  -V, --version                              Print version
 
 Examples:
   argo session messages 01J9XYZ...
@@ -6077,7 +5866,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session reopen`
@@ -6089,8 +5877,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session replay`
@@ -6108,7 +5895,6 @@ Options:
       --workspace <WORKSPACE>  
       --stream                 
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo session revoke-approval`
@@ -6123,7 +5909,6 @@ Options:
       --tool <TOOL>  
       --json         
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo session search`
@@ -6144,7 +5929,6 @@ Options:
       --format <FORMAT>    [default: text]
       --count              
   -h, --help               Print help
-  -V, --version            Print version
 
 Examples:
   argo session search "timeout"
@@ -6167,7 +5951,6 @@ Options:
       --json             
       --format <FORMAT>  [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo session show 01J9XYZ...
@@ -6183,8 +5966,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo session start`
@@ -6200,7 +5982,6 @@ Options:
       --worker <WORKER>  
       --json             
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo session start --title "morning standup notes"
@@ -6216,9 +5997,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo session title`
@@ -6231,9 +6011,8 @@ Arguments:
   [NEW]  
 
 Options:
-      --clear    
-  -h, --help     Print help
-  -V, --version  Print version
+      --clear  
+  -h, --help   Print help
 ```
 
 #### `argo session tool-errors`
@@ -6248,7 +6027,6 @@ Options:
       --since-minutes <SINCE_MINUTES>  
       --json                           
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo session transcript`
@@ -6260,9 +6038,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo session turns`
@@ -6274,9 +6051,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo session watch`
@@ -6290,8 +6066,7 @@ Arguments:
   <ID>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo session watch 01J9XYZ...
@@ -6310,7 +6085,6 @@ Options:
       --json               Emit `{steps, ready}` as JSON instead of the checklist table
       --require <ENV_VAR>  Require this specific env var to be set (repeatable). When provided alongside `--check`, the probe demands every named var resolves to a non-empty value; otherwise the existing "at least one" contract applies. Use this when your vertical declares both a primary AND a fallback provider — the launch checklist in `provider_keys.md` says BOTH should be loadable so the fallback actually works on 503
   -h, --help               Print help
-  -V, --version            Print version
 
 Examples:
   argo setup
@@ -6327,6 +6101,7 @@ Commands:
   list               
   count              Print just the count of active skills. Default: one int per line; `--json` emits `{count}`
   view               
+  explain            Explain one skill's provenance, version, Forge, trust, and usage history
   verify             Verify a skill's body matches its frontmatter `provenance.hash`. Pass `--all` to verify every active skill in the workspace
   create             Create a new skill from CLI flags or stdin. Inserts a fresh row via `SkillStore::install`; rejects duplicate names (use `argo skill refine` to bump an existing skill instead)
   search             Search the cross-tenant OCI skill registry
@@ -6366,11 +6141,11 @@ Commands:
   migrate            Record a publisher-side `skill_version_migration` row linking `--from` to `--to`. Tenant workspaces with the `--from` version installed will see this when they run `argo skill upgrade <name>` or `argo skill list-migrations`. Idempotent on the composite PK. (`mission-skill-version-migration-path`)
   upgrade            Apply a pending `skill_version_migration` to the locally- installed version of `<name>`. With `--dry-run`, prints what would happen without superseding. Without `--yes`, only auto-upgrade migrations are applied (others are surfaced for operator confirmation). (`mission-skill-version-migration-path`)
   list-migrations    List every pending migration across the tenant's installed skills (for each active skill, the row whose `from_version` matches its installed version). Operator dashboard input. (`mission-skill-version-migration-path`)
+  ir                 Canonical-IR maintenance ops (Track L). One-shot tools the operator runs against the local skill store — currently just `backfill`, which synthesises a minimal `SkillGraph` for every installed skill that lacks one (brief `L3-skill-ir-backfill`)
   help               Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo skill ab-promote`
@@ -6396,8 +6171,6 @@ Options:
           Emit JSON
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo skill ab-snapshot`
@@ -6414,7 +6187,6 @@ Options:
       --min-samples <MIN_SAMPLES>  Minimum samples per variant before significance is computed. Default 30 (matches `ab-status`) [default: 30]
       --json                       Emit a JSON envelope instead of the human-readable summary
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo skill ab-status`
@@ -6431,7 +6203,6 @@ Options:
       --min-samples <MIN_SAMPLES>  Minimum samples per variant before significance is computed. Default 30 (per the brief) [default: 30]
       --json                       Emit JSON instead of a human-readable summary
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo skill ab-test`
@@ -6449,7 +6220,6 @@ Options:
       --runs <RUNS>          Target invocation count before the run is allowed to auto-complete on significance. Default 100 [default: 100]
       --json                 Emit JSON (the new run row) instead of a one-line summary
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill catalog`
@@ -6467,7 +6237,6 @@ Options:
       --all                  Explicit no-filter flag. Present for parity with the brief; the default behaviour is already to show all entries
       --json                 Emit a JSON array `[{ id, name, vertical, tags, installed, version, installed_version? }]` instead of the human-readable table
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill conflicts`
@@ -6484,8 +6253,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo skill conflicts list`
@@ -6496,9 +6264,8 @@ List every workspace ↔ library skill-name collision
 Usage: argo skill conflicts list [OPTIONS]
 
 Options:
-      --json     Output as a JSON array
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a JSON array
+  -h, --help  Print help
 ```
 
 ##### `argo skill conflicts resolve`
@@ -6515,7 +6282,6 @@ Options:
       --keep <KEEP>  Which layer to keep — `workspace` or `library`
       --json         Output as a single JSON object
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 ##### `argo skill conflicts show`
@@ -6529,9 +6295,8 @@ Arguments:
   <NAME>  The colliding skill name
 
 Options:
-      --json     Output as a single JSON object (`{name, workspace, library, diff}`)
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object (`{name, workspace, library, diff}`)
+  -h, --help  Print help
 ```
 
 #### `argo skill count`
@@ -6545,7 +6310,6 @@ Options:
       --include-superseded  Include superseded versions in the count too
       --json                
   -h, --help                Print help
-  -V, --version             Print version
 ```
 
 #### `argo skill create`
@@ -6564,7 +6328,6 @@ Options:
       --from-file <FROM_FILE>      Read the skill body from a path on disk
       --new-version <NEW_VERSION>  Version label for the new row. Defaults to "0.1" [default: 0.1]
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo skill deps`
@@ -6582,7 +6345,6 @@ Options:
       --reverse                Show skills that depend ON this one, not the reverse
       --max-depth <MAX_DEPTH>  Maximum recursion depth (default 5; 0 → default) [default: 5]
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo skill distill-now`
@@ -6596,7 +6358,22 @@ Options:
       --worker <WORKER>  Worker id to charge against the per-day Dreams cap shared with `argo memory dream-now`. Defaults to `skill-distillation` so the operator can run off-band without picking a specific worker [default: skill-distillation]
       --json             Emit a JSON envelope
   -h, --help             Print help
-  -V, --version          Print version
+```
+
+#### `argo skill explain`
+
+```text
+Explain one skill's provenance, version, Forge, trust, and usage history
+
+Usage: argo skill explain [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  
+
+Options:
+      --history-depth <HISTORY_DEPTH>  Limit history sections to N rows [default: 20]
+      --json                           Output as a single JSON object for scripting
+  -h, --help                           Print help
 ```
 
 #### `argo skill export`
@@ -6613,7 +6390,6 @@ Options:
       --out <OUT>  Output `.skill.tar.gz` path
       --json       Emit JSON
   -h, --help       Print help
-  -V, --version    Print version
 ```
 
 #### `argo skill export-all`
@@ -6628,7 +6404,6 @@ Options:
       --vertical <VERTICAL>  Filter to skills bundled by this vertical id
       --json                 Emit JSON
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill import`
@@ -6647,7 +6422,6 @@ Options:
       --dry-run                Validate and print what would be installed without writing the store
       --json                   Emit JSON
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo skill install`
@@ -6659,8 +6433,35 @@ Arguments:
   <SOURCE>  
 
 Options:
+  -h, --help  Print help
+```
+
+#### `argo skill ir`
+
+```text
+Canonical-IR maintenance ops (Track L). One-shot tools the operator runs against the local skill store — currently just `backfill`, which synthesises a minimal `SkillGraph` for every installed skill that lacks one (brief `L3-skill-ir-backfill`)
+
+Usage: argo skill ir <COMMAND>
+
+Commands:
+  backfill  One-shot: synthesise a minimal IR (single `action` node with the skill body as instruction) for every installed skill missing an `skill_ir` row. Idempotent — re-running produces zero writes. `--dry-run` reports counts without persisting
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+##### `argo skill ir backfill`
+
+```text
+One-shot: synthesise a minimal IR (single `action` node with the skill body as instruction) for every installed skill missing an `skill_ir` row. Idempotent — re-running produces zero writes. `--dry-run` reports counts without persisting
+
+Usage: argo skill ir backfill [OPTIONS]
+
+Options:
+      --dry-run  Walk the store, classify each skill, but write nothing
+      --json     Emit a JSON envelope `{backfilled, skipped, entries: [...]}` instead of the human-readable summary
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo skill keygen`
@@ -6674,7 +6475,6 @@ Options:
       --out <OUT>  Directory to write `cosign.key` + `cosign.pub` into. Defaults to the current working directory
       --json       Emit a JSON envelope
   -h, --help       Print help
-  -V, --version    Print version
 ```
 
 #### `argo skill list`
@@ -6693,7 +6493,6 @@ Options:
       --body-contains <BODY_CONTAINS>  Case-insensitive substring filter on the skill body. Mirrors `?body-contains=…`
       --quality-min <QUALITY_MIN>      Filter to skills whose latest quality score is at least this value (`0..=100`). Skills with no score row are excluded from the filtered list
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo skill list-migrations`
@@ -6704,9 +6503,8 @@ List every pending migration across the tenant's installed skills (for each acti
 Usage: argo skill list-migrations [OPTIONS]
 
 Options:
-      --json     Emit a JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a JSON envelope
+  -h, --help  Print help
 ```
 
 #### `argo skill lock`
@@ -6718,8 +6516,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo skill migrate`
@@ -6747,8 +6544,6 @@ Options:
           Emit a JSON envelope
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo skill publish`
@@ -6768,7 +6563,6 @@ Options:
       --dry-run              Print the bundle plan without writing files or calling a registry
       --json                 Emit a JSON envelope
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill quality`
@@ -6786,7 +6580,6 @@ Options:
       --format <FORMAT>  Output format: `text` (default), `markdown`, or `json`. `--json` wins if both are passed [default: text]
       --limit <LIMIT>    Render history of the last N scores rather than only the latest. Default 1 (latest only) [default: 1]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo skill quality-list`
@@ -6801,7 +6594,6 @@ Options:
       --worst <WORST>          Truncate to the lowest-scoring N rows
       --json                   Emit JSON
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo skill quality-recompute`
@@ -6826,9 +6618,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo skill quality-trend`
@@ -6845,7 +6634,6 @@ Options:
       --days <DAYS>  Days to render (default 30, max 365)
       --json         Emit JSON envelope (per-day buckets + sparkline)
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo skill rate`
@@ -6864,7 +6652,6 @@ Options:
       --comment <COMMENT>  Optional free-form comment (truncated at 500 chars)
       --json               Emit a JSON envelope
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo skill ratings`
@@ -6881,7 +6668,6 @@ Options:
       --version <VERSION>  Skill version. Defaults to the active version
       --json               Emit JSON
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo skill refine`
@@ -6898,7 +6684,6 @@ Options:
       --hint <HINT>                Text to append to the skill body, under a new `## Refinement` section
       --new-version <NEW_VERSION>  Version label for the refined skill. Defaults to bumping the existing version's last numeric segment (e.g. `0.1` → `0.2`). `--version` would clash with clap's auto-version flag, hence the rename
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo skill review`
@@ -6919,8 +6704,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo skill review approve`
@@ -6937,7 +6721,6 @@ Options:
       --note <NOTE>  Optional reviewer note recorded in the audit row
       --json         
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 ##### `argo skill review export`
@@ -6954,7 +6737,6 @@ Options:
       --output <OUTPUT>  Destination file path
       --format <FORMAT>  Output format: md (default), toml, or json [default: md]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo skill review import`
@@ -6970,7 +6752,6 @@ Arguments:
 Options:
       --lock <LOCK>  Optional lock override: none, content_locked, or user_protected
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 ##### `argo skill review list`
@@ -6985,7 +6766,6 @@ Options:
       --vertical <VERTICAL>  Restrict the review queue to one vertical id
       --json                 
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 ##### `argo skill review promote`
@@ -7002,7 +6782,6 @@ Options:
       --feedback-action <ACTION_ID>  Require the latest operator feedback for this action to be an up-vote before promoting the candidate
       --json                         
   -h, --help                         Print help
-  -V, --version                      Print version
 ```
 
 ##### `argo skill review reject`
@@ -7019,7 +6798,6 @@ Options:
       --note <NOTE>  Optional reviewer note recorded in the audit row
       --json         
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 ##### `argo skill review show`
@@ -7033,9 +6811,8 @@ Arguments:
   <SKILL_ID>  The skill's id (UUID v7)
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo skill rollback`
@@ -7054,7 +6831,6 @@ Options:
       --reason <REASON>  Optional audit reason
       --json             Emit JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo skill runs`
@@ -7075,7 +6851,6 @@ Options:
       --include-failed   Include failed and skipped invocations. Defaults to successes only
       --json             Emit a JSON envelope
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo skill search`
@@ -7096,7 +6871,6 @@ Options:
       --vertical <VERTICAL>       Filter to skills whose `vertical_id` column matches the given vertical id. Switches to a store-side query (mission claim 4 — skills as a per-vertical library)
       --include-used-by-sessions  Pair with `--vertical <id>`: also surface skills attached to sessions in that vertical (via `session_skill`), regardless of how the skill row tagged itself. No-op without `--vertical`
   -h, --help                      Print help
-  -V, --version                   Print version
 ```
 
 #### `argo skill set-flag`
@@ -7114,7 +6888,6 @@ Options:
       --clear-no-forge-feedback  Clear `no-forge-feedback` for this skill (set value=0)
       --json                     Emit a JSON envelope `{skill, flag, value}` instead of the human-readable confirmation line
   -h, --help                     Print help
-  -V, --version                  Print version
 ```
 
 #### `argo skill sign`
@@ -7135,7 +6908,6 @@ Options:
       --registry <REGISTRY>  Mock OCI registry reference (must match `argo skill publish`) [default: mock://.argo/skill-registry]
       --json                 Emit a JSON envelope
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill tags`
@@ -7153,7 +6925,6 @@ Options:
       --limit <LIMIT>        Maximum number of tags to list [default: 20]
       --json                 Emit a JSON envelope
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill unlock`
@@ -7165,8 +6936,7 @@ Arguments:
   <NAME>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo skill unpublish`
@@ -7183,7 +6953,6 @@ Options:
       --registry <REGISTRY>  Registry reference. `mock://path` reads a filesystem registry [default: mock://.argo/skill-registry]
       --json                 Emit a JSON envelope
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill update`
@@ -7203,8 +6972,6 @@ Options:
           Emit JSON `{name, min_trust_grade}` instead of the human-readable line
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo skill upgrade`
@@ -7222,7 +6989,6 @@ Options:
       --yes      Apply even when the migration row's `auto_upgrade=false`
       --json     Emit a JSON envelope
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo skill verify`
@@ -7236,9 +7002,8 @@ Arguments:
   [NAME]  
 
 Options:
-      --all      Verify every active skill instead of one named skill
-  -h, --help     Print help
-  -V, --version  Print version
+      --all   Verify every active skill instead of one named skill
+  -h, --help  Print help
 ```
 
 #### `argo skill verify-sig`
@@ -7256,7 +7021,6 @@ Options:
       --registry <REGISTRY>  Mock OCI registry reference [default: mock://.argo/skill-registry]
       --json                 Emit a JSON envelope
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo skill versions`
@@ -7270,9 +7034,8 @@ Arguments:
   <NAME>  Skill name (the family identifier, NOT a version string)
 
 Options:
-      --json     Emit JSON (one object per row) instead of a table
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON (one object per row) instead of a table
+  -h, --help  Print help
 ```
 
 #### `argo skill view`
@@ -7284,9 +7047,37 @@ Arguments:
   <NAME>  
 
 Options:
-      --json     Output as a single JSON object for scripting
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object for scripting
+  -h, --help  Print help
+```
+
+### `argo sla`
+
+```text
+Availability/SLA dashboards backed by canonical audit rows
+
+Usage: argo sla <COMMAND>
+
+Commands:
+  report  Availability % + latency p50/p95/p99 from `audit_record` request rows
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo sla report`
+
+```text
+Availability % + latency p50/p95/p99 from `audit_record` request rows
+
+Usage: argo sla report [OPTIONS]
+
+Options:
+      --window <WINDOW>  Time window to inspect, e.g. `30m`, `1h`, or `24h` (default) [default: 24h]
+      --tenant <TENANT>  Optional tenant id filter
+      --json             Emit a JSON envelope instead of a table
+  -h, --help             Print help
 ```
 
 ### `argo steer`
@@ -7301,11 +7092,64 @@ Arguments:
   <TEXT>        
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo steer 01J9XYZ... "pause and summarise progress"
+```
+
+### `argo storage`
+
+```text
+Usage: argo storage <COMMAND>
+
+Commands:
+  list-tenants    List tenant-specific database pools and their health
+  migrate-tenant  Run migrations for one tenant-specific database
+  health          Check tenant-specific database health
+  help            Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo storage health`
+
+```text
+Check tenant-specific database health
+
+Usage: argo storage health [OPTIONS]
+
+Options:
+      --json  Output as JSON
+  -h, --help  Print help
+```
+
+#### `argo storage list-tenants`
+
+```text
+List tenant-specific database pools and their health
+
+Usage: argo storage list-tenants [OPTIONS]
+
+Options:
+      --json  Output as JSON
+  -h, --help  Print help
+```
+
+#### `argo storage migrate-tenant`
+
+```text
+Run migrations for one tenant-specific database
+
+Usage: argo storage migrate-tenant [OPTIONS] <TENANT_ID>
+
+Arguments:
+  <TENANT_ID>  
+
+Options:
+      --json  Output as JSON
+  -h, --help  Print help
 ```
 
 ### `argo subtask`
@@ -7323,8 +7167,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo subtask budget`
@@ -7338,9 +7181,8 @@ Arguments:
   <ROOT_ID>  Root subtask id whose descendants to walk
 
 Options:
-      --json     Output as a single JSON object instead of a text tree
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object instead of a text tree
+  -h, --help  Print help
 ```
 
 #### `argo subtask list`
@@ -7358,7 +7200,6 @@ Options:
       --limit <LIMIT>              Cap on returned rows. Default 50, hard cap 500 [default: 50]
       --json                       Output the JSON envelope (`{rows, count, filters}`) instead of a text table
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 #### `argo subtask show`
@@ -7372,9 +7213,8 @@ Arguments:
   <ID>  Subtask id (UUID)
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo subtask tree`
@@ -7388,9 +7228,8 @@ Arguments:
   <SESSION>  Parent session id
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 ### `argo team`
@@ -7410,8 +7249,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo team add`
@@ -7430,7 +7268,6 @@ Options:
       --role <ROLE>      Optional free-form role label (`lead`, `clerk`, …)
       --json             Emit `{ok, team_id, worker_id, role}` as JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo team create`
@@ -7448,7 +7285,6 @@ Options:
       --parent <PARENT>  Optional parent team id; the parent must already exist
       --json             Emit `{ok, team_id, name, parent}` as JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo team list`
@@ -7462,7 +7298,6 @@ Options:
       --tenant <TENANT>  Tenant uuid this team set belongs to
       --format <FORMAT>  Output format: `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo team remove`
@@ -7480,7 +7315,6 @@ Options:
       --tenant <TENANT>  Tenant uuid this team belongs to
       --json             Emit `{ok, team_id, worker_id}` as JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo team rename`
@@ -7498,7 +7332,6 @@ Options:
       --tenant <TENANT>  Tenant uuid this team belongs to
       --json             Emit `{ok, team_id, name}` as JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo team show`
@@ -7515,7 +7348,6 @@ Options:
       --tenant <TENANT>  Tenant uuid this team belongs to
       --format <FORMAT>  Output format: `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo tenant`
@@ -7536,8 +7368,7 @@ Commands:
   help        Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo tenant archive`
@@ -7551,9 +7382,8 @@ Arguments:
   <ID>  Tenant id (UUID)
 
 Options:
-      --json     Emit JSON instead of a human-readable summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable summary
+  -h, --help  Print help
 ```
 
 #### `argo tenant create`
@@ -7567,9 +7397,8 @@ Arguments:
   <NAME>  Human-readable tenant/workspace name
 
 Options:
-      --json     Emit JSON instead of a human-readable summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable summary
+  -h, --help  Print help
 ```
 
 #### `argo tenant info`
@@ -7583,9 +7412,8 @@ Arguments:
   <ID>  Tenant id (UUID)
 
 Options:
-      --json     Emit JSON instead of a human-readable summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable summary
+  -h, --help  Print help
 ```
 
 #### `argo tenant list`
@@ -7599,7 +7427,6 @@ Options:
       --include-archived  Include tenants that were archived for audit retention
       --json              Emit JSON instead of a human-readable table
   -h, --help              Print help
-  -V, --version           Print version
 ```
 
 #### `argo tenant quota`
@@ -7617,8 +7444,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo tenant quota clear`
@@ -7646,9 +7472,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 ##### `argo tenant quota list`
@@ -7659,9 +7482,8 @@ List all configured tenant quotas
 Usage: argo tenant quota list [OPTIONS]
 
 Options:
-      --json     Emit a JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a JSON envelope
+  -h, --help  Print help
 ```
 
 ##### `argo tenant quota set`
@@ -7697,9 +7519,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 ##### `argo tenant quota show`
@@ -7713,9 +7532,8 @@ Arguments:
   <TENANT>  Tenant id
 
 Options:
-      --json     Emit a JSON envelope
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit a JSON envelope
+  -h, --help  Print help
 ```
 
 #### `argo tenant rate-limit`
@@ -7733,8 +7551,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo tenant rate-limit delete`
@@ -7748,9 +7565,8 @@ Arguments:
   <TENANT>  Tenant id (UUID)
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ##### `argo tenant rate-limit get`
@@ -7764,9 +7580,8 @@ Arguments:
   <TENANT>  Tenant id (UUID)
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ##### `argo tenant rate-limit list`
@@ -7777,9 +7592,8 @@ List every stored override
 Usage: argo tenant rate-limit list [OPTIONS]
 
 Options:
-      --json     Emit JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON
+  -h, --help  Print help
 ```
 
 ##### `argo tenant rate-limit set`
@@ -7796,7 +7610,6 @@ Options:
       --rpm <RPM>  Per-minute budget (`> 0`)
       --json       Emit JSON instead of a one-line summary
   -h, --help       Print help
-  -V, --version    Print version
 ```
 
 #### `argo tenant rename`
@@ -7814,7 +7627,6 @@ Options:
       --to <NEW_NAME>  New human-readable tenant name (legacy display-name rename)
       --json           Emit JSON instead of a human-readable summary
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo tenant show`
@@ -7828,9 +7640,8 @@ Arguments:
   <ID>  Tenant id (UUID)
 
 Options:
-      --json     Emit JSON instead of a human-readable summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable summary
+  -h, --help  Print help
 ```
 
 #### `argo tenant transfer`
@@ -7847,7 +7658,6 @@ Options:
       --owner <NEW_OPERATOR_EMAIL>  New operator email
       --json                        Emit JSON instead of a human-readable summary
   -h, --help                        Print help
-  -V, --version                     Print version
 ```
 
 ### `argo tools`
@@ -7863,8 +7673,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo tools
@@ -7884,7 +7693,6 @@ Options:
       --format <FORMAT>                Output format: `text` (default), `json`, or `markdown` [default: text]
       --name-contains <NAME_CONTAINS>  Case-insensitive substring filter on tool name
   -h, --help                           Print help
-  -V, --version                        Print version
 
 Examples:
   argo tools list
@@ -7903,9 +7711,8 @@ Arguments:
   <NAME>  
 
 Options:
-      --json     Output as a single JSON object for scripting
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object for scripting
+  -h, --help  Print help
 
 Examples:
   argo tools show web_search
@@ -7927,7 +7734,6 @@ Options:
       --turn <TURN>        
       --session <SESSION>  
   -h, --help               Print help
-  -V, --version            Print version
 
 Examples:
   argo trace --session 01J9XYZ...
@@ -7949,7 +7755,37 @@ Options:
       --format <FORMAT>  Output format: `markdown` (default) or `json` [default: markdown]
       --path <PATH>      Override the default `.skycot/traces/` lookup directory
   -h, --help             Print help
-  -V, --version          Print version
+```
+
+### `argo training`
+
+```text
+Export successful action trajectories as fine-tuning JSONL
+
+Usage: argo training <COMMAND>
+
+Commands:
+  export  Export completed action trajectories for one vertical
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+#### `argo training export`
+
+```text
+Export completed action trajectories for one vertical
+
+Usage: argo training export [OPTIONS] --vertical <VERTICAL> --start-date <START_DATE>
+
+Options:
+      --vertical <VERTICAL>      Vertical id to export
+      --start-date <START_DATE>  Inclusive lower bound: YYYY-MM-DD or RFC3339
+      --format <FORMAT>          Output format. Only jsonl is supported [default: jsonl]
+      --output <OUTPUT>          Write JSONL to this path instead of stdout
+      --json                     Print an export summary envelope instead of the JSONL bytes
+  -h, --help                     Print help
 ```
 
 ### `argo trajectory`
@@ -7964,8 +7800,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo trajectory export`
@@ -8008,9 +7843,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 ### `argo trust`
@@ -8026,8 +7858,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo trust composed`
@@ -8044,7 +7875,6 @@ Options:
       --days-back <DAYS_BACK>  How many days of observations to materialise the graph from. Default 90 [default: 90]
       --json                   Emit one JSON `{from, to, max_hops, score, path}` object instead of the human-readable status line
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 #### `argo trust graph`
@@ -8059,7 +7889,6 @@ Options:
       --days-back <DAYS_BACK>  How many days of observations to materialise the graph from. Default 90 — matches the brief's decay window [default: 90]
       --json                   Emit one JSON array of `{to_tenant, weight, observation_count, last_updated_at_rfc3339}` rows instead of the human-readable table
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 ### `argo tui`
@@ -8070,8 +7899,7 @@ Open the interactive TUI (read-only session viewer for now)
 Usage: argo tui
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo tui
@@ -8085,8 +7913,7 @@ Placeholder for an in-place upgrade command. Not yet wired in this build — see
 Usage: argo update
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo update                # stub today, exits non-zero
@@ -8121,8 +7948,7 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo vertical archive`
@@ -8136,9 +7962,8 @@ Arguments:
   <ID>  The vertical's id
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo vertical delete`
@@ -8152,10 +7977,9 @@ Arguments:
   <ID>  The vertical's id
 
 Options:
-      --force    Confirm permanent deletion. The vertical must already be archived so existing audit/session rows remain the record of prior work
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --force  Confirm permanent deletion. The vertical must already be archived so existing audit/session rows remain the record of prior work
+      --json   Output as a single JSON object
+  -h, --help   Print help
 ```
 
 #### `argo vertical describe`
@@ -8169,9 +7993,8 @@ Arguments:
   <ID>  The vertical's id (matches `[vertical].id` in `vertical.toml`)
 
 Options:
-      --json     Output the full manifest summary as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output the full manifest summary as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo vertical doctor`
@@ -8185,9 +8008,8 @@ Arguments:
   <ID>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo vertical eval`
@@ -8218,9 +8040,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo vertical install`
@@ -8238,7 +8057,6 @@ Options:
       --force            Replace an existing installation of the same id
       --json             Output as a single JSON object `{ok, id, name, version, root}`
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo vertical lint`
@@ -8252,9 +8070,8 @@ Arguments:
   <ID>  The vertical's id
 
 Options:
-      --json     Output as a single JSON object `{ok, id, findings:[{severity, code, message}]}`
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object `{ok, id, findings:[{severity, code, message}]}`
+  -h, --help  Print help
 ```
 
 #### `argo vertical list`
@@ -8270,7 +8087,6 @@ Options:
       --include-archived  Include soft-archived verticals in the listing
       --json              Output as a single JSON object `{ok, loaded:[…], errors:[…]}`
   -h, --help              Print help
-  -V, --version           Print version
 ```
 
 #### `argo vertical pack`
@@ -8288,7 +8104,6 @@ Options:
       --target <TARGET>  Source verticals dir. Defaults to the discovery dir
       --json             Output as a single JSON object `{ok, id, path, bytes}`
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo vertical publish`
@@ -8308,7 +8123,6 @@ Options:
       --token <AUTH_TOKEN>   Optional registry token. Takes precedence over credentials.toml and Docker config
       --json                 Output as a single JSON object
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo vertical pull`
@@ -8327,7 +8141,6 @@ Options:
       --token <AUTH_TOKEN>   Optional registry token. Takes precedence over credentials.toml and Docker config
       --json                 Output as a single JSON object
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo vertical run`
@@ -8347,7 +8160,6 @@ Options:
       --model <MODEL>        Model id; defaults to `mock` [default: mock]
       --json                 Output as a single combined JSON document
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo vertical show`
@@ -8364,7 +8176,6 @@ Options:
       --json             Output as a single JSON object
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo vertical unarchive`
@@ -8378,9 +8189,8 @@ Arguments:
   <ID>  The vertical's id
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo vertical uninstall`
@@ -8398,7 +8208,6 @@ Options:
       --yes              Confirm the deletion. Without this flag the command prints what would happen and exits non-zero
       --json             Output as a single JSON object `{ok, id, removed_path}`
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo vertical validate`
@@ -8412,9 +8221,8 @@ Arguments:
   <ID>  The vertical's id
 
 Options:
-      --json     Output as a single JSON object `{id, valid, error?}`
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object `{id, valid, error?}`
+  -h, --help  Print help
 ```
 
 #### `argo vertical workflow`
@@ -8432,7 +8240,6 @@ Options:
       --session <SESSION>  Bind the workflow's tool calls to this session's audit chain (#668). Same audit shape as the agent runner so the chain verifier accepts them
       --json               Output as a single JSON object `{vertical_id, workflow, ok, total_ms, steps:[…]}`
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ### `argo voice`
@@ -8446,7 +8253,6 @@ Options:
       --mock-script <PATH>  Drive the loop from a JSON file (`{"script": [...]}`)
       --json                Emit one TickOutcome per line as JSON
   -h, --help                Print help
-  -V, --version             Print version
 
 Examples:
   argo voice
@@ -8465,8 +8271,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo wizard onboard`
@@ -8481,7 +8286,6 @@ Options:
       --config <PATH>    Override the default `<cwd>/argo.toml` path. Useful for tests and for operators with multiple workspaces on one machine
       --answers <PATH>   TOML file with pre-populated answers for `--non-interactive`. Schema: flat keys mirroring the prompt order — see `docs/skycot/runbook/wizard-onboard.md`
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ### `argo work`
@@ -8499,8 +8303,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo work add`
@@ -8515,7 +8318,6 @@ Options:
       --prompt <PROMPT>      Free-form prompt describing the unit of work. Passed verbatim as the user message on the worker's next turn
       --json                 Emit JSON instead of human-readable
   -h, --help                 Print help
-  -V, --version              Print version
 
 Examples:
   argo work add --vertical gtm-engineer --prompt "draft cold outreach for ACME"
@@ -8535,7 +8337,6 @@ Options:
       --limit <LIMIT>        Cap the number of rows printed. Default 50 [default: 50]
       --json                 Emit JSON-lines (one row per job) instead of a human-readable table
   -h, --help                 Print help
-  -V, --version              Print version
 
 Examples:
   argo work jobs
@@ -8556,7 +8357,6 @@ Arguments:
 Options:
       --kind <KIND>  Which file to surface. Defaults to `transcript`. `all` prints a header per file followed by its contents, in canonical reading order [default: transcript] [possible values: transcript, assistant, approval_checklist, execution_plan, all]
   -h, --help         Print help
-  -V, --version      Print version
 
 Examples:
   argo work logs 01J9JOB...
@@ -8611,9 +8411,6 @@ Options:
   -h, --help
           Print help (see a summary with '-h')
 
-  -V, --version
-          Print version
-
 Examples:
   argo work serve --vertical gtm-engineer
   argo work serve --vertical gtm-engineer --provider anthropic --model claude-sonnet-4-6
@@ -8661,8 +8458,7 @@ Commands:
   help        Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo worker actions`
@@ -8687,8 +8483,7 @@ Commands:
   help           Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker actions approve`
@@ -8706,7 +8501,6 @@ Options:
       --note <NOTE>                Optional free-form note appended into the row's `result` field for audit context
       --json                       
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ##### `argo worker actions approve-batch`
@@ -8727,7 +8521,6 @@ Options:
       --dry-run                    Preview ids without writing
       --json                       
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ##### `argo worker actions cancel`
@@ -8745,7 +8538,6 @@ Options:
       --note <NOTE>                  Optional free-form note recorded alongside the cancellation timestamp
       --json                         
   -h, --help                         Print help
-  -V, --version                      Print version
 ```
 
 ##### `argo worker actions complete`
@@ -8763,7 +8555,6 @@ Options:
       --result-json <RESULT_JSON>  Optional structured result blob. Must be valid JSON
       --json                       
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ##### `argo worker actions execute`
@@ -8780,7 +8571,6 @@ Options:
       --dry-run  Preview execution without changing state or writing an output bundle
       --json     
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 ##### `argo worker actions fail`
@@ -8797,7 +8587,6 @@ Options:
       --reason <REASON>  Free-form failure summary (required)
       --json             
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker actions list`
@@ -8817,7 +8606,6 @@ Options:
       --limit <LIMIT>              Cap the number of rows printed. Default 50 [default: 50]
       --json                       Emit JSON-lines (one row per action) instead of a human-readable table
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ##### `argo worker actions render`
@@ -8830,7 +8618,6 @@ Usage: argo worker actions render [OPTIONS]
 Options:
       --vertical <VERTICAL>  Optional vertical filter — when omitted, walks every loaded vertical
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 ##### `argo worker actions retry`
@@ -8855,9 +8642,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 ##### `argo worker actions show`
@@ -8871,9 +8655,8 @@ Arguments:
   <ACTION_ID>  `action_id` (UUIDv7) — the stable identifier across all state transitions
 
 Options:
-      --json     Emit JSON instead of the human-readable preview
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of the human-readable preview
+  -h, --help  Print help
 ```
 
 ##### `argo worker actions status`
@@ -8887,9 +8670,8 @@ Arguments:
   <ACTION_ID>  
 
 Options:
-      --json     
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  
+  -h, --help  Print help
 ```
 
 #### `argo worker anomalies`
@@ -8907,7 +8689,6 @@ Options:
       --limit <LIMIT>                  Cap the number of rows printed. Default 100 (max 1000)
       --json                           Emit JSON-lines (one event per row) instead of a human-readable table
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo worker archive`
@@ -8923,8 +8704,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker archive add`
@@ -8943,7 +8723,6 @@ Options:
       --principal <PRINCIPAL>  Operator principal recorded as `archived_by_principal`. Defaults to `$USER` when omitted
       --json                   Emit JSON instead of a human-readable summary
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 ##### `argo worker archive list`
@@ -8957,7 +8736,6 @@ Options:
       --tenant <TENANT>  Tenant id whose archive should be listed
       --json             Emit JSON-lines (one row per archive entry) instead of a human-readable table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker budget`
@@ -8973,8 +8751,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker budget set`
@@ -8993,7 +8770,6 @@ Options:
       --clear              Drop both cap fields and fall back to the tenant default
       --json               Emit JSON instead of a human-readable summary
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 ##### `argo worker budget show`
@@ -9007,9 +8783,8 @@ Arguments:
   <WORKER_ID>  Worker id (UUIDv7)
 
 Options:
-      --json     Emit JSON instead of a human-readable summary
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable summary
+  -h, --help  Print help
 ```
 
 #### `argo worker channels`
@@ -9026,8 +8801,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker channels add`
@@ -9045,7 +8819,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace owns the row
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker channels list`
@@ -9062,7 +8835,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace should be queried
       --json             Emit JSON instead of a markdown bullet list
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker channels remove`
@@ -9080,7 +8852,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace owns the row
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker charter`
@@ -9097,8 +8868,7 @@ Commands:
   help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker charter clear`
@@ -9115,7 +8885,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace owns the row
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker charter get`
@@ -9133,7 +8902,6 @@ Options:
       --md               Render the charter markdown to stdout (default)
       --json             Emit `{charter, kpis}` JSON
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker charter set`
@@ -9152,7 +8920,6 @@ Options:
       --kpis <KPIS>      Optional path to a JSON file holding the KPIs object
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker costs`
@@ -9190,9 +8957,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
-  -V, --version
-          Print version
 ```
 
 #### `argo worker create`
@@ -9221,8 +8985,6 @@ Options:
           Emit JSON instead of a human-readable summary
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 #### `argo worker delete`
@@ -9240,7 +9002,6 @@ Options:
       --force            Skip the grace window (compliance-driven purges only — `argo compliance delete --tenant` calls through here)
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker deps`
@@ -9259,8 +9020,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker deps add`
@@ -9279,7 +9039,6 @@ Options:
       --note <NOTE>  Optional operator note recorded with the row
       --json         Emit JSON instead of a human-readable confirmation
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 ##### `argo worker deps graph`
@@ -9292,7 +9051,6 @@ Usage: argo worker deps graph [OPTIONS]
 Options:
       --format <FORMAT>  Output format: `markdown` (default), `dot`, or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker deps impact`
@@ -9306,9 +9064,8 @@ Arguments:
   <WORKER_ID>  Worker id whose downstream impact to compute
 
 Options:
-      --json     Emit JSON instead of a human-readable list
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Emit JSON instead of a human-readable list
+  -h, --help  Print help
 ```
 
 ##### `argo worker deps list`
@@ -9325,7 +9082,6 @@ Options:
       --direction <DIRECTION>  `out` (default) — what this worker depends on. `in` — what depends on this worker. `both` — union of the two [default: out]
       --format <FORMAT>        Output format: `markdown` (default) or `json` [default: markdown]
   -h, --help                   Print help
-  -V, --version                Print version
 ```
 
 ##### `argo worker deps remove`
@@ -9343,7 +9099,6 @@ Options:
       --kind <KIND>  One of `data|approval|handoff|skill`
       --json         Emit JSON instead of a human-readable confirmation
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo worker doctor`
@@ -9357,7 +9112,6 @@ Options:
       --vertical <VERTICAL>  Filter the ledger view to a single vertical
       --json                 Emit JSON instead of the human-readable report
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo worker elasticity`
@@ -9373,8 +9127,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker elasticity config`
@@ -9385,9 +9138,8 @@ Show the resolved elasticity config (mode + bounds + cooldowns)
 Usage: argo worker elasticity config [OPTIONS]
 
 Options:
-      --text     Render as human-readable text instead of JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --text  Render as human-readable text instead of JSON
+  -h, --help  Print help
 ```
 
 ##### `argo worker elasticity status`
@@ -9398,9 +9150,8 @@ Current pool snapshot + most recent recommendation as JSON
 Usage: argo worker elasticity status [OPTIONS]
 
 Options:
-      --text     Render as human-readable text instead of JSON
-  -h, --help     Print help
-  -V, --version  Print version
+      --text  Render as human-readable text instead of JSON
+  -h, --help  Print help
 ```
 
 #### `argo worker fleet`
@@ -9416,7 +9167,6 @@ Options:
       --since <SINCE>    Only include workers active since this duration (`7d`, `12h`, `30m`, or `60s`)
       --json             Emit JSON instead of a markdown table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker items`
@@ -9432,8 +9182,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker items list`
@@ -9449,7 +9198,6 @@ Options:
       --limit <LIMIT>        Cap the number of rows printed. Default 50 [default: 50]
       --json                 Emit JSON-lines (one row per item) instead of a human-readable table
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 ##### `argo worker items show`
@@ -9466,7 +9214,6 @@ Options:
       --vertical <VERTICAL>  Filter to a single vertical's namespace. When the same item_id exists under multiple verticals (rare but possible), required to disambiguate
       --json                 Emit JSON (full row dump) instead of the human- readable timeline. JSON output is one object per row in chronological order
   -h, --help                 Print help
-  -V, --version              Print version
 ```
 
 #### `argo worker kpi`
@@ -9483,8 +9230,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker kpi list`
@@ -9503,7 +9249,6 @@ Options:
       --since <SINCE>    RFC3339 cutoff — only observations at or after this time are returned. Useful for "show me this week's csat" without counting rows
       --json             Emit JSON-lines (one row per observation) instead of a human-readable table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker kpi record`
@@ -9523,7 +9268,6 @@ Options:
       --note <NOTE>      Optional free-text note recorded alongside the value (e.g. "post-incident review", "customer migrated")
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker kpi series`
@@ -9542,7 +9286,6 @@ Options:
       --bucket <BUCKET>  Bucket granularity: `day`, `week` (Monday-stamped), or `month` (`YYYY-MM`)
       --json             Emit JSON-lines (one row per bucket) instead of a human-readable table
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker level`
@@ -9559,7 +9302,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace owns the row
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker list`
@@ -9574,7 +9316,6 @@ Options:
       --persona <PERSONA>  Filter to workers whose persona name exactly matches
       --json               Emit JSON instead of a human-readable table
   -h, --help               Print help
-  -V, --version            Print version
 ```
 
 #### `argo worker okr`
@@ -9591,8 +9332,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker okr progress`
@@ -9610,7 +9350,6 @@ Options:
       --period <PERIOD>  Filter to one period (`YYYYQ[1-4]`)
       --json             Emit JSON instead of a human-readable scorecard
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 ##### `argo worker okr set`
@@ -9631,7 +9370,6 @@ Options:
       --kr <KR>...                 Repeatable `--kr kpi:op:target:weight`. `op` is `gte|lte|eq`, `weight > 0`. At least one is required
       --json                       Emit JSON instead of a human-readable summary
   -h, --help                       Print help
-  -V, --version                    Print version
 ```
 
 ##### `argo worker okr show`
@@ -9649,7 +9387,6 @@ Options:
       --period <PERIOD>  Filter to one period (`YYYYQ[1-4]`)
       --format <FORMAT>  Output format: `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker onboard`
@@ -9665,7 +9402,6 @@ Options:
       --role-name <ROLE_NAME>        Optional role-name label consumed by `TargetSelector::RoleMatch(String)` routing-rule resolution (Tier M4). Omit to leave the worker unclassified
       --json                         Emit JSON instead of a markdown summary
   -h, --help                         Print help
-  -V, --version                      Print version
 ```
 
 #### `argo worker policy`
@@ -9680,8 +9416,7 @@ Commands:
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 ##### `argo worker policy show`
@@ -9698,7 +9433,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace should be queried
       --json             Emit JSON. Accepted for symmetry with every worker subcommand
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker portrait`
@@ -9715,7 +9449,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace should be queried
       --json             Emit JSON instead of markdown
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker promote`
@@ -9735,7 +9468,6 @@ Options:
       --reason <REASON>  Operator note recorded in the promotion audit row
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker rehydrate`
@@ -9752,7 +9484,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace owns the row
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker restarts`
@@ -9766,7 +9497,6 @@ Options:
       --worker <WORKER>  Filter to one worker id
       --since <SINCE>    `now - <duration>` filter; suffixes `s` / `m` / `h` / `d` (e.g. `1h`, `30d`)
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker resume`
@@ -9784,7 +9514,6 @@ Options:
       --reason <REASON>  Operator note recorded in the circuit audit trail
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker review`
@@ -9802,7 +9531,6 @@ Options:
       --since <SINCE>    Override the period start with an explicit RFC3339 cutoff
       --format <FORMAT>  `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker show`
@@ -9819,7 +9547,6 @@ Options:
       --tenant <TENANT>  Tenant id whose worker namespace should be queried
       --json             Emit JSON instead of a human-readable summary
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker skills`
@@ -9837,7 +9564,6 @@ Options:
       --available-only   Restrict the listing to skills that carry a non-NULL `min_trust_grade` floor — i.e. the gated subset that actually depends on the worker's trust grade
       --json             Emit one JSON object per skill instead of the columnar text layout
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker success`
@@ -9855,7 +9581,6 @@ Options:
       --bucket <BUCKET>  `none` (default), `day`, `week`, or `month` [default: none]
       --format <FORMAT>  `markdown` (default) or `json` [default: markdown]
   -h, --help             Print help
-  -V, --version          Print version
 ```
 
 #### `argo worker update`
@@ -9872,7 +9597,6 @@ Options:
       --auto-approval-json <AUTO_APPROVAL_JSON>  Path to a JSON `AutoApprovalPolicy` document
       --json                                     Emit JSON instead of a human-readable summary
   -h, --help                                     Print help
-  -V, --version                                  Print version
 ```
 
 ### `argo workflow`
@@ -9893,8 +9617,7 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo workflow checkpoints`
@@ -9908,9 +9631,8 @@ Arguments:
   <RUN_ID>  Workflow run id
 
 Options:
-      --json     Output as a single JSON array
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON array
+  -h, --help  Print help
 ```
 
 #### `argo workflow list-runs`
@@ -9924,7 +9646,6 @@ Options:
       --limit <LIMIT>  Cap the number of rows printed. Default 50 [default: 50]
       --json           Output as a single JSON object
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo workflow resume`
@@ -9938,9 +9659,8 @@ Arguments:
   <RUN_ID>  Workflow run id (UUIDv7) returned by `run`
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo workflow rollback`
@@ -9957,7 +9677,6 @@ Options:
       --to-checkpoint <TO_CHECKPOINT>  Target seq to roll back to (rows with seq > target are dropped)
       --json                           Output as a single JSON object
   -h, --help                           Print help
-  -V, --version                        Print version
 ```
 
 #### `argo workflow run`
@@ -9974,7 +9693,6 @@ Options:
       --dry-run  Print the execution plan without invoking the runner
       --json     Output as a single JSON object
   -h, --help     Print help
-  -V, --version  Print version
 ```
 
 #### `argo workflow status`
@@ -9988,9 +9706,8 @@ Arguments:
   <RUN_ID>  Workflow run id (UUIDv7) returned by `run`
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 #### `argo workflow validate`
@@ -10004,9 +9721,8 @@ Arguments:
   <PATH>  Path to a workflow YAML file
 
 Options:
-      --json     Output as a single JSON object
-  -h, --help     Print help
-  -V, --version  Print version
+      --json  Output as a single JSON object
+  -h, --help  Print help
 ```
 
 ### `argo workspace`
@@ -10027,8 +9743,7 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo workspace artifacts`
@@ -10042,7 +9757,6 @@ Options:
       --limit <LIMIT>  [default: 25]
       --json           Output as JSON (one object per row) for scripting
   -h, --help           Print help
-  -V, --version        Print version
 ```
 
 #### `argo workspace diff`
@@ -10054,8 +9768,7 @@ Arguments:
   <OTHER>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo workspace fork`
@@ -10071,7 +9784,6 @@ Arguments:
 Options:
       --into <INTO>  Destination directory. Defaults to `./fork-<repo>-<tag>` next to the cwd
   -h, --help         Print help
-  -V, --version      Print version
 ```
 
 #### `argo workspace init`
@@ -10082,8 +9794,7 @@ Initialize a fresh workspace at `.` (writes argo.toml + the canonical bundle dir
 Usage: argo workspace init
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo workspace init
@@ -10095,8 +9806,7 @@ Examples:
 Usage: argo workspace publish
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo workspace pull`
@@ -10108,8 +9818,7 @@ Arguments:
   <OCI_REF>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo workspace push`
@@ -10121,8 +9830,7 @@ Arguments:
   <OCI_REF>  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 ```
 
 #### `argo workspace status`
@@ -10136,7 +9844,6 @@ Options:
       --json             Output as a single JSON object for scripting. Equivalent to `--format json`
       --format <FORMAT>  Output format: `text` (default), `json`, or `markdown`. `--json` wins if both are passed [default: text]
   -h, --help             Print help
-  -V, --version          Print version
 
 Examples:
   argo workspace status
@@ -10151,8 +9858,7 @@ Verify workspace integrity: argo.toml parses, memory files + bundle dirs exist, 
 Usage: argo workspace verify
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help  Print help
 
 Examples:
   argo workspace verify

@@ -17,13 +17,18 @@ use clap::{Args, Parser, Subcommand};
 pub use cli_command_enum::{Command, E2bSandboxCmd, SandboxCmd};
 pub use cli_security_cmds::SecurityCmd;
 #[derive(Parser, Debug)]
+// `propagate_version` is intentionally OFF: several subcommands
+// (`argo packs install --version`, `argo forge promote --version`,
+// `argo skill rate --version`, …) take a user-facing `--version` flag
+// that names the artefact being acted on, which collided with the
+// auto-injected binary-version flag. `argo --version` at the top level
+// still prints the binary version (mission-cli-shell-completions).
 #[command(
     name = "argo",
     version,
     about = "Argo — the ship of agents",
     long_about = "Argo is the agent framework that one engineer can fully audit on a weekend.\n\
-                  See `docs/plan/argo-build-plan.md` for the full master spec.",
-    propagate_version = true
+                  See `docs/plan/argo-build-plan.md` for the full master spec."
 )]
 pub struct Cli {
     #[command(subcommand)]

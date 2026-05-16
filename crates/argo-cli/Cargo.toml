@@ -84,6 +84,10 @@ chrono = { workspace = true }
 # list (one-line additive Cargo.toml dep, no breaking changes).
 cron = "0.12"
 clap = { workspace = true }
+# Generates shell completion scripts for `argo completions <shell>`
+# (mission-cli-shell-completions). clap_complete consumes
+# `Cli::command()` directly — no parallel CLI description needed.
+clap_complete = "4"
 csv = "1"
 # Concurrent map for the per-IP token-bucket rate limiter
 # (claude-security-rate-limit-by-ip). DashMap is not yet a workspace

@@ -121,6 +121,7 @@ async fn dispatch(cli: Cli) -> ArgoResult<()> {
         Command::Cred { cmd } => main_dispatch_setup::cred(cmd),
         Command::Backup { cmd } => main_dispatch_setup::backup(cmd).await,
         Command::Restore { args } => main_dispatch_setup::restore(args).await,
+        Command::Completions { shell } => handlers::completions::run(shell),
         Command::SelfUpdate {
             check,
             channel,

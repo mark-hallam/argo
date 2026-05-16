@@ -458,6 +458,20 @@ pub enum Command {
         #[command(subcommand)]
         cmd: cli_wizard_cmds::WizardCmd,
     },
+    /// Print a shell completion script for `argo` to stdout
+    /// (Stream `mission-cli-shell-completions`). Pipe to the
+    /// shell's completion-loader path:
+    ///
+    /// ```text
+    /// argo completions bash > /usr/local/etc/bash_completion.d/argo
+    /// argo completions zsh  > "${fpath[1]}/_argo"
+    /// argo completions fish > ~/.config/fish/completions/argo.fish
+    /// ```
+    Completions {
+        /// Target shell — `bash`, `zsh`, `fish`, `powershell`, or
+        /// `elvish`. Validated by `clap_complete::Shell`.
+        shell: clap_complete::Shell,
+    },
     /// Coordinated security operations. Subcommands:
     /// - `audit` — vuln-scan wrapper around `cargo audit` +
     ///   `cargo deny check advisories` (Mission
