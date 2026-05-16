@@ -62,8 +62,9 @@ pub(crate) async fn runtime_doctor(
     cmd: Option<cli::DoctorCmd>,
     json: bool,
     format: String,
+    skip_network: bool,
 ) -> ArgoResult<()> {
-    handlers::doctor::dispatch(cmd, json, format).await
+    handlers::doctor::dispatch(cmd, json, format, skip_network).await
 }
 
 pub(crate) async fn runtime_latency(format: String) -> ArgoResult<()> {

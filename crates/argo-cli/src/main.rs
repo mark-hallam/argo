@@ -218,6 +218,7 @@ async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
             json,
             summary,
             format,
+            skip_network,
         } => {
             let format = if summary && json {
                 "summary-json".to_string()
@@ -226,7 +227,7 @@ async fn dispatch_runtime(cmd: RuntimeCmd) -> ArgoResult<()> {
             } else {
                 format
             };
-            main_dispatch_gateway::runtime_doctor(cmd, json && !summary, format).await
+            main_dispatch_gateway::runtime_doctor(cmd, json && !summary, format, skip_network).await
         }
         RuntimeCmd::Latency { format } => main_dispatch_gateway::runtime_latency(format).await,
         // Bootstrap surfaces.

@@ -10,13 +10,20 @@ use argo_types::{ArgoError, ArgoResult};
 mod doctor_channels;
 #[path = "doctor_h_stack.rs"]
 mod doctor_h_stack;
+#[path = "doctor_network.rs"]
+mod doctor_network;
 
 /// Single entry point for every `argo doctor [...]` invocation —
 /// keeps the per-subcommand wiring out of `main.rs` so the dispatch
 /// can grow without ballooning the binary entry file.
-pub async fn dispatch(cmd: Option<DoctorCmd>, json: bool, format: String) -> ArgoResult<()> {
+pub async fn dispatch(
+    cmd: Option<DoctorCmd>,
+    json: bool,
+    format: String,
+    skip_network: bool,
+) -> ArgoResult<()> {
     match cmd {
-        None => run(json, &format).await,
+        None => run(json, &format, skip_network).await,
         Some(DoctorCmd::Fix {
             auto,
             issue,
@@ -42,12 +49,12 @@ pub async fn dispatch(cmd: Option<DoctorCmd>, json: bool, format: String) -> Arg
     }
 }
 
-pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
-    let payload = collect().await?;
+pub async fn run(json: bool, format: &str, skip_network: bool) -> ArgoResult<()> {
+    let payload = collect_with_skip(skip_network).await?;
+    let summary = summarize(&payload);
     let pick = if json { "json" } else { format };
     match pick {
         "summary" | "summary-json" => {
-            let summary = summarize(&payload);
             let line = if pick == "summary-json" {
                 serde_json::to_string(&summary.json())
                     .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
@@ -63,11 +70,11 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
                 serde_json::to_string(&payload)
                     .map_err(|e| ArgoError::Provider(format!("serialize: {e}")))?
             );
-            return Ok(());
+            std::process::exit(summary.state.exit_code());
         }
         "markdown" => {
             super::doctor_md::print_markdown(&payload);
-            return Ok(());
+            std::process::exit(summary.state.exit_code());
         }
         "text" => {}
         other => {
@@ -128,9 +135,10 @@ pub async fn run(json: bool, format: &str) -> ArgoResult<()> {
     super::doctor_gateway::print_gateway(&payload["gateway"]);
     super::doctor_gateway::print_health(&payload["gateway_health"]);
     super::doctor_gateway::print_routes(&payload["routes"]);
+    doctor_network::print_text(&payload["network_checks"]);
     doctor_h_stack::print_text(&payload["auto_approval"]);
     print_channels(&payload["channels"]);
-    Ok(())
+    std::process::exit(summary.state.exit_code());
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -244,6 +252,7 @@ pub(crate) fn summarize(v: &serde_json::Value) -> DoctorSummary {
         ),
         ("auto_approval", status_group_state(&v["auto_approval"])),
         ("channels", status_group_state(&v["channels"])),
+        ("network", network_state(&v["network_checks"])),
     ];
     let mut out = DoctorSummary {
         state: SummaryState::Ok,
@@ -317,6 +326,22 @@ fn status_group_state(v: &serde_json::Value) -> SummaryState {
     }
     state
 }
+fn network_state(v: &serde_json::Value) -> SummaryState {
+    if v["skipped"].as_bool().unwrap_or(false) {
+        return SummaryState::Ok;
+    }
+    let failures = ["dns", "tls", "auth"]
+        .into_iter()
+        .filter_map(|key| v[key].as_array())
+        .flat_map(|items| items.iter())
+        .filter(|item| item["status"].as_str() == Some("FAIL"))
+        .count();
+    match failures {
+        0 => SummaryState::Ok,
+        1 => SummaryState::Degraded,
+        _ => SummaryState::Fail,
+    }
+}
 
 /// Render the "Build Info" block printed above the existing health
 /// checks (`mission-cli-version-doctor-extras`). Silently no-ops if
@@ -365,6 +390,10 @@ fn print_channels(v: &serde_json::Value) {
 /// between the CLI handler and the gateway's `GET /doctor`
 /// endpoint.
 pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
+    collect_with_skip(false).await
+}
+
+pub(crate) async fn collect_with_skip(skip_network: bool) -> ArgoResult<serde_json::Value> {
     let cwd = std::env::current_dir().map_err(|e| ArgoError::Io(format!("current_dir: {e}")))?;
     let toml = cwd.join("argo.toml");
     let toml_ok = toml.exists();
@@ -392,6 +421,8 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
     let routes = super::doctor_gateway::routes_count();
     let auto_approval = doctor_h_stack::collect(&cwd, &home).await;
     let channels = doctor_channels::collect().await;
+    let network_checks =
+        doctor_network::collect(&cwd, skip_network || doctor_network::skip_from_env()).await;
     let build = crate::build_info::BuildInfo::current();
     let binary_path = std::env::current_exe()
         .map(|p| p.display().to_string())
@@ -424,6 +455,7 @@ pub(crate) async fn collect() -> ArgoResult<serde_json::Value> {
         "routes": routes,
         "auto_approval": auto_approval,
         "channels": channels,
+        "network_checks": network_checks,
     }))
 }
 

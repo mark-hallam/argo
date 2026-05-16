@@ -190,6 +190,10 @@ pub enum RuntimeCmd {
         /// `--json` wins if both are passed.
         #[arg(long, default_value = "text")]
         format: String,
+        /// Skip DNS, TLS, and provider-auth probes. Also honored
+        /// when ARGO_DOCTOR_SKIP_NETWORK=1 is set.
+        #[arg(long)]
+        skip_network: bool,
     },
     /// Run every read-only verification — workspace, provider
     /// manifests, skill hashes, memory hashes, audit chain — and

@@ -21,7 +21,8 @@ fn payload() -> serde_json::Value {
         "channels": {
             "email": {"status": "OK"},
             "slack": {"status": "OK"}
-        }
+        },
+        "network_checks": {"skipped": false, "dns": [], "tls": [], "auth": []}
     })
 }
 
@@ -72,7 +73,7 @@ async fn collect_includes_build_info_block() {
     // `build_info` key on the JSON envelope with seven well-known
     // fields. Probe the keys, not the values — git SHA / target /
     // rustc all depend on the invoking environment.
-    let payload = collect().await.expect("doctor collect");
+    let payload = collect_with_skip(true).await.expect("doctor collect");
     let build_info = &payload["build_info"];
     assert!(build_info.is_object(), "build_info missing: {payload}");
     for key in [
@@ -101,6 +102,24 @@ async fn collect_includes_build_info_block() {
         !build_info["version"].as_str().unwrap_or("").is_empty(),
         "version must be non-empty",
     );
+}
+
+#[test]
+fn summary_degraded_for_one_network_failure_and_fail_for_many() {
+    let mut p = payload();
+    p["network_checks"]["dns"] = json!([
+        {"host": "api.anthropic.com", "status": "FAIL"}
+    ]);
+    let one = summarize(&p);
+    assert_eq!(one.state, SummaryState::Degraded);
+    assert_eq!(one.warned, 1);
+
+    p["network_checks"]["tls"] = json!([
+        {"host": "api.openai.com", "status": "FAIL"}
+    ]);
+    let many = summarize(&p);
+    assert_eq!(many.state, SummaryState::Fail);
+    assert_eq!(many.failed, 1);
 }
 
 #[test]
