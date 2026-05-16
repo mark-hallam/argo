@@ -32,13 +32,13 @@ LOC: ~250.
 
 ## Files you may touch
 
-- `crates/argo-telemetry/src/prometheus.rs` (existing — added by #1775) — wire the cardinality check into the metric-record hot path. ≤80 modified LOC.
+- `crates/argo-telemetry/src/prometheus_registry.rs` (existing — actual registry surface, not `prometheus.rs` which the original brief named in error) — wire the cardinality check into the metric-record hot path. ≤80 modified LOC.
 - `crates/argo-telemetry/src/cardinality.rs` (NEW) — `CardinalityTracker` struct + HLL impl + per-family caps. ≤120 LOC.
 - `crates/argo-telemetry/src/cardinality_tests.rs` (NEW) — under cap / at warn threshold / at hard cap / capped-total emission. ≤80 LOC.
 - `crates/argo-telemetry/Cargo.toml` — narrowly: add `hyperloglog = "1"`. ≤3 modified LOC.
 - `crates/argo-config/src/sections_telemetry.rs` (existing or NEW) — `[telemetry.prometheus.cardinality_cap]` config schema. ≤40 modified LOC.
 - `crates/argo-cli/src/handlers/gateway/routes_metrics_cardinality.rs` (NEW) — admin endpoint. ≤50 LOC.
-- `crates/argo-cli/src/handlers/gateway/boot.rs` — mount route. ≤5 modified LOC.
+- `crates/argo-cli/src/handlers/gateway/boot_telemetry_admin.rs` (NEW) — helper that wires the new metrics-cardinality route; called from boot.rs in 1 line. ≤30 LOC. **Errata 2026-05-17**: original brief said modify `boot.rs` directly but boot.rs sits at 497/500 LOC ceiling. Use a new helper module instead.
 
 ## Files you must NOT touch
 
