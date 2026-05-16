@@ -28,7 +28,7 @@ use argo_types::{ArgoError, ArgoResult};
 
 const WORKER_ARCHIVE_SCHEMA: &str = include_str!("../migrations/31__worker_archive.sql");
 const AUDIT_TOMBSTONE_SCHEMA: &str =
-    include_str!("../migrations/51__audit_worker_deleted_at.sql");
+    include_str!("../migrations/100__audit_worker_deleted_at.sql");
 
 /// Default delete-grace window in days. Overridable per-process via
 /// `ARGO_WORKER_DELETE_GRACE_DAYS`; the runtime parses any non-negative

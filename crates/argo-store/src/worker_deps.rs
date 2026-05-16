@@ -32,7 +32,7 @@ use argo_types::{ArgoError, ArgoResult};
 #[path = "worker_deps_graph.rs"]
 mod graph;
 
-const WORKER_DEPENDENCY_SCHEMA: &str = include_str!("../migrations/45__worker_dependency.sql");
+const WORKER_DEPENDENCY_SCHEMA: &str = include_str!("../migrations/98__worker_dependency.sql");
 
 /// Hard cap on edges considered during cycle detection. Mirrors the
 /// brief's "10k edges to avoid pathological DFS"; a real workspace

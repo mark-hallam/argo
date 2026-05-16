@@ -22,12 +22,12 @@ pub(crate) const IDENTITY_SCHEMA: &str =
 // `ensure_worker_charter_columns` (PRAGMA-based idempotent path,
 // mirroring `ensure_role_columns`).
 const _WORKER_CHARTER_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/30__worker_charter.sql");
+    include_str!("../../argo-store/migrations/96__worker_charter.sql");
 // Documentation-only: ALTER TABLE for the tenure `level` column,
 // applied via `ensure_worker_level_columns`. Stream
 // `claude-worker-promotion-workflow`.
 const _WORKER_LEVEL_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/45__worker_level.sql");
+    include_str!("../../argo-store/migrations/99__worker_level.sql");
 // Documentation-only: ALTER TABLE for `trust_grade` + `last_used_at`,
 // applied via `ensure_worker_trust_grade_columns`. Stream
 // `mvp-worker-trust-grade-column`.
@@ -36,7 +36,7 @@ const _WORKER_TRUST_GRADE_SCHEMA: &str =
 // Raw schema for the worker↔skill association table, applied via
 // [`ensure_worker_skill_table`]. Stream `mvp-worker-skills-table`.
 const WORKER_SKILL_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/51__worker_skill.sql");
+    include_str!("../../argo-store/migrations/101__worker_skill.sql");
 // Documentation-only: ALTER TABLE for `role_name`, applied via
 // `ensure_worker_role_name_columns`. Stream
 // `mission-routing-skillmatch-rolematch`.

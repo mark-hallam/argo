@@ -10,7 +10,7 @@ use sqlx::Row;
 use std::sync::Arc;
 use uuid::Uuid;
 
-const ENSURE_ROSTER_SCHEMA_SQL: &str = include_str!("../../argo-store/migrations/22__roster.sql");
+const ENSURE_ROSTER_SCHEMA_SQL: &str = include_str!("../../argo-store/migrations/80__roster.sql");
 const ENSURE_ROSTER_POLICY_OVERRIDE_SQL: &str =
     include_str!("../../argo-store/migrations/74__roster_policy_override.sql");
 

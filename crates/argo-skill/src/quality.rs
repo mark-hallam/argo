@@ -37,7 +37,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 const ENSURE_QUALITY_SCHEMA_SQL: &str =
-    include_str!("../../argo-store/migrations/24__skill_quality_score.sql");
+    include_str!("../../argo-store/migrations/85__skill_quality_score.sql");
 
 /// Operational inputs the quality formula consumes. Built per
 /// skill from recent invocations (typically the last 30 days).

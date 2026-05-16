@@ -18,7 +18,7 @@
 use argo_types::ArgoError;
 use sqlx::Sqlite;
 
-const V47_UP_SQL: &str = include_str!("../../migrations/51__worker_skill.sql");
+const V47_UP_SQL: &str = include_str!("../../migrations/101__worker_skill.sql");
 
 pub(super) async fn up<'a, 'b>(tx: &'a mut sqlx::Transaction<'b, Sqlite>) -> Result<(), ArgoError> {
     for stmt in V47_UP_SQL.split_terminator(';') {

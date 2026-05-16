@@ -246,7 +246,7 @@ async fn recent_activity_capped_at_five_newest_first() {
 async fn duties_include_role_duty_rows() {
     let env = prep().await;
     let worker = add_worker(&env.store, env.tenant, "human:mark").await;
-    let schema = include_str!("../../../../argo-store/migrations/28__role_duties.sql");
+    let schema = include_str!("../../../../argo-store/migrations/93__role_duties.sql");
     for stmt in schema.split_terminator(';').map(str::trim).filter(|s| !s.is_empty()) {
         sqlx::query(stmt).execute(env.store.pool()).await.expect("role_duty schema");
     }

@@ -10,7 +10,7 @@ use argo_types::{ArgoError, ArgoResult};
 use chrono::{DateTime, Utc};
 use serde_json::json;
 
-const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/28__recovery_cache.sql");
+const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/92__recovery_cache.sql");
 const CONFIRM_TOKEN: &str = "yes-i-mean-it";
 
 pub async fn run(cmd: RecoverCacheCmd) -> ArgoResult<()> {

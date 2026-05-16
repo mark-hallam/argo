@@ -91,7 +91,7 @@ async fn write_recovery_cache(
     suggestions_json: &str,
 ) -> ArgoResult<()> {
     let store = SessionStore::open(home.join("sessions.db")).await?;
-    let schema = include_str!("../../argo-store/migrations/28__recovery_cache.sql");
+    let schema = include_str!("../../argo-store/migrations/92__recovery_cache.sql");
     for stmt in schema.split_terminator(';') {
         let sql = stmt.trim();
         if sql.is_empty() {

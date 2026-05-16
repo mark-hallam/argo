@@ -9,7 +9,7 @@ use uuid::Uuid;
 use super::recover_prompt::{build_prompt, chain_hash_for, find_failing_step, RecoverySuggestions};
 use crate::home::{db_path, ensure_dir, resolve_home};
 
-const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/28__recovery_cache.sql");
+const SCHEMA_SQL: &str = include_str!("../../../argo-store/migrations/92__recovery_cache.sql");
 
 /// Pluggable Anthropic caller — same shape as
 /// `argo_genesis::AnthropicCaller`. Exposed for tests.

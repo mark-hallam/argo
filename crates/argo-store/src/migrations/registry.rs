@@ -10,18 +10,18 @@ use argo_types::ArgoError;
 use sqlx::{Pool, Sqlite};
 
 use super::{
-    ensure_schema_table, registry_compliance, registry_skills, registry_workers, registry_workflow,
-    Migration,
+    duplicate_slot_validator, ensure_schema_table, registry_compliance, registry_skills,
+    registry_workers, registry_workflow, Migration,
 };
 
 #[path = "slot_validator.rs"]
 mod slot_validator;
 
 pub(crate) async fn run(pool: &Pool<Sqlite>) -> Result<(), ArgoError> {
+    duplicate_slot_validator::validate_no_duplicate_slots()?;
     ensure_schema_table(pool).await?;
     let migrations = all_migrations();
     slot_validator::validate_registered_versions(migrations.iter().map(|m| m.version))?;
-    slot_validator::warn_on_historical_raw_collisions();
     let mut current = current_version(pool).await?;
     for m in migrations {
         if m.version > current {

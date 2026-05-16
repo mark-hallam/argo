@@ -92,7 +92,7 @@ async fn seed(home: &Path, worker: &str) {
         .unwrap();
     apply_schema(
         &store,
-        include_str!("../../argo-store/migrations/26__worker_budget_alert.sql"),
+        include_str!("../../argo-store/migrations/89__worker_budget_alert.sql"),
     )
     .await;
     let now = Utc::now();

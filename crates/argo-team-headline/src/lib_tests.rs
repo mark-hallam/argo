@@ -16,7 +16,7 @@ use crate::tomorrow::next_duty_for_worker;
 use crate::{generate_team_headline, render_bullets, MAX_BULLETS, MAX_BULLET_CHARS};
 
 const ROLE_DUTY_SCHEMA: &str =
-    include_str!("../../argo-store/migrations/28__role_duties.sql");
+    include_str!("../../argo-store/migrations/93__role_duties.sql");
 
 // Pure shaping tests (no DB)
 

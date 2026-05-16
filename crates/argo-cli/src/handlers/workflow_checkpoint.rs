@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 const SCHEMA_SQL: &str =
-    include_str!("../../../argo-store/migrations/23__workflow_checkpoints.sql");
+    include_str!("../../../argo-store/migrations/83__workflow_checkpoints.sql");
 
 /// Sqlite-backed checkpoint store.
 pub struct SqliteCheckpointStore {

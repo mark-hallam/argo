@@ -63,7 +63,7 @@ impl SkillIngestSink for NoopSkillIngestSink {
 }
 
 const LEARNED_PLAN_TEMPLATE_SCHEMA: &str =
-    include_str!("../migrations/30__learned_plan_templates.sql");
+    include_str!("../migrations/95__learned_plan_templates.sql");
 
 /// Lifecycle state of a [`LearnedPlanTemplateRow`]. Mirrored as a
 /// lower-case string in the `trust_grade` column.

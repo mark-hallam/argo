@@ -8,7 +8,7 @@ use sqlx::SqlitePool;
 use crate::auction::{Auction, AuctionBid};
 
 pub(crate) const SCHEMA_SQL: &str =
-    include_str!("../../argo-store/migrations/27__handoff_auctions.sql");
+    include_str!("../../argo-store/migrations/90__handoff_auctions.sql");
 
 /// Persistent auction store (sqlite). Idempotent schema bootstrap.
 #[derive(Clone)]

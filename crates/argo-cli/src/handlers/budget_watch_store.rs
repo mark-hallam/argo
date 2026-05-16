@@ -13,7 +13,7 @@ use chrono::{DateTime, Datelike, TimeZone, Utc};
 use sqlx::Row;
 
 pub(crate) const ALERT_SCHEMA: &str =
-    include_str!("../../../argo-store/migrations/26__worker_budget_alert.sql");
+    include_str!("../../../argo-store/migrations/89__worker_budget_alert.sql");
 pub(crate) const WORKER_BUDGET_SCHEMA: &str =
     include_str!("../../../argo-store/migrations/14__worker_budget.sql");
 

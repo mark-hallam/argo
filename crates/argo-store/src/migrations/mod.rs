@@ -69,6 +69,7 @@ mod v7;
 mod v8;
 mod v9;
 
+mod duplicate_slot_validator;
 mod registry;
 mod registry_compliance;
 mod registry_skills;

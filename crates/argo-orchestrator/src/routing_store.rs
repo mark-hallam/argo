@@ -12,7 +12,7 @@ use sqlx::Row;
 use std::sync::Arc;
 
 const ENSURE_ROUTING_SCHEMA_SQL: &str =
-    include_str!("../../argo-store/migrations/23__handoff_routing.sql");
+    include_str!("../../argo-store/migrations/82__handoff_routing.sql");
 
 /// Persistence facade over the `handoff_routing_rule` table.
 #[derive(Clone)]

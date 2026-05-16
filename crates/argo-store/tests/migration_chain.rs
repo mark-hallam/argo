@@ -120,7 +120,7 @@ fn is_reconciled_versioned_raw(path: &Path) -> bool {
         .and_then(|s| s.to_str())
         .and_then(|s| s.split_once("__"))
         .and_then(|(n, _)| n.parse::<u32>().ok())
-        .is_some_and(|version| (12..=29).contains(&version))
+        .is_some_and(|slot| (12..=29).contains(&slot) || (78..=94).contains(&slot))
 }
 
 fn migration_files() -> Result<Vec<PathBuf>, String> {
@@ -355,4 +355,37 @@ fn is_skill_min_trust_grade_duplicate(stmt: &str, err: &sqlx::Error) -> bool {
 fn is_clean_idempotent_error(err: &sqlx::Error) -> bool {
     let msg = err.to_string();
     msg.contains("duplicate column name") || msg.contains("already exists")
+}
+
+#[test]
+fn migration_filenames_are_strictly_monotonic_and_unique() {
+    let files = migration_files().expect("read migrations dir");
+    let mut slots: Vec<u32> = files
+        .iter()
+        .filter_map(|p| {
+            p.file_name()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.split_once("__"))
+                .and_then(|(n, _)| n.parse::<u32>().ok())
+        })
+        .collect();
+    assert!(
+        !slots.is_empty(),
+        "expected at least one slotted migration file"
+    );
+    let original = slots.clone();
+    slots.sort_unstable();
+    slots.dedup();
+    assert_eq!(
+        slots.len(),
+        original.len(),
+        "duplicate slot detected in migrations/: {original:?}"
+    );
+    let mut prev: Option<u32> = None;
+    for slot in &slots {
+        if let Some(p) = prev {
+            assert!(p < *slot, "non-monotonic slot {p} before {slot}");
+        }
+        prev = Some(*slot);
+    }
 }

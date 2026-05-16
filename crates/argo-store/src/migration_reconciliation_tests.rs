@@ -91,26 +91,26 @@ async fn raw_v12_to_v29_legacy_schema_migrates_without_duplicate_errors() {
         include_str!("../migrations/16__orchestrator.sql"),
         include_str!("../migrations/17__worker_circuit_history.sql"),
         include_str!("../migrations/18__workflow_runs.sql"),
-        include_str!("../migrations/19__anomaly.sql"),
-        include_str!("../migrations/19__worker_fs_root.sql"),
+        include_str!("../migrations/78__anomaly.sql"),
+        include_str!("../migrations/79__worker_fs_root.sql"),
         include_str!("../migrations/20__skill_ab_tests.sql"),
         include_str!("../migrations/21__org_chart.sql"),
-        include_str!("../migrations/22__roster.sql"),
-        include_str!("../migrations/22__tenant_archived.sql"),
-        include_str!("../migrations/23__handoff_routing.sql"),
-        include_str!("../migrations/23__workflow_checkpoints.sql"),
-        include_str!("../migrations/24__operator_feedback.sql"),
-        include_str!("../migrations/24__skill_quality_score.sql"),
-        include_str!("../migrations/24__vertical_archived.sql"),
+        include_str!("../migrations/80__roster.sql"),
+        include_str!("../migrations/81__tenant_archived.sql"),
+        include_str!("../migrations/82__handoff_routing.sql"),
+        include_str!("../migrations/83__workflow_checkpoints.sql"),
+        include_str!("../migrations/84__operator_feedback.sql"),
+        include_str!("../migrations/85__skill_quality_score.sql"),
+        include_str!("../migrations/86__vertical_archived.sql"),
         include_str!("../migrations/25__policy_files.sql"),
-        include_str!("../migrations/26__data_classification.sql"),
-        include_str!("../migrations/26__spend_baseline.sql"),
-        include_str!("../migrations/26__worker_budget_alert.sql"),
-        include_str!("../migrations/27__handoff_auctions.sql"),
-        include_str!("../migrations/27__spend_anomaly.sql"),
-        include_str!("../migrations/28__recovery_cache.sql"),
-        include_str!("../migrations/28__role_duties.sql"),
-        include_str!("../migrations/28__tenant_quota.sql"),
+        include_str!("../migrations/87__data_classification.sql"),
+        include_str!("../migrations/88__spend_baseline.sql"),
+        include_str!("../migrations/89__worker_budget_alert.sql"),
+        include_str!("../migrations/90__handoff_auctions.sql"),
+        include_str!("../migrations/91__spend_anomaly.sql"),
+        include_str!("../migrations/92__recovery_cache.sql"),
+        include_str!("../migrations/93__role_duties.sql"),
+        include_str!("../migrations/94__tenant_quota.sql"),
         include_str!("../migrations/29__subtask_ledger.sql"),
     ] {
         apply_raw(&store, raw).await;
@@ -171,10 +171,10 @@ async fn partial_legacy_19_collision_pair_migrates_to_full_v40() {
         include_str!("../migrations/12__worker_identity.sql"),
     )
     .await;
-    apply_raw(&store, include_str!("../migrations/19__anomaly.sql")).await;
+    apply_raw(&store, include_str!("../migrations/78__anomaly.sql")).await;
     apply_raw(
         &store,
-        include_str!("../migrations/19__worker_fs_root.sql"),
+        include_str!("../migrations/79__worker_fs_root.sql"),
     )
     .await;
 
@@ -202,32 +202,32 @@ async fn partial_legacy_28_collision_trio_migrates_to_full_v40() {
     .await;
     apply_raw(
         &store,
-        include_str!("../migrations/22__tenant_archived.sql"),
+        include_str!("../migrations/81__tenant_archived.sql"),
     )
     .await;
     apply_raw(
         &store,
-        include_str!("../migrations/23__handoff_routing.sql"),
+        include_str!("../migrations/82__handoff_routing.sql"),
     )
     .await;
     apply_raw(
         &store,
-        include_str!("../migrations/24__skill_quality_score.sql"),
+        include_str!("../migrations/85__skill_quality_score.sql"),
     )
     .await;
     apply_raw(
         &store,
-        include_str!("../migrations/26__worker_budget_alert.sql"),
+        include_str!("../migrations/89__worker_budget_alert.sql"),
     )
     .await;
     apply_raw(
         &store,
-        include_str!("../migrations/27__handoff_auctions.sql"),
+        include_str!("../migrations/90__handoff_auctions.sql"),
     )
     .await;
     apply_raw(
         &store,
-        include_str!("../migrations/28__recovery_cache.sql"),
+        include_str!("../migrations/92__recovery_cache.sql"),
     )
     .await;
 
