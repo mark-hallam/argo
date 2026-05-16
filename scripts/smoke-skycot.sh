@@ -380,6 +380,28 @@ fallback_out=$(cargo test -p argo-cli --bin argo worker_actions_notify_fallback 
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "worker_actions_notify_fallback unit tests passed"
 
+heading "30. Slack approval round-trip with stub server (proves v1.0 SHIP-GATE Slack-approval scenarios)"
+# Drives the Rust-native `slack_approval_smoke` integration test.
+# Two cargo scenarios run under one invocation:
+#   * outbound — a real SlackApprovalChannel POSTs Block Kit to an
+#     in-process stub URL with signed approve/reject buttons;
+#   * inbound — a freshly-booted `argo gateway start` accepts the v0
+#     signed callback at `/channels/slack/webhook`; settle reaches
+#     the missing-action terminator; `audit verify-chain --json`
+#     emits a parseable summary afterwards.
+# SKIP path lets minimal images opt out of the cargo+gateway compose
+# while keeping the slack_approval_roundtrip_e2e check (scenario 21)
+# as the mandatory channel-seam mission proof.
+if [[ "${ARGO_SKIP_SLACK_SMOKE:-}" == "1" ]]; then
+  skip "slack_approval_smoke — ARGO_SKIP_SLACK_SMOKE=1 set (compatibility opt-out, not mission proof)"
+else
+  cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
+  slack_smoke_out=$(cargo test -p argo-cli --test slack_approval_smoke --quiet 2>&1) \
+    || fail "slack_approval_smoke" "$slack_smoke_out"
+  cd "$WORKDIR" || fail "cd back to workdir" ""
+  ok "slack_approval_smoke passed (outbound stub + inbound gateway round-trip)"
+fi
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
 echo "  scenarios: $PASSED_COUNT passed, $SKIPPED_COUNT skipped"
