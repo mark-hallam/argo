@@ -49,6 +49,24 @@ pub enum Capability {
         tool_name_glob: String,
     },
     /// Send an outbound message over a specific channel to a scoped recipient.
+    ///
+    /// Both `channel` and `recipient_scope` are globs — a grant matches a
+    /// request when each glob in the grant covers the corresponding string
+    /// in the request.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Capability, CapabilitySet};
+    /// let grant = CapabilitySet(vec![Capability::MessageSend {
+    ///     channel: "slack".into(),
+    ///     recipient_scope: "#alerts".into(),
+    /// }]);
+    /// assert!(grant.covers(&Capability::MessageSend {
+    ///     channel: "slack".into(),
+    ///     recipient_scope: "#alerts".into(),
+    /// }));
+    /// ```
     MessageSend {
         /// Channel glob (`slack`, `email`, `sms`, `imessage`, or `*`).
         channel: String,
@@ -56,6 +74,19 @@ pub enum Capability {
         recipient_scope: String,
     },
     /// Spawn a sub-process / sub-agent / container.
+    ///
+    /// Coverage compares [`SpawnKind`] for equality — holding
+    /// `Spawn { spawn_kind: Subprocess }` does **not** confer
+    /// `Spawn { spawn_kind: BackgroundProcess }` and vice versa.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Capability, CapabilitySet, SpawnKind};
+    /// let grant = CapabilitySet(vec![Capability::Spawn { spawn_kind: SpawnKind::Subprocess }]);
+    /// assert!(grant.covers(&Capability::Spawn { spawn_kind: SpawnKind::Subprocess }));
+    /// assert!(!grant.covers(&Capability::Spawn { spawn_kind: SpawnKind::Container }));
+    /// ```
     Spawn {
         /// Kind of spawn.
         spawn_kind: SpawnKind,
@@ -130,12 +161,29 @@ pub struct CapabilitySet(pub Vec<Capability>);
 
 impl CapabilitySet {
     /// Empty set (denies everything).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Capability, CapabilitySet};
+    /// let set = CapabilitySet::empty();
+    /// assert!(!set.covers(&Capability::AuditWrite));
+    /// ```
     #[must_use]
     pub fn empty() -> Self {
         Self(Vec::new())
     }
 
     /// Append a capability.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Capability, CapabilitySet};
+    /// let mut set = CapabilitySet::empty();
+    /// set.push(Capability::AuditWrite);
+    /// assert!(set.covers(&Capability::AuditWrite));
+    /// ```
     pub fn push(&mut self, c: Capability) {
         self.0.push(c);
     }

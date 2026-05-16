@@ -85,6 +85,18 @@ pub struct BudgetNode {
 
 impl BudgetNode {
     /// Build a root node from a `Budget`.
+    ///
+    /// Caps default to the corresponding integer `MAX` when the
+    /// `Budget` field is `None`, so an empty `Budget::default()`
+    /// is effectively unlimited.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Budget, BudgetNode};
+    /// let node = BudgetNode::root(&Budget::default());
+    /// assert_eq!(node.iterations_used(), 0);
+    /// ```
     #[must_use]
     pub fn root(b: &Budget) -> Arc<Self> {
         Arc::new(Self {
@@ -103,6 +115,22 @@ impl BudgetNode {
     }
 
     /// Carve out a child node from `self`. Charges propagate upward.
+    ///
+    /// The child's caps are independent, but every successful charge
+    /// also charges the parent — so the child can never spend more
+    /// than the smaller of its own cap and the remaining parent cap.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Budget, BudgetKind, BudgetNode};
+    /// let root = BudgetNode::root(&Budget { iterations: Some(2), ..Default::default() });
+    /// let child = root.fork(&Budget { iterations: Some(10), ..Default::default() });
+    /// assert!(child.charge(BudgetKind::Iterations, 1).is_ok());
+    /// assert!(child.charge(BudgetKind::Iterations, 1).is_ok());
+    /// // Parent cap of 2 stops the third charge even though child cap allows 10.
+    /// assert!(child.charge(BudgetKind::Iterations, 1).is_err());
+    /// ```
     #[must_use]
     pub fn fork(self: &Arc<Self>, b: &Budget) -> Arc<Self> {
         Arc::new(Self {
@@ -121,6 +149,27 @@ impl BudgetNode {
     }
 
     /// Charge `amount` against `kind`. Returns `Err` if exhausted at any level.
+    ///
+    /// On exhaustion the partial increment is rolled back at this
+    /// node before the error is returned, so subsequent charges see
+    /// pre-call counters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Budget, BudgetKind, BudgetNode};
+    /// let node = BudgetNode::root(&Budget { tokens_in: Some(100), ..Default::default() });
+    /// assert!(node.charge(BudgetKind::TokensIn, 60).is_ok());
+    /// assert!(node.charge(BudgetKind::TokensIn, 60).is_err());
+    /// // Wallclock and net-egress are tracked elsewhere; this layer no-ops.
+    /// assert!(node.charge(BudgetKind::WallclockMs, 1).is_ok());
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BudgetExhausted`] (carrying the exceeded
+    /// [`BudgetKind`]) when this node or any ancestor would exceed
+    /// its cap after the charge.
     pub fn charge(&self, kind: BudgetKind, amount: u64) -> Result<(), BudgetExhausted> {
         match kind {
             BudgetKind::Iterations => {
@@ -186,12 +235,30 @@ impl BudgetNode {
     }
 
     /// Iterations used at this node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Budget, BudgetKind, BudgetNode};
+    /// let node = BudgetNode::root(&Budget { iterations: Some(5), ..Default::default() });
+    /// node.charge(BudgetKind::Iterations, 2).unwrap();
+    /// assert_eq!(node.iterations_used(), 2);
+    /// ```
     #[must_use]
     pub fn iterations_used(&self) -> u32 {
         self.iterations.load(Ordering::SeqCst)
     }
 
     /// Spend used at this node (USD micros).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::{Budget, BudgetKind, BudgetNode};
+    /// let node = BudgetNode::root(&Budget { spend_usd_micros: Some(1_000_000), ..Default::default() });
+    /// node.charge(BudgetKind::SpendUsdMicros, 250_000).unwrap();
+    /// assert_eq!(node.spend_used(), 250_000);
+    /// ```
     #[must_use]
     pub fn spend_used(&self) -> u64 {
         self.spend.load(Ordering::SeqCst)

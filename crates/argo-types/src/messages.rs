@@ -78,6 +78,17 @@ pub enum ContentBlock {
         text: String,
     },
     /// An image.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::ContentBlock;
+    /// let block = ContentBlock::Image {
+    ///     url: "https://example.com/cat.png".into(),
+    ///     alt: Some("A grey tabby".into()),
+    /// };
+    /// assert!(serde_json::to_string(&block).unwrap().contains("image"));
+    /// ```
     Image {
         /// URL or data URI.
         url: String,
@@ -86,6 +97,17 @@ pub enum ContentBlock {
         alt: Option<String>,
     },
     /// An audio attachment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::ContentBlock;
+    /// let block = ContentBlock::Audio {
+    ///     url: "https://example.com/clip.mp3".into(),
+    ///     mime: "audio/mpeg".into(),
+    /// };
+    /// assert!(serde_json::to_string(&block).unwrap().contains("audio"));
+    /// ```
     Audio {
         /// URL.
         url: String,
@@ -93,6 +115,17 @@ pub enum ContentBlock {
         mime: String,
     },
     /// A document attachment.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::ContentBlock;
+    /// let block = ContentBlock::Document {
+    ///     url: "https://example.com/spec.pdf".into(),
+    ///     mime: "application/pdf".into(),
+    /// };
+    /// assert!(serde_json::to_string(&block).unwrap().contains("document"));
+    /// ```
     Document {
         /// URL.
         url: String,

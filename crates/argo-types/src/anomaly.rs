@@ -6,6 +6,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Event-source anomaly class.
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::AnomalyKind;
+/// let kind = AnomalyKind::ChainBreak;
+/// assert_eq!(kind.to_string(), "chain_break");
+/// let custom = AnomalyKind::Custom("disk_full".into());
+/// assert_eq!(custom.to_string(), "disk_full");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnomalyKind {
@@ -35,6 +45,16 @@ impl std::fmt::Display for AnomalyKind {
 
 impl AnomalyKind {
     /// Parse a TOML routing key.
+    ///
+    /// Unknown strings round-trip through [`AnomalyKind::Custom`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::AnomalyKind;
+    /// assert_eq!(AnomalyKind::parse("chain_break"), AnomalyKind::ChainBreak);
+    /// assert_eq!(AnomalyKind::parse("unrecognized"), AnomalyKind::Custom("unrecognized".into()));
+    /// ```
     #[must_use]
     pub fn parse(raw: &str) -> Self {
         match raw {
@@ -48,6 +68,15 @@ impl AnomalyKind {
 }
 
 /// Anomaly severity.
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::Severity;
+/// assert!(Severity::Critical > Severity::Warn);
+/// let json = serde_json::to_string(&Severity::Critical).unwrap();
+/// assert_eq!(json, "\"critical\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
@@ -59,6 +88,14 @@ pub enum Severity {
 
 impl Severity {
     /// Parse config value, defaulting unknown strings to `Warn`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::Severity;
+    /// assert_eq!(Severity::parse("critical"), Severity::Critical);
+    /// assert_eq!(Severity::parse("typo"), Severity::Warn);
+    /// ```
     #[must_use]
     pub fn parse(raw: &str) -> Self {
         match raw {
@@ -69,6 +106,20 @@ impl Severity {
 }
 
 /// Alert payload emitted by anomaly sources.
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::{AnomalyAlert, AnomalyKind, Severity};
+/// use std::collections::BTreeMap;
+/// let alert = AnomalyAlert {
+///     kind: AnomalyKind::BudgetCeiling,
+///     severity: Severity::Critical,
+///     message: "per-day cap reached".into(),
+///     context: BTreeMap::from([("tenant".into(), "acme".into())]),
+/// };
+/// assert_eq!(alert.context["tenant"], "acme");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnomalyAlert {
     /// Event-source anomaly kind.
@@ -82,6 +133,24 @@ pub struct AnomalyAlert {
 }
 
 /// Async dispatch surface shared by all anomaly emitters.
+///
+/// # Examples
+///
+/// A no-op dispatch impl used in tests:
+///
+/// ```
+/// use argo_types::{AnomalyAlert, AnomalyDispatch, ArgoResult};
+/// use async_trait::async_trait;
+///
+/// struct NullDispatch;
+///
+/// #[async_trait]
+/// impl AnomalyDispatch for NullDispatch {
+///     async fn dispatch(&self, _alert: AnomalyAlert) -> ArgoResult<()> {
+///         Ok(())
+///     }
+/// }
+/// ```
 #[async_trait]
 pub trait AnomalyDispatch: Send + Sync {
     /// Dispatch `alert` to configured channels.

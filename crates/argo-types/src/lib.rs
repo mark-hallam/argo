@@ -4,6 +4,18 @@
 //! foundation that every other crate consumes.
 //!
 //! See `docs/plan/argo-build-plan.md` §5 for the normative spec.
+//!
+//! # Examples
+//!
+//! Construct the canonical identifiers the rest of the workspace plumbs
+//! through every primitive:
+//!
+//! ```
+//! use argo_types::{SessionId, TenantId};
+//! let tenant = TenantId::new();
+//! let session = SessionId::new();
+//! assert_ne!(tenant.0, session.0);
+//! ```
 #![warn(missing_docs)]
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
@@ -48,6 +60,14 @@ pub use secret::Redacted;
 
 /// Operator approval decision shared by channel tokens and approval
 /// persistence.
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::ApprovalDecision;
+/// let json = serde_json::to_string(&ApprovalDecision::Approve).unwrap();
+/// assert_eq!(json, "\"approve\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
@@ -59,6 +79,14 @@ pub enum ApprovalDecision {
 
 impl ApprovalDecision {
     /// String value used in signed channel-token payloads.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::ApprovalDecision;
+    /// assert_eq!(ApprovalDecision::Approve.as_token_str(), "approve");
+    /// assert_eq!(ApprovalDecision::Reject.as_token_str(), "reject");
+    /// ```
     #[must_use]
     pub fn as_token_str(self) -> &'static str {
         match self {
@@ -68,6 +96,14 @@ impl ApprovalDecision {
     }
 
     /// Parse a channel-token decision string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::ApprovalDecision;
+    /// assert_eq!(ApprovalDecision::parse_token_str("approve"), Some(ApprovalDecision::Approve));
+    /// assert_eq!(ApprovalDecision::parse_token_str("granted"), None);
+    /// ```
     #[must_use]
     pub fn parse_token_str(s: &str) -> Option<Self> {
         match s {
@@ -78,6 +114,14 @@ impl ApprovalDecision {
     }
 
     /// Terminal label used by the approval-request store.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::ApprovalDecision;
+    /// assert_eq!(ApprovalDecision::Approve.as_store_str(), "granted");
+    /// assert_eq!(ApprovalDecision::Reject.as_store_str(), "denied");
+    /// ```
     #[must_use]
     pub fn as_store_str(self) -> &'static str {
         match self {

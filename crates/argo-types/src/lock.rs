@@ -2,6 +2,15 @@
 use serde::{Deserialize, Serialize};
 
 /// Edit-protection lock on a memory entry or skill.
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::Lock;
+/// assert_eq!(Lock::default(), Lock::None);
+/// let json = serde_json::to_string(&Lock::UserProtected).unwrap();
+/// assert_eq!(json, "\"user-protected\"");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Lock {

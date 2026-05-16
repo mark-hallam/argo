@@ -50,6 +50,17 @@ use crate::capability::Capability;
 use crate::cost_ceilings::CapScope;
 
 /// Argo-wide result.
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::{ArgoError, ArgoResult};
+/// fn parse_tenant(raw: &str) -> ArgoResult<u32> {
+///     raw.parse().map_err(|e: std::num::ParseIntError| ArgoError::Schema(e.to_string()))
+/// }
+/// assert!(parse_tenant("12").is_ok());
+/// assert!(matches!(parse_tenant("nope"), Err(ArgoError::Schema(_))));
+/// ```
 pub type ArgoResult<T> = Result<T, ArgoError>;
 
 /// Which spend-window tripped a hard `[budget.ceiling]` cap.
@@ -382,6 +393,20 @@ pub enum ArgoError {
     },
 }
 
+/// Auto-conversion from local I/O errors into [`ArgoError::Io`] so
+/// the `?` operator works ergonomically in functions that return
+/// [`ArgoResult`].
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::{ArgoError, ArgoResult};
+/// fn touch(path: &str) -> ArgoResult<()> {
+///     std::fs::metadata(path)?;
+///     Ok(())
+/// }
+/// assert!(matches!(touch("/nonexistent/path/abc.xyz"), Err(ArgoError::Io(_))));
+/// ```
 impl From<std::io::Error> for ArgoError {
     fn from(e: std::io::Error) -> Self {
         Self::Io(e.to_string())

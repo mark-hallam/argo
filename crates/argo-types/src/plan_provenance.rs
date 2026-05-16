@@ -20,6 +20,17 @@ use serde::{Deserialize, Serialize};
 ///
 /// Variants are flat (no nested struct) so the JSON shape is easy
 /// to query from operator tooling (`jq '.provenance.kind'`).
+///
+/// # Examples
+///
+/// ```
+/// use argo_types::PlanProvenance;
+/// let provenance = PlanProvenance::BuiltIn { template_name: "approval-gate".into() };
+/// let json = serde_json::to_string(&provenance).unwrap();
+/// assert!(json.contains("built_in"));
+/// assert!(json.contains("approval-gate"));
+/// assert_eq!(PlanProvenance::default(), PlanProvenance::ColdGenerated);
+/// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PlanProvenance {
@@ -53,6 +64,17 @@ pub enum PlanProvenance {
 impl PlanProvenance {
     /// Short label used in CLI summary lines and audit JSON
     /// envelopes. Matches the serde `kind` value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use argo_types::PlanProvenance;
+    /// assert_eq!(PlanProvenance::ColdGenerated.kind(), "cold_generated");
+    /// assert_eq!(
+    ///     PlanProvenance::BuiltIn { template_name: "approval-gate".into() }.kind(),
+    ///     "built_in",
+    /// );
+    /// ```
     #[must_use]
     pub fn kind(&self) -> &'static str {
         match self {
