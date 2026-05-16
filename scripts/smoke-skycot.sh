@@ -53,7 +53,23 @@ export CARGO_TARGET_DIR
 
 cd "$WORKDIR"
 
-ok() { echo "  OK: $*"; }
+# Scenario-result counters. Mission assertions count as PASS; compatibility
+# checks that runtime-detect they can't exercise the mission path count as
+# SKIP (a WARN signal — "compatibility check, not mission proof"). Failures
+# still exit immediately via fail().
+PASSED_COUNT=0
+SKIPPED_COUNT=0
+SKIPPED_REASONS=()
+
+ok() {
+  PASSED_COUNT=$((PASSED_COUNT + 1))
+  echo "  OK: $*"
+}
+skip() {
+  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+  SKIPPED_REASONS+=("$*")
+  echo "  SKIP: $*"
+}
 fail() {
   echo "FAIL: $1"
   if [[ -n "${2:-}" ]]; then
@@ -253,7 +269,7 @@ echo "  TARGET_DIR=$CARGO_TARGET_DIR" >&2
 # minimal images still get a green smoke run for the remaining checks;
 # the BrowserExecutor wiring is locked elsewhere in CI.
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "  SKIP #19 BrowserExecutor — python3 not in PATH"
+  skip "BrowserExecutor — python3 not in PATH (compatibility check, not mission proof)"
 else
   cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
   bx_out=$(cargo test -p argo-cli --test browser_action_executor_smoke --quiet 2>&1) \
@@ -262,15 +278,21 @@ else
   ok "browser_action_executor_smoke passed"
 fi
 
-heading "20. macOS computer-use smoke"
+heading "20. macOS computer-use smoke (proves V1 success scenario #1 when ARGO_NATIVE_MACOS_INTEGRATION=1)"
 # Runs the v1-primary native computer-use smoke. On non-macOS runners
 # or when ARGO_NATIVE_MACOS_INTEGRATION is unset, the integration test
-# prints a skip reason and still exercises config validation.
+# prints a skip reason and still exercises config validation — we treat
+# that path as SKIP (compatibility check) so the operator can distinguish
+# it from a real mission proof.
 cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
-macos_cu_out=$(cargo test -p argo-executor-computer-use-macos --test notes_smoke --quiet 2>&1) \
+macos_cu_out=$(cargo test -p argo-executor-computer-use-macos --test notes_smoke --quiet -- --nocapture 2>&1) \
   || fail "macOS computer-use notes_smoke" "$macos_cu_out"
 cd "$WORKDIR" || fail "cd back to workdir" ""
-ok "macOS computer-use notes_smoke passed"
+if echo "$macos_cu_out" | grep -q "skipping native macOS smoke test"; then
+  skip "macOS computer-use notes_smoke — native integration not exercised (set ARGO_NATIVE_MACOS_INTEGRATION=1 on macOS to prove V1 scenario #1)"
+else
+  ok "macOS computer-use notes_smoke passed (native integration exercised)"
+fi
 
 heading "21. Slack approval roundtrip"
 # Drives the existing integration smoke
@@ -310,8 +332,63 @@ claim4_out=$(cargo test -p argo-skill --test end_to_end_claim4_loop --quiet 2>&1
 cd "$WORKDIR" || fail "cd back to workdir" ""
 ok "end_to_end_claim4_loop passed"
 
+heading "26. Memory tool namespace runtime (proves Claim 1 memory_namespace through agent dispatch loop, not just prompt hydration)"
+# F-03: Memory::with_namespace must be reachable from the runtime dispatch
+# path, not just the prompt-hydration helper. The dedicated integration
+# crate covers bind / cross-worker isolation / unbound-error paths.
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
+mem_ns_out=$(cargo test -p argo-agent-runner --test memory_namespace_runtime_tests --quiet 2>&1) \
+  || fail "memory_namespace_runtime_tests" "$mem_ns_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "memory_namespace_runtime_tests passed"
+
+heading "27. Per-worker learning cron runtime (proves V1 success scenario #2 — gateway boot spawns the cron)"
+# F-04: gateway boot must spawn per_worker_learning_cron for active workers
+# under [skill_learning]; the integration test exercises the spawned-cron
+# path (rating rows propose a worker overlay without a direct tick call).
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
+cron_rt_out=$(cargo test -p argo-skill --test per_worker_learning_cron_runtime --quiet 2>&1) \
+  || fail "per_worker_learning_cron_runtime" "$cron_rt_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "per_worker_learning_cron_runtime passed"
+
+heading "28. Policy-as-code enforcement (proves Claim 1 auto_approval_policy + V1 success scenario #4)"
+# F-06: real tenant/role/roster resolution + fail-closed enforcement of
+# require_signatures, quiet_hours, and audit_chain_required. The integration
+# test is authored under codex-policy-as-code-enforcement; until that brief
+# lands we surface this as a SKIP so the operator sees "compatibility gap,"
+# not a false PASS.
+policy_test_path="$REPO_ROOT/crates/argo-cli/tests/policy_as_code_enforcement_integration.rs"
+if [[ ! -f "$policy_test_path" ]]; then
+  skip "policy_as_code_enforcement_integration — F-06 test not yet landed (codex-policy-as-code-enforcement); scenario auto-activates once present"
+else
+  cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
+  policy_out=$(cargo test -p argo-cli --test policy_as_code_enforcement_integration --quiet 2>&1) \
+    || fail "policy_as_code_enforcement_integration" "$policy_out"
+  cd "$WORKDIR" || fail "cd back to workdir" ""
+  ok "policy_as_code_enforcement_integration passed"
+fi
+
+heading "29. Notify fallback risk filter (proves Claim 6 risk-appropriate routing in fallback dispatch)"
+# F-05: matches_risk must be applied in the fallback dispatch path so a
+# same-kind-different-risk fixture routes correctly. The handler-internal
+# unit tests live under crates/argo-cli/src/handlers/worker_actions_notify_fallback_tests.rs
+# and are run via the worker_actions_notify_fallback filter.
+cd "$REPO_ROOT" || fail "cd to repo root for cargo test" ""
+fallback_out=$(cargo test -p argo-cli --bin argo worker_actions_notify_fallback --quiet 2>&1) \
+  || fail "worker_actions_notify_fallback unit tests" "$fallback_out"
+cd "$WORKDIR" || fail "cd back to workdir" ""
+ok "worker_actions_notify_fallback unit tests passed"
+
 echo
 echo "✓ SKYCOT smoke test PASSED"
+echo "  scenarios: $PASSED_COUNT passed, $SKIPPED_COUNT skipped"
+if (( SKIPPED_COUNT > 0 )); then
+  echo "  skipped scenarios (compatibility checks, not mission proofs):"
+  for reason in "${SKIPPED_REASONS[@]}"; do
+    echo "    - $reason"
+  done
+fi
 echo "  workspace: $WORKDIR"
 echo "  argo home: $HOME_DIR"
 echo "  job_id:    $job_id"
