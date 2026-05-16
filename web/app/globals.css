@@ -46,6 +46,55 @@
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 300ms;
+
+  /* --------------------------------------------------------------
+     Brand identity (see docs/skycot/brand/DESIGN_TOKENS.md).
+     One accent. One. --brand-primary is the only chrome color.
+     -------------------------------------------------------------- */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+
+  /* Display family is Inter at heavier weights + tighter tracking;
+     we do not ship a separate display face. */
+  --font-display: var(--font-sans);
+
+  /* Motion — three durations, all ease-in-out. Authoring alias for
+     non-Tailwind code; Tailwind utilities continue to use
+     --duration-*. */
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --motion-slow: 400ms;
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Spacing — 8pt grid. Tailwind already maps to this; tokens
+     exist for CSS authoring outside Tailwind class names. */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Typography scale — locked. Don't introduce sizes outside this
+     scale; extend via DESIGN_TOKENS.md + this block in the same
+     diff if a real gap exists. */
+  --text-display-xl: 72px;
+  --text-display-lg: 60px;
+  --text-display-md: 48px;
+  --text-display-sm: 36px;
+  --text-heading-xl: 30px;
+  --text-heading-lg: 24px;
+  --text-heading-md: 20px;
+  --text-heading-sm: 18px;
+  --text-body-lg: 16px;
+  --text-body-md: 14px;
+  --text-body-sm: 12px;
+  --text-mono-md: 14px;
+  --text-mono-sm: 12px;
 }
 
 /* --------------------------------------------------------------
@@ -53,6 +102,10 @@
    -------------------------------------------------------------- */
 :root,
 [data-theme="skycot-light"] {
+  /* Brand identity — locked. See docs/skycot/brand/DESIGN_TOKENS.md. */
+  --brand-primary:            oklch(0.55 0.18 256);   /* deep indigo */
+  --brand-primary-foreground: oklch(0.99 0.005 256);
+
   --background:            oklch(0.99 0.005 248);  /* near-white, slight cool */
   --foreground:            oklch(0.18 0.020 248);  /* near-black, slight cool */
 
@@ -62,8 +115,8 @@
   --popover:               oklch(1.00 0.000 0);
   --popover-foreground:    oklch(0.18 0.020 248);
 
-  --primary:               oklch(0.55 0.22 264);   /* indigo-600 equivalent — placeholder accent */
-  --primary-foreground:    oklch(0.99 0.005 264);
+  --primary:               var(--brand-primary);
+  --primary-foreground:    var(--brand-primary-foreground);
 
   --secondary:             oklch(0.96 0.010 248);
   --secondary-foreground:  oklch(0.25 0.020 248);
@@ -88,7 +141,7 @@
 
   --border:                oklch(0.92 0.010 248);
   --input:                 oklch(0.92 0.010 248);
-  --ring:                  oklch(0.55 0.22 264);
+  --ring:                  var(--brand-primary);
 
   --radius-sm-value:       4px;
   --radius-md-value:       6px;
@@ -102,6 +155,9 @@
    -------------------------------------------------------------- */
 .dark,
 [data-theme="skycot-dark"] {
+  --brand-primary:            oklch(0.72 0.16 256);   /* lighter indigo for dark */
+  --brand-primary-foreground: oklch(0.14 0.020 256);
+
   --background:            oklch(0.145 0.018 250);   /* deeper, slight cooler base */
   --foreground:            oklch(0.97 0.008 250);
 
@@ -111,8 +167,8 @@
   --popover:               oklch(0.215 0.020 250);
   --popover-foreground:    oklch(0.97 0.008 250);
 
-  --primary:               oklch(0.70 0.18 264);   /* lighter accent for dark */
-  --primary-foreground:    oklch(0.16 0.020 264);
+  --primary:               var(--brand-primary);
+  --primary-foreground:    var(--brand-primary-foreground);
 
   --secondary:             oklch(0.26 0.020 248);
   --secondary-foreground:  oklch(0.96 0.010 248);
@@ -137,7 +193,7 @@
 
   --border:                oklch(0.27 0.018 250);
   --input:                 oklch(0.27 0.018 250);
-  --ring:                  oklch(0.72 0.18 264);
+  --ring:                  var(--brand-primary);
 }
 
 /* --------------------------------------------------------------

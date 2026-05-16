@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="SKYCOT">
+  <title>SKYCOT</title>
+  <!-- Diamond mark — a single brand-primary fill, reads clean at 16x16. -->
+  <rect x="2" y="2" width="28" height="28" rx="6" fill="oklch(0.55 0.18 256)"/>
+  <path d="M16 7l8 9-8 9-8-9z" fill="oklch(0.99 0.005 256)"/>
+</svg>
